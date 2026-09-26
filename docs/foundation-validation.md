@@ -63,3 +63,9 @@ debug APK 首次建置缺少 JNI 相依所需的 SDK Platform `android-35`，補
 [世代切換原型](../prototypes/storage_generation/README.md)以獨立加密 fixture 與非秘密 SQLite 控制紀錄，驗證單一提交發布 generation／key slot 配對；26 項 Windows host 測試及靜態分析通過。涵蓋七處子程序中止、四種首次安裝中止、錯 key／身份／內容與未知 schema 拒絕、原組合保留及跨程序同操作去重。
 
 第一輪曾發現 file lock 競爭導致第二程序立即失敗，修正等待策略後全數通過。key 檔案僅為不安全的測試 adapter，未接入 Android；schema 1 fixture 也未替換既有財務 schema 2。正式連線租約、超時、清理、平台安全儲存、財務整合與裝置 gate 仍未完成。
+
+## Ledger 與世代整合（2026-09-27）
+
+[Ledger 整合原型](../prototypes/ledger_generation/README.md)以獨立版本接入：本機財務 schema 3 加入已綁定的身份表，format 2 portable snapshot 保留全部七張帳務權威表，在目標重建身份而不攜帶來源 slot。舊 format 1 仍可匯入，新版由舊 codec 拒絕。
+
+23 項 Windows host 案例驗證新舊備份的密碼／救援金鑰獨立程序還原、完整資料與 receipt、還原後新增入帳再備份、七處程序中止、加密身份 migration 回滾與未知版本拒絕。受影響的既有 98 項測試亦已通過；遠端以 PR checks 為準。控制紀錄摘要與 fixture key 尚非正式安全儲存，所有 Android／完整 BACKUP／KEY gate 繼續維持未完成。

@@ -44,7 +44,7 @@ dart test --reporter expanded
 
 ## 不能支持的結論
 
-本 fixture 有自己的 schema 1，沒有修改既有財務 schema 2／snapshot manifest，也沒有跳過未知欄位檢查。正式接入 Ledger 時，必須同步版本化本機世代 metadata 與可攜 snapshot，並重跑完整財務、migration、備份與 receipt 驗證。
+預設文字 fixture 有自己的 schema 1。後續新增 `GenerationPayload` adapter 與受鎖保護的內部連線 scope，由 [Ledger 整合原型](../ledger_generation/README.md) 接入明確的財務 schema 3／snapshot format 2，未放寬未知欄位檢查。發布前重開後的內容必須與正規化輸入摘要相同；文字 fixture 仍要求內容不可變，Ledger adapter 則允許發布後合法入帳。
 
 尚未實作平台 secure storage adapter、App 活躍連線租約、跨程序等待超時／取消、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放。原型跨程序鎖會等待持鎖者釋放，不能直接拿來滿足正式超時契約；同程序 busy 保護不代替正式背景工作協調。
 

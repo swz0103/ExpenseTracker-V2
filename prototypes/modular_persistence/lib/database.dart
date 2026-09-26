@@ -3,15 +3,21 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
+import 'storage_binding.dart';
+
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
-  ProbeDatabase(File file, {this.migrationCheckpoint})
+  ProbeDatabase(File file, {this.migrationCheckpoint, this.storageBinding})
     : super(NativeDatabase(file));
-  ProbeDatabase.withExecutor(QueryExecutor executor, {this.migrationCheckpoint})
-    : super(executor);
+  ProbeDatabase.withExecutor(
+    QueryExecutor executor, {
+    this.migrationCheckpoint,
+    this.storageBinding,
+  }) : super(executor);
   final void Function(String)? migrationCheckpoint;
+  final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => storageBinding == null ? 2 : 3;
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -23,17 +29,66 @@ final class ProbeDatabase extends GeneratedDatabase {
         await customStatement(sql);
       }
       await _upgradeV2();
+      if (storageBinding != null) await _upgradeV3();
     }),
     onUpgrade: (_, from, to) async {
-      if (from != 1 || to != 2)
+      if (from == 1 && to == 2) {
+        await transaction(_upgradeV2);
+      } else if ((from == 1 || from == 2) &&
+          to == 3 &&
+          storageBinding != null) {
+        await transaction(() async {
+          if (from == 1) await _upgradeV2();
+          await _upgradeV3();
+        });
+      } else {
         throw StateError('No migration from $from to $to.');
-      await transaction(_upgradeV2);
+      }
     },
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await customStatement('PRAGMA busy_timeout = 10000');
+      if (storageBinding != null) await verifyStorageBinding();
     },
   );
+
+  Future<void> _upgradeV3() async {
+    await customStatement(
+      'CREATE TABLE storage_identity (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation TEXT NOT NULL, slot TEXT NOT NULL, operation TEXT NOT NULL, fingerprint TEXT NOT NULL) STRICT',
+    );
+    await customStatement(
+      'INSERT INTO storage_identity VALUES(1,?,?,?,?)',
+      storageBinding!.values,
+    );
+    migrationCheckpoint?.call('binding');
+  }
+
+  Future<void> verifyStorageBinding() async {
+    final binding = storageBinding;
+    if (binding == null) throw StateError('No storage binding');
+    const columns = [
+      'singleton',
+      'generation',
+      'slot',
+      'operation',
+      'fingerprint',
+    ];
+    final shape = await customSelect('PRAGMA table_xinfo(storage_identity)')
+        .get();
+    if (shape.length != columns.length ||
+        shape.any((r) => !columns.contains(r.read<String>('name')))) {
+      throw StateError('Unknown storage identity schema');
+    }
+    final rows = await customSelect('SELECT * FROM storage_identity').get();
+    if (rows.length != 1 || rows.single.read<int>('singleton') != 1) {
+      throw StateError('Invalid storage identity');
+    }
+    for (var i = 0; i < binding.values.length; i++) {
+      if (rows.single.read<String>(columns[i + 1]) != binding.values[i]) {
+        throw StateError('Storage identity mismatch');
+      }
+    }
+  }
 
   Future<void> _upgradeV2() async {
     await customStatement(

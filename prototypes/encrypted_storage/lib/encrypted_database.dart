@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:drift/native.dart';
 import 'package:modular_persistence_probe/database.dart';
+import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 final class StorageKey {
@@ -29,10 +30,16 @@ final class EncryptedStorageUnavailable implements Exception {
 }
 
 /// Candidate host adapter. Does not persist keys or replace platform secure storage.
-ProbeDatabase openEncrypted(File file, StorageKey key) =>
-    ProbeDatabase.withExecutor(
-      NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
-    );
+ProbeDatabase openEncrypted(
+  File file,
+  StorageKey key, {
+  StorageBinding? storageBinding,
+  void Function(String)? migrationCheckpoint,
+}) => ProbeDatabase.withExecutor(
+  NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
+  storageBinding: storageBinding,
+  migrationCheckpoint: migrationCheckpoint,
+);
 
 void configureEncryption(Database raw, StorageKey key) {
   try {

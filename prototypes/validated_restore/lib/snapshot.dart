@@ -45,8 +45,36 @@ final class InvalidSnapshot implements Exception {
   String toString() => 'InvalidSnapshot';
 }
 
-/// Fixed prototype manifest. Every persisted table is included even if hidden.
+/// Fixed prototype manifest. All financial tables are portable; explicitly
+/// versioned local identity is validated but regenerated at the destination.
 final class SnapshotCodec {
+  SnapshotCodec({this.generationAware = false});
+  final bool generationAware;
+  int get _formatVersion => generationAware ? 2 : 1;
+  int get _schemaVersion => generationAware ? 3 : 2;
+  Map<String, int> get _manifest => {
+    ..._modules,
+    if (generationAware) 'local_identity': 1,
+  };
+
+  /// Upgrades the portable manifest only; target local identity is always regenerated.
+  List<int> canonicalize(List<int> bytes) => _encode(_parse(bytes));
+
+  List<int> _encode(Object tables) {
+    final bytes = utf8.encode(
+      jsonEncode({
+        'format': 'ledger-logical-probe',
+        'version': _formatVersion,
+        'schema': _schemaVersion,
+        'modules': _manifest,
+        'tables': tables,
+      }),
+    );
+    if (bytes.length > EnvelopeCodec.maxPayloadBytes)
+      throw const InvalidSnapshot();
+    return bytes;
+  }
+
   Future<List<int>> capture(
     ProbeDatabase source,
   ) => source.transaction(() async {
@@ -56,10 +84,21 @@ final class SnapshotCodec {
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'",
         )
         .get();
-    if (persisted.length != _columns.length ||
-        persisted.any((r) => !_columns.containsKey(r.read<String>('name'))))
+    final localTables = {
+      ..._columns,
+      if (generationAware)
+        'storage_identity': [
+          'singleton',
+          'generation',
+          'slot',
+          'operation',
+          'fingerprint',
+        ],
+    };
+    if (persisted.length != localTables.length ||
+        persisted.any((r) => !localTables.containsKey(r.read<String>('name'))))
       throw const InvalidSnapshot();
-    for (final entry in _columns.entries) {
+    for (final entry in localTables.entries) {
       final columns = await source
           .customSelect('PRAGMA table_xinfo(${entry.key})')
           .get();
@@ -88,18 +127,7 @@ final class SnapshotCodec {
           },
       ];
     }
-    final bytes = utf8.encode(
-      jsonEncode({
-        'format': 'ledger-logical-probe',
-        'version': 1,
-        'schema': 2,
-        'modules': _modules,
-        'tables': tables,
-      }),
-    );
-    if (bytes.length > EnvelopeCodec.maxPayloadBytes)
-      throw const InvalidSnapshot();
-    return bytes;
+    return _encode(tables);
   });
 
   /// Imports only known columns with bound values into a brand-new staged file.
@@ -107,8 +135,10 @@ final class SnapshotCodec {
     List<int> bytes,
     File target, {
     ProbeDatabase Function(File)? openDatabase,
+    void Function(String)? checkpoint,
   }) async {
     final tables = _parse(bytes);
+    if (generationAware && openDatabase == null) throw const InvalidSnapshot();
     if (await target.exists()) throw StateError('Stage file already exists.');
     final db = openDatabase == null
         ? ProbeDatabase(target)
@@ -127,6 +157,7 @@ final class SnapshotCodec {
               ],
             );
           }
+          checkpoint?.call('table:${entry.key}');
         }
         await validate(db);
       });
@@ -143,13 +174,14 @@ final class SnapshotCodec {
       if (root is! Map<String, dynamic> ||
           root.length != 5 ||
           root['format'] != 'ledger-logical-probe' ||
-          root['version'] != 1 ||
-          root['schema'] != 2)
+          !((root['version'] == 1 && root['schema'] == 2) ||
+              (generationAware && root['version'] == 2 && root['schema'] == 3)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
+      final expectedModules = root['version'] == 1 ? _modules : _manifest;
       if (modules is! Map ||
-          modules.length != _modules.length ||
-          !_modules.entries.every((e) => modules[e.key] == e.value))
+          modules.length != expectedModules.length ||
+          !expectedModules.entries.every((e) => modules[e.key] == e.value))
         throw const InvalidSnapshot();
       final tables = root['tables'];
       if (tables is! Map || tables.length != _columns.length)
@@ -175,7 +207,9 @@ final class SnapshotCodec {
                 column.endsWith('_id'))
               PublicId.parse(row[column] as String);
           }
-          result[entry.key]!.add(row);
+          result[entry.key]!.add({
+            for (final column in entry.value) column: row[column],
+          });
         }
       }
       return result;
@@ -186,6 +220,9 @@ final class SnapshotCodec {
 
   /// Known current prototype semantics, not a general future-module validator.
   Future<void> validate(ProbeDatabase db) async {
+    if (generationAware != (db.storageBinding != null))
+      throw const InvalidSnapshot();
+    if (generationAware) await db.verifyStorageBinding();
     if ((await db.customSelect('PRAGMA foreign_key_check').get()).isNotEmpty ||
         (await db.customSelect('PRAGMA integrity_check').getSingle())
                 .data

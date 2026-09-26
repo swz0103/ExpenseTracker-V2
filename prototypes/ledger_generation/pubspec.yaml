@@ -1,0 +1,27 @@
+name: ledger_generation_probe
+description: Versioned Ledger snapshot and encrypted generation integration probe.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  sqlite3: 3.6.0
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+  modular_persistence_probe:
+    path: ../modular_persistence
+  backup_envelope_probe:
+    path: ../backup_envelope
+  validated_restore_probe:
+    path: ../validated_restore
+  encrypted_storage_probe:
+    path: ../encrypted_storage
+  storage_generation_probe:
+    path: ../storage_generation
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher

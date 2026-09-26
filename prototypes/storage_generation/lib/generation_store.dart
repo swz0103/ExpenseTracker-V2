@@ -48,12 +48,27 @@ final class InstalledFixture {
   final String value;
 }
 
-/// Mechanism probe only: closed immutable SQLCipher fixtures, no Ledger schema.
-/// A non-secret SQLite catalog atomically publishes the generation/key-slot pair.
+/// Adapter owns payload schema and binding validation; handles must close before return.
+abstract interface class GenerationPayload {
+  int get maxBytes;
+  String canonicalize(String input);
+  Future<void> create(
+    File file,
+    StorageKey key,
+    GenerationReceipt receipt,
+    String input,
+    void Function(String)? checkpoint,
+  );
+  Future<String> inspect(File file, StorageKey key, GenerationReceipt receipt);
+}
+
+/// Mechanism probe: defaults to closed immutable SQLCipher text fixtures.
+/// A plaintext prototype catalog atomically publishes the generation/key-slot pair.
 final class GenerationStore {
-  GenerationStore(this.directory, this.keys);
+  GenerationStore(this.directory, this.keys, {this.payload});
   final Directory directory;
   final KeySlots keys;
+  final GenerationPayload? payload;
   static final _busy = <String>{};
 
   File _file(String name) => File('${directory.path}/$name');
@@ -66,8 +81,11 @@ final class GenerationStore {
     OperationId operation, {
     void Function(String)? checkpoint,
   }) async {
-    if (utf8.encode(fixture).length > 4096)
+    if (utf8.encode(fixture).length > (payload?.maxBytes ?? 4096))
       throw ArgumentError('Fixture too large');
+    fixture = payload?.canonicalize(fixture) ?? fixture;
+    if (utf8.encode(fixture).length > (payload?.maxBytes ?? 4096))
+      throw ArgumentError('Canonical payload too large');
     return _locked((catalog) async {
       await _recover(catalog);
       final fingerprint = _fingerprint(fixture);
@@ -106,9 +124,11 @@ final class GenerationStore {
       checkpoint?.call('keySaved');
       await _createDatabase(receipt, fixture, checkpoint);
       checkpoint?.call('staged');
-      await _inspect(
+      final staged = await _inspect(
         receipt,
       ); // Reads the persisted key again and reopens the file.
+      if (_fingerprint(staged.value) != fingerprint)
+        throw StateError('Staged payload mismatch');
       checkpoint?.call('validated');
       catalog.execute('BEGIN IMMEDIATE');
       try {
@@ -137,6 +157,21 @@ final class GenerationStore {
     await _recover(catalog);
     final active = _active(catalog);
     return active == null ? null : _inspect(active);
+  });
+
+  /// Internal adapter scope, not an application connection API. Callback must
+  /// close all DB handles before returning and must never retain them.
+  Future<T> withCurrent<T>(
+    Future<T> Function(File, StorageKey, GenerationReceipt) work,
+  ) => _locked((catalog) async {
+    await _recover(catalog);
+    final active = _active(catalog);
+    if (active == null) throw StateError('No active generation');
+    return work(
+      databaseFile(active.generation),
+      await keys.read(active.slot),
+      active,
+    );
   });
 
   GenerationReceipt? _active(Database catalog) {
@@ -182,6 +217,10 @@ final class GenerationStore {
     await _regular(file, allowAbsent: true);
     if (await file.exists()) throw StateError('Generation already exists');
     final key = await keys.read(receipt.slot);
+    if (payload != null) {
+      await payload!.create(file, key, receipt, value, checkpoint);
+      return;
+    }
     final db = sqlite3.open(file.path);
     try {
       configureEncryption(db, key);
@@ -220,6 +259,12 @@ final class GenerationStore {
       }
     }
     final key = await keys.read(receipt.slot);
+    if (payload != null) {
+      return InstalledFixture(
+        receipt,
+        await payload!.inspect(file, key, receipt),
+      );
+    }
     final db = sqlite3.open(file.path, mode: OpenMode.readOnly);
     try {
       configureEncryption(db, key);
