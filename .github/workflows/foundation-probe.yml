@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence, prototypes/backup_envelope]
+        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence, prototypes/backup_envelope, prototypes/validated_restore]
     defaults:
       run:
         working-directory: ${{ matrix.package }}
@@ -26,6 +26,11 @@ jobs:
       - run: dart pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: dart analyze
+      - if: matrix.package == 'prototypes/validated_restore'
+        run: |
+          dart format --output=none --set-exit-if-changed bin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dart build cli --target bin/restore_worker.dart --output .dart_tool/worker
       - run: dart test --reporter expanded
   transaction-boundary:
     runs-on: windows-latest
