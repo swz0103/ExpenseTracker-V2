@@ -3,7 +3,7 @@ name: Foundation probe
 on:
   pull_request:
   push:
-    branches: [main, docs/architecture-and-implementation-plan]
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d6 # v1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
         with:
           sdk: '3.13.4'
       - run: dart pub get --enforce-lockfile
