@@ -9,6 +9,21 @@ permissions:
   contents: read
 
 jobs:
+  foundation-values:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: packages/foundation_values
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: '3.13.4'
+      - run: dart pub get --enforce-lockfile
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: dart analyze
+      - run: dart test --reporter expanded
   transaction-boundary:
     runs-on: windows-latest
     defaults:
