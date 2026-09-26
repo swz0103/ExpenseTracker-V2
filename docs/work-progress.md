@@ -9,8 +9,9 @@
 - 身份與日期：`feat/foundation-identity-time`，PR #3，基於 PR #2，提交 `bacd122`。UUID v7、帳本／操作身份、嚴格日期與 UTC；17 項值型別與 11 項交易原型測試在 GitHub 通過。
 - 帳戶 Domain：`feat/accounts-domain`，PR #4，基於 PR #3，提交 `3354a20`。cash／bank 身份、版本、封存、關閉與重新啟用、零餘額／未結檢查；9 項新測試與所有既有測試在 GitHub 通過。完整 capability 仍待資料層與 UI 接入。
 - Ledger 基本入帳：`feat/ledger-posting-domain`，PR #5，基於 PR #4，提交 `8c67e04`。8 項新測試與既有測試在 GitHub 通過。期初／收支／同幣轉帳／fee／分類分攤及重建完成 Domain，仍非完整 Ledger。
-- Drift 共用交易原型：`feat/modular-persistence-probe`，基於 PR #5。Accounts／Ledger 真實套件共享一個 transaction，保存 receipt 與 Audit；13 項整合測試本機通過，含重開、過期預覽、回滾、期初唯一性與最終餘額溢位。資料庫仍未加密，僅用 fixture。
-- 下一項：補齊 schema／migration 故障與安全備份原型，並規劃正式 Data packages／ports；Android 與加密 gate 未過前不交付可日常使用版本。
+- Drift 共用交易原型：`feat/modular-persistence-probe`，PR #6，基於 PR #5，提交 `bfc9ec7`。13 項整合與所有既有測試（合計 58 項）在 GitHub 通過；資料庫仍未加密，僅用 fixture。
+- 固定舊版升級原型：`feat/persistence-migration-probe`，基於 PR #6。從 bfc9ec7 固定的 v1 SQL fixture 升級 v2，核對交易與 receipt、兩處 DDL 失敗回滾與未知版本拒絕。新增 4 項，本機整合／migration 共 17 項通過，尚非完整 migration gate。
+- 下一項：安全備份的密碼／文字救援金鑰兩條路徑與乾淨還原原型，再整理正式 Data packages／ports；Android 與加密 gate 未過前不交付可日常使用版本。
 
 ## 尚未完成的 gate
 

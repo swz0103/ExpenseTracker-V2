@@ -81,16 +81,20 @@ final class LedgerAdapter {
     void Function(String)? checkpoint,
   }) async {
     final ws = posting.operation.workspace.toString();
-    await db.customStatement('INSERT INTO events VALUES (?,?,?,?,?,?,?,?)', [
-      ws,
-      posting.id.value,
-      posting.kind.name,
-      posting.date.toString(),
-      posting.reportIncome.minorUnits.toInt(),
-      posting.reportExpense.minorUnits.toInt(),
-      posting.reportIncome.currency.code,
-      posting.reportIncome.currency.scale,
-    ]);
+    await db.customStatement(
+      'INSERT INTO events (workspace,id,kind,business_date,income,expense,currency,scale,source_context) VALUES (?,?,?,?,?,?,?,?,?)',
+      [
+        ws,
+        posting.id.value,
+        posting.kind.name,
+        posting.date.toString(),
+        posting.reportIncome.minorUnits.toInt(),
+        posting.reportExpense.minorUnits.toInt(),
+        posting.reportIncome.currency.code,
+        posting.reportIncome.currency.scale,
+        'fixture-manual-v1',
+      ],
+    );
     checkpoint?.call('event');
     var ordinal = 0;
     for (final leg in posting.legs) {

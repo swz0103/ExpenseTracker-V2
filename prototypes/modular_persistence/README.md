@@ -13,6 +13,8 @@ dart test --reporter expanded
 
 13 項整合測試：五個階段故障回滾、保存重開後 115.00 餘額與收支口徑、receipt 重試與衝突、過期預覽、期初唯一性、轉帳失敗與費用不雙算、餘額溢位、workspace lookup 及同一 Drift executor 同時重試。每組檢查真實資料表、foreign keys 與 integrity。全部使用測試資料。
 
+另有 4 項 migration 測試，合計 17 項。`test/fixtures/v1.sql` 從已提交的 bfc9ec7 原型產生並固定，內含真實舊格式的合成交易與 receipt，不在測試時用新模型重建舊資料。v1 → v2 在同一 transaction 新增來源 context 欄位與帳戶 legs 索引；旧資料標記 legacy-unspecified，不捏造來源。升級後逐列核對全部既有資料、重建 115.00 餘額，並確認舊 receipt 仍能重試。兩個 DDL 中斷點都回滾至 v1，可重新升級；未知版本 99 拒絕開啟且保留資料與版本。
+
 ## 限制
 
 - 資料庫未加密，禁止存入真實帳本；不是正式可用 App。
@@ -21,6 +23,6 @@ dart test --reporter expanded
 - Categories 尚未接入，因此帶 allocation 的保存明確拒絕，不能保存未驗證的外部 ID。
 - Audit 只包含 operation kind／ID／時間；正式 actor/source、完整歷史、關閉與重新啟用保存流程仍待接入。
 - 同 executor 並行通過不等於多程序／多連線的全部競爭情境。先前 SQLite 原型的程序退出測試仍保留，不能替代此 Drift adapter 的程序中斷測試。
-- Android、SQLCipher／密鑰、乾淨還原與 migration gate 均未完成。
+- Android、SQLCipher／密鑰、乾淨還原與完整 migration gate 均未完成。此次只涵蓋 v1 → v2；裝置斷電、空間不足、重大 migration 前加密安全備份與正式 module manifest 仍待驗證。
 
 來源：[Drift transactions](https://drift.simonbinder.eu/dart_api/transactions/)、[custom queries](https://drift.simonbinder.eu/sql_api/custom_queries/)。驗收對應見[案例](../../docs/foundation-acceptance.md)，進度見[紀錄](../../docs/work-progress.md)。

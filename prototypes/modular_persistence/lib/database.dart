@@ -5,27 +5,47 @@ import 'package:drift/native.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams or encryption.
 final class ProbeDatabase extends GeneratedDatabase {
-  ProbeDatabase(File file) : super(NativeDatabase(file));
+  ProbeDatabase(File file, {this.migrationCheckpoint})
+    : super(NativeDatabase(file));
+  final void Function(String)? migrationCheckpoint;
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
   Iterable<DatabaseSchemaEntity> get allSchemaEntities => const [];
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (_) async {
+    onCreate: (_) => transaction(() async {
       for (final sql in _schema) {
         await customStatement(sql);
       }
+      await _upgradeV2();
+    }),
+    onUpgrade: (_, from, to) async {
+      if (from != 1 || to != 2)
+        throw StateError('No migration from $from to $to.');
+      await transaction(_upgradeV2);
     },
-    onUpgrade: (_, from, to) async =>
-        throw StateError('No migration from $from to $to.'),
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await customStatement('PRAGMA busy_timeout = 10000');
     },
   );
+
+  Future<void> _upgradeV2() async {
+    await customStatement(
+      "ALTER TABLE events ADD COLUMN source_context TEXT NOT NULL DEFAULT 'legacy-unspecified'",
+    );
+    migrationCheckpoint?.call('column');
+    await customStatement(
+      'CREATE INDEX legs_by_account ON legs(workspace,account_id)',
+    );
+    migrationCheckpoint?.call('index');
+    if ((await customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {
+      throw StateError('Foreign key violations after migration.');
+    }
+  }
 }
 
 const _schema = [
