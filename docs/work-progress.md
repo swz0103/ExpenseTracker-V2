@@ -5,8 +5,9 @@
 ## 分支與交付
 
 - 架構與 SQLite 原型：`docs/architecture-and-implementation-plan`，PR #1；11 項測試及 GitHub CI 已通過，基準提交 `3712cfe781e8ee2725594cb9ee52db8f58fccef3`。原型只驗證 host transaction 機制。
-- 金額值型別：`feat/foundation-money`，基於 PR #1。Money／Currency、嚴格精度輸入、整數溢位、版本化字串 JSON、half-away-from-zero 量化與最後份吸收尾差。測試結果以該分支 CI 為準。
-- 下一項：身份與業務日期值型別，再接 Accounts／Ledger 的資料與共用 transaction adapters。
+- 金額值型別：`feat/foundation-money`，PR #2，基於 PR #1，提交 `95b6f3a`。10 項新測試與 11 項既有原型測試在 GitHub 通過。Money／Currency、嚴格精度、整數溢位、版本化 JSON、量化與尾差分攤已完成。
+- 身份與日期：`feat/foundation-identity-time`，基於 PR #2。UUID v7、不同型別的帳本／操作身份、嚴格日曆日期與 UTC instant。新 7 項測試與原有 10 項值型別測試在本機通過；遠端狀態見此分支 PR。
+- 下一項：Accounts 的身份、生命週期與寫入參與規則，再接 Ledger／共用 transaction adapters。
 
 ## 尚未完成的 gate
 
