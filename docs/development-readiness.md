@@ -19,6 +19,8 @@
 
 以上是本機觀察結果，不代表正式 Android App 已建置成功或完整架構已通過。
 
+2026-09-27 補充：Android 原型建置揭露 JNI 相依套件另需 SDK Platform 35 及 CMake 3.22.1；補齊後 ARM64 debug APK 已建置成功。NDK 為 28.2.13676358。未自動接受新授權，SDK 自動下載維持關閉。這確認本機建置可行，Android 裝置驗收仍未完成。詳見[Android 原型紀錄](../prototypes/android_foundation/README.md)。
+
 ## 尚未完成
 
 - 當下沒有連接 Android 手機，也沒有已建立的 AVD；模擬器加速檢查回報未安裝 hypervisor driver。主機端原型可繼續，Android 執行 gate 保留未完成。

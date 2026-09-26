@@ -49,3 +49,11 @@ Windows 上子程序先以 `dart build cli` 建置，再啟動父測試；避免
 後續新增 10 項獨立程序加密還原測試，涵蓋來源 DB 刪除且不提供來源 key 的密碼／救援路徑、第二個程序核對完整 snapshot／replay／cipher integrity、三個切換 checkpoint 中止恢復、首次還原中止與四種無效備份拒絕。原目標 DB 回復後仍需呼叫者保有正確原 key；正式 key metadata 生命週期、Android 與 secure storage 仍未驗證。
 
 再補 4 項加密 migration 故障測試：v1 → v2 兩處程序退出後的 SQLite journal recovery、頁數上限觸發真實 SQLITE_FULL 13 後的 schema／資料回滾與再試、未知版本拒絕。另新增 generated column 拒絕備份案例，修正 table_info 漏列欄位的問題。結果只涵蓋指定故障點與容量限制，不代表已驗證實際 OS 磁碟滿或斷電。
+
+## Android 接入進度（2026-09-27）
+
+[Android 地基入口](../prototypes/android_foundation/README.md)已接入固定帳務、secure storage adapter 及加密／還原原型。靜態分析與 6 項記憶體 vault 的 host 測試通過，尚未證明平台 Keystore 正常。
+
+debug APK 首次建置缺少 JNI 相依所需的 SDK Platform `android-35`，補齊後另發現 CMake 3.22.1 缺漏；兩者補齊後 ARM64 debug APK 已成功建置。封裝內有 libsqlcipher.so，最終 manifest 的 debug／SDK／備份排除設定已核對，產物 hash 見原型 README。
+
+尚無可用 Android 測試目標，裝置 integration test 未執行；host CI 以 PR checks 為準。裝置、乾淨環境還原及正式 key metadata gate 均保留未完成，不能從建置通過推論執行成功。

@@ -1,0 +1,41 @@
+name: android_foundation
+description: "限定 Android 加密與安全儲存驗證入口，非正式記帳產品。"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: 11.2.0
+  path_provider: 2.1.6
+  sqlite3: 3.6.0
+  accounts:
+    path: ../../packages/accounts
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+  modular_persistence_probe:
+    path: ../modular_persistence
+  encrypted_storage_probe:
+    path: ../encrypted_storage
+  validated_restore_probe:
+    path: ../validated_restore
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
