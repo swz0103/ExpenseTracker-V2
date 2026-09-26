@@ -1,0 +1,16 @@
+name: modular_persistence_probe
+description: Drift transaction integration of Accounts and Ledger domain packages.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  accounts:
+    path: ../../packages/accounts
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+  drift: 2.35.0
+  sqlite3: 3.6.0
+dev_dependencies:
+  test: 1.32.0

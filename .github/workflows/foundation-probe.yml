@@ -13,10 +13,10 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [foundation_values, accounts, ledger]
+        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence]
     defaults:
       run:
-        working-directory: packages/${{ matrix.package }}
+        working-directory: ${{ matrix.package }}
         shell: pwsh
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

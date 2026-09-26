@@ -59,6 +59,48 @@ final class Account {
     state: AccountState.active,
   );
 
+  /// Restore validated persisted state; never use to bypass a business transition.
+  factory Account.restore({
+    required PublicId id,
+    required WorkspaceId workspace,
+    required String name,
+    required AccountKind kind,
+    required Currency currency,
+    required BusinessDate openedOn,
+    required bool includeInNetWorth,
+    required int version,
+    required AccountState state,
+    BusinessDate? closedOn,
+    String? closingReason,
+    PublicId? successorId,
+  }) {
+    if (version < 1 ||
+        (closedOn != null && closedOn.compareTo(openedOn) < 0) ||
+        (state == AccountState.closed && closedOn == null) ||
+        (closedOn == null && (closingReason != null || successorId != null)) ||
+        (closedOn != null &&
+            (closingReason == null ||
+                closingReason.trim().isEmpty ||
+                closingReason.length > 500)) ||
+        successorId == id) {
+      throw const AccountException(AccountError.invalidInput);
+    }
+    return Account._(
+      id: id,
+      workspace: workspace,
+      name: _name(name),
+      kind: kind,
+      currency: currency,
+      openedOn: openedOn,
+      includeInNetWorth: includeInNetWorth,
+      version: version,
+      state: state,
+      closedOn: closedOn,
+      closingReason: closingReason,
+      successorId: successorId,
+    );
+  }
+
   final PublicId id;
   final WorkspaceId workspace;
   final String name;

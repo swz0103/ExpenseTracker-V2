@@ -8,8 +8,9 @@
 - 金額值型別：`feat/foundation-money`，PR #2，基於 PR #1，提交 `95b6f3a`。10 項新測試與 11 項既有原型測試在 GitHub 通過。Money／Currency、嚴格精度、整數溢位、版本化 JSON、量化與尾差分攤已完成。
 - 身份與日期：`feat/foundation-identity-time`，PR #3，基於 PR #2，提交 `bacd122`。UUID v7、帳本／操作身份、嚴格日期與 UTC；17 項值型別與 11 項交易原型測試在 GitHub 通過。
 - 帳戶 Domain：`feat/accounts-domain`，PR #4，基於 PR #3，提交 `3354a20`。cash／bank 身份、版本、封存、關閉與重新啟用、零餘額／未結檢查；9 項新測試與所有既有測試在 GitHub 通過。完整 capability 仍待資料層與 UI 接入。
-- Ledger 基本入帳：`feat/ledger-posting-domain`，基於 PR #4。期初／收支／同幣轉帳／fee／分類分攤及餘額重建；8 項 Domain 測試本機通過。仍是入帳提案，不能視為已 commit 或完整 Ledger。
-- 下一項：實際 Accounts／Ledger 共用 transaction 的 adapter 原型、operation receipt 與 Audit，驗證保存後重開、重建與失敗回滾。
+- Ledger 基本入帳：`feat/ledger-posting-domain`，PR #5，基於 PR #4，提交 `8c67e04`。8 項新測試與既有測試在 GitHub 通過。期初／收支／同幣轉帳／fee／分類分攤及重建完成 Domain，仍非完整 Ledger。
+- Drift 共用交易原型：`feat/modular-persistence-probe`，基於 PR #5。Accounts／Ledger 真實套件共享一個 transaction，保存 receipt 與 Audit；13 項整合測試本機通過，含重開、過期預覽、回滾、期初唯一性與最終餘額溢位。資料庫仍未加密，僅用 fixture。
+- 下一項：補齊 schema／migration 故障與安全備份原型，並規劃正式 Data packages／ports；Android 與加密 gate 未過前不交付可日常使用版本。
 
 ## 尚未完成的 gate
 
