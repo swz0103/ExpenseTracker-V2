@@ -24,6 +24,10 @@ dependencies:
     path: ../encrypted_storage
   validated_restore_probe:
     path: ../validated_restore
+  ledger_generation_probe:
+    path: ../ledger_generation
+  storage_generation_probe:
+    path: ../storage_generation
 
 dev_dependencies:
   flutter_test:

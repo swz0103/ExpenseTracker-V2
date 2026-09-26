@@ -69,3 +69,5 @@ debug APK 首次建置缺少 JNI 相依所需的 SDK Platform `android-35`，補
 [Ledger 整合原型](../prototypes/ledger_generation/README.md)以獨立版本接入：本機財務 schema 3 加入已綁定的身份表，format 2 portable snapshot 保留全部七張帳務權威表，在目標重建身份而不攜帶來源 slot。舊 format 1 仍可匯入，新版由舊 codec 拒絕。
 
 23 項 Windows host 案例驗證新舊備份的密碼／救援金鑰獨立程序還原、完整資料與 receipt、還原後新增入帳再備份、七處程序中止、加密身份 migration 回滾與未知版本拒絕。受影響的既有 98 項測試亦已通過；遠端以 PR checks 為準。控制紀錄摘要與 fixture key 尚非正式安全儲存，所有 Android／完整 BACKUP／KEY gate 繼續維持未完成。
+
+後續 Android 入口改接平台逐 slot adapter 與持久目標世代，加入完整 snapshot／配對／財務 replay 核對。11 項新增 slot 行為測試與原 6 項 host 測試通過；新 ARM64 debug APK 已建置並核對 SQLCipher、SDK、禁止系統備份及 debug 設定。這些是 host／封裝證據，實際平台讀寫和重啟仍未執行。尚無可用 Android 裝置，KEY-07 的乾淨平台還原仍未通過。

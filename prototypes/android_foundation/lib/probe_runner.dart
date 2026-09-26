@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:accounts/accounts.dart';
@@ -12,6 +11,7 @@ import 'package:validated_restore_probe/restore_store.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
 import 'android_key_vault.dart';
+import 'generation_probe.dart';
 import 'key_access.dart';
 
 final class ProbeRunner {
@@ -109,46 +109,13 @@ final class ProbeRunner {
     } finally {
       await reopened.close();
     }
-    final scratch = await root.createTemp('restore-');
-    try {
-      for (final mode in ['password', 'recovery']) {
-        final targetKey = StorageKey.random();
-        final target = RestoreStore(
-          Directory('${scratch.path}/$mode'),
-          openDatabase: (file) => openEncrypted(file, targetKey),
-        );
-        await target.restore(
-          envelope,
-          password: mode == 'password'
-              ? 'android-synthetic-fixture-only'
-              : null,
-          recoveryKey: mode == 'recovery' ? recovery : null,
-        );
-        final restored = openEncrypted(target.current, targetKey);
-        try {
-          if (utf8.decode(await SnapshotCodec().capture(restored)) !=
-              utf8.decode(expected)) {
-            throw StateError('Restore mismatch.');
-          }
-        } finally {
-          await restored.close();
-        }
-        final raw = latin1.decode(await target.current.readAsBytes());
-        if (raw.startsWith('SQLite format 3') ||
-            raw.contains('Android fixture only')) {
-          throw StateError('Plaintext detected.');
-        }
-      }
-      return ['安全儲存讀回成功', '加密帳務重開與餘額核對成功', '密碼與救援金鑰還原核對成功'];
-    } finally {
-      final rootPath = await root.resolveSymbolicLinks();
-      final scratchPath = await scratch.resolveSymbolicLinks();
-      if (!scratchPath.startsWith('$rootPath${Platform.pathSeparator}')) {
-        throw StateError('Unexpected scratch path.');
-      }
-      await scratch.delete(
-        recursive: true,
-      ); // Generated synthetic restores only; never current.db or key.
-    }
+    await verifyGenerationRestores(
+      root: root,
+      envelope: envelope,
+      recovery: recovery,
+      expected: expected,
+      account: ref,
+    );
+    return ['安全儲存讀回成功', '加密帳務重開與餘額核對成功', '雙路還原、金鑰配對與防重複入帳核對成功'];
   }
 }

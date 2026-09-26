@@ -8,14 +8,18 @@
 
 - Android secure storage 保存隨機 32-byte DB key，寫入後讀回核對；資料庫存在而 key 遺失、格式未知或讀寫失敗時拒絕開檔，不重設金鑰。
 - 固定測試帳戶依序入帳期初 100、收入 20、支出 5，關閉加密 DB 後重新讀 key、開檔並核對餘額 115。
-- 密碼與文字救援金鑰分別還原至使用新 key 的加密暫存 DB，核對完整 snapshot，再清除該次產生的暫存目錄。
+- 密碼與文字救援金鑰分別還原至各自的加密世代 DB，以獨立安全儲存 slot 保存目標 key。重新建立 adapter 後讀回目前配對、完整 snapshot 與餘額，重送收入操作必須回傳 replay。
 - 重複執行沿用固定 operation ID，確認不重複入帳。原始測試 DB 保留，供下次啟動核對。
 
 目前兩條 Android 還原在同一應用程序內執行，來源 key 仍可能存在記憶體；即使通過，也不能替代乾淨新裝置還原 gate。跨程序及刪除來源 DB 的 host 證據見[加密儲存原型](../encrypted_storage/README.md)。
 
 ## 安全界線
 
-`AndroidKeyVault` 明確設定 `resetOnError: false`、`migrateOnAlgorithmChange: false`，使用獨立 namespace。這是固定原型版本的 key 讀寫策略，尚未實作正式 key metadata 與資料庫切換、輪替或升級流程。`KeyAccess` 僅合併同一 instance 的並行請求；入口另限制同一程序只能執行一個 runner，不宣稱跨程序初始化鎖。
+來源 DB 的 `AndroidKeyVault` 沿用原 namespace；目標的 `AndroidSlotVault` 使用 `expense_v2_generation_probe_v1` 與逐 slot 名稱。兩者都明確設定 `resetOnError: false`、`migrateOnAlgorithmChange: false`。`SecureKeySlots` 建立前拒絕已存在欄位，寫後讀回；讀取缺失或未知格式只拒絕，不建立替代 key，不刪除寫入結果未定的 slot。
+
+目標使用 [Ledger 世代整合](../ledger_generation/README.md) 的 schema 3／format 2／控制紀錄單一提交；兩個目標目錄與 slot 保留給重啟核對，不再清理為一次性暫存。平台 adapter 未匯入明文 FixtureKeySlots。控制紀錄仍是 host 原型的明文摘要與參照，不能視為已完成正式安全 metadata。正式輪替、清理、超時及活躍連線租約仍未完成。
+
+`KeyAccess` 僅合併同一 instance 的來源初始化請求；`SecureKeySlots` 的建立保護跨 instance、限同 isolate。入口限制同程序一個 runner，目標協調器另持有檔案鎖；這不是平台 vault 本身提供的跨程序 compare-and-set，不支援任意繞過協調器的寫入。
 
 備份密碼及帳戶資料都是公開的固定測試值。不得加入使用者輸入或真實資料。App root 的 sqlite3 hook 指定 SQLCipher；不可因建置失敗退回明文 SQLite。
 
@@ -26,7 +30,7 @@ Android manifest 停用系統備份，另加入 cloud／device／cross-platform 
 - Flutter 3.47.5／Dart 3.13.4；相依鎖定於 pubspec.lock。
 - App compile SDK 36、min SDK 24；NDK 28.2.13676358 已安裝。
 - flutter_secure_storage 11.2.0、path_provider 2.1.6、sqlite3 3.6.0。
-- 本機靜態分析及 6 項 host 金鑰測試通過：遺失 key 不覆寫、並行初始化、既有 key 重用、無效格式拒絕、讀取失敗保留、寫入讀回不一致拒絕。測試 vault 為記憶體實作，不是 Android Keystore 證據。
+- 本機靜態分析與 17 項 host 金鑰測試通過：原有 6 項，加上 11 項 slot 獨立性、重新讀取、缺失／未知格式、不可覆寫、寫入前／後失敗、讀回不一致、錯誤去敏與跨 instance 競爭。測試 vault 為記憶體實作，不是 Android Keystore 證據；遠端結果見 PR checks。
 - 2026-09-27 排除 JNI 相依的 SDK Platform 35 與 CMake 3.22.1 缺漏後，ARM64 debug APK 建置成功。App 使用 SDK 36 不代表相依套件不需要 SDK 35；Build Tools 35 也不能替代 Platform 35。
 - 已核對 APK 含 ARM64 libsqlcipher.so；最終 manifest 為 min SDK 24／target SDK 36、debuggable=true、allowBackup=false，兩份備份排除規則引用存在。這是封裝檢查，不是裝置行為驗證。
 - 沒有可用 Android 裝置；integration test 尚未執行。host CI 狀態以 PR checks 為準。
@@ -45,7 +49,7 @@ flutter test --reporter expanded
 flutter build apk --debug --target-platform android-arm64
 ```
 
-本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，93,873,282 bytes；SHA-256：`fac4619a4b9e9200bebd8234b88e2c357404c9fca1fa28b2d53b899aa0072f8f`。這是此次本機 debug 成品，不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
+本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，117,461,932 bytes；SHA-256：`21d13e1d1f57a59d4c253a6ac12cc92864a7210212fdfb13044d18bdb693c189`。此為 2026-09-27 接入世代 slot 後重新建置的 debug 成品，已核對 ARM64 SQLCipher 與上述 manifest 設定。不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
 
 連接開啟 USB 偵錯的測試手機，或準備可用模擬器後執行：
 
