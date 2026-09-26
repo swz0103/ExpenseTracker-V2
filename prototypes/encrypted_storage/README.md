@@ -1,0 +1,44 @@
+# SQLCipher 加密儲存接入原型
+
+接續 [Ledger 驗證還原](../validated_restore/README.md)，對應[地基計畫](../../docs/implementation-plan.md)中的本機加密與可攜還原風險。這是候選接入路線的 Windows host 實測，尚未決議完整平台 ADR／Architecture Freeze。
+
+## 路線與邊界
+
+沿用已鎖定的 sqlite3 3.6.0，於本原型根目錄選擇 `hooks.user_defines.sqlite3.source: sqlcipher`。沒有另外安裝舊版 Flutter libs，也沒有商業授權碼或付費服務。套件的 hook 文件與原始碼提供此來源，下載成品會對照套件內的 SHA-256。
+
+本機實際輸出：SQLCipher `4.19.0 community`，provider `openssl`，SQLite `3.53.4`。Windows x64 成品在 sqlite3 3.6.0 的預期 SHA-256 為 `4da12fe34e8b6f3efeff9131d60ee28fb30091c481a7565d4bdf756870935283`。平台成品不同，不能拿此 hash 驗證 Android。
+
+連線建立時檢查 cipher_version，缺少加密引擎即停止，release 也執行。使用獨立隨機 32 bytes 資料金鑰與嚴格 hex literal；金鑰不進入命令列、文件或例外訊息。明確指定 SQLCipher 4 相容設定、4096-byte page、page HMAC、零明文 header，暫存查詢資料使用記憶體；再讀取 schema 驗證金鑰，而不以設定 key 成功代替真正解密成功。
+
+`StorageKey` 只提供記憶體值及隨機產生，沒有假裝完成 Android Keystore、PIN／biometrics、金鑰封裝、輪替或安全抹除。密碼是備份 envelope 的解鎖憑證，不直接當成本機 DB raw key。
+
+在既有 ProbeDatabase 加入 executor 注入入口，SnapshotCodec／RestoreStore 加入資料庫建立函式。原本明文 fixture 的預設行為保留；此加密入口則把相同的財務流程、備份快照、暫存驗證與切換接上加密 executor。這些仍是 prototype 內部接口，正式 Data packages 尚未交付。
+
+## 實測
+
+```sh
+dart pub get --enforce-lockfile
+dart format --output=none --set-exit-if-changed lib test
+dart analyze
+dart test --reporter expanded
+```
+
+12 項測試通過：
+
+- 確認實際加密引擎／provider；關閉重開後核對帳務與餘額。
+- 無金鑰、錯誤金鑰、明文檔與單一首頁位元損壞被拒絕；原檔 bytes 保留。
+- 實際交易失敗回滾與 operation replay，避免重複入帳。
+- 密碼／救援各自解鎖備份，來源 handle 關閉後，以獨立新金鑰建立加密 stage，核對全部快照列與餘額；舊 DB 金鑰無法開啟新 DB。
+- 固定 v1 fixture 在加密 DB 中升級到 v2，保留餘額 115 與引用。
+- 切換失敗恢復舊資料；留下的未提交 stage 也保持加密。
+- DB／stage 檔無明文 SQLite header 或測試商家字串；實際非空 WAL 無該字串。金鑰長度／byte 範圍與字串遮蔽檢查。
+
+字串掃描只證明測試標記沒有以明文出現在那些檔案，不能代替完整資料外洩稽核。錯誤金鑰／竄改案例會產生 SQLCipher 預期的 HMAC error 診斷，不代表測試失敗。初次接入曾因 pragma 返回字串而錯判設定；目前明確正規化後核對數值，未移除檢查。
+
+## 未通過的 gate
+
+沒有 Android 裝置測試、secure storage、App 鎖定、平台備份排除／隱私畫面、效能與耗電量測、實際磁碟满／斷電或安全審查。這次加密還原在同一測試程序進行；跨程序加密還原與中斷恢復的組合仍待補足，不能直接把前一原型明文程序中止結果當成加密路線已通過。
+
+原型產生檔只在忽略的測試目錄。正式打包前仍需整理 SQLCipher／OpenSSL 與其他依賴的 notices；參考 [SQLCipher 4.19.0 授權原文](https://github.com/sqlcipher/sqlcipher/blob/v4.19.0/LICENSE.md)。目前沒有正式發布或宣稱本原型可保存日常資料。
+
+技術來源：[sqlite3 3.6.0 hooks](https://pub.dev/documentation/sqlite3/3.6.0/topics/hook-topic.html)、[SQLCipher API](https://www.zetetic.net/sqlcipher/sqlcipher-api/)、[Drift 加密接入](https://drift.simonbinder.eu/platforms/encryption/)。Drift 文件主要示範 sqlite3mc；本次 SQLCipher source 依據鎖定版本的套件原始碼及實測，不將舊版接入限制直接套用到新版。

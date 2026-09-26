@@ -103,10 +103,16 @@ final class SnapshotCodec {
   });
 
   /// Imports only known columns with bound values into a brand-new staged file.
-  Future<void> stage(List<int> bytes, File target) async {
+  Future<void> stage(
+    List<int> bytes,
+    File target, {
+    ProbeDatabase Function(File)? openDatabase,
+  }) async {
     final tables = _parse(bytes);
     if (await target.exists()) throw StateError('Stage file already exists.');
-    final db = ProbeDatabase(target);
+    final db = openDatabase == null
+        ? ProbeDatabase(target)
+        : openDatabase(target);
     try {
       await db.transaction(() async {
         for (final entry in _columns.entries) {

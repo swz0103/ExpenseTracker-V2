@@ -9,8 +9,9 @@ import 'snapshot.dart';
 
 /// Owned fixture directory only. Caller must close every DB handle before switching.
 final class RestoreStore {
-  RestoreStore(this.directory);
+  RestoreStore(this.directory, {this.openDatabase});
   final Directory directory;
+  final ProbeDatabase Function(File)? openDatabase;
   static final _busy = <String>{};
   File _file(String name) => File('${directory.absolute.path}/$name');
   File get current => _file('current.db');
@@ -36,7 +37,11 @@ final class RestoreStore {
         ? await codec.openWithPassword(envelope, password)
         : await codec.openWithRecovery(envelope, recoveryKey!);
     try {
-      await _snapshot.stage(bytes, _file('stage.db'));
+      await _snapshot.stage(
+        bytes,
+        _file('stage.db'),
+        openDatabase: openDatabase,
+      );
       checkpoint?.call('validated');
       final hadPrevious = await current.exists();
       await _file('journal.json').writeAsString(

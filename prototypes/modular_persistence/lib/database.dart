@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
-/// Host integration fixture. Handwritten SQL, no reactive streams or encryption.
+/// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
   ProbeDatabase(File file, {this.migrationCheckpoint})
     : super(NativeDatabase(file));
+  ProbeDatabase.withExecutor(QueryExecutor executor, {this.migrationCheckpoint})
+    : super(executor);
   final void Function(String)? migrationCheckpoint;
   @override
   int get schemaVersion => 2;

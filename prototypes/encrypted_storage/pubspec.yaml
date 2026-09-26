@@ -1,0 +1,24 @@
+name: encrypted_storage_probe
+description: SQLCipher storage and encrypted staging integration prototype.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  drift: 2.35.0
+  sqlite3: 3.6.0
+  accounts:
+    path: ../../packages/accounts
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+  modular_persistence_probe:
+    path: ../modular_persistence
+  validated_restore_probe:
+    path: ../validated_restore
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
