@@ -327,6 +327,7 @@ void main() {
   for (final sql in [
     'CREATE TABLE future_module (id TEXT)',
     'ALTER TABLE events ADD COLUMN hidden TEXT',
+    'ALTER TABLE events ADD COLUMN derived INTEGER GENERATED ALWAYS AS (income-expense) VIRTUAL',
   ]) {
     test('capture refuses unknown persisted structure: $sql', () async {
       await fixture(store.current);

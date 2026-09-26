@@ -61,7 +61,7 @@ final class SnapshotCodec {
       throw const InvalidSnapshot();
     for (final entry in _columns.entries) {
       final columns = await source
-          .customSelect('PRAGMA table_info(${entry.key})')
+          .customSelect('PRAGMA table_xinfo(${entry.key})')
           .get();
       if (columns.length != entry.value.length ||
           columns.any((r) => !entry.value.contains(r.read<String>('name'))))

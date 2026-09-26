@@ -44,6 +44,18 @@ dart test --reporter expanded
 
 CLI 是測試入口，不是使用者功能。先編譯 worker 再跑測試，避免 Windows 父程序載入 DLL 後重打包該檔。程序退出僅驗證指定 checkpoint，不代表任意斷電。
 
+### 加密 migration 故障
+
+再新增 4 項測試，目前本套件共 26 項本機測試通過：
+
+- 在 v1 → v2 新增欄位後與新增索引後，以子程序 exit 73 中止。確認遺留非空 rollback journal，重新用正確 key 開檔後，由 SQLite 恢復至 v1，全部七表內容不變；再試可升級到 v2。
+- 把 `max_page_count` 設為 fixture 目前頁數，確認實際引擎回報 `SQLITE_FULL`（13），且在 column checkpoint 之後、index checkpoint 之前失敗。schema 仍 v1、沒有新增欄位／索引、全部權威列未改；換成未受限連線後可再試。
+- 加密 DB 的未知 schema 99 不被降版；原始 bytes、資料列與版本均保留。
+
+這些測試使用固定 fixture 與真實 SQLCipher。頁數上限只是可重現的引擎寫入容量錯誤，沒有填滿使用者磁碟；沒有驗證 OS 的 ENOSPC、各種中斷時機或真實斷電。SQLite 自行恢復其 hot journal，與還原切換器遇到未知 sidecar 時停止保留的責任不同。
+
+參考：[SQLite max_page_count](https://www.sqlite.org/pragma.html#pragma_max_page_count)、[SQLITE_FULL](https://www.sqlite.org/rescode.html#full)。
+
 ## 未通過的 gate
 
 沒有 Android 裝置測試、secure storage、App 鎖定、平台備份排除／隱私畫面、效能與耗電量測、實際磁碟滿／斷電或安全審查。已加入跨程序加密還原與指定切換中斷的組合驗證，但這仍是 host fixture，不能取代 Android 新安裝／新裝置 gate。

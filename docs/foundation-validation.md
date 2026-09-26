@@ -47,3 +47,5 @@ Windows 上子程序先以 `dart build cli` 建置，再啟動父測試；避免
 [加密儲存接入](../prototypes/encrypted_storage/README.md)另以 SQLCipher 4.19.0 community 的 Windows 成品，完成 12 項加密檔／暫存／還原／交易／WAL／migration 測試。已接上同一財務與 restore 流程，但獨立程序加密中斷恢復、Android 與 secure storage 尚待驗證。這是候選 executor 的證據，不等於整個安全架構完成。
 
 後續新增 10 項獨立程序加密還原測試，涵蓋來源 DB 刪除且不提供來源 key 的密碼／救援路徑、第二個程序核對完整 snapshot／replay／cipher integrity、三個切換 checkpoint 中止恢復、首次還原中止與四種無效備份拒絕。原目標 DB 回復後仍需呼叫者保有正確原 key；正式 key metadata 生命週期、Android 與 secure storage 仍未驗證。
+
+再補 4 項加密 migration 故障測試：v1 → v2 兩處程序退出後的 SQLite journal recovery、頁數上限觸發真實 SQLITE_FULL 13 後的 schema／資料回滾與再試、未知版本拒絕。另新增 generated column 拒絕備份案例，修正 table_info 漏列欄位的問題。結果只涵蓋指定故障點與容量限制，不代表已驗證實際 OS 磁碟滿或斷電。

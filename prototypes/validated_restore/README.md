@@ -35,7 +35,9 @@ dart test --reporter expanded
 
 先建置子程序，避免 Windows 的 SQLite DLL 已載入後被再次打包覆寫。測試 fixture 來自固定 v1 SQL，先由既有 migration 升級，再備份與還原。
 
-28 項測試涵蓋：密碼／救援金鑰各自在新程序還原全部權威列，餘額 115 與 operation replay 不重複入帳；成功替換保留舊檔；錯誤密碼、截斷、十種已通過加密驗證但內容無效的快照拒絕；四處例外回滾；三處程序中止後復原及再次還原；首次還原中止；損壞 journal、hot stage sidecar、跨程序鎖，以及未知持久結構拒絕。保護舊資料的案例逐 bytes 比對原檔。
+29 項測試涵蓋：密碼／救援金鑰各自在新程序還原全部權威列，餘額 115 與 operation replay 不重複入帳；成功替換保留舊檔；錯誤密碼、截斷、十種已通過加密驗證但內容無效的快照拒絕；四處例外回滾；三處程序中止後復原及再次還原；首次還原中止；損壞 journal、hot stage sidecar、跨程序鎖，以及未知持久結構拒絕。保護舊資料的案例逐 bytes 比對原檔。
+
+結構檢查使用 `table_xinfo`，將 generated／hidden 欄位也算入 manifest 比對；測試加入 virtual generated column 確認拒絕。一般 `table_info` 不列出這些欄位，可能漏看未識別的結構。參考 [SQLite table_xinfo](https://www.sqlite.org/pragma.html#pragma_table_xinfo)。
 
 本機靜態分析與測試已通過；遠端狀態以此分支 PR 的 CI 為準。此結果只完成 host 原型的一部分 BACKUP／DATA 證據，Android 裝置、本機加密、完整 migration、正式備份格式與安全審查 gate 仍未通過。
 

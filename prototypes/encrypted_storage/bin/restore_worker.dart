@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:encrypted_storage_probe/encrypted_database.dart';
+import 'package:drift/native.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:modular_persistence_probe/workflows.dart';
+import 'package:modular_persistence_probe/database.dart';
 import 'package:validated_restore_probe/restore_store.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
@@ -13,6 +15,24 @@ Future<void> main(List<String> args) async {
   if (args.length < 2)
     throw ArgumentError('Missing action and owned directory.');
   final directory = Directory(args[1]);
+  if (args[0] == 'migrate' && args.length == 4) {
+    final key = StorageKey(await File(args[2]).readAsBytes());
+    final db = ProbeDatabase.withExecutor(
+      NativeDatabase(
+        File('${directory.path}/current.db'),
+        setup: (raw) => configureEncryption(raw, key),
+      ),
+      migrationCheckpoint: (point) {
+        if (point == args[3]) exit(73);
+      },
+    );
+    try {
+      await db.customSelect('SELECT * FROM events').get();
+    } finally {
+      await db.close();
+    }
+    return;
+  }
   if (args[0] == 'recover' && args.length == 2) {
     await RestoreStore(directory).recover();
     return;
