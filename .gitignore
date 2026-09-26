@@ -1,0 +1,32 @@
+# Local research and synced references
+.work/
+sources/
+
+# Local SDKs and generated build files
+.tooling/
+.dart_tool/
+.flutter-plugins-dependencies
+build/
+**/android/local.properties
+**/android/key.properties
+.idea/
+
+# Credentials, signing material, and private financial data
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.p12
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+private-data/
+backups/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
