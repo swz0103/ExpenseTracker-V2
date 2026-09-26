@@ -11,9 +11,12 @@ permissions:
 jobs:
   foundation-values:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        package: [foundation_values, accounts]
     defaults:
       run:
-        working-directory: packages/foundation_values
+        working-directory: packages/${{ matrix.package }}
         shell: pwsh
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

@@ -3,7 +3,7 @@
 狀態：階段 0 工程規格草稿；不是實作完成或 Architecture Freeze。  
 依據：[rc1](architecture-baseline-v1.0-rc1.md)、[A＋與業務套件](architecture-baseline-v1.0-rc1.md#a-plus-coordination)、[實作安排](implementation-plan.md)。
 
-本規格將已選方向細化為可實作、可測試的契約。以下型別與資料實體是設計名稱，不是已建立的 Dart package 或 SQLite schema。若實測需要改變既定財務規則，必須保留 ADR 差異，不能把原型行為默認為新規則。
+本規格將已選方向細化為可實作、可測試的契約。部分值型別與 Accounts Domain 已實作，狀態見[逐項進度](work-progress.md)；其餘資料實體仍是設計名稱，不能視為已建立的 SQLite schema。若實測需要改變既定財務規則，必須保留 ADR 差異，不能把原型行為默認為新規則。
 
 ## 1. 套件與依賴
 
@@ -114,4 +114,4 @@ AccountBalance、MonthlyCategorySummary 等是 projection，保存處理至哪�
 
 ## 8. 本版尚未宣告完成
 
-對應的具體數值與故障情境見[驗收案例](foundation-acceptance.md)。目前尚未有正式 schema／Dart 型別／資料庫適配器；ADR-01／02／03 的規則仍需案例與原型驗證，ADR-04 的加密／異機還原、ADR-06 的 provider 與 ADR-08 的執行 gate 尚未結案。套件配置、文件和工具安裝不能取代這些結果。
+對應的具體數值與故障情境見[驗收案例](foundation-acceptance.md)。值型別與部分業務規則已有測試，正式 schema／資料庫適配器仍待完成；ADR-01／02／03 尚需完整資料路徑驗證，ADR-04 的加密／異機還原、ADR-06 的 provider 與 ADR-08 的執行 gate 尚未結案。套件配置、文件和工具安裝不能取代這些結果。

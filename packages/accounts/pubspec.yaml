@@ -1,0 +1,11 @@
+name: accounts
+description: Account lifecycle and financial participation rules.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  foundation_values:
+    path: ../foundation_values
+dev_dependencies:
+  test: 1.32.0
