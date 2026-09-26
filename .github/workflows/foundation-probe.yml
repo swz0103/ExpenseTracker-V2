@@ -31,6 +31,11 @@ jobs:
           dart format --output=none --set-exit-if-changed bin
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dart build cli --target bin/restore_worker.dart --output .dart_tool/worker
+      - if: matrix.package == 'prototypes/encrypted_storage'
+        run: |
+          dart format --output=none --set-exit-if-changed bin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dart build cli --target bin/restore_worker.dart --output .dart_tool/worker
       - run: dart test --reporter expanded
   transaction-boundary:
     runs-on: windows-latest

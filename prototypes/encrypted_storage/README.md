@@ -18,12 +18,13 @@
 
 ```sh
 dart pub get --enforce-lockfile
-dart format --output=none --set-exit-if-changed lib test
+dart format --output=none --set-exit-if-changed lib bin test
 dart analyze
+dart build cli --target bin/restore_worker.dart --output .dart_tool/worker
 dart test --reporter expanded
 ```
 
-12 項測試通過：
+原有 12 項測試涵蓋：
 
 - 確認實際加密引擎／provider；關閉重開後核對帳務與餘額。
 - 無金鑰、錯誤金鑰、明文檔與單一首頁位元損壞被拒絕；原檔 bytes 保留。
@@ -35,9 +36,17 @@ dart test --reporter expanded
 
 字串掃描只證明測試標記沒有以明文出現在那些檔案，不能代替完整資料外洩稽核。錯誤金鑰／竄改案例會產生 SQLCipher 預期的 HMAC error 診斷，不代表測試失敗。初次接入曾因 pragma 返回字串而錯判設定；目前明確正規化後核對數值，未移除檢查。
 
+### 獨立程序組合測試
+
+另加 10 項程序測試：密碼／救援各自啟動編譯後的 worker 還原，再啟動另一個 worker 核對完整 snapshot、cipher integrity 與舊 operation replay；三個切換邊界 exit 73 後，由新程序執行兩次 recover，再以原目標金鑰核對舊檔 bytes 與餘額 122；首次還原中止回到無正式 DB；錯誤密碼、錯誤救援码、已重新加密的未知 schema 與截斷封裝均不修改原目標檔。
+
+來源 DB 在任何還原子程序啟動前已刪除，來源 key 從未持久化或傳給子程序。子程序只接收備份、一種解鎖憑證及新目標 key 的 fixture 檔案路徑，驗證不依賴來源裝置金鑰。目標 key／credential 的明文 fixture 僅存在被忽略且測後清除的目錄，這不是正式金鑰保存方式。檔案恢復本身不需要 key，也不代表已完成 key metadata 的原子切換；測試保留正確舊 key 以驗證回復後檔案。
+
+CLI 是測試入口，不是使用者功能。先編譯 worker 再跑測試，避免 Windows 父程序載入 DLL 後重打包該檔。程序退出僅驗證指定 checkpoint，不代表任意斷電。
+
 ## 未通過的 gate
 
-沒有 Android 裝置測試、secure storage、App 鎖定、平台備份排除／隱私畫面、效能與耗電量測、實際磁碟满／斷電或安全審查。這次加密還原在同一測試程序進行；跨程序加密還原與中斷恢復的組合仍待補足，不能直接把前一原型明文程序中止結果當成加密路線已通過。
+沒有 Android 裝置測試、secure storage、App 鎖定、平台備份排除／隱私畫面、效能與耗電量測、實際磁碟滿／斷電或安全審查。已加入跨程序加密還原與指定切換中斷的組合驗證，但這仍是 host fixture，不能取代 Android 新安裝／新裝置 gate。
 
 原型產生檔只在忽略的測試目錄。正式打包前仍需整理 SQLCipher／OpenSSL 與其他依賴的 notices；參考 [SQLCipher 4.19.0 授權原文](https://github.com/sqlcipher/sqlcipher/blob/v4.19.0/LICENSE.md)。目前沒有正式發布或宣稱本原型可保存日常資料。
 

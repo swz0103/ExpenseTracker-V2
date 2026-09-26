@@ -41,7 +41,7 @@ packages:
     source: hosted
     version: "2.13.1"
   backup_envelope_probe:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../backup_envelope"
       relative: true

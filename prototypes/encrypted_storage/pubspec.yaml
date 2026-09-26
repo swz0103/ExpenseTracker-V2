@@ -16,6 +16,8 @@ dependencies:
     path: ../modular_persistence
   validated_restore_probe:
     path: ../validated_restore
+  backup_envelope_probe:
+    path: ../backup_envelope
 dev_dependencies:
   test: 1.32.0
 hooks:

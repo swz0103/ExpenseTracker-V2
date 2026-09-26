@@ -45,3 +45,5 @@ Windows 上子程序先以 `dart build cli` 建置，再啟動父測試；避免
 [Ledger 驗證還原](../prototypes/validated_restore/README.md)將固定 schema 2 的七張權威表接入 envelope；28 項 host 測試驗證新程序的兩條還原路徑、原資料保留、防重複提交、內容與版本拒絕、切換 checkpoint 例外／程序中止以及下次啟動復原。SQLite 本機檔案仍是明文測試資料。未處理的 hot journal 會停止並保留，不能宣稱所有任意中斷已自動復原；實際磁碟滿、斷電、Android 加密與完整新裝置 gate 仍未通過。
 
 [加密儲存接入](../prototypes/encrypted_storage/README.md)另以 SQLCipher 4.19.0 community 的 Windows 成品，完成 12 項加密檔／暫存／還原／交易／WAL／migration 測試。已接上同一財務與 restore 流程，但獨立程序加密中斷恢復、Android 與 secure storage 尚待驗證。這是候選 executor 的證據，不等於整個安全架構完成。
+
+後續新增 10 項獨立程序加密還原測試，涵蓋來源 DB 刪除且不提供來源 key 的密碼／救援路徑、第二個程序核對完整 snapshot／replay／cipher integrity、三個切換 checkpoint 中止恢復、首次還原中止與四種無效備份拒絕。原目標 DB 回復後仍需呼叫者保有正確原 key；正式 key metadata 生命週期、Android 與 secure storage 仍未驗證。
