@@ -50,6 +50,8 @@
 - **BACKUP-03 損毀與版本**：截斷、竄改、不認識的必要模組版本、空間不足及替換中斷，均不能把目前正式資料覆寫成半套或默默跳過資料。
 - **BACKUP-04 去重連續性**：還原後對已提交 operation ID 重試，不新增第二筆財務效果；停用 UI 的模組資料仍包含在備份中。
 
+DB／金鑰配對的 **KEY-01～08** 補充案例見[生命週期契約](storage-lifecycle-contract.md#8-必須執行的驗收)，涵蓋初始化、缺失／損壞、切換中止、回覆遺失、並行、容量故障、乾淨 Android 還原與清理保護。這些新增案例尚未執行。
+
 ## 執行紀錄要求
 
 測試實作時記錄案例 ID、commit、工具鏈、資料集、執行方式及結果；區分 host-only、Android 裝置、migration 與 clean-restore。沒有 Android 執行環境時可先做 host 測試，但不能把它標為 Android gate 通過。

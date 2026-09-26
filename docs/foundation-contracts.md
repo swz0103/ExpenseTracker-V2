@@ -112,6 +112,8 @@ AccountBalance、MonthlyCategorySummary 等是 projection，保存處理至哪�
 
 2A 的最小 envelope 支援密碼與文字救援金鑰兩條獨立解鎖路徑，實際密碼學套件及 KDF 參數必須經技術 ADR 與測試決定，不在此自製演算法。還原在暫存區解密、驗證、migration、重建與核對，再可恢復地切換。失敗保留原庫；兩條路徑都要在沒有原裝置密鑰的乾淨環境驗證。
 
+DB 與平台金鑰的正式配對、發布及中止復原另見[生命週期契約](storage-lifecycle-contract.md)。目前原型呼叫者持有 key 的方式不能直接當成正式切換協定；新增契約仍需 host 故障注入與 Android 驗收。
+
 ## 8. 本版尚未宣告完成
 
 對應的具體數值與故障情境見[驗收案例](foundation-acceptance.md)。值型別與部分業務規則已有測試，正式 schema／資料庫適配器仍待完成；ADR-01／02／03 尚需完整資料路徑驗證，ADR-04 的加密／異機還原、ADR-06 的 provider 與 ADR-08 的執行 gate 尚未結案。套件配置、文件和工具安裝不能取代這些結果。
