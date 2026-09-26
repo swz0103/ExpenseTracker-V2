@@ -1,7 +1,7 @@
 # ExpenseTracker V2 — 實作安排
 
 日期：2026-09-26  
-狀態：使用者已授權開始並先建立 GitHub 專案；目前處理登入與前置準備，尚未實作功能  
+狀態：私人 repository 與開發工具鏈已建立；工程規格及限定原型進行中，尚未交付正式功能  
 決策依據：[Full Vision D-003](full-vision-baseline.md#decision-product-delivery) · [Architecture Baseline rc1](architecture-baseline-v1.0-rc1.md) · [整合架構提案](architecture-proposal.md)
 
 **後續工作指示**：使用者已要求開始，先建立新 GitHub repository 並先讓其完成必要準備。依[前置準備紀錄](development-readiness.md)，repository 可先保存規劃文件，不必等整體 Freeze 才建立；正式架構基線與功能實作的驗證門檻維持不變。
@@ -31,7 +31,7 @@
 
 ## 階段 1｜驗證地基，再建立正式開發基線
 
-**前置**：階段 0 規格可審查；後續開始實作時才執行。本輪不寫原型。
+**前置**：相關階段 0 規格可審查；依使用者後續開始授權，已建立[工程契約](foundation-contracts.md)與[驗收案例](foundation-acceptance.md)，可先執行限定原型解決技術未知事項。結果與尚未通過的 gate 見[驗證紀錄](foundation-validation.md)，不據此宣稱全部階段 0／1 完成。
 
 1. **技術相容性**：依當時官方資料確認 Flutter／Dart、Drift／SQLite 加密、Decimal、UUID、平台 secure storage 與建置流程；實測後鎖定版本，不照舊文件猜套件 API。
 2. **最短真實資料路徑**：以測試資料完成「帳戶 → 一筆收入／支出 → 關閉重開 → 餘額重建」。原型只驗證必要契約，不預先做完整產品畫面。

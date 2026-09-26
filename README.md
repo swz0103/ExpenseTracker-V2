@@ -2,7 +2,7 @@
 
 Android 優先、Flutter、local-first 的個人財務管理 App。
 
-目前進行架構規格與開發前置準備，尚未發布可用 App，Architecture Baseline 仍為 rc1。
+目前進行架構規格與地基原型驗證，尚未發布可用 App，Architecture Baseline 仍為 rc1。
 
 ## 專案文件
 
@@ -11,6 +11,10 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [整合架構與已選方向](docs/architecture-proposal.md)
 - [實作順序與驗收安排](docs/implementation-plan.md)
 - [開發前置準備](docs/development-readiness.md)
+- [地基工程契約](docs/foundation-contracts.md)
+- [具體驗收案例](docs/foundation-acceptance.md)
+- [地基驗證結果與剩餘門檻](docs/foundation-validation.md)
+- [SQLite 交易邊界原型](prototypes/transaction_boundary/README.md)
 
 ## 已選方向
 
