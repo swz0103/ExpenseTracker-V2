@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [foundation_values, accounts]
+        package: [foundation_values, accounts, ledger]
     defaults:
       run:
         working-directory: packages/${{ matrix.package }}

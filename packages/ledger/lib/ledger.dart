@@ -1,0 +1,1 @@
+export 'src/posting.dart';

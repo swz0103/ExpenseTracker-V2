@@ -7,8 +7,9 @@
 - 架構與 SQLite 原型：`docs/architecture-and-implementation-plan`，PR #1；11 項測試及 GitHub CI 已通過，基準提交 `3712cfe781e8ee2725594cb9ee52db8f58fccef3`。原型只驗證 host transaction 機制。
 - 金額值型別：`feat/foundation-money`，PR #2，基於 PR #1，提交 `95b6f3a`。10 項新測試與 11 項既有原型測試在 GitHub 通過。Money／Currency、嚴格精度、整數溢位、版本化 JSON、量化與尾差分攤已完成。
 - 身份與日期：`feat/foundation-identity-time`，PR #3，基於 PR #2，提交 `bacd122`。UUID v7、帳本／操作身份、嚴格日期與 UTC；17 項值型別與 11 項交易原型測試在 GitHub 通過。
-- 帳戶 Domain：`feat/accounts-domain`，基於 PR #3。cash／bank 身份、版本、封存、關閉與重新啟用、零餘額／未結檢查；9 項 Domain 測試本機通過。完整 capability 仍待資料層與 UI 接入。
-- 下一項：Ledger 的期初／收支／同幣轉帳資料契約與業務不變條件，再接共用 transaction adapters。
+- 帳戶 Domain：`feat/accounts-domain`，PR #4，基於 PR #3，提交 `3354a20`。cash／bank 身份、版本、封存、關閉與重新啟用、零餘額／未結檢查；9 項新測試與所有既有測試在 GitHub 通過。完整 capability 仍待資料層與 UI 接入。
+- Ledger 基本入帳：`feat/ledger-posting-domain`，基於 PR #4。期初／收支／同幣轉帳／fee／分類分攤及餘額重建；8 項 Domain 測試本機通過。仍是入帳提案，不能視為已 commit 或完整 Ledger。
+- 下一項：實際 Accounts／Ledger 共用 transaction 的 adapter 原型、operation receipt 與 Audit，驗證保存後重開、重建與失敗回滾。
 
 ## 尚未完成的 gate
 
