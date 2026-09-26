@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence]
+        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence, prototypes/backup_envelope]
     defaults:
       run:
         working-directory: ${{ matrix.package }}

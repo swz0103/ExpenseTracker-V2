@@ -1,0 +1,9 @@
+name: backup_envelope_probe
+description: Authenticated backup envelope with independent password and recovery paths.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  cryptography: 2.9.0
+dev_dependencies:
+  test: 1.32.0
