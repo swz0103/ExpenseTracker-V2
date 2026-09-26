@@ -20,8 +20,9 @@
 - 2026-09-27 確認先前 Android 建置失敗：JNI 相依套件需要 `android-35`，本機缺少該 SDK Platform。已安裝的 SDK 36／36.1 與 Build Tools 35 無法替代它；不得把此結果標為 Android build 通過。
 - 2026-09-27 06:15（台北）接續：原有自動核准流程已恢復；重新查驗 PR #12 八項 CI 工作全部成功（提交 `222edeb`，126 項測試）。補齊 SDK Platform 35 revision 2 與 CMake 3.22.1 後，Android debug 建置成功。未購買額度或接受新授權；先前建置失敗保留為診斷歷程。
 - 裝置 gate：仍沒有 Android 測試目標；即使 APK 建置通過，也須完成真實 secure storage／加密／還原驗證。未通過前不交付日常使用版本，也不推進依賴此 gate 的 M1 功能。
-- 金鑰生命週期契約：`docs/storage-lifecycle-contract`，基於 PR #13；補齊 DB 世代與獨立 key slot、單一目前參照、切換 commit point、啟動復原與 KEY-01～08 驗收。文件連結與差異檢查通過，內容仍是工程契約草稿，不宣稱 port 或平台 adapter 已實作。
-- 下一項：以限定 host 原型驗證 DB／key 配對切換，先測新舊世代與中止復原，再接入已準備的 Android 驗證入口。key metadata 與 snapshot schema 需一起版本化；不放寬現有未知 schema 拒絕規則。裝置實測待測試手機連接並允許 USB 偵錯後接續。
+- 金鑰生命週期契約：`docs/storage-lifecycle-contract`，PR #14，基於 PR #13，提交 `738bc34`；補齊 DB 世代與獨立 key slot、單一目前參照、切換 commit point、啟動復原與 KEY-01～08 驗收。文件連結與差異檢查、全部既有 132 項測試的 CI 均通過；內容仍是工程契約草稿。
+- DB／key 配對原型：`feat/storage-generation-probe`，基於 PR #14。SQLite 控制紀錄一次提交發布配對、加密 DB 內身份核對、舊組合保留與安裝去重；26 項新 host 測試通過，包含七處程序退出與跨程序競爭。詳見[原型範圍](../prototypes/storage_generation/README.md)。fixture key 是明文暫存檔，不能當作平台 secure storage；遠端結果以 PR checks 為準。
+- 下一項：將世代 metadata 與實際 Ledger snapshot 以明確版本邊界整合，核對完整權威資料與財務 receipt；再接正式 key slot adapter、連線租約與 Android 裝置驗證。不放寬既有未知 schema 拒絕規則。裝置實測待測試手機連接並允許 USB 偵錯後接續。
 
 ## 尚未完成的 gate
 

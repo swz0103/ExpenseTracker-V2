@@ -44,6 +44,8 @@
 
 採「保留原世代、建立新世代、切換單一目前參照」作為下一個限定原型的方案；具體原子替換 adapter 與耐久性仍須實測。
 
+第一個 [host 配對原型](../prototypes/storage_generation/README.md)採 SQLite 控制紀錄的單一 transaction 提交 attempt 狀態與目前參照，避免先刪目前檔再 rename 的空窗；key／payload 不寫入控制紀錄。這是固定非秘密 fixture 的機制證據，正式 metadata 保護、完整 Ledger schema 及 Android adapter 尚待接入。
+
 1. 取得儲存生命週期排他權，停止新業務操作與背景 DB 工作，等待既有 session 釋放。超時則中止切換；不能只在 UI 停用按鈕。
 2. 正式開啟還原前先處理先前未完成操作。驗證備份、以密碼或救援金鑰解鎖，建立全新的 slot 及加密目標世代。兩種解鎖方式均不需要來源裝置 key。
 3. 將權威資料載入新世代，執行相容 migration、財務／完整性／operation receipt 驗證。關閉新 DB，重新讀該 slot 並開檔再核對；保留舊世代與其 slot。

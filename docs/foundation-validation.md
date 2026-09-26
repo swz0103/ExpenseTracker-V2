@@ -57,3 +57,9 @@ Windows 上子程序先以 `dart build cli` 建置，再啟動父測試；避免
 debug APK 首次建置缺少 JNI 相依所需的 SDK Platform `android-35`，補齊後另發現 CMake 3.22.1 缺漏；兩者補齊後 ARM64 debug APK 已成功建置。封裝內有 libsqlcipher.so，最終 manifest 的 debug／SDK／備份排除設定已核對，產物 hash 見原型 README。
 
 尚無可用 Android 測試目標，裝置 integration test 未執行；host CI 以 PR checks 為準。裝置、乾淨環境還原及正式 key metadata gate 均保留未完成，不能從建置通過推論執行成功。
+
+## DB／key 配對切換（2026-09-27）
+
+[世代切換原型](../prototypes/storage_generation/README.md)以獨立加密 fixture 與非秘密 SQLite 控制紀錄，驗證單一提交發布 generation／key slot 配對；26 項 Windows host 測試及靜態分析通過。涵蓋七處子程序中止、四種首次安裝中止、錯 key／身份／內容與未知 schema 拒絕、原組合保留及跨程序同操作去重。
+
+第一輪曾發現 file lock 競爭導致第二程序立即失敗，修正等待策略後全數通過。key 檔案僅為不安全的測試 adapter，未接入 Android；schema 1 fixture 也未替換既有財務 schema 2。正式連線租約、超時、清理、平台安全儲存、財務整合與裝置 gate 仍未完成。
