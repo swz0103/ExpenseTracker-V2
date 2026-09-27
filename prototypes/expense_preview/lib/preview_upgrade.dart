@@ -14,7 +14,11 @@ extension _PreviewUpgrade on PreviewEngine {
     final backups = Directory('${directory.path}/upgrade-backups');
     await backups.create(recursive: true);
     for (var version = from; version < schemaVersion; version++) {
-      if (version != 3 && version != 4 && version != 5 && version != 6) {
+      if (version != 3 &&
+          version != 4 &&
+          version != 5 &&
+          version != 6 &&
+          version != 7) {
         throw PreviewInvalid();
       }
       _check(epoch);
@@ -30,7 +34,8 @@ extension _PreviewUpgrade on PreviewEngine {
         3 => planCategoryUpgrade,
         4 => planCategoryReferenceUpgrade,
         5 => planTagUpgrade,
-        _ => planMerchantUpgrade,
+        6 => planMerchantUpgrade,
+        _ => planTransferUpgrade,
       };
       final request = await plan(
         target,
@@ -42,7 +47,8 @@ extension _PreviewUpgrade on PreviewEngine {
         3 => upgradeCategories,
         4 => upgradeCategoryReferences,
         5 => upgradeTags,
-        _ => upgradeMerchants,
+        6 => upgradeMerchants,
+        _ => upgradeTransfers,
       };
       await upgrade(
         target,

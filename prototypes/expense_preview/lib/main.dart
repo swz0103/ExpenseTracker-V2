@@ -1,3 +1,5 @@
+import 'transfer_summary.dart';
+
 import 'dart:async';
 
 import 'package:accounts/accounts.dart';
@@ -139,6 +141,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _confirm = TextEditingController();
   final _name = TextEditingController();
   final _amount = TextEditingController();
+  final _fee = TextEditingController();
+  bool _transfer = false;
+  PublicId? _destinationId;
   final _date = TextEditingController();
   final _credential = TextEditingController();
   String _currency = 'TWD';
@@ -204,7 +209,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   void _clear() {
-    for (final c in [_password, _confirm, _name, _amount, _date, _credential]) {
+    for (final c in [
+      _password,
+      _confirm,
+      _name,
+      _amount,
+      _fee,
+      _date,
+      _credential,
+    ]) {
       c.clear();
     }
     _draft = null;
@@ -275,7 +288,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     unawaited(
       _draftSaveTail.then((_) => _engine?.lock()).catchError((Object _) {}),
     );
-    for (final c in [_password, _confirm, _name, _amount, _date, _credential]) {
+    for (final c in [
+      _password,
+      _confirm,
+      _name,
+      _amount,
+      _fee,
+      _date,
+      _credential,
+    ]) {
       c.dispose();
     }
     _scroll.dispose();
@@ -392,9 +413,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _draft = null;
     await _refresh();
   });
-  void _edit(_Page page) {
+  void _edit(_Page page, {bool transfer = false}) {
     setState(() {
       _page = page;
+      _transfer = transfer;
+      if (transfer) _income = false;
+      _destinationId = null;
+      _fee.text = '0';
       _message = null;
       _name.clear();
       _amount.text = page == _Page.account ? '0' : '';
@@ -413,6 +438,21 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           .id;
     });
   }
+
+  Currency? get _sourceCurrency => _accounts
+      .where((a) => a.account.id == _accountId)
+      .firstOrNull
+      ?.account
+      .currency;
+  Iterable<AccountSummary> get _destinations => _accounts.where(
+    (a) =>
+        a.account.state == AccountState.active &&
+        a.account.id != _accountId &&
+        a.account.currency == _sourceCurrency,
+  );
+  String _accountName(PublicId? id) =>
+      _accounts.where((a) => a.account.id == id).firstOrNull?.account.name ??
+      '帳戶';
 
   Future<void> _copyPosting(PublicId id) => _perform(() async {
     await _refresh();
@@ -439,6 +479,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final engine = _engine!;
     final fields = EntryFields(
       income: _income,
+      transfer: _transfer,
+      destinationId: _destinationId,
+      fee: _transfer ? _fee.text : '0',
       amount: _amount.text,
       date: _date.text,
       accountId: _accountId,
@@ -474,12 +517,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     final fields = saved.fields;
-    _edit(_Page.posting);
+    _edit(_Page.posting, transfer: fields.transfer);
     var omitted = false;
     setState(() {
       _entryDraft = saved;
       _draftSaveError = null;
       _income = fields.income;
+      _fee.text = fields.fee;
       _amount.text = fields.amount;
       _date.text = fields.date;
       _accountId =
@@ -491,6 +535,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ? fields.accountId
           : null;
       if (fields.accountId != null && _accountId == null) omitted = true;
+      _destinationId =
+          _destinations.any((a) => a.account.id == fields.destinationId)
+          ? fields.destinationId
+          : null;
+      if (fields.destinationId != null && _destinationId == null) {
+        omitted = true;
+      }
       final categories = _catalog!.categories.where(
         (c) =>
             c.id == fields.categoryId &&
@@ -978,28 +1029,35 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
       case _Page.posting:
         return [
-          Text('記一筆', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('支出')),
-              ButtonSegment(value: true, label: Text('收入')),
-            ],
-            selected: {_income},
-            onSelectionChanged: (_busy || _postingFrozen)
-                ? null
-                : (v) => setState(() {
-                    _income = v.single;
-                    _categoryId = '';
-                    _merchantId = '';
-                    _selectedTags.clear();
-                    _queueDraft();
-                  }),
+          Text(
+            _transfer ? '同幣轉帳' : '記一筆',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
+          const SizedBox(height: 16),
+          if (_transfer)
+            const Text('本金只移動帳戶餘額；手續費另外計入支出，從轉出帳戶扣除。')
+          else
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('支出')),
+                ButtonSegment(value: true, label: Text('收入')),
+              ],
+              selected: {_income},
+              onSelectionChanged: (_busy || _postingFrozen)
+                  ? null
+                  : (v) => setState(() {
+                      _income = v.single;
+                      _categoryId = '';
+                      _merchantId = '';
+                      _selectedTags.clear();
+                      _queueDraft();
+                    }),
+            ),
           const SizedBox(height: 16),
           DropdownButtonFormField<PublicId>(
             initialValue: _accountId,
-            decoration: const InputDecoration(labelText: '帳戶'),
+            decoration: InputDecoration(labelText: _transfer ? '轉出帳戶' : '帳戶'),
+            isExpanded: true,
             items: [
               for (final s in _accounts.where(
                 (s) => s.account.state == AccountState.active,
@@ -1013,10 +1071,41 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? null
                 : (v) => setState(() {
                     _accountId = v;
+                    if (!_destinations.any(
+                      (a) => a.account.id == _destinationId,
+                    )) {
+                      _destinationId = null;
+                    }
                     _queueDraft();
                   }),
           ),
           const SizedBox(height: 14),
+          if (_transfer) ...[
+            DropdownButtonFormField<PublicId>(
+              key: ValueKey('transfer-destination-$_accountId-$_destinationId'),
+              initialValue: _destinationId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: '轉入帳戶'),
+              items: [
+                for (final a in _destinations)
+                  DropdownMenuItem(
+                    value: a.account.id,
+                    child: Text(
+                      a.account.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (_busy || _postingFrozen)
+                  ? null
+                  : (value) => setState(() {
+                      _destinationId = value;
+                      _queueDraft();
+                    }),
+            ),
+            if (_destinations.isEmpty) const Text('請先建立另一個相同幣別的帳戶。'),
+            const SizedBox(height: 14),
+          ],
           _amountField(
             '金額（正數）',
             _accounts
@@ -1025,37 +1114,48 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ?.account
                 .currency,
           ),
+          if (_transfer)
+            AmountInputField(
+              controller: _fee,
+              label: '手續費（可為 0）',
+              currency: _sourceCurrency,
+              enabled: !_busy && !_postingFrozen,
+              onChanged: _queueDraft,
+            ),
           _dateField(),
-          DropdownButtonFormField<String>(
-            key: ValueKey('posting-category-$_income'),
-            initialValue: _categoryId,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: '分類'),
-            items: [
-              const DropdownMenuItem(value: '', child: Text('未分類')),
-              for (final c in _catalog!.categories.where(
-                (c) =>
-                    !c.archived &&
-                    c.kind ==
-                        (_income ? CategoryKind.income : CategoryKind.expense),
-              ))
-                DropdownMenuItem(
-                  value: c.id.value,
-                  child: Text(
-                    _categoryLabel(_catalog!, c),
-                    overflow: TextOverflow.ellipsis,
+          if (!_transfer)
+            DropdownButtonFormField<String>(
+              key: ValueKey('posting-category-$_income'),
+              initialValue: _categoryId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: '分類'),
+              items: [
+                const DropdownMenuItem(value: '', child: Text('未分類')),
+                for (final c in _catalog!.categories.where(
+                  (c) =>
+                      !c.archived &&
+                      c.kind ==
+                          (_income
+                              ? CategoryKind.income
+                              : CategoryKind.expense),
+                ))
+                  DropdownMenuItem(
+                    value: c.id.value,
+                    child: Text(
+                      _categoryLabel(_catalog!, c),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-            ],
-            onChanged: (_busy || _postingFrozen)
-                ? null
-                : (value) => setState(() {
-                    _categoryId = value ?? '';
-                    _queueDraft();
-                  }),
-          ),
+              ],
+              onChanged: (_busy || _postingFrozen)
+                  ? null
+                  : (value) => setState(() {
+                      _categoryId = value ?? '';
+                      _queueDraft();
+                    }),
+            ),
           const SizedBox(height: 14),
-          if (_merchantCatalog != null)
+          if (!_transfer && _merchantCatalog != null)
             _MerchantPicker(
               key: ValueKey('merchant-picker-$_income'),
               catalog: _merchantCatalog!,
@@ -1066,7 +1166,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 _queueDraft();
               }),
             ),
-          if (_tagCatalog != null &&
+          if (!_transfer &&
+              _tagCatalog != null &&
               _tagCatalog!.tags.any((t) => !t.archived)) ...[
             const Text('標籤（可複選，最多 16 個）'),
             Wrap(
@@ -1105,7 +1206,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : '草稿已加密保存；尚未影響餘額。',
             key: const Key('draft-status'),
           ),
-          _button(_postingFrozen ? '確認上次送出' : '儲存收支', _savePosting),
+          _button(
+            _postingFrozen
+                ? '確認上次送出'
+                : _transfer
+                ? '儲存轉帳'
+                : '儲存收支',
+            _savePosting,
+          ),
           if (_postingFrozen)
             _button(
               '返回編輯草稿',
@@ -1186,6 +1294,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? () => _edit(_Page.posting)
                 : null,
           ),
+          if (_engine!.schemaVersion >= 8)
+            _button(
+              '同幣轉帳',
+              _entryDraft == null &&
+                      !_draftUnreadable &&
+                      _accounts.any(
+                        (a) => a.account.state == AccountState.active,
+                      )
+                  ? () => _edit(_Page.posting, transfer: true)
+                  : null,
+            ),
           OutlinedButton(
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
@@ -1217,31 +1336,41 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           for (final e in _entries)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: FinancialSummary(
-                title:
-                    '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
-                subtitle:
-                    '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
-                money: e.amount,
-                privacy: _privacy,
-                kind: MoneyKind.transaction,
-                moneyKey: ValueKey('entry-money-${e.id.value}'),
-                action:
-                    [PostingKind.income, PostingKind.expense].contains(e.kind)
-                    ? PopupMenuButton<String>(
-                        key: ValueKey('entry-actions-${e.id}'),
-                        tooltip: '交易操作',
-                        enabled: !_busy,
-                        onSelected: (_) => _copyPosting(e.id),
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: 'copy',
-                            child: Text('再記一筆類似交易'),
-                          ),
-                        ],
-                      )
-                    : null,
-              ),
+              child: e.kind == PostingKind.transfer
+                  ? TransferSummary(
+                      entry: e,
+                      source: _accountName(e.accountId),
+                      destination: _accountName(e.destinationId),
+                      privacy: _privacy,
+                    )
+                  : FinancialSummary(
+                      title:
+                          '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
+                      subtitle:
+                          '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
+                      money: e.amount,
+                      privacy: _privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey('entry-money-${e.id.value}'),
+                      action:
+                          [
+                            PostingKind.income,
+                            PostingKind.expense,
+                          ].contains(e.kind)
+                          ? PopupMenuButton<String>(
+                              key: ValueKey('entry-actions-${e.id}'),
+                              tooltip: '交易操作',
+                              enabled: !_busy,
+                              onSelected: (_) => _copyPosting(e.id),
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(
+                                  value: 'copy',
+                                  child: Text('再記一筆類似交易'),
+                                ),
+                              ],
+                            )
+                          : null,
+                    ),
             ),
           if (_hasMore)
             TextButton(
@@ -1264,7 +1393,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除、轉帳與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除、跨幣轉帳與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -1296,7 +1425,11 @@ String _error(Object error) => switch (error) {
   PreviewCapacity() => '已達目前容量上限，請先處理本機草稿，再匯出備份。',
   MoneyException() => '金額格式、精度或大小不符。請輸入該幣別可接受的金額。',
   AccountException() => '帳戶或日期不符：日期不可早於帳戶起始日，名稱不能空白。',
-  LedgerException() => '請檢查帳戶與金額；收支必須是正數。',
+  PreviewTransferAccountInvalid() => '請選擇可用的轉出與轉入帳戶。',
+  LedgerException(code: LedgerError.sameAccount) => '轉出與轉入必須是不同帳戶。',
+  LedgerException(code: LedgerError.invalidAmount) =>
+    '收支或轉帳本金必須大於 0；手續費可為 0，但不能為負數。',
+  LedgerException() => '請檢查帳戶、金額與幣別；同幣轉帳的兩個帳戶必須同幣。',
   BackupException() => '密碼／救援文字不符、檔案損壞，或設定密碼不足 12 個字元。',
   FormatException() => '請確認日期為 YYYY-MM-DD，兩次設定密碼相同。',
   PreviewInvalid() => '設定或備份不符合試用版支援範圍。原資料已保留。',

@@ -40,6 +40,8 @@ final class PreviewBusy implements Exception {}
 
 final class PreviewInvalid implements Exception {}
 
+final class PreviewTransferAccountInvalid implements Exception {}
+
 final class PreviewUpgradeRequired implements Exception {}
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -51,11 +53,11 @@ final class PreviewEngine {
     this.directory,
     this.vault,
     this.factory, {
-    this.schemaVersion = 7,
+    this.schemaVersion = 8,
     this.upgradeCheckpoint,
     this.draftCheckpoint,
   }) {
-    if (![3, 4, 5, 6, 7].contains(schemaVersion)) {
+    if (![3, 4, 5, 6, 7, 8].contains(schemaVersion)) {
       throw ArgumentError('Unknown schema');
     }
   }
@@ -547,6 +549,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       categoryReferences: schemaVersion >= 5,
       tagsAware: schemaVersion >= 6,
       merchantsAware: schemaVersion >= 7,
+      transfersAware: schemaVersion >= 8,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

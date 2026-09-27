@@ -42,6 +42,7 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
+    if (fields.transfer && schemaVersion < 8) throw PreviewInvalid();
     final prior = await store.read();
     _check(epoch);
     if (prior?.submission != null) throw DraftNeedsResolution();
@@ -75,11 +76,13 @@ extension PreviewDrafts on PreviewEngine {
     if (draft == null) throw PreviewInvalid();
     if (draft.submission == null) {
       final fields = draft.fields;
-      final account = (await session.accounts(workspace))
+      final accounts = await session.accounts(workspace);
+      final account = accounts
           .where((a) => a.account.id == fields.accountId)
           .firstOrNull
           ?.account;
       if (account == null || account.state != AccountState.active) {
+        if (fields.transfer) throw PreviewTransferAccountInvalid();
         throw PreviewInvalid();
       }
       final amount = Money.parse(account.currency, fields.amount);
@@ -120,23 +123,53 @@ extension PreviewDrafts on PreviewEngine {
         merchant = MerchantSelection(item.id, item.version);
       }
       final factory = fields.income ? Posting.income : Posting.expense;
-      final command = EntrySubmission(
-        factory(
-          id: draft.id,
-          operation: draft.operation,
-          date: BusinessDate.parse(fields.date),
-          account: PostingAccount(
-            id: account.id,
-            workspace: workspace,
-            currency: account.currency,
-            expectedVersion: account.version,
+      EntrySubmission transfer() {
+        if (schemaVersion < 8) throw PreviewInvalid();
+        final destination = accounts
+            .where((a) => a.account.id == fields.destinationId)
+            .firstOrNull
+            ?.account;
+        if (destination == null || destination.state != AccountState.active) {
+          throw PreviewTransferAccountInvalid();
+        }
+        PostingAccount ref(Account a) => PostingAccount(
+          id: a.id,
+          workspace: workspace,
+          currency: a.currency,
+          expectedVersion: a.version,
+        );
+        return EntrySubmission(
+          Posting.transfer(
+            id: draft!.id,
+            operation: draft.operation,
+            date: BusinessDate.parse(fields.date),
+            source: ref(account),
+            destination: ref(destination),
+            principal: amount,
+            fee: Money.parse(account.currency, fields.fee),
           ),
-          amount: amount,
-          allocations: allocations,
-        ),
-        tags: tags,
-        merchant: merchant,
-      );
+        );
+      }
+
+      final command = fields.transfer
+          ? transfer()
+          : EntrySubmission(
+              factory(
+                id: draft.id,
+                operation: draft.operation,
+                date: BusinessDate.parse(fields.date),
+                account: PostingAccount(
+                  id: account.id,
+                  workspace: workspace,
+                  currency: account.currency,
+                  expectedVersion: account.version,
+                ),
+                amount: amount,
+                allocations: allocations,
+              ),
+              tags: tags,
+              merchant: merchant,
+            );
       _check(epoch);
       draft = draft.prepare(command);
       await store.write(draft);

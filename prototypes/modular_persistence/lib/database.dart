@@ -20,11 +20,18 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool categoryAware = false,
     bool categoryReferences = false,
     bool tagsAware = false,
-    this.merchantsAware = false,
-  }) : tagsAware = tagsAware || merchantsAware,
-       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+    bool merchantsAware = false,
+    this.transfersAware = false,
+  }) : merchantsAware = merchantsAware || transfersAware,
+       tagsAware = tagsAware || merchantsAware || transfersAware,
+       categoryReferences =
+           categoryReferences || tagsAware || merchantsAware || transfersAware,
        categoryAware =
-           categoryAware || categoryReferences || tagsAware || merchantsAware,
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -35,11 +42,18 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool categoryAware = false,
     bool categoryReferences = false,
     bool tagsAware = false,
-    this.merchantsAware = false,
-  }) : tagsAware = tagsAware || merchantsAware,
-       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+    bool merchantsAware = false,
+    this.transfersAware = false,
+  }) : merchantsAware = merchantsAware || transfersAware,
+       tagsAware = tagsAware || merchantsAware || transfersAware,
+       categoryReferences =
+           categoryReferences || tagsAware || merchantsAware || transfersAware,
        categoryAware =
-           categoryAware || categoryReferences || tagsAware || merchantsAware,
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware,
        super(executor) {
     _configuration();
   }
@@ -47,6 +61,7 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool categoryReferences;
   final bool tagsAware;
   final bool merchantsAware;
+  final bool transfersAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -56,7 +71,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => merchantsAware
+  int get schemaVersion => transfersAware
+      ? 8
+      : merchantsAware
       ? 7
       : tagsAware
       ? 6

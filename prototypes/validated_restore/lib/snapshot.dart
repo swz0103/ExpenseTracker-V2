@@ -76,22 +76,31 @@ final class SnapshotCodec {
     bool categoryAware = false,
     bool categoryReferences = false,
     bool tagsAware = false,
-    this.merchantsAware = false,
-  }) : tagsAware = tagsAware || merchantsAware,
-       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+    bool merchantsAware = false,
+    this.transfersAware = false,
+  }) : merchantsAware = merchantsAware || transfersAware,
+       tagsAware = tagsAware || merchantsAware || transfersAware,
+       categoryReferences =
+           categoryReferences || tagsAware || merchantsAware || transfersAware,
        categoryAware =
-           categoryAware || categoryReferences || tagsAware || merchantsAware,
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware,
        generationAware =
            generationAware ||
            categoryAware ||
            categoryReferences ||
            tagsAware ||
-           merchantsAware;
+           merchantsAware ||
+           transfersAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
   final bool tagsAware;
   final bool merchantsAware;
+  final bool transfersAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (categoryAware) ...categoryColumns,
@@ -105,14 +114,18 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => merchantsAware
+  int get _formatVersion => transfersAware
+      ? 7
+      : merchantsAware
       ? 6
       : tagsAware
       ? 5
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => merchantsAware
+  int get _schemaVersion => transfersAware
+      ? 8
+      : merchantsAware
       ? 7
       : tagsAware
       ? 6
@@ -128,6 +141,7 @@ final class SnapshotCodec {
     if (tagsAware) 'ledger_tags': 1,
     if (merchantsAware) 'merchants': 1,
     if (merchantsAware) 'ledger_merchants': 1,
+    if (transfersAware) 'session_transfers': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -256,7 +270,8 @@ final class SnapshotCodec {
                   root['version'] == 4 &&
                   root['schema'] == 5) ||
               (tagsAware && root['version'] == 5 && root['schema'] == 6) ||
-              (merchantsAware && root['version'] == 6 && root['schema'] == 7)))
+              (merchantsAware && root['version'] == 6 && root['schema'] == 7) ||
+              (transfersAware && root['version'] == 7 && root['schema'] == 8)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -266,8 +281,9 @@ final class SnapshotCodec {
         if (root['version'] >= 3) 'categories': 1,
         if (root['version'] >= 5) 'tags': 1,
         if (root['version'] >= 5) 'ledger_tags': 1,
-        if (root['version'] == 6) 'merchants': 1,
-        if (root['version'] == 6) 'ledger_merchants': 1,
+        if (root['version'] >= 6) 'merchants': 1,
+        if (root['version'] >= 6) 'ledger_merchants': 1,
+        if (root['version'] == 7) 'session_transfers': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -278,8 +294,8 @@ final class SnapshotCodec {
         ..._financialColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
-        if (root['version'] == 6) ...merchantColumns,
-        if (root['version'] == 6) 'event_merchants': merchantReferenceColumns,
+        if (root['version'] >= 6) ...merchantColumns,
+        if (root['version'] >= 6) 'event_merchants': merchantReferenceColumns,
         if (root['version'] >= 5) 'event_tags': tagReferenceColumns,
         if (root['version'] >= 4) 'allocations': allocationReferenceColumns,
       };
@@ -332,7 +348,8 @@ final class SnapshotCodec {
         categoryAware != db.categoryAware ||
         categoryReferences != db.categoryReferences ||
         tagsAware != db.tagsAware ||
-        merchantsAware != db.merchantsAware)
+        merchantsAware != db.merchantsAware ||
+        transfersAware != db.transfersAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};

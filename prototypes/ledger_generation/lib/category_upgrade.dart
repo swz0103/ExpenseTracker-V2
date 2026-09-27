@@ -5,7 +5,8 @@ enum _LedgerUpgrade {
   categories(3, 4, 'ledger-3-to-4-v1'),
   references(4, 5, 'ledger-4-to-5-v1'),
   tags(5, 6, 'ledger-5-to-6-v1'),
-  merchants(6, 7, 'ledger-6-to-7-v1');
+  merchants(6, 7, 'ledger-6-to-7-v1'),
+  transfers(7, 8, 'ledger-7-to-8-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -14,7 +15,8 @@ enum _LedgerUpgrade {
     categoryAware: true,
     categoryReferences: to >= 5,
     tagsAware: to >= 6,
-    merchantsAware: this == merchants,
+    merchantsAware: to >= 7,
+    transfersAware: to >= 8,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -25,6 +27,7 @@ enum _LedgerUpgrade {
       categoryAware: from >= 4,
       categoryReferences: from >= 5,
       tagsAware: from >= 6,
+      merchantsAware: from >= 7,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -32,7 +35,8 @@ enum _LedgerUpgrade {
     if (!store.categoryAware ||
         store.categoryReferences != (to >= 5) ||
         store.tagsAware != (to >= 6) ||
-        store.merchantsAware != (this == merchants)) {
+        store.merchantsAware != (to >= 7) ||
+        store.transfersAware != (to >= 8)) {
       throw const InvalidSnapshot();
     }
   }
@@ -88,6 +92,19 @@ Future<UpgradeRequest> planMerchantUpgrade(
   operation,
   backupId,
   _LedgerUpgrade.merchants,
+  cancellation: cancellation,
+);
+
+Future<UpgradeRequest> planTransferUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.transfers,
   cancellation: cancellation,
 );
 
@@ -188,6 +205,25 @@ Future<UpgradeReceipt> upgradeMerchants(
   request,
   backupDirectory,
   _LedgerUpgrade.merchants,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeReceipt> upgradeTransfers(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.transfers,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

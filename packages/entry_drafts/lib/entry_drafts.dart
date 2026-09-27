@@ -12,29 +12,55 @@ final class EntryFields {
     this.accountId,
     this.categoryId,
     this.merchantId,
+    this.transfer = false,
+    this.destinationId,
+    this.fee = '0',
     Iterable<PublicId> tags = const [],
   }) : tags = List.unmodifiable(tags) {
-    if (amount.length > 128 ||
+    if ((transfer &&
+            (income ||
+                categoryId != null ||
+                merchantId != null ||
+                this.tags.isNotEmpty)) ||
+        (!transfer && (destinationId != null || fee != '0')) ||
+        fee.length > 128 ||
+        amount.length > 128 ||
         date.length > 32 ||
         this.tags.length > 16 ||
         this.tags.toSet().length != this.tags.length) {
       throw const FormatException('Invalid draft fields');
     }
   }
-  final bool income;
+  final bool income, transfer;
+  final PublicId? destinationId;
+  final String fee;
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => [
-    income,
-    amount,
-    date,
-    accountId?.value,
-    categoryId?.value,
-    merchantId?.value,
-    [for (final t in tags) t.value],
-  ];
-  factory EntryFields.fromJson(Object? value) {
+  List<Object?> toJson() => transfer
+      ? [amount, date, accountId?.value, destinationId?.value, fee]
+      : [
+          income,
+          amount,
+          date,
+          accountId?.value,
+          categoryId?.value,
+          merchantId?.value,
+          [for (final t in tags) t.value],
+        ];
+  factory EntryFields.fromJson(Object? value, {bool transfer = false}) {
+    if (transfer) {
+      final v = _list(value, 5);
+      return EntryFields(
+        income: false,
+        transfer: true,
+        amount: v[0] as String,
+        date: v[1] as String,
+        accountId: _id(v[2]),
+        destinationId: _id(v[3]),
+        fee: v[4] as String,
+      );
+    }
     final v = _list(value, 7);
     return EntryFields(
       income: v[0] as bool,
@@ -55,9 +81,13 @@ final class EntrySubmission {
     Iterable<TagSelection> tags = const [],
     this.merchant,
   }) : tags = canonicalTags(tags) {
-    if (![PostingKind.income, PostingKind.expense].contains(posting.kind) ||
-        posting.legs.length != 1 ||
-        posting.allocations.length > 1) {
+    if (posting.kind == PostingKind.transfer
+        ? (this.tags.isNotEmpty ||
+              merchant != null ||
+              posting.allocations.isNotEmpty)
+        : (![PostingKind.income, PostingKind.expense].contains(posting.kind) ||
+              posting.legs.length != 1 ||
+              posting.allocations.length > 1)) {
       throw const FormatException('Unsupported draft submission');
     }
     if (posting.allocations.any((a) => a.expectedCategoryVersion == null)) {
@@ -68,6 +98,22 @@ final class EntrySubmission {
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
   List<Object?> toJson() {
+    if (posting.kind == PostingKind.transfer) {
+      List<Object> account(PostingAccount a) => [
+        a.id.value,
+        a.currency.code,
+        a.currency.scale,
+        a.expectedVersion,
+      ];
+      return [
+        'transfer',
+        posting.date.toString(),
+        account(posting.legs[0].account),
+        account(posting.legs[1].account),
+        posting.legs[1].amount.minorUnits.toString(),
+        posting.reportExpense.minorUnits.toString(),
+      ];
+    }
     final a = posting.legs.single.account;
     return [
       posting.kind.name,
@@ -92,8 +138,35 @@ final class EntrySubmission {
   factory EntrySubmission.fromJson(
     Object? value,
     PublicId event,
-    OperationKey operation,
-  ) {
+    OperationKey operation, {
+    bool transfer = false,
+  }) {
+    if (transfer) {
+      final v = _list(value, 6);
+      if (v[0] != 'transfer') throw const FormatException();
+      PostingAccount account(Object? data) {
+        final a = _list(data, 4);
+        return PostingAccount(
+          id: PublicId.parse(a[0] as String),
+          workspace: operation.workspace,
+          currency: Currency(a[1] as String, a[2] as int),
+          expectedVersion: a[3] as int,
+        );
+      }
+
+      final source = account(v[2]), destination = account(v[3]);
+      return EntrySubmission(
+        Posting.transfer(
+          id: event,
+          operation: operation,
+          date: BusinessDate.parse(v[1] as String),
+          source: source,
+          destination: destination,
+          principal: Money(source.currency, BigInt.parse(v[4] as String)),
+          fee: Money(source.currency, BigInt.parse(v[5] as String)),
+        ),
+      );
+    }
     final v = _list(value, 7);
     final a = _list(v[2], 4);
     final currency = Currency(a[1] as String, a[2] as int);
@@ -143,7 +216,9 @@ final class EntryDraft {
     this.submission,
   }) {
     if (submission != null &&
-        (submission!.posting.id != id ||
+        (fields.transfer !=
+                (submission!.posting.kind == PostingKind.transfer) ||
+            submission!.posting.id != id ||
             submission!.posting.operation.workspace != operation.workspace ||
             submission!.posting.operation.operation != operation.operation)) {
       throw const FormatException('Submission identity mismatch');
@@ -166,7 +241,7 @@ final class EntryDraft {
     submission: command,
   );
   String encode() => jsonEncode([
-    'manual-entry-v1',
+    fields.transfer ? 'manual-transfer-v1' : 'manual-entry-v1',
     id.value,
     operation.workspace.toString(),
     operation.operation.toString(),
@@ -177,7 +252,7 @@ final class EntryDraft {
     if (utf8.encode(text).length > 16384)
       throw const FormatException('Draft too large');
     final v = _list(jsonDecode(text), 6);
-    if (v[0] != 'manual-entry-v1')
+    if (v[0] != 'manual-entry-v1' && v[0] != 'manual-transfer-v1')
       throw const FormatException('Unknown draft version');
     final id = PublicId.parse(v[1] as String);
     final op = OperationKey(
@@ -187,8 +262,18 @@ final class EntryDraft {
     return EntryDraft(
       id: id,
       operation: op,
-      fields: EntryFields.fromJson(v[4]),
-      submission: v[5] == null ? null : EntrySubmission.fromJson(v[5], id, op),
+      fields: EntryFields.fromJson(
+        v[4],
+        transfer: v[0] == 'manual-transfer-v1',
+      ),
+      submission: v[5] == null
+          ? null
+          : EntrySubmission.fromJson(
+              v[5],
+              id,
+              op,
+              transfer: v[0] == 'manual-transfer-v1',
+            ),
     );
   }
 }

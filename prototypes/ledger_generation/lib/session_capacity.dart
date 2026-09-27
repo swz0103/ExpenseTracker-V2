@@ -24,10 +24,11 @@ Map<String, int> _tableLimits(
   bool references,
   bool tags,
   bool merchants,
+  bool transfers,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
-  'legs': LedgerSession.maxEvents,
+  'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
   'receipts':
@@ -79,7 +80,9 @@ List<int> validateSessionCapacity(
   bool categoryReferences = false,
   bool tagsAware = false,
   bool merchantsAware = false,
+  bool transfersAware = false,
 }) {
+  merchantsAware = merchantsAware || transfersAware;
   tagsAware = tagsAware || merchantsAware;
   categoryReferences = categoryReferences || tagsAware;
   categoryAware = categoryAware || categoryReferences;
@@ -89,6 +92,7 @@ List<int> validateSessionCapacity(
     categoryReferences: categoryReferences,
     tagsAware: tagsAware,
     merchantsAware: merchantsAware,
+    transfersAware: transfersAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -97,6 +101,7 @@ List<int> validateSessionCapacity(
     categoryReferences,
     tagsAware,
     merchantsAware,
+    transfersAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -115,9 +120,14 @@ List<int> validateSessionCapacity(
       (tagsAware ? (tables['tag_changes'] as List).length : 0) +
       (merchantsAware ? (tables['merchant_changes'] as List).length : 0);
   if (events.any(
-        (row) => !['opening', 'income', 'expense'].contains(row['kind']),
+        (row) => ![
+          'opening',
+          'income',
+          'expense',
+          if (transfersAware) 'transfer',
+        ].contains(row['kind']),
       ) ||
-      (tables['legs'] as List).length != events.length ||
+      (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||
       receipts.length != events.length + changes ||
       (tables['audit'] as List).length != receipts.length ||
       receipts.where((row) => _accountReceipt(row as Map)).length >
@@ -125,6 +135,21 @@ List<int> validateSessionCapacity(
     throw PreviewCapacity();
   }
   return canonical;
+}
+
+bool _validLegCounts(List events, List legs, bool transfers) {
+  final counts = <(String, String), int>{};
+  for (final row in legs) {
+    final key = (row['workspace'] as String, row['event_id'] as String);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  if (counts.length != events.length) return false;
+  return events.every((row) {
+    final count = counts[(row['workspace'] as String, row['id'] as String)];
+    return transfers && row['kind'] == 'transfer'
+        ? count == 2 || count == 3
+        : count == 1;
+  });
 }
 
 // One conservative comma for every row, including each table's first row.

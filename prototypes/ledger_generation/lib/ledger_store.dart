@@ -16,7 +16,6 @@ import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';
 import 'package:modular_persistence_probe/tags_adapter.dart';
 import 'package:modular_persistence_probe/merchants_adapter.dart';
-import 'package:modular_persistence_probe/tagged_posting.dart';
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:modular_persistence_probe/workflows.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -47,22 +46,31 @@ final class LedgerPayload implements GenerationPayload {
     bool categoryAware = false,
     bool categoryReferences = false,
     bool tagsAware = false,
-    this.merchantsAware = false,
-  }) : tagsAware = tagsAware || merchantsAware,
-       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+    bool merchantsAware = false,
+    this.transfersAware = false,
+  }) : merchantsAware = merchantsAware || transfersAware,
+       tagsAware = tagsAware || merchantsAware || transfersAware,
+       categoryReferences =
+           categoryReferences || tagsAware || merchantsAware || transfersAware,
        categoryAware =
-           categoryAware || categoryReferences || tagsAware || merchantsAware,
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware,
        codec = SnapshotCodec(
          generationAware: true,
          categoryAware: categoryAware,
          categoryReferences: categoryReferences,
          tagsAware: tagsAware,
          merchantsAware: merchantsAware,
+         transfersAware: transfersAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
   final bool tagsAware;
   final bool merchantsAware;
+  final bool transfersAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -88,6 +96,7 @@ final class LedgerPayload implements GenerationPayload {
       categoryReferences: categoryReferences,
       tagsAware: tagsAware,
       merchantsAware: merchantsAware,
+      transfersAware: transfersAware,
     ),
   );
 
@@ -107,7 +116,8 @@ final class LedgerPayload implements GenerationPayload {
               (categoryAware && version == 4) ||
               (categoryReferences && version == 5) ||
               (tagsAware && version == 6) ||
-              (merchantsAware && version == 7)) ||
+              (merchantsAware && version == 7) ||
+              (transfersAware && version == 8)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -124,7 +134,8 @@ final class LedgerPayload implements GenerationPayload {
       categoryAware: version == 4,
       categoryReferences: version >= 5,
       tagsAware: version >= 6,
-      merchantsAware: version == 7,
+      merchantsAware: version >= 7,
+      transfersAware: version == 8,
     );
     final db = openEncrypted(
       file,
@@ -133,7 +144,8 @@ final class LedgerPayload implements GenerationPayload {
       categoryAware: version == 4,
       categoryReferences: version >= 5,
       tagsAware: version >= 6,
-      merchantsAware: version == 7,
+      merchantsAware: version >= 7,
+      transfersAware: version == 8,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -155,12 +167,19 @@ final class LedgerStore {
     bool categoryAware = false,
     bool categoryReferences = false,
     bool tagsAware = false,
-    this.merchantsAware = false,
+    bool merchantsAware = false,
+    this.transfersAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
-  }) : tagsAware = tagsAware || merchantsAware,
-       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+  }) : merchantsAware = merchantsAware || transfersAware,
+       tagsAware = tagsAware || merchantsAware || transfersAware,
+       categoryReferences =
+           categoryReferences || tagsAware || merchantsAware || transfersAware,
        categoryAware =
-           categoryAware || categoryReferences || tagsAware || merchantsAware,
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware,
        generations = GenerationStore(
          directory,
          keys,
@@ -169,9 +188,14 @@ final class LedgerStore {
            categoryReferences: categoryReferences,
            tagsAware: tagsAware,
            merchantsAware: merchantsAware,
+           transfersAware: transfersAware,
          ),
          upgradeAware:
-             categoryAware || categoryReferences || tagsAware || merchantsAware,
+             categoryAware ||
+             categoryReferences ||
+             tagsAware ||
+             merchantsAware ||
+             transfersAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -180,6 +204,7 @@ final class LedgerStore {
   final bool categoryReferences;
   final bool tagsAware;
   final bool merchantsAware;
+  final bool transfersAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -190,6 +215,7 @@ final class LedgerStore {
             categoryReferences: categoryReferences,
             tagsAware: tagsAware,
             merchantsAware: merchantsAware,
+            transfersAware: transfersAware,
           ).empty(),
         ),
         operation,
@@ -211,6 +237,7 @@ final class LedgerStore {
         categoryReferences: categoryReferences,
         tagsAware: tagsAware,
         merchantsAware: merchantsAware,
+        transfersAware: transfersAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -277,6 +304,7 @@ final class LedgerStore {
       categoryReferences: categoryReferences,
       tagsAware: tagsAware,
       merchantsAware: merchantsAware,
+      transfersAware: transfersAware,
     );
     try {
       return await work(db);

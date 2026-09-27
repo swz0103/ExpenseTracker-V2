@@ -1,0 +1,18 @@
+{
+  "startedUtc": "2026-09-27T16:32:23.351599Z",
+  "status": "passed",
+  "events": 5000,
+  "transfers": 4997,
+  "replayed": 4998,
+  "snapshotBytes": 8331009,
+  "rows": 28748,
+  "sourceMinor": "10203",
+  "destinationMinor": "3003",
+  "feeMinor": "7494",
+  "schema7Upgrade": true,
+  "originalKeysDeleted": true,
+  "passwordCleanRestore": true,
+  "recoveryCleanRestore": true,
+  "paginatedEntriesPerRestore": 5000,
+  "elapsedMs": 307431
+}

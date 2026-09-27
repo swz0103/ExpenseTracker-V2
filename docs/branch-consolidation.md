@@ -60,3 +60,6 @@ feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156
 `fix/lock-transient-routes` 依賴 [PR #51](https://github.com/swz0103/ExpenseTracker-V2/pull/51)（`fe1f96df808a2de9622541181235c299c12fc230`），完成背景鎖定的浮層取消與草稿確認 epoch 保護。21 項相關本機案例、架構掃描及 0.7.1 封裝通過；完整加密／升級及五千筆證據沿用父提交。雲端維持未執行，保留所有依賴分支與原 PR，不合併 main。
 
 `feat/business-date-input` 依賴 [PR #52](https://github.com/swz0103/ExpenseTracker-V2/pull/52)（`448e4093c138eafbd373330a1ea287e7ae8774ff`），完成[共用日期與繁體中文月曆](business-date-input.md)、草稿與背景鎖定接入，以及失敗後可見提示。131 個獨立本機案例及 0.8.0+12 封裝驗證完成，詳細執行分段見證據。沒有啟用雲端或操作手機，待雲端 gate 的分支仍保留，不合併 main；下一完整流程接同幣轉帳與多 leg 明細。
+
+
+`feat/same-currency-transfers` 依賴 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53)（`b541b54cc4f3ee2b127f8e7b924f3d06bcb0139f`），以一個完整流程交付[同幣轉帳、來源費用、草稿、明細及安全升級](same-currency-transfers.md)。18 套件／723 項全量與最後提示修正 13 項、5,000 事件雙路還原、4 處草稿程序退出及 0.9.0+13 封裝核對通過；11 處升級退出已含在全量內。[證據](test-results/same-currency-transfers-host-2026-09-28.json)區分實際版本與最後局部回歸。雲端仍未執行，舊 PR／分支依賴保留，不繞過 gate 收斂或合併 main。下一功能由此 head 接 M1-03 跨幣實際金額／FX context。

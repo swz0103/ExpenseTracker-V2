@@ -11,12 +11,24 @@ final class AccountSummary {
 }
 
 final class LedgerEntry {
-  const LedgerEntry(this.id, this.date, this.kind, this.accountId, this.amount);
+  const LedgerEntry(
+    this.id,
+    this.date,
+    this.kind,
+    this.accountId,
+    this.amount, {
+    this.destinationId,
+    this.fee,
+  });
   final PublicId id;
   final BusinessDate date;
   final PostingKind kind;
   final PublicId accountId;
   final Money amount;
+
+  /// Transfer amount is the signed source principal; fee is separate.
+  final PublicId? destinationId;
+  final Money? fee;
 }
 
 /// Exclusive, bounded command scope. No public SQL or database handle.
@@ -85,11 +97,13 @@ final class LedgerSession {
         categoryReferences: _db.categoryReferences,
         tagsAware: _db.tagsAware,
         merchantsAware: _db.merchantsAware,
+        transfersAware: _db.transfersAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
       merchantsAware: _db.merchantsAware,
+      transfersAware: _db.transfersAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -127,8 +141,13 @@ final class LedgerSession {
     return _enqueue(
       () => _write(() async {
         if (posting.kind != PostingKind.income &&
-            posting.kind != PostingKind.expense) {
-          throw UnsupportedError('Preview accepts income and expense only');
+            posting.kind != PostingKind.expense &&
+            !(_db.transfersAware && posting.kind == PostingKind.transfer)) {
+          throw UnsupportedError('Unsupported session posting');
+        }
+        if (posting.kind == PostingKind.transfer &&
+            (selections.isNotEmpty || merchant != null)) {
+          throw UnsupportedError('Transfer metadata is not yet supported');
         }
         await _capacity(posting);
         final result = await FinancialWorkflows(
@@ -189,8 +208,9 @@ final class LedgerSession {
       _enqueue(() async {
         final row = await _db
             .customSelect(
-              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale '
+              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,e.expense AS fee '
               'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
+              'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
               'WHERE e.workspace=? AND e.id=?',
               variables: [
                 Variable.withString(workspace.toString()),
@@ -210,8 +230,9 @@ final class LedgerSession {
     if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
     final rows = await _db
         .customSelect(
-          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale '
+          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,e.expense AS fee '
           'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
+          'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
           'WHERE e.workspace=? ${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
           'ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
           variables: [
@@ -235,6 +256,7 @@ final class LedgerSession {
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
       merchantsAware: _db.merchantsAware,
+      transfersAware: _db.transfersAware,
     ).capture(_db),
   );
 
@@ -263,4 +285,13 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
     Currency(r.read<String>('currency'), r.read<int>('scale')),
     BigInt.from(r.read<int>('amount')),
   ),
+  destinationId: r.readNullable<String>('destination_id') == null
+      ? null
+      : PublicId.parse(r.read<String>('destination_id')),
+  fee: r.read<String>('kind') == 'transfer'
+      ? Money(
+          Currency(r.read<String>('currency'), r.read<int>('scale')),
+          BigInt.from(r.read<int>('fee')),
+        )
+      : null,
 );

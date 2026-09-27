@@ -1,5 +1,21 @@
 # 逐項實作進度
 
+## 2026-09-28 接續：同幣轉帳、來源手續費與雙帳戶明細
+
+`feat/same-currency-transfers` 從已上傳的 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53)（`b541b54cc4f3ee2b127f8e7b924f3d06bcb0139f`）接續，完成[同幣轉帳流程](same-currency-transfers.md)：原子保存雙方本金與來源費用、可重啟草稿、凍結送出／重試、列表呈現兩帳戶與費用，並沿用日期、計算器、隱私及背景鎖定。
+
+回查修正原先只接受一個 leg 的容量與列表假設；每頁單一查詢讀出目的帳戶，沒有新增逐筆查詢。schema 8／snapshot 7 宣告新的 reader 能力，讓舊 App 拒讀；明確 schema 7 → 8 路線先驗證雙憑證備份再發布，保留來源 DB／key，舊草稿先處理再升級。未選目的帳戶或費用不合法時，訊息清楚指出限制且保留草稿。
+
+完整 **18 套件／723 個獨立本機案例**全數通過，新增 26 項；包含 11 處真正升級程序退出。全量後修改提示，再跑相關 **13 項**通過；[主機證據](test-results/same-currency-transfers-host-2026-09-28.json)明列 257 檔受測指紋與四個後續修改檔案，不將重跑重複計數，也不冒稱最後 UI 文案再次跑完所有套件。初期測試 fixture／SemanticsHandle 清理問題已修正並保留紀錄。
+
+額外[5,000 事件](test-results/same-currency-transfers-scale-2026-09-28.json)包含 4,997 同幣轉帳、4,998 次重送，snapshot 8,331,009 bytes／28,748 rows；滿額拒絕不改資料。來源／目的餘額 10,203／3,003、費用 7,494 最小單位與獨立計算相符。刪除來源 DB 與全部原 key 後，密碼及救援分別還原、重開、逐頁讀回完整 5,000 筆並比對全部 snapshot；另[4 處草稿真正程序退出](test-results/same-currency-transfers-process-2026-09-28.json)通過。
+
+[0.9.0+13 ARM64 開發包](installable-preview.md)已建置並核對 App 身份、簽章與備份禁用；只留在本機，不安裝、不發版。此批以依賴 #53 的獨立功能 PR 交付；兩個 workflow 保持停用，本批雲端未執行。main 與需雲端 gate 的舊分支維持原狀，不擅自合併或收斂。
+
+**下一項**：由此分支接 M1-03 跨幣轉帳：保存兩邊實際原幣本金、來源費用與可追溯轉換 context；優先實際成交數字，明確區分推算比率與外部報價。基礎 FxRate 已存在，但 Posting／收據／snapshot／草稿／列表目前仍限制同幣，必須一起延伸並完成對應升級和還原，不直接解開 Currency 驗證。M1-03 其餘部分及 M1-04 之後、M2、M3 CORE 尚未完成；目前沒有需使用者先處理的主機開發阻礙。
+
+
+
 ## 2026-09-27 接續：共用日期、繁體中文月曆與可見錯誤
 
 [PR #52：背景鎖定](https://github.com/swz0103/ExpenseTracker-V2/pull/52) 已完整上傳，SHA `448e4093c138eafbd373330a1ea287e7ae8774ff`。本批 `feat/business-date-input` 從此版本接續；[共用日期輸入](business-date-input.md)已接入起始日期與日常收支，保留手動文字及加密草稿，確認月曆才套用。日期運算不經時區轉換，閏日與 0001～9999 年保留；鎖定後的月曆與排隊結果取消。共用日期／計算器及 App 名稱接入繁體中文 ARB，尚非全 App 語系化。

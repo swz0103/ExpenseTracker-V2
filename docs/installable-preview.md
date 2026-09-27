@@ -1,8 +1,19 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.9.0 同幣轉帳與來源手續費
+
+**2026-09-28 最新開發包**：0.9.0+13 加入[同幣轉帳](same-currency-transfers.md)、獨立來源費用、可恢復送出、雙帳戶明細及 schema 7 → 8 安全升級。仍是 V2 內部格式，沒有舊 App 匯入。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.9.0-arm64.apk`，94,543,471 bytes。
+- SHA-256：`152ad57b725a73b437003478417aae22b4f1da246ce66b45bdbdcf27ec1498c4`。
+- App ID `dev.expensetracker.preview`、versionCode 13／versionName 0.9.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false`、ARM64 Flutter／SQLCipher 核心均核對通過。
+- [完整 18 套件／723 項及最後提示修正回歸](test-results/same-currency-transfers-host-2026-09-28.json)、[5,000 事件雙路乾淨還原](test-results/same-currency-transfers-scale-2026-09-28.json)、[4 處實際草稿程序中止](test-results/same-currency-transfers-process-2026-09-28.json)通過。11 處升級程序中止已包含在主機套件內。
+- 只有本機 debug 封裝，未操作手機、未正式發布、未上傳 APK 或簽章金鑰。雲端未執行；其餘 CORE 與實機安全 gate 持續保留。
+
+
 ## 0.8.0 共用日期與繁體中文月曆
 
-**2026-09-27 最新開發包**：0.8.0+12 加入[共用日期輸入](business-date-input.md)、日期／計算器語系資源及失敗後可見提示。資料格式與金鑰命名空間保持既有 V2 規則。
+**2026-09-27 歷史開發包**：0.8.0+12 加入[共用日期輸入](business-date-input.md)、日期／計算器語系資源及失敗後可見提示。資料格式與金鑰命名空間保持既有 V2 規則。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.8.0-arm64.apk`，94,525,527 bytes。
 - SHA-256：`6a2ed71b92711ab22d08c971247c8fcf3f44e2b6c13dacc92ad8c4fbd409ca3c`。

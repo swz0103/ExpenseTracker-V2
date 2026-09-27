@@ -17,6 +17,7 @@ Future<void> main(List<String> args) async {
             'references',
             'tags',
             'merchants',
+            'transfers',
           ].contains(args[8])))
     exit(64);
   try {
@@ -31,11 +32,14 @@ Future<void> main(List<String> args) async {
       categoryReferences: args.length == 9 && args[8] == 'references',
       tagsAware: args.length == 9 && args[8] == 'tags',
       merchantsAware: args.length == 9 && args[8] == 'merchants',
+      transfersAware: args.length == 9 && args[8] == 'transfers',
     );
     if (args[5] == 'upgrade') {
       final request = UpgradeRequest.decode(File(args[2]).readAsStringSync());
       final credentials = jsonDecode(File(args[3]).readAsStringSync()) as Map;
-      await (store.merchantsAware
+      await (store.transfersAware
+          ? upgradeTransfers
+          : store.merchantsAware
           ? upgradeMerchants
           : store.tagsAware
           ? upgradeTags
