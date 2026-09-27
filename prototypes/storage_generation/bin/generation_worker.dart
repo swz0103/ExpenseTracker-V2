@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:foundation_values/foundation_values.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
@@ -6,7 +9,9 @@ import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 5 && !(args.length == 6 && args[5] == 'protected'))
+  if (args.length != 5 &&
+      !(args.length == 6 &&
+          ['protected', 'protected-upgrades'].contains(args[5])))
     exit(64);
   final directory = Directory(args[1]);
   final protected = args.length == 6;
@@ -17,6 +22,7 @@ Future<void> main(List<String> args) async {
     directory,
     slots,
     catalogProtection: protected ? fixtureCatalogProtection(slots) : null,
+    upgradeAware: args.length == 6 && args[5] == 'protected-upgrades',
   );
   try {
     if (args[0] == 'hold') {
@@ -32,6 +38,20 @@ Future<void> main(List<String> args) async {
       } finally {
         await handle.close();
       }
+    } else if (args[0] == 'upgrade') {
+      final request = UpgradeRequest.decode(File(args[2]).readAsStringSync());
+      await store.upgrade(
+        request,
+        (source) async => PreparedUpgrade(
+          args[3],
+          sha256
+              .convert(utf8.encode('synthetic-backup:${source.value}'))
+              .toString(),
+        ),
+        checkpoint: (point) {
+          if (point == args[4]) exit(73);
+        },
+      );
     } else if (args[0] == 'install') {
       await store.install(
         args[3],

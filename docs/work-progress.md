@@ -51,6 +51,8 @@
 
 ## 尚未完成的 gate
 
+2026-09-27 接續：PR #37（`cd2a349`）的 368 項／14 個 CI 工作全部通過。新分支 `feat/storage-upgrade-receipts` 基於 #37，新增加密 catalog 3 的升級 intent／每次嘗試紀錄、來源目前內容摘要比對、同鎖準備與原子發布，復用既有發布程式；一般還原／升級 ID 不可混用，重試不得變更目標或備份摘要。23 項新案例包含十處獨立程序中止；連同儲存與 Ledger 共 149 項本機回歸通過，完整 CI 清單為 391 項，以本 PR checks 為準。[接口、版本與限制](storage-upgrade-receipts.md)明列此批為控制機制，Ledger 真實安全備份／schema 4 轉換尚未串接，App 未啟用升級。
+
 整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成。目前另交付具實際輸入流程的最小試用 App，其新平台流程仍待實機驗收；不可將此有限試用版視為完整日常版本或 gate 全部通過。
 
 詳細順序見[實作計畫](implementation-plan.md)，財務契約見[工程規格](foundation-contracts.md)，驗收案例見[案例清單](foundation-acceptance.md)。

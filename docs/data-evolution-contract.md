@@ -27,6 +27,8 @@ format 2 驗證來源 storage_identity，但不輸出來源世代／slot 列；�
 
 控制 catalog 的 schema 1 是明文 fixture，schema 2 是獨立 key 的加密模式；這兩個數字與財務 schema 1／2 毫無大小關係。目前沒有 catalog 明文→加密的自動升級，不能在正式接入時順便改寫。
 
+後續[升級控制紀錄](storage-upgrade-receipts.md)新增明確選用的加密 catalog 3，保存升級 intent 與每次目標／備份摘要。已知 catalog 2 僅在可信 adapter 準備完成後，於同一 transaction 升為 3 並保存第一次嘗試；普通開檔不自動改表。這是控制機制，尚未完成 Ledger 3→4 的財務備份／轉換接線，也不改 envelope 規格。
+
 這些均為原型資料協定，未標定為首個正式產品 schema。轉入正式版本時須留下明確的 fixture 匯入或拒絕路徑，不把 `user_version` 改號當成完成遷移。
 
 ## 3. 按業務主責保存與新增資料

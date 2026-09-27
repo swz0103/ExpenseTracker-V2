@@ -10,6 +10,8 @@ import 'key_slots.dart';
 import 'catalog_protection.dart';
 import 'lock_wait.dart';
 
+part 'upgrade.dart';
+
 enum GenerationProblem {
   busy,
   lockTimeout,
@@ -80,8 +82,11 @@ final class GenerationStore {
     this.keys, {
     this.payload,
     this.catalogProtection,
+    this.upgradeAware = false,
     this.lockTimeout = const Duration(seconds: 10),
   }) {
+    if (upgradeAware && catalogProtection == null)
+      throw ArgumentError('Upgrade records require protected catalog storage.');
     if (lockTimeout.isNegative)
       throw ArgumentError.value(lockTimeout, 'lockTimeout');
   }
@@ -89,6 +94,7 @@ final class GenerationStore {
   final KeySlots keys;
   final GenerationPayload? payload;
   final CatalogProtection? catalogProtection;
+  final bool upgradeAware;
   final Duration lockTimeout;
   static final _busy = <String>{};
 
@@ -112,6 +118,15 @@ final class GenerationStore {
     return _locked(
       (catalog) async {
         await _recover(catalog);
+        if (catalog.userVersion == 3 &&
+            catalog.select(
+              'SELECT operation FROM upgrade_intents WHERE operation=?',
+              [operation.toString()],
+            ).isNotEmpty) {
+          throw const GenerationUnavailable(
+            GenerationProblem.operationConflict,
+          );
+        }
         final fingerprint = _fingerprint(fixture);
         final earlier = catalog.select(
           'SELECT * FROM attempts WHERE operation=?',
@@ -151,39 +166,123 @@ final class GenerationStore {
           previous?.generation.value,
         ]);
         checkpoint?.call('reserved');
-        await keys.create(receipt.slot);
-        checkpoint?.call('keySaved');
-        await _createDatabase(receipt, fixture, checkpoint);
-        checkpoint?.call('staged');
-        final staged = await _inspect(
-          receipt,
-        ); // Reads the persisted key again and reopens the file.
-        if (_fingerprint(staged.value) != fingerprint)
-          throw StateError('Staged payload mismatch');
-        checkpoint?.call('validated');
-        catalog.execute('BEGIN IMMEDIATE');
-        try {
-          if (_active(catalog)?.generation != previous?.generation)
-            throw StateError('Active reference changed');
-          catalog.execute(
-            "UPDATE attempts SET status='committed' WHERE generation=? AND status='pending'",
-            [receipt.generation.value],
-          );
-          catalog.execute('UPDATE active SET generation=? WHERE singleton=1', [
-            receipt.generation.value,
-          ]);
-          checkpoint?.call('publishing');
-          catalog.execute('COMMIT'); // The only publication commit point.
-        } catch (_) {
-          if (!catalog.autocommit) catalog.execute('ROLLBACK');
-          rethrow;
-        }
-        checkpoint?.call('published');
-        await _inspect(_active(catalog)!);
-        return receipt;
+        return _publish(catalog, receipt, previous, fixture, checkpoint);
       },
       checkpoint: checkpoint,
       cancellation: cancellation,
+    );
+  }
+
+  /// Both restore and upgrade use the same staging and publication commit point.
+  Future<GenerationReceipt> _publish(
+    Database catalog,
+    GenerationReceipt receipt,
+    GenerationReceipt? previous,
+    String fixture,
+    void Function(String)? checkpoint,
+  ) async {
+    await keys.create(receipt.slot);
+    checkpoint?.call('keySaved');
+    await _createDatabase(receipt, fixture, checkpoint);
+    checkpoint?.call('staged');
+    final staged = await _inspect(
+      receipt,
+    ); // Reads the persisted key again and reopens the file.
+    if (_fingerprint(staged.value) != receipt.fingerprint)
+      throw StateError('Staged payload mismatch');
+    checkpoint?.call('validated');
+    catalog.execute('BEGIN IMMEDIATE');
+    try {
+      if (_active(catalog)?.generation != previous?.generation)
+        throw StateError('Active reference changed');
+      catalog.execute(
+        "UPDATE attempts SET status='committed' WHERE generation=? AND status='pending'",
+        [receipt.generation.value],
+      );
+      catalog.execute('UPDATE active SET generation=? WHERE singleton=1', [
+        receipt.generation.value,
+      ]);
+      checkpoint?.call('publishing');
+      catalog.execute('COMMIT'); // The only publication commit point.
+    } catch (_) {
+      if (!catalog.autocommit) catalog.execute('ROLLBACK');
+      rethrow;
+    }
+    checkpoint?.call('published');
+    await _inspect(_active(catalog)!);
+    return receipt;
+  }
+
+  /// The trusted payload adapter must durably save and verify its safety backup
+  /// in prepare, while this lease is held. No new catalog DDL precedes prepare.
+  Future<UpgradeReceipt> upgrade(
+    UpgradeRequest request,
+    Future<PreparedUpgrade> Function(InstalledFixture source) prepare, {
+    void Function(String)? checkpoint,
+    LockWaitCancellation? cancellation,
+  }) {
+    if (!upgradeAware) throw StateError('Upgrade support is not enabled.');
+    return _locked(
+      (catalog) async {
+        await _recover(catalog);
+        final recorded = _findUpgrade(catalog, request);
+        if (recorded != null) {
+          await _inspect(recorded.target);
+          return recorded; // Never reactivate an older published generation.
+        }
+        final previous = _active(catalog);
+        if (previous == null || previous.generation != request.sourceGeneration)
+          throw const GenerationUnavailable(
+            GenerationProblem.operationConflict,
+          );
+        final source = await _inspect(previous);
+        if (_fingerprint(source.value) != request.sourceDigest)
+          throw const GenerationUnavailable(
+            GenerationProblem.operationConflict,
+          );
+        final prepared = await prepare(source);
+        if (utf8.encode(prepared.value).length > (payload?.maxBytes ?? 4096))
+          throw StateError('Upgrade payload too large');
+        final value = payload?.canonicalize(prepared.value) ?? prepared.value;
+        if (utf8.encode(value).length > (payload?.maxBytes ?? 4096))
+          throw StateError('Canonical upgrade payload too large');
+        final fingerprint = _fingerprint(value);
+        if (catalog.userVersion == 3 &&
+            catalog
+                .select(
+                  '''SELECT a.fingerprint,u.backup_digest FROM attempts a
+              JOIN upgrades u ON u.generation=a.generation WHERE a.operation=?''',
+                  [request.operation.toString()],
+                )
+                .any(
+                  (row) =>
+                      row['fingerprint'] != fingerprint ||
+                      row['backup_digest'] != prepared.backupDigest,
+                ))
+          throw const GenerationUnavailable(
+            GenerationProblem.operationConflict,
+          );
+        checkpoint?.call('upgradePrepared');
+        final receipt = GenerationReceipt(
+          PublicId.generate(),
+          PublicId.generate(),
+          request.operation,
+          fingerprint,
+        );
+        _reserveUpgrade(
+          catalog,
+          request,
+          prepared.backupDigest,
+          receipt,
+          checkpoint,
+        );
+        checkpoint?.call('reserved');
+        await _publish(catalog, receipt, previous, value, checkpoint);
+        return UpgradeReceipt(request, receipt, prepared.backupDigest);
+      },
+      checkpoint: checkpoint,
+      cancellation: cancellation,
+      requireExistingCatalog: true,
     );
   }
 
@@ -349,12 +448,17 @@ final class GenerationStore {
     }
   }
 
-  Future<Database> _catalog(void Function(String)? checkpoint) async {
+  Future<Database> _catalog(
+    void Function(String)? checkpoint, {
+    bool allowInitialization = true,
+  }) async {
     final file = _file('catalog.db');
     final stage = _file('catalog.init.db');
     await _regular(file, allowAbsent: true);
     await _regular(stage, allowAbsent: true);
     final fresh = !await file.exists();
+    if (fresh && !allowInitialization)
+      throw StateError('Upgrade requires an existing published catalog.');
     final staged = await stage.exists();
     if (!fresh && staged)
       throw StateError('Conflicting catalog initialization');
@@ -487,7 +591,10 @@ final class GenerationStore {
           protection.identity.value,
         ]);
       }
-      db.execute('PRAGMA user_version=${protection == null ? 1 : 2}');
+      if (upgradeAware) _createUpgradeTables(db);
+      db.execute(
+        'PRAGMA user_version=${upgradeAware ? 3 : (protection == null ? 1 : 2)}',
+      );
       checkpoint?.call('catalogWriting');
       db.execute('COMMIT');
     } catch (_) {
@@ -498,7 +605,8 @@ final class GenerationStore {
 
   void _validateCatalog(Database db) {
     final protection = catalogProtection;
-    if (db.userVersion != (protection == null ? 1 : 2) ||
+    if (!(db.userVersion == (protection == null ? 1 : 2) ||
+            (upgradeAware && db.userVersion == 3)) ||
         (protection != null &&
             db.select('PRAGMA cipher_integrity_check').isNotEmpty) ||
         db.select('PRAGMA integrity_check').single.values.single != 'ok' ||
@@ -515,6 +623,7 @@ final class GenerationStore {
       ],
       'active': ['singleton', 'generation'],
       if (protection != null) 'catalog_identity': ['singleton', 'identity'],
+      if (db.userVersion == 3) ..._upgradeColumns,
     });
     if (protection != null) {
       final identity = db.select('SELECT * FROM catalog_identity');
@@ -524,12 +633,14 @@ final class GenerationStore {
         throw StateError('Catalog identity mismatch');
       }
     }
+    if (db.userVersion == 3) _validateUpgrades(db);
   }
 
   Future<T> _locked<T>(
     Future<T> Function(Database) work, {
     void Function(String)? checkpoint,
     LockWaitCancellation? cancellation,
+    bool requireExistingCatalog = false,
   }) async {
     String? identity;
     RandomAccessFile? lock;
@@ -560,7 +671,10 @@ final class GenerationStore {
         cancellation: cancellation,
       );
       acquired = true;
-      catalog = await _catalog(checkpoint);
+      catalog = await _catalog(
+        checkpoint,
+        allowInitialization: !requireExistingCatalog,
+      );
       return await work(catalog);
     } on LockWaitExpired {
       throw const GenerationUnavailable(GenerationProblem.lockTimeout);
