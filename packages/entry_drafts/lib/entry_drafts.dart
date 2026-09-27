@@ -3,6 +3,16 @@ import 'dart:convert';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
+/// Bounded partial allocation input; values are validated only on submission.
+final class SplitFields {
+  SplitFields({this.categoryId, required this.amount}) {
+    if (amount.length > 128)
+      throw const FormatException('Split amount too long');
+  }
+  final PublicId? categoryId;
+  final String amount;
+}
+
 /// Partial text stays text: saving a draft never validates or posts money.
 final class EntryFields {
   EntryFields({
@@ -16,15 +26,22 @@ final class EntryFields {
     this.destinationId,
     this.fee = '0',
     this.received,
+    this.split = false,
+    Iterable<SplitFields> splits = const [],
     Iterable<PublicId> tags = const [],
-  }) : tags = List.unmodifiable(tags) {
+  }) : tags = List.unmodifiable(tags),
+       splits = List.unmodifiable(splits) {
     if ((transfer &&
             (income ||
+                split ||
                 categoryId != null ||
                 merchantId != null ||
                 this.tags.isNotEmpty)) ||
         (!transfer &&
             (destinationId != null || fee != '0' || received != null)) ||
+        (split && categoryId != null) ||
+        (!split && this.splits.isNotEmpty) ||
+        this.splits.length > maxSplits ||
         (received?.length ?? 0) > 128 ||
         fee.length > 128 ||
         amount.length > 128 ||
@@ -34,7 +51,9 @@ final class EntryFields {
       throw const FormatException('Invalid draft fields');
     }
   }
-  final bool income, transfer;
+  static const maxSplits = 16;
+  final bool income, transfer, split;
+  final List<SplitFields> splits;
   final PublicId? destinationId;
   final String fee;
   final String? received;
@@ -58,11 +77,16 @@ final class EntryFields {
           categoryId?.value,
           merchantId?.value,
           [for (final t in tags) t.value],
+          if (split)
+            [
+              for (final s in splits) [s.categoryId?.value, s.amount],
+            ],
         ];
   factory EntryFields.fromJson(
     Object? value, {
     bool transfer = false,
     bool crossCurrency = false,
+    bool split = false,
   }) {
     if (transfer) {
       final v = _list(value, crossCurrency ? 6 : 5);
@@ -77,8 +101,18 @@ final class EntryFields {
         received: crossCurrency ? v[5] as String : null,
       );
     }
-    final v = _list(value, 7);
+    final v = _list(value, split ? 8 : 7);
     return EntryFields(
+      split: split,
+      splits: split
+          ? (v[7] as List).map((e) {
+              final row = _list(e, 2);
+              return SplitFields(
+                categoryId: _id(row[0]),
+                amount: row[1] as String,
+              );
+            })
+          : const [],
       income: v[0] as bool,
       amount: v[1] as String,
       date: v[2] as String,
@@ -103,7 +137,7 @@ final class EntrySubmission {
               posting.allocations.isNotEmpty)
         : (![PostingKind.income, PostingKind.expense].contains(posting.kind) ||
               posting.legs.length != 1 ||
-              posting.allocations.length > 1)) {
+              posting.allocations.length > EntryFields.maxSplits)) {
       throw const FormatException('Unsupported draft submission');
     }
     if (posting.allocations.any((a) => a.expectedCategoryVersion == null)) {
@@ -113,7 +147,10 @@ final class EntrySubmission {
   final Posting posting;
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
-  List<Object?> toJson() {
+  List<Object?> toJson({bool split = false}) {
+    if (!split && posting.allocations.length > 1) {
+      throw const FormatException('Split submission requires its format');
+    }
     if (posting.kind == PostingKind.transfer) {
       List<Object> account(PostingAccount a) => [
         a.id.value,
@@ -144,7 +181,11 @@ final class EntrySubmission {
           .toString(),
       [
         for (final c in posting.allocations)
-          [c.categoryId.value, c.expectedCategoryVersion],
+          [
+            c.categoryId.value,
+            c.expectedCategoryVersion,
+            if (split) c.amount.minorUnits.toString(),
+          ],
       ],
       [
         for (final t in tags) [t.id.value, t.expectedVersion],
@@ -159,6 +200,7 @@ final class EntrySubmission {
     OperationKey operation, {
     bool transfer = false,
     bool crossCurrency = false,
+    bool split = false,
   }) {
     if (transfer) {
       final v = _list(value, crossCurrency ? 7 : 6);
@@ -208,10 +250,10 @@ final class EntrySubmission {
       ),
       amount: amount,
       allocations: (v[4] as List).map((e) {
-        final c = _list(e, 2);
+        final c = _list(e, split ? 3 : 2);
         return Allocation(
           PublicId.parse(c[0] as String),
-          amount,
+          split ? Money(currency, BigInt.parse(c[2] as String)) : amount,
           expectedCategoryVersion: c[1] as int,
         );
       }).toList(),
@@ -242,6 +284,8 @@ final class EntryDraft {
                 (submission!.posting.kind == PostingKind.transfer) ||
             (fields.received != null) !=
                 (submission!.posting.conversion != null) ||
+            (!fields.split && submission!.posting.allocations.length > 1) ||
+            (fields.split && submission!.posting.allocations.length < 2) ||
             submission!.posting.id != id ||
             submission!.posting.operation.workspace != operation.workspace ||
             submission!.posting.operation.operation != operation.operation)) {
@@ -269,12 +313,14 @@ final class EntryDraft {
         ? 'manual-fx-transfer-v1'
         : fields.transfer
         ? 'manual-transfer-v1'
+        : fields.split
+        ? 'manual-split-entry-v1'
         : 'manual-entry-v1',
     id.value,
     operation.workspace.toString(),
     operation.operation.toString(),
     fields.toJson(),
-    submission?.toJson(),
+    submission?.toJson(split: fields.split),
   ]);
   factory EntryDraft.decode(String text) {
     if (utf8.encode(text).length > 16384)
@@ -282,6 +328,7 @@ final class EntryDraft {
     final v = _list(jsonDecode(text), 6);
     if (![
       'manual-entry-v1',
+      'manual-split-entry-v1',
       'manual-transfer-v1',
       'manual-fx-transfer-v1',
     ].contains(v[0]))
@@ -296,7 +343,11 @@ final class EntryDraft {
       operation: op,
       fields: EntryFields.fromJson(
         v[4],
-        transfer: v[0] != 'manual-entry-v1',
+        transfer: [
+          'manual-transfer-v1',
+          'manual-fx-transfer-v1',
+        ].contains(v[0]),
+        split: v[0] == 'manual-split-entry-v1',
         crossCurrency: v[0] == 'manual-fx-transfer-v1',
       ),
       submission: v[5] == null
@@ -305,7 +356,11 @@ final class EntryDraft {
               v[5],
               id,
               op,
-              transfer: v[0] != 'manual-entry-v1',
+              transfer: [
+                'manual-transfer-v1',
+                'manual-fx-transfer-v1',
+              ].contains(v[0]),
+              split: v[0] == 'manual-split-entry-v1',
               crossCurrency: v[0] == 'manual-fx-transfer-v1',
             ),
     );

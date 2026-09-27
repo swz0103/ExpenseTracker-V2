@@ -113,10 +113,24 @@ void main() {
         await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
         await tap(tester, '出差');
         await tap(tester, '旅行');
+        await tester.scrollUntilVisible(
+          find.text('儲存收支').hitTestable(),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('儲存收支').hitTestable(), findsOneWidget);
         await tap(tester, '儲存收支');
         expect(find.text('TWD 90.00'), findsOneWidget);
         expect(find.textContaining('#出差'), findsOneWidget);
         await tap(tester, '記一筆');
+        await tester.scrollUntilVisible(
+          find.text('返回帳本').hitTestable(),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(FilterChip), findsNWidgets(2));
         expect(
           tester
               .widgetList<FilterChip>(find.byType(FilterChip))
@@ -153,6 +167,12 @@ void main() {
         await tap(tester, '封存');
         await tap(tester, '返回帳本');
         await tap(tester, '記一筆');
+        await tester.scrollUntilVisible(
+          find.text('返回帳本').hitTestable(),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(find.byType(FilterChip), findsNothing);
         expect(tester.takeException(), isNull);
       } finally {

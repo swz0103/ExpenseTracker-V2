@@ -64,6 +64,7 @@ void _checkRowBytes(String table, Map row) {
       table == 'receipts' &&
           (_accountReceipt(row) ||
               [
+                'posting-v2', // Allocations need the same bound with or without tags.
                 'tagged-post-v1',
                 'fx-posting-v1',
                 'merchant-post-v1',

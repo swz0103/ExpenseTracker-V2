@@ -1,5 +1,7 @@
 # 安全複製日常收支
 
+2026-09-28 更新：[多分類拆分](split-entry-drafts.md)已延伸複製契約：保留 2～16 項分類結構，停用分類留空待選，所有金額及日期重新填寫。以下為 0.5.1 原始批次紀錄；目前格式與後續草稿／隱私進度以[最新進度](work-progress.md)為準。
+
 **狀態：實作、本機回歸及 0.5.1 封裝核對通過；雲端與實機未驗收。**
 
 接續 [商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47)（`053b476342b0929f974d1541cc52f1b77e30d128`）。來源：[M1-02](implementation-plan.md)、[RC-02](architecture-baseline-v1.0-rc1.md#rc-02)、[FV-088](full-vision-baseline.md#fv-088)、[Q157](full-vision-baseline.md#q157)。

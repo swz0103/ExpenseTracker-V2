@@ -22,6 +22,7 @@ import 'privacy_presentation.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
+part 'split_entry.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
 
@@ -151,6 +152,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   AccountKind _kind = AccountKind.cash;
   bool _income = false;
   String _categoryId = '';
+  bool _split = false;
+  final _splitRows = <_SplitRow>[];
   CategoryCatalog? _catalog;
   TagCatalog? _tagCatalog;
   MerchantCatalog? _merchantCatalog;
@@ -158,7 +161,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _entryMerchants = <PublicId, String>{};
   final _selectedTags = <PublicId>{};
   final _entryTags = <PublicId, String>{};
-  final _entryCategories = <PublicId, String>{};
+  final _entryCategories = <PublicId, List<LedgerAllocation>>{};
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
   List<LedgerEntry> _entries = [];
@@ -222,6 +225,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     ]) {
       c.clear();
     }
+    _resetSplits();
     _draft = null;
     _saved = false;
     _accounts = [];
@@ -301,6 +305,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _credential,
     ]) {
       c.dispose();
+    }
+    for (final row in _splitRows) {
+      row.amount.dispose();
     }
     _scroll.dispose();
     super.dispose();
@@ -418,6 +425,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
   void _edit(_Page page, {bool transfer = false}) {
     setState(() {
+      _resetSplits();
       _page = page;
       _transfer = transfer;
       if (transfer) _income = false;
@@ -480,6 +488,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _income = copy.income;
       _accountId = copy.account.id;
       _categoryId = copy.categoryId?.value ?? '';
+      if (copy.splitCategories.isNotEmpty) {
+        _split = true;
+        _splitRows.addAll(copy.splitCategories.map((id) => _SplitRow(id, '')));
+      }
       _merchantId = copy.merchant?.id.value ?? '';
       _selectedTags.addAll(copy.tags.map((tag) => tag.id));
       _date.clear();
@@ -489,12 +501,19 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     });
   });
 
+  void _changeSplit(VoidCallback change) => setState(change);
+
   void _queueDraft() {
     if (_page != _Page.posting || _postingFrozen) return;
     final epoch = _viewEpoch;
     final engine = _engine!;
     final fields = EntryFields(
       income: _income,
+      split: _split,
+      splits: [
+        for (final row in _splitRows)
+          SplitFields(categoryId: row.category, amount: row.amount.text),
+      ],
       transfer: _transfer,
       destinationId: _destinationId,
       fee: _transfer ? _fee.text : '0',
@@ -569,6 +588,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       );
       _categoryId = categories.firstOrNull?.id.value ?? '';
       if (fields.categoryId != null && _categoryId.isEmpty) omitted = true;
+      if (fields.split) {
+        _split = true;
+        for (final row in fields.splits) {
+          final available = _catalog!.categories.any(
+            (c) =>
+                c.id == row.categoryId &&
+                !_splitRows.any((used) => used.category == c.id) &&
+                !c.archived &&
+                c.replacementId == null &&
+                c.kind ==
+                    (_income ? CategoryKind.income : CategoryKind.expense),
+          );
+          if (row.categoryId != null && !available) omitted = true;
+          _splitRows.add(
+            _SplitRow(available ? row.categoryId : null, row.amount),
+          );
+        }
+      }
       _selectedTags.clear();
       for (final id in fields.tags) {
         if (_tagCatalog?.tags.any(
@@ -782,22 +819,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     return result;
   }
 
-  Future<Map<PublicId, String>> _categoryLabels(
+  Future<Map<PublicId, List<LedgerAllocation>>> _categoryLabels(
     List<LedgerEntry> entries,
     CategoryCatalog catalog,
   ) async {
-    final result = <PublicId, String>{};
+    final result = <PublicId, List<LedgerAllocation>>{};
     for (final entry in entries) {
       if (entry.kind == PostingKind.opening ||
           entry.kind == PostingKind.transfer) {
         continue;
       }
-      final allocations = await _engine!.allocations(entry.id);
-      result[entry.id] = allocations.isEmpty
-          ? '未分類'
-          : allocations
-                .map((a) => _categoryLabel(catalog, catalog.get(a.categoryId)))
-                .join('、');
+      result[entry.id] = await _engine!.allocations(entry.id);
     }
     return result;
   }
@@ -1071,6 +1103,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   : (v) => setState(() {
                       _income = v.single;
                       _categoryId = '';
+                      for (final row in _splitRows) {
+                        row.category = null;
+                      }
                       _merchantId = '';
                       _selectedTags.clear();
                       _queueDraft();
@@ -1161,6 +1196,33 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           _dateField(),
           if (!_transfer)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('拆分多個分類'),
+              value: _split,
+              onChanged: (_busy || _postingFrozen)
+                  ? null
+                  : (value) => setState(() {
+                      if (value) {
+                        _split = true;
+                        _splitRows.addAll([
+                          _SplitRow(
+                            _categoryId.isEmpty
+                                ? null
+                                : PublicId.parse(_categoryId),
+                            '',
+                          ),
+                          _SplitRow(null, ''),
+                        ]);
+                      } else {
+                        _resetSplits();
+                      }
+                      _categoryId = '';
+                      _queueDraft();
+                    }),
+            ),
+          if (!_transfer && _split) ..._splitInputs(),
+          if (!_transfer && !_split)
             DropdownButtonFormField<String>(
               key: ValueKey('posting-category-$_income'),
               initialValue: _categoryId,
@@ -1380,33 +1442,39 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                       destination: _accountName(e.destinationId),
                       privacy: _privacy,
                     )
-                  : FinancialSummary(
-                      title:
-                          '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
-                      subtitle:
-                          '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
-                      money: e.amount,
-                      privacy: _privacy,
-                      kind: MoneyKind.transaction,
-                      moneyKey: ValueKey('entry-money-${e.id.value}'),
-                      action:
-                          [
-                            PostingKind.income,
-                            PostingKind.expense,
-                          ].contains(e.kind)
-                          ? PopupMenuButton<String>(
-                              key: ValueKey('entry-actions-${e.id}'),
-                              tooltip: '交易操作',
-                              enabled: !_busy,
-                              onSelected: (_) => _copyPosting(e.id),
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                  value: 'copy',
-                                  child: Text('再記一筆類似交易'),
-                                ),
-                              ],
-                            )
-                          : null,
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FinancialSummary(
+                          title:
+                              '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
+                          subtitle:
+                              '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_allocationLabel(e.id)}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
+                          money: e.amount,
+                          privacy: _privacy,
+                          kind: MoneyKind.transaction,
+                          moneyKey: ValueKey('entry-money-${e.id.value}'),
+                          action:
+                              [
+                                PostingKind.income,
+                                PostingKind.expense,
+                              ].contains(e.kind)
+                              ? PopupMenuButton<String>(
+                                  key: ValueKey('entry-actions-${e.id}'),
+                                  tooltip: '交易操作',
+                                  enabled: !_busy,
+                                  onSelected: (_) => _copyPosting(e.id),
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: 'copy',
+                                      child: Text('再記一筆類似交易'),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        ..._splitDetails(e.id),
+                      ],
                     ),
             ),
           if (_hasMore)
@@ -1445,6 +1513,9 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
+  PreviewSplitInvalid() => '請為每項拆分選擇不同且可用的分類，至少 2 項。',
+  LedgerException(code: LedgerError.allocationMismatch) =>
+    '拆分合計必須等於交易總額；請確認各項金額。',
   DraftNeedsResolution() => '請先繼續或捨棄本機草稿，再進行此操作。',
   DraftUnavailable() => '草稿無法驗證，原檔已保留；請勿清除 App 資料。',
 

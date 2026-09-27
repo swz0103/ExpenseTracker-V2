@@ -7,13 +7,16 @@ final class PostingCopy {
     required this.account,
     required this.income,
     this.categoryId,
+    Iterable<PublicId?> splitCategories = const [],
     required Iterable<TagSelection> tags,
     this.merchant,
     required this.omittedMetadata,
-  }) : tags = List.unmodifiable(tags);
+  }) : tags = List.unmodifiable(tags),
+       splitCategories = List.unmodifiable(splitCategories);
   final PostingAccount account;
   final bool income;
   final PublicId? categoryId;
+  final List<PublicId?> splitCategories;
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
   final bool omittedMetadata;
@@ -43,6 +46,7 @@ extension PreviewCopy on PreviewEngine {
     final categories = await session.categories(workspace);
     PublicId? categoryId;
     var omitted = false;
+    final splitCategories = <PublicId?>[];
     if (categoryRefs.length == 1) {
       final category = categories.get(categoryRefs.single.categoryId);
       if (!category.archived && category.replacementId == null) {
@@ -51,8 +55,13 @@ extension PreviewCopy on PreviewEngine {
         omitted = true;
       }
     } else if (categoryRefs.isNotEmpty) {
-      // A split cannot silently become one category; this form supports one.
-      omitted = true;
+      if (categoryRefs.length > EntryFields.maxSplits) throw PreviewInvalid();
+      for (final ref in categoryRefs) {
+        final category = categories.get(ref.categoryId);
+        final available = !category.archived && category.replacementId == null;
+        splitCategories.add(available ? category.id : null);
+        if (!available) omitted = true;
+      }
     }
     final tags = <TagSelection>[];
     if (schemaVersion >= 6) {
@@ -88,6 +97,7 @@ extension PreviewCopy on PreviewEngine {
       ),
       income: source.kind == PostingKind.income,
       categoryId: categoryId,
+      splitCategories: splitCategories,
       tags: tags,
       merchant: merchant,
       omittedMetadata: omitted,

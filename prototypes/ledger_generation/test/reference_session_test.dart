@@ -121,7 +121,7 @@ void main() {
   test('oversized receipt rolls back event rows and capacity deltas without poisoning queue', () async {
     await f.store().withSession((s) async {
       final ids = <PublicId>[];
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 64; i++) {
         final id = PublicId.generate();
         ids.add(id);
         await s.createCategory(
@@ -133,8 +133,12 @@ void main() {
       }
       final excessive = f.expense(
         allocations: [
-          for (final id in ids)
-            Allocation(id, f.money('1'), expectedCategoryVersion: 1),
+          for (var i = 0; i < ids.length; i++)
+            Allocation(
+              ids[i],
+              f.money(i == 63 ? '3.70' : '0.10'),
+              expectedCategoryVersion: 1,
+            ),
         ],
       );
       final before = await s.snapshot();

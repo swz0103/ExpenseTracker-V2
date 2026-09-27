@@ -121,10 +121,12 @@ void main() {
           merchant.value,
         );
         await tester.scrollUntilVisible(
-          find.text('儲存收支'),
+          find.text('儲存收支').hitTestable(),
           220,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.pumpAndSettle();
+        expect(find.text('儲存收支').hitTestable(), findsOneWidget);
         await tap(tester, '儲存收支');
         await tester.runAsync(
           () async => expect(await engine.entries(), hasLength(3)),
@@ -137,10 +139,12 @@ void main() {
         await input(tester, '金額（正數）', '10');
         await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
         await tester.scrollUntilVisible(
-          find.text('儲存收支'),
+          find.text('儲存收支').hitTestable(),
           220,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.pumpAndSettle();
+        expect(find.text('儲存收支').hitTestable(), findsOneWidget);
         await tap(tester, '儲存收支');
         expect(find.text('TWD 233.45'), findsOneWidget);
         await tester.runAsync(() async {

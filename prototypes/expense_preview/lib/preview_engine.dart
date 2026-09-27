@@ -40,6 +40,8 @@ final class PreviewBusy implements Exception {}
 
 final class PreviewInvalid implements Exception {}
 
+final class PreviewSplitInvalid implements Exception {}
+
 final class PreviewTransferAccountInvalid implements Exception {}
 
 final class PreviewUpgradeRequired implements Exception {}

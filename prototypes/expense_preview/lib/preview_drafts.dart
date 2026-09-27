@@ -43,7 +43,8 @@ extension PreviewDrafts on PreviewEngine {
   ) async {
     final store = _drafts;
     if ((fields.transfer && schemaVersion < 8) ||
-        (fields.received != null && schemaVersion < 9)) {
+        (fields.received != null && schemaVersion < 9) ||
+        (fields.split && schemaVersion < 5)) {
       throw PreviewInvalid();
     }
     final prior = await store.read();
@@ -106,6 +107,33 @@ extension PreviewDrafts on PreviewEngine {
             expectedCategoryVersion: category.version,
           ),
         );
+      }
+      if (fields.split) {
+        if (schemaVersion < 5 || fields.splits.length < 2) {
+          throw PreviewSplitInvalid();
+        }
+        final catalog = await session.categories(workspace);
+        final selected = <PublicId>{};
+        for (final row in fields.splits) {
+          final id = row.categoryId;
+          if (id == null || !selected.add(id)) throw PreviewSplitInvalid();
+          final category = catalog.get(id);
+          if (category.archived ||
+              category.replacementId != null ||
+              category.kind !=
+                  (fields.income
+                      ? CategoryKind.income
+                      : CategoryKind.expense)) {
+            throw PreviewSplitInvalid();
+          }
+          allocations.add(
+            Allocation(
+              id,
+              Money.parse(account.currency, row.amount),
+              expectedCategoryVersion: category.version,
+            ),
+          );
+        }
       }
       final tags = <TagSelection>[];
       if (fields.tags.isNotEmpty) {
