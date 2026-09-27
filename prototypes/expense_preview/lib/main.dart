@@ -4,6 +4,7 @@ import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
 import 'package:tags/tags.dart';
+import 'package:merchants/merchants.dart';
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
@@ -14,6 +15,7 @@ import 'preview_engine.dart';
 
 part 'category_screen.dart';
 part 'tag_screen.dart';
+part 'merchant_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +51,7 @@ enum _Page {
   upgrade,
   categories,
   tags,
+  merchants,
   home,
   account,
   posting,
@@ -82,6 +85,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   String _categoryId = '';
   CategoryCatalog? _catalog;
   TagCatalog? _tagCatalog;
+  MerchantCatalog? _merchantCatalog;
+  String _merchantId = '';
+  final _entryMerchants = <PublicId, String>{};
   final _selectedTags = <PublicId>{};
   final _entryTags = <PublicId, String>{};
   final _entryCategories = <PublicId, String>{};
@@ -135,9 +141,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _entries = [];
     _catalog = null;
     _tagCatalog = null;
+    _merchantCatalog = null;
+    _entryMerchants.clear();
     _selectedTags.clear();
     _entryTags.clear();
     _categoryId = '';
+    _merchantId = '';
     _entryCategories.clear();
     _pendingAccount = null;
     _pendingPosting = null;
@@ -216,6 +225,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ? await _engine!.tags()
         : null;
     final tagLabels = await _tagLabels(entries, tagCatalog);
+    final merchantCatalog = _engine!.schemaVersion >= 7
+        ? await _engine!.merchants()
+        : null;
+    final merchantLabels = await _merchantLabels(entries, merchantCatalog);
     final safety = await _engine!.hasSafetyCopy();
     if (!mounted || !_engine!.isUnlocked) return;
     setState(() {
@@ -223,6 +236,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _entries = entries;
       _catalog = catalog;
       _tagCatalog = tagCatalog;
+      _merchantCatalog = merchantCatalog;
+      _entryMerchants
+        ..clear()
+        ..addAll(merchantLabels);
       _entryTags
         ..clear()
         ..addAll(tagLabels);
@@ -278,6 +295,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _pendingAccount = null;
       _inputSignature = null;
       _categoryId = '';
+      _merchantId = '';
       _selectedTags.clear();
       _accountId = _accounts
           .where((a) => a.account.state == AccountState.active)
@@ -324,10 +342,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final category = _categoryId.isEmpty
         ? null
         : _catalog!.get(PublicId.parse(_categoryId));
+    final merchant = _merchantId.isEmpty
+        ? null
+        : _merchantCatalog!.get(PublicId.parse(_merchantId));
     final tags = _selectedTags.map((id) => _tagCatalog!.get(id)).toList()
       ..sort((a, b) => a.id.value.compareTo(b.id.value));
     final signature =
-        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}|${tags.map((t) => '${t.id}:${t.version}').join(',')}';
+        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}|${merchant?.id}:${merchant?.version}|${tags.map((t) => '${t.id}:${t.version}').join(',')}';
     if (_inputSignature != signature) {
       final factory = _income ? Posting.income : Posting.expense;
       _pendingPosting = factory(
@@ -351,6 +372,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     await _engine!.post(
       _pendingPosting!,
       tags: [for (final tag in tags) TagSelection(tag.id, tag.version)],
+      merchant: merchant == null
+          ? null
+          : MerchantSelection(merchant.id, merchant.version),
     );
     await _refresh();
   });
@@ -386,15 +410,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final next = await _engine!.entries(before: _entries.last);
     final labels = await _categoryLabels(next, _catalog!);
     final tagLabels = await _tagLabels(next, _tagCatalog);
+    final merchantLabels = await _merchantLabels(next, _merchantCatalog);
     if (mounted && _engine!.isUnlocked) {
       setState(() {
         _entries.addAll(next);
         _entryCategories.addAll(labels);
         _entryTags.addAll(tagLabels);
+        _entryMerchants.addAll(merchantLabels);
         _hasMore = next.length == 30;
       });
     }
   });
+
+  Future<Map<PublicId, String>> _merchantLabels(
+    List<LedgerEntry> entries,
+    MerchantCatalog? catalog,
+  ) async {
+    if (catalog == null) return {};
+    final result = <PublicId, String>{};
+    for (final entry in entries) {
+      final ref = await _engine!.merchantFor(entry.id);
+      if (ref != null) {
+        result[entry.id] = _merchantLabel(catalog, catalog.get(ref.id));
+      }
+    }
+    return result;
+  }
 
   Future<Map<PublicId, String>> _tagLabels(
     List<LedgerEntry> entries,
@@ -524,6 +565,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             child: const Text('稍後再更新'),
           ),
         ];
+      case _Page.merchants:
+        return [
+          _MerchantScreen(
+            engine: _engine!,
+            catalog: _merchantCatalog!,
+            onDone: () => _perform(_refresh),
+          ),
+        ];
       case _Page.tags:
         return [
           _TagScreen(
@@ -632,6 +681,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : (v) => setState(() {
                     _income = v.single;
                     _categoryId = '';
+                    _merchantId = '';
                     _selectedTags.clear();
                   }),
           ),
@@ -679,6 +729,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : (value) => setState(() => _categoryId = value ?? ''),
           ),
           const SizedBox(height: 14),
+          if (_merchantCatalog != null)
+            _MerchantPicker(
+              key: ValueKey('merchant-picker-$_income'),
+              catalog: _merchantCatalog!,
+              selected: _merchantId,
+              enabled: !_busy,
+              onChanged: (value) => setState(() => _merchantId = value),
+            ),
           if (_tagCatalog != null &&
               _tagCatalog!.tags.any((t) => !t.archived)) ...[
             const Text('標籤（可複選，最多 16 個）'),
@@ -776,6 +834,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   : () => setState(() => _page = _Page.tags),
               child: const Text('管理標籤'),
             ),
+          if (_merchantCatalog != null)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.merchants),
+              child: const Text('管理商家'),
+            ),
           const SizedBox(height: 24),
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)
@@ -787,7 +852,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
               ),
               subtitle: Text(
-                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}',
+                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
               ),
               trailing: Text(
                 '${e.amount.currency.code} ${moneyText(e.amount)}',
@@ -814,7 +879,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤。交易修改／刪除、轉帳與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除、轉帳與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -838,6 +903,9 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
+  MerchantException(code: MerchantError.versionConflict) =>
+    '商家已變更，請返回帳本重新整理後再試。',
+  MerchantException() => '請檢查商家名稱、別名或合併目標；別名不可重複，封存商家不能用於新交易。',
   TagException(code: TagError.versionConflict) => '標籤已變更，請返回帳本重新整理後再試。',
   TagException() => '請檢查標籤名稱與合併目標；封存或已合併的標籤不能用於新交易。',
   CategoryException(code: CategoryError.hasChildren) => '請先處理子分類，再進行這項操作。',

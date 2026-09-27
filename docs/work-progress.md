@@ -12,7 +12,15 @@
 
 ## 分支與交付
 
-2026-09-27 商家／別名接續開發中：已從 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）建立 `feat/transaction-merchants`，開始同一商家全流程工作單位。目前完成獨立 Merchant Domain 的身份、別名增刪／候選、封存／啟用、明確合併與歷史解析；15 項新業務案例、15 項既有架構測試、格式／分析及實際依賴掃描通過。[本批證據](test-results/merchant-domain-host-2026-09-27.json)／[完整接續工作](transaction-merchants.md)。目前沒有商家資料表、Ledger 商家引用、schema 7、migration 或 UI，不將 Domain 通過稱為 M1-02 完成；繼續同一功能分支及草稿 PR，完整流程完成前不再切另一商家子功能 PR。
+2026-09-27 商家／別名完整流程（本機驗證完成）：沿 `feat/transaction-merchants`／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 #46。保留 Domain 起始提交 `d17dec5177db67bab8bc5daf57431f01c660dfa4`，同一 PR 完成商家管理、別名增刪、候選手動確認、交易選取與原始歷史引用；新增／改名／封存／合併不改原交易金額。[完整接口](transaction-merchants.md)。
+
+新帳本 schema 7／snapshot 6；舊 V2 schema 3／4／5／6 經明確確認，沿雙憑證安全備份與暫存驗證逐步升級。分類、Tag、商家與金額同一交易提交；未選商家的既有 receipt bytes 不變。新資料納入原有 50,000 列／16 MiB 限制，工作階段另限 256 商家／1,024 次商家異動。回查把損壞來源的重複商家身份納入拒絕驗證。
+
+完整 **16 套件、626 項獨有本機案例**通過，相對 #46 新增 64 項（含起始提交的 Domain 15 項）；本次接續新增 49 項。格式、分析、實際依賴掃描、五個原生 worker 重建、11 處真正程序中斷、4 處 App 升級例外、360×740 畫面操作及乾淨還原均涵蓋。[清單](test-results/transaction-merchants-host-2026-09-27.json)保留一項既有 Tag 還原在並行測試時逾時的失敗；相同版本單獨重跑通過，未延長 timeout、未改斷言，不重複計數。
+
+兩組獨立五千筆[新帳本](test-results/transaction-merchants-scale-2026-09-27.json)／[已滿舊帳本升級](test-results/transaction-merchants-upgrade-scale-2026-09-27.json)通過。新帳本 4,999 個商家及 4,999 個 Tag 引用；舊帳本逐表保留原引用，升級後不冒充已為原交易補商家。各案 256 商家／1,024 次變更、5,004 次重送，刪除合成來源 DB 與 vault keys 後的密碼及救援各自還原、完整 bytes／獨立餘額／歷史版本／重開核對通過。
+
+雲端未執行、手機未操作、main 未合併，待雲端 gate 的分支不收斂刪除。M1-02 其餘日常錄入及其他 M1／M2／M3 CORE 仍未完成；`0.5.0+6` ARM64 開發包建置、身份、簽章及備份禁用核對通過，[安裝包紀錄](installable-preview.md)保留雜湊。完成上傳核對後，下一分支接「再記一筆類似交易」安全複製，再續表單草稿與其餘既定項目。
 
 Tag 批次上傳已核對：本機／遠端／PR #46 全部為上述完整 SHA，工作目錄當時乾淨、所有本機分支未上傳提交為 0。main 仍為 `d0d39e1de32774aca319b8fed0cc9ee288cbb94a`。這次核對在新增商家 Domain 之前完成，商家後續提交另行核對。
 

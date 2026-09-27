@@ -1,0 +1,129 @@
+{
+  "recordedUtc": "2026-09-27T11:57:11.843636+00:00",
+  "sourceBase": "d17dec5177db67bab8bc5daf57431f01c660dfa4",
+  "validationTarget": "商家完整流程提交前固定程式與測試；完整回歸後沒有修改受測正式程式。",
+  "totalUniqueTests": 626,
+  "newTestsSinceTagFlow": 64,
+  "newTestsThisFollowup": 49,
+  "packages": [
+    {
+      "package": "tooling/architecture_checks",
+      "tests": 15,
+      "result": "passed"
+    },
+    {
+      "package": "packages/foundation_values",
+      "tests": 35,
+      "result": "passed"
+    },
+    {
+      "package": "packages/accounts",
+      "tests": 9,
+      "result": "passed"
+    },
+    {
+      "package": "packages/categories",
+      "tests": 14,
+      "result": "passed"
+    },
+    {
+      "package": "packages/tags",
+      "tests": 6,
+      "result": "passed"
+    },
+    {
+      "package": "packages/merchants",
+      "tests": 15,
+      "result": "passed"
+    },
+    {
+      "package": "packages/ledger",
+      "tests": 10,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/modular_persistence",
+      "tests": 43,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/backup_envelope",
+      "tests": 16,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/validated_restore",
+      "tests": 100,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/encrypted_storage",
+      "tests": 34,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/storage_generation",
+      "tests": 95,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/transaction_boundary",
+      "tests": 11,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "tests": 145,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/android_foundation",
+      "tests": 17,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "tests": 61,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "nativeWorkersRebuilt": 5,
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "toolchain": {
+    "dart": "3.13.4",
+    "flutter": "3.47.5"
+  },
+  "notes": [
+    "完整清單以三組互不相同套件執行，組內依序解析、分析、建置與測試；受測正式程式保持固定。",
+    "本批 49 項新增：來源損壞的商家唯一身份 1、快照／引用／別名及故障回滾 22、Ledger 升級 13、App engine 12、widget 1；加前一提交 Merchant Domain 15，相對 Tag 流程共新增 64 項。",
+    "App 完整回歸先通過 60 項、1 項既有 Tag 密碼乾淨還原在多組加密測試並行時超過既有 30 秒限制；保留失敗，不視為全綠。",
+    "同一版本將該 Tag 案例以 --concurrency=1 單獨執行，25 秒通過；沒有改程式、斷言或 timeout。App 獨有案例共 61，重跑不重複計數。",
+    "11 處升級中斷使用實際原生子程序，4 處 App 升級例外另列，不把例外注入冒充 OS 中止。",
+    "新 widget 在 360×740 驗證商家建立、別名歧義需手選、收支提交、乾淨新表單、非法查詢、合併確認及原歷史版本。",
+    "完整回歸保留既有 Ledger 與 SQLCipher 五千筆資料測試；商家專用新／舊兩組結果另列。",
+    "錯誤密鑰案例的 SQLCipher HMAC 拒絕訊息及隔離暫存 DB 的 Drift 多實例提示為預期測試輸出；沒有停用檢查。",
+    "本機真實 SQLCipher 搭配測試用 memory vault；不代替 Android 安全儲存、檔案選擇器與實機升級 gate。"
+  ],
+  "completedLargeDataReports": [
+    "transaction-merchants-scale-2026-09-27.json",
+    "transaction-merchants-upgrade-scale-2026-09-27.json"
+  ],
+  "androidBuild": {
+    "version": "0.5.0+6",
+    "applicationId": "dev.expensetracker.preview",
+    "type": "debug",
+    "bytes": 92748111,
+    "sha256": "f644d39c68ac0cc15694ea43a12a9ae19daaa78bcece37dc3c3ec10af2fbbba1",
+    "minSdk": 24,
+    "targetSdk": 36,
+    "allowBackup": false,
+    "apkSignatureV2": true,
+    "flutterAndSqlcipherAbi": "arm64-v8a",
+    "installed": false,
+    "published": false
+  }
+}

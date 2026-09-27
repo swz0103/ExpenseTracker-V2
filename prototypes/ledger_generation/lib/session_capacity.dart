@@ -15,8 +15,16 @@ const _rowByteLimits = <String, int>{
   'tags': 1024,
   'tag_changes': 1024,
   'event_tags': 512,
+  'merchants': 8192,
+  'merchant_changes': 8192,
+  'event_merchants': 512,
 };
-Map<String, int> _tableLimits(bool categories, bool references, bool tags) => {
+Map<String, int> _tableLimits(
+  bool categories,
+  bool references,
+  bool tags,
+  bool merchants,
+) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents,
@@ -25,11 +33,16 @@ Map<String, int> _tableLimits(bool categories, bool references, bool tags) => {
   'receipts':
       LedgerSession.maxEvents +
       (categories ? LedgerSession.maxCategoryChanges : 0) +
-      (tags ? LedgerSession.maxTagChanges : 0),
+      (tags ? LedgerSession.maxTagChanges : 0) +
+      (merchants ? LedgerSession.maxMerchantChanges : 0),
   'audit':
       LedgerSession.maxEvents +
       (categories ? LedgerSession.maxCategoryChanges : 0) +
-      (tags ? LedgerSession.maxTagChanges : 0),
+      (tags ? LedgerSession.maxTagChanges : 0) +
+      (merchants ? LedgerSession.maxMerchantChanges : 0),
+  if (merchants) 'merchants': LedgerSession.maxMerchants,
+  if (merchants) 'merchant_changes': LedgerSession.maxMerchantChanges,
+  if (merchants) 'event_merchants': LedgerSession.maxEvents,
   if (tags) 'tags': LedgerSession.maxTags,
   if (tags) 'tag_changes': LedgerSession.maxTagChanges,
   if (tags) 'event_tags': SnapshotCodec.maxRows,
@@ -46,8 +59,10 @@ void _checkRowBytes(String table, Map row) {
   final limit =
       table == 'receipts' &&
           (_accountReceipt(row) ||
-              (jsonDecode(row['input'] as String) as List).first ==
-                  'tagged-post-v1')
+              [
+                'tagged-post-v1',
+                'merchant-post-v1',
+              ].contains((jsonDecode(row['input'] as String) as List).first))
       ? 4096
       : _rowByteLimits[table];
   if (limit == null || utf8.encode(jsonEncode(row)).length > limit)
@@ -63,7 +78,9 @@ List<int> validateSessionCapacity(
   bool categoryAware = false,
   bool categoryReferences = false,
   bool tagsAware = false,
+  bool merchantsAware = false,
 }) {
+  tagsAware = tagsAware || merchantsAware;
   categoryReferences = categoryReferences || tagsAware;
   categoryAware = categoryAware || categoryReferences;
   final codec = SnapshotCodec(
@@ -71,10 +88,16 @@ List<int> validateSessionCapacity(
     categoryAware: categoryAware,
     categoryReferences: categoryReferences,
     tagsAware: tagsAware,
+    merchantsAware: merchantsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
-  final limits = _tableLimits(categoryAware, categoryReferences, tagsAware);
+  final limits = _tableLimits(
+    categoryAware,
+    categoryReferences,
+    tagsAware,
+    merchantsAware,
+  );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
   for (final entry in tables.entries) {
@@ -89,7 +112,8 @@ List<int> validateSessionCapacity(
   final receipts = tables['receipts'] as List;
   final changes =
       (categoryAware ? (tables['category_changes'] as List).length : 0) +
-      (tagsAware ? (tables['tag_changes'] as List).length : 0);
+      (tagsAware ? (tables['tag_changes'] as List).length : 0) +
+      (merchantsAware ? (tables['merchant_changes'] as List).length : 0);
   if (events.any(
         (row) => !['opening', 'income', 'expense'].contains(row['kind']),
       ) ||
@@ -104,7 +128,7 @@ List<int> validateSessionCapacity(
 }
 
 // One conservative comma for every row, including each table's first row.
-// Thus each accepted update has a cheap, exact delta with <= 9 spare bytes.
+// Thus each accepted update has a cheap, exact delta with at most one spare byte per nonempty table.
 ({int rows, int bytes}) _snapshotUsage(List<int> canonical) {
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
   var rows = 0, nonempty = 0;

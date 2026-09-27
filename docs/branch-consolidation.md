@@ -47,4 +47,4 @@
 
 `feat/transaction-tags` 依賴 [PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)（`2ad7c9c4f5e89e5ccaddc7e1ff5b5434d43a0d57`），將平面 Tags 業務、原子交易引用、schema 5 → 6 安全升級及 App 管理／複選作為一個完整流程交付。15 套件 562 項本機案例、兩組獨立大量資料流程及 0.4.0 開發包核對通過；[清單](test-results/transaction-tags-host-2026-09-27.json)保留實際驗證範圍。下一分支接 Merchant／alias。兩個 Actions workflow 仍為停用，沒有新雲端 checks；此批及依賴鏈不因此收斂、關閉或刪除，main 保持原提交。
 
-`feat/transaction-merchants` 從 [PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）接續。此商家全流程仍開發中，Domain／alias 子集的 30 項本機回歸通過；同一草稿 PR 接續保存、Ledger 引用、升級及 UI，不將未實作部分列為完成。兩個 workflow 維持停用，沒有改動 main 或收斂待雲端 gate 分支。
+`feat/transaction-merchants`／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 從 [PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）接續，保留 Domain 起始提交 `d17dec5177db67bab8bc5daf57431f01c660dfa4`，在同一 PR 完成保存、Ledger 引用、升級及 UI。16 套件 626 項本機案例及兩組五千筆流程通過，逾時重驗與適用 gate 見[清單](test-results/transaction-merchants-host-2026-09-27.json)。下一分支接安全複製交易；兩個 workflow 維持停用，沒有改動 main 或收斂待雲端 gate 分支。

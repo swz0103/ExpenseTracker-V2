@@ -6,6 +6,7 @@ import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
 import 'package:tags/tags.dart';
+import 'package:merchants/merchants.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
@@ -13,6 +14,7 @@ import 'package:ledger_generation_probe/safety_backup.dart';
 
 part 'preview_categories.dart';
 part 'preview_tags.dart';
+part 'preview_merchants.dart';
 part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {
@@ -37,10 +39,10 @@ final class PreviewEngine {
     this.directory,
     this.vault,
     this.factory, {
-    this.schemaVersion = 6,
+    this.schemaVersion = 7,
     this.upgradeCheckpoint,
   }) {
-    if (![3, 4, 5, 6].contains(schemaVersion)) {
+    if (![3, 4, 5, 6, 7].contains(schemaVersion)) {
       throw ArgumentError('Unknown schema');
     }
   }
@@ -292,12 +294,16 @@ final class PreviewEngine {
         await _session!.createAccount(account, opening);
         _check(epoch);
       });
-  Future<void> post(Posting posting, {Iterable<TagSelection> tags = const []}) {
+  Future<void> post(
+    Posting posting, {
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+  }) {
     final selections = List<TagSelection>.unmodifiable(tags);
     return _exclusive((epoch) async {
       _require();
       if (posting.operation.workspace != _workspace) throw PreviewInvalid();
-      await _session!.post(posting, tags: selections);
+      await _session!.post(posting, tags: selections, merchant: merchant);
       _check(epoch);
     });
   }
@@ -448,6 +454,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       categoryAware: schemaVersion >= 4,
       categoryReferences: schemaVersion >= 5,
       tagsAware: schemaVersion >= 6,
+      merchantsAware: schemaVersion >= 7,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();
@@ -457,6 +464,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
     ...tables['accounts'] as List,
     if (tables.containsKey('categories')) ...tables['categories'] as List,
     if (tables.containsKey('tags')) ...tables['tags'] as List,
+    if (tables.containsKey('merchants')) ...tables['merchants'] as List,
   ];
   if (rows.map((a) => a['workspace']).toSet().length > 1) {
     throw PreviewInvalid();

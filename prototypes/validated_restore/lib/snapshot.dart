@@ -12,6 +12,9 @@ import 'package:modular_persistence_probe/categories_adapter.dart';
 import 'package:modular_persistence_probe/allocation_schema.dart';
 import 'package:modular_persistence_probe/allocation_validation.dart';
 import 'package:modular_persistence_probe/tag_schema.dart';
+import 'package:modular_persistence_probe/merchant_schema.dart';
+import 'package:modular_persistence_probe/merchant_reference_schema.dart';
+import 'package:modular_persistence_probe/merchant_reference_validation.dart';
 import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
@@ -53,6 +56,8 @@ const _integers = {
   'category_sequence',
   'tag_version',
   'tag_sequence',
+  'merchant_version',
+  'merchant_sequence',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -70,19 +75,29 @@ final class SnapshotCodec {
     bool generationAware = false,
     bool categoryAware = false,
     bool categoryReferences = false,
-    this.tagsAware = false,
-  }) : categoryReferences = categoryReferences || tagsAware,
-       categoryAware = categoryAware || categoryReferences || tagsAware,
+    bool tagsAware = false,
+    this.merchantsAware = false,
+  }) : tagsAware = tagsAware || merchantsAware,
+       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+       categoryAware =
+           categoryAware || categoryReferences || tagsAware || merchantsAware,
        generationAware =
-           generationAware || categoryAware || categoryReferences || tagsAware;
+           generationAware ||
+           categoryAware ||
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
   final bool tagsAware;
+  final bool merchantsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
+    if (merchantsAware) ...merchantColumns,
+    if (merchantsAware) 'event_merchants': merchantReferenceColumns,
     if (tagsAware) 'event_tags': tagReferenceColumns,
     if (categoryReferences) 'allocations': allocationReferenceColumns,
   };
@@ -90,12 +105,16 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => tagsAware
+  int get _formatVersion => merchantsAware
+      ? 6
+      : tagsAware
       ? 5
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => tagsAware
+  int get _schemaVersion => merchantsAware
+      ? 7
+      : tagsAware
       ? 6
       : categoryReferences
       ? 5
@@ -107,6 +126,8 @@ final class SnapshotCodec {
     if (categoryAware) 'categories': 1,
     if (tagsAware) 'tags': 1,
     if (tagsAware) 'ledger_tags': 1,
+    if (merchantsAware) 'merchants': 1,
+    if (merchantsAware) 'ledger_merchants': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -234,7 +255,8 @@ final class SnapshotCodec {
               (categoryReferences &&
                   root['version'] == 4 &&
                   root['schema'] == 5) ||
-              (tagsAware && root['version'] == 5 && root['schema'] == 6)))
+              (tagsAware && root['version'] == 5 && root['schema'] == 6) ||
+              (merchantsAware && root['version'] == 6 && root['schema'] == 7)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -242,8 +264,10 @@ final class SnapshotCodec {
         if (root['version'] >= 4) 'ledger': 3,
         if (root['version'] != 1) 'local_identity': 1,
         if (root['version'] >= 3) 'categories': 1,
-        if (root['version'] == 5) 'tags': 1,
-        if (root['version'] == 5) 'ledger_tags': 1,
+        if (root['version'] >= 5) 'tags': 1,
+        if (root['version'] >= 5) 'ledger_tags': 1,
+        if (root['version'] == 6) 'merchants': 1,
+        if (root['version'] == 6) 'ledger_merchants': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -253,8 +277,10 @@ final class SnapshotCodec {
       final inputColumns = {
         ..._financialColumns,
         if (root['version'] >= 3) ...categoryColumns,
-        if (root['version'] == 5) ...tagColumns,
-        if (root['version'] == 5) 'event_tags': tagReferenceColumns,
+        if (root['version'] >= 5) ...tagColumns,
+        if (root['version'] == 6) ...merchantColumns,
+        if (root['version'] == 6) 'event_merchants': merchantReferenceColumns,
+        if (root['version'] >= 5) 'event_tags': tagReferenceColumns,
         if (root['version'] >= 4) 'allocations': allocationReferenceColumns,
       };
       if (tables is! Map || tables.length != inputColumns.length)
@@ -305,7 +331,8 @@ final class SnapshotCodec {
     if (generationAware != (db.storageBinding != null) ||
         categoryAware != db.categoryAware ||
         categoryReferences != db.categoryReferences ||
-        tagsAware != db.tagsAware)
+        tagsAware != db.tagsAware ||
+        merchantsAware != db.merchantsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};
@@ -322,6 +349,14 @@ final class SnapshotCodec {
     if (tagsAware) {
       try {
         tagOperations = await validateTagReferences(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    var merchantOperations = <(String, String)>{};
+    if (merchantsAware) {
+      try {
+        merchantOperations = await validateMerchantReferences(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }
@@ -506,7 +541,7 @@ final class SnapshotCodec {
       UNION ALL SELECT e.id FROM events e LEFT JOIN
       (SELECT r.workspace,r.result_id,COUNT(*) AS n FROM receipts r
        JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id
-       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' GROUP BY r.workspace,r.result_id) counts
+       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' AND a.kind NOT LIKE 'merchant.%' GROUP BY r.workspace,r.result_id) counts
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
@@ -527,11 +562,19 @@ final class SnapshotCodec {
             if (categoryAware) 'category-v1',
             if (tagsAware) 'tag-v1',
             if (tagsAware) 'tagged-post-v1',
+            if (merchantsAware) 'merchant-v1',
+            if (merchantsAware) 'merchant-post-v1',
           ].contains(input.first))
         throw const InvalidSnapshot();
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'merchant-v1') {
+        if (!merchantOperations.remove((ws, row.read<String>('operation_id'))))
+          throw const InvalidSnapshot();
+        continue;
+      }
+      if (input.first == 'merchant-post-v1') input = input[1];
       if (input.first == 'tag-v1') {
         if (!tagOperations.remove((ws, row.read<String>('operation_id'))))
           throw const InvalidSnapshot();
@@ -647,7 +690,9 @@ final class SnapshotCodec {
           throw const InvalidSnapshot();
       }
     }
-    if (categoryOperations.isNotEmpty || tagOperations.isNotEmpty)
+    if (categoryOperations.isNotEmpty ||
+        tagOperations.isNotEmpty ||
+        merchantOperations.isNotEmpty)
       throw const InvalidSnapshot();
     for (final row
         in await db.customSelect('SELECT recorded_at FROM audit').get()) {

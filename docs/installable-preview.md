@@ -1,6 +1,15 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：`0.4.0+5` 加入交易 Tag、管理及歷史引用，既有 V2 帳本可經安全備份逐步升級至 schema 6。15 套件 562 項本機回歸、兩組獨立 5,000 筆資料流程及封裝檢查通過，詳見[驗證清單](test-results/transaction-tags-host-2026-09-27.json)及[Tag 流程](transaction-tags.md)。仍持續開發既定 CORE，不以可安裝為停止點。
+**2026-09-27 最新開發包**：`0.5.0+6` 加入商家管理、基本別名、候選確認與交易引用，舊 V2 帳本沿安全備份逐步升級至 schema 7。完整 16 套件 626 項本機案例及兩組各 5,000 筆資料驗證通過，詳見[清單](test-results/transaction-merchants-host-2026-09-27.json)及[商家流程](transaction-merchants.md)。
+
+- 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.5.0-arm64.apk`；92,748,111 bytes。
+- SHA-256：`f644d39c68ac0cc15694ea43a12a9ae19daaa78bcece37dc3c3ec10af2fbbba1`。
+- App ID `dev.expensetracker.preview`，versionCode 6／versionName 0.5.0；最低 API 24、target API 36，APK v2 簽章核對通過，`allowBackup=false`。
+- Flutter／SQLCipher 程式庫為 ARM64；其他 JNI 檔案不代表非 ARM64 裝置支援。僅做本機 debug 封裝，沒有安裝、實機驗收或正式發版；APK 與金鑰不提交 Git。
+
+## 0.4.0 標籤開發包
+
+**2026-09-27 歷史開發包**：`0.4.0+5` 加入交易 Tag、管理及歷史引用，既有 V2 帳本可經安全備份逐步升級至 schema 6。15 套件 562 項本機回歸、兩組獨立 5,000 筆資料流程及封裝檢查通過，詳見[驗證清單](test-results/transaction-tags-host-2026-09-27.json)及[Tag 流程](transaction-tags.md)。仍持續開發既定 CORE，不以可安裝為停止點。
 
 - 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.4.0-arm64.apk`；92,696,203 bytes。
 - SHA-256：`86f7de423957a0ec0310079bbdfeb39e3820289c28b1ed63e6d1c5a236970e15`。

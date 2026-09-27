@@ -6,6 +6,8 @@ environment:
 dependencies:
   tags:
     path: ../../packages/tags
+  merchants:
+    path: ../../packages/merchants
   categories:
     path: ../../packages/categories
   accounts:

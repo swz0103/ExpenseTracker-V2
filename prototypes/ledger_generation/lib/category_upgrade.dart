@@ -4,7 +4,8 @@ part of 'safety_backup.dart';
 enum _LedgerUpgrade {
   categories(3, 4, 'ledger-3-to-4-v1'),
   references(4, 5, 'ledger-4-to-5-v1'),
-  tags(5, 6, 'ledger-5-to-6-v1');
+  tags(5, 6, 'ledger-5-to-6-v1'),
+  merchants(6, 7, 'ledger-6-to-7-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -12,7 +13,8 @@ enum _LedgerUpgrade {
   SnapshotCodec get target => SnapshotCodec(
     categoryAware: true,
     categoryReferences: to >= 5,
-    tagsAware: this == tags,
+    tagsAware: to >= 6,
+    merchantsAware: this == merchants,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -22,13 +24,15 @@ enum _LedgerUpgrade {
       generationAware: true,
       categoryAware: from >= 4,
       categoryReferences: from >= 5,
+      tagsAware: from >= 6,
     ).canonicalize(utf8.encode(source));
   }
 
   void requireTarget(LedgerStore store) {
     if (!store.categoryAware ||
         store.categoryReferences != (to >= 5) ||
-        store.tagsAware != (this == tags)) {
+        store.tagsAware != (to >= 6) ||
+        store.merchantsAware != (this == merchants)) {
       throw const InvalidSnapshot();
     }
   }
@@ -71,6 +75,19 @@ Future<UpgradeRequest> planTagUpgrade(
   operation,
   backupId,
   _LedgerUpgrade.tags,
+  cancellation: cancellation,
+);
+
+Future<UpgradeRequest> planMerchantUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.merchants,
   cancellation: cancellation,
 );
 
@@ -152,6 +169,25 @@ Future<UpgradeReceipt> upgradeTags(
   request,
   backupDirectory,
   _LedgerUpgrade.tags,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeReceipt> upgradeMerchants(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.merchants,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

@@ -6,6 +6,8 @@ import 'package:drift/native.dart';
 import 'storage_binding.dart';
 import 'category_schema.dart';
 import 'tag_schema.dart';
+import 'merchant_schema.dart';
+import 'merchant_reference_schema.dart';
 import 'tag_reference_schema.dart';
 import 'allocation_schema.dart';
 
@@ -17,9 +19,12 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.storageBinding,
     bool categoryAware = false,
     bool categoryReferences = false,
-    this.tagsAware = false,
-  }) : categoryReferences = categoryReferences || tagsAware,
-       categoryAware = categoryAware || categoryReferences || tagsAware,
+    bool tagsAware = false,
+    this.merchantsAware = false,
+  }) : tagsAware = tagsAware || merchantsAware,
+       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+       categoryAware =
+           categoryAware || categoryReferences || tagsAware || merchantsAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -29,15 +34,19 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.storageBinding,
     bool categoryAware = false,
     bool categoryReferences = false,
-    this.tagsAware = false,
-  }) : categoryReferences = categoryReferences || tagsAware,
-       categoryAware = categoryAware || categoryReferences || tagsAware,
+    bool tagsAware = false,
+    this.merchantsAware = false,
+  }) : tagsAware = tagsAware || merchantsAware,
+       categoryReferences = categoryReferences || tagsAware || merchantsAware,
+       categoryAware =
+           categoryAware || categoryReferences || tagsAware || merchantsAware,
        super(executor) {
     _configuration();
   }
   final bool categoryAware;
   final bool categoryReferences;
   final bool tagsAware;
+  final bool merchantsAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -47,7 +56,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => tagsAware
+  int get schemaVersion => merchantsAware
+      ? 7
+      : tagsAware
       ? 6
       : categoryReferences
       ? 5
@@ -79,6 +90,12 @@ final class ProbeDatabase extends GeneratedDatabase {
           await customStatement(sql);
         }
         migrationCheckpoint?.call('tags');
+      }
+      if (merchantsAware) {
+        for (final sql in [...merchantSchema, merchantReferenceSchema]) {
+          await customStatement(sql);
+        }
+        migrationCheckpoint?.call('merchants');
       }
     }),
     onUpgrade: (_, from, to) async {

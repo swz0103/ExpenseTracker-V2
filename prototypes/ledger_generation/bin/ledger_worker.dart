@@ -11,7 +11,13 @@ import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 Future<void> main(List<String> args) async {
   if (args.length != 8 &&
       !(args.length == 9 &&
-          ['protected', 'categories', 'references', 'tags'].contains(args[8])))
+          [
+            'protected',
+            'categories',
+            'references',
+            'tags',
+            'merchants',
+          ].contains(args[8])))
     exit(64);
   try {
     final slots = FixtureKeySlots(Directory(args[1]));
@@ -24,11 +30,14 @@ Future<void> main(List<String> args) async {
       categoryAware: args.length == 9 && args[8] == 'categories',
       categoryReferences: args.length == 9 && args[8] == 'references',
       tagsAware: args.length == 9 && args[8] == 'tags',
+      merchantsAware: args.length == 9 && args[8] == 'merchants',
     );
     if (args[5] == 'upgrade') {
       final request = UpgradeRequest.decode(File(args[2]).readAsStringSync());
       final credentials = jsonDecode(File(args[3]).readAsStringSync()) as Map;
-      await (store.tagsAware
+      await (store.merchantsAware
+          ? upgradeMerchants
+          : store.tagsAware
           ? upgradeTags
           : store.categoryReferences
           ? upgradeCategoryReferences

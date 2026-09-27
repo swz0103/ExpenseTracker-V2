@@ -10,6 +10,7 @@ import 'database.dart';
 import 'operations.dart';
 import 'categories_adapter.dart';
 import 'tagged_posting.dart';
+import 'merchant_posting.dart';
 
 export 'operations.dart' show OperationConflict, CommitResult;
 
@@ -58,28 +59,41 @@ final class FinancialWorkflows {
   Future<CommitResult> post(
     Posting posting, {
     Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
     void Function(String)? checkpoint,
   }) {
     final selections = canonicalTags(tags);
     final input = postingInput(posting);
+    final tagged = selections.isEmpty
+        ? input
+        : [
+            'tagged-post-v1',
+            input,
+            [
+              for (final tag in selections) [tag.id.value, tag.expectedVersion],
+            ],
+          ];
+    final selected = merchant == null
+        ? tagged
+        : [
+            'merchant-post-v1',
+            tagged,
+            [
+              [merchant.id.value, merchant.expectedVersion],
+            ],
+          ];
     return _commit(
       posting.operation,
-      jsonEncode(
-        selections.isEmpty
-            ? input
-            : [
-                'tagged-post-v1',
-                input,
-                [
-                  for (final tag in selections)
-                    [tag.id.value, tag.expectedVersion],
-                ],
-              ],
-      ),
+      jsonEncode(selected),
       posting.id,
       () async {
         final categorySequence = await _validate(posting);
         final tagSequence = await validatePostingTags(db, posting, selections);
+        final merchantSequence = await validatePostingMerchant(
+          db,
+          posting,
+          merchant,
+        );
         await ledger.insert(
           posting,
           categorySequence: categorySequence,
@@ -93,6 +107,14 @@ final class FinancialWorkflows {
           tagSequence,
         );
         if (selections.isNotEmpty) checkpoint?.call('tags');
+        await insertPostingMerchant(
+          db,
+          posting.operation.workspace,
+          posting.id,
+          merchant,
+          merchantSequence,
+        );
+        if (merchant != null) checkpoint?.call('merchant');
         await _checkBalances(posting);
       },
       'ledger.${posting.kind.name}',

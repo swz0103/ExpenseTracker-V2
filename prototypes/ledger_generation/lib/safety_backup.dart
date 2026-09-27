@@ -57,6 +57,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
         categoryAware: store.categoryAware,
         categoryReferences: store.categoryReferences,
         tagsAware: store.tagsAware,
+        merchantsAware: store.merchantsAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

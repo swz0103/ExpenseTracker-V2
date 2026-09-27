@@ -27,6 +27,8 @@ final class LedgerSession {
   static const maxAccounts = 32;
   static const maxCategories = 256;
   static const maxCategoryChanges = 1024;
+  static const maxMerchants = 256;
+  static const maxMerchantChanges = 1024;
   static const maxTags = 256;
   static const maxTagChanges = 1024;
   final ProbeDatabase _db;
@@ -82,10 +84,12 @@ final class LedgerSession {
         generationAware: true,
         categoryReferences: _db.categoryReferences,
         tagsAware: _db.tagsAware,
+        merchantsAware: _db.merchantsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
+      merchantsAware: _db.merchantsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -117,6 +121,7 @@ final class LedgerSession {
   Future<CommitResult> post(
     Posting posting, {
     Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
   }) {
     final selections = canonicalTags(tags);
     return _enqueue(
@@ -129,9 +134,14 @@ final class LedgerSession {
         final result = await FinancialWorkflows(
           _db,
           sourceContext: 'preview-manual-v1',
-        ).post(posting, tags: selections);
+        ).post(posting, tags: selections, merchant: merchant);
         if (!result.replayed) {
           await _checkFinancialRows(posting);
+          if (_db.merchantsAware)
+            await _checkRows('event_merchants', 'workspace=? AND event_id=?', [
+              posting.operation.workspace.toString(),
+              posting.id.value,
+            ]);
           if (_db.tagsAware)
             await _checkRows('event_tags', 'workspace=? AND event_id=?', [
               posting.operation.workspace.toString(),
@@ -220,6 +230,7 @@ final class LedgerSession {
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
+      merchantsAware: _db.merchantsAware,
     ).capture(_db),
   );
 
@@ -229,6 +240,7 @@ final class LedgerSession {
           'SELECT DISTINCT workspace FROM accounts '
           '${_db.categoryAware ? 'UNION SELECT workspace FROM categories ' : ''}'
           '${_db.tagsAware ? 'UNION SELECT workspace FROM tags ' : ''}'
+          '${_db.merchantsAware ? 'UNION SELECT workspace FROM merchants ' : ''}'
           'ORDER BY workspace',
         )
         .get();
