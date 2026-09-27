@@ -12,6 +12,10 @@
 
 ## 分支與交付
 
+商家批次上傳已核對：本機／遠端／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 為 `053b476342b0929f974d1541cc52f1b77e30d128`，所有本機分支未上傳提交為 0，main 仍為 `d0d39e1de32774aca319b8fed0cc9ee288cbb94a`。PR 已改為可審查，未合併；只寫入私人 V2。
+
+同輪已接續 `feat/safe-posting-copy`，完成[安全複製收入／支出](safe-posting-copy.md)：只沿用目前可用的欄位，金額日期重填，封存／合併須重新選擇。73 項相關回歸（Ledger 7／完整 App 66）、格式、分析及架構掃描通過，新增 6 項；多帳戶與新舊金融事件皆核對。[本批證據](test-results/safe-posting-copy-host-2026-09-27.json)區分重驗及沿用資料。`0.5.1+7` ARM64 debug APK 建置及身份、簽章、備份禁用核對通過，[安裝包紀錄](installable-preview.md)保存 hash。以獨立 PR 依賴 #47；接下來處理表單持久草稿與恢復，以及 M1-02 其餘操作／隱私／無障礙，不能把安全複製當成完整 M1-02。沒有修改商家批次已驗證的保存、schema、備份或還原程式。
+
 2026-09-27 商家／別名完整流程（本機驗證完成）：沿 `feat/transaction-merchants`／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 #46。保留 Domain 起始提交 `d17dec5177db67bab8bc5daf57431f01c660dfa4`，同一 PR 完成商家管理、別名增刪、候選手動確認、交易選取與原始歷史引用；新增／改名／封存／合併不改原交易金額。[完整接口](transaction-merchants.md)。
 
 新帳本 schema 7／snapshot 6；舊 V2 schema 3／4／5／6 經明確確認，沿雙憑證安全備份與暫存驗證逐步升級。分類、Tag、商家與金額同一交易提交；未選商家的既有 receipt bytes 不變。新資料納入原有 50,000 列／16 MiB 限制，工作階段另限 256 商家／1,024 次商家異動。回查把損壞來源的重複商家身份納入拒絕驗證。

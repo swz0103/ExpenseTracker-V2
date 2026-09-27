@@ -1,0 +1,55 @@
+{
+  "recordedUtc": "2026-09-27T12:12:44.150862+00:00",
+  "sourceBase": "053b476342b0929f974d1541cc52f1b77e30d128",
+  "validationTarget": "安全複製提交前固定正式程式；完整 App 後只補強同一 widget 的多帳戶斷言，再重跑該案及分析。",
+  "totalUniqueTests": 73,
+  "newTests": 6,
+  "packages": [
+    {
+      "package": "prototypes/ledger_generation",
+      "scope": "test/session_test.dart",
+      "tests": 7,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "scope": "all tests",
+      "tests": 66,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "inheritedEvidence": [
+    "transaction-merchants-host-2026-09-27.json",
+    "transaction-merchants-scale-2026-09-27.json",
+    "transaction-merchants-upgrade-scale-2026-09-27.json"
+  ],
+  "notes": [
+    "新增 Ledger 1、App engine 4、widget 1，共 6 項；先行與追加回歸不重複計數。",
+    "App 完整 66 項採 --concurrency=1，約 342 秒，全數通過，沒有重現前批並行資源競爭逾時。",
+    "初次新 widget 的按鈕文字誤寫為儲存交易，實際為儲存收支；診斷 widget 樹後修正測試定位，沒有修改正式流程或放寬斷言。",
+    "完整回歸後，回查補強 widget 為兩個帳戶並選非預設來源帳戶，檢查選取與新增金融事件的 accountId；同一案例重跑通過，正式程式不變。",
+    "複製前後完整 snapshot 一致、改名採現行版本、封存與合併不轉向、非法來源與鎖定拒絕；小螢幕確認新金額日期、來源帳戶、分類／Tag／商家、原交易不變及普通新表單清空。",
+    "單筆讀取與分頁共用同一列轉換，檢查 workspace 隔離、數額／日期／身份與已關閉 session 拒絕。",
+    "schema、財務寫入、加密、升級與還原程式不變；沒有重跑 16 套件完整清單、原生 worker 或五千筆工具，沿用父提交的明確證據。",
+    "實際架構邊界掃描通過；架構規則測試程式未變更，沿用父提交的 15 項，不算入本批 73。"
+  ],
+  "androidBuild": {
+    "version": "0.5.1+7",
+    "applicationId": "dev.expensetracker.preview",
+    "type": "debug",
+    "bytes": 92748879,
+    "sha256": "6fb345685aa12428402b56bb1a9913d2c9e9c2647f198fbf9a48736a66b2bd09",
+    "minSdk": 24,
+    "targetSdk": 36,
+    "allowBackup": false,
+    "apkSignatureV2": true,
+    "flutterAndSqlcipherAbi": "arm64-v8a",
+    "installed": false,
+    "published": false
+  }
+}

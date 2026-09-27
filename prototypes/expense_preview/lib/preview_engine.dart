@@ -15,6 +15,7 @@ import 'package:ledger_generation_probe/safety_backup.dart';
 part 'preview_categories.dart';
 part 'preview_tags.dart';
 part 'preview_merchants.dart';
+part 'preview_copy.dart';
 part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {

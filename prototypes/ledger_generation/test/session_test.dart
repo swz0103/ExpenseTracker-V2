@@ -68,6 +68,37 @@ void main() {
     directory.deleteSync(recursive: true);
   });
   test(
+    'single entry lookup is scoped to workspace and agrees with paged history',
+    () async {
+      await store.initialize(op());
+      final a = account();
+      final initial = opening(a), posted = income(a, amount: '12.34');
+      late LedgerSession closed;
+      await store.withSession((session) async {
+        closed = session;
+        await session.createAccount(a, initial);
+        await session.post(posted);
+        final row = (await session.entry(ws, posted.id))!;
+        final listed = (await session.entries(ws)).first;
+        expect(row.id, listed.id);
+        expect(row.accountId, a.id);
+        expect(row.kind, PostingKind.income);
+        expect(row.date.toString(), posted.date.toString());
+        expect(row.amount, Money.parse(currency, '12.34'));
+        expect(await session.entry(other, posted.id), isNull);
+        expect(await session.entry(ws, PublicId.generate()), isNull);
+        expect(
+          (await session.entry(ws, initial.id))!.kind,
+          PostingKind.opening,
+        );
+      });
+      await expectLater(
+        closed.entry(ws, posted.id),
+        throwsA(isA<SessionClosed>()),
+      );
+    },
+  );
+  test(
     'empty initialization is replayable but cannot reset existing entries',
     () async {
       final operation = op();

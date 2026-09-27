@@ -1,6 +1,15 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：`0.5.0+6` 加入商家管理、基本別名、候選確認與交易引用，舊 V2 帳本沿安全備份逐步升級至 schema 7。完整 16 套件 626 項本機案例及兩組各 5,000 筆資料驗證通過，詳見[清單](test-results/transaction-merchants-host-2026-09-27.json)及[商家流程](transaction-merchants.md)。
+**2026-09-27 最新開發包**：`0.5.1+7` 新增[安全複製收支](safe-posting-copy.md)，金額日期重填、封存合併不自動轉向、核對非預設來源帳戶；schema 7／snapshot 6 不變。[本批 73 項回歸](test-results/safe-posting-copy-host-2026-09-27.json)與封裝核對通過，商家完整整合及大量資料證據沿用下方 0.5.0。
+
+- 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.5.1-arm64.apk`；92,748,879 bytes。
+- SHA-256：`6fb345685aa12428402b56bb1a9913d2c9e9c2647f198fbf9a48736a66b2bd09`。
+- App ID `dev.expensetracker.preview`，versionCode 7／versionName 0.5.1；最低 API 24、target API 36、APK v2 簽章通過、`allowBackup=false`。Flutter／SQLCipher 主程式庫為 ARM64。
+- 僅本機 debug 封裝，尚未安裝或實機驗收，沒有正式發版；APK 與金鑰不提交 Git。既定 CORE 持續開發，不以可安裝作為完成點。
+
+## 0.5.0 商家開發包
+
+**2026-09-27 歷史開發包**：`0.5.0+6` 加入商家管理、基本別名、候選確認與交易引用，舊 V2 帳本沿安全備份逐步升級至 schema 7。完整 16 套件 626 項本機案例及兩組各 5,000 筆資料驗證通過，詳見[清單](test-results/transaction-merchants-host-2026-09-27.json)及[商家流程](transaction-merchants.md)。
 
 - 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.5.0-arm64.apk`；92,748,111 bytes。
 - SHA-256：`f644d39c68ac0cc15694ea43a12a9ae19daaa78bcece37dc3c3ec10af2fbbba1`。

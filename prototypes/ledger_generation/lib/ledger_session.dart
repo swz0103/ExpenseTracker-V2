@@ -184,6 +184,23 @@ final class LedgerSession {
         );
       });
 
+  /// Persisted entry in this workspace, independent of pagination or UI state.
+  Future<LedgerEntry?> entry(WorkspaceId workspace, PublicId id) =>
+      _enqueue(() async {
+        final row = await _db
+            .customSelect(
+              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale '
+              'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
+              'WHERE e.workspace=? AND e.id=?',
+              variables: [
+                Variable.withString(workspace.toString()),
+                Variable.withString(id.value),
+              ],
+            )
+            .getSingleOrNull();
+        return row == null ? null : _entryFromRow(row);
+      });
+
   /// Keyset pagination by business date and public ID; no OFFSET drift.
   Future<List<LedgerEntry>> entries(
     WorkspaceId workspace, {
@@ -208,20 +225,7 @@ final class LedgerSession {
           ],
         )
         .get();
-    return List.unmodifiable(
-      rows.map(
-        (r) => LedgerEntry(
-          PublicId.parse(r.read<String>('id')),
-          BusinessDate.parse(r.read<String>('business_date')),
-          PostingKind.values.byName(r.read<String>('kind')),
-          PublicId.parse(r.read<String>('account_id')),
-          Money(
-            Currency(r.read<String>('currency'), r.read<int>('scale')),
-            BigInt.from(r.read<int>('amount')),
-          ),
-        ),
-      ),
-    );
+    return List.unmodifiable(rows.map(_entryFromRow));
   });
 
   Future<List<int>> snapshot() => _enqueue(
@@ -249,3 +253,14 @@ final class LedgerSession {
     );
   });
 }
+
+LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
+  PublicId.parse(r.read<String>('id')),
+  BusinessDate.parse(r.read<String>('business_date')),
+  PostingKind.values.byName(r.read<String>('kind')),
+  PublicId.parse(r.read<String>('account_id')),
+  Money(
+    Currency(r.read<String>('currency'), r.read<int>('scale')),
+    BigInt.from(r.read<int>('amount')),
+  ),
+);

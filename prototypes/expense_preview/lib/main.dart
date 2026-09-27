@@ -305,6 +305,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _copyPosting(PublicId id) => _perform(() async {
+    await _refresh();
+    final copy = await _engine!.preparePostingCopy(id);
+    if (!mounted || !_engine!.isUnlocked) return;
+    _edit(_Page.posting);
+    setState(() {
+      _income = copy.income;
+      _accountId = copy.account.id;
+      _categoryId = copy.categoryId?.value ?? '';
+      _merchantId = copy.merchant?.id.value ?? '';
+      _selectedTags.addAll(copy.tags.map((tag) => tag.id));
+      _date.clear();
+      _message = copy.omittedMetadata
+          ? '已沿用可用欄位；部分分類、標籤或商家需重新選擇。請輸入本次金額與日期。'
+          : '已沿用帳戶、分類、標籤與商家；請輸入本次金額與日期。';
+    });
+  });
+
   PostingAccount _ref(Account a) => PostingAccount(
     id: a.id,
     workspace: a.workspace,
@@ -854,8 +872,27 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               subtitle: Text(
                 '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
               ),
-              trailing: Text(
-                '${e.amount.currency.code} ${moneyText(e.amount)}',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${e.amount.currency.code} ${moneyText(e.amount)}'),
+                  if ([
+                    PostingKind.income,
+                    PostingKind.expense,
+                  ].contains(e.kind))
+                    PopupMenuButton<String>(
+                      key: ValueKey('entry-actions-${e.id}'),
+                      tooltip: '交易操作',
+                      enabled: !_busy,
+                      onSelected: (_) => _copyPosting(e.id),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'copy',
+                          child: Text('再記一筆類似交易'),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           if (_hasMore)
