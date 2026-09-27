@@ -2,6 +2,10 @@
 
 使用者於 2026-09-26 授權：逐項實作，每項完成後開下一分支，直到回來驗收或完成所有既定階段。採依賴分支與堆疊 PR，驗證完成後才推進；不自行合併 main。自動接續仍遵守 Android、加密、還原與 migration 等 gate，遇到阻礙先做不受影響的項目。
 
+## 最新接續指示
+
+使用者要求不以試用版為停止點，繼續完整 CORE 直到其回來，屆時再安排實機。每項開發同時回查既有模組並做相關回歸；逐批收斂已涵蓋且驗證的 GitHub 分支，main 不自行合併。自動接續已恢復。[分支收斂紀錄](branch-consolidation.md)保存 exact SHA 與原 PR 對照。
+
 ## 分支與交付
 
 - 架構與 SQLite 原型：`docs/architecture-and-implementation-plan`，PR #1；11 項測試及 GitHub CI 已通過，基準提交 `3712cfe781e8ee2725594cb9ee52db8f58fccef3`。原型只驗證 host transaction 機制。
