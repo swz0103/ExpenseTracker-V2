@@ -15,6 +15,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [業務套件邊界與 CI 檢查](docs/architecture-boundary-checks.md)
 - [資料版本與升級前備份契約](docs/data-evolution-contract.md)
 - [持久安全備份限定原型](docs/verified-safety-backup.md)
+- [救援憑證沿用與 BackupProfile 契約](docs/backup-profile-contract.md)
 - [具體驗收案例](docs/foundation-acceptance.md)
 - [地基驗證結果與剩餘門檻](docs/foundation-validation.md)
 - [Android 實機驗證紀錄](docs/android-device-validation.md)

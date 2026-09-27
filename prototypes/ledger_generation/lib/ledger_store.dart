@@ -124,10 +124,12 @@ final class LedgerStore {
 
   Future<CreatedBackup> backup(
     String password, {
+    String? recoveryKey,
     LockWaitCancellation? cancellation,
   }) async => EnvelopeCodec().create(
     await snapshot(cancellation: cancellation),
     password: password,
+    recoveryKey: recoveryKey,
   );
 
   Future<T> _use<T>(

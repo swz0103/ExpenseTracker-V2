@@ -61,6 +61,8 @@ Capability 的 UI 開關與資料相容性分開。關閉投資 UI 仍需能讀�
 
 ## 6. 暫存升級與唯一發布點
 
+後續已補[明確沿用救援憑證](backup-profile-contract.md)的底層能力；未提供參數時仍維持每份新 key。這不代表正式 BackupProfile 已持久保存，也不能自動略過上一節的備份準備及雙路驗證。
+
 採用既定[世代切換協定](storage-lifecycle-contract.md)：保留原世代與 key，建立新 slot 及目標加密世代，在目標執行已登錄遷移。來源可透過已驗證邏輯轉換匯入，或經驗證的 SQLite 相容方式建立一致副本；不得直接複製仍使用中的 DB 主檔而漏掉 WAL／journal。首個限定原型選已知 snapshot 轉換路徑。
 
 跨模組 schema／資料轉換與目標 manifest 更新在同一 SQLite transaction。各模組先核對共同來源版本，再依固定順序轉換；任一步失敗整個目標回滾，不各自 commit。外部網路／下載不在此 transaction 內，也不能決定歷史財務數字。

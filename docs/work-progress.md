@@ -31,9 +31,10 @@
 - 精確匯率地基：`feat/foundation-exact-fx`，PR #22，基於 PR #21，提交 `ca9ea2d`。FxRate 以正 BigInt ratio 保存十進位輸入，反向／交叉匯率不做中間量化；FxObservation 保留來源、實際日期與取得瞬間，預設拒絕過期日期。新增 18 項測試（含 11,552 組精確值誤差界線）與原有 17 項全部通過，靜態分析通過。全部 266 項測試的十一個 CI 工作通過。未接 provider／Ledger schema／UI，不宣稱 M1-03 完成。[計算契約](exact-fx-values.md)。
 - 業務套件邊界檢查：`feat/architecture-boundary-checks`，PR #23，基於 PR #22，提交 `b9cc8b3`。新增固定政策與 AST 檢查，拒絕跨業務私有入口、Domain 平台／儲存依賴、循環與相對路徑繞過；15 項正常／負向案例、實際 repository 掃描及靜態分析通過，全部 281 項 host 測試的十二個 CI 工作通過。這是直接依賴 gate，不替代 SQL 資料主責或執行期驗證。[範圍](architecture-boundary-checks.md)。
 - 資料演進契約：`docs/data-evolution-contract`，PR #24，基於 PR #23，提交 `3a8de9d`；十二個 CI 工作通過。核對實際 schema／snapshot／module／catalog 版本，明確業務資料主責、停用 UI 資料保留、升級前加密備份、唯一發布點與 EVOL-01～08。揭露現有 envelope 每份新建救援 key 的限制，正式 BackupProfile 延續與升級協調器仍未實作；不把設計當成 gate 通過。[完整契約](data-evolution-contract.md)。
-- Android 實機接續：`feat/android-device-validation`，PR #25，基於 PR #24，提交 `cad06c8`。Samsung SM-A5660／Android 16：基本加密、平台 slot、密碼／救援金鑰分別清空 App 後還原及各自新程序重開通過；完整 snapshot／115 餘額／receipt replay 與前後 generation／slot 一致。另四項平台故障案例（缺 key／不可覆寫／兩處 migration 回滾再試）、17 項既有 host 與靜態分析通過。詳細結果見[實機紀錄](android-device-validation.md)。
-- 持久安全備份：`feat/verified-safety-backup`，基於 PR #25。來源 schema 3 預檢、exclusive 新檔、flush 後重讀及密碼／救援 key 分別核對完整 snapshot；全程持有生命週期鎖，既有／部分輸出不覆寫。13 項新 host 案例與既有 Ledger 33 項及靜態分析通過；完整產品憑證延續及升級協調仍未完成。[原型範圍](verified-safety-backup.md)。
-- 下一項：接續已知舊版來源 reader／升級前備份串接與正式 BackupProfile 契約；裝置程序中止／OS 重開機及完整升級協調仍待實作與驗證。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置已連接並完成指定子集，未列入的完整平台故障 gate 仍待接續。
+- Android 實機接續：`feat/android-device-validation`，PR #25，基於 PR #24，提交 `cad06c8`。Samsung SM-A5660／Android 16：基本加密、平台 slot、密碼／救援金鑰分別清空 App 後還原及各自新程序重開通過；完整 snapshot／115 餘額／receipt replay 與前後 generation／slot 一致。另四項平台故障案例（缺 key／不可覆寫／兩處 migration 回滾再試）、17 項既有 host 與靜態分析通過。281 項 host 測試的十二個 CI 工作亦通過。詳細結果見[實機紀錄](android-device-validation.md)。
+- 持久安全備份：`feat/verified-safety-backup`，PR #26，基於 PR #25，提交 `a137eb0`；294 項 host 測試的十二個 CI 工作通過。來源 schema 3 預檢、exclusive 新檔、flush 後重讀及密碼／救援 key 分別核對完整 snapshot；全程持有生命週期鎖，既有／部分輸出不覆寫。13 項新 host 案例與既有 Ledger 33 項及靜態分析通過；完整產品憑證延續及升級協調仍未完成。[原型範圍](verified-safety-backup.md)。
+- 救援憑證沿用：`feat/reusable-recovery-credential`，基於 PR #26。Envelope／Ledger 一般與持久安全備份可明確沿用既有救援 key，格式及預設新建行為保留；每份資料 key／salt／nonce 仍獨立。7 項新 envelope、2 項 Ledger 整合，連同既有共 64 項本機測試及靜態分析通過。正式 profile 保存與啟用仍待實作。[契約與範圍](backup-profile-contract.md)。
+- 下一項：接續已知舊版來源 reader／升級前備份串接與正式 BackupProfile 保存；裝置程序中止／OS 重開機及完整升級協調仍待實作與驗證。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置已連接並完成指定子集，未列入的完整平台故障 gate 仍待接續。
 
 ## 尚未完成的 gate
 

@@ -17,7 +17,7 @@ final class SafetyBackupUnavailable implements Exception {
   String toString() => 'SafetyBackupUnavailable(${problem.name})';
 }
 
-/// Contains a new per-backup recovery secret; never log or persist this object.
+/// Contains a recovery secret; never log or persist this object.
 final class VerifiedSafetyBackup {
   const VerifiedSafetyBackup(this.file, this.source, this.recoveryKey);
   final File file;
@@ -36,6 +36,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
   Directory destination,
   PublicId backupId, {
   required String password,
+  String? recoveryKey,
   LockWaitCancellation? cancellation,
   Future<void> Function(String, File)? checkpoint,
 }) async {
@@ -73,6 +74,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
       final created = await codec.create(
         utf8.encode(snapshot),
         password: password,
+        recoveryKey: recoveryKey,
       );
       await file.create(exclusive: true);
       await file.writeAsString(created.envelope, flush: true);

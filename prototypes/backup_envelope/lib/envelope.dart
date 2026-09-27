@@ -41,6 +41,7 @@ final class EnvelopeCodec {
   Future<CreatedBackup> create(
     List<int> payload, {
     required String password,
+    String? recoveryKey,
   }) async {
     if (payload.length > maxPayloadBytes)
       throw const BackupException(BackupError.limitExceeded);
@@ -50,8 +51,11 @@ final class EnvelopeCodec {
     if (password.runes.length < 12)
       throw const BackupException(BackupError.invalidPassword);
     final bytes = List<int>.unmodifiable(payload);
+    // Explicit opt-in only. Never silently replace an invalid saved credential.
+    final recovery = recoveryKey == null
+        ? await _cipher.newSecretKey()
+        : await _readRecoveryKey(recoveryKey);
     final dataKey = await _cipher.newSecretKey();
-    final recovery = await _cipher.newSecretKey();
     final salt = _random(16);
     final header = <String, Object>{
       'format': 'ExpenseTracker-envelope-probe',
@@ -113,6 +117,10 @@ final class EnvelopeCodec {
     String recoveryKey,
   ) async {
     final parsed = _parse(envelope);
+    return _open(parsed, await _readRecoveryKey(recoveryKey), 'recovery');
+  }
+
+  Future<SecretKey> _readRecoveryKey(String recoveryKey) async {
     if (!recoveryKey.startsWith(_prefix))
       throw const BackupException(BackupError.invalidFormat);
     final combined = _decode(recoveryKey.substring(_prefix.length), 36);
@@ -122,7 +130,7 @@ final class EnvelopeCodec {
       if (combined[32 + i] != checksum[i])
         throw const BackupException(BackupError.invalidFormat);
     }
-    return _open(parsed, SecretKey(keyBytes), 'recovery');
+    return SecretKey(keyBytes);
   }
 
   Future<List<int>> _open(

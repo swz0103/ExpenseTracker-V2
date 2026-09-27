@@ -12,6 +12,8 @@ Header 固定順序重新編碼並作為 AAD，額外綁定 password／recovery�
 
 ## 驗證
 
+封裝現可明確提供已保存的 `recoveryKey` 供後續備份沿用；未提供時仍每份生成新 key。資料 key／salt／nonce 每次重新產生，格式不變；錯誤已保存憑證不自動替換。實作範圍與尚未完成的正式設定檔見[BackupProfile 契約](../../docs/backup-profile-contract.md)。
+
 ```sh
 dart pub get --enforce-lockfile
 dart format --output=none --set-exit-if-changed lib bin test

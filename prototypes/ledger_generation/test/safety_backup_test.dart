@@ -62,6 +62,59 @@ void main() {
     work.deleteSync(recursive: true);
   });
   final unavailable = throwsA(isA<SafetyBackupUnavailable>());
+  test('both backup entrypoints explicitly preserve a supplied recovery credential', () async {
+    final ordinary = await store.backup(
+      password,
+      recoveryKey: initial.recoveryKey,
+    );
+    expect(ordinary.recoveryKey == initial.recoveryKey, isTrue);
+    expect(
+      await EnvelopeCodec().openWithRecovery(
+        ordinary.envelope,
+        initial.recoveryKey,
+      ),
+      expected,
+    );
+    final safety = await createSafetyBackup(
+      store,
+      output,
+      PublicId.generate(),
+      password: password,
+      recoveryKey: initial.recoveryKey,
+    );
+    expect(safety.recoveryKey == initial.recoveryKey, isTrue);
+    expect(
+      await EnvelopeCodec().openWithRecovery(
+        await safety.file.readAsString(),
+        initial.recoveryKey,
+      ),
+      expected,
+    );
+    expect(await store.snapshot(), expected);
+  });
+  test(
+    'invalid retained recovery credential creates no backup or source change',
+    () async {
+      await expectLater(
+        createSafetyBackup(
+          store,
+          output,
+          PublicId.generate(),
+          password: password,
+          recoveryKey: 'ETV2-R1-invalid',
+        ),
+        throwsA(
+          isA<BackupException>().having(
+            (e) => e.code,
+            'code',
+            BackupError.invalidFormat,
+          ),
+        ),
+      );
+      expect(output.listSync(), isEmpty);
+      expect(await store.snapshot(), expected);
+    },
+  );
   test(
     'backup captures live postings rather than original installation input',
     () async {
