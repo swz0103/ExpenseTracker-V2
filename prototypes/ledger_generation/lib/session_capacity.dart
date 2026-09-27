@@ -13,12 +13,12 @@ const _rowByteLimits = <String, int>{
   'categories': 1024,
   'category_changes': 1024,
 };
-Map<String, int> _tableLimits(bool categories) => {
+Map<String, int> _tableLimits(bool categories, bool references) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents,
   'openings': LedgerSession.maxAccounts,
-  'allocations': 0,
+  'allocations': references ? SnapshotCodec.maxRows : 0,
   'receipts':
       LedgerSession.maxEvents +
       (categories ? LedgerSession.maxCategoryChanges : 0),
@@ -49,27 +49,18 @@ void _checkRowBytes(String table, Map row) {
 List<int> validateSessionCapacity(
   List<int> bytes, {
   bool categoryAware = false,
+  bool categoryReferences = false,
 }) {
+  categoryAware = categoryAware || categoryReferences;
   final codec = SnapshotCodec(
     generationAware: true,
     categoryAware: categoryAware,
+    categoryReferences: categoryReferences,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
-  final limits = _tableLimits(categoryAware);
-  var maximumBytes =
-      codec.empty().length + LedgerSession.maxAccounts * (4096 - 1024);
-  var maximumRows = 0;
-  for (final entry in limits.entries) {
-    maximumRows += entry.value;
-    // Empty arrays/header already counted; one comma per possible row is a
-    // conservative extra byte (including the first row).
-    maximumBytes += entry.value * (_rowByteLimits[entry.key]! + 1);
-  }
-  if (maximumRows > SnapshotCodec.maxRows ||
-      maximumBytes > EnvelopeCodec.maxPayloadBytes) {
-    throw StateError('Session capacity cannot guarantee a portable backup.');
-  }
+  final limits = _tableLimits(categoryAware, categoryReferences);
+  _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
   for (final entry in tables.entries) {
     final rows = entry.value as List;
@@ -97,12 +88,33 @@ List<int> validateSessionCapacity(
   return canonical;
 }
 
+// One conservative comma for every row, including each table's first row.
+// Thus each accepted update has a cheap, exact delta with <= 9 spare bytes.
+({int rows, int bytes}) _snapshotUsage(List<int> canonical) {
+  final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
+  var rows = 0, nonempty = 0;
+  for (final value in tables.values) {
+    rows += (value as List).length;
+    if (value.isNotEmpty) nonempty++;
+  }
+  return (rows: rows, bytes: canonical.length + nonempty);
+}
+
+void _requirePortableUsage(({int rows, int bytes}) usage) {
+  if (usage.rows > SnapshotCodec.maxRows ||
+      usage.bytes > EnvelopeCodec.maxPayloadBytes ||
+      usage.rows < 0 ||
+      usage.bytes < 0)
+    throw PreviewCapacity();
+}
+
 extension _SessionRowCapacity on LedgerSession {
   Future<void> _checkRows(
     String table,
     String predicate,
-    List<String> values,
-  ) async {
+    List<String> values, {
+    bool remove = false,
+  }) async {
     final rows = await _db
         .customSelect(
           'SELECT * FROM $table WHERE $predicate',
@@ -110,10 +122,20 @@ extension _SessionRowCapacity on LedgerSession {
         )
         .get();
     for (final row in rows) {
-      _checkRowBytes(table, {
+      final encoded = {
         for (final entry in row.data.entries)
           entry.key: entry.value is int ? entry.value.toString() : entry.value,
-      });
+      };
+      _checkRowBytes(table, encoded);
+      final prior = _capacityUsage!;
+      final delta = remove ? -1 : 1;
+      final next = (
+        rows: prior.rows + delta,
+        bytes:
+            prior.bytes + delta * (utf8.encode(jsonEncode(encoded)).length + 1),
+      );
+      _requirePortableUsage(next);
+      _capacityUsage = next;
     }
   }
 
@@ -140,6 +162,10 @@ extension _SessionRowCapacity on LedgerSession {
     }
     await _checkRows('events', 'workspace=? AND id=?', [ws, posting.id.value]);
     await _checkRows('legs', 'workspace=? AND event_id=?', [
+      ws,
+      posting.id.value,
+    ]);
+    await _checkRows('allocations', 'workspace=? AND event_id=?', [
       ws,
       posting.id.value,
     ]);

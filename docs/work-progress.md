@@ -8,6 +8,16 @@
 
 ## 分支與交付
 
+2026-09-27 分類引用世代升級與工作階段：`feat/ledger-reference-upgrade` 基於 PR #42（`4cd097f4e94704ae3a830eff1925ac5c6353f805`）。完成 schema 4 → 5 的同鎖安全備份、已知格式轉換與原子發布，保留舊 DB／key；新舊升級路線共用程式並核對目標模式，避免 request 宣告與實際格式不同。接上 `LedgerSession.post` 分攤、不可變歷史讀取與一般／持久備份，分類改動後的舊引用及 replay 保留。
+
+容量改按實際 UTF-8 bytes／跨表列數逐筆計算，分類更新扣除原狀態再加入新狀態；資料與容量計數一起提交或回滾。維持 32 帳戶、5,000 事件、256 分類、1,024 次變更及每列限制，分攤納入全域 16 MiB／50,000 列；不以最壞假設一律拒絕新格式，也不讓失敗寫入耗掉額度。[完整接口與限制](ledger-reference-upgrade.md)。
+
+受影響套件共 **170 項獨有本機測試**通過（Ledger 119、Android 主機 17、App 19、架構 15），新增 27 項；格式、靜態分析、Ledger worker 重建及實際架構掃描通過。含 11 處獨立程序中止、4 條刪除來源 DB／key 後的單憑證還原，以及容量拒絕後繼續合法寫入。[驗證清單](test-results/ledger-reference-upgrade-host-2026-09-27.json)區分先行測試及完整回歸，其餘十個套件本批未重跑。
+
+同一新帳本 **5,000 事件／7,497 分攤／256 分類／1,024 次歷史／4,998 次重送**通過，完整 snapshot 8,610,791 bytes、餘額 2,511,000 minor units、密碼及救援各自還原、合併／封存後滿額重送皆正確；[原始結果](test-results/ledger-reference-upgrade-scale-2026-09-27.json)約 382.14 秒。同時完整回歸[既有 schema 3 → 4 大量升級](test-results/ledger-reference-upgrade-legacy-regression-2026-09-27.json)，snapshot 6,060,123 bytes、案例約 311.25 秒；兩者是不同帳本，耗時不是隔離效能或實機保證。
+
+雲端未執行，兩個 workflow 維持停用；手機未操作、main 未合併，需雲端 gate 的分支收斂暫緩。下一分支接 App 的既有備份憑證、已知升級規劃／恢復與容量准入，再接簡潔分類錄入；App 畫面、平台升級 gate、Tag／Merchant 與其他 M1／M2／M3 CORE 均未宣稱完成。
+
 2026-09-27 交易分類引用：`feat/ledger-category-references` 基於 PR #41（`095d81f09638e84d4676d2edaa42381b1c5ed654`）。完成收入／支出精確分攤、分類預期版本及入帳時 metadata 序號、同一交易保存與版本化 receipt。schema 5／snapshot 4／ledger module 3 為明確 opt-in；舊模式及無分攤 receipt 保持相容，分類之後改名／合併／封存仍可驗證歷史交易與重送。回查並修正來源表失去唯一限制時，備份漏檢重複分攤的問題；共用合成 fixture 改用正式套件入口，未放寬架構邊界。
 
 完整 14 套件共 **464 項獨有本機測試**通過，其中新增 35 項。先完成當時 463 項清單，最後補上重複分攤案例後，再全量重跑快照 57 項及加密 34 項；格式、靜態分析、五個原生 worker 建置與實際架構掃描通過，兩個受影響 worker 於最後修正後再建置。[驗證清單](test-results/category-references-host-2026-09-27.json)明列範圍，沒有將重跑重複計數。

@@ -4,6 +4,8 @@
 
 ## 版本邊界
 
+最新 `categoryReferences: true` 接上 schema 4 → 5 同鎖安全備份與世代發布、收入／支出分類分攤、歷史讀取、工作階段實際 bytes／列數容量保護及完整備份還原；[路線與限制](../../docs/ledger-reference-upgrade.md)。這是明確選用的主機整合，App 預設仍走舊模式。
+
 工作階段的分類命令、讀取與有界備份容量見[分類接口契約](../../docs/category-session.md)；應用層不需取得資料庫 handle。這一批仍未開放分類 UI。
 
 2026-09-27 接續：明確 `categoryAware: true` 可使用 catalog 3／財務 schema 4，包含 schema 3 來源預檢、雙路持久安全備份、分類快照轉換與原子世代發布。詳見[升級路徑、故障與驗證](../../docs/ledger-category-upgrade.md)。App 預設行為維持以下 schema 3 路徑；新增能力仍是 host 整合，沒有自動開放分類 UI。

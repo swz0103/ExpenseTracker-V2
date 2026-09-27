@@ -30,7 +30,18 @@ final class LedgerSession {
   final ProbeDatabase _db;
   Future<void> _tail = Future.value();
   bool _closed = false;
-  bool _capacityAdmitted = false;
+  ({int rows, int bytes})? _capacityUsage;
+
+  Future<T> _write<T>(Future<T> Function() work) async {
+    final prior = _capacityUsage;
+    try {
+      return await _db.transaction(work);
+    } catch (_) {
+      // Admission and deltas must roll back with SQLite, including failed commit.
+      _capacityUsage = prior;
+      rethrow;
+    }
+  }
 
   Future<T> _enqueue<T>(Future<T> Function() work) {
     if (_closed) return Future.error(SessionClosed());
@@ -62,15 +73,17 @@ final class LedgerSession {
   }
 
   Future<void> _admitCapacity() async {
-    if (_capacityAdmitted) return;
-    validateSessionCapacity(
+    if (_capacityUsage != null) return;
+    final admitted = validateSessionCapacity(
       await SnapshotCodec(
         categoryAware: _db.categoryAware,
         generationAware: true,
+        categoryReferences: _db.categoryReferences,
       ).capture(_db),
       categoryAware: _db.categoryAware,
+      categoryReferences: _db.categoryReferences,
     );
-    _capacityAdmitted = true;
+    _capacityUsage = _snapshotUsage(admitted);
   }
 
   Future<void> _capacity(Posting posting, {bool account = false}) async {
@@ -85,7 +98,7 @@ final class LedgerSession {
 
   Future<CommitResult> createAccount(Account account, Posting opening) =>
       _enqueue(
-        () => _db.transaction(() async {
+        () => _write(() async {
           await _capacity(opening, account: true);
           final result = await FinancialWorkflows(
             _db,
@@ -98,7 +111,7 @@ final class LedgerSession {
       );
 
   Future<CommitResult> post(Posting posting) => _enqueue(
-    () => _db.transaction(() async {
+    () => _write(() async {
       if (posting.kind != PostingKind.income &&
           posting.kind != PostingKind.expense) {
         throw UnsupportedError('Preview accepts income and expense only');
@@ -188,6 +201,7 @@ final class LedgerSession {
     () => SnapshotCodec(
       generationAware: true,
       categoryAware: _db.categoryAware,
+      categoryReferences: _db.categoryReferences,
     ).capture(_db),
   );
 

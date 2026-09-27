@@ -53,8 +53,10 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
   Exception? failure;
   await store.generations.withCurrent<void>((file, key, receipt) async {
     try {
-      final snapshot = await LedgerPayload(categoryAware: store.categoryAware)
-          .inspect(file, key, receipt);
+      final snapshot = await LedgerPayload(
+        categoryAware: store.categoryAware,
+        categoryReferences: store.categoryReferences,
+      ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,
         destination,

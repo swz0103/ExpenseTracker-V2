@@ -23,6 +23,7 @@ import 'package:validated_restore_probe/snapshot.dart';
 
 part 'ledger_session.dart';
 part 'category_session.dart';
+part 'allocation_session.dart';
 part 'session_capacity.dart';
 
 StorageBinding _binding(GenerationReceipt receipt) => StorageBinding(
@@ -33,12 +34,15 @@ StorageBinding _binding(GenerationReceipt receipt) => StorageBinding(
 );
 
 final class LedgerPayload implements GenerationPayload {
-  LedgerPayload({this.categoryAware = false})
-    : codec = SnapshotCodec(
+  LedgerPayload({bool categoryAware = false, this.categoryReferences = false})
+    : categoryAware = categoryAware || categoryReferences,
+      codec = SnapshotCodec(
         generationAware: true,
         categoryAware: categoryAware,
+        categoryReferences: categoryReferences,
       );
   final bool categoryAware;
+  final bool categoryReferences;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -61,6 +65,7 @@ final class LedgerPayload implements GenerationPayload {
       key,
       storageBinding: _binding(receipt),
       categoryAware: categoryAware,
+      categoryReferences: categoryReferences,
     ),
   );
 
@@ -76,7 +81,9 @@ final class LedgerPayload implements GenerationPayload {
     try {
       configureEncryption(raw, key);
       version = raw.userVersion;
-      if (!(version == 3 || (categoryAware && version == 4)) ||
+      if (!(version == 3 ||
+              (categoryAware && version == 4) ||
+              (categoryReferences && version == 5)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -91,12 +98,14 @@ final class LedgerPayload implements GenerationPayload {
     final sourceCodec = SnapshotCodec(
       generationAware: true,
       categoryAware: version == 4,
+      categoryReferences: version == 5,
     );
     final db = openEncrypted(
       file,
       key,
       storageBinding: _binding(receipt),
       categoryAware: version == 4,
+      categoryReferences: version == 5,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -115,18 +124,24 @@ final class LedgerStore {
     Directory directory,
     KeySlots keys, {
     CatalogProtection? catalogProtection,
-    this.categoryAware = false,
+    bool categoryAware = false,
+    this.categoryReferences = false,
     Duration lockTimeout = const Duration(seconds: 10),
-  }) : generations = GenerationStore(
+  }) : categoryAware = categoryAware || categoryReferences,
+       generations = GenerationStore(
          directory,
          keys,
-         payload: LedgerPayload(categoryAware: categoryAware),
-         upgradeAware: categoryAware,
+         payload: LedgerPayload(
+           categoryAware: categoryAware,
+           categoryReferences: categoryReferences,
+         ),
+         upgradeAware: categoryAware || categoryReferences,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
   final GenerationStore generations;
   final bool categoryAware;
+  final bool categoryReferences;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -134,6 +149,7 @@ final class LedgerStore {
           SnapshotCodec(
             generationAware: true,
             categoryAware: categoryAware,
+            categoryReferences: categoryReferences,
           ).empty(),
         ),
         operation,
@@ -152,6 +168,7 @@ final class LedgerStore {
         key,
         storageBinding: _binding(receipt),
         categoryAware: categoryAware,
+        categoryReferences: categoryReferences,
       );
       final session = LedgerSession._(db);
       try {
@@ -215,6 +232,7 @@ final class LedgerStore {
       key,
       storageBinding: _binding(receipt),
       categoryAware: categoryAware,
+      categoryReferences: categoryReferences,
     );
     try {
       return await work(db);

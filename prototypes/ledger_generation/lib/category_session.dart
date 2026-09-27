@@ -74,7 +74,7 @@ extension CategorySession on LedgerSession {
     OperationKey operation,
     CategoryMutation mutation,
   ) => _enqueue(
-    () => _db.transaction(() async {
+    () => _write(() async {
       _categoriesEnabled();
       if (!await _hasOperation(operation)) {
         await _admitCapacity();
@@ -84,6 +84,12 @@ extension CategorySession on LedgerSession {
                 await _count('categories') >= LedgerSession.maxCategories)) {
           throw PreviewCapacity();
         }
+        // Only the selected category row is updated by these commands.
+        // Subtract it before charging the replacement and new history/receipt.
+        await _checkRows('categories', 'workspace=? AND id=?', [
+          operation.workspace.toString(),
+          mutation.id.value,
+        ], remove: true);
       }
       final result = await CategoriesAdapter(_db).mutate(operation, mutation);
       if (!result.replayed) {

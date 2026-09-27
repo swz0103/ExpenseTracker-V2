@@ -38,3 +38,5 @@
 `feat/category-session` 依賴 #40（`80a588f`），完成[分類工作階段及備份容量](category-session.md)，164 項受影響本機回歸及混合大量資料驗證通過。沒有新雲端 checks，因此本輪不收斂需要雲端 gate 的批次、不刪除舊分支；下一功能從此分支接交易分類引用，依賴鏈持續保留。
 
 `feat/ledger-category-references` 依賴 #41（`095d81f09638e84d4676d2edaa42381b1c5ed654`），完成[交易分類引用與歷史還原](ledger-category-references.md)的底層保存／暫存驗證。完整 14 套件共 464 項獨有本機案例通過，包含最後重複分攤修正後的快照及加密全量回歸，以及新舊兩條大量資料路徑；雲端未執行，因此依然保留所有後續堆疊分支，不進行需雲端 gate 的收斂。下一分支從此 head 接 schema 4 → 5 安全升級及工作階段接口，不能將低層 schema 開關當成已啟用產品能力。
+
+`feat/ledger-reference-upgrade` 依賴 #42（`4cd097f4e94704ae3a830eff1925ac5c6353f805`），完成[分類引用升級及工作階段](ledger-reference-upgrade.md)。170 項受影響本機案例、新舊大量路徑、11 處程序中止及 4 條單憑證乾淨還原通過，雲端未執行。下一功能從此 head 接 App 升級流程；保留整個依賴鏈與原 PR，未繞過雲端 gate 收斂，也未改動 main。

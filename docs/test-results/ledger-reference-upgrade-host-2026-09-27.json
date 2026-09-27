@@ -1,0 +1,48 @@
+{
+  "recordedUtc": "2026-09-27T08:38:55.4756848Z",
+  "sourceBase": "4cd097f4e94704ae3a830eff1925ac5c6353f805",
+  "validationTarget": "提交前工作目錄；文件於驗證完成後記錄，非雲端 exact SHA 驗證",
+  "dart": "3.13.4",
+  "flutter": "3.47.5",
+  "host": "Windows 11 x64",
+  "totalUniqueTests": 170,
+  "newTests": 27,
+  "packages": [
+    {
+      "package": "prototypes/ledger_generation",
+      "tests": 119,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/android_foundation",
+      "tests": 17,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "tests": 19,
+      "result": "passed"
+    },
+    {
+      "package": "tooling/architecture_checks",
+      "tests": 15,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "distinctNativeWorkersRebuilt": 1,
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "scaleResult": "ledger-reference-upgrade-scale-2026-09-27.json",
+  "legacyRegressionResult": "ledger-reference-upgrade-legacy-regression-2026-09-27.json",
+  "notes": [
+    "完整重跑受影響的 Ledger、兩個 Flutter 主機套件及架構套件。其餘十個套件本批未重跑；前批完整 464 項驗證另有紀錄，不宣稱本批全 14 套件重測。",
+    "27 項新增案例包含升級 20（含 11 處獨立程序中止及 4 條刪除來源 DB/key 後的單憑證還原）、工作階段 6、大量資料 1。先行小批與後續全量重跑只按獨有案例計數。",
+    "初次舊 schema 工作階段拒絕案例期待錯誤類型不符；既有 facade 保留 StateError，已校正測試並在完整回歸通過。拒絕行為及來源不變斷言未放寬。",
+    "同一 schema 5 帳本有 5000 事件、7497 分攤、256 分類、1024 次 metadata 變更，完成密碼／救援還原、獨立餘額及滿額時 replay。",
+    "既有 schema 3 → 4 的 5000 事件混合大量升級亦完整回歸；兩條路徑為不同帳本，不合併宣稱容量。",
+    "大量測試與其他本機回歸同時執行；耗時不代表隔離效能、Android 實機或真實斷電／磁碟滿驗證。"
+  ]
+}

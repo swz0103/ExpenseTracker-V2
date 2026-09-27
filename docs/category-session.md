@@ -1,6 +1,6 @@
 # 分類工作階段與備份容量
 
-此批延續 [Ledger 分類升級](ledger-category-upgrade.md)，在 `categoryAware: true` 的加密帳本提供分類公開操作與讀取。仍是主機整合能力；M1-02 的交易分類引用、Tag／Merchant、正式升級引導與 UI 尚未完成。
+此批延續 [Ledger 分類升級](ledger-category-upgrade.md)，在 `categoryAware: true` 的加密帳本提供分類公開操作與讀取。仍是主機整合能力；後續[分類引用工作階段](ledger-reference-upgrade.md)已接分攤與 schema 5，Tag／Merchant、正式 App 升級引導與 UI 尚未完成。
 
 ## 操作邊界
 
@@ -16,7 +16,7 @@
 
 容量同時限制 UTF-8 JSON 編碼後的每列大小，而非僅檢查字數或資料筆數：帳戶與建帳 receipt 各 4,096 bytes；其他 receipt、分類狀態及分類歷史各 1,024 bytes；其餘金融與 Audit 列各 512 bytes。序列化包含巢狀 JSON、跳脫字元及中文，所以不會漏算名稱在可攜備份中的實際成本。
 
-在目前格式下，所有上限同時成立時最多 23,392 列，保守最大 bytes 為空 snapshot 標頭加 15,952,736；低於 snapshot 的 50,000 列與 envelope 的 16 MiB 限制。公式連同標頭大小由同一容量檢查在執行時核對；改動格式或政策使最壞情況超標會拒絕新寫入，不能默默放寬。
+上一批 schema 4 以各表最大列數與每列 bytes 推算，最多 23,392 列、空 snapshot 標頭加 15,952,736 bytes。接入 schema 5 分攤後已改為[實際增量容量](ledger-reference-upgrade.md)：第一次驗證完整 snapshot，此後按新增與替換列計算 bytes／列數，所有模式共用全域 50,000 列／16 MiB 保護，任何超額寫入在 commit 前回滾。原估算保留為歷史設計紀錄，現行程式不再以這個最壞值拒絕所有新格式。
 
 每次工作階段的第一個新操作，在排他權及 transaction 內驗證既有 snapshot 是否符合目前可支援範圍；通過後只檢查新增數量及此次異動列，任何超標都在外層 commit 前回滾。工作階段內沒有外露 DB handle，所有公開寫入走相同佇列，避免每筆交易重掃全部歷史。備份／還原仍保留獨立完整語意驗證，容量檢查不代替它。
 
