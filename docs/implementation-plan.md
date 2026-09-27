@@ -1,5 +1,7 @@
 # ExpenseTracker V2 — 實作安排
 
+**2026-09-27 本輪優先順序**：使用者要求暫不做實機，持續到可安裝試用且經大規模測試；具體停止點與容量驗證見[試用版交付計畫](installable-preview-plan.md)。這不刪除下列 M1／M2／M3，也不把試用 APK 宣稱為正式安全 gate 已通過。
+
 日期：2026-09-26  
 狀態：私人 repository 與開發工具鏈已建立；工程規格及限定原型進行中，尚未交付正式功能  
 決策依據：[Full Vision D-003](full-vision-baseline.md#decision-product-delivery) · [Architecture Baseline rc1](architecture-baseline-v1.0-rc1.md) · [整合架構提案](architecture-proposal.md)

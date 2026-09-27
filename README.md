@@ -10,6 +10,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [Architecture Baseline v1.0-rc1](docs/architecture-baseline-v1.0-rc1.md)
 - [整合架構與已選方向](docs/architecture-proposal.md)
 - [實作順序與驗收安排](docs/implementation-plan.md)
+- [本輪可安裝試用版與大規模測試安排](docs/installable-preview-plan.md)
 - [開發前置準備](docs/development-readiness.md)
 - [地基工程契約](docs/foundation-contracts.md)
 - [業務套件邊界與 CI 檢查](docs/architecture-boundary-checks.md)
