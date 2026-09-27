@@ -24,6 +24,7 @@ export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
 part 'split_entry.dart';
+part 'refund_entry.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
 
@@ -146,6 +147,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _fee = TextEditingController();
   final _received = TextEditingController();
   bool _transfer = false;
+  RefundStatus? _refund;
   PublicId? _destinationId;
   final _date = TextEditingController();
   final _credential = TextEditingController();
@@ -227,6 +229,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       c.clear();
     }
     _resetSplits();
+    _refund = null;
     _draft = null;
     _saved = false;
     _accounts = [];
@@ -427,6 +430,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _edit(_Page page, {bool transfer = false}) {
     setState(() {
       _resetSplits();
+      _refund = null;
       _page = page;
       _transfer = transfer;
       if (transfer) _income = false;
@@ -510,6 +514,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final engine = _engine!;
     final fields = EntryFields(
       income: _income,
+      refundOf: _refund?.budget.originalId,
       split: _split,
       splits: [
         for (final row in _splitRows)
@@ -518,7 +523,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       transfer: _transfer,
       destinationId: _destinationId,
       fee: _transfer ? _fee.text : '0',
-      received: _foreignTransfer ? _received.text : null,
+      received: (_foreignTransfer || _foreignRefund) ? _received.text : null,
       amount: _amount.text,
       date: _date.text,
       accountId: _accountId,
@@ -554,6 +559,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     final fields = saved.fields;
+    if (fields.refundOf != null) {
+      await _resumeRefund(saved);
+      return;
+    }
     _edit(_Page.posting, transfer: fields.transfer);
     var omitted = false;
     setState(() {
@@ -1085,214 +1094,222 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
       case _Page.posting:
         return [
-          Text(
-            _transfer ? '轉帳' : '記一筆',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-          if (_transfer)
-            const Text('本金只移動帳戶餘額；手續費另外計入支出，從轉出帳戶扣除。')
-          else
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('支出')),
-                ButtonSegment(value: true, label: Text('收入')),
-              ],
-              selected: {_income},
-              onSelectionChanged: (_busy || _postingFrozen)
-                  ? null
-                  : (v) => setState(() {
-                      _income = v.single;
-                      _categoryId = '';
-                      for (final row in _splitRows) {
-                        row.category = null;
-                      }
-                      _merchantId = '';
-                      _selectedTags.clear();
-                      _queueDraft();
-                    }),
+          if (_refund != null)
+            ..._refundInputs()
+          else ...[
+            Text(
+              _transfer ? '轉帳' : '記一筆',
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<PublicId>(
-            initialValue: _accountId,
-            decoration: InputDecoration(labelText: _transfer ? '轉出帳戶' : '帳戶'),
-            isExpanded: true,
-            items: [
-              for (final s in _accounts.where(
-                (s) => s.account.state == AccountState.active,
-              ))
-                DropdownMenuItem(
-                  value: s.account.id,
-                  child: Text('${s.account.name} · ${s.account.currency.code}'),
-                ),
-            ],
-            onChanged: (_busy || _postingFrozen)
-                ? null
-                : (v) => setState(() {
-                    _accountId = v;
-                    _received.clear();
-                    if (!_destinations.any(
-                      (a) => a.account.id == _destinationId,
-                    )) {
-                      _destinationId = null;
-                    }
-                    _queueDraft();
-                  }),
-          ),
-          const SizedBox(height: 14),
-          if (_transfer) ...[
+            const SizedBox(height: 16),
+            if (_transfer)
+              const Text('本金只移動帳戶餘額；手續費另外計入支出，從轉出帳戶扣除。')
+            else
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('支出')),
+                  ButtonSegment(value: true, label: Text('收入')),
+                ],
+                selected: {_income},
+                onSelectionChanged: (_busy || _postingFrozen)
+                    ? null
+                    : (v) => setState(() {
+                        _income = v.single;
+                        _categoryId = '';
+                        for (final row in _splitRows) {
+                          row.category = null;
+                        }
+                        _merchantId = '';
+                        _selectedTags.clear();
+                        _queueDraft();
+                      }),
+              ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<PublicId>(
-              key: ValueKey('transfer-destination-$_accountId-$_destinationId'),
-              initialValue: _destinationId,
+              initialValue: _accountId,
+              decoration: InputDecoration(labelText: _transfer ? '轉出帳戶' : '帳戶'),
               isExpanded: true,
-              decoration: const InputDecoration(labelText: '轉入帳戶'),
               items: [
-                for (final a in _destinations)
-                  DropdownMenuItem(
-                    value: a.account.id,
-                    child: Text(
-                      _engine!.schemaVersion >= 9
-                          ? '${a.account.name} · ${a.account.currency.code}'
-                          : a.account.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (_busy || _postingFrozen)
-                  ? null
-                  : (value) => setState(() {
-                      _destinationId = value;
-                      _received.clear();
-                      _queueDraft();
-                    }),
-            ),
-            if (_destinations.isEmpty) const Text('請先建立另一個可轉入的帳戶。'),
-            const SizedBox(height: 14),
-          ],
-          _amountField(
-            _transfer && _engine!.schemaVersion >= 9 ? '轉出本金（正數）' : '金額（正數）',
-            _accounts
-                .where((a) => a.account.id == _accountId)
-                .firstOrNull
-                ?.account
-                .currency,
-          ),
-          if (_foreignTransfer) ...[
-            AmountInputField(
-              controller: _received,
-              label: '實際轉入本金（正數）',
-              currency: _destinationCurrency,
-              enabled: !_busy && !_postingFrozen,
-              onChanged: _queueDraft,
-            ),
-            const Text('填寫實際轉入金額；換算比例由兩邊本金計算，手續費另列於轉出幣別。'),
-          ],
-          if (_transfer)
-            AmountInputField(
-              controller: _fee,
-              label: '手續費（可為 0）',
-              currency: _sourceCurrency,
-              enabled: !_busy && !_postingFrozen,
-              onChanged: _queueDraft,
-            ),
-          _dateField(),
-          if (!_transfer)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('拆分多個分類'),
-              value: _split,
-              onChanged: (_busy || _postingFrozen)
-                  ? null
-                  : (value) => setState(() {
-                      if (value) {
-                        _split = true;
-                        _splitRows.addAll([
-                          _SplitRow(
-                            _categoryId.isEmpty
-                                ? null
-                                : PublicId.parse(_categoryId),
-                            '',
-                          ),
-                          _SplitRow(null, ''),
-                        ]);
-                      } else {
-                        _resetSplits();
-                      }
-                      _categoryId = '';
-                      _queueDraft();
-                    }),
-            ),
-          if (!_transfer && _split) ..._splitInputs(),
-          if (!_transfer && !_split)
-            DropdownButtonFormField<String>(
-              key: ValueKey('posting-category-$_income'),
-              initialValue: _categoryId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '分類'),
-              items: [
-                const DropdownMenuItem(value: '', child: Text('未分類')),
-                for (final c in _catalog!.categories.where(
-                  (c) =>
-                      !c.archived &&
-                      c.kind ==
-                          (_income
-                              ? CategoryKind.income
-                              : CategoryKind.expense),
+                for (final s in _accounts.where(
+                  (s) => s.account.state == AccountState.active,
                 ))
                   DropdownMenuItem(
-                    value: c.id.value,
+                    value: s.account.id,
                     child: Text(
-                      _categoryLabel(_catalog!, c),
-                      overflow: TextOverflow.ellipsis,
+                      '${s.account.name} · ${s.account.currency.code}',
                     ),
                   ),
               ],
               onChanged: (_busy || _postingFrozen)
                   ? null
-                  : (value) => setState(() {
-                      _categoryId = value ?? '';
+                  : (v) => setState(() {
+                      _accountId = v;
+                      _received.clear();
+                      if (!_destinations.any(
+                        (a) => a.account.id == _destinationId,
+                      )) {
+                        _destinationId = null;
+                      }
                       _queueDraft();
                     }),
             ),
-          const SizedBox(height: 14),
-          if (!_transfer && _merchantCatalog != null)
-            _MerchantPicker(
-              key: ValueKey('merchant-picker-$_income'),
-              catalog: _merchantCatalog!,
-              selected: _merchantId,
-              enabled: !_busy && !_postingFrozen,
-              onChanged: (value) => setState(() {
-                _merchantId = value;
-                _queueDraft();
-              }),
-            ),
-          if (!_transfer &&
-              _tagCatalog != null &&
-              _tagCatalog!.tags.any((t) => !t.archived)) ...[
-            const Text('標籤（可複選，最多 16 個）'),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final tag in _tagCatalog!.tags.where((t) => !t.archived))
-                  FilterChip(
-                    label: Text(tag.name),
-                    selected: _selectedTags.contains(tag.id),
-                    onSelected: (_busy || _postingFrozen)
-                        ? null
-                        : (selected) => setState(() {
-                            if (!selected) {
-                              _selectedTags.remove(tag.id);
-                            } else if (_selectedTags.length < 16) {
-                              _selectedTags.add(tag.id);
-                            } else {
-                              _message = '一筆交易最多選擇 16 個標籤。';
-                            }
-                            _queueDraft();
-                          }),
-                  ),
-              ],
-            ),
             const SizedBox(height: 14),
+            if (_transfer) ...[
+              DropdownButtonFormField<PublicId>(
+                key: ValueKey(
+                  'transfer-destination-$_accountId-$_destinationId',
+                ),
+                initialValue: _destinationId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: '轉入帳戶'),
+                items: [
+                  for (final a in _destinations)
+                    DropdownMenuItem(
+                      value: a.account.id,
+                      child: Text(
+                        _engine!.schemaVersion >= 9
+                            ? '${a.account.name} · ${a.account.currency.code}'
+                            : a.account.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (_busy || _postingFrozen)
+                    ? null
+                    : (value) => setState(() {
+                        _destinationId = value;
+                        _received.clear();
+                        _queueDraft();
+                      }),
+              ),
+              if (_destinations.isEmpty) const Text('請先建立另一個可轉入的帳戶。'),
+              const SizedBox(height: 14),
+            ],
+            _amountField(
+              _transfer && _engine!.schemaVersion >= 9 ? '轉出本金（正數）' : '金額（正數）',
+              _accounts
+                  .where((a) => a.account.id == _accountId)
+                  .firstOrNull
+                  ?.account
+                  .currency,
+            ),
+            if (_foreignTransfer) ...[
+              AmountInputField(
+                controller: _received,
+                label: '實際轉入本金（正數）',
+                currency: _destinationCurrency,
+                enabled: !_busy && !_postingFrozen,
+                onChanged: _queueDraft,
+              ),
+              const Text('填寫實際轉入金額；換算比例由兩邊本金計算，手續費另列於轉出幣別。'),
+            ],
+            if (_transfer)
+              AmountInputField(
+                controller: _fee,
+                label: '手續費（可為 0）',
+                currency: _sourceCurrency,
+                enabled: !_busy && !_postingFrozen,
+                onChanged: _queueDraft,
+              ),
+            _dateField(),
+            if (!_transfer)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('拆分多個分類'),
+                value: _split,
+                onChanged: (_busy || _postingFrozen)
+                    ? null
+                    : (value) => setState(() {
+                        if (value) {
+                          _split = true;
+                          _splitRows.addAll([
+                            _SplitRow(
+                              _categoryId.isEmpty
+                                  ? null
+                                  : PublicId.parse(_categoryId),
+                              '',
+                            ),
+                            _SplitRow(null, ''),
+                          ]);
+                        } else {
+                          _resetSplits();
+                        }
+                        _categoryId = '';
+                        _queueDraft();
+                      }),
+              ),
+            if (!_transfer && _split) ..._splitInputs(),
+            if (!_transfer && !_split)
+              DropdownButtonFormField<String>(
+                key: ValueKey('posting-category-$_income'),
+                initialValue: _categoryId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: '分類'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('未分類')),
+                  for (final c in _catalog!.categories.where(
+                    (c) =>
+                        !c.archived &&
+                        c.kind ==
+                            (_income
+                                ? CategoryKind.income
+                                : CategoryKind.expense),
+                  ))
+                    DropdownMenuItem(
+                      value: c.id.value,
+                      child: Text(
+                        _categoryLabel(_catalog!, c),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (_busy || _postingFrozen)
+                    ? null
+                    : (value) => setState(() {
+                        _categoryId = value ?? '';
+                        _queueDraft();
+                      }),
+              ),
+            const SizedBox(height: 14),
+            if (!_transfer && _merchantCatalog != null)
+              _MerchantPicker(
+                key: ValueKey('merchant-picker-$_income'),
+                catalog: _merchantCatalog!,
+                selected: _merchantId,
+                enabled: !_busy && !_postingFrozen,
+                onChanged: (value) => setState(() {
+                  _merchantId = value;
+                  _queueDraft();
+                }),
+              ),
+            if (!_transfer &&
+                _tagCatalog != null &&
+                _tagCatalog!.tags.any((t) => !t.archived)) ...[
+              const Text('標籤（可複選，最多 16 個）'),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final tag in _tagCatalog!.tags.where((t) => !t.archived))
+                    FilterChip(
+                      label: Text(tag.name),
+                      selected: _selectedTags.contains(tag.id),
+                      onSelected: (_busy || _postingFrozen)
+                          ? null
+                          : (selected) => setState(() {
+                              if (!selected) {
+                                _selectedTags.remove(tag.id);
+                              } else if (_selectedTags.length < 16) {
+                                _selectedTags.add(tag.id);
+                              } else {
+                                _message = '一筆交易最多選擇 16 個標籤。';
+                              }
+                              _queueDraft();
+                            }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ],
           ],
           Text(
             _draftSaveError != null
@@ -1309,6 +1326,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _button(
             _postingFrozen
                 ? '確認上次送出'
+                : _refund != null
+                ? '儲存退款'
                 : _transfer
                 ? '儲存轉帳'
                 : '儲存收支',
@@ -1464,16 +1483,25 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                   key: ValueKey('entry-actions-${e.id}'),
                                   tooltip: '交易操作',
                                   enabled: !_busy,
-                                  onSelected: (_) => _copyPosting(e.id),
+                                  onSelected: (action) => action == 'refund'
+                                      ? _startRefund(e.id)
+                                      : _copyPosting(e.id),
                                   itemBuilder: (_) => [
                                     const PopupMenuItem(
                                       value: 'copy',
                                       child: Text('再記一筆類似交易'),
                                     ),
+                                    if (e.kind == PostingKind.expense &&
+                                        _engine!.schemaVersion >= 10)
+                                      const PopupMenuItem(
+                                        value: 'refund',
+                                        child: Text('記錄退款'),
+                                      ),
                                   ],
                                 )
                               : null,
                         ),
+                        if (e.refundOf != null) ..._refundDetails(e),
                         ..._splitDetails(e.id),
                       ],
                     ),
@@ -1512,8 +1540,12 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.income => '收入',
   PostingKind.expense => '支出',
   PostingKind.transfer => '轉帳',
+  PostingKind.refund => '退款',
 };
 String _error(Object error) => switch (error) {
+  LedgerException(code: LedgerError.refundLimit) => '退款超過原支出或該分類剩餘可退金額，請重新確認。',
+  LedgerException(code: LedgerError.refundReference) =>
+    '退款須對應原支出及原分類，日期不可早於原支出。',
   PreviewSplitInvalid() => '請為每項拆分選擇不同且可用的分類，至少 2 項。',
   LedgerException(code: LedgerError.allocationMismatch) =>
     '拆分合計必須等於交易總額；請確認各項金額。',

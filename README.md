@@ -6,6 +6,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [原支出退款與可恢復送出](docs/refunds.md)
 - [多分類拆分與可恢復草稿](docs/split-entry-drafts.md)
 - [平均、百分比與固定比例分配](docs/split-allocation-assist.md)
 
@@ -14,7 +15,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [金額遮罩與基本無障礙](docs/privacy-presentation.md)
 - [手動收支草稿與恢復](docs/manual-entry-drafts.md)
 
-- [試用 APK 安裝與驗收](docs/installable-preview.md)
+- [開發安裝包與驗收](docs/installable-preview.md)
 - [大規模測試、原始結果與容量限制](docs/preview-validation-report.md)
 - [完整願景與原始 170 項決策](docs/full-vision-baseline.md)
 - [Architecture Baseline v1.0-rc1](docs/architecture-baseline-v1.0-rc1.md)

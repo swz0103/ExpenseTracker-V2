@@ -27,7 +27,11 @@ Future<Set<(String, String)>> validateMerchantReferences(
     final selected = byEvent[key] ??= {};
     if (sequence < 1 ||
         row.read<int>('merchant_version') < 1 ||
-        !['income', 'expense'].contains(row.readNullable<String>('kind')) ||
+        ![
+          'income',
+          'expense',
+          if (db.refundsAware) 'refund',
+        ].contains(row.readNullable<String>('kind')) ||
         (sequences.containsKey(key) && sequences[key] != sequence) ||
         selected.containsKey(merchant)) {
       throw const InvalidMerchantHistory();
@@ -73,6 +77,7 @@ Future<Set<(String, String)>> validateMerchantReferences(
         ![
           'posting-v1',
           'posting-v2',
+          if (db.refundsAware) 'refund-posting-v1',
           'tagged-post-v1',
         ].contains((input[1] as List).first) ||
         input[2] is! List)

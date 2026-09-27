@@ -22,7 +22,11 @@ Future<Set<(String, String)>> validateAllocationHistory(
     final event = (ws, row.read<String>('event_id'));
     if (sequence < 1 ||
         row.read<int>('category_version') < 1 ||
-        !['income', 'expense'].contains(row.readNullable<String>('kind')) ||
+        ![
+          'income',
+          'expense',
+          if (db.refundsAware) 'refund',
+        ].contains(row.readNullable<String>('kind')) ||
         (eventSequences.containsKey(event) &&
             eventSequences[event] != sequence)) {
       throw const InvalidCategoryHistory();
@@ -38,7 +42,9 @@ Future<Set<(String, String)>> validateAllocationHistory(
           workspace: WorkspaceId.parse(ws),
           id: PublicId.parse(row.read<String>('category_id')),
           expectedVersion: row.read<int>('category_version'),
-          kind: CategoryKind.values.byName(row.read<String>('kind')),
+          kind: row.read<String>('kind') == 'refund'
+              ? CategoryKind.expense
+              : CategoryKind.values.byName(row.read<String>('kind')),
         );
       }
     },

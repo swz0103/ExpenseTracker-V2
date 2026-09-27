@@ -22,24 +22,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool tagsAware = false,
     bool merchantsAware = false,
     bool transfersAware = false,
-    this.fxTransfersAware = false,
-  }) : transfersAware = transfersAware || fxTransfersAware,
-       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+    bool fxTransfersAware = false,
+    this.refundsAware = false,
+  }) : fxTransfersAware = fxTransfersAware || refundsAware,
+       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+       merchantsAware =
+           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
        tagsAware =
-           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -52,24 +61,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool tagsAware = false,
     bool merchantsAware = false,
     bool transfersAware = false,
-    this.fxTransfersAware = false,
-  }) : transfersAware = transfersAware || fxTransfersAware,
-       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+    bool fxTransfersAware = false,
+    this.refundsAware = false,
+  }) : fxTransfersAware = fxTransfersAware || refundsAware,
+       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+       merchantsAware =
+           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
        tagsAware =
-           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        super(executor) {
     _configuration();
   }
@@ -79,6 +97,7 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool merchantsAware;
   final bool transfersAware;
   final bool fxTransfersAware;
+  final bool refundsAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -88,7 +107,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => fxTransfersAware
+  int get schemaVersion => refundsAware
+      ? 10
+      : fxTransfersAware
       ? 9
       : transfersAware
       ? 8
@@ -114,6 +135,10 @@ final class ProbeDatabase extends GeneratedDatabase {
         );
       }
       if (fxTransfersAware) await customStatement(fxTransferSchema);
+      if (refundsAware) {
+        await customStatement(refundSchema);
+        await customStatement(refundIndex);
+      }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
@@ -254,3 +279,12 @@ const fxTransferSchema = '''CREATE TABLE event_fx (
  workspace TEXT NOT NULL, event_id TEXT NOT NULL, context TEXT NOT NULL,
  PRIMARY KEY(workspace,event_id),
  FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id)) STRICT''';
+
+const refundColumns = ['workspace', 'event_id', 'original_id'];
+const refundSchema = '''CREATE TABLE event_refunds (
+ workspace TEXT NOT NULL, event_id TEXT NOT NULL, original_id TEXT NOT NULL,
+ PRIMARY KEY(workspace,event_id),
+ FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id),
+ FOREIGN KEY(workspace,original_id) REFERENCES events(workspace,id)) STRICT''';
+const refundIndex =
+    'CREATE INDEX refunds_by_original ON event_refunds(workspace,original_id)';

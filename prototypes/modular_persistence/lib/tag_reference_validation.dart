@@ -25,7 +25,11 @@ Future<Set<(String, String)>> validateTagReferences(ProbeDatabase db) async {
     final selected = byEvent[key] ??= {};
     if (sequence < 1 ||
         row.read<int>('tag_version') < 1 ||
-        !['income', 'expense'].contains(row.readNullable<String>('kind')) ||
+        ![
+          'income',
+          'expense',
+          if (db.refundsAware) 'refund',
+        ].contains(row.readNullable<String>('kind')) ||
         (sequences.containsKey(key) && sequences[key] != sequence) ||
         selected.containsKey(tag)) {
       throw const InvalidTagHistory();
@@ -73,7 +77,11 @@ Future<Set<(String, String)>> validateTagReferences(ProbeDatabase db) async {
     if (input.length != 3 ||
         input[1] is! List ||
         (input[1] as List).isEmpty ||
-        !['posting-v1', 'posting-v2'].contains((input[1] as List).first) ||
+        ![
+          'posting-v1',
+          'posting-v2',
+          if (db.refundsAware) 'refund-posting-v1',
+        ].contains((input[1] as List).first) ||
         input[2] is! List)
       throw const InvalidTagHistory();
     final entries = input[2] as List;

@@ -82,6 +82,9 @@ final class LedgerAdapter {
     int? categorySequence,
     void Function(String)? checkpoint,
   }) async {
+    if (posting.refundOf != null && !db.refundsAware) {
+      throw UnsupportedError("Refunds require schema 10.");
+    }
     if (posting.allocations.isNotEmpty &&
         (!db.categoryReferences ||
             categorySequence == null ||
@@ -109,6 +112,14 @@ final class LedgerAdapter {
       ],
     );
     checkpoint?.call('event');
+    if (posting.refundOf != null) {
+      await db.customStatement('INSERT INTO event_refunds VALUES (?,?,?)', [
+        ws,
+        posting.id.value,
+        posting.refundOf!.value,
+      ]);
+      checkpoint?.call('refund');
+    }
     var ordinal = 0;
     for (final leg in posting.legs) {
       await db.customStatement('INSERT INTO legs VALUES (?,?,?,?,?,?,?,?)', [
@@ -174,7 +185,15 @@ final class LedgerAdapter {
 }
 
 /// Versioned fixture canonicalization excludes generated result IDs and clock.
-Object postingInput(Posting posting) => posting.conversion == null
+Object postingInput(Posting posting) => posting.refundOf != null
+    ? [
+        'refund-posting-v1',
+        posting.refundOf!.value,
+        (-posting.reportExpense).toJson(),
+        _postingInput(posting),
+        posting.conversion?.toJson(),
+      ]
+    : posting.conversion == null
     ? _postingInput(posting)
     : ['fx-posting-v1', _postingInput(posting), posting.conversion!.toJson()];
 

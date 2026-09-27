@@ -1,8 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.13.0 原支出退款
+
+**2026-09-28 最新開發包**：0.13.0+17 接入[部分／全額退款](refunds.md)、原支出追溯、跨幣實收、可恢復送出及 V2 schema 9 → 10 安全升級。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.13.0-arm64.apk`，94,617,771 bytes。
+- SHA-256：`4132ae68490ba36a48130162448da674a64b5b64989ccc3c27c85d72089620cf`。
+- App ID `dev.expensetracker.preview`、versionCode 17／versionName 0.13.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false` 與 ARM64 Flutter／SQLCipher 核心核對通過。
+- [完整 18 套件／810 個主機案例](test-results/refunds-host-2026-09-28.json)、[5,000 事件與雙路乾淨還原](test-results/refunds-scale-2026-09-28.json)、[四處草稿程序退出](test-results/refunds-process-2026-09-28.json)通過。
+- 只留本機 debug 包，未安裝、未正式發布、未上傳 APK／金鑰。雲端與實機及其餘 CORE gate 保留。
+
 ## 0.12.0 拆分分配與確認
 
-**2026-09-28 最新開發包**：0.12.0+16 接入[平均／百分比／固定比例分配](split-allocation-assist.md)，預覽後明確確認才更新草稿；沿用 schema 9／snapshot 8。
+**2026-09-28 歷史開發包**：0.12.0+16 接入[平均／百分比／固定比例分配](split-allocation-assist.md)，預覽後明確確認才更新草稿；沿用 schema 9／snapshot 8。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.12.0-arm64.apk`，94,576,339 bytes。
 - SHA-256：`63943d02135bc69762a8cb2f296eefa1fe9c8cedf9965f6a6e70dcb7bed8b207`。

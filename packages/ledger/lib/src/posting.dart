@@ -1,6 +1,8 @@
 import 'package:foundation_values/foundation_values.dart';
 
-enum PostingKind { opening, income, expense, transfer }
+part 'refund.dart';
+
+enum PostingKind { opening, income, expense, transfer, refund }
 
 enum LegRole { principal, fee }
 
@@ -11,6 +13,8 @@ enum LedgerError {
   sameAccount,
   allocationMismatch,
   duplicateIdentity,
+  refundReference,
+  refundLimit,
 }
 
 final class LedgerException implements Exception {
@@ -71,6 +75,7 @@ final class Posting {
     required this.reportIncome,
     required this.reportExpense,
     this.conversion,
+    this.refundOf,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -141,6 +146,43 @@ final class Posting {
     );
   }
 
+  factory Posting.refund({
+    required PublicId id,
+    required OperationKey operation,
+    required BusinessDate date,
+    required PostingAccount account,
+    required PublicId originalId,
+    required Money amount,
+    Money? received,
+    List<Allocation> allocations = const [],
+  }) {
+    final incoming = received ?? amount;
+    _participation(operation, account, incoming);
+    _positive(amount);
+    _positive(incoming);
+    _allocations(amount, allocations);
+    if (id == originalId) {
+      throw const LedgerException(LedgerError.refundReference);
+    }
+    final foreign = amount.currency != incoming.currency;
+    if ((!foreign && incoming != amount) ||
+        (foreign && amount.currency.code == incoming.currency.code)) {
+      throw const LedgerException(LedgerError.currencyMismatch);
+    }
+    return Posting._(
+      id: id,
+      operation: operation,
+      date: date,
+      kind: PostingKind.refund,
+      legs: [LedgerLeg._(account, incoming, LegRole.principal)],
+      reportIncome: Money(amount.currency, BigInt.zero),
+      reportExpense: -amount,
+      allocations: allocations,
+      refundOf: originalId,
+      conversion: foreign ? ActualConversion(amount, incoming) : null,
+    );
+  }
+
   factory Posting.transfer({
     required PublicId id,
     required OperationKey operation,
@@ -194,6 +236,7 @@ final class Posting {
   final Money reportIncome;
   final Money reportExpense;
   final ActualConversion? conversion;
+  final PublicId? refundOf;
 }
 
 void _participation(

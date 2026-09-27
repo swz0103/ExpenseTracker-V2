@@ -18,6 +18,7 @@ import 'package:modular_persistence_probe/tags_adapter.dart';
 import 'package:modular_persistence_probe/merchants_adapter.dart';
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:modular_persistence_probe/workflows.dart';
+import 'package:modular_persistence_probe/refunds_adapter.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/key_slots.dart';
@@ -48,24 +49,33 @@ final class LedgerPayload implements GenerationPayload {
     bool tagsAware = false,
     bool merchantsAware = false,
     bool transfersAware = false,
-    this.fxTransfersAware = false,
-  }) : transfersAware = transfersAware || fxTransfersAware,
-       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+    bool fxTransfersAware = false,
+    this.refundsAware = false,
+  }) : fxTransfersAware = fxTransfersAware || refundsAware,
+       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+       merchantsAware =
+           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
        tagsAware =
-           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        codec = SnapshotCodec(
          generationAware: true,
          categoryAware: categoryAware,
@@ -74,6 +84,7 @@ final class LedgerPayload implements GenerationPayload {
          merchantsAware: merchantsAware,
          transfersAware: transfersAware,
          fxTransfersAware: fxTransfersAware,
+         refundsAware: refundsAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -81,6 +92,7 @@ final class LedgerPayload implements GenerationPayload {
   final bool merchantsAware;
   final bool transfersAware;
   final bool fxTransfersAware;
+  final bool refundsAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -108,6 +120,7 @@ final class LedgerPayload implements GenerationPayload {
       merchantsAware: merchantsAware,
       transfersAware: transfersAware,
       fxTransfersAware: fxTransfersAware,
+      refundsAware: refundsAware,
     ),
   );
 
@@ -129,7 +142,8 @@ final class LedgerPayload implements GenerationPayload {
               (tagsAware && version == 6) ||
               (merchantsAware && version == 7) ||
               (transfersAware && version == 8) ||
-              (fxTransfersAware && version == 9)) ||
+              (fxTransfersAware && version == 9) ||
+              (refundsAware && version == 10)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -149,6 +163,7 @@ final class LedgerPayload implements GenerationPayload {
       merchantsAware: version >= 7,
       transfersAware: version >= 8,
       fxTransfersAware: version >= 9,
+      refundsAware: version >= 10,
     );
     final db = openEncrypted(
       file,
@@ -160,6 +175,7 @@ final class LedgerPayload implements GenerationPayload {
       merchantsAware: version >= 7,
       transfersAware: version >= 8,
       fxTransfersAware: version >= 9,
+      refundsAware: version >= 10,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -183,25 +199,34 @@ final class LedgerStore {
     bool tagsAware = false,
     bool merchantsAware = false,
     bool transfersAware = false,
-    this.fxTransfersAware = false,
+    bool fxTransfersAware = false,
+    this.refundsAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
-  }) : transfersAware = transfersAware || fxTransfersAware,
-       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+  }) : fxTransfersAware = fxTransfersAware || refundsAware,
+       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+       merchantsAware =
+           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
        tagsAware =
-           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        generations = GenerationStore(
          directory,
          keys,
@@ -212,6 +237,7 @@ final class LedgerStore {
            merchantsAware: merchantsAware,
            transfersAware: transfersAware,
            fxTransfersAware: fxTransfersAware,
+           refundsAware: refundsAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -219,7 +245,8 @@ final class LedgerStore {
              tagsAware ||
              merchantsAware ||
              transfersAware ||
-             fxTransfersAware,
+             fxTransfersAware ||
+             refundsAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -230,6 +257,7 @@ final class LedgerStore {
   final bool merchantsAware;
   final bool transfersAware;
   final bool fxTransfersAware;
+  final bool refundsAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -242,6 +270,7 @@ final class LedgerStore {
             merchantsAware: merchantsAware,
             transfersAware: transfersAware,
             fxTransfersAware: fxTransfersAware,
+            refundsAware: refundsAware,
           ).empty(),
         ),
         operation,
@@ -265,6 +294,7 @@ final class LedgerStore {
         merchantsAware: merchantsAware,
         transfersAware: transfersAware,
         fxTransfersAware: fxTransfersAware,
+        refundsAware: refundsAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -333,6 +363,7 @@ final class LedgerStore {
       merchantsAware: merchantsAware,
       transfersAware: transfersAware,
       fxTransfersAware: fxTransfersAware,
+      refundsAware: refundsAware,
     );
     try {
       return await work(db);

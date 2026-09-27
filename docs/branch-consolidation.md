@@ -73,3 +73,5 @@ feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156
 
 
 `feat/split-allocation-assist` 依賴 [PR #56](https://github.com/swz0103/ExpenseTracker-V2/pull/56)（`d6c1a24fed4e6cfd5116bd1253e8a183214916f1`），補齊平均／百分比／固定比例分配。177 個本機獨立案例與 0.12.0+16 封裝通過，詳見[證據](test-results/split-allocation-assist-host-2026-09-28.json)；沿用未改動底層的 #56 大量與程序退出證據。兩 workflow 維持停用、無雲端 checks；不合併 main、不關閉或刪除需雲端 gate 的分支。下一功能接退款完整流程。
+
+2026-09-28 退款：`feat/refund-postings` 依賴 #57 的 `fabe6b83f8aee0e7aaa4f8e0341ab336de37e61a`；[完整 18 套件／810 個主機案例](test-results/refunds-host-2026-09-28.json)、5,000 事件雙路乾淨還原及四處草稿程序退出通過。以獨立 PR 交付整個退款流程，原依賴與提交歷史保留。雲端未執行，需雲端 gate 的收斂與 main 合併維持原限制。

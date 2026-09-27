@@ -20,6 +20,8 @@ final class LedgerEntry {
     this.destinationId,
     this.received,
     this.fee,
+    this.refundOf,
+    this.refunded,
   });
   final PublicId id;
   final BusinessDate date;
@@ -31,6 +33,8 @@ final class LedgerEntry {
   final PublicId? destinationId;
   final Money? received;
   final Money? fee;
+  final PublicId? refundOf;
+  final Money? refunded;
 }
 
 /// Exclusive, bounded command scope. No public SQL or database handle.
@@ -101,6 +105,7 @@ final class LedgerSession {
         merchantsAware: _db.merchantsAware,
         transfersAware: _db.transfersAware,
         fxTransfersAware: _db.fxTransfersAware,
+        refundsAware: _db.refundsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -108,6 +113,7 @@ final class LedgerSession {
       merchantsAware: _db.merchantsAware,
       transfersAware: _db.transfersAware,
       fxTransfersAware: _db.fxTransfersAware,
+      refundsAware: _db.refundsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -146,7 +152,8 @@ final class LedgerSession {
       () => _write(() async {
         if (posting.kind != PostingKind.income &&
             posting.kind != PostingKind.expense &&
-            !(_db.transfersAware && posting.kind == PostingKind.transfer)) {
+            !(_db.transfersAware && posting.kind == PostingKind.transfer) &&
+            !(_db.refundsAware && posting.kind == PostingKind.refund)) {
           throw UnsupportedError('Unsupported session posting');
         }
         if (posting.kind == PostingKind.transfer &&
@@ -207,15 +214,35 @@ final class LedgerSession {
         );
       });
 
+  Future<RefundStatus> refundStatus(
+    WorkspaceId workspace,
+    PublicId originalId,
+  ) => _enqueue(() async {
+    final r = await readRefundSource(_db, workspace, originalId);
+    return RefundStatus(
+      r.accountId,
+      r.originalAmount,
+      r.budget,
+      r.tags,
+      r.merchant,
+    );
+  });
+
+  String get _entrySelect =>
+      'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,'
+      'd.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee,'
+      'e.currency AS report_currency,e.scale AS report_scale,'
+      '${_db.refundsAware ? 'r.original_id' : 'NULL'} AS refund_of '
+      'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
+      'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
+      '${_db.refundsAware ? 'LEFT JOIN event_refunds r ON r.workspace=e.workspace AND r.event_id=e.id ' : ''}';
+
   /// Persisted entry in this workspace, independent of pagination or UI state.
   Future<LedgerEntry?> entry(WorkspaceId workspace, PublicId id) =>
       _enqueue(() async {
         final row = await _db
             .customSelect(
-              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee '
-              'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
-              'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
-              'WHERE e.workspace=? AND e.id=?',
+              _entrySelect + 'WHERE e.workspace=? AND e.id=?',
               variables: [
                 Variable.withString(workspace.toString()),
                 Variable.withString(id.value),
@@ -234,11 +261,9 @@ final class LedgerSession {
     if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
     final rows = await _db
         .customSelect(
-          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee '
-          'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
-          'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
-          'WHERE e.workspace=? ${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
-          'ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
+          _entrySelect +
+              'WHERE e.workspace=? ${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
+                  'ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
           variables: [
             Variable.withString(workspace.toString()),
             if (before != null) ...[
@@ -262,6 +287,7 @@ final class LedgerSession {
       merchantsAware: _db.merchantsAware,
       transfersAware: _db.transfersAware,
       fxTransfersAware: _db.fxTransfersAware,
+      refundsAware: _db.refundsAware,
     ).capture(_db),
   );
 
@@ -290,6 +316,18 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
     Currency(r.read<String>('currency'), r.read<int>('scale')),
     BigInt.from(r.read<int>('amount')),
   ),
+  refundOf: r.readNullable<String>('refund_of') == null
+      ? null
+      : PublicId.parse(r.read<String>('refund_of')),
+  refunded: r.read<String>('kind') == 'refund'
+      ? Money(
+          Currency(
+            r.read<String>('report_currency'),
+            r.read<int>('report_scale'),
+          ),
+          -BigInt.from(r.read<int>('fee')),
+        )
+      : null,
   destinationId: r.readNullable<String>('destination_id') == null
       ? null
       : PublicId.parse(r.read<String>('destination_id')),
@@ -309,3 +347,18 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
         )
       : null,
 );
+
+final class RefundStatus {
+  const RefundStatus(
+    this.originalAccountId,
+    this.originalAmount,
+    this.budget,
+    this.tags,
+    this.merchant,
+  );
+  final PublicId originalAccountId;
+  final Money originalAmount;
+  final RefundBudget budget;
+  final List<TagSelection> tags;
+  final MerchantSelection? merchant;
+}

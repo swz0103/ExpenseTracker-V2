@@ -6,6 +6,7 @@ const _rowByteLimits = <String, int>{
   'accounts': 4096,
   'events': 512,
   'event_fx': 1024,
+  'event_refunds': 512,
   'legs': 512,
   'openings': 512,
   'allocations': 512,
@@ -27,10 +28,12 @@ Map<String, int> _tableLimits(
   bool merchants,
   bool transfers,
   bool fxTransfers,
+  bool refunds,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
   if (fxTransfers) 'event_fx': LedgerSession.maxEvents,
+  if (refunds) 'event_refunds': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -67,6 +70,7 @@ void _checkRowBytes(String table, Map row) {
                 'posting-v2', // Allocations need the same bound with or without tags.
                 'tagged-post-v1',
                 'fx-posting-v1',
+                'refund-posting-v1',
                 'merchant-post-v1',
               ].contains((jsonDecode(row['input'] as String) as List).first))
       ? 4096
@@ -87,7 +91,9 @@ List<int> validateSessionCapacity(
   bool merchantsAware = false,
   bool transfersAware = false,
   bool fxTransfersAware = false,
+  bool refundsAware = false,
 }) {
+  fxTransfersAware = fxTransfersAware || refundsAware;
   transfersAware = transfersAware || fxTransfersAware;
   merchantsAware = merchantsAware || transfersAware;
   tagsAware = tagsAware || merchantsAware;
@@ -101,6 +107,7 @@ List<int> validateSessionCapacity(
     merchantsAware: merchantsAware,
     transfersAware: transfersAware,
     fxTransfersAware: fxTransfersAware,
+    refundsAware: refundsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -111,6 +118,7 @@ List<int> validateSessionCapacity(
     merchantsAware,
     transfersAware,
     fxTransfersAware,
+    refundsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -134,6 +142,7 @@ List<int> validateSessionCapacity(
           'income',
           'expense',
           if (transfersAware) 'transfer',
+          if (refundsAware) 'refund',
         ].contains(row['kind']),
       ) ||
       (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||
@@ -231,6 +240,12 @@ extension _SessionRowCapacity on LedgerSession {
       await _checkRows('openings', 'workspace=? AND account_id=?', [
         ws,
         account.id.value,
+      ]);
+    }
+    if (posting.refundOf != null) {
+      await _checkRows('event_refunds', 'workspace=? AND event_id=?', [
+        ws,
+        posting.id.value,
       ]);
     }
     if (posting.conversion != null) {

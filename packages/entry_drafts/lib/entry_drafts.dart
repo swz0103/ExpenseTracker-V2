@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
+part 'refund_draft.dart';
+
 /// Bounded partial allocation input; values are validated only on submission.
 final class SplitFields {
   SplitFields({this.categoryId, required this.amount}) {
@@ -26,6 +28,7 @@ final class EntryFields {
     this.destinationId,
     this.fee = '0',
     this.received,
+    this.refundOf,
     this.split = false,
     Iterable<SplitFields> splits = const [],
     Iterable<PublicId> tags = const [],
@@ -38,9 +41,18 @@ final class EntryFields {
                 merchantId != null ||
                 this.tags.isNotEmpty)) ||
         (!transfer &&
-            (destinationId != null || fee != '0' || received != null)) ||
+            (destinationId != null ||
+                fee != '0' ||
+                (received != null && refundOf == null))) ||
+        (refundOf != null &&
+            (transfer ||
+                income ||
+                split ||
+                categoryId != null ||
+                merchantId != null ||
+                this.tags.isNotEmpty)) ||
         (split && categoryId != null) ||
-        (!split && this.splits.isNotEmpty) ||
+        (!split && refundOf == null && this.splits.isNotEmpty) ||
         this.splits.length > maxSplits ||
         (received?.length ?? 0) > 128 ||
         fee.length > 128 ||
@@ -54,13 +66,24 @@ final class EntryFields {
   static const maxSplits = 16;
   final bool income, transfer, split;
   final List<SplitFields> splits;
-  final PublicId? destinationId;
+  final PublicId? destinationId, refundOf;
   final String fee;
   final String? received;
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => transfer
+  List<Object?> toJson() => refundOf != null
+      ? [
+          refundOf!.value,
+          amount,
+          date,
+          accountId?.value,
+          received,
+          [
+            for (final s in splits) [s.categoryId?.value, s.amount],
+          ],
+        ]
+      : transfer
       ? [
           amount,
           date,
@@ -87,7 +110,9 @@ final class EntryFields {
     bool transfer = false,
     bool crossCurrency = false,
     bool split = false,
+    bool refund = false,
   }) {
+    if (refund) return _refundFields(value);
     if (transfer) {
       final v = _list(value, crossCurrency ? 6 : 5);
       return EntryFields(
@@ -135,7 +160,11 @@ final class EntrySubmission {
         ? (this.tags.isNotEmpty ||
               merchant != null ||
               posting.allocations.isNotEmpty)
-        : (![PostingKind.income, PostingKind.expense].contains(posting.kind) ||
+        : (![
+                PostingKind.income,
+                PostingKind.expense,
+                PostingKind.refund,
+              ].contains(posting.kind) ||
               posting.legs.length != 1 ||
               posting.allocations.length > EntryFields.maxSplits)) {
       throw const FormatException('Unsupported draft submission');
@@ -148,6 +177,7 @@ final class EntrySubmission {
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
   List<Object?> toJson({bool split = false}) {
+    if (posting.kind == PostingKind.refund) return _refundSubmission(this);
     if (!split && posting.allocations.length > 1) {
       throw const FormatException('Split submission requires its format');
     }
@@ -201,7 +231,9 @@ final class EntrySubmission {
     bool transfer = false,
     bool crossCurrency = false,
     bool split = false,
+    bool refund = false,
   }) {
+    if (refund) return _readRefundSubmission(value, event, operation);
     if (transfer) {
       final v = _list(value, crossCurrency ? 7 : 6);
       if (v[0] != 'transfer') throw const FormatException();
@@ -284,8 +316,11 @@ final class EntryDraft {
                 (submission!.posting.kind == PostingKind.transfer) ||
             (fields.received != null) !=
                 (submission!.posting.conversion != null) ||
-            (!fields.split && submission!.posting.allocations.length > 1) ||
+            (!fields.split &&
+                fields.refundOf == null &&
+                submission!.posting.allocations.length > 1) ||
             (fields.split && submission!.posting.allocations.length < 2) ||
+            fields.refundOf != submission!.posting.refundOf ||
             submission!.posting.id != id ||
             submission!.posting.operation.workspace != operation.workspace ||
             submission!.posting.operation.operation != operation.operation)) {
@@ -309,7 +344,9 @@ final class EntryDraft {
     submission: command,
   );
   String encode() => jsonEncode([
-    fields.received != null
+    fields.refundOf != null
+        ? 'manual-refund-v1'
+        : fields.received != null
         ? 'manual-fx-transfer-v1'
         : fields.transfer
         ? 'manual-transfer-v1'
@@ -327,6 +364,7 @@ final class EntryDraft {
       throw const FormatException('Draft too large');
     final v = _list(jsonDecode(text), 6);
     if (![
+      'manual-refund-v1',
       'manual-entry-v1',
       'manual-split-entry-v1',
       'manual-transfer-v1',
@@ -347,6 +385,7 @@ final class EntryDraft {
           'manual-transfer-v1',
           'manual-fx-transfer-v1',
         ].contains(v[0]),
+        refund: v[0] == 'manual-refund-v1',
         split: v[0] == 'manual-split-entry-v1',
         crossCurrency: v[0] == 'manual-fx-transfer-v1',
       ),
@@ -360,6 +399,7 @@ final class EntryDraft {
                 'manual-transfer-v1',
                 'manual-fx-transfer-v1',
               ].contains(v[0]),
+              refund: v[0] == 'manual-refund-v1',
               split: v[0] == 'manual-split-entry-v1',
               crossCurrency: v[0] == 'manual-fx-transfer-v1',
             ),

@@ -18,6 +18,8 @@ import 'package:modular_persistence_probe/merchant_reference_validation.dart';
 import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
+part 'refund_snapshot.dart';
+
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
   'events': [
@@ -78,24 +80,33 @@ final class SnapshotCodec {
     bool tagsAware = false,
     bool merchantsAware = false,
     bool transfersAware = false,
-    this.fxTransfersAware = false,
-  }) : transfersAware = transfersAware || fxTransfersAware,
-       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+    bool fxTransfersAware = false,
+    this.refundsAware = false,
+  }) : fxTransfersAware = fxTransfersAware || refundsAware,
+       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+       merchantsAware =
+           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
        tagsAware =
-           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware,
+           fxTransfersAware ||
+           refundsAware,
        generationAware =
            generationAware ||
            categoryAware ||
@@ -103,7 +114,8 @@ final class SnapshotCodec {
            tagsAware ||
            merchantsAware ||
            transfersAware ||
-           fxTransfersAware;
+           fxTransfersAware ||
+           refundsAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
@@ -111,9 +123,11 @@ final class SnapshotCodec {
   final bool merchantsAware;
   final bool transfersAware;
   final bool fxTransfersAware;
+  final bool refundsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
+    if (refundsAware) 'event_refunds': refundColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -125,7 +139,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => fxTransfersAware
+  int get _formatVersion => refundsAware
+      ? 9
+      : fxTransfersAware
       ? 8
       : transfersAware
       ? 7
@@ -136,7 +152,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => fxTransfersAware
+  int get _schemaVersion => refundsAware
+      ? 10
+      : fxTransfersAware
       ? 9
       : transfersAware
       ? 8
@@ -158,6 +176,7 @@ final class SnapshotCodec {
     if (merchantsAware) 'ledger_merchants': 1,
     if (transfersAware) 'session_transfers': 1,
     if (fxTransfersAware) 'ledger_fx_transfers': 1,
+    if (refundsAware) 'ledger_refunds': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -290,7 +309,8 @@ final class SnapshotCodec {
               (transfersAware && root['version'] == 7 && root['schema'] == 8) ||
               (fxTransfersAware &&
                   root['version'] == 8 &&
-                  root['schema'] == 9)))
+                  root['schema'] == 9) ||
+              (refundsAware && root['version'] == 9 && root['schema'] == 10)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -304,6 +324,7 @@ final class SnapshotCodec {
         if (root['version'] >= 6) 'ledger_merchants': 1,
         if (root['version'] >= 7) 'session_transfers': 1,
         if (root['version'] >= 8) 'ledger_fx_transfers': 1,
+        if (root['version'] >= 9) 'ledger_refunds': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -313,6 +334,7 @@ final class SnapshotCodec {
       final inputColumns = {
         ..._financialColumns,
         if (root['version'] >= 8) 'event_fx': fxTransferColumns,
+        if (root['version'] >= 9) 'event_refunds': refundColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -371,7 +393,8 @@ final class SnapshotCodec {
         tagsAware != db.tagsAware ||
         merchantsAware != db.merchantsAware ||
         transfersAware != db.transfersAware ||
-        fxTransfersAware != db.fxTransfersAware)
+        fxTransfersAware != db.fxTransfersAware ||
+        refundsAware != db.refundsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};
@@ -498,6 +521,18 @@ final class SnapshotCodec {
         );
       }
     }
+    var refundLinks = <(String, String), String>{};
+    if (refundsAware) {
+      try {
+        refundLinks = await _validateRefundHistory(
+          db,
+          events,
+          allocationsByEvent,
+        );
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
     final checkedConversions = <(String, String)>{};
     for (final event in events) {
       final ws = event.read<String>('workspace');
@@ -519,9 +554,10 @@ final class SnapshotCodec {
                   leg.read<String>('currency'),
                   leg.read<int>('scale'),
                 ) ||
-            (!(fxTransfersAware &&
-                    event.read<String>('kind') == 'transfer' &&
-                    index == 1) &&
+            (!((fxTransfersAware &&
+                        event.read<String>('kind') == 'transfer' &&
+                        index == 1) ||
+                    (refundsAware && event.read<String>('kind') == 'refund')) &&
                 account.currency != currency) ||
             date.compareTo(account.openedOn) < 0)
           throw const InvalidSnapshot();
@@ -540,12 +576,53 @@ final class SnapshotCodec {
           if (amount <= BigInt.zero) throw const InvalidSnapshot();
           total += amount;
         }
-        if ((kind != 'income' && kind != 'expense') ||
-            total != (kind == 'income' ? income : expense)) {
+        if ((kind != 'income' &&
+                kind != 'expense' &&
+                !(refundsAware && kind == 'refund')) ||
+            total !=
+                (kind == 'income'
+                    ? income
+                    : kind == 'refund'
+                    ? -expense
+                    : expense)) {
           throw const InvalidSnapshot();
         }
       }
-      if (kind == 'transfer') {
+      if (kind == 'refund') {
+        if (!refundsAware ||
+            !refundLinks.containsKey((ws, id)) ||
+            list.length != 1 ||
+            list.single.read<String>('role') != 'principal' ||
+            amounts.single <= BigInt.zero ||
+            income != BigInt.zero ||
+            expense >= BigInt.zero) {
+          throw const InvalidSnapshot();
+        }
+        final received = Money(
+          Currency(
+            list.single.read<String>('currency'),
+            list.single.read<int>('scale'),
+          ),
+          amounts.single,
+        );
+        if (received.currency != currency) {
+          try {
+            final conversion = ActualConversion(
+              Money(currency, -expense),
+              received,
+            );
+            if (conversions[(ws, id)] != jsonEncode(conversion.toJson())) {
+              throw const InvalidSnapshot();
+            }
+          } catch (_) {
+            throw const InvalidSnapshot();
+          }
+          checkedConversions.add((ws, id));
+        } else if (amounts.single != -expense ||
+            conversions.containsKey((ws, id))) {
+          throw const InvalidSnapshot();
+        }
+      } else if (kind == 'transfer') {
         // Match admission: the full outgoing principal plus fee must fit Money.
         Money(currency, -amounts[0] + expense);
         final foreign =
@@ -650,6 +727,7 @@ final class SnapshotCodec {
             'create-v1',
             'posting-v1',
             if (fxTransfersAware) 'fx-posting-v1',
+            if (refundsAware) 'refund-posting-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
             if (categoryAware) 'category-v1',
@@ -703,7 +781,32 @@ final class SnapshotCodec {
       final event = eventsById[(ws, resultId)];
       if (event == null) throw const InvalidSnapshot();
       final context = conversions[(ws, resultId)];
-      if (input.first == 'fx-posting-v1') {
+      if (input.first == 'refund-posting-v1') {
+        if (!refundsAware ||
+            input.length != 5 ||
+            input[1] != refundLinks[(ws, resultId)] ||
+            event.read<String>('kind') != 'refund' ||
+            jsonEncode(input[2]) !=
+                jsonEncode(
+                  Money(
+                    Currency(
+                      event.read<String>('currency'),
+                      event.read<int>('scale'),
+                    ),
+                    -BigInt.from(event.read<int>('expense')),
+                  ).toJson(),
+                ) ||
+            (context == null
+                ? input[4] != null
+                : jsonEncode(input[4]) != context) ||
+            input[3] is! List ||
+            (input[3] as List).isEmpty) {
+          throw const InvalidSnapshot();
+        }
+        input = input[3];
+      } else if (event.read<String>('kind') == 'refund') {
+        throw const InvalidSnapshot();
+      } else if (input.first == 'fx-posting-v1') {
         if (input.length != 3 ||
             context == null ||
             jsonEncode(input[2]) != context ||

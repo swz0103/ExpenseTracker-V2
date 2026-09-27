@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "startedUtc": "2026-09-27T19:38:32.391421Z",
+  "events": 5000,
+  "refunds": 4996,
+  "fxRefunds": 2498,
+  "replayed": 4996,
+  "expenseMinor": "4",
+  "sourceCashMinor": "7498",
+  "receivedCashMinor": "5096",
+  "remainingPerSourceMinor": "2",
+  "snapshotBytes": 9525313,
+  "rows": 32500,
+  "originalKeysDeleted": true,
+  "passwordCleanRestore": true,
+  "recoveryCleanRestore": true,
+  "schema9To10": true,
+  "writesMs": 196085,
+  "elapsedMs": 313015,
+  "comparison": {
+    "priorRefundAdapterSha256": "49988e3307beff0ffddc363642e119e6ef3ceb48c5d910a9d3ef1f5cdd41bcbe",
+    "priorWritesMs": 259195,
+    "priorElapsedMs": 380084,
+    "writeTimeReductionPercent": 24.3,
+    "scope": "Same host and logical 5000-event workload; one baseline and one optimized run, no claim of device or statistically stable latency.",
+    "change": "Exact integer SQL aggregation under the same transaction replaces materializing every prior refund/Allocation on each command. Complete restore still validates individual history."
+  },
+  "sourceSha256": "2ccdcdfd79cf99a13270ca9b22a151fa85f052477d979e5e6facfcd7e2c8c53b"
+}
