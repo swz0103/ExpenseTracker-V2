@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:accounts/accounts.dart';
+import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
 import 'adapters.dart';
 import 'database.dart';
 import 'operations.dart';
+import 'categories_adapter.dart';
 
 export 'operations.dart' show OperationConflict, CommitResult;
 
@@ -60,8 +62,12 @@ final class FinancialWorkflows {
     jsonEncode(postingInput(posting)),
     posting.id,
     () async {
-      await _validate(posting);
-      await ledger.insert(posting, checkpoint: checkpoint);
+      final categorySequence = await _validate(posting);
+      await ledger.insert(
+        posting,
+        categorySequence: categorySequence,
+        checkpoint: checkpoint,
+      );
       await _checkBalances(posting);
     },
     'ledger.${posting.kind.name}',
@@ -94,12 +100,31 @@ final class FinancialWorkflows {
     }
   }
 
-  Future<void> _validate(Posting posting) async {
-    // Categories are not integrated yet: reject rather than accept unverified IDs.
-    if (posting.allocations.isNotEmpty)
-      throw UnsupportedError(
-        'Category references require the Categories adapter.',
+  Future<int?> _validate(Posting posting) async {
+    int? categorySequence;
+    if (posting.allocations.isNotEmpty) {
+      if (!db.categoryReferences) {
+        throw UnsupportedError('Category references require schema 5.');
+      }
+      final categories = CategoriesAdapter(db);
+      final catalog = await categories.read(posting.operation.workspace);
+      for (final allocation in posting.allocations) {
+        final version = allocation.expectedCategoryVersion;
+        if (version == null)
+          throw ArgumentError('Category version is required.');
+        catalog.requireSelection(
+          workspace: posting.operation.workspace,
+          id: allocation.categoryId,
+          expectedVersion: version,
+          kind: posting.kind == PostingKind.income
+              ? CategoryKind.income
+              : CategoryKind.expense,
+        );
+      }
+      categorySequence = await categories.currentSequence(
+        posting.operation.workspace,
       );
+    }
     for (final leg in posting.legs) {
       final account = await accounts.read(
         posting.operation.workspace,
@@ -112,6 +137,7 @@ final class FinancialWorkflows {
         date: posting.date,
       );
     }
+    return categorySequence;
   }
 
   Future<CommitResult> _commit(

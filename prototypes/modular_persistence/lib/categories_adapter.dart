@@ -224,14 +224,7 @@ final class CategoriesAdapter {
         final after = mutation.apply(before).get(mutation.id);
         final payload = jsonEncode(categoryJson(after));
         final ws = operation.workspace.toString();
-        final ordinal =
-            (await db
-                    .customSelect(
-                      'SELECT COALESCE(MAX(ordinal),0) AS n FROM category_changes WHERE workspace=?',
-                      variables: [Variable.withString(ws)],
-                    )
-                    .getSingle())
-                .read<int>('n');
+        final ordinal = await currentSequence(operation.workspace);
         if (ordinal == 9223372036854775807)
           throw const InvalidCategoryHistory();
         await db.customStatement(
@@ -255,11 +248,25 @@ final class CategoriesAdapter {
       checkpoint,
     );
   }
+
+  Future<int> currentSequence(WorkspaceId workspace) async {
+    _enabled();
+    return (await db
+            .customSelect(
+              'SELECT COALESCE(MAX(ordinal),0) AS n FROM category_changes WHERE workspace=?',
+              variables: [Variable.withString(workspace.toString())],
+            )
+            .getSingle())
+        .read<int>('n');
+  }
 }
 
 /// Replay the ordered metadata history through the same Domain used for writes.
 /// A source state cannot be accepted merely because its final tree looks valid.
-Future<Set<(String, String)>> validateCategoryHistory(ProbeDatabase db) async {
+Future<Set<(String, String)>> validateCategoryHistory(
+  ProbeDatabase db, {
+  void Function(String workspace, int sequence, CategoryCatalog state)? visit,
+}) async {
   if (!db.categoryAware) throw const InvalidCategoryHistory();
   final states = <String, CategoryCatalog>{};
   final ordinals = <String, int>{};
@@ -296,6 +303,7 @@ Future<Set<(String, String)>> validateCategoryHistory(ProbeDatabase db) async {
     }
     states[ws] = state;
     ordinals[ws] = ordinal;
+    visit?.call(ws, ordinal, state);
   }
   final current = await db.customSelect('SELECT * FROM categories').get();
   if (current.length !=

@@ -8,6 +8,14 @@
 
 ## 分支與交付
 
+2026-09-27 交易分類引用：`feat/ledger-category-references` 基於 PR #41（`095d81f09638e84d4676d2edaa42381b1c5ed654`）。完成收入／支出精確分攤、分類預期版本及入帳時 metadata 序號、同一交易保存與版本化 receipt。schema 5／snapshot 4／ledger module 3 為明確 opt-in；舊模式及無分攤 receipt 保持相容，分類之後改名／合併／封存仍可驗證歷史交易與重送。回查並修正來源表失去唯一限制時，備份漏檢重複分攤的問題；共用合成 fixture 改用正式套件入口，未放寬架構邊界。
+
+完整 14 套件共 **464 項獨有本機測試**通過，其中新增 35 項。先完成當時 463 項清單，最後補上重複分攤案例後，再全量重跑快照 57 項及加密 34 項；格式、靜態分析、五個原生 worker 建置與實際架構掃描通過，兩個受影響 worker 於最後修正後再建置。[驗證清單](test-results/category-references-host-2026-09-27.json)明列範圍，沒有將重跑重複計數。
+
+新加密帳本 **5,000 事件／7,498 分攤／4,999 次重送**、分類合併／封存後的密碼與救援雙路完整還原通過；snapshot 7,751,582 bytes，獨立計算餘額 2,511,000 minor units。[大量資料原始結果](test-results/category-references-scale-2026-09-27.json)約 173.73 秒，非隔離效能或實機保證。另完整回歸既有 **5,000 事件＋256 分類＋1,024 次 metadata 變更**的升級、同鎖安全備份及雙路還原，6,060,129 bytes；[舊路徑原始結果](test-results/category-references-legacy-regression-2026-09-27.json)與新引用案例為不同帳本，不混算容量。
+
+雲端未執行，兩個 workflow 保持 `disabled_manually`；手機未操作，main 未合併。這批完成的是底層保存及暫存還原，`LedgerStore`／`LedgerSession` 的 schema 4 → 5 安全升級、正式世代發布、分攤讀寫與容量預檢，以及 App／UI 仍待接入，M1-02 未完成。[接口、格式與限制](ledger-category-references.md)。下一功能分支接續這些世代／工作階段能力；需雲端 gate 的分支收斂持續暫緩。
+
 2026-09-27 分類工作階段：`feat/category-session` 基於 PR #40（`80a588f`）。接上新增／改名／移動／封存及啟用／合併／讀取公開接口，共用金融佇列、原子交易與 operation namespace。修正 schema 4 工作階段匯出格式及僅分類 workspace 的發現；將原 App 匯入與 session 寫入容量檢查統一，納入分類歷史、receipt／Audit 和 UTF-8 每列 bytes，上限拒絕不破壞已完成操作的 replay／conflict。
 
 8 項新增整合案例及受影響回歸共 **164 項本機測試**通過（Ledger 92、還原 38、App 19、架構 15），包含格式、靜態分析、兩個 worker 重建與實際架構掃描；未把重複跑的新案例重複計數，也未宣稱本輪全 14 套件重跑。[驗證清單](test-results/category-session-host-2026-09-27.json)。同一帳本的 **5,000 金融事件＋256 分類＋1,024 次分類變更**，完整 6,060,117 bytes snapshot、獨立餘額、密碼／救援各自還原與金融／分類重送皆通過；[大量資料原始結果](test-results/category-session-scale-2026-09-27.json)約 216.08 秒，非隔離效能或實機保證。[接口、容量與限制](category-session.md)。

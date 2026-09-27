@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:encrypted_storage_probe/encrypted_database.dart';
+import 'package:backup_envelope_probe/envelope.dart';
 import 'package:drift/native.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:modular_persistence_probe/workflows.dart';
 import 'package:modular_persistence_probe/database.dart';
+import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:validated_restore_probe/restore_store.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
@@ -15,6 +17,53 @@ Future<void> main(List<String> args) async {
   if (args.length < 2)
     throw ArgumentError('Missing action and owned directory.');
   final directory = Directory(args[1]);
+  if (args[0] == 'allocation-stage' && args.length == 6) {
+    if (!['password', 'recovery'].contains(args[4]))
+      throw ArgumentError('Invalid credential mode.');
+    final envelope = await File(args[2]).readAsString();
+    final credential = await File(args[3]).readAsString();
+    final bytes = args[4] == 'password'
+        ? await EnvelopeCodec().openWithPassword(envelope, credential)
+        : await EnvelopeCodec().openWithRecovery(envelope, credential);
+    final codec = SnapshotCodec(categoryReferences: true);
+    final key = StorageKey.random();
+    final binding = StorageBinding(
+      PublicId.generate(),
+      PublicId.generate(),
+      OperationId(PublicId.generate()),
+      'd' * 64,
+    );
+    final file = File('${directory.path}/stage.db');
+    await codec.stage(
+      bytes,
+      file,
+      openDatabase: (f) => openEncrypted(
+        f,
+        key,
+        storageBinding: binding,
+        categoryReferences: true,
+      ),
+      checkpoint: (point) {
+        if (point == args[5]) exit(73);
+      },
+    );
+    final db = openEncrypted(
+      file,
+      key,
+      storageBinding: binding,
+      categoryReferences: true,
+    );
+    try {
+      final restored = await codec.capture(db);
+      if (utf8.decode(restored) != utf8.decode(bytes))
+        throw StateError('Snapshot mismatch.');
+      await File('${directory.path}/verified.json')
+          .writeAsBytes(restored, flush: true);
+    } finally {
+      await db.close();
+    }
+    return;
+  }
   if (args[0] == 'migrate' && args.length == 4) {
     final key = StorageKey(await File(args[2]).readAsBytes());
     final db = ProbeDatabase.withExecutor(

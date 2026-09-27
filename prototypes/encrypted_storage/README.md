@@ -4,6 +4,8 @@
 
 ## 路線與邊界
 
+2026-09-27 接續：加入[交易分類引用 schema 5 的加密暫存還原](../../docs/ledger-category-references.md)，密碼／救援分別在無來源 DB 的獨立程序驗證；同一帳本 5,000 事件及 7,498 分攤的完整還原通過。正式 schema 5 世代發布、session 容量及 App 入口仍待後續，原有預設加密入口不自動升級。
+
 沿用已鎖定的 sqlite3 3.6.0，於本原型根目錄選擇 `hooks.user_defines.sqlite3.source: sqlcipher`。沒有另外安裝舊版 Flutter libs，也沒有商業授權碼或付費服務。套件的 hook 文件與原始碼提供此來源，下載成品會對照套件內的 SHA-256。
 
 本機實際輸出：SQLCipher `4.19.0 community`，provider `openssl`，SQLite `3.53.4`。Windows x64 成品在 sqlite3 3.6.0 的預期 SHA-256 為 `4da12fe34e8b6f3efeff9131d60ee28fb30091c481a7565d4bdf756870935283`。平台成品不同，不能拿此 hash 驗證 Android。

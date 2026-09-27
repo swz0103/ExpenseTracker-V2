@@ -36,3 +36,5 @@
 #34 已完成分類 Domain；#36 接入分類持久歷史及 schema 4／snapshot 3 暫存還原。#38 完成獨立升級控制紀錄，#39 調整 Actions 額度政策；其後 `feat/ledger-category-upgrade` 完成[限定 Ledger 3 → 4 的同鎖備份、轉換與發布](ledger-category-upgrade.md)，421 項本機主機清單通過，雲端未執行。接續分類公開操作／讀取接口與容量保護，再完成交易引用與 UI；待雲端 gate 的分支收斂先保留，未完成的金融及平台驗收不變。
 
 `feat/category-session` 依賴 #40（`80a588f`），完成[分類工作階段及備份容量](category-session.md)，164 項受影響本機回歸及混合大量資料驗證通過。沒有新雲端 checks，因此本輪不收斂需要雲端 gate 的批次、不刪除舊分支；下一功能從此分支接交易分類引用，依賴鏈持續保留。
+
+`feat/ledger-category-references` 依賴 #41（`095d81f09638e84d4676d2edaa42381b1c5ed654`），完成[交易分類引用與歷史還原](ledger-category-references.md)的底層保存／暫存驗證。完整 14 套件共 464 項獨有本機案例通過，包含最後重複分攤修正後的快照及加密全量回歸，以及新舊兩條大量資料路徑；雲端未執行，因此依然保留所有後續堆疊分支，不進行需雲端 gate 的收斂。下一分支從此 head 接 schema 4 → 5 安全升級及工作階段接口，不能將低層 schema 開關當成已啟用產品能力。

@@ -46,12 +46,18 @@ final class LedgerLeg {
 
 /// Analysis attribution, never an additional cash movement.
 final class Allocation {
-  Allocation(this.categoryId, this.amount) {
+  Allocation(this.categoryId, this.amount, {this.expectedCategoryVersion}) {
     if (amount.minorUnits <= BigInt.zero)
       throw const LedgerException(LedgerError.invalidAmount);
+    if (expectedCategoryVersion != null && expectedCategoryVersion! < 1) {
+      throw ArgumentError('Expected a positive category version.');
+    }
   }
   final PublicId categoryId;
   final Money amount;
+
+  /// Required by versioned persistence; null keeps old domain proposals readable.
+  final int? expectedCategoryVersion;
 }
 
 /// Validated immutable posting proposal. Has no financial effect until committed.
@@ -94,9 +100,11 @@ final class Posting {
     required BusinessDate date,
     required PostingAccount account,
     required Money amount,
+    List<Allocation> allocations = const [],
   }) {
     _participation(operation, account, amount);
     _positive(amount);
+    _allocations(amount, allocations);
     return Posting._(
       id: id,
       operation: operation,
@@ -105,6 +113,7 @@ final class Posting {
       legs: [LedgerLeg._(account, amount, LegRole.principal)],
       reportIncome: amount,
       reportExpense: Money(account.currency, BigInt.zero),
+      allocations: allocations,
     );
   }
 
@@ -118,19 +127,7 @@ final class Posting {
   }) {
     _participation(operation, account, amount);
     _positive(amount);
-    if (allocations.isNotEmpty) {
-      var total = BigInt.zero;
-      final categories = <PublicId>{};
-      for (final allocation in allocations) {
-        if (allocation.amount.currency != amount.currency)
-          throw const LedgerException(LedgerError.currencyMismatch);
-        if (!categories.add(allocation.categoryId))
-          throw const LedgerException(LedgerError.duplicateIdentity);
-        total += allocation.amount.minorUnits;
-      }
-      if (total != amount.minorUnits)
-        throw const LedgerException(LedgerError.allocationMismatch);
-    }
+    _allocations(amount, allocations);
     return Posting._(
       id: id,
       operation: operation,
@@ -204,6 +201,21 @@ void _participation(
 void _positive(Money amount) {
   if (amount.minorUnits <= BigInt.zero)
     throw const LedgerException(LedgerError.invalidAmount);
+}
+
+void _allocations(Money amount, List<Allocation> allocations) {
+  if (allocations.isEmpty) return;
+  var total = BigInt.zero;
+  final categories = <PublicId>{};
+  for (final allocation in allocations) {
+    if (allocation.amount.currency != amount.currency)
+      throw const LedgerException(LedgerError.currencyMismatch);
+    if (!categories.add(allocation.categoryId))
+      throw const LedgerException(LedgerError.duplicateIdentity);
+    total += allocation.amount.minorUnits;
+  }
+  if (total != amount.minorUnits)
+    throw const LedgerException(LedgerError.allocationMismatch);
 }
 
 /// Caller supplies the committed effective set, not drafts or superseded history.

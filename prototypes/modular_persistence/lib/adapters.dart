@@ -79,8 +79,18 @@ final class LedgerAdapter {
   final String sourceContext;
   Future<void> insert(
     Posting posting, {
+    int? categorySequence,
     void Function(String)? checkpoint,
   }) async {
+    if (posting.allocations.isNotEmpty &&
+        (!db.categoryReferences ||
+            categorySequence == null ||
+            categorySequence < 1 ||
+            posting.allocations.any(
+              (a) => a.expectedCategoryVersion == null,
+            ))) {
+      throw UnsupportedError('Versioned category selection is required.');
+    }
     final ws = posting.operation.workspace.toString();
     await db.customStatement(
       'INSERT INTO events (workspace,id,kind,business_date,income,expense,currency,scale,source_context) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -119,12 +129,15 @@ final class LedgerAdapter {
       ]);
     }
     for (final allocation in posting.allocations) {
-      await db.customStatement('INSERT INTO allocations VALUES (?,?,?,?)', [
+      await db.customStatement('INSERT INTO allocations VALUES (?,?,?,?,?,?)', [
         ws,
         posting.id.value,
         allocation.categoryId.value,
         allocation.amount.minorUnits.toInt(),
+        allocation.expectedCategoryVersion,
+        categorySequence,
       ]);
+      checkpoint?.call('allocation');
     }
   }
 
@@ -151,17 +164,38 @@ final class LedgerAdapter {
 }
 
 /// Versioned fixture canonicalization excludes generated result IDs and clock.
-Object postingInput(Posting posting) => [
-  'posting-v1',
-  posting.kind.name,
-  posting.date.toString(),
-  for (final leg in posting.legs)
-    [
-      leg.account.id.value,
-      leg.account.expectedVersion,
-      leg.amount.toJson(),
-      leg.role.name,
-    ],
-  for (final allocation in posting.allocations)
-    [allocation.categoryId.value, allocation.amount.toJson()],
-];
+Object postingInput(Posting posting) => posting.allocations.isEmpty
+    ? [
+        'posting-v1',
+        posting.kind.name,
+        posting.date.toString(),
+        for (final leg in posting.legs)
+          [
+            leg.account.id.value,
+            leg.account.expectedVersion,
+            leg.amount.toJson(),
+            leg.role.name,
+          ],
+      ]
+    : [
+        'posting-v2',
+        posting.kind.name,
+        posting.date.toString(),
+        [
+          for (final leg in posting.legs)
+            [
+              leg.account.id.value,
+              leg.account.expectedVersion,
+              leg.amount.toJson(),
+              leg.role.name,
+            ],
+        ],
+        [
+          for (final allocation in posting.allocations)
+            [
+              allocation.categoryId.value,
+              allocation.expectedCategoryVersion,
+              allocation.amount.toJson(),
+            ],
+        ],
+      ];

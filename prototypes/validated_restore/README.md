@@ -4,9 +4,11 @@
 
 ## 備份與驗證
 
+2026-09-27 接續：明確 `categoryReferences: true` 使用 schema 5／snapshot 4／ledger 3，驗證收入與支出的[歷史分類引用](../../docs/ledger-category-references.md)。正式 active generation 升級尚未接入；以下初版七表／切換流程的紀錄不等於新格式已開放給 App。
+
 在同一 Drift read transaction 讀取 accounts、events、legs、openings、allocations、receipts、audit，保存 schema 2 與各模組版本。整數以十進位字串保存，避免 JSON 數值精度損失。遇到未識別的資料表、欄位、模組版本或過量內容即拒絕，不默默省略。上限為 16 MiB／50,000 列，是原型邊界，未測大資料集效能。
 
-解鎖後，先在全新 stage.db 用綁定參數與單一交易匯入，再核對外鍵、SQLite 完整性、帳戶還原、期初日期與引用、幣別、餘額溢位、各種入帳／轉帳／費用符號、報表數字、receipt 與 audit 關聯及 receipt 入帳內容。所有驗證完成並關閉 handle 後才切換。現階段無 Categories adapter，因此不接受非空 allocations；不能把保留欄位當成已支援分類還原。
+解鎖後，先在全新 stage.db 用綁定參數與單一交易匯入，再核對外鍵、SQLite 完整性、帳戶還原、期初日期與引用、幣別、餘額溢位、各種入帳／轉帳／費用符號、報表數字、receipt 與 audit 關聯及 receipt 入帳內容。所有驗證完成並關閉 handle 後才切換。schema 2／3／4 仍拒絕非空 allocations；新引用必須明確使用上方 schema 5 格式及歷史驗證，不能把舊保留欄位當成已驗證引用。
 
 manifest 只承諾目前原型七張表，不是未來所有業務的正式格式。新模組必須擴充清單、驗證器與對應 round-trip 測試。備份不攜帶 SQL 指令，不執行來源 schema。
 

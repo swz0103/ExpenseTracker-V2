@@ -9,6 +9,8 @@ import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/category_schema.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';
+import 'package:modular_persistence_probe/allocation_schema.dart';
+import 'package:modular_persistence_probe/allocation_validation.dart';
 
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
@@ -38,7 +40,15 @@ const _financialColumns = {
   'receipts': ['workspace', 'operation_id', 'input', 'result_id'],
   'audit': ['workspace', 'operation_id', 'entity_id', 'kind', 'recorded_at'],
 };
-const _integers = {'income', 'expense', 'scale', 'ordinal', 'amount'};
+const _integers = {
+  'income',
+  'expense',
+  'scale',
+  'ordinal',
+  'amount',
+  'category_version',
+  'category_sequence',
+};
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
 final class InvalidSnapshot implements Exception {
@@ -51,22 +61,31 @@ final class InvalidSnapshot implements Exception {
 /// versioned local identity is validated but regenerated at the destination.
 final class SnapshotCodec {
   static const maxRows = 50000;
-  SnapshotCodec({bool generationAware = false, this.categoryAware = false})
-    : generationAware = generationAware || categoryAware;
+  SnapshotCodec({
+    bool generationAware = false,
+    bool categoryAware = false,
+    this.categoryReferences = false,
+  }) : categoryAware = categoryAware || categoryReferences,
+       generationAware = generationAware || categoryAware || categoryReferences;
   final bool generationAware;
   final bool categoryAware;
+  final bool categoryReferences;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (categoryAware) ...categoryColumns,
+    if (categoryReferences) 'allocations': allocationReferenceColumns,
   };
 
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => categoryAware ? 3 : (generationAware ? 2 : 1);
-  int get _schemaVersion => categoryAware ? 4 : (generationAware ? 3 : 2);
+  int get _formatVersion =>
+      categoryReferences ? 4 : (categoryAware ? 3 : (generationAware ? 2 : 1));
+  int get _schemaVersion =>
+      categoryReferences ? 5 : (categoryAware ? 4 : (generationAware ? 3 : 2));
   Map<String, int> get _manifest => {
     ..._modules,
+    if (categoryReferences) 'ledger': 3,
     if (generationAware) 'local_identity': 1,
     if (categoryAware) 'categories': 1,
   };
@@ -192,20 +211,28 @@ final class SnapshotCodec {
               (generationAware &&
                   root['version'] == 2 &&
                   root['schema'] == 3) ||
-              (categoryAware && root['version'] == 3 && root['schema'] == 4)))
+              (categoryAware && root['version'] == 3 && root['schema'] == 4) ||
+              (categoryReferences &&
+                  root['version'] == 4 &&
+                  root['schema'] == 5)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
         ..._modules,
+        if (root['version'] == 4) 'ledger': 3,
         if (root['version'] != 1) 'local_identity': 1,
-        if (root['version'] == 3) 'categories': 1,
+        if (root['version'] == 3 || root['version'] == 4) 'categories': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
           !expectedModules.entries.every((e) => modules[e.key] == e.value))
         throw const InvalidSnapshot();
       final tables = root['tables'];
-      final inputColumns = root['version'] == 3 ? _columns : _financialColumns;
+      final inputColumns = {
+        ..._financialColumns,
+        if (root['version'] == 3 || root['version'] == 4) ...categoryColumns,
+        if (root['version'] == 4) 'allocations': allocationReferenceColumns,
+      };
       if (tables is! Map || tables.length != inputColumns.length)
         throw const InvalidSnapshot();
       final result = <String, List<Map<String, dynamic>>>{
@@ -215,6 +242,13 @@ final class SnapshotCodec {
       for (final entry in inputColumns.entries) {
         final rows = tables[entry.key];
         if (rows is! List) throw const InvalidSnapshot();
+        // No released older writer could persist validated selections. Never
+        // invent a revision/sequence while converting an old allocation row.
+        if (entry.key == 'allocations' &&
+            root['version'] != 4 &&
+            rows.isNotEmpty) {
+          throw const InvalidSnapshot();
+        }
         count += rows.length;
         if (count > maxRows) throw const InvalidSnapshot();
         result[entry.key] = [];
@@ -245,13 +279,16 @@ final class SnapshotCodec {
   /// Known current prototype semantics, not a general future-module validator.
   Future<void> validate(ProbeDatabase db) async {
     if (generationAware != (db.storageBinding != null) ||
-        categoryAware != db.categoryAware)
+        categoryAware != db.categoryAware ||
+        categoryReferences != db.categoryReferences)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};
     if (categoryAware) {
       try {
-        categoryOperations = await validateCategoryHistory(db);
+        categoryOperations = categoryReferences
+            ? await validateAllocationHistory(db)
+            : await validateCategoryHistory(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }
@@ -263,13 +300,23 @@ final class SnapshotCodec {
                 .single !=
             'ok')
       throw const InvalidSnapshot();
-    if ((await db
-                .customSelect('SELECT COUNT(*) AS n FROM allocations')
-                .getSingle())
-            .read<int>('n') !=
-        0) {
-      // Current persistence cannot create Categories references; do not invent support.
+    final allocations = await db
+        .customSelect('SELECT * FROM allocations')
+        .get();
+    if (!categoryReferences && allocations.isNotEmpty) {
       throw const InvalidSnapshot();
+    }
+    final allocationsByEvent = <(String, String), Map<String, QueryRow>>{};
+    for (final row in allocations) {
+      final eventAllocations =
+          allocationsByEvent[(
+                row.read<String>('workspace'),
+                row.read<String>('event_id'),
+              )] ??=
+              {};
+      final category = row.read<String>('category_id');
+      if (eventAllocations.containsKey(category)) throw const InvalidSnapshot();
+      eventAllocations[category] = row;
     }
     final accounts = AccountsAdapter(db);
     final ledger = LedgerAdapter(db);
@@ -360,6 +407,19 @@ final class SnapshotCodec {
       final income = BigInt.from(event.read<int>('income'));
       final expense = BigInt.from(event.read<int>('expense'));
       final kind = event.read<String>('kind');
+      final attributed = allocationsByEvent[(ws, id)]?.values;
+      if (attributed != null) {
+        var total = BigInt.zero;
+        for (final row in attributed) {
+          final amount = BigInt.from(row.read<int>('amount'));
+          if (amount <= BigInt.zero) throw const InvalidSnapshot();
+          total += amount;
+        }
+        if ((kind != 'income' && kind != 'expense') ||
+            total != (kind == 'income' ? income : expense)) {
+          throw const InvalidSnapshot();
+        }
+      }
       if (kind == 'transfer') {
         if (list.length < 2 ||
             list.length > 3 ||
@@ -429,6 +489,7 @@ final class SnapshotCodec {
           ![
             'create-v1',
             'posting-v1',
+            if (categoryReferences) 'posting-v2',
             'archive-v1',
             if (categoryAware) 'category-v1',
           ].contains(input.first))
@@ -469,13 +530,51 @@ final class SnapshotCodec {
         throw const InvalidSnapshot();
       final posting = isCreate ? input[3] : input;
       final eventLegs = legsByEvent[(ws, resultId)] ?? const <QueryRow>[];
+      final eventAllocations =
+          allocationsByEvent[(ws, resultId)] ?? <String, QueryRow>{};
+      final versioned = input.first == 'posting-v2';
       if (posting is! List ||
-          posting.length != 3 + eventLegs.length ||
-          posting[0] != 'posting-v1' ||
+          posting.length != (versioned ? 5 : 3 + eventLegs.length) ||
+          posting[0] != (versioned ? 'posting-v2' : 'posting-v1') ||
           posting[1] != event.read<String>('kind') ||
           posting[2] != event.read<String>('business_date') ||
           auditKind != (isCreate ? 'account.open' : 'ledger.${posting[1]}'))
         throw const InvalidSnapshot();
+      if (versioned) {
+        if (posting[3] is! List ||
+            (posting[3] as List).length != eventLegs.length ||
+            posting[4] is! List ||
+            (posting[4] as List).length != eventAllocations.length ||
+            eventAllocations.isEmpty)
+          throw const InvalidSnapshot();
+        final seen = <String>{};
+        for (final encoded in posting[4] as List) {
+          if (encoded is! List ||
+              encoded.length != 3 ||
+              encoded[0] is! String ||
+              !seen.add(encoded[0] as String) ||
+              encoded[1] is! int) {
+            throw const InvalidSnapshot();
+          }
+          final allocation = eventAllocations[encoded[0]];
+          if (allocation == null ||
+              encoded[1] != allocation.read<int>('category_version') ||
+              jsonEncode(encoded[2]) !=
+                  jsonEncode(
+                    Money(
+                      Currency(
+                        event.read<String>('currency'),
+                        event.read<int>('scale'),
+                      ),
+                      BigInt.from(allocation.read<int>('amount')),
+                    ).toJson(),
+                  )) {
+            throw const InvalidSnapshot();
+          }
+        }
+      } else if (eventAllocations.isNotEmpty) {
+        throw const InvalidSnapshot();
+      }
       if (isCreate &&
           (input[1] != eventLegs.single.read<String>('account_id') ||
               input[2]['openedOn'] != posting[2] ||
@@ -484,7 +583,7 @@ final class SnapshotCodec {
         throw const InvalidSnapshot();
       for (var i = 0; i < eventLegs.length; i++) {
         final leg = eventLegs[i];
-        final encoded = posting[i + 3];
+        final encoded = versioned ? posting[3][i] : posting[i + 3];
         if (encoded is! List ||
             encoded.length != 4 ||
             encoded[0] != leg.read<String>('account_id') ||

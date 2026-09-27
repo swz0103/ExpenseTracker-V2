@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 
 import 'storage_binding.dart';
 import 'category_schema.dart';
+import 'allocation_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -12,31 +13,36 @@ final class ProbeDatabase extends GeneratedDatabase {
     File file, {
     this.migrationCheckpoint,
     this.storageBinding,
-    this.categoryAware = false,
-  }) : super(NativeDatabase(file)) {
+    bool categoryAware = false,
+    this.categoryReferences = false,
+  }) : categoryAware = categoryAware || categoryReferences,
+       super(NativeDatabase(file)) {
     _configuration();
   }
   ProbeDatabase.withExecutor(
     QueryExecutor executor, {
     this.migrationCheckpoint,
     this.storageBinding,
-    this.categoryAware = false,
-  }) : super(executor) {
+    bool categoryAware = false,
+    this.categoryReferences = false,
+  }) : categoryAware = categoryAware || categoryReferences,
+       super(executor) {
     _configuration();
   }
   final bool categoryAware;
+  final bool categoryReferences;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
-      throw ArgumentError(
-        'Categories require an explicitly bound schema 4 stage.',
-      );
+      throw ArgumentError('Categories require an explicitly bound stage.');
     }
   }
 
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => categoryAware ? 4 : (storageBinding == null ? 2 : 3);
+  int get schemaVersion => categoryReferences
+      ? 5
+      : (categoryAware ? 4 : (storageBinding == null ? 2 : 3));
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -45,7 +51,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (_) => transaction(() async {
       for (final sql in _schema) {
-        await customStatement(sql);
+        await customStatement(
+          categoryReferences && sql.startsWith('CREATE TABLE allocations ')
+              ? allocationReferenceSchema
+              : sql,
+        );
       }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
@@ -59,7 +69,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     onUpgrade: (_, from, to) async {
       if (categoryAware) {
         throw StateError(
-          'Schema 4 requires a new validated stage, not in-place migration.',
+          'Categories schemas require a new validated stage, not in-place migration.',
         );
       }
       if (from == 1 && to == 2) {
