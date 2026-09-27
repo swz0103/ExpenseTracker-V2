@@ -7,7 +7,6 @@ import 'package:backup_envelope_probe/envelope.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
-import 'package:validated_restore_probe/snapshot.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);
@@ -391,37 +390,15 @@ _profileInfo(List<int> bytes) {
 /// Restrict this UI to the subset it can represent; full import validation still
 /// runs on the encrypted stage before publication.
 void validatePreviewSnapshot(List<int> bytes) {
-  final canonical = SnapshotCodec(generationAware: true).canonicalize(bytes);
+  late List<int> canonical;
+  try {
+    canonical = validateSessionCapacity(bytes);
+  } on PreviewCapacity {
+    throw PreviewInvalid();
+  }
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
   final accounts = tables['accounts'] as List;
-  final events = tables['events'] as List;
-  // Bound encoded row sizes as well as counts: a valid imported source marker or
-  // receipt with huge whitespace must not consume all future backup headroom.
-  for (final entry in tables.entries) {
-    for (final row in entry.value as List) {
-      var maxBytes = entry.key == 'accounts' ? 4096 : 512;
-      if (entry.key == 'receipts') {
-        final input = jsonDecode(row['input'] as String);
-        maxBytes =
-            input is List && input.isNotEmpty && input.first == 'create-v1'
-            ? 4096
-            : 1024;
-      }
-      if (utf8.encode(jsonEncode(row)).length > maxBytes) {
-        throw PreviewInvalid();
-      }
-    }
-  }
-  if (accounts.length > LedgerSession.maxAccounts ||
-      events.length > LedgerSession.maxEvents ||
-      accounts.map((a) => a['workspace']).toSet().length > 1 ||
-      events.any(
-        (e) => !['opening', 'income', 'expense'].contains(e['kind']),
-      ) ||
-      (tables['allocations'] as List).isNotEmpty ||
-      (tables['receipts'] as List).length != events.length ||
-      (tables['audit'] as List).length != events.length ||
-      (tables['legs'] as List).length != events.length) {
+  if (accounts.map((a) => a['workspace']).toSet().length > 1) {
     throw PreviewInvalid();
   }
 }

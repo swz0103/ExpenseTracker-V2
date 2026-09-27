@@ -34,3 +34,5 @@
 從最新已驗證的 `0745253`（#31，331 項主機測試通過）接續 M1-02。先完成獨立 Categories 業務的雙層分類規則，再接入版本化保存、備份與錄入 UI；Tag／Merchant 按其資料主責分批接入。對現有 preview 的整合不僅更換名稱，必須補足產品所需行為與相容路徑後才提升 capability 狀態。
 
 #34 已完成分類 Domain；#36 接入分類持久歷史及 schema 4／snapshot 3 暫存還原。#38 完成獨立升級控制紀錄，#39 調整 Actions 額度政策；其後 `feat/ledger-category-upgrade` 完成[限定 Ledger 3 → 4 的同鎖備份、轉換與發布](ledger-category-upgrade.md)，421 項本機主機清單通過，雲端未執行。接續分類公開操作／讀取接口與容量保護，再完成交易引用與 UI；待雲端 gate 的分支收斂先保留，未完成的金融及平台驗收不變。
+
+`feat/category-session` 依賴 #40（`80a588f`），完成[分類工作階段及備份容量](category-session.md)，164 項受影響本機回歸及混合大量資料驗證通過。沒有新雲端 checks，因此本輪不收斂需要雲端 gate 的批次、不刪除舊分支；下一功能從此分支接交易分類引用，依賴鏈持續保留。

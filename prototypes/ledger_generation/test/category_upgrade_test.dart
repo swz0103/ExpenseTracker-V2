@@ -592,105 +592,176 @@ void main() {
     await verifyBackup();
   });
 
-  test(
-    'full 5000-event ledger upgrades without losing data or replay protection',
-    () async {
-      final watch = Stopwatch()..start();
-      var units = BigInt.from(11500);
-      late Posting last;
-      await oldStore.withSession((session) async {
-        for (var i = 3; i < LedgerSession.maxEvents; i++) {
-          final minorUnits = 1 + (i * 7919) % 10000;
-          last = Posting.income(
-            id: PublicId.generate(),
-            operation: OperationKey(workspace, operation()),
-            date: BusinessDate(2026, 9, 26),
-            account: account,
-            amount: Money(account.currency, BigInt.from(minorUnits)),
-          );
-          expect((await session.post(last)).replayed, isFalse);
-          expect((await session.post(last)).replayed, isTrue);
-          units += BigInt.from(minorUnits);
-        }
-      });
-      final writesMs = watch.elapsedMilliseconds;
-      before = await oldStore.snapshot();
-      after = SnapshotCodec(categoryAware: true).canonicalize(before);
-      request = await planCategoryUpgrade(
-        store,
-        operation(),
-        PublicId.generate(),
-      );
-      final startedUpgrade = watch.elapsedMilliseconds;
-      final receipt = await upgrade();
-      final upgradeMs = watch.elapsedMilliseconds - startedUpgrade;
-      expect(await store.snapshot(), after);
-      await verifyBackup();
-      await sourceIntact();
-      expect(await reopen().balance(account), Money(account.currency, units));
-      await store.withSession((session) async {
+  test('full ledger upgrades then fills category history without losing data or replay protection', () async {
+    final watch = Stopwatch()..start();
+    var units = BigInt.from(11500);
+    late Posting last;
+    await oldStore.withSession((session) async {
+      for (var i = 3; i < LedgerSession.maxEvents; i++) {
+        final minorUnits = 1 + (i * 7919) % 10000;
+        last = Posting.income(
+          id: PublicId.generate(),
+          operation: OperationKey(workspace, operation()),
+          date: BusinessDate(2026, 9, 26),
+          account: account,
+          amount: Money(account.currency, BigInt.from(minorUnits)),
+        );
+        expect((await session.post(last)).replayed, isFalse);
         expect((await session.post(last)).replayed, isTrue);
-        await expectLater(
-          session.post(income('1')),
-          throwsA(isA<PreviewCapacity>()),
+        units += BigInt.from(minorUnits);
+      }
+    });
+    final writesMs = watch.elapsedMilliseconds;
+    before = await oldStore.snapshot();
+    after = SnapshotCodec(categoryAware: true).canonicalize(before);
+    request = await planCategoryUpgrade(
+      store,
+      operation(),
+      PublicId.generate(),
+    );
+    final startedUpgrade = watch.elapsedMilliseconds;
+    final receipt = await upgrade();
+    final upgradeMs = watch.elapsedMilliseconds - startedUpgrade;
+    expect(await store.snapshot(), after);
+    await verifyBackup();
+    await sourceIntact();
+    expect(await reopen().balance(account), Money(account.currency, units));
+    await store.withSession((session) async {
+      expect((await session.post(last)).replayed, isTrue);
+      await expectLater(
+        session.post(income('1')),
+        throwsA(isA<PreviewCapacity>()),
+      );
+    });
+    final firstGeneration = receipt.target.generation;
+    expect((await upgrade()).target.generation, firstGeneration);
+    expect(await store.snapshot(), after);
+    final categoryId = PublicId.generate();
+    final categoryOperation = OperationKey(workspace, operation());
+    await store.withSession((session) async {
+      await session.createCategory(
+        categoryOperation,
+        categoryId,
+        '早餐',
+        CategoryKind.expense,
+      );
+      for (var i = 1; i < LedgerSession.maxCategories; i++) {
+        await session.createCategory(
+          OperationKey(workspace, operation()),
+          PublicId.generate(),
+          '分類 $i',
+          CategoryKind.expense,
+        );
+      }
+      for (
+        var i = 0;
+        i < LedgerSession.maxCategoryChanges - LedgerSession.maxCategories;
+        i++
+      ) {
+        await session.renameCategory(
+          OperationKey(workspace, operation()),
+          categoryId,
+          i + 1,
+          '早餐 $i',
+        );
+      }
+      expect((await session.post(last)).replayed, isTrue);
+      expect(
+        (await session.createCategory(
+          categoryOperation,
+          categoryId,
+          '早餐',
+          CategoryKind.expense,
+        )).replayed,
+        isTrue,
+      );
+      await expectLater(
+        session.post(income('1')),
+        throwsA(isA<PreviewCapacity>()),
+      );
+      await expectLater(
+        session.createCategory(
+          OperationKey(workspace, operation()),
+          PublicId.generate(),
+          '超額',
+          CategoryKind.expense,
+        ),
+        throwsA(isA<PreviewCapacity>()),
+      );
+    });
+    final combined = await store.snapshot();
+    expect(validateSessionCapacity(combined, categoryAware: true), combined);
+    final newBackup = await store.backup(
+      password,
+      recoveryKey: initial.recoveryKey,
+    );
+    for (final recovery in [false, true]) {
+      final targetKeys = FixtureKeySlots(
+        Directory('${work.path}/scale-keys-$recovery'),
+      );
+      final target = LedgerStore(
+        Directory('${work.path}/scale-target-$recovery'),
+        targetKeys,
+        catalogProtection: fixtureCatalogProtection(targetKeys),
+        categoryAware: true,
+      );
+      await target.restore(
+        newBackup.envelope,
+        operation(),
+        password: recovery ? null : password,
+        recoveryKey: recovery ? initial.recoveryKey : null,
+      );
+      expect(await target.snapshot(), combined);
+      expect(await target.balance(account), Money(account.currency, units));
+      await target.withSession((session) async {
+        expect((await session.post(last)).replayed, isTrue);
+        expect(
+          (await session.createCategory(
+            categoryOperation,
+            categoryId,
+            '早餐',
+            CategoryKind.expense,
+          )).replayed,
+          isTrue,
+        );
+        expect(
+          (await session.categories(workspace)).categories,
+          hasLength(LedgerSession.maxCategories),
         );
       });
-      final firstGeneration = receipt.target.generation;
-      expect((await upgrade()).target.generation, firstGeneration);
-      expect(await store.snapshot(), after);
-      final newBackup = await store.backup(
-        password,
-        recoveryKey: initial.recoveryKey,
-      );
-      for (final recovery in [false, true]) {
-        final targetKeys = FixtureKeySlots(
-          Directory('${work.path}/scale-keys-$recovery'),
-        );
-        final target = LedgerStore(
-          Directory('${work.path}/scale-target-$recovery'),
-          targetKeys,
-          catalogProtection: fixtureCatalogProtection(targetKeys),
-          categoryAware: true,
-        );
-        await target.restore(
-          newBackup.envelope,
-          operation(),
-          password: recovery ? null : password,
-          recoveryKey: recovery ? initial.recoveryKey : null,
-        );
-        expect(await target.snapshot(), after);
-        expect(await target.balance(account), Money(account.currency, units));
-        expect((await target.post(last)).replayed, isTrue);
-      }
-      File('.dart_tool/category-upgrade-scale-result.json').writeAsStringSync(
-        const JsonEncoder.withIndent('  ').convert({
-          'recordedUtc': DateTime.now().toUtc().toIso8601String(),
-          'platform': Platform.operatingSystemVersion,
-          'dart': Platform.version,
-          'events': 5000,
-          'newPostings': 4997,
-          'postingRetries': 4997,
-          'sourceSnapshotBytes': before.length,
-          'targetSnapshotBytes': after.length,
-          'sourceDigest': digest(before),
-          'targetDigest': digest(after),
-          'writesMs': writesMs,
-          'upgradeMs': upgradeMs,
-          'totalMs': watch.elapsedMilliseconds,
-          'fullDataEquality': true,
-          'balancePreserved': true,
-          'retryIdempotent': true,
-          'sourceRetained': true,
-          'bothBackupCredentialsVerified': true,
-          'bothRestoreRoutesVerified': true,
-          'capacityGuardPreserved': true,
-          'deviceTested': false,
-        }),
-        flush: true,
-      );
-    },
-    timeout: const Timeout(Duration(minutes: 8)),
-  );
+      expect(await target.snapshot(), combined);
+    }
+    File('.dart_tool/category-upgrade-scale-result.json').writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert({
+        'recordedUtc': DateTime.now().toUtc().toIso8601String(),
+        'platform': Platform.operatingSystemVersion,
+        'dart': Platform.version,
+        'events': 5000,
+        'newPostings': 4997,
+        'postingRetries': 4997,
+        'categories': LedgerSession.maxCategories,
+        'categoryChanges': LedgerSession.maxCategoryChanges,
+        'combinedSnapshotBytes': combined.length,
+        'combinedDigest': digest(combined),
+        'sourceSnapshotBytes': before.length,
+        'targetSnapshotBytes': after.length,
+        'sourceDigest': digest(before),
+        'targetDigest': digest(after),
+        'writesMs': writesMs,
+        'upgradeMs': upgradeMs,
+        'totalMs': watch.elapsedMilliseconds,
+        'fullDataEquality': true,
+        'balancePreserved': true,
+        'retryIdempotent': true,
+        'sourceRetained': true,
+        'bothBackupCredentialsVerified': true,
+        'bothRestoreRoutesVerified': true,
+        'capacityGuardPreserved': true,
+        'deviceTested': false,
+      }),
+      flush: true,
+    );
+  }, timeout: const Timeout(Duration(minutes: 8)));
 
   test(
     'planning a missing source does not initialize catalog or keys',

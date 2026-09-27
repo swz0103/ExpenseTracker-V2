@@ -8,6 +8,12 @@
 
 ## 分支與交付
 
+2026-09-27 分類工作階段：`feat/category-session` 基於 PR #40（`80a588f`）。接上新增／改名／移動／封存及啟用／合併／讀取公開接口，共用金融佇列、原子交易與 operation namespace。修正 schema 4 工作階段匯出格式及僅分類 workspace 的發現；將原 App 匯入與 session 寫入容量檢查統一，納入分類歷史、receipt／Audit 和 UTF-8 每列 bytes，上限拒絕不破壞已完成操作的 replay／conflict。
+
+8 項新增整合案例及受影響回歸共 **164 項本機測試**通過（Ledger 92、還原 38、App 19、架構 15），包含格式、靜態分析、兩個 worker 重建與實際架構掃描；未把重複跑的新案例重複計數，也未宣稱本輪全 14 套件重跑。[驗證清單](test-results/category-session-host-2026-09-27.json)。同一帳本的 **5,000 金融事件＋256 分類＋1,024 次分類變更**，完整 6,060,117 bytes snapshot、獨立餘額、密碼／救援各自還原與金融／分類重送皆通過；[大量資料原始結果](test-results/category-session-scale-2026-09-27.json)約 216.08 秒，非隔離效能或實機保證。[接口、容量與限制](category-session.md)。
+
+雲端未執行，兩個 workflow 維持 `disabled_manually`；手機未操作，main 未合併。分類仍未接交易引用／正式 App 升級／UI，M1-02 及整體 gate 未完成。下一分支接交易分類引用及版本、歷史還原驗證，之後再串產品升級與畫面；需雲端 gate 的分支收斂暫緩。
+
 2026-09-27 額度調整：使用者回報 Actions 本月剩 190、每月 2,000；官方單位為執行分鐘。兩個 workflow 已在 GitHub 暫停，確認無執行中／排隊工作；`ci/actions-budget` 基於 PR #38，後續分支改手動觸發設定，日常與整合主機驗證移至本機，雲端額度保留給重要驗收。新入口的架構／原生程序／Flutter 三條路徑共 43 項本機測試及相關分析通過，兩份 YAML 與完整 14 套件清單核對通過；本次雲端未執行。[完整政策與本機入口](ci-budget-policy.md)已同步到原有每 30 分鐘開發排程；不因缺少 checks 宣稱雲端通過，不改 branch protection 或自行合併 main。
 
 PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前已完成 14 個雲端工作，完整主機清單 391 項通過。額度調整另以 PR #39（`b298c6c`）交付，其後 `feat/ledger-category-upgrade` 的限定主機串接已完成下列驗證。

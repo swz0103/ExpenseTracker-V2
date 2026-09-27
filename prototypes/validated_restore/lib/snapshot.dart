@@ -50,6 +50,7 @@ final class InvalidSnapshot implements Exception {
 /// Fixed prototype manifest. All financial tables are portable; explicitly
 /// versioned local identity is validated but regenerated at the destination.
 final class SnapshotCodec {
+  static const maxRows = 50000;
   SnapshotCodec({bool generationAware = false, this.categoryAware = false})
     : generationAware = generationAware || categoryAware;
   final bool generationAware;
@@ -129,7 +130,7 @@ final class SnapshotCodec {
           )
           .get();
       count += rows.length;
-      if (count > 50000) throw const InvalidSnapshot();
+      if (count > maxRows) throw const InvalidSnapshot();
       tables[entry.key] = [
         for (final row in rows)
           {
@@ -215,7 +216,7 @@ final class SnapshotCodec {
         final rows = tables[entry.key];
         if (rows is! List) throw const InvalidSnapshot();
         count += rows.length;
-        if (count > 50000) throw const InvalidSnapshot();
+        if (count > maxRows) throw const InvalidSnapshot();
         result[entry.key] = [];
         for (final row in rows) {
           if (row is! Map<String, dynamic> ||

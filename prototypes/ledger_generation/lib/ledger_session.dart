@@ -25,9 +25,12 @@ final class LedgerSession {
   LedgerSession._(this._db);
   static const maxEvents = 5000;
   static const maxAccounts = 32;
+  static const maxCategories = 256;
+  static const maxCategoryChanges = 1024;
   final ProbeDatabase _db;
   Future<void> _tail = Future.value();
   bool _closed = false;
+  bool _capacityAdmitted = false;
 
   Future<T> _enqueue<T>(Future<T> Function() work) {
     if (_closed) return Future.error(SessionClosed());
@@ -45,18 +48,35 @@ final class LedgerSession {
       (await _db.customSelect('SELECT count(*) AS n FROM $table').getSingle())
           .read<int>('n');
 
-  Future<void> _capacity(Posting posting, {bool account = false}) async {
-    // Replays must remain possible even when no new entries fit.
+  Future<bool> _hasOperation(OperationKey operation) async {
     final prior = await _db
         .customSelect(
           'SELECT operation_id FROM receipts WHERE workspace=? AND operation_id=?',
           variables: [
-            Variable.withString(posting.operation.workspace.toString()),
-            Variable.withString(posting.operation.operation.toString()),
+            Variable.withString(operation.workspace.toString()),
+            Variable.withString(operation.operation.toString()),
           ],
         )
         .get();
-    if (prior.isNotEmpty) return;
+    return prior.isNotEmpty;
+  }
+
+  Future<void> _admitCapacity() async {
+    if (_capacityAdmitted) return;
+    validateSessionCapacity(
+      await SnapshotCodec(
+        categoryAware: _db.categoryAware,
+        generationAware: true,
+      ).capture(_db),
+      categoryAware: _db.categoryAware,
+    );
+    _capacityAdmitted = true;
+  }
+
+  Future<void> _capacity(Posting posting, {bool account = false}) async {
+    // Replays and conflicts must retain their original meaning at capacity.
+    if (await _hasOperation(posting.operation)) return;
+    await _admitCapacity();
     if (await _count('events') >= maxEvents ||
         (account && await _count('accounts') >= maxAccounts)) {
       throw PreviewCapacity();
@@ -67,10 +87,13 @@ final class LedgerSession {
       _enqueue(
         () => _db.transaction(() async {
           await _capacity(opening, account: true);
-          return FinancialWorkflows(
+          final result = await FinancialWorkflows(
             _db,
             sourceContext: 'preview-manual-v1',
           ).createAccount(account, opening);
+          if (!result.replayed)
+            await _checkFinancialRows(opening, account: account);
+          return result;
         }),
       );
 
@@ -81,10 +104,12 @@ final class LedgerSession {
         throw UnsupportedError('Preview accepts income and expense only');
       }
       await _capacity(posting);
-      return FinancialWorkflows(
+      final result = await FinancialWorkflows(
         _db,
         sourceContext: 'preview-manual-v1',
       ).post(posting);
+      if (!result.replayed) await _checkFinancialRows(posting);
+      return result;
     }),
   );
 
@@ -159,13 +184,19 @@ final class LedgerSession {
     );
   });
 
-  Future<List<int>> snapshot() =>
-      _enqueue(() => SnapshotCodec(generationAware: true).capture(_db));
+  Future<List<int>> snapshot() => _enqueue(
+    () => SnapshotCodec(
+      generationAware: true,
+      categoryAware: _db.categoryAware,
+    ).capture(_db),
+  );
 
   Future<List<WorkspaceId>> workspaces() => _enqueue(() async {
     final rows = await _db
         .customSelect(
-          'SELECT DISTINCT workspace FROM accounts ORDER BY workspace',
+          'SELECT DISTINCT workspace FROM accounts '
+          '${_db.categoryAware ? 'UNION SELECT workspace FROM categories ' : ''}'
+          'ORDER BY workspace',
         )
         .get();
     return List.unmodifiable(

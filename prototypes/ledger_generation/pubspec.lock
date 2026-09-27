@@ -56,7 +56,7 @@ packages:
     source: hosted
     version: "2.1.2"
   categories:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       path: "../../packages/categories"
       relative: true
