@@ -1,5 +1,7 @@
 import 'package:foundation_values/foundation_values.dart';
 
+export 'src/split_allocation.dart';
+
 enum AmountInputError { syntax, divisionByZero, complexity }
 
 final class AmountInputException implements Exception {

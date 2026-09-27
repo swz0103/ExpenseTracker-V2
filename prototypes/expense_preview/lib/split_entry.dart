@@ -22,7 +22,52 @@ extension _SplitEntry on _PreviewHomeState {
     _split = false;
   }
 
+  Future<void> _assistSplit() => _perform(() async {
+    final currency = _sourceCurrency;
+    if (currency == null || !_split || _postingFrozen) return;
+    final total = Money.parse(currency, _amount.text);
+    if (total.minorUnits <= BigInt.zero) throw const FormatException();
+    final epoch = _viewEpoch;
+    final rows = _splitRows.toList();
+    final proposal = await showDialog<List<Money>>(
+      context: context,
+      builder: (_) => SplitAllocationDialog(
+        total: total,
+        labels: [
+          for (var i = 0; i < rows.length; i++)
+            rows[i].category == null
+                ? '拆分 ${i + 1}'
+                : _categoryLabel(_catalog!, _catalog!.get(rows[i].category!)),
+        ],
+      ),
+    );
+    if (proposal == null ||
+        !mounted ||
+        epoch != _viewEpoch ||
+        _page != _Page.posting ||
+        !_engine!.isUnlocked ||
+        _postingFrozen ||
+        !_split ||
+        rows.length != _splitRows.length ||
+        proposal.length != rows.length) {
+      return;
+    }
+    for (var i = 0; i < rows.length; i++) {
+      if (!identical(rows[i], _splitRows[i])) return;
+    }
+    _changeSplit(() {
+      for (var i = 0; i < rows.length; i++) {
+        rows[i].amount.text = proposal[i].majorText;
+      }
+      _queueDraft();
+    });
+  });
+
   List<Widget> _splitInputs() => [
+    OutlinedButton(
+      onPressed: _busy || _postingFrozen ? null : _assistSplit,
+      child: const Text('分配拆分金額'),
+    ),
     const Text('每項金額都必須大於 0，合計須等於交易總額；最多 16 項。'),
     for (var i = 0; i < _splitRows.length; i++)
       Card(

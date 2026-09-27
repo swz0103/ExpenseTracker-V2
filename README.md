@@ -6,6 +6,9 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [多分類拆分與可恢復草稿](docs/split-entry-drafts.md)
+- [平均、百分比與固定比例分配](docs/split-allocation-assist.md)
+
 - [背景鎖定與浮層取消](docs/lock-transient-routes.md)
 - [金額欄內建計算器](docs/amount-calculator.md)
 - [金額遮罩與基本無障礙](docs/privacy-presentation.md)

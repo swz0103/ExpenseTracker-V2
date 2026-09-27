@@ -14,6 +14,7 @@ import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
 import 'amount_input_field.dart';
+import 'split_allocation_dialog.dart';
 import 'business_date_input_field.dart';
 import 'l10n/app_localizations.dart';
 import 'preview_engine.dart';

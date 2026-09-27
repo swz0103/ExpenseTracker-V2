@@ -1,8 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.12.0 拆分分配與確認
+
+**2026-09-28 最新開發包**：0.12.0+16 接入[平均／百分比／固定比例分配](split-allocation-assist.md)，預覽後明確確認才更新草稿；沿用 schema 9／snapshot 8。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.12.0-arm64.apk`，94,576,339 bytes。
+- SHA-256：`63943d02135bc69762a8cb2f296eefa1fe9c8cedf9965f6a6e70dcb7bed8b207`。
+- App ID `dev.expensetracker.preview`、versionCode 16／versionName 0.12.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false`、ARM64 Flutter／SQLCipher 核心均核對。
+- [3 套件／177 個本機案例](test-results/split-allocation-assist-host-2026-09-28.json)含完整 App 回歸與 3,000 組比例 oracle；三種模式的重啟、重試與雙路乾淨還原通過。底層大量及程序退出證據沿用未修改的 0.11.0，不計作新跑。
+- 僅本機 debug 包，未安裝、未發布、未上傳 APK／金鑰；雲端、實機及其餘 CORE gate 保留。
+
 ## 0.11.0 多分類拆分與可恢復草稿
 
-**2026-09-28 最新開發包**：0.11.0+15 接入[多分類拆分](split-entry-drafts.md)、各項金額明細、隱私遮罩與複製流程，修正分類收據容量；沿用 schema 9／snapshot 8。
+**2026-09-28 歷史開發包**：0.11.0+15 接入[多分類拆分](split-entry-drafts.md)、各項金額明細、隱私遮罩與複製流程，修正分類收據容量；沿用 schema 9／snapshot 8。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.11.0-arm64.apk`，94,563,263 bytes。
 - SHA-256：`6b50e4b97ffe8cac11ab8d3d50cc4c2e456718f2b34fa03638c5d2c78a2ce255`。

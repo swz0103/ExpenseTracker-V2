@@ -70,3 +70,6 @@ feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156
 ## 2026-09-28：多分類拆分接續
 
 `feat/split-entry-drafts` 依賴 #55／`feat/cross-currency-transfers`（`596fd4bad7fec6c0397173bc959374c37bb72cbc`），同一 PR 包含拆分表單、草稿、明細、容量修正與有效回歸；[進度及證據](work-progress.md)可追溯。不重寫提交；Actions 停用且本批無雲端 checks，所以未收斂需雲端 gate 的舊批次，未合併 main。下一流程分支 `feat/refund-postings` 從本批已驗證提交建立。
+
+
+`feat/split-allocation-assist` 依賴 [PR #56](https://github.com/swz0103/ExpenseTracker-V2/pull/56)（`d6c1a24fed4e6cfd5116bd1253e8a183214916f1`），補齊平均／百分比／固定比例分配。177 個本機獨立案例與 0.12.0+16 封裝通過，詳見[證據](test-results/split-allocation-assist-host-2026-09-28.json)；沿用未改動底層的 #56 大量與程序退出證據。兩 workflow 維持停用、無雲端 checks；不合併 main、不關閉或刪除需雲端 gate 的分支。下一功能接退款完整流程。
