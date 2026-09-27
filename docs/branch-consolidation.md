@@ -42,3 +42,5 @@
 `feat/ledger-reference-upgrade` 依賴 #42（`4cd097f4e94704ae3a830eff1925ac5c6353f805`），完成[分類引用升級及工作階段](ledger-reference-upgrade.md)。170 項受影響本機案例、新舊大量路徑、11 處程序中止及 4 條單憑證乾淨還原通過，雲端未執行。下一功能從此 head 接 App 升級流程；保留整個依賴鏈與原 PR，未繞過雲端 gate 收斂，也未改動 main。
 
 `feat/app-category-upgrade`／[PR #44](https://github.com/swz0103/ExpenseTracker-V2/pull/44) 依賴 #43（`1424c5863460d2639f2c1e41889eaef6c9d2c1fc`），將原先交付規則草稿延伸為同一批 [App 分類與安全升級](app-categories.md)。14 套件 506 項本機案例、四組獨立大量資料流程及 0.3.0 開發包封裝通過；App／雲端／實機狀態依[驗證清單](test-results/app-category-host-2026-09-27.json)區分。下一功能分支 `feat/category-management` 從此批接分類搬移／合併，保留堆疊依賴；沒有通過雲端 gate 的分支不在本輪關閉或刪除。
+
+`feat/category-management` 依賴 #44（`f0bd94e6137692eee24092732d50204961a0ba19`），完成 App 分類搬移及明確合併，36 項 App 完整回歸、格式／分析／架構掃描與 0.3.1 開發包封裝通過。底層格式與安全程式未變更，沿用前批完整整合及大量資料證據，[本批清單](test-results/category-management-host-2026-09-27.json)清楚分開新執行與既有結果。下一分支從本批接交易 Tag；雲端 gate 尚未通過，不收斂或刪除這些堆疊分支，main 保持原提交。

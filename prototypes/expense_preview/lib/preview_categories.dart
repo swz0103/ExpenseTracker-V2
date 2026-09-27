@@ -56,6 +56,38 @@ extension PreviewCategories on PreviewEngine {
     );
   });
 
+  Future<void> moveCategory(
+    OperationKey operation,
+    Category category,
+    PublicId? parentId,
+  ) => _categoryCommand(operation, (session) {
+    if (category.workspace != operation.workspace) throw PreviewInvalid();
+    return session.moveCategory(
+      operation,
+      category.id,
+      category.version,
+      parentId,
+    );
+  });
+
+  Future<void> mergeCategory(
+    OperationKey operation,
+    Category source,
+    Category target,
+  ) => _categoryCommand(operation, (session) {
+    if (source.workspace != operation.workspace ||
+        target.workspace != operation.workspace) {
+      throw PreviewInvalid();
+    }
+    return session.mergeCategory(
+      operation,
+      sourceId: source.id,
+      expectedSourceVersion: source.version,
+      targetId: target.id,
+      expectedTargetVersion: target.version,
+    );
+  });
+
   Future<void> _categoryCommand(
     OperationKey operation,
     Future<Object?> Function(LedgerSession) work,

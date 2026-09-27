@@ -38,6 +38,98 @@ void main() {
     work.deleteSync(recursive: true);
   });
 
+  test('move and explicit merge preserve attributed source and reject stale or foreign targets', () async {
+    await setup(engine);
+    final a = account(engine);
+    await engine.createAccount(a, opening(a));
+    final parent = PublicId.generate(),
+        source = PublicId.generate(),
+        target = PublicId.generate();
+    await engine.createCategory(
+      operation(engine),
+      parent,
+      '日常',
+      CategoryKind.expense,
+    );
+    await engine.createCategory(
+      operation(engine),
+      source,
+      '午餐',
+      CategoryKind.expense,
+      parentId: parent,
+    );
+    await engine.createCategory(
+      operation(engine),
+      target,
+      '餐飲',
+      CategoryKind.expense,
+    );
+    final p = Posting.expense(
+      id: PublicId.generate(),
+      operation: operation(engine),
+      date: BusinessDate(2026, 9, 27),
+      account: ref(a),
+      amount: Money.parse(a.currency, '5'),
+      allocations: [
+        Allocation(
+          source,
+          Money.parse(a.currency, '5'),
+          expectedCategoryVersion: 1,
+        ),
+      ],
+    );
+    await engine.post(p);
+    var catalog = await engine.categories();
+    final move = operation(engine);
+    final prior = catalog.get(source);
+    await engine.moveCategory(move, prior, null);
+    await engine.moveCategory(move, prior, null);
+    catalog = await engine.categories();
+    expect(catalog.get(source).parentId, isNull);
+    final stale = catalog.get(target);
+    await engine.renameCategory(operation(engine), stale, '餐飲更新');
+    final before = await snapshot(engine);
+    await expectLater(
+      engine.mergeCategory(operation(engine), catalog.get(source), stale),
+      throwsA(isA<CategoryException>()),
+    );
+    final foreign = Category.restore(
+      id: target,
+      workspace: WorkspaceId(PublicId.generate()),
+      name: '別的帳本',
+      kind: CategoryKind.expense,
+      version: 2,
+    );
+    await expectLater(
+      engine.mergeCategory(operation(engine), catalog.get(source), foreign),
+      throwsA(isA<PreviewInvalid>()),
+    );
+    expect(await snapshot(engine), before);
+    catalog = await engine.categories();
+    final merge = operation(engine);
+    await engine.mergeCategory(merge, catalog.get(source), catalog.get(target));
+    await engine.mergeCategory(merge, catalog.get(source), catalog.get(target));
+    await engine.post(p);
+    expect((await engine.categories()).resolve(source).id, target);
+    expect((await engine.allocations(p.id)).single.categoryId, source);
+    expect((await engine.allocations(p.id)).single.categoryVersion, 1);
+    expect(
+      (await engine.accounts()).single.balance.minorUnits,
+      BigInt.from(9500),
+    );
+    final backup = await engine.exportBackup();
+    final full = await snapshot(engine);
+    await engine.importBackup(backup, password, recovery: false);
+    expect(await snapshot(engine), full);
+    await engine.lock();
+    await expectLater(
+      engine.moveCategory(move, prior, null),
+      throwsA(isA<PreviewLocked>()),
+    );
+    await engine.unlock(password);
+    expect((await engine.categories()).resolve(source).id, target);
+  });
+
   for (final schema in [3, 4]) {
     test(
       'schema $schema requires confirmation; upgrade preserves profile, source and both credentials',

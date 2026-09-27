@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:expense_preview/main.dart';
 import 'package:expense_preview/platform_services.dart';
 import 'package:expense_preview/preview_engine.dart';
+import 'package:categories/categories.dart';
+import 'package:foundation_values/foundation_values.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,6 +75,98 @@ Future<void> closeEngine(WidgetTester tester, PreviewEngine engine) async {
 }
 
 void main() {
+  testWidgets(
+    'category move, cancel and explicit merge preserve a clear selection',
+    (tester) async {
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('management-');
+      final engine = engineAt(work, MemoryVault());
+      final parent = PublicId.generate(),
+          child = PublicId.generate(),
+          target = PublicId.generate();
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          OperationKey op() =>
+              OperationKey(engine.workspace, OperationId(PublicId.generate()));
+          await engine.createCategory(op(), parent, '工作', CategoryKind.income);
+          await engine.createCategory(
+            op(),
+            child,
+            '薪資',
+            CategoryKind.income,
+            parentId: parent,
+          );
+          await engine.createCategory(
+            op(),
+            target,
+            '收入整併',
+            CategoryKind.income,
+          );
+          await engine.lock();
+        });
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: Documents()),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '管理分類');
+        Future<void> menu(String action) async {
+          await tester.ensureVisible(find.byTooltip('操作 薪資'));
+          await tester.tap(find.byTooltip('操作 薪資'));
+          await tester.pumpAndSettle();
+          await tap(tester, action);
+        }
+
+        await menu('移動');
+        await tap(tester, '取消編輯');
+        expect(find.text('分類名稱'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await menu('移動');
+        await tester.ensureVisible(find.byKey(ValueKey('move-$child')));
+        await tester.tap(find.byKey(ValueKey('move-$child')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('無（第一層）').last);
+        await tester.pumpAndSettle();
+        await tap(tester, '確認移動');
+        await menu('合併至…');
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, '確認合併並保留歷史'),
+              )
+              .onPressed,
+          isNull,
+        );
+        await tester.ensureVisible(find.byKey(ValueKey('merge-$child')));
+        await tester.tap(find.byKey(ValueKey('merge-$child')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('收入整併').last);
+        await tester.pumpAndSettle();
+        await tap(tester, '確認合併並保留歷史');
+        expect(find.text('薪資（已合併至 收入整併）'), findsOneWidget);
+        expect(find.byTooltip('操作 薪資'), findsNothing);
+        await tester.runAsync(() async {
+          final catalog = await engine.categories();
+          expect(catalog.get(child).parentId, isNull);
+          expect(catalog.resolve(child).id, target);
+        });
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.resolveSymbolicLinksSync().startsWith(
+          '${root.resolveSymbolicLinksSync()}${Platform.pathSeparator}',
+        )) {
+          throw StateError('unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+
   testWidgets(
     'old V2 App requests explicit upgrade and preserves balance after confirmation',
     (tester) async {

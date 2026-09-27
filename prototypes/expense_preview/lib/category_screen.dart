@@ -5,6 +5,9 @@ String _categoryLabel(CategoryCatalog catalog, Category category) {
   final name = parent == null
       ? category.name
       : '${catalog.get(parent).name} / ${category.name}';
+  if (category.replacementId != null) {
+    return '$name（已合併至 ${catalog.resolve(category.id).name}）';
+  }
   return '$name${category.archived ? '（已封存）' : ''}';
 }
 
@@ -26,6 +29,7 @@ class _CategoryScreenState extends State<_CategoryScreen> {
   final _name = TextEditingController();
   CategoryKind _kind = CategoryKind.expense;
   String _parent = '';
+  String _editAction = 'rename', _target = '';
   Category? _editing;
   bool _busy = false;
   String? _message, _signature;
@@ -63,6 +67,8 @@ class _CategoryScreenState extends State<_CategoryScreen> {
       setState(() {
         _catalog = catalog;
         _editing = null;
+        _editAction = 'rename';
+        _target = '';
         _parent = '';
         _name.clear();
         _signature = null;
@@ -76,10 +82,24 @@ class _CategoryScreenState extends State<_CategoryScreen> {
 
   Future<void> _save() => _perform(() async {
     final editing = _editing;
+    final target = _target.isEmpty
+        ? null
+        : _catalog.get(PublicId.parse(_target));
     final op = _operationFor(
-      'save|${editing?.id}|${editing?.version}|${_name.text}|$_kind|$_parent',
+      'save|$_editAction|${editing?.id}|${editing?.version}|${_name.text}|$_kind|$_parent|${target?.id}|${target?.version}',
     );
-    if (editing != null) {
+    if (editing != null && _editAction == 'move') {
+      await widget.engine.moveCategory(
+        op,
+        editing,
+        _parent.isEmpty ? null : PublicId.parse(_parent),
+      );
+    } else if (editing != null && _editAction == 'merge') {
+      if (target == null) {
+        throw const CategoryException(CategoryError.invalidInput);
+      }
+      await widget.engine.mergeCategory(op, editing, target);
+    } else if (editing != null) {
       await widget.engine.renameCategory(op, editing, _name.text);
     } else {
       await widget.engine.createCategory(
@@ -106,14 +126,15 @@ class _CategoryScreenState extends State<_CategoryScreen> {
           child: Text(_message!, key: const Key('category-message')),
         ),
       const SizedBox(height: 16),
-      TextField(
-        controller: _name,
-        enabled: !_busy,
-        maxLength: 100,
-        decoration: InputDecoration(
-          labelText: _editing == null ? '分類名稱' : '新的分類名稱',
+      if (_editing == null || _editAction == 'rename')
+        TextField(
+          controller: _name,
+          enabled: !_busy,
+          maxLength: 100,
+          decoration: InputDecoration(
+            labelText: _editing == null ? '分類名稱' : '新的分類名稱',
+          ),
         ),
-      ),
       if (_editing == null) ...[
         const SizedBox(height: 12),
         SegmentedButton<CategoryKind>(
@@ -150,10 +171,80 @@ class _CategoryScreenState extends State<_CategoryScreen> {
               : (value) => setState(() => _parent = value ?? ''),
         ),
       ],
+      if (_editing != null && _editAction == 'move') ...[
+        Text('移動「${_editing!.name}」'),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: ValueKey('move-${_editing!.id}'),
+          initialValue: _parent,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: '移至上層分類'),
+          items: [
+            const DropdownMenuItem(value: '', child: Text('無（第一層）')),
+            for (final c in _catalog.categories.where(
+              (c) =>
+                  c.id != _editing!.id &&
+                  c.parentId == null &&
+                  !c.archived &&
+                  c.kind == _editing!.kind,
+            ))
+              DropdownMenuItem(
+                value: c.id.value,
+                child: Text(c.name, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: _busy
+              ? null
+              : (value) => setState(() => _parent = value ?? ''),
+        ),
+      ],
+      if (_editing != null && _editAction == 'merge') ...[
+        Text('將「${_editing!.name}」合併至另一分類'),
+        const SizedBox(height: 12),
+        const Text('合併後，來源分類不再提供新交易選用。舊交易保留原始引用並顯示合併去向；此操作沒有直接還原合併的按鈕，請確認目標。'),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          key: ValueKey('merge-${_editing!.id}'),
+          initialValue: _target,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: '合併目標'),
+          items: [
+            const DropdownMenuItem(value: '', child: Text('請選擇目標分類')),
+            for (final c in _catalog.categories.where(
+              (c) =>
+                  c.id != _editing!.id &&
+                  !c.archived &&
+                  c.kind == _editing!.kind,
+            ))
+              DropdownMenuItem(
+                value: c.id.value,
+                child: Text(
+                  _categoryLabel(_catalog, c),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: _busy
+              ? null
+              : (value) => setState(() => _target = value ?? ''),
+        ),
+      ],
       const SizedBox(height: 12),
       FilledButton(
-        onPressed: _busy ? null : _save,
-        child: Text(_editing == null ? '新增分類' : '儲存名稱'),
+        onPressed:
+            _busy ||
+                (_editing != null && _editAction == 'merge' && _target.isEmpty)
+            ? null
+            : _save,
+        child: Text(
+          _editing == null
+              ? '新增分類'
+              : switch (_editAction) {
+                  'move' => '確認移動',
+                  'merge' => '確認合併並保留歷史',
+                  _ => '儲存名稱',
+                },
+        ),
       ),
       if (_editing != null)
         TextButton(
@@ -161,10 +252,13 @@ class _CategoryScreenState extends State<_CategoryScreen> {
               ? null
               : () => setState(() {
                   _editing = null;
+                  _editAction = 'rename';
+                  _parent = '';
+                  _target = '';
                   _name.clear();
                   _signature = null;
                 }),
-          child: const Text('取消改名'),
+          child: const Text('取消編輯'),
         ),
       const Divider(),
       if (_catalog.categories.isEmpty) const Text('尚無分類；也可以先用「未分類」記帳。'),
@@ -179,9 +273,12 @@ class _CategoryScreenState extends State<_CategoryScreen> {
                   tooltip: '操作 ${c.name}',
                   enabled: !_busy,
                   onSelected: (action) {
-                    if (action == 'rename') {
+                    if (action != 'archive') {
                       setState(() {
                         _editing = c;
+                        _editAction = action;
+                        _parent = c.parentId?.value ?? '';
+                        _target = '';
                         _name.text = c.name;
                         _signature = null;
                       });
@@ -199,6 +296,9 @@ class _CategoryScreenState extends State<_CategoryScreen> {
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(value: 'rename', child: Text('改名')),
+                    if (!c.archived)
+                      const PopupMenuItem(value: 'move', child: Text('移動')),
+                    const PopupMenuItem(value: 'merge', child: Text('合併至…')),
                     PopupMenuItem(
                       value: 'archive',
                       child: Text(c.archived ? '重新啟用' : '封存'),

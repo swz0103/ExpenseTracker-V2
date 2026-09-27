@@ -1,0 +1,40 @@
+{
+  "recordedUtc": "2026-09-27T09:54:14Z",
+  "sourceBase": "f0bd94e6137692eee24092732d50204961a0ba19",
+  "validationTarget": "提交前工作目錄；僅 App 接口及畫面改動，底層資料格式未變更。",
+  "totalUniqueTests": 36,
+  "newTests": 2,
+  "packages": [
+    {
+      "package": "prototypes/expense_preview",
+      "tests": 36,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "priorIntegration": "app-category-host-2026-09-27.json",
+  "notes": [
+    "完整 App 引擎及 widget 回歸 36 項通過，包含新增搬移／合併、來源與目標版本衝突、跨 workspace 拒絕、歷史原引用、重送及備份還原，以及收入分類編輯取消後的選單狀態。",
+    "底層 schema、備份格式、Category Domain／Session、加密與容量程式均未變更，使用前一批剛完成的 14 套件 506 項整合與四組大量資料證據；本批不宣稱重新執行全部 508 項。",
+    "所有操作均沿公開接口；沒有直接操作分類或 Ledger 私有表。父分類有歷史子分類時仍拒絕直接合併，沒有自動改寫歷史關係。",
+    "App 版本在測試通過後僅調整為 0.3.1+4；沒有變更受測金融或升級邏輯。"
+  ],
+  "androidBuild": {
+    "sha256": "7ec418b51864e896dd512faf9b16745e9ea8880c46dbc274020141d817c4e7ea",
+    "applicationId": "dev.expensetracker.preview",
+    "targetSdk": 36,
+    "bytes": 92650915,
+    "type": "debug",
+    "installed": false,
+    "flutterAndSqlcipherAbi": "arm64-v8a",
+    "apkSignatureV2": true,
+    "allowBackup": false,
+    "minSdk": 24,
+    "published": false,
+    "version": "0.3.1+4"
+  }
+}

@@ -754,7 +754,7 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
-  CategoryException(code: CategoryError.hasChildren) => '請先處理子分類，再封存這個分類。',
+  CategoryException(code: CategoryError.hasChildren) => '請先處理子分類，再進行這項操作。',
   CategoryException(code: CategoryError.versionConflict) =>
     '分類已變更，請返回帳本重新載入後再試。',
   CategoryException() => '請檢查分類名稱、收支類型及上層分類；已封存的分類不能用於新交易。',
