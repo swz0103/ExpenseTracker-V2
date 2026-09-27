@@ -344,84 +344,178 @@ final class GenerationStore {
 
   Future<Database> _catalog(void Function(String)? checkpoint) async {
     final file = _file('catalog.db');
+    final stage = _file('catalog.init.db');
     await _regular(file, allowAbsent: true);
+    await _regular(stage, allowAbsent: true);
     final fresh = !await file.exists();
+    final staged = await stage.exists();
+    if (!fresh && staged)
+      throw StateError('Conflicting catalog initialization');
     if (fresh) {
+      final allowed = {
+        _file('lifecycle.lock').uri,
+        if (staged) stage.uri,
+        if (staged) _file('catalog.init.db-journal').uri,
+      };
       final entries = await directory.list(followLinks: false).toList();
-      if (entries.any((entry) => entry.uri != _file('lifecycle.lock').uri)) {
+      if (entries.any((entry) => !allowed.contains(entry.uri))) {
         throw StateError('Catalog missing with retained artifacts');
       }
     }
     for (final suffix in ['-journal', '-wal', '-shm']) {
       await _regular(_file('catalog.db$suffix'), allowAbsent: true);
+      final sidecar = _file('catalog.init.db$suffix');
+      await _regular(sidecar, allowAbsent: true);
+      if (await sidecar.exists() &&
+          (!fresh || !staged || suffix != '-journal')) {
+        throw StateError('Unexpected initialization sidecar');
+      }
     }
     final protection = catalogProtection;
-    final key = await protection?.loadKey(!fresh);
+    // An unfinished stage is still an existing encrypted file: never replace its key.
+    final key = await protection?.loadKey(!fresh || staged);
     if (protection != null) checkpoint?.call('catalogKeyReady');
+    if (fresh) {
+      final candidate = _openCatalog(stage, key);
+      try {
+        checkpoint?.call('catalogOpened');
+        // Only this never-published staging path may resume an empty transaction.
+        // Existing catalog.db, unknown schemas and nonempty stages never reset.
+        if (candidate.userVersion == 0 &&
+            candidate.select('SELECT name FROM sqlite_master').isEmpty) {
+          _initializeCatalog(candidate, checkpoint);
+        }
+        _validateCatalog(candidate);
+        _requireEmptyCatalog(candidate);
+      } finally {
+        candidate.close();
+      }
+      checkpoint?.call('catalogStaged');
+      await _noInitializationSidecars();
+      final reopened = _openCatalog(stage, key);
+      try {
+        _validateCatalog(reopened);
+        _requireEmptyCatalog(reopened);
+      } finally {
+        reopened.close();
+      }
+      await _noInitializationSidecars();
+      checkpoint?.call('catalogValidated');
+      await _regular(file, allowAbsent: true);
+      if (await file.exists())
+        throw StateError('Catalog appeared during initialization');
+      checkpoint?.call('catalogPublishing');
+      await stage.rename(file.path);
+      checkpoint?.call('catalogPublished');
+    }
+    final db = _openCatalog(file, key);
+    try {
+      _validateCatalog(db);
+      if (fresh) checkpoint?.call('catalogReady');
+      return db;
+    } catch (_) {
+      db.close();
+      rethrow;
+    }
+  }
+
+  Database _openCatalog(File file, StorageKey? key) {
     final db = sqlite3.open(file.path);
     try {
       if (key != null) configureEncryption(db, key);
       db.execute('PRAGMA foreign_keys=ON');
       db.execute('PRAGMA synchronous=FULL');
       db.execute('PRAGMA busy_timeout=10000');
-      if (fresh) {
-        db.execute('BEGIN IMMEDIATE');
-        db.execute(
-          "CREATE TABLE attempts (generation TEXT PRIMARY KEY, slot TEXT NOT NULL UNIQUE, operation TEXT NOT NULL, fingerprint TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','committed','aborted')), previous TEXT REFERENCES attempts(generation)) STRICT",
-        );
-        db.execute(
-          "CREATE UNIQUE INDEX committed_operation ON attempts(operation) WHERE status='committed'",
-        );
-        db.execute(
-          "CREATE UNIQUE INDEX one_pending ON attempts(status) WHERE status='pending'",
-        );
-        db.execute(
-          'CREATE TABLE active (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation TEXT REFERENCES attempts(generation)) STRICT',
-        );
-        db.execute('INSERT INTO active VALUES(1,NULL)');
-        if (protection != null) {
-          db.execute(
-            'CREATE TABLE catalog_identity (singleton INTEGER PRIMARY KEY CHECK(singleton=1), identity TEXT NOT NULL) STRICT',
-          );
-          db.execute('INSERT INTO catalog_identity VALUES(1,?)', [
-            protection.identity.value,
-          ]);
-        }
-        db.execute('PRAGMA user_version=${protection == null ? 1 : 2}');
-        checkpoint?.call('catalogWriting');
-        db.execute('COMMIT');
-        checkpoint?.call('catalogReady');
-      }
-      if (db.userVersion != (protection == null ? 1 : 2) ||
-          (protection != null &&
-              db.select('PRAGMA cipher_integrity_check').isNotEmpty) ||
-          db.select('PRAGMA integrity_check').single.values.single != 'ok' ||
-          db.select('PRAGMA foreign_key_check').isNotEmpty)
-        throw StateError('Invalid catalog');
-      _checkSchema(db, {
-        'attempts': [
-          'generation',
-          'slot',
-          'operation',
-          'fingerprint',
-          'status',
-          'previous',
-        ],
-        'active': ['singleton', 'generation'],
-        if (protection != null) 'catalog_identity': ['singleton', 'identity'],
-      });
-      if (protection != null) {
-        final identity = db.select('SELECT * FROM catalog_identity');
-        if (identity.length != 1 ||
-            identity.single['singleton'] != 1 ||
-            identity.single['identity'] != protection.identity.value) {
-          throw StateError('Catalog identity mismatch');
-        }
-      }
       return db;
     } catch (_) {
       db.close();
       rethrow;
+    }
+  }
+
+  Future<void> _noInitializationSidecars() async {
+    for (final suffix in ['-journal', '-wal', '-shm']) {
+      if (await FileSystemEntity.type(
+            _file('catalog.init.db$suffix').path,
+            followLinks: false,
+          ) !=
+          FileSystemEntityType.notFound) {
+        throw StateError('Initialization sidecar remains');
+      }
+    }
+  }
+
+  void _requireEmptyCatalog(Database db) {
+    final active = db.select('SELECT * FROM active');
+    if (db.select('SELECT generation FROM attempts').isNotEmpty ||
+        active.length != 1 ||
+        active.single['singleton'] != 1 ||
+        active.single['generation'] != null) {
+      throw StateError('Initialization stage contains published state');
+    }
+  }
+
+  void _initializeCatalog(Database db, void Function(String)? checkpoint) {
+    final protection = catalogProtection;
+    try {
+      db.execute('BEGIN IMMEDIATE');
+      db.execute(
+        "CREATE TABLE attempts (generation TEXT PRIMARY KEY, slot TEXT NOT NULL UNIQUE, operation TEXT NOT NULL, fingerprint TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','committed','aborted')), previous TEXT REFERENCES attempts(generation)) STRICT",
+      );
+      db.execute(
+        "CREATE UNIQUE INDEX committed_operation ON attempts(operation) WHERE status='committed'",
+      );
+      db.execute(
+        "CREATE UNIQUE INDEX one_pending ON attempts(status) WHERE status='pending'",
+      );
+      db.execute(
+        'CREATE TABLE active (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation TEXT REFERENCES attempts(generation)) STRICT',
+      );
+      db.execute('INSERT INTO active VALUES(1,NULL)');
+      if (protection != null) {
+        db.execute(
+          'CREATE TABLE catalog_identity (singleton INTEGER PRIMARY KEY CHECK(singleton=1), identity TEXT NOT NULL) STRICT',
+        );
+        db.execute('INSERT INTO catalog_identity VALUES(1,?)', [
+          protection.identity.value,
+        ]);
+      }
+      db.execute('PRAGMA user_version=${protection == null ? 1 : 2}');
+      checkpoint?.call('catalogWriting');
+      db.execute('COMMIT');
+    } catch (_) {
+      if (!db.autocommit) db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  void _validateCatalog(Database db) {
+    final protection = catalogProtection;
+    if (db.userVersion != (protection == null ? 1 : 2) ||
+        (protection != null &&
+            db.select('PRAGMA cipher_integrity_check').isNotEmpty) ||
+        db.select('PRAGMA integrity_check').single.values.single != 'ok' ||
+        db.select('PRAGMA foreign_key_check').isNotEmpty)
+      throw StateError('Invalid catalog');
+    _checkSchema(db, {
+      'attempts': [
+        'generation',
+        'slot',
+        'operation',
+        'fingerprint',
+        'status',
+        'previous',
+      ],
+      'active': ['singleton', 'generation'],
+      if (protection != null) 'catalog_identity': ['singleton', 'identity'],
+    });
+    if (protection != null) {
+      final identity = db.select('SELECT * FROM catalog_identity');
+      if (identity.length != 1 ||
+          identity.single['singleton'] != 1 ||
+          identity.single['identity'] != protection.identity.value) {
+        throw StateError('Catalog identity mismatch');
+      }
     }
   }
 

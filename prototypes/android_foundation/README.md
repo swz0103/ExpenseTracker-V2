@@ -17,9 +17,9 @@
 
 來源 DB 的 `AndroidKeyVault` 沿用原 namespace；目標的 `AndroidSlotVault` 使用 `expense_v2_generation_probe_v1` 與逐 slot 名稱。兩者都明確設定 `resetOnError: false`、`migrateOnAlgorithmChange: false`。`SecureKeySlots` 建立前拒絕已存在欄位，寫後讀回；讀取缺失或未知格式只拒絕，不建立替代 key，不刪除寫入結果未定的 slot。
 
-目標使用 [Ledger 世代整合](../ledger_generation/README.md) 的財務 schema 3／snapshot format 2，以及[加密控制 schema 2](../../docs/storage-control-protection.md)。`androidCatalogProtection` 的 factory 以獨立 namespace 和逐 store key 保護控制紀錄，核對內外本機身份。平台 adapter 未匯入明文 FixtureKeySlots。正式輪替、清理、超時及活躍連線租約仍未完成。
+目標使用 [Ledger 世代整合](../ledger_generation/README.md) 的財務 schema 3／snapshot format 2，以及[加密控制 schema 2](../../docs/storage-control-protection.md)。`androidCatalogProtection` 的 factory 以獨立 namespace 和逐 store key 保護控制紀錄，核對內外本機身份。平台 adapter 未匯入明文 FixtureKeySlots。等待已改為預設 10 秒上限並支援等待階段取消；正式輪替、清理及活躍連線租約仍未完成。
 
-新測試路徑使用 `generation_v2_password`／`generation_v2_recovery`；兩個目標目錄、控制 key 與世代 slot 保留給重啟核對。先前 v1 目錄與 key 保留，不就地轉換；此改動不是正式資料升級機制。初始控制建表 transaction 中止目前停止並保留，不能宣稱可自動恢復所有中斷。
+新測試路徑使用 `generation_v2_password`／`generation_v2_recovery`；兩個目標目錄、控制 key 與世代 slot 保留給重啟核對。先前 v1 目錄與 key 保留，不就地轉換；此改動不是正式資料升級機制。首次控制建表改為 stage 驗證後發布，host 已驗證初始化中止復原；舊版不完整正式 catalog 仍停止並保留，裝置行為未驗收。
 
 `KeyAccess` 僅合併同一 instance 的來源初始化請求；`SecureKeySlots` 的建立保護跨 instance、限同 isolate。入口限制同程序一個 runner，目標協調器另持有檔案鎖；這不是平台 vault 本身提供的跨程序 compare-and-set，不支援任意繞過協調器的寫入。
 
@@ -51,7 +51,7 @@ flutter test --reporter expanded
 flutter build apk --debug --target-platform android-arm64
 ```
 
-本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，117,467,266 bytes；SHA-256：`943b00c07461325623e8b66caff4fd57f46edbf05ae0bf3755b646f9c277947c`。此為 2026-09-27 接入加密控制紀錄後重新建置的 debug 成品，已核對 ARM64 SQLCipher 與上述 manifest 設定。不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
+本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，117,474,317 bytes；SHA-256：`e2392253cb08a7c33e9216316405e56df7d285c1e5f02d0ec855e25ce9e6d628`。此為 2026-09-27 接入有界等待及初始化復原後重新建置的 debug 成品，已核對 ARM64 SQLCipher 與上述 manifest 設定。不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
 
 連接開啟 USB 偵錯的測試手機，或準備可用模擬器後執行：
 

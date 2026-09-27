@@ -44,7 +44,7 @@ dart test --reporter expanded
 
 ## 不能支持的結論
 
-後續新增明確的 `CatalogProtection` 模式：控制 DB 使用獨立 key、SQLCipher 與 schema 2，內部 store 身份必須符合 composition 提供的 ID；原 schema 1 明文模式只保留給舊 fixture。18 項新增案例與原有 26 項切換案例通過，初始化中止有一種保留並停止的情境，不能宣稱所有中止自動復原。完整邊界見[控制紀錄加密](../../docs/storage-control-protection.md)。
+後續新增明確的 `CatalogProtection` 模式：控制 DB 使用獨立 key、SQLCipher 與 schema 2，內部 store 身份必須符合 composition 提供的 ID；原 schema 1 明文模式只保留給舊 fixture。完整邊界見[控制紀錄加密](../../docs/storage-control-protection.md)。首次建表已改為[stage 驗證後發布](../../docs/storage-catalog-initialization.md)，新的初始化中止可重試，既有不完整正式 catalog 仍拒絕自動重設；不能宣稱任意損壞都能自動復原。
 
 預設文字 fixture 有自己的 schema 1。後續新增 `GenerationPayload` adapter 與受鎖保護的內部連線 scope，由 [Ledger 整合原型](../ledger_generation/README.md) 接入明確的財務 schema 3／snapshot format 2，未放寬未知欄位檢查。發布前重開後的內容必須與正規化輸入摘要相同；文字 fixture 仍要求內容不可變，Ledger adapter 則允許發布後合法入帳。
 

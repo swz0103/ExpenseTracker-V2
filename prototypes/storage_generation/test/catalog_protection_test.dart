@@ -137,29 +137,149 @@ void main() {
     },
   );
 
-  for (final point in ['catalogKeyReady', 'catalogReady']) {
+  for (final point in [
+    'catalogKeyReady',
+    'catalogOpened',
+    'catalogWriting',
+    'catalogStaged',
+    'catalogValidated',
+    'catalogPublishing',
+    'catalogPublished',
+    'catalogReady',
+  ]) {
     test(
       'first initialization exit at $point reuses saved key safely',
       () async {
         expect((await child(point)).exitCode, 73);
         final saved = keyFile().readAsBytesSync();
-        await store.install('new fixture', OperationId.parse(newId));
+        expect(await store.current(), isNull);
+        expect((await child('none')).exitCode, 0);
         expect(keyFile().readAsBytesSync(), saved);
         expect((await store.current())!.value, 'new fixture');
+        expect(File('${root.path}/catalog.init.db').existsSync(), isFalse);
       },
     );
   }
+  test('incomplete published catalog is retained and never reset', () async {
+    expect((await child('catalogWriting')).exitCode, 73);
+    // Recreate the previous-version partial published path, not a new stage.
+    final stage = File('${root.path}/catalog.init.db');
+    final partial = sqlite3.open(stage.path);
+    configureEncryption(partial, await protection.loadKey(true));
+    expect(partial.userVersion, 0);
+    partial.close();
+    stage.renameSync(catalog().path);
+    final key = keyFile().readAsBytesSync();
+    final before = catalog().readAsBytesSync();
+    await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
+    expect(catalog().existsSync(), isTrue);
+    expect(catalog().readAsBytesSync(), before);
+    expect(keyFile().readAsBytesSync(), key);
+    expect(root.listSync().where((e) => e.path.contains('gen-')), isEmpty);
+  });
+
+  for (final mutation in [
+    'version',
+    'column',
+    'contents',
+    'identity',
+    'tamper',
+  ]) {
+    test(
+      'unknown or invalid initialization $mutation is never replaced',
+      () async {
+        expect((await child('catalogStaged')).exitCode, 73);
+        final stage = File('${root.path}/catalog.init.db');
+        if (mutation == 'tamper') {
+          final bytes = stage.readAsBytesSync();
+          bytes[100] ^= 1;
+          stage.writeAsBytesSync(bytes, flush: true);
+        } else {
+          final raw = sqlite3.open(stage.path);
+          configureEncryption(raw, await protection.loadKey(true));
+          switch (mutation) {
+            case 'version':
+              raw.execute('PRAGMA user_version=99');
+            case 'column':
+              raw.execute(
+                "ALTER TABLE active ADD COLUMN future TEXT GENERATED ALWAYS AS ('x') VIRTUAL",
+              );
+            case 'contents':
+              raw.execute('INSERT INTO attempts VALUES(?,?,?,?,?,NULL)', [
+                oldId,
+                newId,
+                oldId,
+                List.filled(64, 'a').join(),
+                'aborted',
+              ]);
+            case 'identity':
+              raw.execute('UPDATE catalog_identity SET identity=?', [oldId]);
+          }
+          raw.close();
+        }
+        final before = stage.readAsBytesSync();
+        final key = keyFile().readAsBytesSync();
+        await expectLater(
+          store.current(),
+          throwsA(isA<GenerationUnavailable>()),
+        );
+        expect(stage.readAsBytesSync(), before);
+        expect(keyFile().readAsBytesSync(), key);
+        expect(catalog().existsSync(), isFalse);
+      },
+    );
+  }
+
+  test('stage with lost key cannot create a replacement', () async {
+    expect((await child('catalogStaged')).exitCode, 73);
+    final stage = File('${root.path}/catalog.init.db');
+    final before = stage.readAsBytesSync();
+    keyFile().deleteSync();
+    await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
+    expect(keyFile().existsSync(), isFalse);
+    expect(stage.readAsBytesSync(), before);
+    expect(catalog().existsSync(), isFalse);
+  });
+
+  test('existing catalog and a stage are a conflict, neither wins', () async {
+    await install();
+    final before = catalog().readAsBytesSync();
+    final stage = catalog().copySync('${root.path}/catalog.init.db');
+    await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
+    expect(catalog().readAsBytesSync(), before);
+    expect(stage.readAsBytesSync(), before);
+  });
+
   test(
-    'interrupted catalog schema creation is retained and never reset',
+    'retained generations prevent stage from replacing a lost catalog',
     () async {
-      expect((await child('catalogWriting')).exitCode, 73);
-      final key = keyFile().readAsBytesSync();
+      final receipt = await install();
+      final stage = catalog().renameSync('${root.path}/catalog.init.db');
+      final before = stage.readAsBytesSync();
       await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
-      expect(catalog().existsSync(), isTrue);
-      expect(keyFile().readAsBytesSync(), key);
-      expect(root.listSync().where((e) => e.path.contains('gen-')), isEmpty);
+      expect(catalog().existsSync(), isFalse);
+      expect(stage.readAsBytesSync(), before);
+      expect(store.databaseFile(receipt.generation).existsSync(), isTrue);
     },
   );
+
+  for (final suffix in ['-journal', '-wal', '-shm']) {
+    test(
+      'orphan initialization $suffix is retained without creating keys',
+      () async {
+        root.createSync(recursive: true);
+        final sidecar = File('${root.path}/catalog.init.db$suffix')
+          ..writeAsStringSync('retain');
+        await expectLater(
+          store.current(),
+          throwsA(isA<GenerationUnavailable>()),
+        );
+        expect(catalog().existsSync(), isFalse);
+        expect(sidecar.readAsStringSync(), 'retain');
+        expect(keyFile().existsSync(), isFalse);
+      },
+    );
+  }
   test('lost catalog key fails without generating a replacement', () async {
     await install();
     keyFile().deleteSync();

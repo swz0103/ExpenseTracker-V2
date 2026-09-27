@@ -166,6 +166,56 @@ void main() {
   );
 
   for (final mode in ['password', 'recovery']) {
+    for (final point in [
+      'catalogWriting',
+      'catalogPublishing',
+      'catalogPublished',
+    ]) {
+      test(
+        'clean $mode restore resumes interrupted initialization at $point',
+        () async {
+          store = LedgerStore(
+            Directory('${work.path}/store'),
+            keys,
+            catalogProtection: fixtureCatalogProtection(keys),
+          );
+          final op = operation();
+          expect(
+            (await child(mode, point, op, backup, protected: true)).exitCode,
+            73,
+          );
+          final controlKeys = {
+            for (final file in keys.directory.listSync().whereType<File>())
+              file.path: file.readAsBytesSync(),
+          };
+          expect(controlKeys.length, 1);
+          expect(
+            store.generations.directory.listSync().where(
+              (file) => file.path.contains('gen-'),
+            ),
+            isEmpty,
+          );
+          expect(
+            (await child(mode, 'none', op, backup, protected: true)).exitCode,
+            0,
+          );
+          expect(await store.snapshot(), codec.canonicalize(source));
+          for (final entry in controlKeys.entries) {
+            expect(File(entry.key).readAsBytesSync(), entry.value);
+          }
+          final active = (await store.generations.current())!.receipt;
+          expect(
+            (await child(mode, 'none', op, backup, protected: true)).exitCode,
+            0,
+          );
+          expect(
+            (await store.generations.current())!.receipt.generation,
+            active.generation,
+          );
+          expect((await store.balance(account)).minorUnits, BigInt.from(11500));
+        },
+      );
+    }
     test(
       'protected catalog supports clean $mode restore and later writes',
       () async {

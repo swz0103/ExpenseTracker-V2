@@ -21,7 +21,7 @@ Android 的固定 fixture 改用 `generation_v2_password`／`generation_v2_recov
 
 控制 key 保存後、控制檔建立前中止：下次在確認目錄沒有需保護的既有檔案後重用 key。控制 schema 已提交但尚未發布帳本時中止：下次識別完整空 catalog，繼續原安裝。已存在資料或世代卻遺失控制檔時，不建立空 catalog 掩蓋資料。
 
-首次控制 schema transaction 尚未提交時中止，目前會保留檔案與 key，SQLite 可處理其 journal，但程式拒絕不完整 schema，不自動重設。尚未提供使用者復原 UI；因此此情境只達到不破壞資料的門檻，未達正式可用性 gate。
+PR #18 的首次控制 schema transaction 尚未提交時中止，會保留檔案與 key 並拒絕不完整 schema。後續改為[暫存初始化與發布](storage-catalog-initialization.md)：新的首次建立可接續尚未發布的 stage，既有不完整 `catalog.db` 仍保留並停止。尚未提供損壞正式 catalog 的使用者復原 UI，也未宣稱裝置可用性 gate 通過。
 
 對正常世代切換，沿用提交前維持舊配對、提交後維持新配對的規則。錯誤 key、內外 store ID 不符、未知版本／欄位及驗證失敗會停止；保留檔案與 slot，不回報零餘額或成功還原。
 
@@ -33,4 +33,4 @@ Android 的固定 fixture 改用 `generation_v2_password`／`generation_v2_recov
 
 host 的 `fixtureCatalogProtection` 仍把 key 放在明文測試檔，且位於控制目錄之外；不得接到真實 App。Android 已接平台 loader，但本機尚無可用 Android 裝置。APK 建置和 host 記憶體 vault 測試不證明 Keystore／重啟行為。
 
-SQLCipher 保護檔案內容，不代表能抵抗整套有效舊 DB／catalog／key 的回放；本機身份也不是外部可信計數器。初始建表中止復原、實體斷電、磁碟滿、超時／取消、正式活躍連線租約、清理及完整 Android gate 仍待完成。
+SQLCipher 保護檔案內容，不代表能抵抗整套有效舊 DB／catalog／key 的回放；本機身份也不是外部可信計數器。後續已補 host 初始建表中止復原與[等待期限／取消](storage-lock-wait.md)；實體斷電、磁碟滿、正式活躍連線租約、清理及完整 Android gate 仍待完成。
