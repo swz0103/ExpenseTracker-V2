@@ -28,6 +28,92 @@ void main() {
     }
     work.deleteSync(recursive: true);
   });
+  test('restoring an empty backup uses the same workspace before and after reopening', () async {
+    await setup(engine);
+    final initial = engine.workspace;
+    final emptyBackup = await engine.exportBackup();
+    await engine.lock();
+    final source = engineAt(Directory('${work.path}/foreign'), MemoryVault());
+    try {
+      await setup(source);
+      final a = account(source);
+      await source.createAccount(a, opening(a));
+      final foreignBackup = await source.exportBackup();
+      await source.lock();
+      await engine.unlock(password);
+      await engine.importBackup(foreignBackup, password, recovery: false);
+      expect(engine.workspace, a.workspace);
+      await engine.importBackup(emptyBackup, password, recovery: false);
+      expect(engine.workspace, initial);
+      expect(await engine.accounts(), isEmpty);
+      await engine.lock();
+      await engine.unlock(password);
+      expect(engine.workspace, initial);
+    } finally {
+      await source.lock();
+    }
+  });
+  test('published profile never recreates a missing ledger or overwrites retained keys', () async {
+    await setup(engine);
+    final a = account(engine);
+    await engine.createAccount(a, opening(a));
+    await engine.lock();
+    final keys = Map.of(vault.values);
+    final retained = Directory('${work.path}/ledger')
+        .renameSync('${work.path}/retained-ledger');
+    await expectLater(engine.unlock(password), throwsA(isA<PreviewInvalid>()));
+    expect(Directory('${work.path}/ledger').existsSync(), isFalse);
+    expect(vault.values, keys);
+    retained.renameSync('${work.path}/ledger');
+    await engine.unlock(password);
+    expect(
+      (await engine.accounts()).single.balance.minorUnits,
+      BigInt.from(10000),
+    );
+  });
+  test('confirmed pending profile can initialize only before its first publication', () async {
+    final draft = await engine.prepareSetup(password);
+    final info = jsonDecode(
+      utf8.decode(
+        await EnvelopeCodec().openWithPassword(draft.envelope, password),
+      ),
+    ) as Map;
+    vault.values['recovery_${info['identity']}'] = draft.recoveryKey;
+    File('${work.path}/profile.pending')
+        .writeAsStringSync(draft.envelope, flush: true);
+    expect(await engine.hasProfile(), isTrue);
+    await engine.unlock(password);
+    expect(await engine.accounts(), isEmpty);
+    expect(File('${work.path}/profile.pending').existsSync(), isFalse);
+    expect(File('${work.path}/profile.envelope').existsSync(), isTrue);
+  });
+  test('import row-size limits preserve backup headroom despite valid JSON whitespace or metadata', () async {
+    await setup(engine);
+    final a = account(engine);
+    await engine.createAccount(a, opening(a));
+    final original = await EnvelopeCodec().openWithPassword(
+      await engine.exportBackup(),
+      password,
+    );
+    for (final field in ['source_context', 'input', 'payload']) {
+      final copy = jsonDecode(utf8.decode(original)) as Map;
+      final table = field == 'source_context'
+          ? 'events'
+          : field == 'input'
+          ? 'receipts'
+          : 'accounts';
+      final row = copy['tables'][table][0] as Map;
+      row[field] = List.filled(5000, ' ').join() + (row[field] as String);
+      expect(
+        () => validatePreviewSnapshot(utf8.encode(jsonEncode(copy))),
+        throwsA(isA<PreviewInvalid>()),
+      );
+    }
+    expect(
+      (await engine.accounts()).single.balance.minorUnits,
+      BigInt.from(10000),
+    );
+  });
   test(
     'verified safety copy can be exported and tampering is not returned',
     () async {

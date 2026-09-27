@@ -127,7 +127,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _lock() {
     final engine = _engine;
     if (engine == null) return;
-    unawaited(engine.lock());
+    unawaited(
+      engine.lock().catchError((Object _) {
+        if (mounted) {
+          setState(() {
+            _page = _Page.blocked;
+            _message = '資料庫關閉未能完成，已停止操作。請保留現有資料。';
+          });
+        }
+      }),
+    );
     if (!mounted) return;
     setState(() {
       _clear();
@@ -151,7 +160,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_engine?.lock());
+    // The view is being disposed; the engine retains a failed close future and
+    // refuses subsequent sessions. There is no remaining view to notify here.
+    unawaited(_engine?.lock().catchError((Object _) {}));
     for (final c in [_password, _confirm, _name, _amount, _date, _credential]) {
       c.dispose();
     }

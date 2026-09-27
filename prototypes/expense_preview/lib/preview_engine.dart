@@ -36,6 +36,7 @@ final class PreviewEngine {
   String? _password;
   String? _recovery;
   WorkspaceId? _workspace;
+  WorkspaceId? _initialWorkspace;
   LedgerStore? _store;
   LedgerSession? _session;
   Completer<void>? _release;
@@ -126,8 +127,8 @@ final class PreviewEngine {
     await stage.create(exclusive: true);
     await stage.writeAsString(draft.envelope, flush: true);
     if (await stage.readAsString() != draft.envelope) throw PreviewInvalid();
-    await stage.rename(_profile.path);
-    // Initialization is retryable from this durable encrypted profile after a crash.
+    // Keep the profile pending until a validated empty ledger is published.
+    // A published profile then always implies an existing committed ledger.
     await _unlock(password, epoch);
   });
 
@@ -152,12 +153,19 @@ final class PreviewEngine {
       throw PreviewInvalid();
     }
     _check(epoch);
-    if (source.path == _pendingProfile.path) await source.rename(_profile.path);
-    final store = factory(Directory('${directory.path}/ledger'), info.identity);
+    final pending = source.path == _pendingProfile.path;
+    final ledgerDirectory = Directory('${directory.path}/ledger');
+    if (!pending &&
+        !await File('${ledgerDirectory.path}/catalog.db').exists()) {
+      throw PreviewInvalid();
+    }
+    final store = factory(ledgerDirectory, info.identity);
     if (await store.generations.current() == null) {
+      if (!pending) throw PreviewInvalid();
       await store.initialize(info.initialization);
     }
     _check(epoch);
+    if (pending) await source.rename(_profile.path);
     _store = store;
     await _openLease();
     try {
@@ -165,6 +173,7 @@ final class PreviewEngine {
       if (spaces.length > 1) throw PreviewInvalid();
       _check(epoch);
       _workspace = spaces.isEmpty ? info.workspace : spaces.single;
+      _initialWorkspace = info.workspace;
       _password = password;
       _recovery = recovery;
     } catch (_) {
@@ -185,7 +194,11 @@ final class PreviewEngine {
           await release.future;
         })
         .catchError((Object error, StackTrace trace) {
-          if (!ready.isCompleted) ready.completeError(error, trace);
+          if (!ready.isCompleted) {
+            ready.completeError(error, trace);
+          } else {
+            Error.throwWithStackTrace(error, trace);
+          }
         });
     await ready.future;
   }
@@ -211,6 +224,7 @@ final class PreviewEngine {
     _password = null;
     _recovery = null;
     _workspace = null;
+    _initialWorkspace = null;
     return _closeLease();
   }
 
@@ -246,6 +260,7 @@ final class PreviewEngine {
     final password = _password!;
     final recovery = _recovery!;
     final snapshot = await _session!.snapshot();
+    validatePreviewSnapshot(snapshot);
     final backup = await EnvelopeCodec().create(
       snapshot,
       password: password,
@@ -356,7 +371,7 @@ final class PreviewEngine {
     _check(epoch);
     final spaces = await _session!.workspaces();
     _check(epoch);
-    if (spaces.isNotEmpty) _workspace = spaces.single;
+    _workspace = spaces.isEmpty ? _initialWorkspace! : spaces.single;
   });
 }
 
@@ -380,6 +395,23 @@ void validatePreviewSnapshot(List<int> bytes) {
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
   final accounts = tables['accounts'] as List;
   final events = tables['events'] as List;
+  // Bound encoded row sizes as well as counts: a valid imported source marker or
+  // receipt with huge whitespace must not consume all future backup headroom.
+  for (final entry in tables.entries) {
+    for (final row in entry.value as List) {
+      var maxBytes = entry.key == 'accounts' ? 4096 : 512;
+      if (entry.key == 'receipts') {
+        final input = jsonDecode(row['input'] as String);
+        maxBytes =
+            input is List && input.isNotEmpty && input.first == 'create-v1'
+            ? 4096
+            : 1024;
+      }
+      if (utf8.encode(jsonEncode(row)).length > maxBytes) {
+        throw PreviewInvalid();
+      }
+    }
+  }
   if (accounts.length > LedgerSession.maxAccounts ||
       events.length > LedgerSession.maxEvents ||
       accounts.map((a) => a['workspace']).toSet().length > 1 ||

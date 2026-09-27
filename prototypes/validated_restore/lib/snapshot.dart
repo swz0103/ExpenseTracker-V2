@@ -247,12 +247,18 @@ final class SnapshotCodec {
     final accountRows = await db
         .customSelect('SELECT workspace,id,payload FROM accounts')
         .get();
+    final accountFacts =
+        <(String, String), ({Currency currency, BusinessDate openedOn})>{};
     for (final row in accountRows) {
       final account = await accounts.read(
         WorkspaceId.parse(row.read<String>('workspace')),
         PublicId.parse(row.read<String>('id')),
       );
       final payload = jsonDecode(row.read<String>('payload')) as Map;
+      accountFacts[(account.workspace.toString(), account.id.value)] = (
+        currency: account.currency,
+        openedOn: account.openedOn,
+      );
       if (payload.length != accountJson(account).length ||
           !accountJson(account).keys.every(payload.containsKey))
         throw const InvalidSnapshot();
@@ -284,6 +290,20 @@ final class SnapshotCodec {
         .customSelect('SELECT * FROM legs ORDER BY workspace,event_id,ordinal')
         .get();
     final events = await db.customSelect('SELECT * FROM events').get();
+    final eventsById = <(String, String), QueryRow>{
+      for (final event in events)
+        (event.read<String>('workspace'), event.read<String>('id')): event,
+    };
+    if (eventsById.length != events.length) throw const InvalidSnapshot();
+    final legsByEvent = <(String, String), List<QueryRow>>{};
+    for (final leg in legs) {
+      (legsByEvent[(
+                leg.read<String>('workspace'),
+                leg.read<String>('event_id'),
+              )] ??=
+              [])
+          .add(leg);
+    }
     for (final event in events) {
       final ws = event.read<String>('workspace');
       final id = event.read<String>('id');
@@ -292,21 +312,13 @@ final class SnapshotCodec {
         event.read<int>('scale'),
       );
       final date = BusinessDate.parse(event.read<String>('business_date'));
-      final list = legs
-          .where(
-            (l) =>
-                l.read<String>('workspace') == ws &&
-                l.read<String>('event_id') == id,
-          )
-          .toList();
+      final list = legsByEvent[(ws, id)] ?? const <QueryRow>[];
       if (list.isEmpty) throw const InvalidSnapshot();
       for (var index = 0; index < list.length; index++) {
         final leg = list[index];
-        final account = await accounts.read(
-          WorkspaceId.parse(ws),
-          PublicId.parse(leg.read<String>('account_id')),
-        );
-        if (leg.read<int>('ordinal') != index ||
+        final account = accountFacts[(ws, leg.read<String>('account_id'))];
+        if (account == null ||
+            leg.read<int>('ordinal') != index ||
             account.currency != currency ||
             Currency(leg.read<String>('currency'), leg.read<int>('scale')) !=
                 currency ||
@@ -369,7 +381,9 @@ final class SnapshotCodec {
     final orphanReceipts = await db.customSelect(
       '''SELECT r.operation_id FROM receipts r LEFT JOIN audit a
       ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE a.operation_id IS NULL OR a.entity_id!=r.result_id
-      UNION ALL SELECT e.id FROM events e WHERE (SELECT COUNT(*) FROM receipts r WHERE r.workspace=e.workspace AND r.result_id=e.id)!=1''',
+      UNION ALL SELECT e.id FROM events e LEFT JOIN
+      (SELECT workspace,result_id,COUNT(*) AS n FROM receipts GROUP BY workspace,result_id) counts
+      ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
     for (final row
@@ -400,13 +414,8 @@ final class SnapshotCodec {
         if (account.version <= input[2]) throw const InvalidSnapshot();
         continue;
       }
-      final event = events
-          .where(
-            (e) =>
-                e.read<String>('workspace') == ws &&
-                e.read<String>('id') == resultId,
-          )
-          .single;
+      final event = eventsById[(ws, resultId)];
+      if (event == null) throw const InvalidSnapshot();
       final isCreate = input.first == 'create-v1';
       if (isCreate &&
           (input.length != 4 ||
@@ -414,13 +423,7 @@ final class SnapshotCodec {
               event.read<String>('kind') != 'opening'))
         throw const InvalidSnapshot();
       final posting = isCreate ? input[3] : input;
-      final eventLegs = legs
-          .where(
-            (l) =>
-                l.read<String>('workspace') == ws &&
-                l.read<String>('event_id') == resultId,
-          )
-          .toList();
+      final eventLegs = legsByEvent[(ws, resultId)] ?? const <QueryRow>[];
       if (posting is! List ||
           posting.length != 3 + eventLegs.length ||
           posting[0] != 'posting-v1' ||

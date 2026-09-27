@@ -31,6 +31,8 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - if: matrix.package == 'prototypes/android_foundation'
         run: dart format --output=none --set-exit-if-changed integration_test
+      - if: matrix.package == 'prototypes/expense_preview'
+        run: dart format --output=none --set-exit-if-changed tool
       - run: flutter analyze
       - run: flutter test --reporter expanded
       # Device integration is a separate gate; these host checks do not run it.

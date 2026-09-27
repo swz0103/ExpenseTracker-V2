@@ -2,10 +2,12 @@
 
 Android 優先、Flutter、local-first 的個人財務管理 App。
 
-目前進行架構規格與地基原型驗證，尚未發布可用 App，Architecture Baseline 仍為 rc1。
+已有可側載的最小記帳試用 APK，支援帳戶、收入／支出與加密備份還原；完成主機大規模驗證，尚待新 App 的實機驗收。完整 M1／M2／M3 與安全／升級 gate 仍未完成，Architecture Baseline 仍為 rc1。
 
 ## 專案文件
 
+- [試用 APK 安裝與驗收](docs/installable-preview.md)
+- [大規模測試、原始結果與容量限制](docs/preview-validation-report.md)
 - [完整願景與原始 170 項決策](docs/full-vision-baseline.md)
 - [Architecture Baseline v1.0-rc1](docs/architecture-baseline-v1.0-rc1.md)
 - [整合架構與已選方向](docs/architecture-proposal.md)

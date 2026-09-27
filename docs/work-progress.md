@@ -37,10 +37,10 @@
 - 最新使用者指示（2026-09-27）：暫不操作手機；持續到可安裝的最小 M1 試用 APK，且完成大規模測試，或使用者回來。依[本輪計畫](installable-preview-plan.md)調整優先順序。
 - P1 工作階段／讀取：`feat/ledger-preview-session`，基於 PR #28。6 項新案例及受影響套件共 172 項本機回歸通過。[接口與限制](ledger-preview-session.md)。PR #27 的 303 項 host 測試及十二個 CI 工作已全部通過。下一項 P2 試用 App／備份設定／UI，再做 P3 大規模及 P4 APK 交付；完整 migration／平台 gate 保留，本輪不操作裝置。
 
+- P2 可輸入的最小試用 App：`feat/installable-ledger-preview`，PR #30，基於 PR #29，提交 `6a4e0d0`。324 項 host 測試的十三個 CI 工作全部通過；獨立 App 身份、設定／鎖定、帳戶／收支／分頁、加密檔案備份與雙路還原、可取回的還原前副本已接入。[範圍](../prototypes/expense_preview/README.md)。
+- P3／P4 大規模驗證及 APK 交付：`test/preview-large-scale`，PR #31，基於 PR #30。修正完整還原驗證的重複掃描、加入容量與每列 bytes 保護；補強首次設定發布順序、既有帳本遺失拒絕及空帳本 workspace 一致性。受影響的 131 項本機回歸通過，完整 CI 清單 331 項，遠端以本 PR checks 為準。兩輪已完成的大規模紀錄共 55,000 筆新增／55,011 次重送，全部餘額、分頁、備份完整 bytes、還原與重開通過；每個帳本上限仍為 5,000 筆。最終 0.2.0+2 ARM64 debug APK 建置／簽章／SQLCipher 封裝及 hash 核對通過。[安裝與驗收](installable-preview.md)、[原始測試結果與限制](preview-validation-report.md)。本輪完全未操作裝置；此交付達到最新指示的試用停止點，完整 CI 通過後停止自動推進、等使用者驗收，不擴大後續里程碑或合併 main。
 ## 尚未完成的 gate
 
-整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成，不把 host 原型或套件單元測試冒充可用 App。
+整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成。目前另交付具實際輸入流程的最小試用 App，其新平台流程仍待實機驗收；不可將此有限試用版視為完整日常版本或 gate 全部通過。
 
 詳細順序見[實作計畫](implementation-plan.md)，財務契約見[工程規格](foundation-contracts.md)，驗收案例見[案例清單](foundation-acceptance.md)。
-
-- P2 可輸入的最小試用 App：`feat/installable-ledger-preview`，基於 PR #29（其 309 項 host／十二個 CI 工作已通過）。獨立 App 身份、設定／鎖定、帳戶／收支／分頁、加密檔案備份與雙路還原、可取回的還原前副本已接入。新增 15 項本機 engine／widget 測試通過；初次 ARM64 APK 編譯成功。容量／大量資料及最終建置仍待 P3／P4，不操作裝置。[範圍](../prototypes/expense_preview/README.md)。
