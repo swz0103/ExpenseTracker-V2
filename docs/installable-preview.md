@@ -1,8 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.14.0 交易活動查閱
+
+**2026-09-28 最新開發包**：0.14.0+18 接入[交易活動查閱](transaction-activity.md)；沿用 schema 10／snapshot 9。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.14.0-arm64.apk`，94,622,535 bytes。
+- SHA-256：`bdaac9f1eab1f457bddb50a6e8dda5f11a26b859ad9562f4c84b294e3463635d`。
+- App ID `dev.expensetracker.preview`、versionCode 18／versionName 0.14.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false`、ARM64 Flutter／SQLCipher 核對通過。
+- [受影響 3 套件／54 個主機案例](test-results/transaction-activity-host-2026-09-28.json)通過；完整基礎與大量／中斷測試沿用 0.13.0，沒有冒稱新跑。
+- 本機 debug 包未安裝、未發布、未上傳 APK 或金鑰；雲端、實機與其餘 CORE gate 保留。
+
 ## 0.13.0 原支出退款
 
-**2026-09-28 最新開發包**：0.13.0+17 接入[部分／全額退款](refunds.md)、原支出追溯、跨幣實收、可恢復送出及 V2 schema 9 → 10 安全升級。
+**2026-09-28 歷史開發包**：0.13.0+17 接入[部分／全額退款](refunds.md)、原支出追溯、跨幣實收、可恢復送出及 V2 schema 9 → 10 安全升級。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.13.0-arm64.apk`，94,617,771 bytes。
 - SHA-256：`4132ae68490ba36a48130162448da674a64b5b64989ccc3c27c85d72089620cf`。

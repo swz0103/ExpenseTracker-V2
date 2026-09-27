@@ -25,6 +25,7 @@ export 'privacy_presentation.dart' show moneyText;
 part 'category_screen.dart';
 part 'split_entry.dart';
 part 'refund_entry.dart';
+part 'activity_dialog.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
 
@@ -1456,11 +1457,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: e.kind == PostingKind.transfer
-                  ? TransferSummary(
-                      entry: e,
-                      source: _accountName(e.accountId),
-                      destination: _accountName(e.destinationId),
-                      privacy: _privacy,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TransferSummary(
+                          entry: e,
+                          source: _accountName(e.accountId),
+                          destination: _accountName(e.destinationId),
+                          privacy: _privacy,
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            key: ValueKey('entry-activity-${e.id}'),
+                            onPressed: _busy ? null : () => _showActivity(e.id),
+                            child: const Text('查看活動'),
+                          ),
+                        ),
+                      ],
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1474,32 +1488,36 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                           privacy: _privacy,
                           kind: MoneyKind.transaction,
                           moneyKey: ValueKey('entry-money-${e.id.value}'),
-                          action:
-                              [
+                          action: PopupMenuButton<String>(
+                            key: ValueKey('entry-actions-${e.id}'),
+                            tooltip: '交易操作',
+                            enabled: !_busy,
+                            onSelected: (action) => switch (action) {
+                              'activity' => _showActivity(e.id),
+                              'refund' => _startRefund(e.id),
+                              _ => _copyPosting(e.id),
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'activity',
+                                child: Text('查看活動'),
+                              ),
+                              if ([
                                 PostingKind.income,
                                 PostingKind.expense,
-                              ].contains(e.kind)
-                              ? PopupMenuButton<String>(
-                                  key: ValueKey('entry-actions-${e.id}'),
-                                  tooltip: '交易操作',
-                                  enabled: !_busy,
-                                  onSelected: (action) => action == 'refund'
-                                      ? _startRefund(e.id)
-                                      : _copyPosting(e.id),
-                                  itemBuilder: (_) => [
-                                    const PopupMenuItem(
-                                      value: 'copy',
-                                      child: Text('再記一筆類似交易'),
-                                    ),
-                                    if (e.kind == PostingKind.expense &&
-                                        _engine!.schemaVersion >= 10)
-                                      const PopupMenuItem(
-                                        value: 'refund',
-                                        child: Text('記錄退款'),
-                                      ),
-                                  ],
-                                )
-                              : null,
+                              ].contains(e.kind))
+                                const PopupMenuItem(
+                                  value: 'copy',
+                                  child: Text('再記一筆類似交易'),
+                                ),
+                              if (e.kind == PostingKind.expense &&
+                                  _engine!.schemaVersion >= 10)
+                                const PopupMenuItem(
+                                  value: 'refund',
+                                  child: Text('記錄退款'),
+                                ),
+                            ],
+                          ),
                         ),
                         if (e.refundOf != null) ..._refundDetails(e),
                         ..._splitDetails(e.id),

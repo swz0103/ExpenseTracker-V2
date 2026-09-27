@@ -27,6 +27,7 @@ import 'package:storage_generation_probe/catalog_protection.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
 part 'ledger_session.dart';
+part 'activity_session.dart';
 part 'category_session.dart';
 part 'tag_session.dart';
 part 'tag_references.dart';

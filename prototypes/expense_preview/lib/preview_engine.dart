@@ -341,6 +341,20 @@ final class PreviewEngine {
     return _closeLease(waitFor: _draftActive ? _operationDone?.future : null);
   }
 
+  Future<List<LedgerActivity>> activity(
+    PublicId selected, {
+    LedgerActivityCursor? before,
+  }) => _exclusive((epoch) async {
+    _require();
+    final result = await _session!.activity(
+      _workspace!,
+      selected,
+      before: before,
+    );
+    _check(epoch);
+    return result;
+  });
+
   Future<List<AccountSummary>> accounts() => _exclusive((epoch) async {
     _require();
     final result = await _session!.accounts(_workspace!);

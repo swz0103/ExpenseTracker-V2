@@ -45,3 +45,5 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 ## 開發方式
 
 先完成具體規格與關鍵技術驗證，再逐功能交付。變更走分支與 PR；文件初始化不代表正式 Architecture Freeze。未實作或未驗證的能力不顯示為可用功能。
+
+- [交易活動查閱](docs/transaction-activity.md)：原交易與退款關聯、記錄時間及分頁。
