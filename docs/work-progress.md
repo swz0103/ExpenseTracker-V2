@@ -44,6 +44,9 @@
 - P2 可輸入的最小試用 App：`feat/installable-ledger-preview`，PR #30，基於 PR #29，提交 `6a4e0d0`。324 項 host 測試的十三個 CI 工作全部通過；獨立 App 身份、設定／鎖定、帳戶／收支／分頁、加密檔案備份與雙路還原、可取回的還原前副本已接入。[範圍](../prototypes/expense_preview/README.md)。
 - P3／P4 大規模驗證及 APK 交付：`test/preview-large-scale`，PR #31，基於 PR #30。修正完整還原驗證的重複掃描、加入容量與每列 bytes 保護；補強首次設定發布順序、既有帳本遺失拒絕及空帳本 workspace 一致性。受影響的 131 項本機回歸通過，完整 CI 清單 331 項，遠端以本 PR checks 為準。兩輪已完成的大規模紀錄共 55,000 筆新增／55,011 次重送，全部餘額、分頁、備份完整 bytes、還原與重開通過；每個帳本上限仍為 5,000 筆。最終 0.2.0+2 ARM64 debug APK 建置／簽章／SQLCipher 封裝及 hash 核對通過。[安裝與驗收](installable-preview.md)、[原始測試結果與限制](preview-validation-report.md)。本輪完全未操作裝置；此交付達到最新指示的試用停止點，完整 CI 通過後停止自動推進、等使用者驗收，不擴大後續里程碑或合併 main。
 - Categories 業務規則：`feat/category-domain`，基於 PR #33。雙層收入／支出分類、新增／改名／移動／封存／啟用、明確合併與穩定歷史 ID、來源及目標版本檢查已完成；14 項新案例（含一萬筆合併歷史）及既有 15 項架構邊界案例、本機實際依賴掃描與靜態分析通過。回查原 Account 的 immutable／workspace／版本模式與 snapshot 重複掃描經驗：不抽取混合業務基底，採一次驗證／迭代索引解析，移除重複檢查。完整 CI 清單由 331 增至 345 項，以本分支 PR checks 為準。尚無分類資料表、migration、備份 manifest、交易引用驗證或 UI，不能標為 M1-02 完成。[行為與下一步](../packages/categories/README.md)。
+- CI 快取回查：`ci/flutter-cache-owner`，PR #35，基於 #34，提交 `4ddc9de`。#34 與 #35 的 345 項／14 個 CI 工作均通過；兩個 Flutter App 原先爭用相同 cache，改為只由 expense_preview 保存。實際 run 確認沒有第二份重複保存；測試與 SDK 版本維持相同。[證據與代價](ci-cache-review.md)。
+- Categories 保存與可攜格式：`feat/category-persistence`，基於 PR #35。分類目前狀態／完整變更歷史與金融操作共用 transaction、receipt／Audit，抽取既有去重程式供兩者使用；schema 4／snapshot 3 明確帶 categories=1，拒絕就地升級。新增 23 項案例，本機受影響套件共 171 項通過；完整 CI 清單增為 368 項，以本 PR checks 為準。真實 SQLCipher 的 256 分類／1,024 次變更／1,026 次重送與密碼、救援雙路還原通過；既有 App 的 5,000 筆新增／5,001 次重送與完整還原回歸亦通過。正式升級協調器、schema 4 世代發布、交易引用、統一容量預檢及分類 UI 尚未完成，現有 App 保持 schema 3。[格式與原始測試證據](categories-persistence.md)。
+
 ## 尚未完成的 gate
 
 整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成。目前另交付具實際輸入流程的最小試用 App，其新平台流程仍待實機驗收；不可將此有限試用版視為完整日常版本或 gate 全部通過。

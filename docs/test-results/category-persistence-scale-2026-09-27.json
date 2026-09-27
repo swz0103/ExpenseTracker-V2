@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "completedAtUtc": "2026-09-27T05:17:18.820971Z",
+  "runtime": "3.13.4 (stable) (Tue Sep 15 01:01:15 2026 -0700) on \"windows_x64\"",
+  "os": "\"Windows 11 專業版\" 10.0 (Build 26200)",
+  "categories": 256,
+  "metadataChanges": 1024,
+  "originalReplays": 1024,
+  "restoredReplays": 2,
+  "snapshotBytes": 917115,
+  "envelopeBytes": 1223366,
+  "timings": {
+    "writeMs": 24727,
+    "replayMs": 464,
+    "captureAndHistoryValidationMs": 935,
+    "passwordRestoreMs": 4246,
+    "recoveryRestoreMs": 3040
+  },
+  "scope": "SQLCipher schema 4 host metadata only; separate directories in one process; no Android or publication coordinator"
+}

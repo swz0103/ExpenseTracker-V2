@@ -16,3 +16,5 @@
 ## 驗證
 
 由本修正 PR 的完整 CI 驗證兩個 App 均執行原有測試，且只剩一個工作保存相同快取。冷熱快取與 runner 負載不同，不承諾每次固定縮短幾分鐘；沒有穩定多次量測前不宣稱效能提升比例。
+
+PR #35（`4ddc9de`）的 [Flutter run 36295464986](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36295464986)已全部通過：android_foundation 的 17 項於 04:53:48 UTC 通過，expense_preview 的 19 項於 04:56:19 通過；只有 expense_preview 保存 pub cache（04:57:57）及 SDK（05:00:53），沒有重複保留失敗訊息。連同另一 workflow，完整 345 項測試／14 個 CI 工作通過。

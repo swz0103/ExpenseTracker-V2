@@ -7,8 +7,10 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/database.dart';
+import 'package:modular_persistence_probe/category_schema.dart';
+import 'package:modular_persistence_probe/categories_adapter.dart';
 
-const _columns = {
+const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
   'events': [
     'workspace',
@@ -48,17 +50,24 @@ final class InvalidSnapshot implements Exception {
 /// Fixed prototype manifest. All financial tables are portable; explicitly
 /// versioned local identity is validated but regenerated at the destination.
 final class SnapshotCodec {
-  SnapshotCodec({this.generationAware = false});
+  SnapshotCodec({bool generationAware = false, this.categoryAware = false})
+    : generationAware = generationAware || categoryAware;
   final bool generationAware;
+  final bool categoryAware;
+  Map<String, List<String>> get _columns => {
+    ..._financialColumns,
+    if (categoryAware) ...categoryColumns,
+  };
 
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => generationAware ? 2 : 1;
-  int get _schemaVersion => generationAware ? 3 : 2;
+  int get _formatVersion => categoryAware ? 3 : (generationAware ? 2 : 1);
+  int get _schemaVersion => categoryAware ? 4 : (generationAware ? 3 : 2);
   Map<String, int> get _manifest => {
     ..._modules,
     if (generationAware) 'local_identity': 1,
+    if (categoryAware) 'categories': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -179,20 +188,30 @@ final class SnapshotCodec {
           root.length != 5 ||
           root['format'] != 'ledger-logical-probe' ||
           !((root['version'] == 1 && root['schema'] == 2) ||
-              (generationAware && root['version'] == 2 && root['schema'] == 3)))
+              (generationAware &&
+                  root['version'] == 2 &&
+                  root['schema'] == 3) ||
+              (categoryAware && root['version'] == 3 && root['schema'] == 4)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
-      final expectedModules = root['version'] == 1 ? _modules : _manifest;
+      final expectedModules = {
+        ..._modules,
+        if (root['version'] != 1) 'local_identity': 1,
+        if (root['version'] == 3) 'categories': 1,
+      };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
           !expectedModules.entries.every((e) => modules[e.key] == e.value))
         throw const InvalidSnapshot();
       final tables = root['tables'];
-      if (tables is! Map || tables.length != _columns.length)
+      final inputColumns = root['version'] == 3 ? _columns : _financialColumns;
+      if (tables is! Map || tables.length != inputColumns.length)
         throw const InvalidSnapshot();
-      final result = <String, List<Map<String, dynamic>>>{};
+      final result = <String, List<Map<String, dynamic>>>{
+        for (final name in _columns.keys) name: [],
+      };
       var count = 0;
-      for (final entry in _columns.entries) {
+      for (final entry in inputColumns.entries) {
         final rows = tables[entry.key];
         if (rows is! List) throw const InvalidSnapshot();
         count += rows.length;
@@ -224,9 +243,18 @@ final class SnapshotCodec {
 
   /// Known current prototype semantics, not a general future-module validator.
   Future<void> validate(ProbeDatabase db) async {
-    if (generationAware != (db.storageBinding != null))
+    if (generationAware != (db.storageBinding != null) ||
+        categoryAware != db.categoryAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
+    var categoryOperations = <(String, String)>{};
+    if (categoryAware) {
+      try {
+        categoryOperations = await validateCategoryHistory(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
     if ((await db.customSelect('PRAGMA foreign_key_check').get()).isNotEmpty ||
         (await db.customSelect('PRAGMA integrity_check').getSingle())
                 .data
@@ -382,7 +410,9 @@ final class SnapshotCodec {
       '''SELECT r.operation_id FROM receipts r LEFT JOIN audit a
       ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE a.operation_id IS NULL OR a.entity_id!=r.result_id
       UNION ALL SELECT e.id FROM events e LEFT JOIN
-      (SELECT workspace,result_id,COUNT(*) AS n FROM receipts GROUP BY workspace,result_id) counts
+      (SELECT r.workspace,r.result_id,COUNT(*) AS n FROM receipts r
+       JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id
+       WHERE a.kind NOT LIKE 'category.%' GROUP BY r.workspace,r.result_id) counts
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
@@ -395,11 +425,25 @@ final class SnapshotCodec {
       final input = jsonDecode(row.read<String>('input'));
       if (input is! List ||
           input.isEmpty ||
-          !['create-v1', 'posting-v1', 'archive-v1'].contains(input.first))
+          ![
+            'create-v1',
+            'posting-v1',
+            'archive-v1',
+            if (categoryAware) 'category-v1',
+          ].contains(input.first))
         throw const InvalidSnapshot();
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'category-v1') {
+        if (!categoryOperations.remove((
+          ws,
+          row.read<String>('operation_id'),
+        ))) {
+          throw const InvalidSnapshot();
+        }
+        continue;
+      }
       if (input.first == 'archive-v1') {
         if (input.length != 3 ||
             input[1] != resultId ||
@@ -459,6 +503,7 @@ final class SnapshotCodec {
           throw const InvalidSnapshot();
       }
     }
+    if (categoryOperations.isNotEmpty) throw const InvalidSnapshot();
     for (final row
         in await db.customSelect('SELECT recorded_at FROM audit').get()) {
       UtcInstant.parse(row.read<String>('recorded_at'));

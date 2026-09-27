@@ -19,6 +19,8 @@ dependencies:
   backup_envelope_probe:
     path: ../backup_envelope
 dev_dependencies:
+  categories:
+    path: ../../packages/categories
   test: 1.32.0
 hooks:
   user_defines:

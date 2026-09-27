@@ -4,20 +4,39 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
 import 'storage_binding.dart';
+import 'category_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
-  ProbeDatabase(File file, {this.migrationCheckpoint, this.storageBinding})
-    : super(NativeDatabase(file));
+  ProbeDatabase(
+    File file, {
+    this.migrationCheckpoint,
+    this.storageBinding,
+    this.categoryAware = false,
+  }) : super(NativeDatabase(file)) {
+    _configuration();
+  }
   ProbeDatabase.withExecutor(
     QueryExecutor executor, {
     this.migrationCheckpoint,
     this.storageBinding,
-  }) : super(executor);
+    this.categoryAware = false,
+  }) : super(executor) {
+    _configuration();
+  }
+  final bool categoryAware;
+  void _configuration() {
+    if (categoryAware && storageBinding == null) {
+      throw ArgumentError(
+        'Categories require an explicitly bound schema 4 stage.',
+      );
+    }
+  }
+
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => storageBinding == null ? 2 : 3;
+  int get schemaVersion => categoryAware ? 4 : (storageBinding == null ? 2 : 3);
   @override
   Iterable<TableInfo<Table, dynamic>> get allTables => const [];
   @override
@@ -30,8 +49,19 @@ final class ProbeDatabase extends GeneratedDatabase {
       }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
+      if (categoryAware) {
+        for (final sql in categorySchema) {
+          await customStatement(sql);
+        }
+        migrationCheckpoint?.call('categories');
+      }
     }),
     onUpgrade: (_, from, to) async {
+      if (categoryAware) {
+        throw StateError(
+          'Schema 4 requires a new validated stage, not in-place migration.',
+        );
+      }
       if (from == 1 && to == 2) {
         await transaction(_upgradeV2);
       } else if ((from == 1 || from == 2) &&

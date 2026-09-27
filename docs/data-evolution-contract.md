@@ -23,15 +23,17 @@
 
 format 2 驗證來源 storage_identity，但不輸出來源世代／slot 列；目標必須新建身份。`local_identity=1` 表示已知來源結構，不授權還原端沿用來源 key。generation-aware codec 可讀 format 1／2，legacy codec 不接受 format 2。
 
+後續[分類保存](categories-persistence.md)新增明確選用的 schema 4／snapshot format 3；沿用原七張表及本機身份，新增 categories、category_changes 權威表與 categories=1 manifest。category-aware codec 可讀已知 format 1／2／3；舊格式的新增分類表為空，既有權威資料保留。schema 4 只建立在新 stage，拒絕就地升級；現有 App／LedgerStore 仍是 schema 3，完整發布協調器尚未接入。
+
 控制 catalog 的 schema 1 是明文 fixture，schema 2 是獨立 key 的加密模式；這兩個數字與財務 schema 1／2 毫無大小關係。目前沒有 catalog 明文→加密的自動升級，不能在正式接入時順便改寫。
 
 這些均為原型資料協定，未標定為首個正式產品 schema。轉入正式版本時須留下明確的 fixture 匯入或拒絕路徑，不把 `user_version` 改號當成完成遷移。
 
 ## 3. 按業務主責保存與新增資料
 
-目前 Accounts 擁有 accounts；Ledger 擁有 events、legs、openings、allocations；共用操作紀錄擁有 receipts、audit；Persistence／Security 擁有本機配對與 catalog。各業務提供自己的 schema 片段與 validator，persistence 組合一次遷移並掌握 commit，不反向掌管財務公式。
+目前 Accounts 擁有 accounts；Ledger 擁有 events、legs、openings、allocations；Categories 在明確啟用的 schema 4 擁有 categories、category_changes；共用操作紀錄擁有 receipts、audit；Persistence／Security 擁有本機配對與 catalog。各業務提供自己的 schema 片段與 validator，persistence 組合一次遷移並掌握 commit，不反向掌管財務公式。
 
-後續新增 Categories／Tags／Merchants，應新增其資料主責及版本，Ledger 透過 workspace-scoped 公開 ID 連結。新增 Card 時，帳單／應繳安排由 Card 保存，資金 legs 仍歸 Ledger；新增 Investment 時，lot／股數／成本由 Investment 保存，不能只備份現金 legs。這些未建立的模組現在不預建空表或虛構版本號。
+後續新增 Tags／Merchants，應新增其資料主責及版本，Ledger 透過 workspace-scoped 公開 ID 連結。新增 Card 時，帳單／應繳安排由 Card 保存，資金 legs 仍歸 Ledger；新增 Investment 時，lot／股數／成本由 Investment 保存，不能只備份現金 legs。這些未建立的模組現在不預建空表或虛構版本號。
 
 每個新增持久實體要同時列出：主責模組、權威或可重建、本機或可攜、workspace 範圍、跨模組引用、backup 欄位、來源／目標版本與 fixture。未列入備份的權威表必須讓備份失敗，不能默默遺漏。
 
