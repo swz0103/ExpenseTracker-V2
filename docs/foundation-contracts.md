@@ -23,6 +23,8 @@
 
 每個套件列出允許的直接依賴與公開入口；CI 檢查 internal 存取、循環與 Domain 對平台／儲存的依賴。拆成套件本身不是邊界已受保護的證據。
 
+現有三個業務套件已接[架構邊界 gate](architecture-boundary-checks.md)，包含原型使用端的私有入口引用檢查。未來 App／adapter／UI 的責任仍須隨功能明列，不能把此項當成所有模組都已完成的證據。
+
 ## 2. 值型別與序列化
 
 ### Money 與 Decimal
