@@ -1,5 +1,9 @@
 # 逐項實作進度
 
+## 2026-09-28 下一批：財務更正（進行中）
+
+由已上傳的 [備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61) 建立 `feat/transaction-corrections`；[操作契約](transaction-corrections.md)固定原交易完整反向、替代事件及兩者原子提交／追溯。Ledger 更正提案已實作身分與 operation 衝突拒絕、原日期精確沖回，含跨幣轉帳與手續費；該套件分析與 22 案例本機通過，遠端 checkpoint 為 `8a48b326b905c67c0ed804ba197080c730bf0da5`。資料庫原子提交、關聯表、備份還原、V2 安全升級、加密草稿與 UI 尚未完成；目前沒有此功能 PR，也未開放入口。下一步從受控 Application／Persistence 寫入與失敗回滾開始，再接資料演進及 UI，不把此 checkpoint 當作功能完成。
+
 ## 2026-09-28 本批：交易備註修訂與安全恢復
 
 由已核對上傳的 [PR #60](https://github.com/swz0103/ExpenseTracker-V2/pull/60)（完整 head 56743aa150cb33dd7054a87327e008c3498dd19c）建立 feat/transaction-notes，完成[純文字備註與修訂](transaction-notes.md)：每筆交易可保存／清空備註、預期版本衝突拒絕、完整修訂活動、加密草稿及提交後中斷恢復。文字修改不改金融事件與餘額；隱私模式遮蔽列表／活動備註，鎖定清除編輯畫面。
