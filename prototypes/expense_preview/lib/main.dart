@@ -28,12 +28,19 @@ void main() {
   );
 }
 
-class PreviewApp extends StatelessWidget {
+class PreviewApp extends StatefulWidget {
   const PreviewApp({super.key, required this.engine, required this.documents});
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   @override
+  State<PreviewApp> createState() => _PreviewAppState();
+}
+
+class _PreviewAppState extends State<PreviewApp> {
+  final _routes = _LockRoutes();
+  @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorObservers: [_routes],
     title: '記帳 V2',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
@@ -43,8 +50,47 @@ class PreviewApp extends StatelessWidget {
         border: OutlineInputBorder(),
       ),
     ),
-    home: PreviewHome(engine: engine, documents: documents),
+    home: PreviewHome(
+      engine: widget.engine,
+      documents: widget.documents,
+      onLock: _routes.cancel,
+    ),
   );
+}
+
+/// Tracks only transient routes. Keep exiting routes until their transition
+/// finishes so a lock also hides a popup that was just confirmed or dismissed.
+final class _LockRoutes extends NavigatorObserver {
+  final _popups = <PopupRoute<dynamic>>{};
+
+  void _track(Route<dynamic>? route) {
+    if (route is PopupRoute<dynamic> && _popups.add(route)) {
+      unawaited(
+        route.completed.then((_) {
+          _popups.remove(route);
+        }),
+      );
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _track(route);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _track(newRoute);
+
+  void cancel() {
+    final owner = navigator;
+    if (owner == null) return;
+    for (final route in _popups.toList().reversed) {
+      if (route.navigator != owner) continue;
+      // Do not show private dropdown content during its exit animation.
+      route.offstage = true;
+      if (route.isActive) owner.removeRoute(route);
+    }
+  }
 }
 
 enum _Page {
@@ -64,9 +110,15 @@ enum _Page {
 }
 
 class PreviewHome extends StatefulWidget {
-  const PreviewHome({super.key, required this.engine, required this.documents});
+  const PreviewHome({
+    super.key,
+    required this.engine,
+    required this.documents,
+    required this.onLock,
+  });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
+  final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
 }
@@ -187,6 +239,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       }),
     );
     if (!mounted) return;
+    widget.onLock();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _clear();
       _page = _Page.locked;
@@ -453,6 +507,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
 
   Future<void> _discardDraft() => _perform(() async {
+    final epoch = _viewEpoch;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -470,7 +525,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ],
       ),
     );
-    if (confirmed != true || !_engine!.isUnlocked) return;
+    if (confirmed != true ||
+        !mounted ||
+        epoch != _viewEpoch ||
+        !_engine!.isUnlocked) {
+      return;
+    }
     await _engine!.discardEntryDraft();
     await _refresh();
   });

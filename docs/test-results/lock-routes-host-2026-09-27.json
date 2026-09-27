@@ -1,0 +1,69 @@
+{
+  "recordedUtc": "2026-09-27T15:00:42.444274+00:00",
+  "sourceBase": "fe1f96df808a2de9622541181235c299c12fc230",
+  "totalUniqueTests": 21,
+  "newTests": 4,
+  "runs": [
+    {
+      "scope": "verified baseline reproduction with valid lifecycle",
+      "passed": 0,
+      "failed": 4
+    },
+    {
+      "scope": "new lock route scenarios after fix",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "scope": "all prior UI and presentation scenarios after fix",
+      "passed": 17,
+      "failed": 0
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "inheritedEvidence": [
+    "amount-calculator-host-2026-09-27.json",
+    "amount-calculator-scale-2026-09-27.json",
+    "manual-entry-drafts-process-2026-09-27.json"
+  ],
+  "notes": [
+    "修正前用有效生命週期重現四項：確認窗、帳戶下拉及標籤選單仍留在鎖定畫面；已排隊確認會捨棄原草稿。",
+    "測試初版跳過 hidden 狀態造成框架斷言，已先修正事件順序再取得上述可靠重現；沒有將測試設定錯誤算作產品缺陷。",
+    "修正後鎖定首幀隱藏活動及退場中 PopupRoute，直接取消仍活動的浮層。確認回呼必須符合開啟時的 view epoch。",
+    "新測試經 inactive/hidden/paused/hidden/inactive/resumed，核對解除浮層、可再解鎖、草稿身份金額保留、餘額筆數不變且標籤未封存。",
+    "原有 17 個畫面案例包括正常捨棄／保留、草稿恢復與備份 gate、分類移動合併、Tag／Merchant 操作、計算器、隱私、舊格式升級及設定帳戶。",
+    "所有受測程式保持固定；測試時只整理獨立文件。沒有為本批再跑全 18 套件或五千筆資料，沿用父提交的相同金額／保存核心證據。",
+    "沒有改 schema 7／snapshot 6／manual-entry-v1 或 key namespace；無新增套件、外部請求、舊 App 匯入。",
+    "APK 只完成本機 debug 封裝；實際 Android 生命週期、Recent Apps、平台還原與 TalkBack gate 未通過，未宣稱完整 M1/M2/M3 完成。"
+  ],
+  "sourceFingerprintNote": "工作檔 bytes 與 Git LF 正規化 bytes 分別記錄；只差換行。",
+  "validatedSourceSha256": {
+    "prototypes/expense_preview/lib/main.dart": "ab88658016bcb0cf1bc86f0ddec84fcec0fbc935be76fb7c8f9e89df4dc4e5fb",
+    "prototypes/expense_preview/pubspec.yaml": "47b6a049329e7903bb41c3c0cbc354bc3cd6fde41ab1e920bd889c17d97ddc3f",
+    "prototypes/expense_preview/test/lock_routes_test.dart": "aa37edb7cca06709c846b615addce031bf9fc421deee3a9fc4a29e542f25a3f0"
+  },
+  "gitSourceSha256": {
+    "prototypes/expense_preview/lib/main.dart": "98d77438b8457c9e5e9d09cbce886166410994a3fafb5a5166b0c6d95a33b9f2",
+    "prototypes/expense_preview/pubspec.yaml": "0f03cde4b10358db866c298a0a2f6589f312b8cf3a0a80adb9c9a98c4650e800",
+    "prototypes/expense_preview/test/lock_routes_test.dart": "ea30ed3b0e16de97661babc9a68187714bd52f5243bf644394adc0046f8fc439"
+  },
+  "androidBuild": {
+    "path": "build/deliverables/ExpenseTracker-V2-development-0.7.1-arm64.apk",
+    "bytes": 92809235,
+    "sha256": "5485f3c512a61de8b075968c6b4f8b487a3d060894655c37ae3eae6099490165",
+    "applicationId": "dev.expensetracker.preview",
+    "versionName": "0.7.1",
+    "versionCode": 11,
+    "minSdk": 24,
+    "targetSdk": 36,
+    "allowBackup": false,
+    "signatureV2": true,
+    "nativeCoreAbi": "arm64-v8a",
+    "installed": false,
+    "published": false
+  }
+}

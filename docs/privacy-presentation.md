@@ -2,6 +2,8 @@
 
 範圍：M1-02 的帳戶餘額、交易列表及基本操作回饋。依據 [RC-02](architecture-baseline-v1.0-rc1.md#rc-02)、[RC-15](architecture-baseline-v1.0-rc1.md#rc-15)、[Full Vision Q047](full-vision-baseline.md#q047)、[Q095](full-vision-baseline.md#q095)。這是既定完整 Privacy Presentation 的第一個可驗證使用流程，不代表 RC-15 或全部無障礙 gate 完成。
 
+後續補強：[鎖定時取消確認窗、下拉與操作選單](lock-transient-routes.md)，涵蓋退場中的浮層及確認回呼工作階段保護。
+
 ## 使用流程
 
 帳本右上角提供「隱藏金額／顯示金額」。隱藏時，現有帳戶餘額與交易金額統一呈現 `••••`，螢幕閱讀器只取得「帳戶餘額已隱藏」或「交易金額已隱藏」。共用 `presentMoney` 在隱藏分支不格式化實際金額，`MoneyView` 排除子文字的重複朗讀。
