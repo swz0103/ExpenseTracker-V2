@@ -25,7 +25,9 @@ jobs:
         with:
           flutter-version: '3.47.5'
           channel: stable
-          cache: true
+          # Both matrix entries use the same SDK/pub keys. One writer avoids
+          # duplicate compression/upload and cache reservation races.
+          cache: ${{ matrix.package == 'prototypes/expense_preview' }}
       - run: flutter config --no-analytics
       - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
