@@ -12,9 +12,12 @@ jobs:
   flutter-host:
     runs-on: windows-latest
     timeout-minutes: 20
+    strategy:
+      matrix:
+        package: [prototypes/android_foundation, prototypes/expense_preview]
     defaults:
       run:
-        working-directory: prototypes/android_foundation
+        working-directory: ${{ matrix.package }}
         shell: pwsh
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -25,7 +28,9 @@ jobs:
           cache: true
       - run: flutter config --no-analytics
       - run: flutter pub get --enforce-lockfile
-      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - if: matrix.package == 'prototypes/android_foundation'
+        run: dart format --output=none --set-exit-if-changed integration_test
       - run: flutter analyze
       - run: flutter test --reporter expanded
       # Device integration is a separate gate; these host checks do not run it.

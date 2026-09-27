@@ -42,3 +42,5 @@
 整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成，不把 host 原型或套件單元測試冒充可用 App。
 
 詳細順序見[實作計畫](implementation-plan.md)，財務契約見[工程規格](foundation-contracts.md)，驗收案例見[案例清單](foundation-acceptance.md)。
+
+- P2 可輸入的最小試用 App：`feat/installable-ledger-preview`，基於 PR #29（其 309 項 host／十二個 CI 工作已通過）。獨立 App 身份、設定／鎖定、帳戶／收支／分頁、加密檔案備份與雙路還原、可取回的還原前副本已接入。新增 15 項本機 engine／widget 測試通過；初次 ARM64 APK 編譯成功。容量／大量資料及最終建置仍待 P3／P4，不操作裝置。[範圍](../prototypes/expense_preview/README.md)。

@@ -161,4 +161,15 @@ final class LedgerSession {
 
   Future<List<int>> snapshot() =>
       _enqueue(() => SnapshotCodec(generationAware: true).capture(_db));
+
+  Future<List<WorkspaceId>> workspaces() => _enqueue(() async {
+    final rows = await _db
+        .customSelect(
+          'SELECT DISTINCT workspace FROM accounts ORDER BY workspace',
+        )
+        .get();
+    return List.unmodifiable(
+      rows.map((r) => WorkspaceId.parse(r.read<String>('workspace'))),
+    );
+  });
 }

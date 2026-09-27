@@ -1,0 +1,395 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:accounts/accounts.dart';
+import 'package:backup_envelope_probe/envelope.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
+import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:validated_restore_probe/snapshot.dart';
+
+abstract interface class PreviewVault {
+  Future<String?> read(String name);
+  Future<void> write(String name, String value);
+}
+
+final class PreviewLocked implements Exception {}
+
+final class PreviewBusy implements Exception {}
+
+final class PreviewInvalid implements Exception {}
+
+typedef StoreFactory = LedgerStore Function(Directory, PublicId);
+
+/// Application coordinator. Password is retained only while foreground/unlocked.
+/// Platform vault owns local keys; portable backup is the recovery boundary.
+final class PreviewEngine {
+  PreviewEngine(this.directory, this.vault, this.factory);
+  final Directory directory;
+  final PreviewVault vault;
+  final StoreFactory factory;
+  File get _profile => File('${directory.path}/profile.envelope');
+  File get _pendingProfile => File('${directory.path}/profile.pending');
+  bool _busy = false;
+  int _epoch = 0;
+  String? _password;
+  String? _recovery;
+  WorkspaceId? _workspace;
+  LedgerStore? _store;
+  LedgerSession? _session;
+  Completer<void>? _release;
+  Future<void>? _lease;
+  Future<void>? _closing;
+  bool get isUnlocked => _password != null && _session != null;
+  WorkspaceId get workspace {
+    _require();
+    return _workspace!;
+  }
+
+  Future<bool> hasProfile() async {
+    final published = await _profile.exists();
+    final staged = await _pendingProfile.exists();
+    if (published && staged) throw PreviewInvalid();
+    if (published || staged) return true;
+    // A missing profile never authorizes replacing retained financial data.
+    if (await directory.exists() && !(await directory.list().isEmpty)) {
+      throw PreviewInvalid();
+    }
+    return false;
+  }
+
+  Future<T> _exclusive<T>(Future<T> Function(int) work) async {
+    if (_busy) throw PreviewBusy();
+    _busy = true;
+    try {
+      return await work(_epoch);
+    } finally {
+      _busy = false;
+    }
+  }
+
+  void _check(int epoch) {
+    if (epoch != _epoch) throw PreviewLocked();
+  }
+
+  void _require() {
+    if (!isUnlocked) throw PreviewLocked();
+  }
+
+  Future<CreatedBackup> prepareSetup(String password) =>
+      _exclusive((epoch) async {
+        if (await hasProfile()) throw PreviewInvalid();
+        final draft = await EnvelopeCodec().create(
+          utf8.encode(
+            jsonEncode({
+              'version': 1,
+              'identity': PublicId.generate().value,
+              'workspace': PublicId.generate().value,
+              'initialization': PublicId.generate().value,
+            }),
+          ),
+          password: password,
+        );
+        _check(epoch);
+        return draft;
+      });
+
+  Future<void> finishSetup(
+    CreatedBackup draft,
+    String password, {
+    required bool savedRecovery,
+  }) => _exclusive((epoch) async {
+    if (!savedRecovery || await hasProfile()) throw PreviewInvalid();
+    final bytes = await EnvelopeCodec().openWithPassword(
+      draft.envelope,
+      password,
+    );
+    final info = _profileInfo(bytes);
+    if (utf8.decode(
+          await EnvelopeCodec().openWithRecovery(
+            draft.envelope,
+            draft.recoveryKey,
+          ),
+        ) !=
+        utf8.decode(bytes)) {
+      throw PreviewInvalid();
+    }
+    _check(epoch);
+    await directory.create(recursive: true);
+    final name = 'recovery_${info.identity.value}';
+    if (await vault.read(name) != null) throw PreviewInvalid();
+    await vault.write(name, draft.recoveryKey);
+    if (await vault.read(name) != draft.recoveryKey) throw PreviewInvalid();
+    _check(epoch);
+    final stage = File('${directory.path}/profile.pending');
+    await stage.create(exclusive: true);
+    await stage.writeAsString(draft.envelope, flush: true);
+    if (await stage.readAsString() != draft.envelope) throw PreviewInvalid();
+    await stage.rename(_profile.path);
+    // Initialization is retryable from this durable encrypted profile after a crash.
+    await _unlock(password, epoch);
+  });
+
+  Future<void> unlock(String password) =>
+      _exclusive((epoch) => _unlock(password, epoch));
+  Future<void> _unlock(String password, int epoch) async {
+    await _closeLease();
+    _password = null;
+    _recovery = null;
+    await hasProfile();
+    final source = await _profile.exists() ? _profile : _pendingProfile;
+    if (await source.length() > 16384) throw PreviewInvalid();
+    final envelope = await source.readAsString();
+    final bytes = await EnvelopeCodec().openWithPassword(envelope, password);
+    final info = _profileInfo(bytes);
+    final recovery = await vault.read('recovery_${info.identity.value}');
+    if (recovery == null ||
+        utf8.decode(
+              await EnvelopeCodec().openWithRecovery(envelope, recovery),
+            ) !=
+            utf8.decode(bytes)) {
+      throw PreviewInvalid();
+    }
+    _check(epoch);
+    if (source.path == _pendingProfile.path) await source.rename(_profile.path);
+    final store = factory(Directory('${directory.path}/ledger'), info.identity);
+    if (await store.generations.current() == null) {
+      await store.initialize(info.initialization);
+    }
+    _check(epoch);
+    _store = store;
+    await _openLease();
+    try {
+      final spaces = await _session!.workspaces();
+      if (spaces.length > 1) throw PreviewInvalid();
+      _check(epoch);
+      _workspace = spaces.isEmpty ? info.workspace : spaces.single;
+      _password = password;
+      _recovery = recovery;
+    } catch (_) {
+      await _closeLease();
+      rethrow;
+    }
+  }
+
+  Future<void> _openLease() async {
+    await _closing;
+    final ready = Completer<void>();
+    final release = Completer<void>();
+    _release = release;
+    _lease = _store!
+        .withSession((session) async {
+          _session = session;
+          ready.complete();
+          await release.future;
+        })
+        .catchError((Object error, StackTrace trace) {
+          if (!ready.isCompleted) ready.completeError(error, trace);
+        });
+    await ready.future;
+  }
+
+  Future<void> _closeLease() {
+    _session = null;
+    final release = _release;
+    final lease = _lease;
+    _release = null;
+    _lease = null;
+    if (release != null && !release.isCompleted) release.complete();
+    if (lease == null) return _closing ?? Future.value();
+    final previous = _closing;
+    _closing = () async {
+      await previous;
+      await lease;
+    }();
+    return _closing!;
+  }
+
+  Future<void> lock() {
+    _epoch++;
+    _password = null;
+    _recovery = null;
+    _workspace = null;
+    return _closeLease();
+  }
+
+  Future<List<AccountSummary>> accounts() => _exclusive((epoch) async {
+    _require();
+    final result = await _session!.accounts(_workspace!);
+    _check(epoch);
+    return result;
+  });
+  Future<List<LedgerEntry>> entries({LedgerEntry? before}) =>
+      _exclusive((epoch) async {
+        _require();
+        final result = await _session!.entries(_workspace!, before: before);
+        _check(epoch);
+        return result;
+      });
+  Future<void> createAccount(Account account, Posting opening) =>
+      _exclusive((epoch) async {
+        _require();
+        if (account.workspace != _workspace) throw PreviewInvalid();
+        await _session!.createAccount(account, opening);
+        _check(epoch);
+      });
+  Future<void> post(Posting posting) => _exclusive((epoch) async {
+    _require();
+    if (posting.operation.workspace != _workspace) throw PreviewInvalid();
+    await _session!.post(posting);
+    _check(epoch);
+  });
+
+  Future<String> exportBackup() => _exclusive((epoch) async {
+    _require();
+    final password = _password!;
+    final recovery = _recovery!;
+    final snapshot = await _session!.snapshot();
+    final backup = await EnvelopeCodec().create(
+      snapshot,
+      password: password,
+      recoveryKey: recovery,
+    );
+    if (utf8.decode(
+              await EnvelopeCodec().openWithPassword(backup.envelope, password),
+            ) !=
+            utf8.decode(snapshot) ||
+        utf8.decode(
+              await EnvelopeCodec().openWithRecovery(backup.envelope, recovery),
+            ) !=
+            utf8.decode(snapshot)) {
+      throw PreviewInvalid();
+    }
+    _check(epoch);
+    return backup.envelope;
+  });
+
+  Future<List<File>> _safetyCopies() async {
+    final files = <File>[];
+    await for (final item in directory.list(followLinks: false)) {
+      final name = item.uri.pathSegments.last;
+      if (item is File &&
+          RegExp(r'^before-restore-[0-9a-f-]{36}\.envelope$').hasMatch(name)) {
+        files.add(item);
+      }
+    }
+    files.sort((a, b) => b.path.compareTo(a.path));
+    return files;
+  }
+
+  Future<bool> hasSafetyCopy() => _exclusive((epoch) async {
+    _require();
+    final found = (await _safetyCopies()).isNotEmpty;
+    _check(epoch);
+    return found;
+  });
+
+  Future<String> exportPreviousBackup() => _exclusive((epoch) async {
+    _require();
+    final password = _password!;
+    final recovery = _recovery!;
+    final files = await _safetyCopies();
+    if (files.isEmpty ||
+        await files.first.length() > EnvelopeCodec.maxEnvelopeCharacters) {
+      throw PreviewInvalid();
+    }
+    final saved = await files.first.readAsString();
+    final codec = EnvelopeCodec();
+    final bytes = await codec.openWithPassword(saved, password);
+    if (utf8.decode(await codec.openWithRecovery(saved, recovery)) !=
+        utf8.decode(bytes)) {
+      throw PreviewInvalid();
+    }
+    validatePreviewSnapshot(bytes);
+    _check(epoch);
+    return saved;
+  });
+
+  /// User confirms replacement. Preserve a verified encrypted safety copy first.
+  /// Imported credentials unlock that file only; future exports use this app profile.
+  Future<void> importBackup(
+    String envelope,
+    String credential, {
+    required bool recovery,
+  }) => _exclusive((epoch) async {
+    _require();
+    final codec = EnvelopeCodec();
+    final bytes = recovery
+        ? await codec.openWithRecovery(envelope, credential)
+        : await codec.openWithPassword(envelope, credential);
+    validatePreviewSnapshot(bytes);
+    _check(epoch);
+    final password = _password!;
+    final key = _recovery!;
+    final prior = await _session!.snapshot();
+    final safety = await codec.create(
+      prior,
+      password: password,
+      recoveryKey: key,
+    );
+    final file = File(
+      '${directory.path}/before-restore-${PublicId.generate().value}.envelope',
+    );
+    await file.create(exclusive: true);
+    await file.writeAsString(safety.envelope, flush: true);
+    final saved = await file.readAsString();
+    if (saved != safety.envelope ||
+        utf8.decode(await codec.openWithPassword(saved, password)) !=
+            utf8.decode(prior) ||
+        utf8.decode(await codec.openWithRecovery(saved, key)) !=
+            utf8.decode(prior)) {
+      throw PreviewInvalid();
+    }
+    _check(epoch);
+    await _closeLease();
+    try {
+      // Publication is a bounded atomic operation; backgrounding after acceptance
+      // can finish it, but does not reopen an unlocked UI.
+      await _store!.generations.install(
+        utf8.decode(bytes),
+        OperationId(PublicId.generate()),
+      );
+    } finally {
+      if (_epoch == epoch) await _openLease();
+    }
+    _check(epoch);
+    final spaces = await _session!.workspaces();
+    _check(epoch);
+    if (spaces.isNotEmpty) _workspace = spaces.single;
+  });
+}
+
+({PublicId identity, WorkspaceId workspace, OperationId initialization})
+_profileInfo(List<int> bytes) {
+  final value = jsonDecode(utf8.decode(bytes));
+  if (value is! Map || value.length != 4 || value['version'] != 1) {
+    throw PreviewInvalid();
+  }
+  return (
+    identity: PublicId.parse(value['identity'] as String),
+    workspace: WorkspaceId.parse(value['workspace'] as String),
+    initialization: OperationId.parse(value['initialization'] as String),
+  );
+}
+
+/// Restrict this UI to the subset it can represent; full import validation still
+/// runs on the encrypted stage before publication.
+void validatePreviewSnapshot(List<int> bytes) {
+  final canonical = SnapshotCodec(generationAware: true).canonicalize(bytes);
+  final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
+  final accounts = tables['accounts'] as List;
+  final events = tables['events'] as List;
+  if (accounts.length > LedgerSession.maxAccounts ||
+      events.length > LedgerSession.maxEvents ||
+      accounts.map((a) => a['workspace']).toSet().length > 1 ||
+      events.any(
+        (e) => !['opening', 'income', 'expense'].contains(e['kind']),
+      ) ||
+      (tables['allocations'] as List).isNotEmpty ||
+      (tables['receipts'] as List).length != events.length ||
+      (tables['audit'] as List).length != events.length ||
+      (tables['legs'] as List).length != events.length) {
+    throw PreviewInvalid();
+  }
+}
