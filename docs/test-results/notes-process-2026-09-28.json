@@ -1,0 +1,39 @@
+{
+  "startedUtc": "2026-09-27T22:46:43.735818Z",
+  "cases": [
+    {
+      "checkpoint": "draft-staged",
+      "childExit": 73,
+      "events": 2,
+      "noteRevisions": 1,
+      "balanceMinor": 8000,
+      "status": "passed"
+    },
+    {
+      "checkpoint": "draft-published",
+      "childExit": 73,
+      "events": 2,
+      "noteRevisions": 1,
+      "balanceMinor": 8000,
+      "status": "passed"
+    },
+    {
+      "checkpoint": "draft-prepared",
+      "childExit": 73,
+      "events": 2,
+      "noteRevisions": 1,
+      "balanceMinor": 8000,
+      "status": "passed"
+    },
+    {
+      "checkpoint": "draft-committed",
+      "childExit": 73,
+      "events": 2,
+      "noteRevisions": 1,
+      "balanceMinor": 8000,
+      "status": "passed"
+    }
+  ],
+  "status": "passed",
+  "elapsedMs": 5589
+}

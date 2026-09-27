@@ -21,6 +21,7 @@ Future<void> main(List<String> args) async {
             'fxTransfers',
             'refunds',
             'reversals',
+            'notes',
           ].contains(args[8])))
     exit(64);
   try {
@@ -38,12 +39,15 @@ Future<void> main(List<String> args) async {
       transfersAware: args.length == 9 && args[8] == 'transfers',
       refundsAware: args.length == 9 && args[8] == 'refunds',
       reversalsAware: args.length == 9 && args[8] == 'reversals',
+      notesAware: args.length == 9 && args[8] == 'notes',
       fxTransfersAware: args.length == 9 && args[8] == 'fxTransfers',
     );
     if (args[5] == 'upgrade') {
       final request = UpgradeRequest.decode(File(args[2]).readAsStringSync());
       final credentials = jsonDecode(File(args[3]).readAsStringSync()) as Map;
-      await (store.reversalsAware
+      await (store.notesAware
+          ? upgradeNotes
+          : store.reversalsAware
           ? upgradeReversals
           : store.refundsAware
           ? upgradeRefunds

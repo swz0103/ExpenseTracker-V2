@@ -59,6 +59,9 @@ Future<Set<(String, String)>> validateTagReferences(ProbeDatabase db) async {
       receipt.read<String>('workspace'),
       receipt.read<String>('result_id'),
     );
+    // Note revisions reference the same event but never consume attribution.
+    // Their exact receipt and history are checked by the note validator.
+    if (db.notesAware && input.first == 'note-v1') continue;
     // Metadata commands may share a public ID with a different module.
     if (input.first == 'merchant-v1' && db.merchantsAware) continue;
     if (input.first == 'merchant-post-v1' && db.merchantsAware) {

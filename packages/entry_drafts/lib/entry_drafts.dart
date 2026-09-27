@@ -32,11 +32,36 @@ final class EntryFields {
     this.refundOf,
     this.reversalOf,
     this.reversalReason = '',
+    this.noteOf,
+    this.noteRevision = 0,
+    this.noteText = '',
     this.split = false,
     Iterable<SplitFields> splits = const [],
     Iterable<PublicId> tags = const [],
   }) : tags = List.unmodifiable(tags),
        splits = List.unmodifiable(splits) {
+    NoteChange.validateText(noteText);
+    if ((noteOf == null && (noteRevision != 0 || noteText.isNotEmpty)) ||
+        (noteOf != null &&
+            (noteRevision < 0 ||
+                noteRevision >= 2147483647 ||
+                income ||
+                transfer ||
+                split ||
+                refundOf != null ||
+                reversalOf != null ||
+                accountId != null ||
+                categoryId != null ||
+                merchantId != null ||
+                destinationId != null ||
+                received != null ||
+                fee != '0' ||
+                amount.isNotEmpty ||
+                date.isNotEmpty ||
+                this.splits.isNotEmpty ||
+                this.tags.isNotEmpty))) {
+      throw const FormatException('Invalid note draft fields');
+    }
     if ((reversalOf != null &&
             (income ||
                 transfer ||
@@ -87,12 +112,17 @@ final class EntryFields {
   final List<SplitFields> splits;
   final PublicId? destinationId, refundOf, reversalOf;
   final String reversalReason;
+  final PublicId? noteOf;
+  final int noteRevision;
+  final String noteText;
   final String fee;
   final String? received;
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => reversalOf != null
+  List<Object?> toJson() => noteOf != null
+      ? [noteOf!.value, noteRevision, noteText]
+      : reversalOf != null
       ? [reversalOf!.value, date, reversalReason]
       : refundOf != null
       ? [
@@ -134,7 +164,19 @@ final class EntryFields {
     bool split = false,
     bool refund = false,
     bool reversal = false,
+    bool note = false,
   }) {
+    if (note) {
+      final v = _list(value, 3);
+      return EntryFields(
+        income: false,
+        amount: '',
+        date: '',
+        noteOf: PublicId.parse(v[0] as String),
+        noteRevision: v[1] as int,
+        noteText: v[2] as String,
+      );
+    }
     if (reversal) {
       final v = _list(value, 3);
       return EntryFields(
@@ -347,7 +389,16 @@ final class EntryDraft {
     required this.operation,
     required this.fields,
     this.submission,
+    this.noteSubmission,
   }) {
+    if ((fields.noteOf != null && submission != null) ||
+        (noteSubmission != null &&
+            (submission != null ||
+                fields.noteOf != noteSubmission!.entryId ||
+                fields.noteRevision != noteSubmission!.expectedRevision ||
+                fields.noteText != noteSubmission!.text))) {
+      throw const FormatException('Note submission mismatch');
+    }
     if (submission != null &&
         (fields.transfer !=
                 (submission!.posting.kind == PostingKind.transfer) ||
@@ -371,9 +422,10 @@ final class EntryDraft {
   final OperationKey operation;
   final EntryFields fields;
   final EntrySubmission? submission;
+  final NoteChange? noteSubmission;
+  bool get isPrepared => submission != null || noteSubmission != null;
   EntryDraft edit(EntryFields fields) {
-    if (submission != null)
-      throw StateError('Resolve pending submission first');
+    if (isPrepared) throw StateError('Resolve pending submission first');
     return EntryDraft(id: id, operation: operation, fields: fields);
   }
 
@@ -383,8 +435,16 @@ final class EntryDraft {
     fields: fields,
     submission: command,
   );
+  EntryDraft prepareNote(NoteChange command) => EntryDraft(
+    id: id,
+    operation: operation,
+    fields: fields,
+    noteSubmission: command,
+  );
   String encode() => jsonEncode([
-    fields.reversalOf != null
+    fields.noteOf != null
+        ? 'manual-note-v1'
+        : fields.reversalOf != null
         ? 'manual-reversal-v1'
         : fields.refundOf != null
         ? 'manual-refund-v1'
@@ -399,13 +459,14 @@ final class EntryDraft {
     operation.workspace.toString(),
     operation.operation.toString(),
     fields.toJson(),
-    submission?.toJson(split: fields.split),
+    noteSubmission?.input ?? submission?.toJson(split: fields.split),
   ]);
   factory EntryDraft.decode(String text) {
     if (utf8.encode(text).length > 16384)
       throw const FormatException('Draft too large');
     final v = _list(jsonDecode(text), 6);
     if (![
+      'manual-note-v1',
       'manual-refund-v1',
       'manual-reversal-v1',
       'manual-entry-v1',
@@ -419,6 +480,14 @@ final class EntryDraft {
       WorkspaceId.parse(v[2] as String),
       OperationId.parse(v[3] as String),
     );
+    if (v[0] == 'manual-note-v1') {
+      return EntryDraft(
+        id: id,
+        operation: op,
+        fields: EntryFields.fromJson(v[4], note: true),
+        noteSubmission: v[5] == null ? null : NoteChange.fromInput(v[5]),
+      );
+    }
     return EntryDraft(
       id: id,
       operation: op,

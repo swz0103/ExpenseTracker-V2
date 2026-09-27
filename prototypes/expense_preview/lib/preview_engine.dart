@@ -55,11 +55,11 @@ final class PreviewEngine {
     this.directory,
     this.vault,
     this.factory, {
-    this.schemaVersion = 11,
+    this.schemaVersion = 12,
     this.upgradeCheckpoint,
     this.draftCheckpoint,
   }) {
-    if (![3, 4, 5, 6, 7, 8, 9, 10, 11].contains(schemaVersion)) {
+    if (![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].contains(schemaVersion)) {
       throw ArgumentError('Unknown schema');
     }
   }
@@ -569,6 +569,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       fxTransfersAware: schemaVersion >= 9,
       refundsAware: schemaVersion >= 10,
       reversalsAware: schemaVersion >= 11,
+      notesAware: schemaVersion >= 12,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

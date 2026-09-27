@@ -21,6 +21,13 @@ extension PreviewDrafts on PreviewEngine {
     final session = _session!;
     final draft = await store.read();
     _check(epoch);
+    if (draft?.noteSubmission != null &&
+        await session.noteOperationExists(draft!.operation)) {
+      await session.reviseNote(draft.operation, draft.noteSubmission!);
+      await store.write(null);
+      _check(epoch);
+      return null;
+    }
     if (draft?.submission != null &&
         await session.entry(workspace, draft!.id) != null) {
       // Receipt equality proves this event is exactly our frozen command.
@@ -42,7 +49,8 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if ((fields.reversalOf != null && schemaVersion < 11) ||
+    if ((fields.noteOf != null && schemaVersion < 12) ||
+        (fields.reversalOf != null && schemaVersion < 11) ||
         (fields.refundOf != null && schemaVersion < 10) ||
         (fields.transfer && schemaVersion < 8) ||
         (fields.received != null && schemaVersion < 9) ||
@@ -51,7 +59,7 @@ extension PreviewDrafts on PreviewEngine {
     }
     final prior = await store.read();
     _check(epoch);
-    if (prior?.submission != null) throw DraftNeedsResolution();
+    if (prior?.isPrepared == true) throw DraftNeedsResolution();
     final draft =
         prior?.edit(fields) ??
         EntryDraft(
@@ -80,6 +88,23 @@ extension PreviewDrafts on PreviewEngine {
     var draft = await store.read();
     _check(epoch);
     if (draft == null) throw PreviewInvalid();
+    if (draft.fields.noteOf != null) {
+      if (schemaVersion < 12) throw PreviewInvalid();
+      if (!draft.isPrepared) {
+        final f = draft.fields;
+        draft = draft.prepareNote(
+          NoteChange(f.noteOf!, f.noteRevision, f.noteText),
+        );
+        await store.write(draft);
+        draftCheckpoint?.call('draft-prepared');
+        _check(epoch);
+      }
+      await session.reviseNote(draft.operation, draft.noteSubmission!);
+      draftCheckpoint?.call('draft-committed');
+      await store.write(null);
+      _check(epoch);
+      return;
+    }
     if (draft.submission == null) {
       final fields = draft.fields;
       late EntrySubmission command;
@@ -258,6 +283,41 @@ extension PreviewDrafts on PreviewEngine {
     _check(epoch);
   });
 
+  Future<EntryNote> entryNote(PublicId id) => _exclusive((epoch) async {
+    _require();
+    final note = await _session!.entryNote(workspace, id);
+    _check(epoch);
+    return note;
+  });
+
+  Future<EntryDraft> refreshNoteDraft() => _draftExclusive((epoch) async {
+    final store = _drafts;
+    final draft = await store.read();
+    _check(epoch);
+    if (draft == null ||
+        draft.fields.noteOf == null ||
+        await _session!.noteOperationExists(draft.operation)) {
+      throw DraftNeedsResolution();
+    }
+    final latest = await _session!.entryNote(workspace, draft.fields.noteOf!);
+    _check(epoch);
+    final next = EntryDraft(
+      id: draft.id,
+      operation: draft.operation,
+      fields: EntryFields(
+        income: false,
+        amount: '',
+        date: '',
+        noteOf: draft.fields.noteOf,
+        noteRevision: latest.revision,
+        noteText: draft.fields.noteText,
+      ),
+    );
+    await store.write(next);
+    _check(epoch);
+    return next;
+  });
+
   Future<EntrySubmission> reversalSource(PublicId original) =>
       _exclusive((epoch) async {
         _require();
@@ -348,7 +408,9 @@ extension PreviewDrafts on PreviewEngine {
     final draft = await store.read();
     _check(epoch);
     if (draft == null) throw PreviewInvalid();
-    if (await session.entry(workspace, draft.id) != null) {
+    if (draft.fields.noteOf != null
+        ? await session.noteOperationExists(draft.operation)
+        : await session.entry(workspace, draft.id) != null) {
       throw DraftNeedsResolution();
     }
     _check(epoch);

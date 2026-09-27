@@ -1,5 +1,19 @@
 # 逐項實作進度
 
+## 2026-09-28 本批：交易備註修訂與安全恢復
+
+由已核對上傳的 [PR #60](https://github.com/swz0103/ExpenseTracker-V2/pull/60)（完整 head 56743aa150cb33dd7054a87327e008c3498dd19c）建立 feat/transaction-notes，完成[純文字備註與修訂](transaction-notes.md)：每筆交易可保存／清空備註、預期版本衝突拒絕、完整修訂活動、加密草稿及提交後中斷恢復。文字修改不改金融事件與餘額；隱私模式遮蔽列表／活動備註，鎖定清除編輯畫面。
+
+回查修正原始入帳收據辨識：精確匹配財務 kind，避免備註 audit 被誤認成金融收據。草稿、operation transaction、staged upgrade 沿用既有流程；相鄰升級測試共用 fixture。schema 12／snapshot 11 保存完整修訂鏈，11→12 先以密碼與救援文字各自驗證安全副本，再切換並保留舊 DB／key。
+
+固定來源的**完整 18 套件、869 個獨立主機案例**通過，新增 23 個；[主機證據](test-results/notes-host-2026-09-28.json)保存逐套件結果、來源雜湊及開發期修正。含 11 處真實升級程序退出、ACID 逐點回滾、超長／無效 Unicode、衝突與重試、竄改／缺漏還原拒絕、320px 大字體與鎖定 UI。
+
+[5,000 筆交易＋5,000 次備註修訂](test-results/notes-scale-2026-09-28.json)及 9,999 次重播通過；snapshot 8,635,238 bytes、35,002 rows，獨立核對餘額、上限拒絕、完整交易／活動分頁，刪除合成來源 DB／keys 後密碼與救援各自乾淨還原。[四處草稿程序退出](test-results/notes-process-2026-09-28.json)亦通過。[0.16.0+20 開發包](installable-preview.md)僅留本機，未安裝／發布。
+
+以依賴 #60 的功能 PR 交付私人 V2；兩個 workflow 維持停用，無新雲端測試。提交後另核對本機／遠端／PR 完整 SHA 與所有本機提交涵蓋；未合併 main，未清理待雲端 gate 的分支。
+
+**下一流程**：M1-04 財務更正／替代與 tombstone，保留已有退款／撤銷依賴限制，再接搜尋報表、CSV／JSON、M2、M3。備註修訂不代表完整財務更正或 M1 gate 已完成；實機 gate 保留，沒有需使用者先處理的主機開發阻礙。
+
 ## 2026-09-28 接續：完整反向撤銷與安全升級
 
 由已核對上傳的 [PR #59](https://github.com/swz0103/ExpenseTracker-V2/pull/59)（完整 head 0b8ba69471d156f93c1be6931b9eb6db931a8401）建立 feat/financial-reversals，完成[正式撤銷](financial-reversals.md)：收入、支出、同幣／跨幣轉帳與原手續費逐項抵銷，保留原交易及歷史歸屬，活動串接兩筆。已有退款／撤銷的來源互斥拒絕，重試不重複入帳；提供金額影響、日期／原因、確認與可恢復加密草稿。

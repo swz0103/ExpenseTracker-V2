@@ -25,6 +25,7 @@ final class LedgerEntry {
     this.reversalOf,
     this.reversedBy,
     this.reversalReason,
+    this.note = const EntryNote(0, ''),
   });
   final PublicId id;
   final BusinessDate date;
@@ -40,6 +41,7 @@ final class LedgerEntry {
   final Money? refunded;
   final PublicId? reversalOf, reversedBy;
   final String? reversalReason;
+  final EntryNote note;
 }
 
 /// Exclusive, bounded command scope. No public SQL or database handle.
@@ -47,6 +49,7 @@ final class LedgerEntry {
 final class LedgerSession {
   LedgerSession._(this._db);
   static const maxEvents = 5000;
+  static const maxNoteChanges = 5000;
   static const maxAccounts = 32;
   static const maxCategories = 256;
   static const maxCategoryChanges = 1024;
@@ -112,6 +115,7 @@ final class LedgerSession {
         fxTransfersAware: _db.fxTransfersAware,
         refundsAware: _db.refundsAware,
         reversalsAware: _db.reversalsAware,
+        notesAware: _db.notesAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -121,6 +125,7 @@ final class LedgerSession {
       fxTransfersAware: _db.fxTransfersAware,
       refundsAware: _db.refundsAware,
       reversalsAware: _db.reversalsAware,
+      notesAware: _db.notesAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -245,6 +250,8 @@ final class LedgerSession {
       'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,'
       'd.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee,'
       'e.currency AS report_currency,e.scale AS report_scale,'
+      "${_db.notesAware ? '(SELECT text FROM event_note_revisions n WHERE n.workspace=e.workspace AND n.event_id=e.id ORDER BY revision DESC LIMIT 1)' : 'NULL'} AS note_text,"
+      "${_db.notesAware ? '(SELECT revision FROM event_note_revisions n WHERE n.workspace=e.workspace AND n.event_id=e.id ORDER BY revision DESC LIMIT 1)' : 'NULL'} AS note_revision,"
       '${_db.refundsAware ? 'r.original_id' : 'NULL'} AS refund_of,'
       '${_db.reversalsAware ? 'v.original_id' : 'NULL'} AS reversal_of,'
       '${_db.reversalsAware ? 'v.reason' : 'NULL'} AS reversal_reason,'
@@ -306,6 +313,7 @@ final class LedgerSession {
       fxTransfersAware: _db.fxTransfersAware,
       refundsAware: _db.refundsAware,
       reversalsAware: _db.reversalsAware,
+      notesAware: _db.notesAware,
     ).capture(_db),
   );
 
@@ -341,6 +349,10 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
       ? null
       : PublicId.parse(r.read<String>('reversed_by')),
   reversalReason: r.readNullable<String>('reversal_reason'),
+  note: EntryNote(
+    r.readNullable<int>('note_revision') ?? 0,
+    r.readNullable<String>('note_text') ?? '',
+  ),
   refundOf: r.readNullable<String>('refund_of') == null
       ? null
       : PublicId.parse(r.read<String>('refund_of')),

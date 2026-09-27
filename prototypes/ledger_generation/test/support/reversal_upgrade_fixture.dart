@@ -19,7 +19,8 @@ Map reversalTables(List<int> bytes) =>
     (jsonDecode(utf8.decode(bytes)) as Map)['tables'] as Map;
 
 final class ReversalUpgradeFixture {
-  ReversalUpgradeFixture(this.directory);
+  ReversalUpgradeFixture(this.directory, {this.notes = false});
+  final bool notes;
   final Directory directory;
   final workspace = WorkspaceId(PublicId.generate());
   final tag = PublicId.generate();
@@ -60,7 +61,8 @@ final class ReversalUpgradeFixture {
     transfersAware: true,
     fxTransfersAware: true,
     refundsAware: true,
-    reversalsAware: reversals,
+    reversalsAware: notes || reversals,
+    notesAware: notes && reversals,
   );
   LedgerStore target(String name) {
     final slots = FixtureKeySlots(Directory('${directory.path}/$name-keys'));
@@ -69,6 +71,7 @@ final class ReversalUpgradeFixture {
       slots,
       catalogProtection: fixtureCatalogProtection(slots),
       reversalsAware: true,
+      notesAware: notes,
     );
   }
 
@@ -185,8 +188,11 @@ final class ReversalUpgradeFixture {
 
   Future<void> plan() async {
     before = await store().snapshot();
-    expected = SnapshotCodec(reversalsAware: true).canonicalize(before);
-    request = await planReversalUpgrade(
+    expected = SnapshotCodec(
+      reversalsAware: true,
+      notesAware: notes,
+    ).canonicalize(before);
+    request = await (notes ? planNoteUpgrade : planReversalUpgrade)(
       store(),
       reversalOperation(),
       PublicId.generate(),
@@ -196,7 +202,7 @@ final class ReversalUpgradeFixture {
   File get backupFile =>
       File('${backups.path}/${request.backupId.value}.envelope');
   Future<UpgradeReceipt> upgrade({void Function(String)? checkpoint}) =>
-      upgradeReversals(
+      (notes ? upgradeNotes : upgradeReversals)(
         store(),
         request,
         backups,
@@ -223,7 +229,7 @@ final class ReversalUpgradeFixture {
       'upgrade',
       checkpoint,
       '${directory.absolute.path}/upgraded.json',
-      'reversals',
+      notes ? 'notes' : 'reversals',
     ]);
   }
 }

@@ -18,6 +18,8 @@ import 'package:modular_persistence_probe/merchant_reference_validation.dart';
 import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
+import 'package:modular_persistence_probe/notes_adapter.dart';
+
 part 'refund_snapshot.dart';
 part 'reversal_snapshot.dart';
 
@@ -61,6 +63,7 @@ const _integers = {
   'tag_sequence',
   'merchant_version',
   'merchant_sequence',
+  'revision',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -83,24 +86,33 @@ final class SnapshotCodec {
     bool transfersAware = false,
     bool fxTransfersAware = false,
     bool refundsAware = false,
-    this.reversalsAware = false,
-  }) : refundsAware = refundsAware || reversalsAware,
-       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+    bool reversalsAware = false,
+    this.notesAware = false,
+  }) : reversalsAware = reversalsAware || notesAware,
+       refundsAware = refundsAware || reversalsAware || notesAware,
+       fxTransfersAware =
+           fxTransfersAware || refundsAware || reversalsAware || notesAware,
        transfersAware =
-           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware ||
+           notesAware,
        merchantsAware =
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
-           reversalsAware,
+           reversalsAware ||
+           notesAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
-           reversalsAware,
+           reversalsAware ||
+           notesAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
@@ -108,7 +120,8 @@ final class SnapshotCodec {
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
-           reversalsAware,
+           reversalsAware ||
+           notesAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -117,7 +130,8 @@ final class SnapshotCodec {
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
-           reversalsAware,
+           reversalsAware ||
+           notesAware,
        generationAware =
            generationAware ||
            categoryAware ||
@@ -127,7 +141,8 @@ final class SnapshotCodec {
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
-           reversalsAware;
+           reversalsAware ||
+           notesAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
@@ -137,11 +152,13 @@ final class SnapshotCodec {
   final bool fxTransfersAware;
   final bool refundsAware;
   final bool reversalsAware;
+  final bool notesAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
     if (refundsAware) 'event_refunds': refundColumns,
     if (reversalsAware) 'event_reversals': reversalColumns,
+    if (notesAware) 'event_note_revisions': noteColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -153,7 +170,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => reversalsAware
+  int get _formatVersion => notesAware
+      ? 11
+      : reversalsAware
       ? 10
       : refundsAware
       ? 9
@@ -168,7 +187,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => reversalsAware
+  int get _schemaVersion => notesAware
+      ? 12
+      : reversalsAware
       ? 11
       : refundsAware
       ? 10
@@ -196,6 +217,7 @@ final class SnapshotCodec {
     if (fxTransfersAware) 'ledger_fx_transfers': 1,
     if (refundsAware) 'ledger_refunds': 1,
     if (reversalsAware) 'ledger_reversals': 1,
+    if (notesAware) 'ledger_notes': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -332,7 +354,8 @@ final class SnapshotCodec {
               (refundsAware && root['version'] == 9 && root['schema'] == 10) ||
               (reversalsAware &&
                   root['version'] == 10 &&
-                  root['schema'] == 11)))
+                  root['schema'] == 11) ||
+              (notesAware && root['version'] == 11 && root['schema'] == 12)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -348,6 +371,7 @@ final class SnapshotCodec {
         if (root['version'] >= 8) 'ledger_fx_transfers': 1,
         if (root['version'] >= 9) 'ledger_refunds': 1,
         if (root['version'] >= 10) 'ledger_reversals': 1,
+        if (root['version'] >= 11) 'ledger_notes': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -359,6 +383,7 @@ final class SnapshotCodec {
         if (root['version'] >= 8) 'event_fx': fxTransferColumns,
         if (root['version'] >= 9) 'event_refunds': refundColumns,
         if (root['version'] >= 10) 'event_reversals': reversalColumns,
+        if (root['version'] >= 11) 'event_note_revisions': noteColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -419,9 +444,18 @@ final class SnapshotCodec {
         transfersAware != db.transfersAware ||
         fxTransfersAware != db.fxTransfersAware ||
         refundsAware != db.refundsAware ||
-        reversalsAware != db.reversalsAware)
+        reversalsAware != db.reversalsAware ||
+        notesAware != db.notesAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
+    var noteOperations = <(String, String)>{};
+    if (notesAware) {
+      try {
+        noteOperations = await validateNoteHistory(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
     var categoryOperations = <(String, String)>{};
     if (categoryAware) {
       try {
@@ -743,7 +777,7 @@ final class SnapshotCodec {
       UNION ALL SELECT e.id FROM events e LEFT JOIN
       (SELECT r.workspace,r.result_id,COUNT(*) AS n FROM receipts r
        JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id
-       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' AND a.kind NOT LIKE 'merchant.%' GROUP BY r.workspace,r.result_id) counts
+       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' AND a.kind NOT LIKE 'merchant.%' AND a.kind!='ledger.note' GROUP BY r.workspace,r.result_id) counts
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
@@ -762,6 +796,7 @@ final class SnapshotCodec {
             if (fxTransfersAware) 'fx-posting-v1',
             if (refundsAware) 'refund-posting-v1',
             if (reversalsAware) 'reversal-posting-v1',
+            if (notesAware) 'note-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
             if (categoryAware) 'category-v1',
@@ -774,6 +809,11 @@ final class SnapshotCodec {
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'note-v1') {
+        if (!noteOperations.remove((ws, row.read<String>('operation_id'))))
+          throw const InvalidSnapshot();
+        continue;
+      }
       if (input.first == 'merchant-v1') {
         if (!merchantOperations.remove((ws, row.read<String>('operation_id'))))
           throw const InvalidSnapshot();
@@ -953,7 +993,8 @@ final class SnapshotCodec {
     }
     if (categoryOperations.isNotEmpty ||
         tagOperations.isNotEmpty ||
-        merchantOperations.isNotEmpty)
+        merchantOperations.isNotEmpty ||
+        noteOperations.isNotEmpty)
       throw const InvalidSnapshot();
     for (final row
         in await db.customSelect('SELECT recorded_at FROM audit').get()) {

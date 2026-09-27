@@ -9,7 +9,8 @@ enum _LedgerUpgrade {
   transfers(7, 8, 'ledger-7-to-8-v1'),
   fxTransfers(8, 9, 'ledger-8-to-9-v1'),
   refunds(9, 10, 'ledger-9-to-10-v1'),
-  reversals(10, 11, 'ledger-10-to-11-v1');
+  reversals(10, 11, 'ledger-10-to-11-v1'),
+  notes(11, 12, 'ledger-11-to-12-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -23,6 +24,7 @@ enum _LedgerUpgrade {
     fxTransfersAware: to >= 9,
     refundsAware: to >= 10,
     reversalsAware: to >= 11,
+    notesAware: to >= 12,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -38,6 +40,7 @@ enum _LedgerUpgrade {
       fxTransfersAware: from >= 9,
       refundsAware: from >= 10,
       reversalsAware: from >= 11,
+      notesAware: from >= 12,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -49,7 +52,8 @@ enum _LedgerUpgrade {
         store.transfersAware != (to >= 8) ||
         store.fxTransfersAware != (to >= 9) ||
         store.refundsAware != (to >= 10) ||
-        store.reversalsAware != (to >= 11)) {
+        store.reversalsAware != (to >= 11) ||
+        store.notesAware != (to >= 12)) {
       throw const InvalidSnapshot();
     }
   }
@@ -373,6 +377,37 @@ Future<UpgradeReceipt> upgradeReversals(
   request,
   backupDirectory,
   _LedgerUpgrade.reversals,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+Future<UpgradeRequest> planNoteUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.notes,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeNotes(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.notes,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

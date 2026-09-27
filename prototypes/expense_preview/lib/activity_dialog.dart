@@ -77,14 +77,28 @@ class _ActivityDialogState extends State<_ActivityDialog> {
   Widget _item(LedgerActivity row) {
     final e = row.entry;
     return Padding(
-      key: ValueKey('activity-row-${e.id}'),
+      key: ValueKey(
+        row.noteRevision == null
+            ? 'activity-row-${e.id}'
+            : 'activity-row-${row.key}',
+      ),
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('記錄時間：${_recorded(row.recordedAt)}（本機時區）'),
           if (e.id == widget.selected) const Text('目前選取的交易'),
-          if (e.kind == PostingKind.reversal)
+          if (row.noteRevision != null) ...[
+            Text('備註修訂 #${row.noteRevision!.revision}'),
+            Text(
+              widget.privacy == PrivacyMode.hidden
+                  ? '備註已隱藏'
+                  : (row.noteRevision!.text.isEmpty
+                        ? '已清除備註'
+                        : row.noteRevision!.text),
+            ),
+            const Text('不影響餘額'),
+          ] else if (e.kind == PostingKind.reversal)
             _reversalSummary(e, _account, widget.privacy)
           else if (e.kind == PostingKind.transfer)
             TransferSummary(
@@ -102,7 +116,8 @@ class _ActivityDialogState extends State<_ActivityDialog> {
               kind: MoneyKind.transaction,
               moneyKey: ValueKey('activity-money-${e.id}'),
             ),
-          if (e.refunded != null &&
+          if (row.noteRevision == null &&
+              e.refunded != null &&
               e.refunded!.currency != e.amount.currency) ...[
             const Text('原幣沖回'),
             MoneyView(

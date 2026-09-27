@@ -92,7 +92,7 @@ Future<ReversalSourceRecord> readReversalSource(
   ];
   final receipt = await db
       .customSelect(
-        "SELECT r.operation_id FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE r.workspace=? AND r.result_id=? AND a.kind LIKE 'ledger.%'",
+        "SELECT r.operation_id FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE r.workspace=? AND r.result_id=? AND a.kind=(SELECT 'ledger.'||kind FROM events WHERE workspace=r.workspace AND id=r.result_id)",
         variables: args,
       )
       .getSingle();

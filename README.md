@@ -6,6 +6,8 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [交易純文字備註、修訂與衝突處理](docs/transaction-notes.md)
+
 - [完整交易撤銷與安全升級](docs/financial-reversals.md)
 - [原支出退款與可恢復送出](docs/refunds.md)
 - [多分類拆分與可恢復草稿](docs/split-entry-drafts.md)

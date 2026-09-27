@@ -1,8 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.16.0 備註修訂
+
+**2026-09-28 最新開發包**：0.16.0+20 接入[備註修訂](transaction-notes.md)、可恢復加密草稿、活動及 V2 schema 11→12 安全升級／snapshot 11。
+
+- 本機檔案：build/deliverables/ExpenseTracker-V2-development-0.16.0-arm64.apk，94,679,591 bytes。
+- SHA-256：d81106a29c96bf9e933edfae7a00787d6b4f7e9427f2e9d62e7120e9320b2ad2。
+- App ID dev.expensetracker.preview，versionCode 20／versionName 0.16.0，min API 24／target API 36、APK v2 簽章、allowBackup=false、ARM64 Flutter／SQLCipher 均核對。
+- [完整 18 套件／869 主機案例](test-results/notes-host-2026-09-28.json)、[大量資料與雙路乾淨還原](test-results/notes-scale-2026-09-28.json)、[四處草稿程序退出](test-results/notes-process-2026-09-28.json)通過。
+- APK／金鑰不上傳；未安裝、未發布，雲端、實機與其餘 CORE gate 保留。
+
 ## 0.15.0 正式撤銷
 
-**2026-09-28 最新開發包**：0.15.0+19 接入[完整反向撤銷](financial-reversals.md)、確認／加密草稿、活動關聯，以及 V2 schema 10 → 11 安全升級／snapshot 10。
+**2026-09-28 歷史開發包**：0.15.0+19 接入[完整反向撤銷](financial-reversals.md)、確認／加密草稿、活動關聯，以及 V2 schema 10 → 11 安全升級／snapshot 10。
 
 - 本機檔案：build/deliverables/ExpenseTracker-V2-development-0.15.0-arm64.apk，94,655,155 bytes。
 - SHA-256：1ead1d86b558715af70fc181fb7eae5aa27ece7eace55d7ea96e6b6028cd5f13。

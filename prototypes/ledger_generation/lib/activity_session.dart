@@ -9,15 +9,23 @@ final class LedgerActivityCursor {
     this._id,
   );
   final WorkspaceId _workspace;
-  final PublicId _root, _id;
+  final PublicId _root;
+  final String _id;
   final String _time;
 }
 
 final class LedgerActivity {
-  const LedgerActivity._(this.entry, this.recordedAt, this.cursor);
+  const LedgerActivity._(
+    this.entry,
+    this.recordedAt,
+    this.cursor,
+    this.noteRevision,
+  );
   final LedgerEntry entry;
   final UtcInstant recordedAt;
   final LedgerActivityCursor cursor;
+  final EntryNote? noteRevision;
+  String get key => cursor._id;
 }
 
 /// Audit timestamps accept 0..6 fractional digits. Normalize before lexical
@@ -58,18 +66,22 @@ extension ActivitySession on LedgerSession {
         (before._workspace != workspace || before._root != root)) {
       throw ArgumentError('Activity cursor belongs to another transaction.');
     }
+    final key =
+        "CASE WHEN a.kind='ledger.note' THEN 'n:'||a.operation_id ELSE 'e:'||e.id END";
     final query = _entrySelect.replaceFirst(
       'SELECT e.id',
-      'SELECT a.recorded_at AS activity_recorded_at,($_activityTime) AS activity_time,e.id',
+      'SELECT a.recorded_at AS activity_recorded_at,($_activityTime) AS activity_time,($key) AS activity_key,'
+          '${_db.notesAware ? "n.text" : "NULL"} AS revision_text,${_db.notesAware ? "n.revision" : "NULL"} AS revision_number,e.id',
     );
     final rows = await _db
         .customSelect(
           query +
               "JOIN audit a ON a.workspace=e.workspace AND a.entity_id=e.id "
-                  "AND (a.kind='ledger.'||e.kind OR (e.kind='opening' AND a.kind='account.open')) "
+                  "AND (a.kind='ledger.'||e.kind OR (e.kind='opening' AND a.kind='account.open') ${_db.notesAware ? "OR a.kind='ledger.note'" : ''}) "
+                  "${_db.notesAware ? 'LEFT JOIN event_note_revisions n ON n.workspace=a.workspace AND n.operation_id=a.operation_id ' : ''}"
                   "WHERE e.workspace=? AND (e.id=? ${_db.refundsAware ? 'OR r.original_id=?' : ''} ${_db.reversalsAware ? 'OR v.original_id=?' : ''}) "
-                  "${before == null ? '' : 'AND (($_activityTime)< ? OR (($_activityTime)=? AND e.id<?))'} "
-                  'ORDER BY activity_time DESC,e.id DESC LIMIT ?',
+                  "${before == null ? '' : 'AND (($_activityTime)< ? OR (($_activityTime)=? AND ($key)<?))'} "
+                  'ORDER BY activity_time DESC,activity_key DESC LIMIT ?',
           variables: [
             Variable.withString(workspace.toString()),
             Variable.withString(root.value),
@@ -78,7 +90,7 @@ extension ActivitySession on LedgerSession {
             if (before != null) ...[
               Variable.withString(before._time),
               Variable.withString(before._time),
-              Variable.withString(before._id.value),
+              Variable.withString(before._id),
             ],
             Variable.withInt(limit),
           ],
@@ -94,8 +106,14 @@ extension ActivitySession on LedgerSession {
             workspace,
             root,
             row.read<String>('activity_time'),
-            entry.id,
+            row.read<String>('activity_key'),
           ),
+          row.readNullable<int>('revision_number') == null
+              ? null
+              : EntryNote(
+                  row.read<int>('revision_number'),
+                  row.read<String>('revision_text'),
+                ),
         );
       }),
     );

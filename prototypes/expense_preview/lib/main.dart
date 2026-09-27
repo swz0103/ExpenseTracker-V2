@@ -8,6 +8,7 @@ import 'package:categories/categories.dart';
 import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInputFormatter;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
@@ -26,6 +27,7 @@ part 'category_screen.dart';
 part 'split_entry.dart';
 part 'refund_entry.dart';
 part 'reversal_entry.dart';
+part 'note_entry.dart';
 part 'activity_dialog.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
@@ -151,6 +153,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _transfer = false;
   RefundStatus? _refund;
   EntrySubmission? _reversal;
+  PublicId? _noteTarget;
+  int _noteRevision = 0;
+  final _noteText = TextEditingController();
   final _reversalReason = TextEditingController();
   PublicId? _destinationId;
   final _date = TextEditingController();
@@ -186,7 +191,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Object? _draftSaveError;
   int _viewEpoch = 0, _draftWrites = 0;
   bool get _postingFrozen =>
-      _page == _Page.posting && _entryDraft?.submission != null;
+      _page == _Page.posting && _entryDraft?.isPrepared == true;
 
   @override
   void initState() {
@@ -228,6 +233,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _fee,
       _received,
       _reversalReason,
+      _noteText,
       _date,
       _credential,
     ]) {
@@ -236,6 +242,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _resetSplits();
     _refund = null;
     _reversal = null;
+    _noteTarget = null;
+    _noteRevision = 0;
+    _noteText.clear();
     _reversalReason.clear();
     _draft = null;
     _saved = false;
@@ -313,6 +322,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _fee,
       _received,
       _reversalReason,
+      _noteText,
       _date,
       _credential,
     ]) {
@@ -440,6 +450,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _resetSplits();
       _refund = null;
       _reversal = null;
+      _noteTarget = null;
+      _noteRevision = 0;
+      _noteText.clear();
       _reversalReason.clear();
       _page = page;
       _transfer = transfer;
@@ -516,13 +529,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     });
   });
 
+  void _changeNote(VoidCallback change) => setState(change);
+
   void _changeSplit(VoidCallback change) => setState(change);
 
   void _queueDraft() {
     if (_page != _Page.posting || _postingFrozen) return;
     final epoch = _viewEpoch;
     final engine = _engine!;
-    final fields = _reversal != null
+    final fields = _noteTarget != null
+        ? EntryFields(
+            income: false,
+            amount: '',
+            date: '',
+            noteOf: _noteTarget,
+            noteRevision: _noteRevision,
+            noteText: _noteText.text,
+          )
+        : _reversal != null
         ? EntryFields(
             income: false,
             amount: '',
@@ -583,6 +607,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     final fields = saved.fields;
+    if (fields.noteOf != null) {
+      _resumeNote(saved);
+      return;
+    }
     if (fields.reversalOf != null) {
       await _resumeReversal(saved);
       return;
@@ -1125,7 +1153,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
       case _Page.posting:
         return [
-          if (_reversal != null)
+          if (_noteTarget != null)
+            ..._noteInputs()
+          else if (_reversal != null)
             ..._reversalInputs()
           else if (_refund != null)
             ..._refundInputs()
@@ -1352,13 +1382,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : _entryDraft == null
                 ? '輸入後會自動保存本機草稿。'
                 : _postingFrozen
-                ? '上次送出尚待確認；欄位暫時鎖定，避免重複入帳。'
+                ? '上次送出尚待確認；欄位暫時鎖定，避免重複儲存。'
                 : '草稿已加密保存；尚未影響餘額。',
             key: const Key('draft-status'),
           ),
           _button(
             _postingFrozen
                 ? '確認上次送出'
+                : _noteTarget != null
+                ? '儲存備註'
                 : _reversal != null
                 ? '撤銷這筆交易'
                 : _refund != null
@@ -1490,107 +1522,117 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           for (final e in _entries)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: e.kind == PostingKind.reversal
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _reversalSummary(e, _accountName, _privacy),
-                        TextButton(
-                          onPressed: _busy ? null : () => _showActivity(e.id),
-                          child: const Text('查看活動'),
-                        ),
-                      ],
-                    )
-                  : e.kind == PostingKind.transfer
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
-                        if (e.reversedBy == null &&
-                            _engine!.schemaVersion >= 11)
-                          TextButton(
-                            key: ValueKey('entry-reverse-${e.id}'),
-                            onPressed: _busy
-                                ? null
-                                : () => _startReversal(e.id),
-                            child: const Text('撤銷交易'),
-                          ),
-                        TransferSummary(
-                          entry: e,
-                          source: _accountName(e.accountId),
-                          destination: _accountName(e.destinationId),
-                          privacy: _privacy,
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            key: ValueKey('entry-activity-${e.id}'),
-                            onPressed: _busy ? null : () => _showActivity(e.id),
-                            child: const Text('查看活動'),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        FinancialSummary(
-                          title:
-                              '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
-                          subtitle:
-                              '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_allocationLabel(e.id)}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
-                          money: e.amount,
-                          privacy: _privacy,
-                          kind: MoneyKind.transaction,
-                          moneyKey: ValueKey('entry-money-${e.id.value}'),
-                          action: PopupMenuButton<String>(
-                            key: ValueKey('entry-actions-${e.id}'),
-                            tooltip: '交易操作',
-                            enabled: !_busy,
-                            onSelected: (action) => switch (action) {
-                              'activity' => _showActivity(e.id),
-                              'refund' => _startRefund(e.id),
-                              'reversal' => _startReversal(e.id),
-                              _ => _copyPosting(e.id),
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'activity',
-                                child: Text('查看活動'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  e.kind == PostingKind.reversal
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _reversalSummary(e, _accountName, _privacy),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _showActivity(e.id),
+                              child: const Text('查看活動'),
+                            ),
+                          ],
+                        )
+                      : e.kind == PostingKind.transfer
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
+                            if (e.reversedBy == null &&
+                                _engine!.schemaVersion >= 11)
+                              TextButton(
+                                key: ValueKey('entry-reverse-${e.id}'),
+                                onPressed: _busy
+                                    ? null
+                                    : () => _startReversal(e.id),
+                                child: const Text('撤銷交易'),
                               ),
-                              if (_engine!.schemaVersion >= 11 &&
-                                  e.reversedBy == null &&
-                                  [
+                            TransferSummary(
+                              entry: e,
+                              source: _accountName(e.accountId),
+                              destination: _accountName(e.destinationId),
+                              privacy: _privacy,
+                            ),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                key: ValueKey('entry-activity-${e.id}'),
+                                onPressed: _busy
+                                    ? null
+                                    : () => _showActivity(e.id),
+                                child: const Text('查看活動'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            FinancialSummary(
+                              title:
+                                  '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
+                              subtitle:
+                                  '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_allocationLabel(e.id)}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
+                              money: e.amount,
+                              privacy: _privacy,
+                              kind: MoneyKind.transaction,
+                              moneyKey: ValueKey('entry-money-${e.id.value}'),
+                              action: PopupMenuButton<String>(
+                                key: ValueKey('entry-actions-${e.id}'),
+                                tooltip: '交易操作',
+                                enabled: !_busy,
+                                onSelected: (action) => switch (action) {
+                                  'activity' => _showActivity(e.id),
+                                  'refund' => _startRefund(e.id),
+                                  'reversal' => _startReversal(e.id),
+                                  _ => _copyPosting(e.id),
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(
+                                    value: 'activity',
+                                    child: Text('查看活動'),
+                                  ),
+                                  if (_engine!.schemaVersion >= 11 &&
+                                      e.reversedBy == null &&
+                                      [
+                                        PostingKind.income,
+                                        PostingKind.expense,
+                                      ].contains(e.kind))
+                                    const PopupMenuItem(
+                                      value: 'reversal',
+                                      child: Text('撤銷交易'),
+                                    ),
+                                  if ([
                                     PostingKind.income,
                                     PostingKind.expense,
                                   ].contains(e.kind))
-                                const PopupMenuItem(
-                                  value: 'reversal',
-                                  child: Text('撤銷交易'),
-                                ),
-                              if ([
-                                PostingKind.income,
-                                PostingKind.expense,
-                              ].contains(e.kind))
-                                const PopupMenuItem(
-                                  value: 'copy',
-                                  child: Text('再記一筆類似交易'),
-                                ),
-                              if (e.kind == PostingKind.expense &&
-                                  _engine!.schemaVersion >= 10 &&
-                                  e.reversedBy == null)
-                                const PopupMenuItem(
-                                  value: 'refund',
-                                  child: Text('記錄退款'),
-                                ),
-                            ],
-                          ),
+                                    const PopupMenuItem(
+                                      value: 'copy',
+                                      child: Text('再記一筆類似交易'),
+                                    ),
+                                  if (e.kind == PostingKind.expense &&
+                                      _engine!.schemaVersion >= 10 &&
+                                      e.reversedBy == null)
+                                    const PopupMenuItem(
+                                      value: 'refund',
+                                      child: Text('記錄退款'),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
+                            if (e.refundOf != null) ..._refundDetails(e),
+                            ..._splitDetails(e.id),
+                          ],
                         ),
-                        if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
-                        if (e.refundOf != null) ..._refundDetails(e),
-                        ..._splitDetails(e.id),
-                      ],
-                    ),
+                  if (_engine!.schemaVersion >= 12) ..._noteSummary(e),
+                ],
+              ),
             ),
           if (_hasMore)
             TextButton(
@@ -1613,7 +1655,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。金額更正／刪除與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -1630,6 +1672,10 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  NoteException(code: NoteError.conflict) => '備註已有新版本。請查看活動，再讀取最新版本並確認你的草稿。',
+  NoteException(code: NoteError.unchanged) => '備註內容沒有變更；可返回編輯或捨棄草稿。',
+  NoteException() => '備註格式或交易不符；最多 1024 個字元。',
+
   LedgerException(code: LedgerError.reversalDependency) =>
     '交易已有退款或撤銷紀錄，無法再次撤銷或退款。',
   LedgerException(code: LedgerError.reversalReference) =>
