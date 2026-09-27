@@ -70,6 +70,7 @@ final class Posting {
     required List<LedgerLeg> legs,
     required this.reportIncome,
     required this.reportExpense,
+    this.conversion,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -147,19 +148,25 @@ final class Posting {
     required PostingAccount source,
     required PostingAccount destination,
     required Money principal,
+    Money? received,
     Money? fee,
   }) {
+    final incoming = received ?? principal;
     _participation(operation, source, principal);
-    _participation(operation, destination, principal);
+    _participation(operation, destination, incoming);
     _positive(principal);
+    _positive(incoming);
     if (source.id == destination.id)
       throw const LedgerException(LedgerError.sameAccount);
+    final cross = source.currency != destination.currency;
+    if ((!cross && incoming != principal) ||
+        (cross && source.currency.code == destination.currency.code))
+      throw const LedgerException(LedgerError.currencyMismatch);
     final charge = fee ?? Money(source.currency, BigInt.zero);
     if (charge.currency != principal.currency)
       throw const LedgerException(LedgerError.currencyMismatch);
     if (charge.minorUnits < BigInt.zero)
       throw const LedgerException(LedgerError.invalidAmount);
-    // The combined source movement must also fit the persisted amount range.
     principal + charge;
     return Posting._(
       id: id,
@@ -168,12 +175,13 @@ final class Posting {
       kind: PostingKind.transfer,
       legs: [
         LedgerLeg._(source, -principal, LegRole.principal),
-        LedgerLeg._(destination, principal, LegRole.principal),
+        LedgerLeg._(destination, incoming, LegRole.principal),
         if (charge.minorUnits != BigInt.zero)
           LedgerLeg._(source, -charge, LegRole.fee),
       ],
       reportIncome: Money(source.currency, BigInt.zero),
       reportExpense: charge,
+      conversion: cross ? ActualConversion(principal, incoming) : null,
     );
   }
 
@@ -185,6 +193,7 @@ final class Posting {
   final List<Allocation> allocations;
   final Money reportIncome;
   final Money reportExpense;
+  final ActualConversion? conversion;
 }
 
 void _participation(
@@ -236,4 +245,20 @@ Money rebuildBalance(PostingAccount account, Iterable<Posting> committed) {
     }
   }
   return Money(account.currency, total);
+}
+
+/// Actual principals are authoritative. This is not a provider observation;
+/// fees and presentation rounding never change its exact relationship.
+final class ActualConversion {
+  ActualConversion(Money sent, Money received)
+    : rate = FxRate.fromAmounts(sent, received) {
+    if (sent.currency.code == received.currency.code)
+      throw const LedgerException(LedgerError.currencyMismatch);
+  }
+  final FxRate rate;
+  Map<String, Object> toJson() => {
+    'version': 1,
+    'basis': 'actual-principals-v1',
+    'rate': rate.toJson(),
+  };
 }

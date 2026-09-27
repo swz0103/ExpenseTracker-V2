@@ -5,6 +5,7 @@ part of 'ledger_store.dart';
 const _rowByteLimits = <String, int>{
   'accounts': 4096,
   'events': 512,
+  'event_fx': 1024,
   'legs': 512,
   'openings': 512,
   'allocations': 512,
@@ -25,9 +26,11 @@ Map<String, int> _tableLimits(
   bool tags,
   bool merchants,
   bool transfers,
+  bool fxTransfers,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
+  if (fxTransfers) 'event_fx': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -62,6 +65,7 @@ void _checkRowBytes(String table, Map row) {
           (_accountReceipt(row) ||
               [
                 'tagged-post-v1',
+                'fx-posting-v1',
                 'merchant-post-v1',
               ].contains((jsonDecode(row['input'] as String) as List).first))
       ? 4096
@@ -81,7 +85,9 @@ List<int> validateSessionCapacity(
   bool tagsAware = false,
   bool merchantsAware = false,
   bool transfersAware = false,
+  bool fxTransfersAware = false,
 }) {
+  transfersAware = transfersAware || fxTransfersAware;
   merchantsAware = merchantsAware || transfersAware;
   tagsAware = tagsAware || merchantsAware;
   categoryReferences = categoryReferences || tagsAware;
@@ -93,6 +99,7 @@ List<int> validateSessionCapacity(
     tagsAware: tagsAware,
     merchantsAware: merchantsAware,
     transfersAware: transfersAware,
+    fxTransfersAware: fxTransfersAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -102,6 +109,7 @@ List<int> validateSessionCapacity(
     tagsAware,
     merchantsAware,
     transfersAware,
+    fxTransfersAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -222,6 +230,12 @@ extension _SessionRowCapacity on LedgerSession {
       await _checkRows('openings', 'workspace=? AND account_id=?', [
         ws,
         account.id.value,
+      ]);
+    }
+    if (posting.conversion != null) {
+      await _checkRows('event_fx', 'workspace=? AND event_id=?', [
+        ws,
+        posting.id.value,
       ]);
     }
     await _checkRows('events', 'workspace=? AND id=?', [ws, posting.id.value]);

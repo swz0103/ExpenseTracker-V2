@@ -39,6 +39,7 @@ ProbeDatabase openEncrypted(
   bool tagsAware = false,
   bool merchantsAware = false,
   bool transfersAware = false,
+  bool fxTransfersAware = false,
   void Function(String)? migrationCheckpoint,
 }) => ProbeDatabase.withExecutor(
   NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
@@ -48,6 +49,7 @@ ProbeDatabase openEncrypted(
   tagsAware: tagsAware,
   merchantsAware: merchantsAware,
   transfersAware: transfersAware,
+  fxTransfersAware: fxTransfersAware,
   migrationCheckpoint: migrationCheckpoint,
 );
 

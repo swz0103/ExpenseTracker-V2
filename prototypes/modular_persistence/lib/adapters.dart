@@ -91,6 +91,8 @@ final class LedgerAdapter {
             ))) {
       throw UnsupportedError('Versioned category selection is required.');
     }
+    if (posting.conversion != null && !db.fxTransfersAware)
+      throw UnsupportedError('Cross-currency transfers require schema 9.');
     final ws = posting.operation.workspace.toString();
     await db.customStatement(
       'INSERT INTO events (workspace,id,kind,business_date,income,expense,currency,scale,source_context) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -120,6 +122,14 @@ final class LedgerAdapter {
         leg.role.name,
       ]);
       checkpoint?.call('leg');
+    }
+    if (posting.conversion != null) {
+      await db.customStatement('INSERT INTO event_fx VALUES (?,?,?)', [
+        ws,
+        posting.id.value,
+        jsonEncode(posting.conversion!.toJson()),
+      ]);
+      checkpoint?.call('conversion');
     }
     if (posting.kind == PostingKind.opening) {
       await db.customStatement('INSERT INTO openings VALUES (?,?,?)', [
@@ -164,7 +174,11 @@ final class LedgerAdapter {
 }
 
 /// Versioned fixture canonicalization excludes generated result IDs and clock.
-Object postingInput(Posting posting) => posting.allocations.isEmpty
+Object postingInput(Posting posting) => posting.conversion == null
+    ? _postingInput(posting)
+    : ['fx-posting-v1', _postingInput(posting), posting.conversion!.toJson()];
+
+Object _postingInput(Posting posting) => posting.allocations.isEmpty
     ? [
         'posting-v1',
         posting.kind.name,

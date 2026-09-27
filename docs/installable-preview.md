@@ -1,8 +1,19 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.10.0 跨幣轉帳與實際本金
+
+**2026-09-28 最新開發包**：0.10.0+14 接入[跨幣轉帳](cross-currency-transfers.md)、精確實際比例、雙金額可恢復草稿、schema 8 → 9 安全升級及列表讀取優化。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.10.0-arm64.apk`，94,550,703 bytes。
+- SHA-256：`3b5250a7b0ab6816e2efd2a54129ffced467dc58594f2b712808b3bed3540643`。
+- App ID `dev.expensetracker.preview`、versionCode 14／versionName 0.10.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false`、ARM64 Flutter／SQLCipher 核心均核對通過。
+- [完整 18 套件／754 項與最終列表回歸](test-results/cross-currency-transfers-host-2026-09-28.json)、[5,000 事件雙路乾淨還原](test-results/cross-currency-transfers-scale-2026-09-28.json)、[4 處草稿程序中止](test-results/cross-currency-transfers-process-2026-09-28.json)通過；11 處升級中止列於主機案例內。
+- 僅本機 debug 封裝，未操作手機、未正式發布、未上傳 APK／金鑰。雲端未執行，其餘 CORE 及實機 gate 保留。
+
+
 ## 0.9.0 同幣轉帳與來源手續費
 
-**2026-09-28 最新開發包**：0.9.0+13 加入[同幣轉帳](same-currency-transfers.md)、獨立來源費用、可恢復送出、雙帳戶明細及 schema 7 → 8 安全升級。仍是 V2 內部格式，沒有舊 App 匯入。
+**2026-09-28 歷史開發包**：0.9.0+13 加入[同幣轉帳](same-currency-transfers.md)、獨立來源費用、可恢復送出、雙帳戶明細及 schema 7 → 8 安全升級。仍是 V2 內部格式，沒有舊 App 匯入。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.9.0-arm64.apk`，94,543,471 bytes。
 - SHA-256：`152ad57b725a73b437003478417aae22b4f1da246ce66b45bdbdcf27ec1498c4`。

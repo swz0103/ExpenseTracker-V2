@@ -59,6 +59,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
         tagsAware: store.tagsAware,
         merchantsAware: store.merchantsAware,
         transfersAware: store.transfersAware,
+        fxTransfersAware: store.fxTransfersAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

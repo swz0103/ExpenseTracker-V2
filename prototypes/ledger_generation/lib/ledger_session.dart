@@ -18,6 +18,7 @@ final class LedgerEntry {
     this.accountId,
     this.amount, {
     this.destinationId,
+    this.received,
     this.fee,
   });
   final PublicId id;
@@ -28,6 +29,7 @@ final class LedgerEntry {
 
   /// Transfer amount is the signed source principal; fee is separate.
   final PublicId? destinationId;
+  final Money? received;
   final Money? fee;
 }
 
@@ -98,12 +100,14 @@ final class LedgerSession {
         tagsAware: _db.tagsAware,
         merchantsAware: _db.merchantsAware,
         transfersAware: _db.transfersAware,
+        fxTransfersAware: _db.fxTransfersAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
       merchantsAware: _db.merchantsAware,
       transfersAware: _db.transfersAware,
+      fxTransfersAware: _db.fxTransfersAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -208,7 +212,7 @@ final class LedgerSession {
       _enqueue(() async {
         final row = await _db
             .customSelect(
-              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,e.expense AS fee '
+              'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee '
               'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
               'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
               'WHERE e.workspace=? AND e.id=?',
@@ -230,7 +234,7 @@ final class LedgerSession {
     if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
     final rows = await _db
         .customSelect(
-          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,e.expense AS fee '
+          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,d.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee '
           'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
           'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
           'WHERE e.workspace=? ${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
@@ -257,6 +261,7 @@ final class LedgerSession {
       tagsAware: _db.tagsAware,
       merchantsAware: _db.merchantsAware,
       transfersAware: _db.transfersAware,
+      fxTransfersAware: _db.fxTransfersAware,
     ).capture(_db),
   );
 
@@ -288,6 +293,15 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
   destinationId: r.readNullable<String>('destination_id') == null
       ? null
       : PublicId.parse(r.read<String>('destination_id')),
+  received: r.readNullable<String>('destination_id') == null
+      ? null
+      : Money(
+          Currency(
+            r.read<String>('received_currency'),
+            r.read<int>('received_scale'),
+          ),
+          BigInt.from(r.read<int>('received_amount')),
+        ),
   fee: r.read<String>('kind') == 'transfer'
       ? Money(
           Currency(r.read<String>('currency'), r.read<int>('scale')),

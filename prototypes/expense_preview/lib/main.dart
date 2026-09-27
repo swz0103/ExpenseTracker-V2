@@ -142,6 +142,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _name = TextEditingController();
   final _amount = TextEditingController();
   final _fee = TextEditingController();
+  final _received = TextEditingController();
   bool _transfer = false;
   PublicId? _destinationId;
   final _date = TextEditingController();
@@ -215,6 +216,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _name,
       _amount,
       _fee,
+      _received,
       _date,
       _credential,
     ]) {
@@ -294,6 +296,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _name,
       _amount,
       _fee,
+      _received,
       _date,
       _credential,
     ]) {
@@ -420,6 +423,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       if (transfer) _income = false;
       _destinationId = null;
       _fee.text = '0';
+      _received.clear();
       _message = null;
       _name.clear();
       _amount.text = page == _Page.account ? '0' : '';
@@ -448,8 +452,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     (a) =>
         a.account.state == AccountState.active &&
         a.account.id != _accountId &&
-        a.account.currency == _sourceCurrency,
+        (a.account.currency == _sourceCurrency ||
+            (_engine!.schemaVersion >= 9 &&
+                a.account.currency.code != _sourceCurrency?.code)),
   );
+  Currency? get _destinationCurrency => _accounts
+      .where((a) => a.account.id == _destinationId)
+      .firstOrNull
+      ?.account
+      .currency;
+  bool get _foreignTransfer =>
+      _transfer &&
+      _sourceCurrency != null &&
+      _destinationCurrency != null &&
+      _sourceCurrency != _destinationCurrency;
   String _accountName(PublicId? id) =>
       _accounts.where((a) => a.account.id == id).firstOrNull?.account.name ??
       '帳戶';
@@ -482,6 +498,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       transfer: _transfer,
       destinationId: _destinationId,
       fee: _transfer ? _fee.text : '0',
+      received: _foreignTransfer ? _received.text : null,
       amount: _amount.text,
       date: _date.text,
       accountId: _accountId,
@@ -524,6 +541,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _draftSaveError = null;
       _income = fields.income;
       _fee.text = fields.fee;
+      _received.text = fields.received ?? '';
       _amount.text = fields.amount;
       _date.text = fields.date;
       _accountId =
@@ -737,6 +755,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     if (catalog == null) return {};
     final result = <PublicId, String>{};
     for (final entry in entries) {
+      if (entry.kind == PostingKind.transfer) continue;
       final ref = await _engine!.merchantFor(entry.id);
       if (ref != null) {
         result[entry.id] = _merchantLabel(catalog, catalog.get(ref.id));
@@ -752,6 +771,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     if (catalog == null) return {};
     final result = <PublicId, String>{};
     for (final entry in entries) {
+      if (entry.kind == PostingKind.transfer) continue;
       final refs = await _engine!.tagsFor(entry.id);
       if (refs.isNotEmpty) {
         result[entry.id] = refs
@@ -768,7 +788,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   ) async {
     final result = <PublicId, String>{};
     for (final entry in entries) {
-      if (entry.kind == PostingKind.opening) continue;
+      if (entry.kind == PostingKind.opening ||
+          entry.kind == PostingKind.transfer) {
+        continue;
+      }
       final allocations = await _engine!.allocations(entry.id);
       result[entry.id] = allocations.isEmpty
           ? '未分類'
@@ -1030,7 +1053,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       case _Page.posting:
         return [
           Text(
-            _transfer ? '同幣轉帳' : '記一筆',
+            _transfer ? '轉帳' : '記一筆',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
@@ -1071,6 +1094,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? null
                 : (v) => setState(() {
                     _accountId = v;
+                    _received.clear();
                     if (!_destinations.any(
                       (a) => a.account.id == _destinationId,
                     )) {
@@ -1091,7 +1115,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   DropdownMenuItem(
                     value: a.account.id,
                     child: Text(
-                      a.account.name,
+                      _engine!.schemaVersion >= 9
+                          ? '${a.account.name} · ${a.account.currency.code}'
+                          : a.account.name,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1100,20 +1126,31 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : (value) => setState(() {
                       _destinationId = value;
+                      _received.clear();
                       _queueDraft();
                     }),
             ),
-            if (_destinations.isEmpty) const Text('請先建立另一個相同幣別的帳戶。'),
+            if (_destinations.isEmpty) const Text('請先建立另一個可轉入的帳戶。'),
             const SizedBox(height: 14),
           ],
           _amountField(
-            '金額（正數）',
+            _transfer && _engine!.schemaVersion >= 9 ? '轉出本金（正數）' : '金額（正數）',
             _accounts
                 .where((a) => a.account.id == _accountId)
                 .firstOrNull
                 ?.account
                 .currency,
           ),
+          if (_foreignTransfer) ...[
+            AmountInputField(
+              controller: _received,
+              label: '實際轉入本金（正數）',
+              currency: _destinationCurrency,
+              enabled: !_busy && !_postingFrozen,
+              onChanged: _queueDraft,
+            ),
+            const Text('填寫實際轉入金額；換算比例由兩邊本金計算，手續費另列於轉出幣別。'),
+          ],
           if (_transfer)
             AmountInputField(
               controller: _fee,
@@ -1279,7 +1316,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           const SizedBox(height: 16),
           if (_entryDraft != null || _draftUnreadable) ...[
-            Text(_draftUnreadable ? '本機草稿無法驗證，已保留檔案；請先處理。' : '有一份尚未完成的本機收支草稿。'),
+            Text(_draftUnreadable ? '本機草稿無法驗證，已保留檔案；請先處理。' : '有一份尚未完成的本機草稿。'),
             if (!_draftUnreadable) _button('繼續草稿', _resumeDraft),
             TextButton(
               onPressed: _busy ? null : _discardDraft,
@@ -1296,7 +1333,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           if (_engine!.schemaVersion >= 8)
             _button(
-              '同幣轉帳',
+              _engine!.schemaVersion >= 9 ? '轉帳' : '同幣轉帳',
               _entryDraft == null &&
                       !_draftUnreadable &&
                       _accounts.any(
@@ -1393,7 +1430,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除、跨幣轉帳與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。交易修改／刪除與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];

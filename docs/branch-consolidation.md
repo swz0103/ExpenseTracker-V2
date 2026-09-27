@@ -63,3 +63,5 @@ feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156
 
 
 `feat/same-currency-transfers` 依賴 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53)（`b541b54cc4f3ee2b127f8e7b924f3d06bcb0139f`），以一個完整流程交付[同幣轉帳、來源費用、草稿、明細及安全升級](same-currency-transfers.md)。18 套件／723 項全量與最後提示修正 13 項、5,000 事件雙路還原、4 處草稿程序退出及 0.9.0+13 封裝核對通過；11 處升級退出已含在全量內。[證據](test-results/same-currency-transfers-host-2026-09-28.json)區分實際版本與最後局部回歸。雲端仍未執行，舊 PR／分支依賴保留，不繞過 gate 收斂或合併 main。下一功能由此 head 接 M1-03 跨幣實際金額／FX context。
+
+`feat/cross-currency-transfers` 依賴 [PR #54](https://github.com/swz0103/ExpenseTracker-V2/pull/54)（`ffdb8a14c7434bcf0da41a079bf699bc6c8851ec`），完成[跨幣實際本金流程](cross-currency-transfers.md)，754 項完整本機驗證、最後 10 項列表回歸、五千筆雙路乾淨還原與 0.10.0 封裝通過。雲端未執行，保留依賴鏈及 main；下一分支 `feat/split-entry-drafts` 接多分類拆分草稿。

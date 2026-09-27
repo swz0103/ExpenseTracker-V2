@@ -15,6 +15,7 @@ final class EntryFields {
     this.transfer = false,
     this.destinationId,
     this.fee = '0',
+    this.received,
     Iterable<PublicId> tags = const [],
   }) : tags = List.unmodifiable(tags) {
     if ((transfer &&
@@ -22,7 +23,9 @@ final class EntryFields {
                 categoryId != null ||
                 merchantId != null ||
                 this.tags.isNotEmpty)) ||
-        (!transfer && (destinationId != null || fee != '0')) ||
+        (!transfer &&
+            (destinationId != null || fee != '0' || received != null)) ||
+        (received?.length ?? 0) > 128 ||
         fee.length > 128 ||
         amount.length > 128 ||
         date.length > 32 ||
@@ -34,11 +37,19 @@ final class EntryFields {
   final bool income, transfer;
   final PublicId? destinationId;
   final String fee;
+  final String? received;
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
   List<Object?> toJson() => transfer
-      ? [amount, date, accountId?.value, destinationId?.value, fee]
+      ? [
+          amount,
+          date,
+          accountId?.value,
+          destinationId?.value,
+          fee,
+          if (received != null) received,
+        ]
       : [
           income,
           amount,
@@ -48,9 +59,13 @@ final class EntryFields {
           merchantId?.value,
           [for (final t in tags) t.value],
         ];
-  factory EntryFields.fromJson(Object? value, {bool transfer = false}) {
+  factory EntryFields.fromJson(
+    Object? value, {
+    bool transfer = false,
+    bool crossCurrency = false,
+  }) {
     if (transfer) {
-      final v = _list(value, 5);
+      final v = _list(value, crossCurrency ? 6 : 5);
       return EntryFields(
         income: false,
         transfer: true,
@@ -59,6 +74,7 @@ final class EntryFields {
         accountId: _id(v[2]),
         destinationId: _id(v[3]),
         fee: v[4] as String,
+        received: crossCurrency ? v[5] as String : null,
       );
     }
     final v = _list(value, 7);
@@ -110,8 +126,10 @@ final class EntrySubmission {
         posting.date.toString(),
         account(posting.legs[0].account),
         account(posting.legs[1].account),
-        posting.legs[1].amount.minorUnits.toString(),
+        (-posting.legs[0].amount).minorUnits.toString(),
         posting.reportExpense.minorUnits.toString(),
+        if (posting.conversion != null)
+          posting.legs[1].amount.minorUnits.toString(),
       ];
     }
     final a = posting.legs.single.account;
@@ -140,9 +158,10 @@ final class EntrySubmission {
     PublicId event,
     OperationKey operation, {
     bool transfer = false,
+    bool crossCurrency = false,
   }) {
     if (transfer) {
-      final v = _list(value, 6);
+      final v = _list(value, crossCurrency ? 7 : 6);
       if (v[0] != 'transfer') throw const FormatException();
       PostingAccount account(Object? data) {
         final a = _list(data, 4);
@@ -164,6 +183,9 @@ final class EntrySubmission {
           destination: destination,
           principal: Money(source.currency, BigInt.parse(v[4] as String)),
           fee: Money(source.currency, BigInt.parse(v[5] as String)),
+          received: crossCurrency
+              ? Money(destination.currency, BigInt.parse(v[6] as String))
+              : null,
         ),
       );
     }
@@ -218,6 +240,8 @@ final class EntryDraft {
     if (submission != null &&
         (fields.transfer !=
                 (submission!.posting.kind == PostingKind.transfer) ||
+            (fields.received != null) !=
+                (submission!.posting.conversion != null) ||
             submission!.posting.id != id ||
             submission!.posting.operation.workspace != operation.workspace ||
             submission!.posting.operation.operation != operation.operation)) {
@@ -241,7 +265,11 @@ final class EntryDraft {
     submission: command,
   );
   String encode() => jsonEncode([
-    fields.transfer ? 'manual-transfer-v1' : 'manual-entry-v1',
+    fields.received != null
+        ? 'manual-fx-transfer-v1'
+        : fields.transfer
+        ? 'manual-transfer-v1'
+        : 'manual-entry-v1',
     id.value,
     operation.workspace.toString(),
     operation.operation.toString(),
@@ -252,7 +280,11 @@ final class EntryDraft {
     if (utf8.encode(text).length > 16384)
       throw const FormatException('Draft too large');
     final v = _list(jsonDecode(text), 6);
-    if (v[0] != 'manual-entry-v1' && v[0] != 'manual-transfer-v1')
+    if (![
+      'manual-entry-v1',
+      'manual-transfer-v1',
+      'manual-fx-transfer-v1',
+    ].contains(v[0]))
       throw const FormatException('Unknown draft version');
     final id = PublicId.parse(v[1] as String);
     final op = OperationKey(
@@ -264,7 +296,8 @@ final class EntryDraft {
       operation: op,
       fields: EntryFields.fromJson(
         v[4],
-        transfer: v[0] == 'manual-transfer-v1',
+        transfer: v[0] != 'manual-entry-v1',
+        crossCurrency: v[0] == 'manual-fx-transfer-v1',
       ),
       submission: v[5] == null
           ? null
@@ -272,7 +305,8 @@ final class EntryDraft {
               v[5],
               id,
               op,
-              transfer: v[0] == 'manual-transfer-v1',
+              transfer: v[0] != 'manual-entry-v1',
+              crossCurrency: v[0] == 'manual-fx-transfer-v1',
             ),
     );
   }

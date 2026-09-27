@@ -42,7 +42,10 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if (fields.transfer && schemaVersion < 8) throw PreviewInvalid();
+    if ((fields.transfer && schemaVersion < 8) ||
+        (fields.received != null && schemaVersion < 9)) {
+      throw PreviewInvalid();
+    }
     final prior = await store.read();
     _check(epoch);
     if (prior?.submission != null) throw DraftNeedsResolution();
@@ -138,6 +141,11 @@ extension PreviewDrafts on PreviewEngine {
           currency: a.currency,
           expectedVersion: a.version,
         );
+        final foreign = account.currency != destination.currency;
+        if ((foreign && (schemaVersion < 9 || fields.received == null)) ||
+            (!foreign && fields.received != null)) {
+          throw PreviewInvalid();
+        }
         return EntrySubmission(
           Posting.transfer(
             id: draft!.id,
@@ -146,6 +154,9 @@ extension PreviewDrafts on PreviewEngine {
             source: ref(account),
             destination: ref(destination),
             principal: amount,
+            received: fields.received == null
+                ? null
+                : Money.parse(destination.currency, fields.received!),
             fee: Money.parse(account.currency, fields.fee),
           ),
         );

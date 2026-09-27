@@ -57,6 +57,7 @@ PreviewEngine engineAt(
       tagsAware: schema >= 6,
       merchantsAware: schema >= 7,
       transfersAware: schema >= 8,
+      fxTransfersAware: schema >= 9,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

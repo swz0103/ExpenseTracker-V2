@@ -1,5 +1,17 @@
 # 逐項實作進度
 
+## 2026-09-28 接續：跨幣實際本金與換算 context
+
+同次執行先完成並上傳 [PR #54](https://github.com/swz0103/ExpenseTracker-V2/pull/54)，本機、遠端與 PR 完整 SHA `ffdb8a14c7434bcf0da41a079bf699bc6c8851ec` 相符，所有本機分支無未上傳提交。接著由該版本建立 `feat/cross-currency-transfers`，完成[跨幣轉帳](cross-currency-transfers.md)：雙本金、來源費用、精確實際比例、版本化收據／snapshot、可恢復草稿及列表。schema 9／snapshot 8 明確 8 → 9 先驗證雙憑證安全備份再發布；不讀取舊 App。
+
+回查補上還原時的本金加費用範圍，並移除 App 每筆轉帳三次不適用的分類／Tag／商家查詢。完整 **18 套件／754 個獨立本機案例**通過，新增 31 項；全量後僅列表優化，相關 **10 個 UI 案例**和分析通過，不重複計數。[證據](test-results/cross-currency-transfers-host-2026-09-28.json)保留兩階段來源指紋及適用驗證，未把最終 UI 調整冒稱再次全量。
+
+[5,000 事件](test-results/cross-currency-transfers-scale-2026-09-28.json)含 4,997 跨幣轉帳、4,998 次重送；10,932,466 bytes／33,745 rows，滿額拒絕不改資料。TWD／JPY 餘額與分幣費用符合獨立計算；刪除來源 DB／全部 key 後，兩條憑證各自乾淨還原、重開、完整 bytes 和 5,000 筆分頁核對通過。另 [4 處草稿程序退出](test-results/cross-currency-transfers-process-2026-09-28.json)通過；11 處升級退出已列入全量案例。
+
+[0.10.0+14 ARM64 開發包](installable-preview.md)已封裝核對，不安裝、不發布。這批以依賴 #54 的 PR 交付；兩個 workflow 仍停用，雲端未執行。main 和需雲端 gate 的舊分支維持原狀。外部 FX、其他費用組合、基準幣報表與 M1／M2／M3 其餘 CORE 尚未全部完成。
+
+**下一個完整流程**：從此分支接 `feat/split-entry-drafts`，沿用已有 Allocation／歷史保存與驗證，完成多分類拆分的輸入、金額合計、草稿恢復、凍結送出與明細，再依 M1-04 接退款／更正／刪除。保持有效回歸、備份與升級檢查；沒有需要使用者先處理的主機開發阻礙。
+
 ## 2026-09-28 接續：同幣轉帳、來源手續費與雙帳戶明細
 
 `feat/same-currency-transfers` 從已上傳的 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53)（`b541b54cc4f3ee2b127f8e7b924f3d06bcb0139f`）接續，完成[同幣轉帳流程](same-currency-transfers.md)：原子保存雙方本金與來源費用、可重啟草稿、凍結送出／重試、列表呈現兩帳戶與費用，並沿用日期、計算器、隱私及背景鎖定。
@@ -12,7 +24,7 @@
 
 [0.9.0+13 ARM64 開發包](installable-preview.md)已建置並核對 App 身份、簽章與備份禁用；只留在本機，不安裝、不發版。此批以依賴 #53 的獨立功能 PR 交付；兩個 workflow 保持停用，本批雲端未執行。main 與需雲端 gate 的舊分支維持原狀，不擅自合併或收斂。
 
-**下一項**：由此分支接 M1-03 跨幣轉帳：保存兩邊實際原幣本金、來源費用與可追溯轉換 context；優先實際成交數字，明確區分推算比率與外部報價。基礎 FxRate 已存在，但 Posting／收據／snapshot／草稿／列表目前仍限制同幣，必須一起延伸並完成對應升級和還原，不直接解開 Currency 驗證。M1-03 其餘部分及 M1-04 之後、M2、M3 CORE 尚未完成；目前沒有需使用者先處理的主機開發阻礙。
+**當時的下一項（現已由上方跨幣批次接續）**：由此分支接 M1-03 跨幣轉帳：保存兩邊實際原幣本金、來源費用與可追溯轉換 context；優先實際成交數字，明確區分推算比率與外部報價。基礎 FxRate 已存在，但 Posting／收據／snapshot／草稿／列表當時仍限制同幣，必須一起延伸並完成對應升級和還原，不直接解開 Currency 驗證。M1-03 其餘部分及 M1-04 之後、M2、M3 CORE 尚未完成；目前沒有需使用者先處理的主機開發阻礙。
 
 
 

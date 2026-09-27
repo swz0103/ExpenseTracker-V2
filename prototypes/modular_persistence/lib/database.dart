@@ -21,17 +21,25 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool categoryReferences = false,
     bool tagsAware = false,
     bool merchantsAware = false,
-    this.transfersAware = false,
-  }) : merchantsAware = merchantsAware || transfersAware,
-       tagsAware = tagsAware || merchantsAware || transfersAware,
+    bool transfersAware = false,
+    this.fxTransfersAware = false,
+  }) : transfersAware = transfersAware || fxTransfersAware,
+       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+       tagsAware =
+           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
        categoryReferences =
-           categoryReferences || tagsAware || merchantsAware || transfersAware,
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
-           transfersAware,
+           transfersAware ||
+           fxTransfersAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -43,17 +51,25 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool categoryReferences = false,
     bool tagsAware = false,
     bool merchantsAware = false,
-    this.transfersAware = false,
-  }) : merchantsAware = merchantsAware || transfersAware,
-       tagsAware = tagsAware || merchantsAware || transfersAware,
+    bool transfersAware = false,
+    this.fxTransfersAware = false,
+  }) : transfersAware = transfersAware || fxTransfersAware,
+       merchantsAware = merchantsAware || transfersAware || fxTransfersAware,
+       tagsAware =
+           tagsAware || merchantsAware || transfersAware || fxTransfersAware,
        categoryReferences =
-           categoryReferences || tagsAware || merchantsAware || transfersAware,
+           categoryReferences ||
+           tagsAware ||
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
-           transfersAware,
+           transfersAware ||
+           fxTransfersAware,
        super(executor) {
     _configuration();
   }
@@ -62,6 +78,7 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool tagsAware;
   final bool merchantsAware;
   final bool transfersAware;
+  final bool fxTransfersAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -71,7 +88,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => transfersAware
+  int get schemaVersion => fxTransfersAware
+      ? 9
+      : transfersAware
       ? 8
       : merchantsAware
       ? 7
@@ -94,6 +113,7 @@ final class ProbeDatabase extends GeneratedDatabase {
               : sql,
         );
       }
+      if (fxTransfersAware) await customStatement(fxTransferSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
@@ -228,3 +248,9 @@ const _schema = [
     PRIMARY KEY(workspace,operation_id),
     FOREIGN KEY(workspace,operation_id) REFERENCES receipts(workspace,operation_id)) STRICT''',
 ];
+
+const fxTransferColumns = ['workspace', 'event_id', 'context'];
+const fxTransferSchema = '''CREATE TABLE event_fx (
+ workspace TEXT NOT NULL, event_id TEXT NOT NULL, context TEXT NOT NULL,
+ PRIMARY KEY(workspace,event_id),
+ FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id)) STRICT''';

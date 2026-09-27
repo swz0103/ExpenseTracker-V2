@@ -41,7 +41,13 @@ class TransferSummary extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         Text(entry.date.toString()),
-        amount('轉入本金', principal, 'principal'),
+        if (entry.received != null &&
+            entry.received!.currency != principal.currency)
+          amount('轉出本金', principal, 'source-principal'),
+        amount('轉入本金', entry.received ?? principal, 'principal'),
+        if (entry.received != null &&
+            entry.received!.currency != principal.currency)
+          const Text('換算依據：實際轉出、轉入本金（未使用行情報價）。'),
         amount('手續費支出', fee, 'fee'),
         amount('轉出合計', principal + fee, 'total'),
       ],
