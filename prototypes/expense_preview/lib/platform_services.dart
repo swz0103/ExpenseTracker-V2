@@ -56,6 +56,7 @@ Future<PreviewEngine> createEngine() async {
       transfersAware: schema >= 8,
       fxTransfersAware: schema >= 9,
       refundsAware: schema >= 10,
+      reversalsAware: schema >= 11,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

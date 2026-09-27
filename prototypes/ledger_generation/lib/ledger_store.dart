@@ -19,6 +19,7 @@ import 'package:modular_persistence_probe/merchants_adapter.dart';
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:modular_persistence_probe/workflows.dart';
 import 'package:modular_persistence_probe/refunds_adapter.dart';
+import 'package:modular_persistence_probe/reversals_adapter.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/key_slots.dart';
@@ -51,24 +52,33 @@ final class LedgerPayload implements GenerationPayload {
     bool merchantsAware = false,
     bool transfersAware = false,
     bool fxTransfersAware = false,
-    this.refundsAware = false,
-  }) : fxTransfersAware = fxTransfersAware || refundsAware,
-       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+    bool refundsAware = false,
+    this.reversalsAware = false,
+  }) : refundsAware = refundsAware || reversalsAware,
+       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+       transfersAware =
+           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
        merchantsAware =
-           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -76,7 +86,8 @@ final class LedgerPayload implements GenerationPayload {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        codec = SnapshotCodec(
          generationAware: true,
          categoryAware: categoryAware,
@@ -85,7 +96,8 @@ final class LedgerPayload implements GenerationPayload {
          merchantsAware: merchantsAware,
          transfersAware: transfersAware,
          fxTransfersAware: fxTransfersAware,
-         refundsAware: refundsAware,
+         refundsAware: refundsAware || reversalsAware,
+         reversalsAware: reversalsAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -94,6 +106,7 @@ final class LedgerPayload implements GenerationPayload {
   final bool transfersAware;
   final bool fxTransfersAware;
   final bool refundsAware;
+  final bool reversalsAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -121,7 +134,8 @@ final class LedgerPayload implements GenerationPayload {
       merchantsAware: merchantsAware,
       transfersAware: transfersAware,
       fxTransfersAware: fxTransfersAware,
-      refundsAware: refundsAware,
+      refundsAware: refundsAware || reversalsAware,
+      reversalsAware: reversalsAware,
     ),
   );
 
@@ -144,7 +158,8 @@ final class LedgerPayload implements GenerationPayload {
               (merchantsAware && version == 7) ||
               (transfersAware && version == 8) ||
               (fxTransfersAware && version == 9) ||
-              (refundsAware && version == 10)) ||
+              (refundsAware && version == 10) ||
+              (reversalsAware && version == 11)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -165,6 +180,7 @@ final class LedgerPayload implements GenerationPayload {
       transfersAware: version >= 8,
       fxTransfersAware: version >= 9,
       refundsAware: version >= 10,
+      reversalsAware: version >= 11,
     );
     final db = openEncrypted(
       file,
@@ -177,6 +193,7 @@ final class LedgerPayload implements GenerationPayload {
       transfersAware: version >= 8,
       fxTransfersAware: version >= 9,
       refundsAware: version >= 10,
+      reversalsAware: version >= 11,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -201,25 +218,34 @@ final class LedgerStore {
     bool merchantsAware = false,
     bool transfersAware = false,
     bool fxTransfersAware = false,
-    this.refundsAware = false,
+    bool refundsAware = false,
+    this.reversalsAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
-  }) : fxTransfersAware = fxTransfersAware || refundsAware,
-       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+  }) : refundsAware = refundsAware || reversalsAware,
+       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+       transfersAware =
+           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
        merchantsAware =
-           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -227,7 +253,8 @@ final class LedgerStore {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        generations = GenerationStore(
          directory,
          keys,
@@ -238,7 +265,8 @@ final class LedgerStore {
            merchantsAware: merchantsAware,
            transfersAware: transfersAware,
            fxTransfersAware: fxTransfersAware,
-           refundsAware: refundsAware,
+           refundsAware: refundsAware || reversalsAware,
+           reversalsAware: reversalsAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -247,7 +275,8 @@ final class LedgerStore {
              merchantsAware ||
              transfersAware ||
              fxTransfersAware ||
-             refundsAware,
+             refundsAware ||
+             reversalsAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -259,6 +288,7 @@ final class LedgerStore {
   final bool transfersAware;
   final bool fxTransfersAware;
   final bool refundsAware;
+  final bool reversalsAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -271,7 +301,8 @@ final class LedgerStore {
             merchantsAware: merchantsAware,
             transfersAware: transfersAware,
             fxTransfersAware: fxTransfersAware,
-            refundsAware: refundsAware,
+            refundsAware: refundsAware || reversalsAware,
+            reversalsAware: reversalsAware,
           ).empty(),
         ),
         operation,
@@ -295,7 +326,8 @@ final class LedgerStore {
         merchantsAware: merchantsAware,
         transfersAware: transfersAware,
         fxTransfersAware: fxTransfersAware,
-        refundsAware: refundsAware,
+        refundsAware: refundsAware || reversalsAware,
+        reversalsAware: reversalsAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -364,7 +396,8 @@ final class LedgerStore {
       merchantsAware: merchantsAware,
       transfersAware: transfersAware,
       fxTransfersAware: fxTransfersAware,
-      refundsAware: refundsAware,
+      refundsAware: refundsAware || reversalsAware,
+      reversalsAware: reversalsAware,
     );
     try {
       return await work(db);

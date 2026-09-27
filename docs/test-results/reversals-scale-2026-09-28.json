@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "startedUtc": "2026-09-27T21:34:34.679300Z",
+  "events": 5000,
+  "reversals": 2498,
+  "fxReversalPairs": 1249,
+  "replayed": 4996,
+  "expenseMinor": "100",
+  "sourceCashMinor": "9900",
+  "receivedCashMinor": "100",
+  "oldRefundRemainingMinor": "100",
+  "snapshotBytes": 9719793,
+  "rows": 32499,
+  "originalKeysDeleted": true,
+  "passwordCleanRestore": true,
+  "recoveryCleanRestore": true,
+  "schema10To11": true,
+  "writesMs": 206785,
+  "elapsedMs": 330889
+}

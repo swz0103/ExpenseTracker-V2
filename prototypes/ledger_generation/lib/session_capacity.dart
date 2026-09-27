@@ -7,6 +7,7 @@ const _rowByteLimits = <String, int>{
   'events': 512,
   'event_fx': 1024,
   'event_refunds': 512,
+  'event_reversals': 2048,
   'legs': 512,
   'openings': 512,
   'allocations': 512,
@@ -29,11 +30,13 @@ Map<String, int> _tableLimits(
   bool transfers,
   bool fxTransfers,
   bool refunds,
+  bool reversals,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
   if (fxTransfers) 'event_fx': LedgerSession.maxEvents,
   if (refunds) 'event_refunds': LedgerSession.maxEvents,
+  if (reversals) 'event_reversals': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -62,17 +65,31 @@ bool _accountReceipt(Map row) {
   return input is List && input.isNotEmpty && input.first == 'create-v1';
 }
 
+bool _reversalReceipt(Map row) {
+  var input = jsonDecode(row['input'] as String);
+  // Only known outer attribution wrappers may carry a reversal receipt.
+  for (final wrapper in ['merchant-post-v1', 'tagged-post-v1']) {
+    if (input is List && input.length == 3 && input.first == wrapper)
+      input = input[1];
+  }
+  return input is List &&
+      input.length == 5 &&
+      input.first == 'reversal-posting-v1';
+}
+
 void _checkRowBytes(String table, Map row) {
-  final limit =
-      table == 'receipts' &&
-          (_accountReceipt(row) ||
-              [
-                'posting-v2', // Allocations need the same bound with or without tags.
-                'tagged-post-v1',
-                'fx-posting-v1',
-                'refund-posting-v1',
-                'merchant-post-v1',
-              ].contains((jsonDecode(row['input'] as String) as List).first))
+  final limit = table == 'receipts' && _reversalReceipt(row)
+      ? 8192
+      : table == 'receipts' &&
+            (_accountReceipt(row) ||
+                [
+                  'posting-v2', // Allocations need the same bound with or without tags.
+                  'tagged-post-v1',
+                  'fx-posting-v1',
+                  'refund-posting-v1',
+                  'reversal-posting-v1',
+                  'merchant-post-v1',
+                ].contains((jsonDecode(row['input'] as String) as List).first))
       ? 4096
       : _rowByteLimits[table];
   if (limit == null || utf8.encode(jsonEncode(row)).length > limit)
@@ -92,7 +109,9 @@ List<int> validateSessionCapacity(
   bool transfersAware = false,
   bool fxTransfersAware = false,
   bool refundsAware = false,
+  bool reversalsAware = false,
 }) {
+  refundsAware = refundsAware || reversalsAware;
   fxTransfersAware = fxTransfersAware || refundsAware;
   transfersAware = transfersAware || fxTransfersAware;
   merchantsAware = merchantsAware || transfersAware;
@@ -108,6 +127,7 @@ List<int> validateSessionCapacity(
     transfersAware: transfersAware,
     fxTransfersAware: fxTransfersAware,
     refundsAware: refundsAware,
+    reversalsAware: reversalsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -119,6 +139,7 @@ List<int> validateSessionCapacity(
     transfersAware,
     fxTransfersAware,
     refundsAware,
+    reversalsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -143,6 +164,7 @@ List<int> validateSessionCapacity(
           'expense',
           if (transfersAware) 'transfer',
           if (refundsAware) 'refund',
+          if (reversalsAware) 'reversal',
         ].contains(row['kind']),
       ) ||
       (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||
@@ -164,6 +186,8 @@ bool _validLegCounts(List events, List legs, bool transfers) {
   if (counts.length != events.length) return false;
   return events.every((row) {
     final count = counts[(row['workspace'] as String, row['id'] as String)];
+    if (row['kind'] == 'reversal')
+      return count != null && count >= 1 && count <= 3;
     return transfers && row['kind'] == 'transfer'
         ? count == 2 || count == 3
         : count == 1;
@@ -240,6 +264,12 @@ extension _SessionRowCapacity on LedgerSession {
       await _checkRows('openings', 'workspace=? AND account_id=?', [
         ws,
         account.id.value,
+      ]);
+    }
+    if (posting.reversalOf != null) {
+      await _checkRows('event_reversals', 'workspace=? AND event_id=?', [
+        ws,
+        posting.id.value,
       ]);
     }
     if (posting.refundOf != null) {

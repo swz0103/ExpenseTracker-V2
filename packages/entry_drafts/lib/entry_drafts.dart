@@ -4,6 +4,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
 part 'refund_draft.dart';
+part 'reversal_draft.dart';
 
 /// Bounded partial allocation input; values are validated only on submission.
 final class SplitFields {
@@ -29,12 +30,30 @@ final class EntryFields {
     this.fee = '0',
     this.received,
     this.refundOf,
+    this.reversalOf,
+    this.reversalReason = '',
     this.split = false,
     Iterable<SplitFields> splits = const [],
     Iterable<PublicId> tags = const [],
   }) : tags = List.unmodifiable(tags),
        splits = List.unmodifiable(splits) {
-    if ((transfer &&
+    if ((reversalOf != null &&
+            (income ||
+                transfer ||
+                split ||
+                refundOf != null ||
+                accountId != null ||
+                categoryId != null ||
+                merchantId != null ||
+                destinationId != null ||
+                received != null ||
+                fee != '0' ||
+                amount.isNotEmpty ||
+                this.splits.isNotEmpty ||
+                this.tags.isNotEmpty)) ||
+        (reversalOf == null && reversalReason.isNotEmpty) ||
+        reversalReason.runes.length > 256 ||
+        (transfer &&
             (income ||
                 split ||
                 categoryId != null ||
@@ -66,13 +85,16 @@ final class EntryFields {
   static const maxSplits = 16;
   final bool income, transfer, split;
   final List<SplitFields> splits;
-  final PublicId? destinationId, refundOf;
+  final PublicId? destinationId, refundOf, reversalOf;
+  final String reversalReason;
   final String fee;
   final String? received;
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => refundOf != null
+  List<Object?> toJson() => reversalOf != null
+      ? [reversalOf!.value, date, reversalReason]
+      : refundOf != null
       ? [
           refundOf!.value,
           amount,
@@ -111,7 +133,18 @@ final class EntryFields {
     bool crossCurrency = false,
     bool split = false,
     bool refund = false,
+    bool reversal = false,
   }) {
+    if (reversal) {
+      final v = _list(value, 3);
+      return EntryFields(
+        income: false,
+        amount: '',
+        date: v[1] as String,
+        reversalOf: PublicId.parse(v[0] as String),
+        reversalReason: v[2] as String,
+      );
+    }
     if (refund) return _refundFields(value);
     if (transfer) {
       final v = _list(value, crossCurrency ? 6 : 5);
@@ -156,7 +189,7 @@ final class EntrySubmission {
     Iterable<TagSelection> tags = const [],
     this.merchant,
   }) : tags = canonicalTags(tags) {
-    if (posting.kind == PostingKind.transfer
+    if ((posting.reversedPosting?.kind ?? posting.kind) == PostingKind.transfer
         ? (this.tags.isNotEmpty ||
               merchant != null ||
               posting.allocations.isNotEmpty)
@@ -164,6 +197,7 @@ final class EntrySubmission {
                 PostingKind.income,
                 PostingKind.expense,
                 PostingKind.refund,
+                PostingKind.reversal,
               ].contains(posting.kind) ||
               posting.legs.length != 1 ||
               posting.allocations.length > EntryFields.maxSplits)) {
@@ -177,6 +211,7 @@ final class EntrySubmission {
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
   List<Object?> toJson({bool split = false}) {
+    if (posting.kind == PostingKind.reversal) return _reversalSubmission(this);
     if (posting.kind == PostingKind.refund) return _refundSubmission(this);
     if (!split && posting.allocations.length > 1) {
       throw const FormatException('Split submission requires its format');
@@ -232,7 +267,9 @@ final class EntrySubmission {
     bool crossCurrency = false,
     bool split = false,
     bool refund = false,
+    bool reversal = false,
   }) {
+    if (reversal) return _readReversalSubmission(value, event, operation);
     if (refund) return _readRefundSubmission(value, event, operation);
     if (transfer) {
       final v = _list(value, crossCurrency ? 7 : 6);
@@ -314,13 +351,16 @@ final class EntryDraft {
     if (submission != null &&
         (fields.transfer !=
                 (submission!.posting.kind == PostingKind.transfer) ||
-            (fields.received != null) !=
-                (submission!.posting.conversion != null) ||
+            (fields.reversalOf == null &&
+                (fields.received != null) !=
+                    (submission!.posting.conversion != null)) ||
             (!fields.split &&
                 fields.refundOf == null &&
+                fields.reversalOf == null &&
                 submission!.posting.allocations.length > 1) ||
             (fields.split && submission!.posting.allocations.length < 2) ||
             fields.refundOf != submission!.posting.refundOf ||
+            fields.reversalOf != submission!.posting.reversalOf ||
             submission!.posting.id != id ||
             submission!.posting.operation.workspace != operation.workspace ||
             submission!.posting.operation.operation != operation.operation)) {
@@ -344,7 +384,9 @@ final class EntryDraft {
     submission: command,
   );
   String encode() => jsonEncode([
-    fields.refundOf != null
+    fields.reversalOf != null
+        ? 'manual-reversal-v1'
+        : fields.refundOf != null
         ? 'manual-refund-v1'
         : fields.received != null
         ? 'manual-fx-transfer-v1'
@@ -365,6 +407,7 @@ final class EntryDraft {
     final v = _list(jsonDecode(text), 6);
     if (![
       'manual-refund-v1',
+      'manual-reversal-v1',
       'manual-entry-v1',
       'manual-split-entry-v1',
       'manual-transfer-v1',
@@ -386,6 +429,7 @@ final class EntryDraft {
           'manual-fx-transfer-v1',
         ].contains(v[0]),
         refund: v[0] == 'manual-refund-v1',
+        reversal: v[0] == 'manual-reversal-v1',
         split: v[0] == 'manual-split-entry-v1',
         crossCurrency: v[0] == 'manual-fx-transfer-v1',
       ),
@@ -400,6 +444,7 @@ final class EntryDraft {
                 'manual-fx-transfer-v1',
               ].contains(v[0]),
               refund: v[0] == 'manual-refund-v1',
+              reversal: v[0] == 'manual-reversal-v1',
               split: v[0] == 'manual-split-entry-v1',
               crossCurrency: v[0] == 'manual-fx-transfer-v1',
             ),

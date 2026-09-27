@@ -50,7 +50,9 @@ extension ActivitySession on LedgerSession {
         .getSingleOrNull();
     if (source == null) throw StateError('Ledger event not found.');
     final root = PublicId.parse(
-      source.readNullable<String>('refund_of') ?? selected.value,
+      source.readNullable<String>('refund_of') ??
+          source.readNullable<String>('reversal_of') ??
+          selected.value,
     );
     if (before != null &&
         (before._workspace != workspace || before._root != root)) {
@@ -65,13 +67,14 @@ extension ActivitySession on LedgerSession {
           query +
               "JOIN audit a ON a.workspace=e.workspace AND a.entity_id=e.id "
                   "AND (a.kind='ledger.'||e.kind OR (e.kind='opening' AND a.kind='account.open')) "
-                  "WHERE e.workspace=? AND (e.id=? ${_db.refundsAware ? 'OR r.original_id=?' : ''}) "
+                  "WHERE e.workspace=? AND (e.id=? ${_db.refundsAware ? 'OR r.original_id=?' : ''} ${_db.reversalsAware ? 'OR v.original_id=?' : ''}) "
                   "${before == null ? '' : 'AND (($_activityTime)< ? OR (($_activityTime)=? AND e.id<?))'} "
                   'ORDER BY activity_time DESC,e.id DESC LIMIT ?',
           variables: [
             Variable.withString(workspace.toString()),
             Variable.withString(root.value),
             if (_db.refundsAware) Variable.withString(root.value),
+            if (_db.reversalsAware) Variable.withString(root.value),
             if (before != null) ...[
               Variable.withString(before._time),
               Variable.withString(before._time),

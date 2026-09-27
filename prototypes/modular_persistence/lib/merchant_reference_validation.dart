@@ -31,6 +31,7 @@ Future<Set<(String, String)>> validateMerchantReferences(
           'income',
           'expense',
           if (db.refundsAware) 'refund',
+          if (db.reversalsAware) 'reversal',
         ].contains(row.readNullable<String>('kind')) ||
         (sequences.containsKey(key) && sequences[key] != sequence) ||
         selected.containsKey(merchant)) {
@@ -78,6 +79,7 @@ Future<Set<(String, String)>> validateMerchantReferences(
           'posting-v1',
           'posting-v2',
           if (db.refundsAware) 'refund-posting-v1',
+          if (db.reversalsAware) 'reversal-posting-v1',
           'tagged-post-v1',
         ].contains((input[1] as List).first) ||
         input[2] is! List)

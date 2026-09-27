@@ -22,6 +22,9 @@ final class LedgerEntry {
     this.fee,
     this.refundOf,
     this.refunded,
+    this.reversalOf,
+    this.reversedBy,
+    this.reversalReason,
   });
   final PublicId id;
   final BusinessDate date;
@@ -35,6 +38,8 @@ final class LedgerEntry {
   final Money? fee;
   final PublicId? refundOf;
   final Money? refunded;
+  final PublicId? reversalOf, reversedBy;
+  final String? reversalReason;
 }
 
 /// Exclusive, bounded command scope. No public SQL or database handle.
@@ -106,6 +111,7 @@ final class LedgerSession {
         transfersAware: _db.transfersAware,
         fxTransfersAware: _db.fxTransfersAware,
         refundsAware: _db.refundsAware,
+        reversalsAware: _db.reversalsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -114,6 +120,7 @@ final class LedgerSession {
       transfersAware: _db.transfersAware,
       fxTransfersAware: _db.fxTransfersAware,
       refundsAware: _db.refundsAware,
+      reversalsAware: _db.reversalsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -153,7 +160,8 @@ final class LedgerSession {
         if (posting.kind != PostingKind.income &&
             posting.kind != PostingKind.expense &&
             !(_db.transfersAware && posting.kind == PostingKind.transfer) &&
-            !(_db.refundsAware && posting.kind == PostingKind.refund)) {
+            !(_db.refundsAware && posting.kind == PostingKind.refund) &&
+            !(_db.reversalsAware && posting.kind == PostingKind.reversal)) {
           throw UnsupportedError('Unsupported session posting');
         }
         if (posting.kind == PostingKind.transfer &&
@@ -214,6 +222,11 @@ final class LedgerSession {
         );
       });
 
+  Future<ReversalSourceRecord> reversalSource(
+    WorkspaceId workspace,
+    PublicId original,
+  ) => _enqueue(() => readReversalSource(_db, workspace, original));
+
   Future<RefundStatus> refundStatus(
     WorkspaceId workspace,
     PublicId originalId,
@@ -232,10 +245,14 @@ final class LedgerSession {
       'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale,'
       'd.account_id AS destination_id,d.amount AS received_amount,d.currency AS received_currency,d.scale AS received_scale,e.expense AS fee,'
       'e.currency AS report_currency,e.scale AS report_scale,'
-      '${_db.refundsAware ? 'r.original_id' : 'NULL'} AS refund_of '
+      '${_db.refundsAware ? 'r.original_id' : 'NULL'} AS refund_of,'
+      '${_db.reversalsAware ? 'v.original_id' : 'NULL'} AS reversal_of,'
+      '${_db.reversalsAware ? 'v.reason' : 'NULL'} AS reversal_reason,'
+      '${_db.reversalsAware ? 'b.event_id' : 'NULL'} AS reversed_by '
       'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
       'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
-      '${_db.refundsAware ? 'LEFT JOIN event_refunds r ON r.workspace=e.workspace AND r.event_id=e.id ' : ''}';
+      '${_db.refundsAware ? 'LEFT JOIN event_refunds r ON r.workspace=e.workspace AND r.event_id=e.id ' : ''}'
+      '${_db.reversalsAware ? 'LEFT JOIN event_reversals v ON v.workspace=e.workspace AND v.event_id=e.id LEFT JOIN event_reversals b ON b.workspace=e.workspace AND b.original_id=e.id ' : ''}';
 
   /// Persisted entry in this workspace, independent of pagination or UI state.
   Future<LedgerEntry?> entry(WorkspaceId workspace, PublicId id) =>
@@ -288,6 +305,7 @@ final class LedgerSession {
       transfersAware: _db.transfersAware,
       fxTransfersAware: _db.fxTransfersAware,
       refundsAware: _db.refundsAware,
+      reversalsAware: _db.reversalsAware,
     ).capture(_db),
   );
 
@@ -316,6 +334,13 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
     Currency(r.read<String>('currency'), r.read<int>('scale')),
     BigInt.from(r.read<int>('amount')),
   ),
+  reversalOf: r.readNullable<String>('reversal_of') == null
+      ? null
+      : PublicId.parse(r.read<String>('reversal_of')),
+  reversedBy: r.readNullable<String>('reversed_by') == null
+      ? null
+      : PublicId.parse(r.read<String>('reversed_by')),
+  reversalReason: r.readNullable<String>('reversal_reason'),
   refundOf: r.readNullable<String>('refund_of') == null
       ? null
       : PublicId.parse(r.read<String>('refund_of')),
@@ -340,7 +365,7 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
           ),
           BigInt.from(r.read<int>('received_amount')),
         ),
-  fee: r.read<String>('kind') == 'transfer'
+  fee: r.readNullable<String>('destination_id') != null
       ? Money(
           Currency(r.read<String>('currency'), r.read<int>('scale')),
           BigInt.from(r.read<int>('fee')),

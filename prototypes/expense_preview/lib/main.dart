@@ -25,6 +25,7 @@ export 'privacy_presentation.dart' show moneyText;
 part 'category_screen.dart';
 part 'split_entry.dart';
 part 'refund_entry.dart';
+part 'reversal_entry.dart';
 part 'activity_dialog.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
@@ -149,6 +150,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _received = TextEditingController();
   bool _transfer = false;
   RefundStatus? _refund;
+  EntrySubmission? _reversal;
+  final _reversalReason = TextEditingController();
   PublicId? _destinationId;
   final _date = TextEditingController();
   final _credential = TextEditingController();
@@ -224,6 +227,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _amount,
       _fee,
       _received,
+      _reversalReason,
       _date,
       _credential,
     ]) {
@@ -231,6 +235,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
     _resetSplits();
     _refund = null;
+    _reversal = null;
+    _reversalReason.clear();
     _draft = null;
     _saved = false;
     _accounts = [];
@@ -306,6 +312,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _amount,
       _fee,
       _received,
+      _reversalReason,
       _date,
       _credential,
     ]) {
@@ -432,6 +439,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     setState(() {
       _resetSplits();
       _refund = null;
+      _reversal = null;
+      _reversalReason.clear();
       _page = page;
       _transfer = transfer;
       if (transfer) _income = false;
@@ -513,25 +522,39 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     if (_page != _Page.posting || _postingFrozen) return;
     final epoch = _viewEpoch;
     final engine = _engine!;
-    final fields = EntryFields(
-      income: _income,
-      refundOf: _refund?.budget.originalId,
-      split: _split,
-      splits: [
-        for (final row in _splitRows)
-          SplitFields(categoryId: row.category, amount: row.amount.text),
-      ],
-      transfer: _transfer,
-      destinationId: _destinationId,
-      fee: _transfer ? _fee.text : '0',
-      received: (_foreignTransfer || _foreignRefund) ? _received.text : null,
-      amount: _amount.text,
-      date: _date.text,
-      accountId: _accountId,
-      categoryId: _categoryId.isEmpty ? null : PublicId.parse(_categoryId),
-      merchantId: _merchantId.isEmpty ? null : PublicId.parse(_merchantId),
-      tags: _selectedTags,
-    );
+    final fields = _reversal != null
+        ? EntryFields(
+            income: false,
+            amount: '',
+            date: _date.text,
+            reversalOf: _reversal!.posting.id,
+            reversalReason: _reversalReason.text,
+          )
+        : EntryFields(
+            income: _income,
+            refundOf: _refund?.budget.originalId,
+            split: _split,
+            splits: [
+              for (final row in _splitRows)
+                SplitFields(categoryId: row.category, amount: row.amount.text),
+            ],
+            transfer: _transfer,
+            destinationId: _destinationId,
+            fee: _transfer ? _fee.text : '0',
+            received: (_foreignTransfer || _foreignRefund)
+                ? _received.text
+                : null,
+            amount: _amount.text,
+            date: _date.text,
+            accountId: _accountId,
+            categoryId: _categoryId.isEmpty
+                ? null
+                : PublicId.parse(_categoryId),
+            merchantId: _merchantId.isEmpty
+                ? null
+                : PublicId.parse(_merchantId),
+            tags: _selectedTags,
+          );
     setState(() => _draftWrites++);
     _draftSaveTail = _draftSaveTail.then((_) async {
       try {
@@ -560,6 +583,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     final fields = saved.fields;
+    if (fields.reversalOf != null) {
+      await _resumeReversal(saved);
+      return;
+    }
     if (fields.refundOf != null) {
       await _resumeRefund(saved);
       return;
@@ -702,6 +729,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     await _refresh();
   });
   Future<void> _savePosting() => _perform(() async {
+    if (_reversal != null && !_postingFrozen && !await _confirmReversal()) {
+      return;
+    }
     if (!_postingFrozen) {
       _queueDraft();
       await _draftSaveTail;
@@ -1095,7 +1125,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
       case _Page.posting:
         return [
-          if (_refund != null)
+          if (_reversal != null)
+            ..._reversalInputs()
+          else if (_refund != null)
             ..._refundInputs()
           else ...[
             Text(
@@ -1327,6 +1359,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _button(
             _postingFrozen
                 ? '確認上次送出'
+                : _reversal != null
+                ? '撤銷這筆交易'
                 : _refund != null
                 ? '儲存退款'
                 : _transfer
@@ -1456,10 +1490,31 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           for (final e in _entries)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: e.kind == PostingKind.transfer
+              child: e.kind == PostingKind.reversal
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        _reversalSummary(e, _accountName, _privacy),
+                        TextButton(
+                          onPressed: _busy ? null : () => _showActivity(e.id),
+                          child: const Text('查看活動'),
+                        ),
+                      ],
+                    )
+                  : e.kind == PostingKind.transfer
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
+                        if (e.reversedBy == null &&
+                            _engine!.schemaVersion >= 11)
+                          TextButton(
+                            key: ValueKey('entry-reverse-${e.id}'),
+                            onPressed: _busy
+                                ? null
+                                : () => _startReversal(e.id),
+                            child: const Text('撤銷交易'),
+                          ),
                         TransferSummary(
                           entry: e,
                           source: _accountName(e.accountId),
@@ -1495,6 +1550,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                             onSelected: (action) => switch (action) {
                               'activity' => _showActivity(e.id),
                               'refund' => _startRefund(e.id),
+                              'reversal' => _startReversal(e.id),
                               _ => _copyPosting(e.id),
                             },
                             itemBuilder: (_) => [
@@ -1502,6 +1558,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                 value: 'activity',
                                 child: Text('查看活動'),
                               ),
+                              if (_engine!.schemaVersion >= 11 &&
+                                  e.reversedBy == null &&
+                                  [
+                                    PostingKind.income,
+                                    PostingKind.expense,
+                                  ].contains(e.kind))
+                                const PopupMenuItem(
+                                  value: 'reversal',
+                                  child: Text('撤銷交易'),
+                                ),
                               if ([
                                 PostingKind.income,
                                 PostingKind.expense,
@@ -1511,7 +1577,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                   child: Text('再記一筆類似交易'),
                                 ),
                               if (e.kind == PostingKind.expense &&
-                                  _engine!.schemaVersion >= 10)
+                                  _engine!.schemaVersion >= 10 &&
+                                  e.reversedBy == null)
                                 const PopupMenuItem(
                                   value: 'refund',
                                   child: Text('記錄退款'),
@@ -1519,6 +1586,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                             ],
                           ),
                         ),
+                        if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
                         if (e.refundOf != null) ..._refundDetails(e),
                         ..._splitDetails(e.id),
                       ],
@@ -1559,8 +1627,13 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.expense => '支出',
   PostingKind.transfer => '轉帳',
   PostingKind.refund => '退款',
+  PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  LedgerException(code: LedgerError.reversalDependency) =>
+    '交易已有退款或撤銷紀錄，無法再次撤銷或退款。',
+  LedgerException(code: LedgerError.reversalReference) =>
+    '僅能撤銷完整的收入、支出或轉帳；日期不可早於原交易。',
   LedgerException(code: LedgerError.refundLimit) => '退款超過原支出或該分類剩餘可退金額，請重新確認。',
   LedgerException(code: LedgerError.refundReference) =>
     '退款須對應原支出及原分類，日期不可早於原支出。',

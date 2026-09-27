@@ -82,6 +82,9 @@ final class LedgerAdapter {
     int? categorySequence,
     void Function(String)? checkpoint,
   }) async {
+    if (posting.reversalOf != null && !db.reversalsAware) {
+      throw UnsupportedError('Reversals require schema 11.');
+    }
     if (posting.refundOf != null && !db.refundsAware) {
       throw UnsupportedError("Refunds require schema 10.");
     }
@@ -119,6 +122,15 @@ final class LedgerAdapter {
         posting.refundOf!.value,
       ]);
       checkpoint?.call('refund');
+    }
+    if (posting.reversalOf != null) {
+      await db.customStatement('INSERT INTO event_reversals VALUES (?,?,?,?)', [
+        ws,
+        posting.id.value,
+        posting.reversalOf!.value,
+        posting.reversalReason!,
+      ]);
+      checkpoint?.call('reversal');
     }
     var ordinal = 0;
     for (final leg in posting.legs) {
@@ -185,7 +197,15 @@ final class LedgerAdapter {
 }
 
 /// Versioned fixture canonicalization excludes generated result IDs and clock.
-Object postingInput(Posting posting) => posting.refundOf != null
+Object postingInput(Posting posting) => posting.reversalOf != null
+    ? [
+        'reversal-posting-v1',
+        posting.reversalOf!.value,
+        posting.reversalReason!,
+        _postingInput(posting),
+        posting.conversion?.toJson(),
+      ]
+    : posting.refundOf != null
     ? [
         'refund-posting-v1',
         posting.refundOf!.value,

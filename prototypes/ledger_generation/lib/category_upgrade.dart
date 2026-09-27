@@ -8,7 +8,8 @@ enum _LedgerUpgrade {
   merchants(6, 7, 'ledger-6-to-7-v1'),
   transfers(7, 8, 'ledger-7-to-8-v1'),
   fxTransfers(8, 9, 'ledger-8-to-9-v1'),
-  refunds(9, 10, 'ledger-9-to-10-v1');
+  refunds(9, 10, 'ledger-9-to-10-v1'),
+  reversals(10, 11, 'ledger-10-to-11-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -21,6 +22,7 @@ enum _LedgerUpgrade {
     transfersAware: to >= 8,
     fxTransfersAware: to >= 9,
     refundsAware: to >= 10,
+    reversalsAware: to >= 11,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -35,6 +37,7 @@ enum _LedgerUpgrade {
       transfersAware: from >= 8,
       fxTransfersAware: from >= 9,
       refundsAware: from >= 10,
+      reversalsAware: from >= 11,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -45,7 +48,8 @@ enum _LedgerUpgrade {
         store.merchantsAware != (to >= 7) ||
         store.transfersAware != (to >= 8) ||
         store.fxTransfersAware != (to >= 9) ||
-        store.refundsAware != (to >= 10)) {
+        store.refundsAware != (to >= 10) ||
+        store.reversalsAware != (to >= 11)) {
       throw const InvalidSnapshot();
     }
   }
@@ -342,3 +346,35 @@ Future<UpgradeReceipt> _upgradeLedger(
     cancellation: cancellation,
   );
 }
+
+Future<UpgradeRequest> planReversalUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.reversals,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeReversals(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.reversals,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);

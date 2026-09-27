@@ -23,24 +23,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool merchantsAware = false,
     bool transfersAware = false,
     bool fxTransfersAware = false,
-    this.refundsAware = false,
-  }) : fxTransfersAware = fxTransfersAware || refundsAware,
-       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+    bool refundsAware = false,
+    this.reversalsAware = false,
+  }) : refundsAware = refundsAware || reversalsAware,
+       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+       transfersAware =
+           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
        merchantsAware =
-           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -48,7 +57,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -62,24 +72,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool merchantsAware = false,
     bool transfersAware = false,
     bool fxTransfersAware = false,
-    this.refundsAware = false,
-  }) : fxTransfersAware = fxTransfersAware || refundsAware,
-       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+    bool refundsAware = false,
+    this.reversalsAware = false,
+  }) : refundsAware = refundsAware || reversalsAware,
+       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+       transfersAware =
+           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
        merchantsAware =
-           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -87,7 +106,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        super(executor) {
     _configuration();
   }
@@ -98,6 +118,7 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool transfersAware;
   final bool fxTransfersAware;
   final bool refundsAware;
+  final bool reversalsAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -107,7 +128,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => refundsAware
+  int get schemaVersion => reversalsAware
+      ? 11
+      : refundsAware
       ? 10
       : fxTransfersAware
       ? 9
@@ -139,6 +162,7 @@ final class ProbeDatabase extends GeneratedDatabase {
         await customStatement(refundSchema);
         await customStatement(refundIndex);
       }
+      if (reversalsAware) await customStatement(reversalSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
@@ -288,3 +312,11 @@ const refundSchema = '''CREATE TABLE event_refunds (
  FOREIGN KEY(workspace,original_id) REFERENCES events(workspace,id)) STRICT''';
 const refundIndex =
     'CREATE INDEX refunds_by_original ON event_refunds(workspace,original_id)';
+
+const reversalColumns = ['workspace', 'event_id', 'original_id', 'reason'];
+const reversalSchema = '''CREATE TABLE event_reversals (
+ workspace TEXT NOT NULL, event_id TEXT NOT NULL, original_id TEXT NOT NULL,
+ reason TEXT NOT NULL,
+ PRIMARY KEY(workspace,event_id), UNIQUE(workspace,original_id),
+ FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id),
+ FOREIGN KEY(workspace,original_id) REFERENCES events(workspace,id)) STRICT''';

@@ -6,6 +6,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [完整交易撤銷與安全升級](docs/financial-reversals.md)
 - [原支出退款與可恢復送出](docs/refunds.md)
 - [多分類拆分與可恢復草稿](docs/split-entry-drafts.md)
 - [平均、百分比與固定比例分配](docs/split-allocation-assist.md)
@@ -46,4 +47,4 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 先完成具體規格與關鍵技術驗證，再逐功能交付。變更走分支與 PR；文件初始化不代表正式 Architecture Freeze。未實作或未驗證的能力不顯示為可用功能。
 
-- [交易活動查閱](docs/transaction-activity.md)：原交易與退款關聯、記錄時間及分頁。
+- [交易活動查閱](docs/transaction-activity.md)：原交易、退款與撤銷關聯、記錄時間及分頁。

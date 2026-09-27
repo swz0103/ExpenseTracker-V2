@@ -20,7 +20,8 @@ extension _PreviewUpgrade on PreviewEngine {
           version != 6 &&
           version != 7 &&
           version != 8 &&
-          version != 9) {
+          version != 9 &&
+          version != 10) {
         throw PreviewInvalid();
       }
       _check(epoch);
@@ -39,7 +40,8 @@ extension _PreviewUpgrade on PreviewEngine {
         6 => planMerchantUpgrade,
         7 => planTransferUpgrade,
         8 => planFxTransferUpgrade,
-        _ => planRefundUpgrade,
+        9 => planRefundUpgrade,
+        _ => planReversalUpgrade,
       };
       final request = await plan(
         target,
@@ -54,7 +56,8 @@ extension _PreviewUpgrade on PreviewEngine {
         6 => upgradeMerchants,
         7 => upgradeTransfers,
         8 => upgradeFxTransfers,
-        _ => upgradeRefunds,
+        9 => upgradeRefunds,
+        _ => upgradeReversals,
       };
       await upgrade(
         target,

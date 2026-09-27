@@ -1,8 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.15.0 正式撤銷
+
+**2026-09-28 最新開發包**：0.15.0+19 接入[完整反向撤銷](financial-reversals.md)、確認／加密草稿、活動關聯，以及 V2 schema 10 → 11 安全升級／snapshot 10。
+
+- 本機檔案：build/deliverables/ExpenseTracker-V2-development-0.15.0-arm64.apk，94,655,155 bytes。
+- SHA-256：1ead1d86b558715af70fc181fb7eae5aa27ece7eace55d7ea96e6b6028cd5f13。
+- App ID dev.expensetracker.preview，versionCode 19／versionName 0.15.0，min API 24／target API 36、APK v2 簽章、allowBackup=false、ARM64 Flutter／SQLCipher 均核對。
+- [完整 18 套件／846 主機案例](test-results/reversals-host-2026-09-28.json)、[5,000 混合事件與雙路乾淨還原](test-results/reversals-scale-2026-09-28.json)、[四處草稿程序退出](test-results/reversals-process-2026-09-28.json)通過。
+- APK／金鑰不上傳；未安裝、未發布，雲端、實機與其餘 CORE gate 保留。
+
 ## 0.14.0 交易活動查閱
 
-**2026-09-28 最新開發包**：0.14.0+18 接入[交易活動查閱](transaction-activity.md)；沿用 schema 10／snapshot 9。
+**2026-09-28 歷史開發包**：0.14.0+18 接入[交易活動查閱](transaction-activity.md)；沿用 schema 10／snapshot 9。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.14.0-arm64.apk`，94,622,535 bytes。
 - SHA-256：`bdaac9f1eab1f457bddb50a6e8dda5f11a26b859ad9562f4c84b294e3463635d`。

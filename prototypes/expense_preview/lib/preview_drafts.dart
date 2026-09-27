@@ -42,7 +42,8 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if ((fields.refundOf != null && schemaVersion < 10) ||
+    if ((fields.reversalOf != null && schemaVersion < 11) ||
+        (fields.refundOf != null && schemaVersion < 10) ||
         (fields.transfer && schemaVersion < 8) ||
         (fields.received != null && schemaVersion < 9) ||
         (fields.split && schemaVersion < 5)) {
@@ -81,145 +82,164 @@ extension PreviewDrafts on PreviewEngine {
     if (draft == null) throw PreviewInvalid();
     if (draft.submission == null) {
       final fields = draft.fields;
-      final accounts = await session.accounts(workspace);
-      final account = accounts
-          .where((a) => a.account.id == fields.accountId)
-          .firstOrNull
-          ?.account;
-      if (account == null || account.state != AccountState.active) {
-        if (fields.transfer) throw PreviewTransferAccountInvalid();
-        throw PreviewInvalid();
-      }
       late EntrySubmission command;
-      if (fields.refundOf != null) {
-        command = await _refundCommand(draft, account, session);
+      if (fields.reversalOf != null) {
+        final source = await session.reversalSource(
+          workspace,
+          fields.reversalOf!,
+        );
+        command = EntrySubmission(
+          Posting.reversal(
+            id: draft.id,
+            operation: draft.operation,
+            date: BusinessDate.parse(fields.date),
+            original: source.posting,
+            reason: fields.reversalReason.trim(),
+          ),
+          tags: source.tags,
+          merchant: source.merchant,
+        );
       } else {
-        final amount = Money.parse(account.currency, fields.amount);
-        final allocations = <Allocation>[];
-        if (fields.categoryId != null) {
-          final category = (await session.categories(workspace))
-              .get(fields.categoryId!);
-          if (category.archived ||
-              category.replacementId != null ||
-              category.kind !=
-                  (fields.income
-                      ? CategoryKind.income
-                      : CategoryKind.expense)) {
-            throw PreviewInvalid();
-          }
-          allocations.add(
-            Allocation(
-              category.id,
-              amount,
-              expectedCategoryVersion: category.version,
-            ),
-          );
+        final accounts = await session.accounts(workspace);
+        final account = accounts
+            .where((a) => a.account.id == fields.accountId)
+            .firstOrNull
+            ?.account;
+        if (account == null || account.state != AccountState.active) {
+          if (fields.transfer) throw PreviewTransferAccountInvalid();
+          throw PreviewInvalid();
         }
-        if (fields.split) {
-          if (schemaVersion < 5 || fields.splits.length < 2) {
-            throw PreviewSplitInvalid();
-          }
-          final catalog = await session.categories(workspace);
-          final selected = <PublicId>{};
-          for (final row in fields.splits) {
-            final id = row.categoryId;
-            if (id == null || !selected.add(id)) throw PreviewSplitInvalid();
-            final category = catalog.get(id);
+        if (fields.refundOf != null) {
+          command = await _refundCommand(draft, account, session);
+        } else {
+          final amount = Money.parse(account.currency, fields.amount);
+          final allocations = <Allocation>[];
+          if (fields.categoryId != null) {
+            final category = (await session.categories(workspace))
+                .get(fields.categoryId!);
             if (category.archived ||
                 category.replacementId != null ||
                 category.kind !=
                     (fields.income
                         ? CategoryKind.income
                         : CategoryKind.expense)) {
-              throw PreviewSplitInvalid();
+              throw PreviewInvalid();
             }
             allocations.add(
               Allocation(
-                id,
-                Money.parse(account.currency, row.amount),
+                category.id,
+                amount,
                 expectedCategoryVersion: category.version,
               ),
             );
           }
-        }
-        final tags = <TagSelection>[];
-        if (fields.tags.isNotEmpty) {
-          if (schemaVersion < 6) throw PreviewInvalid();
-          final catalog = await session.tags(workspace);
-          for (final id in fields.tags) {
-            final tag = catalog.get(id);
-            if (tag.archived || tag.replacementId != null) {
+          if (fields.split) {
+            if (schemaVersion < 5 || fields.splits.length < 2) {
+              throw PreviewSplitInvalid();
+            }
+            final catalog = await session.categories(workspace);
+            final selected = <PublicId>{};
+            for (final row in fields.splits) {
+              final id = row.categoryId;
+              if (id == null || !selected.add(id)) throw PreviewSplitInvalid();
+              final category = catalog.get(id);
+              if (category.archived ||
+                  category.replacementId != null ||
+                  category.kind !=
+                      (fields.income
+                          ? CategoryKind.income
+                          : CategoryKind.expense)) {
+                throw PreviewSplitInvalid();
+              }
+              allocations.add(
+                Allocation(
+                  id,
+                  Money.parse(account.currency, row.amount),
+                  expectedCategoryVersion: category.version,
+                ),
+              );
+            }
+          }
+          final tags = <TagSelection>[];
+          if (fields.tags.isNotEmpty) {
+            if (schemaVersion < 6) throw PreviewInvalid();
+            final catalog = await session.tags(workspace);
+            for (final id in fields.tags) {
+              final tag = catalog.get(id);
+              if (tag.archived || tag.replacementId != null) {
+                throw PreviewInvalid();
+              }
+              tags.add(TagSelection(id, tag.version));
+            }
+          }
+          MerchantSelection? merchant;
+          if (fields.merchantId != null) {
+            if (schemaVersion < 7) throw PreviewInvalid();
+            final item = (await session.merchants(workspace))
+                .get(fields.merchantId!);
+            if (item.archived || item.replacementId != null) {
               throw PreviewInvalid();
             }
-            tags.add(TagSelection(id, tag.version));
+            merchant = MerchantSelection(item.id, item.version);
           }
-        }
-        MerchantSelection? merchant;
-        if (fields.merchantId != null) {
-          if (schemaVersion < 7) throw PreviewInvalid();
-          final item = (await session.merchants(workspace))
-              .get(fields.merchantId!);
-          if (item.archived || item.replacementId != null) {
-            throw PreviewInvalid();
+          final factory = fields.income ? Posting.income : Posting.expense;
+          EntrySubmission transfer() {
+            if (schemaVersion < 8) throw PreviewInvalid();
+            final destination = accounts
+                .where((a) => a.account.id == fields.destinationId)
+                .firstOrNull
+                ?.account;
+            if (destination == null ||
+                destination.state != AccountState.active) {
+              throw PreviewTransferAccountInvalid();
+            }
+            PostingAccount ref(Account a) => PostingAccount(
+              id: a.id,
+              workspace: workspace,
+              currency: a.currency,
+              expectedVersion: a.version,
+            );
+            final foreign = account.currency != destination.currency;
+            if ((foreign && (schemaVersion < 9 || fields.received == null)) ||
+                (!foreign && fields.received != null)) {
+              throw PreviewInvalid();
+            }
+            return EntrySubmission(
+              Posting.transfer(
+                id: draft!.id,
+                operation: draft.operation,
+                date: BusinessDate.parse(fields.date),
+                source: ref(account),
+                destination: ref(destination),
+                principal: amount,
+                received: fields.received == null
+                    ? null
+                    : Money.parse(destination.currency, fields.received!),
+                fee: Money.parse(account.currency, fields.fee),
+              ),
+            );
           }
-          merchant = MerchantSelection(item.id, item.version);
-        }
-        final factory = fields.income ? Posting.income : Posting.expense;
-        EntrySubmission transfer() {
-          if (schemaVersion < 8) throw PreviewInvalid();
-          final destination = accounts
-              .where((a) => a.account.id == fields.destinationId)
-              .firstOrNull
-              ?.account;
-          if (destination == null || destination.state != AccountState.active) {
-            throw PreviewTransferAccountInvalid();
-          }
-          PostingAccount ref(Account a) => PostingAccount(
-            id: a.id,
-            workspace: workspace,
-            currency: a.currency,
-            expectedVersion: a.version,
-          );
-          final foreign = account.currency != destination.currency;
-          if ((foreign && (schemaVersion < 9 || fields.received == null)) ||
-              (!foreign && fields.received != null)) {
-            throw PreviewInvalid();
-          }
-          return EntrySubmission(
-            Posting.transfer(
-              id: draft!.id,
-              operation: draft.operation,
-              date: BusinessDate.parse(fields.date),
-              source: ref(account),
-              destination: ref(destination),
-              principal: amount,
-              received: fields.received == null
-                  ? null
-                  : Money.parse(destination.currency, fields.received!),
-              fee: Money.parse(account.currency, fields.fee),
-            ),
-          );
-        }
 
-        command = fields.transfer
-            ? transfer()
-            : EntrySubmission(
-                factory(
-                  id: draft.id,
-                  operation: draft.operation,
-                  date: BusinessDate.parse(fields.date),
-                  account: PostingAccount(
-                    id: account.id,
-                    workspace: workspace,
-                    currency: account.currency,
-                    expectedVersion: account.version,
+          command = fields.transfer
+              ? transfer()
+              : EntrySubmission(
+                  factory(
+                    id: draft.id,
+                    operation: draft.operation,
+                    date: BusinessDate.parse(fields.date),
+                    account: PostingAccount(
+                      id: account.id,
+                      workspace: workspace,
+                      currency: account.currency,
+                      expectedVersion: account.version,
+                    ),
+                    amount: amount,
+                    allocations: allocations,
                   ),
-                  amount: amount,
-                  allocations: allocations,
-                ),
-                tags: tags,
-                merchant: merchant,
-              );
+                  tags: tags,
+                  merchant: merchant,
+                );
+        }
       }
       _check(epoch);
       draft = draft.prepare(command);
@@ -237,6 +257,18 @@ extension PreviewDrafts on PreviewEngine {
     await store.write(null);
     _check(epoch);
   });
+
+  Future<EntrySubmission> reversalSource(PublicId original) =>
+      _exclusive((epoch) async {
+        _require();
+        final source = await _session!.reversalSource(workspace, original);
+        _check(epoch);
+        return EntrySubmission(
+          source.posting,
+          tags: source.tags,
+          merchant: source.merchant,
+        );
+      });
 
   Future<RefundStatus> refundStatus(PublicId original) =>
       _exclusive((epoch) async {

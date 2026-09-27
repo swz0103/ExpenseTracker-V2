@@ -33,6 +33,16 @@ Future<RefundSourceRecord> readRefundSource(
     Variable.withString(workspace.toString()),
     Variable.withString(originalId.value),
   ];
+  if (db.reversalsAware &&
+      (await db
+              .customSelect(
+                'SELECT event_id FROM event_reversals WHERE workspace=? AND original_id=?',
+                variables: args,
+              )
+              .get())
+          .isNotEmpty) {
+    throw const LedgerException(LedgerError.reversalDependency);
+  }
   final event = await db
       .customSelect(
         "SELECT e.*,l.account_id FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 WHERE e.workspace=? AND e.id=?",

@@ -2,7 +2,7 @@ import 'package:foundation_values/foundation_values.dart';
 
 part 'refund.dart';
 
-enum PostingKind { opening, income, expense, transfer, refund }
+enum PostingKind { opening, income, expense, transfer, refund, reversal }
 
 enum LegRole { principal, fee }
 
@@ -15,6 +15,8 @@ enum LedgerError {
   duplicateIdentity,
   refundReference,
   refundLimit,
+  reversalReference,
+  reversalDependency,
 }
 
 final class LedgerException implements Exception {
@@ -76,6 +78,8 @@ final class Posting {
     required this.reportExpense,
     this.conversion,
     this.refundOf,
+    this.reversedPosting,
+    this.reversalReason,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -183,6 +187,47 @@ final class Posting {
     );
   }
 
+  /// Retains the original and negates every cash/report effect exactly.
+  /// Persistence revalidates the original and its dependent events atomically.
+  factory Posting.reversal({
+    required PublicId id,
+    required OperationKey operation,
+    required BusinessDate date,
+    required Posting original,
+    String reason = '',
+  }) {
+    if (![
+          PostingKind.income,
+          PostingKind.expense,
+          PostingKind.transfer,
+        ].contains(original.kind) ||
+        id == original.id ||
+        date.compareTo(original.date) < 0 ||
+        reason != reason.trim() ||
+        reason.runes.length > 256) {
+      throw const LedgerException(LedgerError.reversalReference);
+    }
+    if (operation.workspace != original.operation.workspace) {
+      throw const LedgerException(LedgerError.workspaceMismatch);
+    }
+    return Posting._(
+      id: id,
+      operation: operation,
+      date: date,
+      kind: PostingKind.reversal,
+      legs: [
+        for (final leg in original.legs)
+          LedgerLeg._(leg.account, -leg.amount, leg.role),
+      ],
+      allocations: original.allocations,
+      reportIncome: -original.reportIncome,
+      reportExpense: -original.reportExpense,
+      conversion: original.conversion,
+      reversedPosting: original,
+      reversalReason: reason,
+    );
+  }
+
   factory Posting.transfer({
     required PublicId id,
     required OperationKey operation,
@@ -237,6 +282,9 @@ final class Posting {
   final Money reportExpense;
   final ActualConversion? conversion;
   final PublicId? refundOf;
+  final Posting? reversedPosting;
+  final String? reversalReason;
+  PublicId? get reversalOf => reversedPosting?.id;
 }
 
 void _participation(

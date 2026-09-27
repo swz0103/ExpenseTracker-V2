@@ -19,6 +19,7 @@ import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
 part 'refund_snapshot.dart';
+part 'reversal_snapshot.dart';
 
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
@@ -81,24 +82,33 @@ final class SnapshotCodec {
     bool merchantsAware = false,
     bool transfersAware = false,
     bool fxTransfersAware = false,
-    this.refundsAware = false,
-  }) : fxTransfersAware = fxTransfersAware || refundsAware,
-       transfersAware = transfersAware || fxTransfersAware || refundsAware,
+    bool refundsAware = false,
+    this.reversalsAware = false,
+  }) : refundsAware = refundsAware || reversalsAware,
+       fxTransfersAware = fxTransfersAware || refundsAware || reversalsAware,
+       transfersAware =
+           transfersAware || fxTransfersAware || refundsAware || reversalsAware,
        merchantsAware =
-           merchantsAware || transfersAware || fxTransfersAware || refundsAware,
+           merchantsAware ||
+           transfersAware ||
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -106,7 +116,8 @@ final class SnapshotCodec {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware,
+           refundsAware ||
+           reversalsAware,
        generationAware =
            generationAware ||
            categoryAware ||
@@ -115,7 +126,8 @@ final class SnapshotCodec {
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
-           refundsAware;
+           refundsAware ||
+           reversalsAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
@@ -124,10 +136,12 @@ final class SnapshotCodec {
   final bool transfersAware;
   final bool fxTransfersAware;
   final bool refundsAware;
+  final bool reversalsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
     if (refundsAware) 'event_refunds': refundColumns,
+    if (reversalsAware) 'event_reversals': reversalColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -139,7 +153,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => refundsAware
+  int get _formatVersion => reversalsAware
+      ? 10
+      : refundsAware
       ? 9
       : fxTransfersAware
       ? 8
@@ -152,7 +168,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => refundsAware
+  int get _schemaVersion => reversalsAware
+      ? 11
+      : refundsAware
       ? 10
       : fxTransfersAware
       ? 9
@@ -177,6 +195,7 @@ final class SnapshotCodec {
     if (transfersAware) 'session_transfers': 1,
     if (fxTransfersAware) 'ledger_fx_transfers': 1,
     if (refundsAware) 'ledger_refunds': 1,
+    if (reversalsAware) 'ledger_reversals': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -310,7 +329,10 @@ final class SnapshotCodec {
               (fxTransfersAware &&
                   root['version'] == 8 &&
                   root['schema'] == 9) ||
-              (refundsAware && root['version'] == 9 && root['schema'] == 10)))
+              (refundsAware && root['version'] == 9 && root['schema'] == 10) ||
+              (reversalsAware &&
+                  root['version'] == 10 &&
+                  root['schema'] == 11)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -325,6 +347,7 @@ final class SnapshotCodec {
         if (root['version'] >= 7) 'session_transfers': 1,
         if (root['version'] >= 8) 'ledger_fx_transfers': 1,
         if (root['version'] >= 9) 'ledger_refunds': 1,
+        if (root['version'] >= 10) 'ledger_reversals': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -335,6 +358,7 @@ final class SnapshotCodec {
         ..._financialColumns,
         if (root['version'] >= 8) 'event_fx': fxTransferColumns,
         if (root['version'] >= 9) 'event_refunds': refundColumns,
+        if (root['version'] >= 10) 'event_reversals': reversalColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -394,7 +418,8 @@ final class SnapshotCodec {
         merchantsAware != db.merchantsAware ||
         transfersAware != db.transfersAware ||
         fxTransfersAware != db.fxTransfersAware ||
-        refundsAware != db.refundsAware)
+        refundsAware != db.refundsAware ||
+        reversalsAware != db.reversalsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};
@@ -533,6 +558,9 @@ final class SnapshotCodec {
         throw const InvalidSnapshot();
       }
     }
+    final reversalLinks = reversalsAware
+        ? await _validateReversalHistory(db, events)
+        : <(String, String), ({String original, String reason})>{};
     final checkedConversions = <(String, String)>{};
     for (final event in events) {
       final ws = event.read<String>('workspace');
@@ -555,7 +583,9 @@ final class SnapshotCodec {
                   leg.read<int>('scale'),
                 ) ||
             (!((fxTransfersAware &&
-                        event.read<String>('kind') == 'transfer' &&
+                        (event.read<String>('kind') == 'transfer' ||
+                            (reversalsAware &&
+                                event.read<String>('kind') == 'reversal')) &&
                         index == 1) ||
                     (refundsAware && event.read<String>('kind') == 'refund')) &&
                 account.currency != currency) ||
@@ -569,7 +599,7 @@ final class SnapshotCodec {
       final expense = BigInt.from(event.read<int>('expense'));
       final kind = event.read<String>('kind');
       final attributed = allocationsByEvent[(ws, id)]?.values;
-      if (attributed != null) {
+      if (attributed != null && kind != 'reversal') {
         var total = BigInt.zero;
         for (final row in attributed) {
           final amount = BigInt.from(row.read<int>('amount'));
@@ -588,7 +618,10 @@ final class SnapshotCodec {
           throw const InvalidSnapshot();
         }
       }
-      if (kind == 'refund') {
+      if (kind == 'reversal') {
+        if (!reversalLinks.containsKey((ws, id))) throw const InvalidSnapshot();
+        if (conversions.containsKey((ws, id))) checkedConversions.add((ws, id));
+      } else if (kind == 'refund') {
         if (!refundsAware ||
             !refundLinks.containsKey((ws, id)) ||
             list.length != 1 ||
@@ -728,6 +761,7 @@ final class SnapshotCodec {
             'posting-v1',
             if (fxTransfersAware) 'fx-posting-v1',
             if (refundsAware) 'refund-posting-v1',
+            if (reversalsAware) 'reversal-posting-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
             if (categoryAware) 'category-v1',
@@ -781,7 +815,25 @@ final class SnapshotCodec {
       final event = eventsById[(ws, resultId)];
       if (event == null) throw const InvalidSnapshot();
       final context = conversions[(ws, resultId)];
-      if (input.first == 'refund-posting-v1') {
+      if (input.first == 'reversal-posting-v1') {
+        final link = reversalLinks[(ws, resultId)];
+        if (!reversalsAware ||
+            input.length != 5 ||
+            link == null ||
+            input[1] != link.original ||
+            input[2] != link.reason ||
+            event.read<String>('kind') != 'reversal' ||
+            (context == null
+                ? input[4] != null
+                : jsonEncode(input[4]) != context) ||
+            input[3] is! List ||
+            (input[3] as List).isEmpty) {
+          throw const InvalidSnapshot();
+        }
+        input = input[3];
+      } else if (event.read<String>('kind') == 'reversal') {
+        throw const InvalidSnapshot();
+      } else if (input.first == 'refund-posting-v1') {
         if (!refundsAware ||
             input.length != 5 ||
             input[1] != refundLinks[(ws, resultId)] ||

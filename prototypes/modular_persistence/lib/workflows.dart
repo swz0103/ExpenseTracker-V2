@@ -12,6 +12,7 @@ import 'categories_adapter.dart';
 import 'tagged_posting.dart';
 import 'merchant_posting.dart';
 import 'refunds_adapter.dart';
+import 'reversals_adapter.dart';
 
 export 'operations.dart' show OperationConflict, CommitResult;
 
@@ -91,14 +92,22 @@ final class FinancialWorkflows {
         final refund = posting.refundOf == null
             ? null
             : await validateRefundPosting(db, posting, selections, merchant);
+        final reversal = posting.reversalOf == null
+            ? null
+            : await validateReversalPosting(db, posting, selections, merchant);
         final categorySequence = await _validate(
           posting,
-          refundSequence: refund?.categorySequence,
+          refundSequence:
+              refund?.categorySequence ?? reversal?.categorySequence,
         );
-        final tagSequence = refund != null
+        final tagSequence = reversal != null
+            ? reversal.tagSequence
+            : refund != null
             ? refund.tagSequence
             : await validatePostingTags(db, posting, selections);
-        final merchantSequence = refund != null
+        final merchantSequence = reversal != null
+            ? reversal.merchantSequence
+            : refund != null
             ? refund.merchantSequence
             : await validatePostingMerchant(db, posting, merchant);
         await ledger.insert(
@@ -157,7 +166,9 @@ final class FinancialWorkflows {
 
   Future<int?> _validate(Posting posting, {int? refundSequence}) async {
     int? categorySequence = refundSequence;
-    if (posting.refundOf == null && posting.allocations.isNotEmpty) {
+    if (posting.refundOf == null &&
+        posting.reversalOf == null &&
+        posting.allocations.isNotEmpty) {
       if (!db.categoryReferences) {
         throw UnsupportedError('Category references require schema 5.');
       }

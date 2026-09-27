@@ -12,9 +12,12 @@ Future<Set<(String, String)>> validateAllocationHistory(
 ) async {
   if (!db.categoryReferences) throw const InvalidCategoryHistory();
   final pending = <(String, int), List<QueryRow>>{};
-  final rows = await db.customSelect('''SELECT a.*,e.kind
+  final rows = await db.customSelect(
+    '''SELECT a.*,${db.reversalsAware ? 'COALESCE(s.kind,e.kind)' : 'e.kind'} AS kind
     FROM allocations a LEFT JOIN events e
-    ON e.workspace=a.workspace AND e.id=a.event_id''').get();
+    ON e.workspace=a.workspace AND e.id=a.event_id
+    ${db.reversalsAware ? 'LEFT JOIN event_reversals v ON v.workspace=e.workspace AND v.event_id=e.id LEFT JOIN events s ON s.workspace=v.workspace AND s.id=v.original_id' : ''}''',
+  ).get();
   final eventSequences = <(String, String), int>{};
   for (final row in rows) {
     final ws = row.read<String>('workspace');

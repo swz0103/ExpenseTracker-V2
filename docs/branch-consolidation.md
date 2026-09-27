@@ -77,3 +77,5 @@ feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156
 2026-09-28 退款：`feat/refund-postings` 依賴 #57 的 `fabe6b83f8aee0e7aaa4f8e0341ab336de37e61a`；[完整 18 套件／810 個主機案例](test-results/refunds-host-2026-09-28.json)、5,000 事件雙路乾淨還原及四處草稿程序退出通過。以獨立 PR 交付整個退款流程，原依賴與提交歷史保留。雲端未執行，需雲端 gate 的收斂與 main 合併維持原限制。
 
 2026-09-28 活動查閱：`feat/transaction-activity` 依賴 #58／`d7b63bf3b7b5b7bb1ba2cc459a92dac9230962cc`。[54 個受影響主機案例](test-results/transaction-activity-host-2026-09-28.json)通過，讀取流程以獨立 PR 交付。沒有新增雲端證據，既有需雲端 gate 的整合、舊分支移除及 main 合併維持原限制。
+
+feat/financial-reversals 依賴 #59（0b8ba69471d156f93c1be6931b9eb6db931a8401），完成[正式撤銷](financial-reversals.md)及 10 → 11 安全升級。完整 18 套件／846 主機案例、5,000 混合事件、雙路乾淨還原與程序退出通過；來源提交完整保留。無雲端 checks，待雲端 gate 批次不收斂、不刪分支，main 未合併。

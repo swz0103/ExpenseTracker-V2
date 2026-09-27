@@ -84,7 +84,9 @@ class _ActivityDialogState extends State<_ActivityDialog> {
         children: [
           Text('記錄時間：${_recorded(row.recordedAt)}（本機時區）'),
           if (e.id == widget.selected) const Text('目前選取的交易'),
-          if (e.kind == PostingKind.transfer)
+          if (e.kind == PostingKind.reversal)
+            _reversalSummary(e, _account, widget.privacy)
+          else if (e.kind == PostingKind.transfer)
             TransferSummary(
               entry: e,
               source: _account(e.accountId),
@@ -140,7 +142,7 @@ class _ActivityDialogState extends State<_ActivityDialog> {
                 ),
               ],
             ),
-            const Text('由新到舊，包含原交易及相關退款。'),
+            const Text('由新到舊，包含原交易、相關退款與撤銷。'),
             Expanded(
               child: ListView(
                 key: const Key('activity-list'),
