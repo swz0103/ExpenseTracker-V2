@@ -74,8 +74,9 @@ Map<String, Object?> accountJson(Account account) => {
 };
 
 final class LedgerAdapter {
-  LedgerAdapter(this.db);
+  LedgerAdapter(this.db, {this.sourceContext = 'fixture-manual-v1'});
   final ProbeDatabase db;
+  final String sourceContext;
   Future<void> insert(
     Posting posting, {
     void Function(String)? checkpoint,
@@ -92,7 +93,7 @@ final class LedgerAdapter {
         posting.reportExpense.minorUnits.toInt(),
         posting.reportIncome.currency.code,
         posting.reportIncome.currency.scale,
-        'fixture-manual-v1',
+        sourceContext,
       ],
     );
     checkpoint?.call('event');

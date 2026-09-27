@@ -1,0 +1,164 @@
+part of 'ledger_store.dart';
+
+final class SessionClosed implements Exception {}
+
+final class PreviewCapacity implements Exception {}
+
+final class AccountSummary {
+  const AccountSummary(this.account, this.balance);
+  final Account account;
+  final Money balance;
+}
+
+final class LedgerEntry {
+  const LedgerEntry(this.id, this.date, this.kind, this.accountId, this.amount);
+  final PublicId id;
+  final BusinessDate date;
+  final PostingKind kind;
+  final PublicId accountId;
+  final Money amount;
+}
+
+/// Exclusive, bounded command scope. No public SQL or database handle.
+/// Preview limits preserve room for portable backups; not full M3 capacity.
+final class LedgerSession {
+  LedgerSession._(this._db);
+  static const maxEvents = 5000;
+  static const maxAccounts = 32;
+  final ProbeDatabase _db;
+  Future<void> _tail = Future.value();
+  bool _closed = false;
+
+  Future<T> _enqueue<T>(Future<T> Function() work) {
+    if (_closed) return Future.error(SessionClosed());
+    final result = _tail.then((_) => work());
+    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
+
+  Future<void> _close() async {
+    _closed = true;
+    await _tail;
+  }
+
+  Future<int> _count(String table) async =>
+      (await _db.customSelect('SELECT count(*) AS n FROM $table').getSingle())
+          .read<int>('n');
+
+  Future<void> _capacity(Posting posting, {bool account = false}) async {
+    // Replays must remain possible even when no new entries fit.
+    final prior = await _db
+        .customSelect(
+          'SELECT operation_id FROM receipts WHERE workspace=? AND operation_id=?',
+          variables: [
+            Variable.withString(posting.operation.workspace.toString()),
+            Variable.withString(posting.operation.operation.toString()),
+          ],
+        )
+        .get();
+    if (prior.isNotEmpty) return;
+    if (await _count('events') >= maxEvents ||
+        (account && await _count('accounts') >= maxAccounts)) {
+      throw PreviewCapacity();
+    }
+  }
+
+  Future<CommitResult> createAccount(Account account, Posting opening) =>
+      _enqueue(
+        () => _db.transaction(() async {
+          await _capacity(opening, account: true);
+          return FinancialWorkflows(
+            _db,
+            sourceContext: 'preview-manual-v1',
+          ).createAccount(account, opening);
+        }),
+      );
+
+  Future<CommitResult> post(Posting posting) => _enqueue(
+    () => _db.transaction(() async {
+      if (posting.kind != PostingKind.income &&
+          posting.kind != PostingKind.expense) {
+        throw UnsupportedError('Preview accepts income and expense only');
+      }
+      await _capacity(posting);
+      return FinancialWorkflows(
+        _db,
+        sourceContext: 'preview-manual-v1',
+      ).post(posting);
+    }),
+  );
+
+  Future<List<AccountSummary>> accounts(WorkspaceId workspace) =>
+      _enqueue(() async {
+        final rows = await _db
+            .customSelect(
+              'SELECT id FROM accounts WHERE workspace=? ORDER BY id',
+              variables: [Variable.withString(workspace.toString())],
+            )
+            .get();
+        final adapter = AccountsAdapter(_db);
+        final ledger = LedgerAdapter(_db);
+        return List.unmodifiable(
+          await Future.wait(
+            rows.map((row) async {
+              final account = await adapter.read(
+                workspace,
+                PublicId.parse(row.read<String>('id')),
+              );
+              final balance = await ledger.balance(
+                PostingAccount(
+                  id: account.id,
+                  workspace: workspace,
+                  currency: account.currency,
+                  expectedVersion: account.version,
+                ),
+              );
+              return AccountSummary(account, balance);
+            }),
+          ),
+        );
+      });
+
+  /// Keyset pagination by business date and public ID; no OFFSET drift.
+  Future<List<LedgerEntry>> entries(
+    WorkspaceId workspace, {
+    LedgerEntry? before,
+    int limit = 30,
+  }) => _enqueue(() async {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    final rows = await _db
+        .customSelect(
+          'SELECT e.id,e.business_date,e.kind,l.account_id,l.amount,l.currency,l.scale '
+          'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
+          'WHERE e.workspace=? ${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
+          'ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
+          variables: [
+            Variable.withString(workspace.toString()),
+            if (before != null) ...[
+              Variable.withString(before.date.toString()),
+              Variable.withString(before.date.toString()),
+              Variable.withString(before.id.value),
+            ],
+            Variable.withInt(limit),
+          ],
+        )
+        .get();
+    return List.unmodifiable(
+      rows.map(
+        (r) => LedgerEntry(
+          PublicId.parse(r.read<String>('id')),
+          BusinessDate.parse(r.read<String>('business_date')),
+          PostingKind.values.byName(r.read<String>('kind')),
+          PublicId.parse(r.read<String>('account_id')),
+          Money(
+            Currency(r.read<String>('currency'), r.read<int>('scale')),
+            BigInt.from(r.read<int>('amount')),
+          ),
+        ),
+      ),
+    );
+  });
+
+  Future<List<int>> snapshot() =>
+      _enqueue(() => SnapshotCodec(generationAware: true).capture(_db));
+}

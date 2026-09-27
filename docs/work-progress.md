@@ -35,10 +35,11 @@
 - 持久安全備份：`feat/verified-safety-backup`，PR #26，基於 PR #25，提交 `a137eb0`；294 項 host 測試的十二個 CI 工作通過。來源 schema 3 預檢、exclusive 新檔、flush 後重讀及密碼／救援 key 分別核對完整 snapshot；全程持有生命週期鎖，既有／部分輸出不覆寫。13 項新 host 案例與既有 Ledger 33 項及靜態分析通過；完整產品憑證延續及升級協調仍未完成。[原型範圍](verified-safety-backup.md)。
 - 救援憑證沿用：`feat/reusable-recovery-credential`，PR #27，基於 PR #26，提交 `b141392`。Envelope／Ledger 一般與持久安全備份可明確沿用既有救援 key，格式及預設新建行為保留；每份資料 key／salt／nonce 仍獨立。7 項新 envelope、2 項 Ledger 整合，連同既有共 64 項本機測試及靜態分析通過。正式 profile 保存與啟用仍待實作。[契約與範圍](backup-profile-contract.md)。
 - 最新使用者指示（2026-09-27）：暫不操作手機；持續到可安裝的最小 M1 試用 APK，且完成大規模測試，或使用者回來。依[本輪計畫](installable-preview-plan.md)調整優先順序。
-- 下一項：P1 工作階段／讀取接口，接 P2 試用 App、備份設定與 UI，再做 P3 大規模及 P4 APK 交付。原有舊來源 reader／正式升級協調仍保留；裝置程序中止／OS 重開機及完整升級協調仍待實作與驗證。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置已連接並完成指定子集，未列入的完整平台故障 gate 仍待接續。
+- P1 工作階段／讀取：`feat/ledger-preview-session`，基於 PR #28。6 項新案例及受影響套件共 172 項本機回歸通過。[接口與限制](ledger-preview-session.md)。PR #27 的 303 項 host 測試及十二個 CI 工作已全部通過。下一項 P2 試用 App／備份設定／UI，再做 P3 大規模及 P4 APK 交付；完整 migration／平台 gate 保留，本輪不操作裝置。
 
 ## 尚未完成的 gate
 
 整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成，不把 host 原型或套件單元測試冒充可用 App。
 
 詳細順序見[實作計畫](implementation-plan.md)，財務契約見[工程規格](foundation-contracts.md)，驗收案例見[案例清單](foundation-acceptance.md)。
+

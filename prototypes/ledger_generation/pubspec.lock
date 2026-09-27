@@ -10,7 +10,7 @@ packages:
     source: hosted
     version: "108.0.0"
   accounts:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../packages/accounts"
       relative: true
@@ -112,7 +112,7 @@ packages:
     source: hosted
     version: "2.9.0"
   drift:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: drift
       sha256: e3b6352aa02e60bed6ffc3cc9894c421578dad5fbef21b1f7f57cdc0e4edabcb

@@ -50,6 +50,10 @@ final class InvalidSnapshot implements Exception {
 final class SnapshotCodec {
   SnapshotCodec({this.generationAware = false});
   final bool generationAware;
+
+  /// Empty authority tables, validated by the same staged import path.
+  List<int> empty() =>
+      _encode({for (final name in _columns.keys) name: <Object>[]});
   int get _formatVersion => generationAware ? 2 : 1;
   int get _schemaVersion => generationAware ? 3 : 2;
   Map<String, int> get _manifest => {

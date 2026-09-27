@@ -17,9 +17,9 @@ final class CommitResult {
 }
 
 final class FinancialWorkflows {
-  FinancialWorkflows(this.db)
+  FinancialWorkflows(this.db, {String sourceContext = 'fixture-manual-v1'})
     : accounts = AccountsAdapter(db),
-      ledger = LedgerAdapter(db);
+      ledger = LedgerAdapter(db, sourceContext: sourceContext);
   final ProbeDatabase db;
   final AccountsAdapter accounts;
   final LedgerAdapter ledger;

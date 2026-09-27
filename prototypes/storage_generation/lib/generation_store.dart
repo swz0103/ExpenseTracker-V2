@@ -16,6 +16,7 @@ enum GenerationProblem {
   lockCancelled,
   operationConflict,
   recoveryRequired,
+  alreadyInitialized,
 }
 
 final class GenerationUnavailable implements Exception {
@@ -101,6 +102,7 @@ final class GenerationStore {
     OperationId operation, {
     void Function(String)? checkpoint,
     LockWaitCancellation? cancellation,
+    bool onlyIfEmpty = false,
   }) async {
     if (utf8.encode(fixture).length > (payload?.maxBytes ?? 4096))
       throw ArgumentError('Fixture too large');
@@ -129,6 +131,11 @@ final class GenerationStore {
           return receipt; // Does not reactivate an older committed generation.
         }
         final previous = _active(catalog);
+        if (onlyIfEmpty && previous != null) {
+          throw const GenerationUnavailable(
+            GenerationProblem.alreadyInitialized,
+          );
+        }
         final receipt = GenerationReceipt(
           PublicId.generate(),
           PublicId.generate(),

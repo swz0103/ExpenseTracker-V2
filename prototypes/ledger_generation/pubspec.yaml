@@ -4,6 +4,9 @@ publish_to: none
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
+  accounts:
+    path: ../../packages/accounts
+  drift: 2.35.0
   sqlite3: 3.6.0
   foundation_values:
     path: ../../packages/foundation_values

@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
+import 'package:accounts/accounts.dart';
+import 'package:drift/drift.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:encrypted_storage_probe/encrypted_database.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:modular_persistence_probe/database.dart';
+import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:modular_persistence_probe/workflows.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -14,6 +18,8 @@ import 'package:storage_generation_probe/key_slots.dart';
 import 'package:storage_generation_probe/lock_wait.dart';
 import 'package:storage_generation_probe/catalog_protection.dart';
 import 'package:validated_restore_probe/snapshot.dart';
+
+part 'ledger_session.dart';
 
 StorageBinding _binding(GenerationReceipt receipt) => StorageBinding(
   receipt.generation,
@@ -93,6 +99,36 @@ final class LedgerStore {
          lockTimeout: lockTimeout,
        );
   final GenerationStore generations;
+
+  Future<GenerationReceipt> initialize(OperationId operation) =>
+      generations.install(
+        utf8.decode(SnapshotCodec(generationAware: true).empty()),
+        operation,
+        onlyIfEmpty: true,
+      );
+
+  /// One lifecycle lease; commands are serialized and drained before closing.
+  /// Retaining the facade after the callback returns never retains DB access.
+  Future<T> withSession<T>(Future<T> Function(LedgerSession) work) async {
+    Object? failure;
+    StackTrace? trace;
+    late T result;
+    await generations.withCurrent((file, key, receipt) async {
+      final db = openEncrypted(file, key, storageBinding: _binding(receipt));
+      final session = LedgerSession._(db);
+      try {
+        result = await work(session);
+      } catch (error, stack) {
+        failure = error;
+        trace = stack;
+      } finally {
+        await session._close();
+        await db.close();
+      }
+    });
+    if (failure != null) Error.throwWithStackTrace(failure!, trace!);
+    return result;
+  }
 
   Future<GenerationReceipt> restore(
     String envelope,
