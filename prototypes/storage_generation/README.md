@@ -44,10 +44,12 @@ dart test --reporter expanded
 
 ## 不能支持的結論
 
+後續新增明確的 `CatalogProtection` 模式：控制 DB 使用獨立 key、SQLCipher 與 schema 2，內部 store 身份必須符合 composition 提供的 ID；原 schema 1 明文模式只保留給舊 fixture。18 項新增案例與原有 26 項切換案例通過，初始化中止有一種保留並停止的情境，不能宣稱所有中止自動復原。完整邊界見[控制紀錄加密](../../docs/storage-control-protection.md)。
+
 預設文字 fixture 有自己的 schema 1。後續新增 `GenerationPayload` adapter 與受鎖保護的內部連線 scope，由 [Ledger 整合原型](../ledger_generation/README.md) 接入明確的財務 schema 3／snapshot format 2，未放寬未知欄位檢查。發布前重開後的內容必須與正規化輸入摘要相同；文字 fixture 仍要求內容不可變，Ledger adapter 則允許發布後合法入帳。
 
 尚未實作平台 secure storage adapter、App 活躍連線租約、跨程序等待超時／取消、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放。原型跨程序鎖會等待持鎖者釋放，不能直接拿來滿足正式超時契約；同程序 busy 保護不代替正式背景工作協調。
 
 不刪除任何舊世代或 slot，尚不支援長期保留政策。若 active key 遺失，這個原型停止操作；正式產品從可攜備份恢復到新安全環境的路徑仍需另行整合。
 
-程序退出不是斷電證據；本項未模擬實際磁碟滿、Android OS kill 或安全儲存故障。未重新驗證 BACKUP-01／02 的乾淨 Android 路徑，亦未將任何 KEY-01～08 整組標為完整通過。catalog 目前使用測試文字 SHA-256 去重，正式路徑應使用已驗證備份內容的識別契約，不將低熵財務明文摘要當成可公開的安全 metadata。
+程序退出不是斷電證據；本項未模擬實際磁碟滿、Android OS kill 或安全儲存故障。未重新驗證 BACKUP-01／02 的乾淨 Android 路徑，亦未將任何 KEY-01～08 整組標為完整通過。舊模式的 SHA-256 去重摘要不可視為可公開 metadata；新模式把摘要與參照納入加密控制 DB，並不提供整套舊資料的防回放保證。

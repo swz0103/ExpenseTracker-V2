@@ -41,7 +41,7 @@ worker 必須先編譯再跑測試，避免 Windows SQLCipher DLL 被測試程�
 
 ## 未通過的 gate
 
-FixtureKeySlots 仍以明文 key 檔測試，**不得用於真實財務資料**。控制紀錄也沿用原型的明文 SHA-256 去重摘要；此整合不把財務內容摘要宣稱為可公開的無敏感 metadata。正式產品需要另外決定／驗證摘要與控制紀錄的保護方式。
+FixtureKeySlots 仍以明文 key 檔測試，**不得用於真實財務資料**。預設相容模式沿用明文控制紀錄；後續可明確提供 `CatalogProtection`，以獨立 key 加密控制 DB 和摘要。新增兩項密碼／救援新程序整合案例，連同原有 23 項共 25 項通過。身份、初始化中止與平台限制見[控制紀錄加密邊界](../../docs/storage-control-protection.md)；不能把舊模式摘要視為可公開 metadata。
 
 尚未接入 Android Keystore slot adapter、App 持續連線與背景工作、等待超時／取消、舊世代清理、遺失 catalog 的救援、反回放、任意 active write 中斷的 hot journal 自動復原。未知 sidecar 仍停止並保留資料。程序退出不是實際斷電、磁碟滿或 Android OS kill 的證據。
 

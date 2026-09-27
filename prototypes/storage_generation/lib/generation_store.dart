@@ -7,6 +7,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'key_slots.dart';
+import 'catalog_protection.dart';
 
 enum GenerationProblem { busy, operationConflict, recoveryRequired }
 
@@ -63,12 +64,19 @@ abstract interface class GenerationPayload {
 }
 
 /// Mechanism probe: defaults to closed immutable SQLCipher text fixtures.
-/// A plaintext prototype catalog atomically publishes the generation/key-slot pair.
+/// Atomically publishes pairs. Legacy fixtures use plaintext catalog schema 1;
+/// explicit CatalogProtection uses SQLCipher catalog schema 2 with local identity.
 final class GenerationStore {
-  GenerationStore(this.directory, this.keys, {this.payload});
+  GenerationStore(
+    this.directory,
+    this.keys, {
+    this.payload,
+    this.catalogProtection,
+  });
   final Directory directory;
   final KeySlots keys;
   final GenerationPayload? payload;
+  final CatalogProtection? catalogProtection;
   static final _busy = <String>{};
 
   File _file(String name) => File('${directory.path}/$name');
@@ -150,7 +158,7 @@ final class GenerationStore {
       checkpoint?.call('published');
       await _inspect(_active(catalog)!);
       return receipt;
-    });
+    }, checkpoint: checkpoint);
   }
 
   Future<InstalledFixture?> current() => _locked((catalog) async {
@@ -313,7 +321,7 @@ final class GenerationStore {
     }
   }
 
-  Future<Database> _catalog() async {
+  Future<Database> _catalog(void Function(String)? checkpoint) async {
     final file = _file('catalog.db');
     await _regular(file, allowAbsent: true);
     final fresh = !await file.exists();
@@ -326,9 +334,12 @@ final class GenerationStore {
     for (final suffix in ['-journal', '-wal', '-shm']) {
       await _regular(_file('catalog.db$suffix'), allowAbsent: true);
     }
-    // Catalog holds only opaque references and fingerprints, never keys/payloads.
+    final protection = catalogProtection;
+    final key = await protection?.loadKey(!fresh);
+    if (protection != null) checkpoint?.call('catalogKeyReady');
     final db = sqlite3.open(file.path);
     try {
+      if (key != null) configureEncryption(db, key);
       db.execute('PRAGMA foreign_keys=ON');
       db.execute('PRAGMA synchronous=FULL');
       db.execute('PRAGMA busy_timeout=10000');
@@ -347,10 +358,22 @@ final class GenerationStore {
           'CREATE TABLE active (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation TEXT REFERENCES attempts(generation)) STRICT',
         );
         db.execute('INSERT INTO active VALUES(1,NULL)');
-        db.execute('PRAGMA user_version=1');
+        if (protection != null) {
+          db.execute(
+            'CREATE TABLE catalog_identity (singleton INTEGER PRIMARY KEY CHECK(singleton=1), identity TEXT NOT NULL) STRICT',
+          );
+          db.execute('INSERT INTO catalog_identity VALUES(1,?)', [
+            protection.identity.value,
+          ]);
+        }
+        db.execute('PRAGMA user_version=${protection == null ? 1 : 2}');
+        checkpoint?.call('catalogWriting');
         db.execute('COMMIT');
+        checkpoint?.call('catalogReady');
       }
-      if (db.userVersion != 1 ||
+      if (db.userVersion != (protection == null ? 1 : 2) ||
+          (protection != null &&
+              db.select('PRAGMA cipher_integrity_check').isNotEmpty) ||
           db.select('PRAGMA integrity_check').single.values.single != 'ok' ||
           db.select('PRAGMA foreign_key_check').isNotEmpty)
         throw StateError('Invalid catalog');
@@ -364,7 +387,16 @@ final class GenerationStore {
           'previous',
         ],
         'active': ['singleton', 'generation'],
+        if (protection != null) 'catalog_identity': ['singleton', 'identity'],
       });
+      if (protection != null) {
+        final identity = db.select('SELECT * FROM catalog_identity');
+        if (identity.length != 1 ||
+            identity.single['singleton'] != 1 ||
+            identity.single['identity'] != protection.identity.value) {
+          throw StateError('Catalog identity mismatch');
+        }
+      }
       return db;
     } catch (_) {
       db.close();
@@ -372,7 +404,10 @@ final class GenerationStore {
     }
   }
 
-  Future<T> _locked<T>(Future<T> Function(Database) work) async {
+  Future<T> _locked<T>(
+    Future<T> Function(Database) work, {
+    void Function(String)? checkpoint,
+  }) async {
     String? identity;
     RandomAccessFile? lock;
     Database? catalog;
@@ -397,7 +432,7 @@ final class GenerationStore {
       lock = await lockFile.open(mode: FileMode.append);
       await lock.lock(FileLock.blockingExclusive);
       acquired = true;
-      catalog = await _catalog();
+      catalog = await _catalog(checkpoint);
       return await work(catalog);
     } on GenerationUnavailable {
       rethrow;

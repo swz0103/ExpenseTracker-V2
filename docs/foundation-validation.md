@@ -71,3 +71,9 @@ debug APK 首次建置缺少 JNI 相依所需的 SDK Platform `android-35`，補
 23 項 Windows host 案例驗證新舊備份的密碼／救援金鑰獨立程序還原、完整資料與 receipt、還原後新增入帳再備份、七處程序中止、加密身份 migration 回滾與未知版本拒絕。受影響的既有 98 項測試亦已通過；遠端以 PR checks 為準。控制紀錄摘要與 fixture key 尚非正式安全儲存，所有 Android／完整 BACKUP／KEY gate 繼續維持未完成。
 
 後續 Android 入口改接平台逐 slot adapter 與持久目標世代，加入完整 snapshot／配對／財務 replay 核對。11 項新增 slot 行為測試與原 6 項 host 測試通過；新 ARM64 debug APK 已建置並核對 SQLCipher、SDK、禁止系統備份及 debug 設定。這些是 host／封裝證據，實際平台讀寫和重啟仍未執行。尚無可用 Android 裝置，KEY-07 的乾淨平台還原仍未通過。
+
+## 加密控制紀錄（2026-09-27）
+
+[控制紀錄保護](storage-control-protection.md)新增 SQLCipher catalog schema 2，使用與各世代不同的 key，保護原本會以明文保存的 snapshot 去重摘要與參照。18 項控制案例與 2 項 Ledger 新程序雙路還原案例通過；既有世代 26 項、Ledger 23 項及 Android host 17 項也通過，受影響套件合計 86 項。新 APK 建置及封裝檢查通過，遠端結果以 PR checks 為準。
+
+未知格式、key 遺失、store 身份不符、密文破壞與跨模式誤開均拒絕。初次建表 transaction 中止仍停止並保留，不回報可用空帳本。此項不提供整套舊 catalog／DB／key 的防回放能力，也沒有替代 Android 裝置與實際儲存故障 gate。

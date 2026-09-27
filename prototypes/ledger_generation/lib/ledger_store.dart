@@ -11,6 +11,7 @@ import 'package:modular_persistence_probe/workflows.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/key_slots.dart';
+import 'package:storage_generation_probe/catalog_protection.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
 StorageBinding _binding(GenerationReceipt receipt) => StorageBinding(
@@ -78,8 +79,16 @@ final class LedgerPayload implements GenerationPayload {
 /// Host integration probe. All financial operations share the lifecycle lock,
 /// and every database connection closes before that lock is released.
 final class LedgerStore {
-  LedgerStore(Directory directory, KeySlots keys)
-    : generations = GenerationStore(directory, keys, payload: LedgerPayload());
+  LedgerStore(
+    Directory directory,
+    KeySlots keys, {
+    CatalogProtection? catalogProtection,
+  }) : generations = GenerationStore(
+         directory,
+         keys,
+         payload: LedgerPayload(),
+         catalogProtection: catalogProtection,
+       );
   final GenerationStore generations;
 
   Future<GenerationReceipt> restore(

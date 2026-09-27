@@ -46,6 +46,8 @@
 
 第一個 [host 配對原型](../prototypes/storage_generation/README.md)採 SQLite 控制紀錄的單一 transaction 提交 attempt 狀態與目前參照，避免先刪目前檔再 rename 的空窗；key／payload 不寫入控制紀錄。這是固定非秘密 fixture 的機制證據，正式 metadata 保護、完整 Ledger schema 及 Android adapter 尚待接入。
 
+後續已加入 Ledger schema 3／snapshot format 2、Android slot adapter 與[加密控制紀錄原型](storage-control-protection.md)。財務摘要與參照在新模式以獨立控制 key 加密；原明文控制模式只保留給 fixture 相容測試。這些是指定機制的部分證據，完整平台、初始故障復原與正式連線契約仍未完成。
+
 1. 取得儲存生命週期排他權，停止新業務操作與背景 DB 工作，等待既有 session 釋放。超時則中止切換；不能只在 UI 停用按鈕。
 2. 正式開啟還原前先處理先前未完成操作。驗證備份、以密碼或救援金鑰解鎖，建立全新的 slot 及加密目標世代。兩種解鎖方式均不需要來源裝置 key。
 3. 將權威資料載入新世代，執行相容 migration、財務／完整性／operation receipt 驗證。關閉新 DB，重新讀該 slot 並開檔再核對；保留舊世代與其 slot。

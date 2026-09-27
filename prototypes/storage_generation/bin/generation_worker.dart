@@ -3,13 +3,20 @@ import 'dart:io';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
 import 'package:storage_generation_probe/generation_store.dart';
+import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 5) exit(64);
+  if (args.length != 5 && !(args.length == 6 && args[5] == 'protected'))
+    exit(64);
   final directory = Directory(args[1]);
+  final protected = args.length == 6;
+  final slots = FixtureKeySlots(
+    Directory(protected ? '${directory.path}-keys' : '${directory.path}/keys'),
+  );
   final store = GenerationStore(
     directory,
-    FixtureKeySlots(Directory('${directory.path}/keys')),
+    slots,
+    catalogProtection: protected ? fixtureCatalogProtection(slots) : null,
   );
   try {
     if (args[0] == 'install') {

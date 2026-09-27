@@ -10,6 +10,7 @@ import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
+import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:test/test.dart';
 import 'package:validated_restore_probe/snapshot.dart';
@@ -80,8 +81,9 @@ void main() {
     String mode,
     String point,
     OperationId op,
-    CreatedBackup input,
-  ) async {
+    CreatedBackup input, {
+    bool protected = false,
+  }) async {
     final envelope = File('${work.path}/backup.json')
       ..writeAsStringSync(input.envelope);
     final credential = File('${work.path}/credential.txt')
@@ -98,7 +100,56 @@ void main() {
       mode,
       point,
       '${work.absolute.path}/result.json',
+      if (protected) 'protected',
     ]);
+  }
+
+  for (final mode in ['password', 'recovery']) {
+    test(
+      'protected catalog supports clean $mode restore and later writes',
+      () async {
+        final protection = fixtureCatalogProtection(keys);
+        store = LedgerStore(
+          Directory('${work.path}/store'),
+          keys,
+          catalogProtection: protection,
+        );
+        final result = await child(
+          mode,
+          'none',
+          operation(),
+          backup,
+          protected: true,
+        );
+        expect(result.exitCode, 0, reason: '${result.stderr}');
+        expect(await store.snapshot(), codec.canonicalize(source));
+        final posting = income('7');
+        await store.post(posting);
+        final expected = await store.snapshot();
+        expect(
+          utf8.decode(expected),
+          isNot(contains(protection.identity.value)),
+        );
+        final portable = await store.backup(password);
+        final restored = await child(
+          mode,
+          'none',
+          operation(),
+          portable,
+          protected: true,
+        );
+        expect(restored.exitCode, 0, reason: '${restored.stderr}');
+        expect(await store.snapshot(), expected);
+        expect((await store.post(posting)).replayed, isTrue);
+        expect((await store.balance(account)).minorUnits, BigInt.from(12200));
+        final active = (await store.generations.current())!;
+        final raw = latin1.decode(
+          File('${work.path}/store/catalog.db').readAsBytesSync(),
+        );
+        expect(raw, isNot(startsWith('SQLite format 3')));
+        expect(raw, isNot(contains(active.receipt.fingerprint)));
+      },
+    );
   }
 
   test(

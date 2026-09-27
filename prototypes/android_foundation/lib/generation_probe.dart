@@ -7,6 +7,7 @@ import 'package:ledger_generation_probe/ledger_store.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
 import 'android_slot_vault.dart';
+import 'android_catalog_protection.dart';
 import 'secure_key_slots.dart';
 
 /// Device-only fixed fixture path, called after the runner's Android/debug guard.
@@ -22,8 +23,18 @@ Future<void> verifyGenerationRestores({
   for (final mode in ['password', 'recovery']) {
     // Persistent fixture directories allow a later app launch to reopen the
     // same pairs. Never delete a DB while leaving its secure slot unaccounted for.
-    final directory = Directory('${root.path}/generation_v1_$mode');
-    final store = LedgerStore(directory, SecureKeySlots(AndroidSlotVault()));
+    final directory = Directory('${root.path}/generation_v2_$mode');
+    final localIdentity = PublicId.parse(
+      mode == 'password'
+          ? '019f0000-0000-7000-8000-000000000041'
+          : '019f0000-0000-7000-8000-000000000042',
+    );
+    LedgerStore openStore() => LedgerStore(
+      directory,
+      SecureKeySlots(AndroidSlotVault()),
+      catalogProtection: androidCatalogProtection(localIdentity),
+    );
+    final store = openStore();
     final receipt = await store.restore(
       envelope,
       OperationId.parse(
@@ -39,7 +50,7 @@ Future<void> verifyGenerationRestores({
     }
     previousSlot = receipt.slot;
     // Fresh adapters read platform storage again; this is still the same process.
-    final reopened = LedgerStore(directory, SecureKeySlots(AndroidSlotVault()));
+    final reopened = openStore();
     final current = await reopened.generations.current();
     if (current?.receipt.slot != receipt.slot ||
         current?.receipt.generation != receipt.generation) {
