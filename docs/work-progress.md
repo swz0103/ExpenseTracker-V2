@@ -8,6 +8,10 @@
 
 ## 分支與交付
 
+2026-09-27 額度調整：使用者回報 Actions 本月剩 190、每月 2,000；官方單位為執行分鐘。兩個 workflow 已在 GitHub 暫停，確認無執行中／排隊工作；`ci/actions-budget` 基於 PR #38，後續分支改手動觸發設定，日常與整合主機驗證移至本機，雲端額度保留給重要驗收。新入口的架構／原生程序／Flutter 三條路徑共 43 項本機測試及相關分析通過，兩份 YAML 與完整 14 套件清單核對通過；本次雲端未執行。[完整政策與本機入口](ci-budget-policy.md)已同步到原有每 30 分鐘開發排程；不因缺少 checks 宣稱雲端通過，不改 branch protection 或自行合併 main。
+
+PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前已完成 14 個雲端工作，完整主機清單 391 項通過。其後的 Ledger 真實備份／schema 4 升級串接仍在 `feat/ledger-category-upgrade` 開發，尚未完成新增案例驗證，不能列為完成；此次 CI 政策另開分支交付，保留所有未提交實作。
+
 - 架構與 SQLite 原型：`docs/architecture-and-implementation-plan`，PR #1；11 項測試及 GitHub CI 已通過，基準提交 `3712cfe781e8ee2725594cb9ee52db8f58fccef3`。原型只驗證 host transaction 機制。
 - 金額值型別：`feat/foundation-money`，PR #2，基於 PR #1，提交 `95b6f3a`。10 項新測試與 11 項既有原型測試在 GitHub 通過。Money／Currency、嚴格精度、整數溢位、版本化 JSON、量化與尾差分攤已完成。
 - 身份與日期：`feat/foundation-identity-time`，PR #3，基於 PR #2，提交 `bacd122`。UUID v7、帳本／操作身份、嚴格日期與 UTC；17 項值型別與 11 項交易原型測試在 GitHub 通過。

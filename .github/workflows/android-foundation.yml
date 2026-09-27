@@ -1,9 +1,12 @@
 name: Android foundation host checks
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  # Budget mode: local checks are the default. See docs/ci-budget-policy.md.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
