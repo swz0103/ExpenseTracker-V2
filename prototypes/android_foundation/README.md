@@ -1,6 +1,6 @@
 # Android 地基驗證入口
 
-狀態：限定原型，Android ARM64 debug APK 已建置成功，尚未通過 Android 裝置驗收。不得保存真實帳本。
+狀態：限定原型，Android ARM64 debug APK 已建置，指定實機基本與乾淨還原案例已通過；完整平台 gate 未完成。不得保存真實帳本。
 
 對應[實作計畫階段 1](../../docs/implementation-plan.md)與[地基驗證紀錄](../../docs/foundation-validation.md)。此入口沿用既有業務套件及加密／還原原型，待平台 gate 通過後才整理正式產品組件。
 
@@ -11,7 +11,7 @@
 - 密碼與文字救援金鑰分別還原至各自的加密世代 DB，以獨立安全儲存 slot 保存目標 key。重新建立 adapter 後讀回目前配對、完整 snapshot 與餘額，重送收入操作必須回傳 replay。
 - 重複執行沿用固定 operation ID，確認不重複入帳。原始測試 DB 保留，供下次啟動核對。
 
-目前兩條 Android 還原在同一應用程序內執行，來源 key 仍可能存在記憶體；即使通過，也不能替代乾淨新裝置還原 gate。跨程序及刪除來源 DB 的 host 證據見[加密儲存原型](../encrypted_storage/README.md)。
+一般按鈕的兩條 Android 還原在同一應用程序內執行，來源 key 仍可能存在記憶體，不能單靠此入口證明乾淨還原。另有獨立 integration test 在清除 fixture App 資料後分別驗證兩條路徑及跨程序重開，詳見[實機紀錄](../../docs/android-device-validation.md)。跨程序及刪除來源 DB 的 host 證據見[加密儲存原型](../encrypted_storage/README.md)。
 
 ## 安全界線
 
@@ -35,7 +35,7 @@ Android manifest 停用系統備份，另加入 cloud／device／cross-platform 
 - 本機靜態分析與 17 項 host 金鑰測試通過：原有 6 項，加上 11 項 slot 獨立性、重新讀取、缺失／未知格式、不可覆寫、寫入前／後失敗、讀回不一致、錯誤去敏與跨 instance 競爭。測試 vault 為記憶體實作，不是 Android Keystore 證據；遠端結果見 PR checks。
 - 2026-09-27 排除 JNI 相依的 SDK Platform 35 與 CMake 3.22.1 缺漏後，ARM64 debug APK 建置成功。App 使用 SDK 36 不代表相依套件不需要 SDK 35；Build Tools 35 也不能替代 Platform 35。
 - 已核對 APK 含 ARM64 libsqlcipher.so；最終 manifest 為 min SDK 24／target SDK 36、debuggable=true、allowBackup=false，兩份備份排除規則引用存在。這是封裝檢查，不是裝置行為驗證。
-- 沒有可用 Android 裝置；integration test 尚未執行。host CI 狀態以 PR checks 為準。
+- 2026-09-27 已在 Samsung SM-A5660／Android 16（API 36）執行指定實機案例；範圍與失敗紀錄見[實機紀錄](../../docs/android-device-validation.md)。host CI 與裝置結果分開記錄。
 
 ## 接續步驟
 
@@ -51,15 +51,15 @@ flutter test --reporter expanded
 flutter build apk --debug --target-platform android-arm64
 ```
 
-本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，117,474,317 bytes；SHA-256：`e2392253cb08a7c33e9216316405e56df7d285c1e5f02d0ec855e25ce9e6d628`。此為 2026-09-27 接入有界等待及初始化復原後重新建置的 debug 成品，已核對 ARM64 SQLCipher 與上述 manifest 設定。不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
+本機產物：`build/app/outputs/flutter-apk/app-debug.apk`，117,482,843 bytes；SHA-256：`5b021df13e754c235687cc8deb81d54845bca9ce00f64996c0bbc0011cf328d1`。此為 2026-09-27 實機測試後重新建置並安裝的正常操作入口 debug 成品；integration-test APK 為另一個入口，不與此 hash 混用。封裝核對與實機執行範圍見上述紀錄。不保證其他機器重建得到相同 hash。APK 不納入 Git，也未正式發版。
 
 連接開啟 USB 偵錯的測試手機，或準備可用模擬器後執行：
 
 ```powershell
 flutter devices
-flutter test integration_test/device_probe_test.dart -d <Android裝置ID>
+flutter test integration_test/device_probe_test.dart -d <Android裝置ID> --no-uninstall
 ```
 
-此測試在同一程序執行兩次；另需關閉／重啟 App 再次執行、記錄裝置與 OS，以及補足 key 遺失、乾淨還原與 migration 故障的平台案例。完整範圍以[驗收清單](../../docs/foundation-acceptance.md)為準。
+此入口在同一程序執行兩次；獨立乾淨還原、跨程序重開與平台故障案例另見實機紀錄。Flutter 預設會在 integration test 結束後移除 App，需用 --no-uninstall 才能驗證持久化。OS 重開機及完整故障矩陣仍待驗證。完整範圍以[驗收清單](../../docs/foundation-acceptance.md)為準。
 
 參考：[secure storage 版本紀錄](https://pub.dev/packages/flutter_secure_storage/changelog)、[Android 備份規則](https://developer.android.com/identity/data/autobackup)。實際相依及編譯結果以鎖定版本與執行結果為準。

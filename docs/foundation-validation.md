@@ -1,5 +1,7 @@
 # Foundation Validation — 地基驗證紀錄
 
+**最新實機補充（2026-09-27）**：已在 Samsung SM-A5660／Android 16 通過指定加密／平台 slot、雙路乾淨 App 還原、各自新程序重開與四項平台故障子集，見[實機驗證紀錄](android-device-validation.md)。下方「尚無裝置」保留各原型當時的歷程，不能作為目前狀態；整體安全／升級 gate 仍未完成。
+
 日期：2026-09-26  
 狀態：多項 host 機制原型通過；整體架構、安全與 Android gate 尚未通過。最新逐項狀態見[開發進度](work-progress.md)。
 

@@ -29,12 +29,13 @@
 - 首次控制初始化復原：`feat/storage-catalog-initialization`，PR #20，基於 PR #19，提交 `93bf72c`。只在尚未發布的 stage 接續已知初始化，驗證後才發布空 catalog；既有不完整正式 catalog、未知 schema、缺 key 與資料衝突仍拒絕。新增 17 項儲存與 6 項 Ledger 案例，儲存 72、Ledger 33、Android host 17 項（共 122）及靜態分析通過；新 ARM64 debug APK 建置、SQLCipher／manifest 核對通過。全部 248 項測試的十一個 CI 工作通過。[初始化契約](storage-catalog-initialization.md)保留裝置耐久性與舊損壞資料復原限制。
 - Provider 可行性：`docs/provider-feasibility`，PR #21，基於 PR #20，提交 `58afaf0`。核對官方文件及少量公開 GET，整理 Drive drive.file、TWSE／TPEx 盤後、Frankfurter 明確來源 FX 與 Alpha Vantage 日終候選；發現 CBC 查詢日與實際回覆日不同，已明列不可冒充當日匯率。全部 248 項測試的十一個 CI 工作通過；未申請 key／OAuth 或付費，ADR-06 保留未結案。[路線與限制](provider-feasibility.md)。
 - 精確匯率地基：`feat/foundation-exact-fx`，PR #22，基於 PR #21，提交 `ca9ea2d`。FxRate 以正 BigInt ratio 保存十進位輸入，反向／交叉匯率不做中間量化；FxObservation 保留來源、實際日期與取得瞬間，預設拒絕過期日期。新增 18 項測試（含 11,552 組精確值誤差界線）與原有 17 項全部通過，靜態分析通過。全部 266 項測試的十一個 CI 工作通過。未接 provider／Ledger schema／UI，不宣稱 M1-03 完成。[計算契約](exact-fx-values.md)。
-- 業務套件邊界檢查：`feat/architecture-boundary-checks`，PR #23，基於 PR #22，提交 `b9cc8b3`。新增固定政策與 AST 檢查，拒絕跨業務私有入口、Domain 平台／儲存依賴、循環與相對路徑繞過；15 項正常／負向案例、實際 repository 掃描及靜態分析通過，CI 新增獨立工作。這是直接依賴 gate，不替代 SQL 資料主責或執行期驗證。[範圍](architecture-boundary-checks.md)。
-- 資料演進契約：`docs/data-evolution-contract`，基於 PR #23。核對實際 schema／snapshot／module／catalog 版本，明確業務資料主責、停用 UI 資料保留、升級前加密備份、唯一發布點與 EVOL-01～08。揭露現有 envelope 每份新建救援 key 的限制，正式 BackupProfile 延續與升級協調器仍未實作；不把設計當成 gate 通過。[完整契約](data-evolution-contract.md)。
-- 下一項：依資料演進契約補來源預檢與持久安全備份的限定 host 驗證，繼續保留裝置 gate。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置實測待測試手機連接並允許 USB 偵錯後接續。
+- 業務套件邊界檢查：`feat/architecture-boundary-checks`，PR #23，基於 PR #22，提交 `b9cc8b3`。新增固定政策與 AST 檢查，拒絕跨業務私有入口、Domain 平台／儲存依賴、循環與相對路徑繞過；15 項正常／負向案例、實際 repository 掃描及靜態分析通過，全部 281 項 host 測試的十二個 CI 工作通過。這是直接依賴 gate，不替代 SQL 資料主責或執行期驗證。[範圍](architecture-boundary-checks.md)。
+- 資料演進契約：`docs/data-evolution-contract`，PR #24，基於 PR #23，提交 `3a8de9d`；十二個 CI 工作通過。核對實際 schema／snapshot／module／catalog 版本，明確業務資料主責、停用 UI 資料保留、升級前加密備份、唯一發布點與 EVOL-01～08。揭露現有 envelope 每份新建救援 key 的限制，正式 BackupProfile 延續與升級協調器仍未實作；不把設計當成 gate 通過。[完整契約](data-evolution-contract.md)。
+- Android 實機接續：`feat/android-device-validation`，基於 PR #24。Samsung SM-A5660／Android 16：基本加密、平台 slot、密碼／救援金鑰分別清空 App 後還原及各自新程序重開通過；完整 snapshot／115 餘額／receipt replay 與前後 generation／slot 一致。另四項平台故障案例（缺 key／不可覆寫／兩處 migration 回滾再試）、17 項既有 host 與靜態分析通過。詳細結果見[實機紀錄](android-device-validation.md)。
+- 下一項：持久安全備份限定 host 原型已新增並在驗證中，待本次裝置結果交付後分支提交；正式 BackupProfile 與完整升級協調仍待實作。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置已連接並完成指定子集，未列入的完整平台故障 gate 仍待接續。
 
 ## 尚未完成的 gate
 
-整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 裝置沒有可用測試目標；Android 加密資料庫／secure storage、密碼／救援金鑰兩條乾淨還原、完整 migration 故障與 provider 路線尚待實測。M1／M2／M3 未完成，不把 host 原型或套件單元測試冒充可用 App。
+整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成，不把 host 原型或套件單元測試冒充可用 App。
 
 詳細順序見[實作計畫](implementation-plan.md)，財務契約見[工程規格](foundation-contracts.md)，驗收案例見[案例清單](foundation-acceptance.md)。
