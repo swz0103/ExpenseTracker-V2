@@ -43,11 +43,14 @@ Future<PreviewEngine> createEngine() async {
   return PreviewEngine(Directory('${root.path}/preview-v1'), vault, (
     directory,
     identity,
+    schema,
   ) {
     final access = KeyAccess(_CatalogVault(vault, identity));
     return LedgerStore(
       directory,
       SecureKeySlots(vault),
+      categoryAware: schema >= 4,
+      categoryReferences: schema >= 5,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

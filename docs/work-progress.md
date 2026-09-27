@@ -4,11 +4,21 @@
 
 ## 最新接續指示
 
-2026-09-27 使用者要求加快但不省略步驟，並核對所有成果已上傳且與舊版隔離。已唯讀確認 V2 為獨立私人 repository、origin 只指向 V2，舊版與 V2 的 Android 身份不同；同步遠端後，最新功能 `1424c58`／PR #43 及所有本機分支提交皆已被遠端涵蓋。完整規則見[交付與效率文件](github-delivery-policy.md)。背景排程實際設定目前為暫停、每 50 分鐘；本次保留其狀態與頻率，只更新持續工作要求，不沿用下方歷史紀錄中的「已恢復」狀態。
+2026-09-27 使用者明確要求開始動工、打開排程並邊做邊回報。已恢復原有排程為啟用，保留當時實際設定的每 20 分鐘接續；本輪直接開發，不等待下一次排程。不操作手機、不啟動 Actions、不合併 main，仍依 CORE 範圍逐項完成。
+
+2026-09-27 前次核對上傳與隔離：已唯讀確認 V2 為獨立私人 repository、origin 只指向 V2，舊版與 V2 的 Android 身份不同；同步遠端後，當時最新功能 `1424c58`／PR #43 及所有本機分支提交皆已被遠端涵蓋。完整規則見[交付與效率文件](github-delivery-policy.md)。前次讀到排程為暫停、每 50 分鐘，當時未自行更動；本輪已依最新明確授權恢復，並保留最新設定的每 20 分鐘，以上方紀錄為準。
 
 使用者要求不以試用版為停止點，繼續完整 CORE 直到其回來，屆時再安排實機。每項開發同時回查既有模組並做相關回歸；逐批收斂已涵蓋且驗證的 GitHub 分支，main 不自行合併。自動接續已恢復。[分支收斂紀錄](branch-consolidation.md)保存 exact SHA 與原 PR 對照。
 
 ## 分支與交付
+
+2026-09-27 App 分類接入（本機驗證完成）：沿用 `feat/app-category-upgrade`／[PR #44](https://github.com/swz0103/ExpenseTracker-V2/pull/44)，基於 #43。已接上新帳本 schema 5、舊 V2 帳本明確確認後 3 → 4 → 5 安全升級／中斷接續，以及雙層分類新增、改名、封存／重新啟用、分類記帳與歷史顯示。[接口與使用範圍](app-categories.md)。
+
+完整 14 套件共 **506 項獨有本機案例**通過，新增 App 引擎 13 項／畫面 2 項；格式、分析、五個原生 worker 重建與最終實際架構掃描通過。[驗證清單](test-results/app-category-host-2026-09-27.json)保留範圍及重跑原因。App 共 34 項：第一輪 32 項通過，兩條乾淨還原案例因 Windows 路徑分隔符的測試清理核對而停止；改成解析實際絕對路徑後，兩條完整通過。沒有弱化清理邊界、財務斷言或正式程式。
+
+App [大量資料](test-results/app-category-scale-2026-09-27.json)完成 5,000 事件／4,999 分攤／256 分類／768 次變更／5,002 次重送，完整 bytes 與獨立餘額、清除來源 DB／key 後密碼及救援各自還原、滿額拒絕與重新解鎖通過，約 374.28 秒。此 App 案例先升級一筆期初再建立大量資料；另完整回歸三組獨立 5,000 筆資料集的[加密還原](test-results/app-category-encryption-regression-2026-09-27.json)、[引用／容量](test-results/app-category-reference-regression-2026-09-27.json)與[舊格式升級](test-results/app-category-legacy-regression-2026-09-27.json)，不合併宣稱單帳本容量。
+
+`0.3.0+3` ARM64 debug APK 已建置並核對身份、簽章及 `allowBackup=false`，[安裝包資訊](installable-preview.md)保留 SHA-256。未操作手機、未啟動雲端、未正式發版或合併 main；需雲端 gate 的分支收斂仍保留。M1-02 未全部完成，接下來補分類搬移／合併的完整操作，再接 Tag／Merchant；M1 其他日常功能、M2／M3 與平台 gate 均繼續保留。
 
 2026-09-27 分類引用世代升級與工作階段：`feat/ledger-reference-upgrade` 基於 PR #42（`4cd097f4e94704ae3a830eff1925ac5c6353f805`）。完成 schema 4 → 5 的同鎖安全備份、已知格式轉換與原子發布，保留舊 DB／key；新舊升級路線共用程式並核對目標模式，避免 request 宣告與實際格式不同。接上 `LedgerSession.post` 分攤、不可變歷史讀取與一般／持久備份，分類改動後的舊引用及 replay 保留。
 

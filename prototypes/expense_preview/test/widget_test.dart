@@ -74,6 +74,134 @@ Future<void> closeEngine(WidgetTester tester, PreviewEngine engine) async {
 
 void main() {
   testWidgets(
+    'old V2 App requests explicit upgrade and preserves balance after confirmation',
+    (tester) async {
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('upgrade-');
+      final vault = MemoryVault();
+      var engine = engineAt(work, vault, schemaVersion: 3);
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          final a = account(engine);
+          await engine.createAccount(a, opening(a));
+          await engine.lock();
+        });
+        engine = engineAt(work, vault);
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: Documents()),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        expect(find.text('更新帳本'), findsOneWidget);
+        expect(engine.isUnlocked, isFalse);
+        expect(Directory('${work.path}/upgrade-backups').existsSync(), isFalse);
+        await tap(tester, '稍後再更新');
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '備份並更新');
+        expect(find.text('我的帳本'), findsOneWidget);
+        expect(find.text('管理分類'), findsOneWidget);
+        expect(find.byType(Card), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.absolute.path.startsWith(
+          '${root.absolute.path}${Platform.pathSeparator}',
+        )) {
+          throw StateError('unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  testWidgets(
+    'category creation, classified posting, rename and archive retain visible history on small screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('category-');
+      final engine = engineAt(work, MemoryVault());
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          final a = account(engine);
+          await engine.createAccount(a, opening(a));
+          await engine.lock();
+        });
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: Documents()),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '管理分類');
+        await tap(tester, '新增分類');
+        expect(find.byKey(const Key('category-message')), findsOneWidget);
+        await input(tester, '分類名稱', '午餐');
+        await tap(tester, '新增分類');
+        await tap(tester, '返回帳本');
+        await tap(tester, '記一筆');
+        await input(tester, '金額（正數）', '25.50');
+        await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('posting-category-false')),
+        );
+        await tester.tap(find.byKey(const ValueKey('posting-category-false')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('午餐').last);
+        await tester.pumpAndSettle();
+        await tap(tester, '儲存收支');
+        expect(find.text('TWD 74.50'), findsOneWidget);
+        expect(find.text('2026-09-27 · 午餐'), findsOneWidget);
+        await tap(tester, '管理分類');
+        await tester.ensureVisible(find.byTooltip('操作 午餐'));
+        await tester.tap(find.byTooltip('操作 午餐'));
+        await tester.pumpAndSettle();
+        await tap(tester, '改名');
+        await input(tester, '新的分類名稱', '餐食');
+        await tap(tester, '儲存名稱');
+        await tester.ensureVisible(find.byTooltip('操作 餐食'));
+        await tester.tap(find.byTooltip('操作 餐食'));
+        await tester.pumpAndSettle();
+        await tap(tester, '封存');
+        await tap(tester, '返回帳本');
+        expect(find.text('2026-09-27 · 餐食（已封存）'), findsOneWidget);
+        await tap(tester, '記一筆');
+        final field = tester.widget<DropdownButtonFormField<String>>(
+          find.byKey(const ValueKey('posting-category-false')),
+        );
+        // Only the neutral unclassified choice remains for new transactions.
+        expect(field.initialValue, '');
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('posting-category-false')),
+        );
+        await tester.tap(find.byKey(const ValueKey('posting-category-false')));
+        await tester.pumpAndSettle();
+        expect(find.text('餐食（已封存）'), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.absolute.path.startsWith(
+          '${root.absolute.path}${Platform.pathSeparator}',
+        )) {
+          throw StateError('unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  testWidgets(
     'setup, account, expense, lock and unlock keep actual amounts on small screen',
     (tester) async {
       tester.view.physicalSize = const Size(360, 740);

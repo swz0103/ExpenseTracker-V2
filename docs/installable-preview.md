@@ -1,5 +1,13 @@
 # 最小試用版安裝與驗收
 
+**2026-09-27 後續開發包**：本頁下方 0.2.0 為歷史驗證紀錄。新增分類與安全升級的 `0.3.0+3` 已完成本機 debug 建置及封裝核對，範圍見 [App 分類](app-categories.md)，整體主機驗證以[最新進度](work-progress.md)為準；不以此安裝包作為完整 CORE 的停止點。
+
+- 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.3.0-arm64.apk`；92,648,059 bytes。
+- SHA-256：`0022db94b55d45baa0398056d50178b03dcfe1eee9a6e2921a3d4017a0c32a58`。
+- App ID 仍為 `dev.expensetracker.preview`，versionCode 3／versionName 0.3.0；最低 API 24、target API 36，APK v2 簽章驗證成功，`allowBackup=false`。
+- Flutter／SQLCipher 主程式庫僅包含 ARM64；其他 JNI 架構檔案不代表此包可供非 ARM64 手機使用。
+- 尚未安裝或進行本批手機驗收，未正式發版。二進位保留在本機，不把它或簽章金鑰提交 Git；程式、測試與驗證紀錄走私人 V2 repository。
+
 交付狀態：最終 debug APK 已建置、簽章及封裝核對通過；大規模測試完成。完整 CI 結果見 PR #31 checks，測試方法與原始紀錄見[驗證報告](preview-validation-report.md)。本輪未操作手機。
 
 ## 安裝包識別

@@ -47,7 +47,7 @@ packages:
     source: hosted
     version: "2.1.2"
   categories:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../packages/categories"
       relative: true

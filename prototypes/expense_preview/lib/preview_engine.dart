@@ -4,9 +4,14 @@ import 'dart:io';
 
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:ledger_generation_probe/safety_backup.dart';
+
+part 'preview_categories.dart';
+part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);
@@ -19,15 +24,29 @@ final class PreviewBusy implements Exception {}
 
 final class PreviewInvalid implements Exception {}
 
-typedef StoreFactory = LedgerStore Function(Directory, PublicId);
+final class PreviewUpgradeRequired implements Exception {}
+
+typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
 
 /// Application coordinator. Password is retained only while foreground/unlocked.
 /// Platform vault owns local keys; portable backup is the recovery boundary.
 final class PreviewEngine {
-  PreviewEngine(this.directory, this.vault, this.factory);
+  PreviewEngine(
+    this.directory,
+    this.vault,
+    this.factory, {
+    this.schemaVersion = 5,
+    this.upgradeCheckpoint,
+  }) {
+    if (![3, 4, 5].contains(schemaVersion)) {
+      throw ArgumentError('Unknown schema');
+    }
+  }
   final Directory directory;
   final PreviewVault vault;
   final StoreFactory factory;
+  final int schemaVersion;
+  final void Function(String)? upgradeCheckpoint;
   File get _profile => File('${directory.path}/profile.envelope');
   File get _pendingProfile => File('${directory.path}/profile.pending');
   bool _busy = false;
@@ -133,7 +152,13 @@ final class PreviewEngine {
 
   Future<void> unlock(String password) =>
       _exclusive((epoch) => _unlock(password, epoch));
-  Future<void> _unlock(String password, int epoch) async {
+  Future<void> upgrade(String password) =>
+      _exclusive((epoch) => _unlock(password, epoch, allowUpgrade: true));
+  Future<void> _unlock(
+    String password,
+    int epoch, {
+    bool allowUpgrade = false,
+  }) async {
     await _closeLease();
     _password = null;
     _recovery = null;
@@ -158,10 +183,28 @@ final class PreviewEngine {
         !await File('${ledgerDirectory.path}/catalog.db').exists()) {
       throw PreviewInvalid();
     }
-    final store = factory(ledgerDirectory, info.identity);
-    if (await store.generations.current() == null) {
+    final store = factory(ledgerDirectory, info.identity, schemaVersion);
+    var current = await store.generations.current();
+    if (current == null) {
       if (!pending) throw PreviewInvalid();
       await store.initialize(info.initialization);
+      current = await store.generations.current();
+    }
+    _check(epoch);
+    if (current == null) throw PreviewInvalid();
+    final sourceVersion = (jsonDecode(current.value) as Map)['schema'];
+    if (sourceVersion != schemaVersion) {
+      if (sourceVersion is! int || sourceVersion > schemaVersion) {
+        throw PreviewInvalid();
+      }
+      if (!allowUpgrade) throw PreviewUpgradeRequired();
+      await _upgradeLedger(
+        info.identity,
+        sourceVersion,
+        password,
+        recovery,
+        epoch,
+      );
     }
     _check(epoch);
     if (pending) await source.rename(_profile.path);
@@ -259,7 +302,7 @@ final class PreviewEngine {
     final password = _password!;
     final recovery = _recovery!;
     final snapshot = await _session!.snapshot();
-    validatePreviewSnapshot(snapshot);
+    validatePreviewSnapshot(snapshot, schemaVersion: schemaVersion);
     final backup = await EnvelopeCodec().create(
       snapshot,
       password: password,
@@ -315,7 +358,7 @@ final class PreviewEngine {
         utf8.decode(bytes)) {
       throw PreviewInvalid();
     }
-    validatePreviewSnapshot(bytes);
+    validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
     _check(epoch);
     return saved;
   });
@@ -332,7 +375,10 @@ final class PreviewEngine {
     final bytes = recovery
         ? await codec.openWithRecovery(envelope, credential)
         : await codec.openWithPassword(envelope, credential);
-    validatePreviewSnapshot(bytes);
+    final canonical = validatePreviewSnapshot(
+      bytes,
+      schemaVersion: schemaVersion,
+    );
     _check(epoch);
     final password = _password!;
     final key = _recovery!;
@@ -361,7 +407,7 @@ final class PreviewEngine {
       // Publication is a bounded atomic operation; backgrounding after acceptance
       // can finish it, but does not reopen an unlocked UI.
       await _store!.generations.install(
-        utf8.decode(bytes),
+        utf8.decode(canonical),
         OperationId(PublicId.generate()),
       );
     } finally {
@@ -389,16 +435,24 @@ _profileInfo(List<int> bytes) {
 
 /// Restrict this UI to the subset it can represent; full import validation still
 /// runs on the encrypted stage before publication.
-void validatePreviewSnapshot(List<int> bytes) {
+List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
   late List<int> canonical;
   try {
-    canonical = validateSessionCapacity(bytes);
+    canonical = validateSessionCapacity(
+      bytes,
+      categoryAware: schemaVersion >= 4,
+      categoryReferences: schemaVersion >= 5,
+    );
   } on PreviewCapacity {
     throw PreviewInvalid();
   }
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
-  final accounts = tables['accounts'] as List;
-  if (accounts.map((a) => a['workspace']).toSet().length > 1) {
+  final rows = <dynamic>[
+    ...tables['accounts'] as List,
+    if (tables.containsKey('categories')) ...tables['categories'] as List,
+  ];
+  if (rows.map((a) => a['workspace']).toSet().length > 1) {
     throw PreviewInvalid();
   }
+  return canonical;
 }

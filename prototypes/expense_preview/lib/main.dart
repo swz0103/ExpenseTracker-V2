@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:categories/categories.dart';
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
@@ -9,6 +10,8 @@ import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
 import 'preview_engine.dart';
+
+part 'category_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +44,8 @@ enum _Page {
   setup,
   recovery,
   locked,
+  upgrade,
+  categories,
   home,
   account,
   posting,
@@ -71,6 +76,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   String _currency = 'TWD';
   AccountKind _kind = AccountKind.cash;
   bool _income = false;
+  String _categoryId = '';
+  CategoryCatalog? _catalog;
+  final _entryCategories = <PublicId, String>{};
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
   List<LedgerEntry> _entries = [];
@@ -119,6 +127,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _saved = false;
     _accounts = [];
     _entries = [];
+    _catalog = null;
+    _categoryId = '';
+    _entryCategories.clear();
     _pendingAccount = null;
     _pendingPosting = null;
     _inputSignature = null;
@@ -190,19 +201,34 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Future<void> _refresh() async {
     final accounts = await _engine!.accounts();
     final entries = await _engine!.entries();
+    final catalog = await _engine!.categories();
+    final labels = await _categoryLabels(entries, catalog);
     final safety = await _engine!.hasSafetyCopy();
     if (!mounted || !_engine!.isUnlocked) return;
     setState(() {
       _accounts = accounts;
       _entries = entries;
+      _catalog = catalog;
+      _entryCategories
+        ..clear()
+        ..addAll(labels);
       _hasMore = entries.length == 30;
       _hasSafety = safety;
       _page = _imported == null ? _Page.home : _Page.restore;
     });
   }
 
-  Future<void> _unlock() => _perform(() async {
-    await _engine!.unlock(_password.text);
+  Future<void> _unlock({bool upgrade = false}) => _perform(() async {
+    try {
+      if (upgrade) {
+        await _engine!.upgrade(_password.text);
+      } else {
+        await _engine!.unlock(_password.text);
+      }
+    } on PreviewUpgradeRequired {
+      if (mounted) setState(() => _page = _Page.upgrade);
+      return;
+    }
     _password.clear();
     await _refresh();
   });
@@ -234,6 +260,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _pendingPosting = null;
       _pendingAccount = null;
       _inputSignature = null;
+      _categoryId = '';
       _accountId = _accounts
           .where((a) => a.account.state == AccountState.active)
           .firstOrNull
@@ -276,7 +303,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
   Future<void> _savePosting() => _perform(() async {
     final a = _accounts.firstWhere((a) => a.account.id == _accountId).account;
-    final signature = '${a.id}|$_income|${_amount.text}|${_date.text}';
+    final category = _categoryId.isEmpty
+        ? null
+        : _catalog!.get(PublicId.parse(_categoryId));
+    final signature =
+        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}';
     if (_inputSignature != signature) {
       final factory = _income ? Posting.income : Posting.expense;
       _pendingPosting = factory(
@@ -285,6 +316,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         date: BusinessDate.parse(_date.text),
         account: _ref(a),
         amount: Money.parse(a.currency, _amount.text),
+        allocations: category == null
+            ? const []
+            : [
+                Allocation(
+                  category.id,
+                  Money.parse(a.currency, _amount.text),
+                  expectedCategoryVersion: category.version,
+                ),
+              ],
       );
       _inputSignature = signature;
     }
@@ -321,13 +361,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
   Future<void> _more() => _perform(() async {
     final next = await _engine!.entries(before: _entries.last);
+    final labels = await _categoryLabels(next, _catalog!);
     if (mounted && _engine!.isUnlocked) {
       setState(() {
         _entries.addAll(next);
+        _entryCategories.addAll(labels);
         _hasMore = next.length == 30;
       });
     }
   });
+
+  Future<Map<PublicId, String>> _categoryLabels(
+    List<LedgerEntry> entries,
+    CategoryCatalog catalog,
+  ) async {
+    final result = <PublicId, String>{};
+    for (final entry in entries) {
+      if (entry.kind == PostingKind.opening) continue;
+      final allocations = await _engine!.allocations(entry.id);
+      result[entry.id] = allocations.isEmpty
+          ? '未分類'
+          : allocations
+                .map((a) => _categoryLabel(catalog, catalog.get(a.categoryId)))
+                .join('、');
+    }
+    return result;
+  }
 
   Widget _field(
     String label,
@@ -409,6 +468,28 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   );
   List<Widget> _content() {
     switch (_page) {
+      case _Page.upgrade:
+        return [
+          Text('更新帳本', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          const Text(
+            '加入分類功能前，需要更新此帳本。系統會先保存並驗證加密備份，再更新資料；原有交易、備份密碼與救援文字都會保留。若中斷，重新解鎖後可以繼續。',
+          ),
+          const SizedBox(height: 16),
+          _button('備份並更新', () => _unlock(upgrade: true)),
+          TextButton(
+            onPressed: _busy ? null : _lock,
+            child: const Text('稍後再更新'),
+          ),
+        ];
+      case _Page.categories:
+        return [
+          _CategoryScreen(
+            engine: _engine!,
+            catalog: _catalog!,
+            onDone: () => _perform(_refresh),
+          ),
+        ];
       case _Page.loading:
         return [const Center(child: CircularProgressIndicator())];
       case _Page.blocked:
@@ -498,7 +579,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             selected: {_income},
             onSelectionChanged: _busy
                 ? null
-                : (v) => setState(() => _income = v.single),
+                : (v) => setState(() {
+                    _income = v.single;
+                    _categoryId = '';
+                  }),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<PublicId>(
@@ -518,6 +602,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           const SizedBox(height: 14),
           _field('金額（正數）', _amount),
           _field('日期（YYYY-MM-DD）', _date),
+          DropdownButtonFormField<String>(
+            key: ValueKey('posting-category-$_income'),
+            initialValue: _categoryId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '分類'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('未分類')),
+              for (final c in _catalog!.categories.where(
+                (c) =>
+                    !c.archived &&
+                    c.kind ==
+                        (_income ? CategoryKind.income : CategoryKind.expense),
+              ))
+                DropdownMenuItem(
+                  value: c.id.value,
+                  child: Text(
+                    _categoryLabel(_catalog!, c),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: _busy
+                ? null
+                : (value) => setState(() => _categoryId = value ?? ''),
+          ),
+          const SizedBox(height: 14),
           _button('儲存收支', _savePosting),
           _back(),
         ];
@@ -576,6 +686,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
           ),
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () => setState(() => _page = _Page.categories),
+            child: const Text('管理分類'),
+          ),
           const SizedBox(height: 24),
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)
@@ -586,7 +702,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               title: Text(
                 '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
               ),
-              subtitle: Text(e.date.toString()),
+              subtitle: Text(
+                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}',
+              ),
               trailing: Text(
                 '${e.amount.currency.code} ${moneyText(e.amount)}',
               ),
@@ -612,7 +730,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）。分類、修改／刪除、轉帳與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類。交易修改／刪除、轉帳與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -636,6 +754,10 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
+  CategoryException(code: CategoryError.hasChildren) => '請先處理子分類，再封存這個分類。',
+  CategoryException(code: CategoryError.versionConflict) =>
+    '分類已變更，請返回帳本重新載入後再試。',
+  CategoryException() => '請檢查分類名稱、收支類型及上層分類；已封存的分類不能用於新交易。',
   PreviewLocked() => '已鎖定，請重新解鎖後查看結果。',
   PreviewBusy() => '前一項操作尚未完成，請稍候。',
   PreviewCapacity() => '已達試用版容量上限，請先匯出備份。',

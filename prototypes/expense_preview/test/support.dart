@@ -38,18 +38,30 @@ final class CatalogVault implements KeyVault {
   Future<void> write(String value) => vault.write(name, value);
 }
 
-PreviewEngine engineAt(Directory directory, MemoryVault vault) =>
-    PreviewEngine(directory, vault, (root, id) {
-      final access = KeyAccess(CatalogVault(vault, 'catalog_${id.value}'));
-      return LedgerStore(
-        root,
-        SecureKeySlots(vault),
-        catalogProtection: CatalogProtection(
-          id,
-          (exists) => access.load(databaseExists: () async => exists),
-        ),
-      );
-    });
+PreviewEngine engineAt(
+  Directory directory,
+  MemoryVault vault, {
+  int schemaVersion = 5,
+  void Function(String)? checkpoint,
+}) => PreviewEngine(
+  directory,
+  vault,
+  (root, id, schema) {
+    final access = KeyAccess(CatalogVault(vault, 'catalog_${id.value}'));
+    return LedgerStore(
+      root,
+      SecureKeySlots(vault),
+      categoryAware: schema >= 4,
+      categoryReferences: schema >= 5,
+      catalogProtection: CatalogProtection(
+        id,
+        (exists) => access.load(databaseExists: () async => exists),
+      ),
+    );
+  },
+  schemaVersion: schemaVersion,
+  upgradeCheckpoint: checkpoint,
+);
 Future<String> setup(PreviewEngine engine) async {
   final draft = await engine.prepareSetup(password);
   await engine.finishSetup(draft, password, savedRecovery: true);
