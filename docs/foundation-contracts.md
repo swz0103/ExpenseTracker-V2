@@ -35,6 +35,8 @@
 - FX 最終入帳量化的初版工程提案採 half-away-from-zero；分攤先算前 n−1 項，最後一項吸收尾差，保證總額完全相等。實際成交的兩邊金額優先於參考匯率推算，差異需記錄 context，不偷偷改原額。
 - 投資成本與 FX 中間計算不反覆量化；每個最後入帳邊界保存 policy version。反轉直接對原已量化值取負，不重新用今日規則計算。
 
+FX 計算地基已以[精確比率值型別](exact-fx-values.md)細化：十進位輸入保留精確值，反向／交叉運算不做中間量化；source／asOf／retrievedAt 分開保存。這不改成交金額優先、最終 half-away-from-zero 或反轉原已入帳額的規則。完整交易 context、股數／成本 Decimal 與資料層仍待實作。
+
 ### ID、Workspace 與時間
 
 - Public ID 使用 UUID v7；operation ID 是一次使用者意圖的穩定身份，不以時間／金額當去重鍵。匯入來源身份是另外的契約。

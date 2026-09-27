@@ -1,10 +1,12 @@
 # Foundation Values
 
-純 Dart 共用值型別；不依賴 Flutter、資料庫或其他業務套件。目前包含 Money／Currency、PublicId／WorkspaceId／OperationId／OperationKey、BusinessDate 與 UtcInstant。
+純 Dart 共用值型別；不依賴 Flutter、資料庫或其他業務套件。目前包含 Money／Currency、PublicId／WorkspaceId／OperationId／OperationKey、BusinessDate／UtcInstant，以及 FxRate／FxObservation。
 
 Money 使用 BigInt 做運算並檢查 signed 64-bit 保存範圍；JSON 的 minorUnits 為字串。手動輸入超過精度拒絕；計算結果才可透過 quantize 採 half-away-from-zero-v1。分攤採 truncate-last-remainder-v1，前 n−1 份朝零截斷，最後一份吸收尾差。
 
-Currency 的三位大寫代碼只是 denomination 格式，不代表已核實 ISO 清單或支援市場。scale 工程上限 18，輸入文字上限 128 字元，單次分攤上限 10,000 份；超出拒絕，不靜默調整。正式資料入口需由版本化 reference data 提供幣別與 scale。匯率／股數的通用 Decimal 尚待另一批實作。
+Currency 的三位大寫代碼只是 denomination 格式，不代表已核實 ISO 清單或支援市場。scale 工程上限 18，輸入文字上限 128 字元，單次分攤上限 10,000 份；超出拒絕，不靜默調整。正式資料入口需由版本化 reference data 提供幣別與 scale。股數／成本的通用 Decimal 尚待另一批實作。
+
+FxRate 用正 BigInt ratio 保存精確匯率，十進位解析／反向／交叉換算不先取捨；最後 convert 才沿 Money 的政策量化與檢查溢位。FxObservation 保存實際報價日期與取得時間，預設拒絕以舊值冒充當日值。JSON v1 只用字串保存分子分母，未知必要格式拒絕。詳見[精確 FX 契約](../../docs/exact-fx-values.md)，不是行情供應商或 Ledger 跨幣入帳實作。
 
 ```sh
 dart pub get --enforce-lockfile
