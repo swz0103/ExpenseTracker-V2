@@ -1,0 +1,90 @@
+{
+  "recordedUtc": "2026-09-27T06:47:41.2391554Z",
+  "sourceBase": "b298c6ca30cb8668480301c1dc4e7ab581133483",
+  "validationTarget": "Working-tree implementation before commit; documentation recorded after checks",
+  "dart": "3.13.4",
+  "flutter": "3.47.5",
+  "host": "Windows 11 x64",
+  "totalUniqueTests": 421,
+  "newUpgradeTests": 30,
+  "packages": [
+    {
+      "package": "tooling/architecture_checks",
+      "tests": 15,
+      "result": "passed"
+    },
+    {
+      "package": "packages/foundation_values",
+      "tests": 35,
+      "result": "passed"
+    },
+    {
+      "package": "packages/accounts",
+      "tests": 9,
+      "result": "passed"
+    },
+    {
+      "package": "packages/categories",
+      "tests": 14,
+      "result": "passed"
+    },
+    {
+      "package": "packages/ledger",
+      "tests": 8,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/modular_persistence",
+      "tests": 30,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/backup_envelope",
+      "tests": 16,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/validated_restore",
+      "tests": 38,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/encrypted_storage",
+      "tests": 30,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/storage_generation",
+      "tests": 95,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/transaction_boundary",
+      "tests": 11,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/android_foundation",
+      "tests": 17,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "tests": 19,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "tests": 84,
+      "result": "passed",
+      "evidence": "Full 83-case run, then final worker rebuild and 2 targeted cases: one existing success case and one new missing-source preflight case. Unique total 84."
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "nativeWorkersRebuilt": 5,
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "scaleResult": "ledger-category-upgrade-2026-09-27.json"
+}

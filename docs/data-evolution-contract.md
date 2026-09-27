@@ -94,6 +94,8 @@ upgrade operation ID 只識別一次升級，與財務 receipts 分開。相同 
 
 ## 8. 實作順序與現有證據
 
-現有原型已驗證固定 1→2／3 transaction 回滾、指定程序中止、SQLITE_FULL、雙憑證乾淨 host 還原，以及 generation 發布去重。進度見[逐項紀錄](work-progress.md)。尚未實作此處「來源預檢→安全備份→目標升級→發布」完整協調器，也沒有通用 module migration registry、正式 BackupProfile 或已通過的 Android gate。
+2026-09-27 接續：[Ledger 分類升級](ledger-category-upgrade.md)已串接已知 schema 3 → 4 的來源、真實安全備份與 catalog 3 升級結果；該頁明列本機故障／還原驗證及未開放的 App gate。不將此單一路徑延伸宣稱為全部 EVOL 或通用模組升級完成。
 
-下一個限定實作先使用已知財務 fixture 和現有加密 envelope，補來源只讀預檢與持久安全備份，再驗證雙路新程序還原；之後才接目標升級與版本化 upgrade receipt。正式模組逐功能接入時擴增 manifest／fixture，不先建立未使用的動態插件管理或任意遷移腳本下載能力。
+現有原型已驗證固定 1→2／3 transaction 回滾、指定程序中止、SQLITE_FULL、雙憑證乾淨 host 還原，以及 generation 發布去重；目前另串接限定 3→4 的「來源預檢→安全備份→目標升級→發布」。進度見[逐項紀錄](work-progress.md)。尚無通用 module migration registry、正式 BackupProfile 或完整 Android 升級 gate。
+
+既定的分階段順序是先以已知財務 fixture 補來源預檢、持久安全備份與雙路新程序還原，再接目標升級及版本化 upgrade receipt；此限定路徑已接上。正式模組逐功能接入時仍須擴增 manifest／fixture，不先建立未使用的動態插件管理或任意遷移腳本下載能力。

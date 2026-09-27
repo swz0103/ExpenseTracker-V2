@@ -29,7 +29,13 @@ StorageBinding _binding(GenerationReceipt receipt) => StorageBinding(
 );
 
 final class LedgerPayload implements GenerationPayload {
-  final codec = SnapshotCodec(generationAware: true);
+  LedgerPayload({this.categoryAware = false})
+    : codec = SnapshotCodec(
+        generationAware: true,
+        categoryAware: categoryAware,
+      );
+  final bool categoryAware;
+  final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
   @override
@@ -46,8 +52,12 @@ final class LedgerPayload implements GenerationPayload {
     utf8.encode(input),
     file,
     checkpoint: checkpoint,
-    openDatabase: (target) =>
-        openEncrypted(target, key, storageBinding: _binding(receipt)),
+    openDatabase: (target) => openEncrypted(
+      target,
+      key,
+      storageBinding: _binding(receipt),
+      categoryAware: categoryAware,
+    ),
   );
 
   @override
@@ -56,11 +66,13 @@ final class LedgerPayload implements GenerationPayload {
     StorageKey key,
     GenerationReceipt receipt,
   ) async {
-    // Refuse migration during inspection: only explicitly staged v3 is accepted.
+    // Inspect the physical version first; never migrate while opening a source.
     final raw = sqlite3.open(file.path, mode: OpenMode.readOnly);
+    late int version;
     try {
       configureEncryption(raw, key);
-      if (raw.userVersion != 3 ||
+      version = raw.userVersion;
+      if (!(version == 3 || (categoryAware && version == 4)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -72,11 +84,20 @@ final class LedgerPayload implements GenerationPayload {
     } finally {
       raw.close();
     }
-    final db = openEncrypted(file, key, storageBinding: _binding(receipt));
+    final sourceCodec = SnapshotCodec(
+      generationAware: true,
+      categoryAware: version == 4,
+    );
+    final db = openEncrypted(
+      file,
+      key,
+      storageBinding: _binding(receipt),
+      categoryAware: version == 4,
+    );
     try {
       // Installation fingerprint authenticates the imported input, not the live
       // ledger after later ACID postings. Capture validates its current contents.
-      return utf8.decode(await codec.capture(db));
+      return utf8.decode(await sourceCodec.capture(db));
     } finally {
       await db.close();
     }
@@ -90,19 +111,27 @@ final class LedgerStore {
     Directory directory,
     KeySlots keys, {
     CatalogProtection? catalogProtection,
+    this.categoryAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
   }) : generations = GenerationStore(
          directory,
          keys,
-         payload: LedgerPayload(),
+         payload: LedgerPayload(categoryAware: categoryAware),
+         upgradeAware: categoryAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
   final GenerationStore generations;
+  final bool categoryAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
-        utf8.decode(SnapshotCodec(generationAware: true).empty()),
+        utf8.decode(
+          SnapshotCodec(
+            generationAware: true,
+            categoryAware: categoryAware,
+          ).empty(),
+        ),
         operation,
         onlyIfEmpty: true,
       );
@@ -114,7 +143,12 @@ final class LedgerStore {
     StackTrace? trace;
     late T result;
     await generations.withCurrent((file, key, receipt) async {
-      final db = openEncrypted(file, key, storageBinding: _binding(receipt));
+      final db = openEncrypted(
+        file,
+        key,
+        storageBinding: _binding(receipt),
+        categoryAware: categoryAware,
+      );
       final session = LedgerSession._(db);
       try {
         result = await work(session);
@@ -172,7 +206,12 @@ final class LedgerStore {
     Future<T> Function(ProbeDatabase) work, {
     LockWaitCancellation? cancellation,
   }) => generations.withCurrent((file, key, receipt) async {
-    final db = openEncrypted(file, key, storageBinding: _binding(receipt));
+    final db = openEncrypted(
+      file,
+      key,
+      storageBinding: _binding(receipt),
+      categoryAware: categoryAware,
+    );
     try {
       return await work(db);
     } finally {

@@ -2,11 +2,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:crypto/crypto.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/lock_wait.dart';
+import 'package:validated_restore_probe/snapshot.dart';
 
 import 'ledger_store.dart';
+
+part 'category_upgrade.dart';
 
 enum SafetyBackupProblem { destination, verification, storage }
 
@@ -19,18 +23,23 @@ final class SafetyBackupUnavailable implements Exception {
 
 /// Contains a recovery secret; never log or persist this object.
 final class VerifiedSafetyBackup {
-  const VerifiedSafetyBackup(this.file, this.source, this.recoveryKey);
+  const VerifiedSafetyBackup(
+    this.file,
+    this.source,
+    this.recoveryKey,
+    this.envelopeDigest,
+  );
   final File file;
 
-  /// Identity of the source generation. Its installation fingerprint is NOT
-  /// a digest of this backup after subsequent financial postings.
+  /// Installation fingerprint is not the live financial snapshot digest.
   final GenerationReceipt source;
   final String recoveryKey;
+
+  /// Digest of the exact encrypted bytes successfully read back and verified.
+  final String envelopeDigest;
 }
 
-/// Limited host probe for current schema 3 only. The destination must be an
-/// existing, application-owned directory outside the generation store.
-/// No migration, upgrade receipt, credential retention or cleanup is performed.
+/// Saves a new backup under one lifecycle lease; existing files are not replaced.
 Future<VerifiedSafetyBackup> createSafetyBackup(
   LedgerStore store,
   Directory destination,
@@ -42,71 +51,91 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
 }) async {
   late VerifiedSafetyBackup result;
   Exception? failure;
-  await store.generations.withCurrent<void>((sourceFile, key, receipt) async {
+  await store.generations.withCurrent<void>((file, key, receipt) async {
     try {
-      if (await FileSystemEntity.type(destination.path, followLinks: false) !=
-          FileSystemEntityType.directory) {
-        throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
-      }
-      final directory = await destination.resolveSymbolicLinks();
-      final sourceDirectory = await store.generations.directory
-          .resolveSymbolicLinks();
-      // A backup must not add unknown files to the generation control directory.
-      final normalized = Platform.isWindows
-          ? directory.toLowerCase()
-          : directory;
-      final sourceRoot = Platform.isWindows
-          ? sourceDirectory.toLowerCase()
-          : sourceDirectory;
-      if (normalized == sourceRoot ||
-          normalized.startsWith('$sourceRoot${Platform.pathSeparator}')) {
-        throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
-      }
-      final file = File('$directory/${backupId.value}.envelope');
-      if (await FileSystemEntity.type(file.path, followLinks: false) !=
-          FileSystemEntityType.notFound) {
-        throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
-      }
-      // The payload adapter refuses unknown versions before opening Drift. Keep
-      // the lifecycle lock through snapshot, durable write and both readbacks.
-      final snapshot = await LedgerPayload().inspect(sourceFile, key, receipt);
-      final codec = EnvelopeCodec();
-      final created = await codec.create(
-        utf8.encode(snapshot),
+      final snapshot = await LedgerPayload(categoryAware: store.categoryAware)
+          .inspect(file, key, receipt);
+      result = await _persistSafetyBackup(
+        store,
+        destination,
+        backupId,
+        receipt,
+        snapshot,
         password: password,
         recoveryKey: recoveryKey,
+        checkpoint: checkpoint,
       );
-      await file.create(exclusive: true);
-      await file.writeAsString(created.envelope, flush: true);
-      await checkpoint?.call('written', file);
-      if (await FileSystemEntity.type(file.path, followLinks: false) !=
-              FileSystemEntityType.file ||
-          await file.length() > EnvelopeCodec.maxEnvelopeCharacters) {
-        throw const SafetyBackupUnavailable(SafetyBackupProblem.verification);
-      }
-      final saved = await file.readAsString();
-      if (saved != created.envelope ||
-          utf8.decode(await codec.openWithPassword(saved, password)) !=
-              snapshot ||
-          utf8.decode(
-                await codec.openWithRecovery(saved, created.recoveryKey),
-              ) !=
-              snapshot) {
-        throw const SafetyBackupUnavailable(SafetyBackupProblem.verification);
-      }
-      await checkpoint?.call('verified', file);
-      result = VerifiedSafetyBackup(file, receipt, created.recoveryKey);
     } on SafetyBackupUnavailable catch (error) {
       failure = error;
     } on BackupException catch (error) {
       failure = error;
     } on FileSystemException {
-      // Preserve any partial artifact. A later attempt cannot overwrite it.
       failure = const SafetyBackupUnavailable(SafetyBackupProblem.storage);
     }
   }, cancellation: cancellation);
-  // Report known backup failures outside the coordinator, which intentionally
-  // sanitizes unexpected callback failures as generation recovery problems.
   if (failure != null) throw failure!;
   return result;
+}
+
+Future<VerifiedSafetyBackup> _persistSafetyBackup(
+  LedgerStore store,
+  Directory destination,
+  PublicId backupId,
+  GenerationReceipt source,
+  String snapshot, {
+  required String password,
+  String? recoveryKey,
+  bool reuseExisting = false,
+  Future<void> Function(String, File)? checkpoint,
+}) async {
+  if (await FileSystemEntity.type(destination.path, followLinks: false) !=
+      FileSystemEntityType.directory)
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
+  final directory = await destination.resolveSymbolicLinks();
+  final sourceDirectory = await store.generations.directory
+      .resolveSymbolicLinks();
+  final normalized = Platform.isWindows ? directory.toLowerCase() : directory;
+  final sourceRoot = Platform.isWindows
+      ? sourceDirectory.toLowerCase()
+      : sourceDirectory;
+  if (normalized == sourceRoot ||
+      normalized.startsWith('$sourceRoot${Platform.pathSeparator}'))
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
+  final file = File('$directory/${backupId.value}.envelope');
+  final type = await FileSystemEntity.type(file.path, followLinks: false);
+  final codec = EnvelopeCodec();
+  CreatedBackup? created;
+  if (type == FileSystemEntityType.notFound) {
+    created = await codec.create(
+      utf8.encode(snapshot),
+      password: password,
+      recoveryKey: recoveryKey,
+    );
+    recoveryKey = created.recoveryKey;
+    await file.create(exclusive: true);
+    await checkpoint?.call('created', file);
+    await file.writeAsString(created.envelope, flush: true);
+    await checkpoint?.call('written', file);
+  } else if (!reuseExisting ||
+      type != FileSystemEntityType.file ||
+      recoveryKey == null) {
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.destination);
+  }
+  if (await FileSystemEntity.type(file.path, followLinks: false) !=
+          FileSystemEntityType.file ||
+      await file.length() > EnvelopeCodec.maxEnvelopeCharacters)
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.verification);
+  final savedBytes = await file.readAsBytes();
+  if (savedBytes.length > EnvelopeCodec.maxEnvelopeCharacters)
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.verification);
+  final saved = utf8.decode(savedBytes);
+  // Hash the persisted bytes, before UTF-8 decoding can discard a BOM.
+  final digest = sha256.convert(savedBytes).toString();
+  if ((created != null &&
+          digest != sha256.convert(utf8.encode(created.envelope)).toString()) ||
+      utf8.decode(await codec.openWithPassword(saved, password)) != snapshot ||
+      utf8.decode(await codec.openWithRecovery(saved, recoveryKey)) != snapshot)
+    throw const SafetyBackupUnavailable(SafetyBackupProblem.verification);
+  await checkpoint?.call('verified', file);
+  return VerifiedSafetyBackup(file, source, recoveryKey, digest);
 }

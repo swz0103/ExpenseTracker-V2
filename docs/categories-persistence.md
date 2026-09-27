@@ -28,6 +28,8 @@ CategoryCatalog 本身建立替代鏈索引是 O(n)，但完整歷史重放會�
 
 ## 升級保護與目前限制
 
+後續進度：已接上[Ledger schema 3 → 4 主機升級](ledger-category-upgrade.md)，包含真實備份到發布的同鎖流程、upgrade receipt、schema 4 payload／金融 session 及獨立程序故障驗證。以下「本批」指原分類保存 PR #36 的範圍；正式 App 升級、分類交易引用、容量預檢及 UI gate 仍保留。
+
 直接用 schema 4 reader 開啟 schema 3，會在任何新 DDL 前拒絕；不透過 Drift 自動就地升級。受控路徑先擷取舊來源、保存並雙路讀回驗證加密備份，再在新檔建立 schema 4 stage，核對金融與分類資料。失敗的 stage 留作診斷，不修改原來源。
 
 本批驗證這個暫存轉換與備份原語；**正式升級協調器、生命週期排他鎖到發布的完整串接、版本化 upgrade receipt、schema 4 的 GenerationPayload／session、分類交易引用及 UI 尚未接入**。現有 App／LedgerStore 仍明確使用 schema 3，拒絕未知 schema，不自動開啟 schema 4。新版本的獨立程序中止與裝置驗收仍需後續補齊，不能用舊版本已通過案例代替。

@@ -4,6 +4,7 @@ publish_to: none
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
+  crypto: 3.0.7
   accounts:
     path: ../../packages/accounts
   drift: 2.35.0
@@ -23,6 +24,8 @@ dependencies:
   storage_generation_probe:
     path: ../storage_generation
 dev_dependencies:
+  categories:
+    path: ../../packages/categories
   test: 1.32.0
 hooks:
   user_defines:

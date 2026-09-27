@@ -33,6 +33,8 @@ schema 3 保留 attempts、active、catalog_identity，新增：
 
 ## 驗證與限制
 
+後續 [Ledger adapter 整合](ledger-category-upgrade.md)已接上真實雙憑證安全備份與 schema 4 帳本，不改以下控制原型 fixture 的原始證據。升級規劃另可透過 `current(requireExistingCatalog: true)` 拒絕隱式初始化缺失來源，沿用鎖內原有防護。
+
 `prototypes/storage_generation/test/upgrade_test.dart` 包含來源比對、準備失敗、相同請求／衝突、同鎖排他、加密要求、未知版本拒絕、舊 reader 拒絕、資料保留與十個獨立程序中止位置：upgradePrepared、upgradeCatalogWriting、upgradeRecording、reserved、keySaved、databaseWriting、staged、validated、publishing、published。發布前保持舊資料，發布後保持新資料；重試僅一個 committed 結果。既有儲存與 Ledger 的還原／安全備份回歸一起驗證。
 
 此批 worker 的 payload 是明列的固定文字 fixture，`prepare` 的備份摘要也只是合成測試值；它驗證**控制機制及呼叫順序**，沒有冒充真的財務安全備份。實際加密 envelope、保存後雙憑證讀回及 schema 4 財務核對，須由下一批 Ledger adapter 接上既有[持久安全備份](verified-safety-backup.md)與[分類快照](categories-persistence.md)能力。`PreparedUpgrade` 是內部可信 adapter 邊界，不是能自行證明備份存在的密碼學證明。

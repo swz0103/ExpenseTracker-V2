@@ -286,12 +286,19 @@ final class GenerationStore {
     );
   }
 
-  Future<InstalledFixture?> current({LockWaitCancellation? cancellation}) =>
-      _locked((catalog) async {
-        await _recover(catalog);
-        final active = _active(catalog);
-        return active == null ? null : _inspect(active);
-      }, cancellation: cancellation);
+  /// Preflight callers can refuse missing catalogs instead of initializing one.
+  Future<InstalledFixture?> current({
+    LockWaitCancellation? cancellation,
+    bool requireExistingCatalog = false,
+  }) => _locked(
+    (catalog) async {
+      await _recover(catalog);
+      final active = _active(catalog);
+      return active == null ? null : _inspect(active);
+    },
+    cancellation: cancellation,
+    requireExistingCatalog: requireExistingCatalog,
+  );
 
   /// Internal adapter scope, not an application connection API. Callback must
   /// close all DB handles before returning and must never retain them.

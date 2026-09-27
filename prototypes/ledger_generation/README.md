@@ -4,6 +4,8 @@
 
 ## 版本邊界
 
+2026-09-27 接續：明確 `categoryAware: true` 可使用 catalog 3／財務 schema 4，包含 schema 3 來源預檢、雙路持久安全備份、分類快照轉換與原子世代發布。詳見[升級路徑、故障與驗證](../../docs/ledger-category-upgrade.md)。App 預設行為維持以下 schema 3 路徑；新增能力仍是 host 整合，沒有自動開放分類 UI。
+
 - 舊路徑維持財務 schema 2、snapshot format 1，既有七張權威表與三個 module version 不變。
 - 新路徑明確指定 `StorageBinding`，使用財務 schema 3，新增 `storage_identity`，綁定 generation、slot、安裝 operation 與初始輸入摘要。schema 1／2 → 3 的升級在交易內完成；重開已存在的 schema 3 時只能核對，不能覆寫身份。
 - 新 snapshot format 2／schema 3 加入 `local_identity: 1` manifest。這表示本機身份的重建政策，不包含該表的任何列。可攜內容仍完整保存 accounts、events、legs、openings、allocations、receipts、audit 七表。
