@@ -12,6 +12,10 @@
 
 ## 分支與交付
 
+2026-09-27 商家／別名接續開發中：已從 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）建立 `feat/transaction-merchants`，開始同一商家全流程工作單位。目前完成獨立 Merchant Domain 的身份、別名增刪／候選、封存／啟用、明確合併與歷史解析；15 項新業務案例、15 項既有架構測試、格式／分析及實際依賴掃描通過。[本批證據](test-results/merchant-domain-host-2026-09-27.json)／[完整接續工作](transaction-merchants.md)。目前沒有商家資料表、Ledger 商家引用、schema 7、migration 或 UI，不將 Domain 通過稱為 M1-02 完成；繼續同一功能分支及草稿 PR，完整流程完成前不再切另一商家子功能 PR。
+
+Tag 批次上傳已核對：本機／遠端／PR #46 全部為上述完整 SHA，工作目錄當時乾淨、所有本機分支未上傳提交為 0。main 仍為 `d0d39e1de32774aca319b8fed0cc9ee288cbb94a`。這次核對在新增商家 Domain 之前完成，商家後續提交另行核對。
+
 2026-09-27 交易標籤完整流程（本機驗證完成）：`feat/transaction-tags` 依賴 [PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)（`2ad7c9c4f5e89e5ccaddc7e1ff5b5434d43a0d57`）。新增獨立 Tags 業務，App 可新增／改名／封存／啟用／明確合併，收支可複選最多 16 個標籤；金額、分類、標籤引用及 receipt／Audit 同一提交。歷史保留原 ID、版本及 metadata 序號，改名合併不改金額或舊引用；新交易清空選取。[操作與格式](transaction-tags.md)。
 
 新帳本 schema 6／snapshot 5，舊 V2 schema 3／4／5 沿明確路線逐步安全升級。升級前核對密碼與救援備份，來源 DB／key 保留；所有新資料納入既有 50,000 列／16 MiB 容量保護。回查發現來源表失去唯一限制時，分類／Tag 的重複 ID 可取代另一列而逃過原驗證；兩個失敗案例已重現，修正並納入完整回歸。

@@ -46,3 +46,5 @@
 `feat/category-management` 依賴 #44（`f0bd94e6137692eee24092732d50204961a0ba19`），完成 App 分類搬移及明確合併，36 項 App 完整回歸、格式／分析／架構掃描與 0.3.1 開發包封裝通過。底層格式與安全程式未變更，沿用前批完整整合及大量資料證據，[本批清單](test-results/category-management-host-2026-09-27.json)清楚分開新執行與既有結果。下一分支從本批接交易 Tag；雲端 gate 尚未通過，不收斂或刪除這些堆疊分支，main 保持原提交。
 
 `feat/transaction-tags` 依賴 [PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)（`2ad7c9c4f5e89e5ccaddc7e1ff5b5434d43a0d57`），將平面 Tags 業務、原子交易引用、schema 5 → 6 安全升級及 App 管理／複選作為一個完整流程交付。15 套件 562 項本機案例、兩組獨立大量資料流程及 0.4.0 開發包核對通過；[清單](test-results/transaction-tags-host-2026-09-27.json)保留實際驗證範圍。下一分支接 Merchant／alias。兩個 Actions workflow 仍為停用，沒有新雲端 checks；此批及依賴鏈不因此收斂、關閉或刪除，main 保持原提交。
+
+`feat/transaction-merchants` 從 [PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）接續。此商家全流程仍開發中，Domain／alias 子集的 30 項本機回歸通過；同一草稿 PR 接續保存、Ledger 引用、升級及 UI，不將未實作部分列為完成。兩個 workflow 維持停用，沒有改動 main 或收斂待雲端 gate 分支。

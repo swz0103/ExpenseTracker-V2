@@ -1,0 +1,31 @@
+{
+  "recordedUtc": "2026-09-27T11:03:43.144704+00:00",
+  "sourceBase": "10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b",
+  "validationTarget": "商家 Domain 及架構清單的提交前工作目錄；App／資料格式未改。",
+  "totalUniqueTests": 30,
+  "newTests": 15,
+  "packages": [
+    {
+      "package": "packages/merchants",
+      "tests": 15,
+      "result": "passed"
+    },
+    {
+      "package": "tooling/architecture_checks",
+      "tests": 15,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "merchantPersistenceImplemented": false,
+  "merchantUiEnabled": false,
+  "notes": [
+    "只交付 Domain 子集；商家全流程 PR 保留開發中狀態。",
+    "既有 0.4.0 Tag App 的完整 562 項及兩組大量證據未在本批重跑，產品內容仍對應 Tag 提交。",
+    "workflow 只增列 merchants 套件；服務端仍停用，沒有執行雲端驗證。"
+  ]
+}

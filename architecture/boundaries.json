@@ -53,6 +53,15 @@
       "dependencies": [
         "foundation_values"
       ]
+    },
+    "merchants": {
+      "directory": "packages/merchants",
+      "publicEntrypoints": [
+        "merchants.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
     }
   }
 }
