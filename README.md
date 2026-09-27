@@ -13,6 +13,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [開發前置準備](docs/development-readiness.md)
 - [地基工程契約](docs/foundation-contracts.md)
 - [業務套件邊界與 CI 檢查](docs/architecture-boundary-checks.md)
+- [資料版本與升級前備份契約](docs/data-evolution-contract.md)
 - [具體驗收案例](docs/foundation-acceptance.md)
 - [地基驗證結果與剩餘門檻](docs/foundation-validation.md)
 - [逐項實作進度](docs/work-progress.md)
