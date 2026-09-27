@@ -76,6 +76,98 @@ Future<void> closeEngine(WidgetTester tester, PreviewEngine engine) async {
 
 void main() {
   testWidgets(
+    'tags can be created selected merged and archived while old transaction remains traceable',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('tags-');
+      final engine = engineAt(work, MemoryVault(), schemaVersion: 6);
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          final a = account(engine);
+          await engine.createAccount(a, opening(a));
+          await engine.createTag(
+            OperationKey(engine.workspace, OperationId(PublicId.generate())),
+            PublicId.generate(),
+            '旅行',
+          );
+          await engine.lock();
+        });
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: Documents()),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '管理標籤');
+        await input(tester, '標籤名稱', '出差');
+        await tap(tester, '新增標籤');
+        await tap(tester, '返回帳本');
+        await tap(tester, '記一筆');
+        await input(tester, '金額（正數）', '10');
+        await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
+        await tap(tester, '出差');
+        await tap(tester, '旅行');
+        await tap(tester, '儲存收支');
+        expect(find.text('TWD 90.00'), findsOneWidget);
+        expect(find.textContaining('#出差'), findsOneWidget);
+        await tap(tester, '記一筆');
+        expect(
+          tester
+              .widgetList<FilterChip>(find.byType(FilterChip))
+              .every((c) => !c.selected),
+          isTrue,
+        );
+        await tap(tester, '返回帳本');
+        await tap(tester, '管理標籤');
+        await tester.ensureVisible(find.byTooltip('操作 出差'));
+        await tester.tap(find.byTooltip('操作 出差'));
+        await tester.pumpAndSettle();
+        await tap(tester, '合併至…');
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, '確認合併並保留歷史'),
+              )
+              .onPressed,
+          isNull,
+        );
+        final dropdown = find.byType(DropdownButtonFormField<String>);
+        await tester.ensureVisible(dropdown);
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('旅行').last);
+        await tester.pumpAndSettle();
+        await tap(tester, '確認合併並保留歷史');
+        await tap(tester, '返回帳本');
+        expect(find.textContaining('#出差（已合併至 旅行）'), findsOneWidget);
+        await tap(tester, '管理標籤');
+        await tester.ensureVisible(find.byTooltip('操作 旅行'));
+        await tester.tap(find.byTooltip('操作 旅行'));
+        await tester.pumpAndSettle();
+        await tap(tester, '封存');
+        await tap(tester, '返回帳本');
+        await tap(tester, '記一筆');
+        expect(find.byType(FilterChip), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.resolveSymbolicLinksSync().startsWith(
+          '${root.resolveSymbolicLinksSync()}${Platform.pathSeparator}',
+        )) {
+          throw StateError('Unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+  testWidgets(
     'category move, cancel and explicit merge preserve a clear selection',
     (tester) async {
       final root = Directory('.dart_tool/widget-tests')

@@ -14,7 +14,7 @@ extension _PreviewUpgrade on PreviewEngine {
     final backups = Directory('${directory.path}/upgrade-backups');
     await backups.create(recursive: true);
     for (var version = from; version < schemaVersion; version++) {
-      if (version != 3 && version != 4) throw PreviewInvalid();
+      if (version != 3 && version != 4 && version != 5) throw PreviewInvalid();
       _check(epoch);
       final target = factory(
         Directory('${directory.path}/ledger'),
@@ -24,18 +24,22 @@ extension _PreviewUpgrade on PreviewEngine {
       final source = await target.snapshot();
       validatePreviewSnapshot(source, schemaVersion: version + 1);
       _check(epoch);
-      final plan = version == 3
-          ? planCategoryUpgrade
-          : planCategoryReferenceUpgrade;
+      final plan = switch (version) {
+        3 => planCategoryUpgrade,
+        4 => planCategoryReferenceUpgrade,
+        _ => planTagUpgrade,
+      };
       final request = await plan(
         target,
         OperationId(PublicId.generate()),
         PublicId.generate(),
       );
       _check(epoch);
-      final upgrade = version == 3
-          ? upgradeCategories
-          : upgradeCategoryReferences;
+      final upgrade = switch (version) {
+        3 => upgradeCategories,
+        4 => upgradeCategoryReferences,
+        _ => upgradeTags,
+      };
       await upgrade(
         target,
         request,

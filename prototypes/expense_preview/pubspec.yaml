@@ -1,10 +1,12 @@
 name: expense_preview
 description: ExpenseTracker V2 可安裝最小記帳試用版，非正式發版。
 publish_to: none
-version: 0.3.1+4
+version: 0.4.0+5
 environment:
   sdk: ^3.13.4
 dependencies:
+  tags:
+    path: ../../packages/tags
   flutter:
     sdk: flutter
   flutter_secure_storage: 11.2.0

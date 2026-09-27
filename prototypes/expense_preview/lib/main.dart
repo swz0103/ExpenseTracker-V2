@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
+import 'package:tags/tags.dart';
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
@@ -12,6 +13,7 @@ import 'platform_services.dart';
 import 'preview_engine.dart';
 
 part 'category_screen.dart';
+part 'tag_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +48,7 @@ enum _Page {
   locked,
   upgrade,
   categories,
+  tags,
   home,
   account,
   posting,
@@ -78,6 +81,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _income = false;
   String _categoryId = '';
   CategoryCatalog? _catalog;
+  TagCatalog? _tagCatalog;
+  final _selectedTags = <PublicId>{};
+  final _entryTags = <PublicId, String>{};
   final _entryCategories = <PublicId, String>{};
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
@@ -128,6 +134,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _accounts = [];
     _entries = [];
     _catalog = null;
+    _tagCatalog = null;
+    _selectedTags.clear();
+    _entryTags.clear();
     _categoryId = '';
     _entryCategories.clear();
     _pendingAccount = null;
@@ -203,12 +212,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final entries = await _engine!.entries();
     final catalog = await _engine!.categories();
     final labels = await _categoryLabels(entries, catalog);
+    final tagCatalog = _engine!.schemaVersion >= 6
+        ? await _engine!.tags()
+        : null;
+    final tagLabels = await _tagLabels(entries, tagCatalog);
     final safety = await _engine!.hasSafetyCopy();
     if (!mounted || !_engine!.isUnlocked) return;
     setState(() {
       _accounts = accounts;
       _entries = entries;
       _catalog = catalog;
+      _tagCatalog = tagCatalog;
+      _entryTags
+        ..clear()
+        ..addAll(tagLabels);
       _entryCategories
         ..clear()
         ..addAll(labels);
@@ -261,6 +278,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _pendingAccount = null;
       _inputSignature = null;
       _categoryId = '';
+      _selectedTags.clear();
       _accountId = _accounts
           .where((a) => a.account.state == AccountState.active)
           .firstOrNull
@@ -306,8 +324,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final category = _categoryId.isEmpty
         ? null
         : _catalog!.get(PublicId.parse(_categoryId));
+    final tags = _selectedTags.map((id) => _tagCatalog!.get(id)).toList()
+      ..sort((a, b) => a.id.value.compareTo(b.id.value));
     final signature =
-        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}';
+        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}|${tags.map((t) => '${t.id}:${t.version}').join(',')}';
     if (_inputSignature != signature) {
       final factory = _income ? Posting.income : Posting.expense;
       _pendingPosting = factory(
@@ -328,7 +348,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       );
       _inputSignature = signature;
     }
-    await _engine!.post(_pendingPosting!);
+    await _engine!.post(
+      _pendingPosting!,
+      tags: [for (final tag in tags) TagSelection(tag.id, tag.version)],
+    );
     await _refresh();
   });
   Future<void> _export({bool previous = false}) => _perform(() async {
@@ -362,14 +385,33 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Future<void> _more() => _perform(() async {
     final next = await _engine!.entries(before: _entries.last);
     final labels = await _categoryLabels(next, _catalog!);
+    final tagLabels = await _tagLabels(next, _tagCatalog);
     if (mounted && _engine!.isUnlocked) {
       setState(() {
         _entries.addAll(next);
         _entryCategories.addAll(labels);
+        _entryTags.addAll(tagLabels);
         _hasMore = next.length == 30;
       });
     }
   });
+
+  Future<Map<PublicId, String>> _tagLabels(
+    List<LedgerEntry> entries,
+    TagCatalog? catalog,
+  ) async {
+    if (catalog == null) return {};
+    final result = <PublicId, String>{};
+    for (final entry in entries) {
+      final refs = await _engine!.tagsFor(entry.id);
+      if (refs.isNotEmpty) {
+        result[entry.id] = refs
+            .map((r) => '#${_tagLabel(catalog, catalog.get(r.id))}')
+            .join('、');
+      }
+    }
+    return result;
+  }
 
   Future<Map<PublicId, String>> _categoryLabels(
     List<LedgerEntry> entries,
@@ -473,13 +515,21 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           Text('更新帳本', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 16),
           const Text(
-            '加入分類功能前，需要更新此帳本。系統會先保存並驗證加密備份，再更新資料；原有交易、備份密碼與救援文字都會保留。若中斷，重新解鎖後可以繼續。',
+            '使用這個版本前，需要更新此帳本。系統會先保存並驗證加密備份，再更新資料；原有交易、備份密碼與救援文字都會保留。若中斷，重新解鎖後可以繼續。',
           ),
           const SizedBox(height: 16),
           _button('備份並更新', () => _unlock(upgrade: true)),
           TextButton(
             onPressed: _busy ? null : _lock,
             child: const Text('稍後再更新'),
+          ),
+        ];
+      case _Page.tags:
+        return [
+          _TagScreen(
+            engine: _engine!,
+            catalog: _tagCatalog!,
+            onDone: () => _perform(_refresh),
           ),
         ];
       case _Page.categories:
@@ -582,6 +632,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : (v) => setState(() {
                     _income = v.single;
                     _categoryId = '';
+                    _selectedTags.clear();
                   }),
           ),
           const SizedBox(height: 16),
@@ -628,6 +679,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : (value) => setState(() => _categoryId = value ?? ''),
           ),
           const SizedBox(height: 14),
+          if (_tagCatalog != null &&
+              _tagCatalog!.tags.any((t) => !t.archived)) ...[
+            const Text('標籤（可複選，最多 16 個）'),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final tag in _tagCatalog!.tags.where((t) => !t.archived))
+                  FilterChip(
+                    label: Text(tag.name),
+                    selected: _selectedTags.contains(tag.id),
+                    onSelected: _busy
+                        ? null
+                        : (selected) => setState(() {
+                            if (!selected) {
+                              _selectedTags.remove(tag.id);
+                            } else if (_selectedTags.length < 16) {
+                              _selectedTags.add(tag.id);
+                            } else {
+                              _message = '一筆交易最多選擇 16 個標籤。';
+                            }
+                          }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
           _button('儲存收支', _savePosting),
           _back(),
         ];
@@ -692,6 +769,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : () => setState(() => _page = _Page.categories),
             child: const Text('管理分類'),
           ),
+          if (_tagCatalog != null)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.tags),
+              child: const Text('管理標籤'),
+            ),
           const SizedBox(height: 24),
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)
@@ -703,7 +787,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
               ),
               subtitle: Text(
-                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}',
+                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}',
               ),
               trailing: Text(
                 '${e.amount.currency.code} ${moneyText(e.amount)}',
@@ -730,7 +814,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類。交易修改／刪除、轉帳與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤。交易修改／刪除、轉帳與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -754,6 +838,8 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
+  TagException(code: TagError.versionConflict) => '標籤已變更，請返回帳本重新整理後再試。',
+  TagException() => '請檢查標籤名稱與合併目標；封存或已合併的標籤不能用於新交易。',
   CategoryException(code: CategoryError.hasChildren) => '請先處理子分類，再進行這項操作。',
   CategoryException(code: CategoryError.versionConflict) =>
     '分類已變更，請返回帳本重新載入後再試。',

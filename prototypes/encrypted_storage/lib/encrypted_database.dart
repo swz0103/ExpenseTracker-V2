@@ -36,12 +36,14 @@ ProbeDatabase openEncrypted(
   StorageBinding? storageBinding,
   bool categoryAware = false,
   bool categoryReferences = false,
+  bool tagsAware = false,
   void Function(String)? migrationCheckpoint,
 }) => ProbeDatabase.withExecutor(
   NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
   storageBinding: storageBinding,
   categoryAware: categoryAware,
   categoryReferences: categoryReferences,
+  tagsAware: tagsAware,
   migrationCheckpoint: migrationCheckpoint,
 );
 

@@ -12,6 +12,16 @@
 
 ## 分支與交付
 
+2026-09-27 交易標籤完整流程（本機驗證完成）：`feat/transaction-tags` 依賴 [PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)（`2ad7c9c4f5e89e5ccaddc7e1ff5b5434d43a0d57`）。新增獨立 Tags 業務，App 可新增／改名／封存／啟用／明確合併，收支可複選最多 16 個標籤；金額、分類、標籤引用及 receipt／Audit 同一提交。歷史保留原 ID、版本及 metadata 序號，改名合併不改金額或舊引用；新交易清空選取。[操作與格式](transaction-tags.md)。
+
+新帳本 schema 6／snapshot 5，舊 V2 schema 3／4／5 沿明確路線逐步安全升級。升級前核對密碼與救援備份，來源 DB／key 保留；所有新資料納入既有 50,000 列／16 MiB 容量保護。回查發現來源表失去唯一限制時，分類／Tag 的重複 ID 可取代另一列而逃過原驗證；兩個失敗案例已重現，修正並納入完整回歸。
+
+完整 **15 套件、562 項獨有本機測試** 通過，新增 54 項；含格式、靜態分析、實際依賴掃描、五個原生 worker 重建、11 處升級程序中止、4 處 App 升級例外及適用 UI。[完整清單](test-results/transaction-tags-host-2026-09-27.json)區分完整回歸與額外文案回歸，沒有重複累加數字。
+
+兩組獨立大量資料均通過：[新帳本](test-results/transaction-tags-scale-2026-09-27.json)保留 5,000 筆事件、9,998 個 Tag 引用；[已滿舊帳本升級](test-results/transaction-tags-upgrade-scale-2026-09-27.json)逐表確認原有 5,000 筆事件及分類資料不變，事件容量已滿所以沒有額外新增 Tag 引用。各含 256 個 Tag／1,024 次異動、5,003 次重送，並在刪除合成來源 DB 與 vault keys 後，分別以密碼／救援還原、重開、比對完整 bytes 及獨立餘額。兩次耗時 308.382／297.825 秒，不能相加當成單帳本容量或 Android 效能。
+
+`0.4.0+5` ARM64 debug APK 建置及封裝核對通過，hash 與身份見[安裝包紀錄](installable-preview.md)。本批雲端未執行、手機未操作、main 未合併；待雲端 gate 的分支仍保留。Tag 搜尋／報表／預算應用及 Merchant／alias 尚未交付，不宣稱 M1-02 或全部 CORE 完成。提交並核對上傳後，下一分支接 Merchant／alias 的完整流程。
+
 2026-09-27 分類搬移與合併（本機驗證完成）：`feat/category-management` 基於 #44 的 `f0bd94e6137692eee24092732d50204961a0ba19`。同一輪接續完成 App 公開接口與明確確認的搬移／合併畫面，保留原分類引用、版本與目前合併去向；取消編輯清除不同收支類型的父分類／目標選擇。資料表、schema、底層計算、加密與備份格式未變更。App 格式、分析、實際架構掃描與 **36 項 App 完整回歸**通過，新增 2 項涵蓋版本衝突、跨帳本拒絕、重送、歷史引用、備份還原與操作確認。底層沿用前批 506 項及四組大量資料證據，沒有宣稱本批再跑全部套件。
 
 `0.3.1+4` ARM64 debug APK 建置成功，身份、APK v2 簽章與 `allowBackup=false` 核對通過；[驗證清單](test-results/category-management-host-2026-09-27.json)及[安裝包資訊](installable-preview.md)保留 hash。雲端未執行、手機未操作、main 未合併；有歷史子分類的父分類仍不能直接合併。此批以獨立 PR 依賴 #44，完成上傳後從本分支接交易 Tag 的業務、保存與歷史引用，接著 Merchant；M1-02 及整體 CORE 尚未全部完成。

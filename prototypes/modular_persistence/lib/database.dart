@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 
 import 'storage_binding.dart';
 import 'category_schema.dart';
+import 'tag_schema.dart';
+import 'tag_reference_schema.dart';
 import 'allocation_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
@@ -14,8 +16,10 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.migrationCheckpoint,
     this.storageBinding,
     bool categoryAware = false,
-    this.categoryReferences = false,
-  }) : categoryAware = categoryAware || categoryReferences,
+    bool categoryReferences = false,
+    this.tagsAware = false,
+  }) : categoryReferences = categoryReferences || tagsAware,
+       categoryAware = categoryAware || categoryReferences || tagsAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -24,13 +28,16 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.migrationCheckpoint,
     this.storageBinding,
     bool categoryAware = false,
-    this.categoryReferences = false,
-  }) : categoryAware = categoryAware || categoryReferences,
+    bool categoryReferences = false,
+    this.tagsAware = false,
+  }) : categoryReferences = categoryReferences || tagsAware,
+       categoryAware = categoryAware || categoryReferences || tagsAware,
        super(executor) {
     _configuration();
   }
   final bool categoryAware;
   final bool categoryReferences;
+  final bool tagsAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -40,7 +47,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => categoryReferences
+  int get schemaVersion => tagsAware
+      ? 6
+      : categoryReferences
       ? 5
       : (categoryAware ? 4 : (storageBinding == null ? 2 : 3));
   @override
@@ -64,6 +73,12 @@ final class ProbeDatabase extends GeneratedDatabase {
           await customStatement(sql);
         }
         migrationCheckpoint?.call('categories');
+      }
+      if (tagsAware) {
+        for (final sql in [...tagSchema, tagReferenceSchema]) {
+          await customStatement(sql);
+        }
+        migrationCheckpoint?.call('tags');
       }
     }),
     onUpgrade: (_, from, to) async {

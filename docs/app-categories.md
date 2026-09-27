@@ -1,5 +1,7 @@
 # App 分類與 V2 帳本升級
 
+後續版本新增[交易標籤與 schema 6](transaction-tags.md)；本文保留分類接入時 schema 5 的範圍與驗證證據，現在的 App 目標格式及最新開發包以[工作進度](work-progress.md)為準。
+
 本批接續 [分類引用與世代升級](ledger-reference-upgrade.md)，屬於 [M1-02](implementation-plan.md#m1-02分類tagmerchant-與日常錄入) 的分類子集。Tag、Merchant、交易拆分編輯及其他 M1／M2／M3 CORE 仍待實作；本批不代表 M1 完成。
 
 來源：[RC-05](architecture-baseline-v1.0-rc1.md#rc-05)／[FV-011](full-vision-baseline.md#fv-011)。本批只把已驗證的分類業務透過 App 接入；不改寫 Full Vision 或把尚未交付的標籤／商家標成完成。

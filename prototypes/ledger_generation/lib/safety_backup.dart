@@ -56,6 +56,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
       final snapshot = await LedgerPayload(
         categoryAware: store.categoryAware,
         categoryReferences: store.categoryReferences,
+        tagsAware: store.tagsAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

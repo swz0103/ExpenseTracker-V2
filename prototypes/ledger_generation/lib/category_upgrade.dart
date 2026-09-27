@@ -1,16 +1,18 @@
 part of 'safety_backup.dart';
 
-// Two known routes share backup/publication without accepting arbitrary versions.
+// Known routes share backup/publication without accepting arbitrary versions.
 enum _LedgerUpgrade {
   categories(3, 4, 'ledger-3-to-4-v1'),
-  references(4, 5, 'ledger-4-to-5-v1');
+  references(4, 5, 'ledger-4-to-5-v1'),
+  tags(5, 6, 'ledger-5-to-6-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
   final String route;
   SnapshotCodec get target => SnapshotCodec(
     categoryAware: true,
-    categoryReferences: this == references,
+    categoryReferences: to >= 5,
+    tagsAware: this == tags,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -18,13 +20,15 @@ enum _LedgerUpgrade {
       throw const InvalidSnapshot();
     SnapshotCodec(
       generationAware: true,
-      categoryAware: from == 4,
+      categoryAware: from >= 4,
+      categoryReferences: from >= 5,
     ).canonicalize(utf8.encode(source));
   }
 
   void requireTarget(LedgerStore store) {
     if (!store.categoryAware ||
-        store.categoryReferences != (this == references)) {
+        store.categoryReferences != (to >= 5) ||
+        store.tagsAware != (this == tags)) {
       throw const InvalidSnapshot();
     }
   }
@@ -54,6 +58,19 @@ Future<UpgradeRequest> planCategoryReferenceUpgrade(
   operation,
   backupId,
   _LedgerUpgrade.references,
+  cancellation: cancellation,
+);
+
+Future<UpgradeRequest> planTagUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.tags,
   cancellation: cancellation,
 );
 
@@ -116,6 +133,25 @@ Future<UpgradeReceipt> upgradeCategoryReferences(
   request,
   backupDirectory,
   _LedgerUpgrade.references,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeReceipt> upgradeTags(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.tags,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

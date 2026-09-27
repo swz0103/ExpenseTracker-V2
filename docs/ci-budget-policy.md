@@ -28,7 +28,7 @@
 
 使用鎖定的 Dart 3.13.4／Flutter 3.47.5，可用 `-Dart`、`-Flutter` 指定本機完整執行檔路徑。先確認版本符合兩份 workflow。`-Offline` 只限制 pub 相依解析，不是所有底層建置工具的網路隔離；首次缺相依需正常取得既有鎖定版本，不自動升級套件。
 
-腳本涵蓋目前兩份 workflow 的 14 個主機套件，保留 lockfile、格式、靜態分析、五個原生 worker 建置、測試與架構掃描；循序執行避免 Windows 原生檔案互鎖，任一步失敗即停止且不輸出全數通過。新增套件時必須同步更新 workflow 與本機清單。每次驗證在進度／PR 記錄實際版本、範圍、結果及尚未執行的 gate；測試未提交的修改時不得當成 PR exact SHA 已通過。
+腳本涵蓋目前兩份 workflow 的 15 個主機套件（包含新 Tags 業務），保留 lockfile、格式、靜態分析、五個原生 worker 建置、測試與架構掃描；循序執行避免 Windows 原生檔案互鎖，任一步失敗即停止且不輸出全數通過。新增套件時必須同步更新 workflow 與本機清單。每次驗證在進度／PR 記錄實際版本、範圍、結果及尚未執行的 gate；測試未提交的修改時不得當成 PR exact SHA 已通過。
 
 ## 何時恢復雲端驗證
 
@@ -36,7 +36,7 @@
 
 目前服務端仍停用 workflow；本 PR 也不會自行合入 main。GitHub 要求手動觸發設定存在 default branch，因此 **PR 中的 `workflow_dispatch` 不等於現在已可手動執行**。恢復前須確認 default branch 的設定與啟用狀態；不能為啟用測試擅自合併 main、變更 default branch，或重新打開舊分支的自動觸發。來源：[手動執行 workflow 的條件](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。
 
-本政策已同步到持續開發排程，原本每 30 分鐘接續工作的頻率不變；排程喚醒不代表執行一次 Actions。
+本政策已同步到持續開發排程；最新使用者授權為啟用、每 20 分鐘接續，詳見工作進度。排程喚醒不代表執行一次 Actions。
 
 ## 本次調整驗證
 

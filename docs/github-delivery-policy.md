@@ -8,7 +8,7 @@
 - V2 為獨立 repository，並非舊版 fork。V2 的程式、文件、提交、PR、測試紀錄及建置產物均使用 V2 身份與路徑。
 - 舊 Android App 的 application ID 為 `com.wzet.app`；目前 V2 App 為 `dev.expensetracker.preview`，地基驗證 App 為 `dev.expensetracker.prototype.android_foundation`。不可將 V2 改成舊 App 身份，或覆蓋／卸載舊 App 來測試。
 - V2 App 使用自身應用程式目錄與 `expense_v2_preview_v1` 安全儲存命名空間。既有 `preview-v1` 資料夾名稱是 V2 內部版本，不指向舊 App，不為了改名稱而搬移已存在的帳本或金鑰。
-- 文件中的 schema 3 → 4 → 5 都是 **V2 內部資料格式**。這些路線沒有實作舊 App 的資料搬遷；未經明確需求與獨立匯入驗證，不讀取、搬入或共用舊版帳本／金鑰。
+- 文件中的 schema 3 → 4 → 5 → 6 都是 **V2 內部資料格式**。這些路線沒有實作舊 App 的資料搬遷；未經明確需求與獨立匯入驗證，不讀取、搬入或共用舊版帳本／金鑰。
 
 ## 每批上傳核對
 

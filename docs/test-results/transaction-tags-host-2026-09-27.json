@@ -1,0 +1,123 @@
+{
+  "recordedUtc": "2026-09-27T10:54:20.968069+00:00",
+  "sourceBase": "2ad7c9c4f5e89e5ccaddc7e1ff5b5434d43a0d57",
+  "validationTarget": "提交前固定金融／儲存程式的工作目錄，包含 metadata 重複 ID 修正。完整 App 通過後只更新升級及容量提示文字、Tags 套件說明；升級提示另跑 1 項 widget 回歸，最終 UI 格式核對通過。",
+  "totalUniqueTests": 562,
+  "newTests": 54,
+  "packages": [
+    {
+      "package": "tooling/architecture_checks",
+      "tests": 15,
+      "result": "passed"
+    },
+    {
+      "package": "packages/foundation_values",
+      "tests": 35,
+      "result": "passed"
+    },
+    {
+      "package": "packages/accounts",
+      "tests": 9,
+      "result": "passed"
+    },
+    {
+      "package": "packages/categories",
+      "tests": 14,
+      "result": "passed"
+    },
+    {
+      "package": "packages/tags",
+      "tests": 6,
+      "result": "passed"
+    },
+    {
+      "package": "packages/ledger",
+      "tests": 10,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/modular_persistence",
+      "tests": 42,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/backup_envelope",
+      "tests": 16,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/validated_restore",
+      "tests": 78,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/encrypted_storage",
+      "tests": 34,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/storage_generation",
+      "tests": 95,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/transaction_boundary",
+      "tests": 11,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "tests": 132,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/android_foundation",
+      "tests": 17,
+      "result": "passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "tests": 48,
+      "result": "passed"
+    }
+  ],
+  "formatting": "passed",
+  "staticAnalysis": "passed",
+  "architectureScan": "passed",
+  "nativeWorkersRebuilt": 5,
+  "cloudExecuted": false,
+  "deviceExecuted": false,
+  "toolchain": {
+    "dart": "3.13.4",
+    "flutter": "3.47.5"
+  },
+  "notes": [
+    "完整本機清單按互不影響的套件拆成三組；每組內原生建置及測試依序執行。沒有修改執行中的受測程式。",
+    "新 54 項：Tags Domain 6、來源 metadata 唯一身份 2、快照及失敗注入 21、工作階段及升級 13、App engine 11、widget 1。",
+    "升級包含 11 處真正原生程序中止；另有 App 4 處例外注入，兩者明確區分。",
+    "新 UI 案例在 360×740 畫面驗證新增、複選、乾淨表單、明確合併、歷史及封存。",
+    "分類與 Tags 目前表失去唯一限制、相同 ID 取代另一列的 2 項漏洞案例先失敗，修正後包含於完整 42 項 modular_persistence 回歸。",
+    "單一升級提示文案回歸額外通過 1 項，未重複計入 562 獨有案例。",
+    "來源備份的密碼／救援單憑證還原在測試用原 DB 與 vault key 移除後執行；主機 vault 不取代 Android secure storage gate。",
+    "既有快照測試在獨立測試 DB 同時存在時輸出 Drift 多實例提示；各自連線及檔案隔離，未關閉檢查或因此將失敗當通過。",
+    "最終 0.4.0+5 APK 成功建置；最後容量文字修正後再次格式核對，封裝中的身份、簽章、備份旗標及原生 ABI 均核對通過。"
+  ],
+  "completedLargeDataReports": [
+    "transaction-tags-scale-2026-09-27.json",
+    "transaction-tags-upgrade-scale-2026-09-27.json"
+  ],
+  "androidBuild": {
+    "version": "0.4.0+5",
+    "applicationId": "dev.expensetracker.preview",
+    "type": "debug",
+    "bytes": 92696203,
+    "sha256": "86f7de423957a0ec0310079bbdfeb39e3820289c28b1ed63e6d1c5a236970e15",
+    "minSdk": 24,
+    "targetSdk": 36,
+    "allowBackup": false,
+    "apkSignatureV2": true,
+    "flutterAndSqlcipherAbi": "arm64-v8a",
+    "installed": false,
+    "published": false
+  }
+}

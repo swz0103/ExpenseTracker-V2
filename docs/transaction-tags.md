@@ -1,0 +1,46 @@
+# 交易標籤與安全升級
+
+本批接續 [分類管理 PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)，實作 [M1-02](implementation-plan.md) 的標籤使用流程。對應 [RC-05](architecture-baseline-v1.0-rc1.md#rc-05)、[FV-011](full-vision-baseline.md#fv-011)、[Q014](full-vision-baseline.md#q014) 與 [Q053](full-vision-baseline.md#q053)。完整 CORE 尚未結束；實際通過項目以[工作進度](work-progress.md)及本批驗證證據為準。
+
+## 使用流程
+
+- 管理頁新增、改名、封存／重新啟用及明確合併標籤。標籤保持平面，不借用分類的收入／支出類型或父子結構；同名不會自動合併。
+- 一筆收入或支出可選 0～16 個不同標籤，與金額及分類一起提交。再次儲存同一操作不重複入帳；選取順序不同仍視為同一組標籤。新表單清空原選取。
+- 合併要選目標再確認，來源退出新交易選單，交易原始 ID／版本不改寫；歷史顯示原標籤及目前去向。封存仍保留原引用。
+- 搜尋、報表、預算與定期交易日後使用這些公開 ID 接入各自流程，本批不宣稱已交付那些能力。Merchant 與 alias 接續開發。
+
+## 資料與接口
+
+`packages/tags` 擁有標籤身份與 lifecycle，只依賴 `foundation_values`。Ledger 公開 `TagSelection` 引用值，不依賴 Tags 私有實作。組合層的 `FinancialWorkflows.post` 接受選取清單，同一 SQLite transaction 核對標籤與帳戶版本、保存金融事件、分類分攤、標籤關聯、receipt 及 audit。
+
+`TagsAdapter` 保存目前狀態及逐次 command 歷史；Ledger 擁有 `event_tags`。工作階段公開標籤管理與讀取接口，沿用既有佇列、同鎖 lifecycle、workspace 核對、操作重送及容量回滾。App 不碰 SQL 或他人私有資料表。
+
+備份驗證逐一重播標籤歷史，核對交易當時 metadata 序號與原始版本；再核對原 receipt 中排序後的完整標籤集合。不同帳本、已封存選取、缺失／重複引用、竄改 command／版本、未知模組與非法格式拒絕。
+
+回查既有分類驗證時，先重現了來源表失去唯一性限制後，兩筆相同 ID 取代另一個 ID 而只靠列數核對漏檢的案例。分類與標籤歷史現在均明確核對每個 workspace／ID 只出現一次，並保留失敗前／修正後回歸。
+
+## 格式與升級
+
+- 新目標為 SQLite schema 6、snapshot 5，既有 accounts／ledger／categories 格式保留，加入 tags 1 與 ledger_tags 1。
+- 有標籤的入帳使用 `tagged-post-v1` 外層保存原 posting 格式及選取；沒有標籤的既有 receipt bytes 保持原樣。
+- 已知 schema 5 → 6 透過同鎖來源摘要、原密碼及救援文字的持久安全副本、完整暫存驗證及原子世代發布。schema 3／4 按既有路線逐步接續，不能跳過來源檢查或直接就地改 DB。
+- App 先解鎖原 profile 並要求明確更新；中斷後以實際已提交版本接續，舊 DB、key 與不完整安全副本保留。舊 V2 備份可正規化至新目標；與舊產品匯入無關。
+
+## 容量與驗證邊界
+
+目前 App 工作階段最多 32 帳戶、5,000 金融事件、256 分類／1,024 次分類變更，加上 256 標籤／1,024 次標籤變更；跨表仍受 50,000 列與 16 MiB 上限。標籤關聯納入實際 UTF-8 bytes 及列數計算，交易上限與總量上限先到者生效。有標籤的 receipt 使用獨立 4 KiB 上限容納最多 16 個引用，不放寬其他列的限制。
+
+以上為受限工作階段的明確範圍，不代表 M3 的 100k+ 容量承諾。正常、失敗、重試、既有帳本升級、雙憑證乾淨還原與 UI 均須有通過證據才交付。雲端依[額度政策](ci-budget-policy.md)停用，主機測試不取代實機安全儲存／檔案選擇器／OS 驗收。
+
+## 本機驗證證據
+
+[完整主機清單](test-results/transaction-tags-host-2026-09-27.json)：15 個套件、562 項獨有案例通過，含 54 項新增案例、格式／靜態分析、五個原生 worker 重建及實際套件依賴掃描。11 處升級中斷使用原生程序退出；App 另有 4 處例外注入，不能混稱同種測試。
+
+兩個獨立大量資料情境依序執行，不能相加成單帳本容量：
+
+- [新 schema 6 混合資料](test-results/transaction-tags-scale-2026-09-27.json)：5,000 筆事件、4,999 筆分類分攤、9,998 個標籤引用、256 分類／768 次異動、256 標籤／1,024 次異動、5,003 次重送；完整 snapshot 10,842,638 bytes，總耗時 308.382 秒。
+- [已滿舊 schema 5 升級](test-results/transaction-tags-upgrade-scale-2026-09-27.json)：來源已含 5,000 筆事件及 4,999 筆分攤、256 分類／768 次異動，升級後逐表保留既有內容，再加滿標籤及歷史。事件容量已滿，因此此情境沒有補加標籤引用；snapshot 8,378,144 bytes，升級 36.872 秒、總耗時 297.825 秒。
+
+兩情境均以獨立計算的餘額 509,600 最小貨幣單位核對，驗證容量拒絕、封存後重送、完整分頁與全部 snapshot bytes。移除測試來源 DB 及記憶體 vault keys 後，密碼／救援各自在新環境還原及重開；不依賴來源裝置的秘密。
+
+這些時間是 Windows 主機合成資料實測，不是 Android 效能承諾。雲端未執行，沒有操作手機；平台金鑰、檔案選擇器及整體使用流程仍待實機驗收。最新 APK 版本與 hash 另見[安裝包紀錄](installable-preview.md)。

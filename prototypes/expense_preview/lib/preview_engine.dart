@@ -5,12 +5,14 @@ import 'dart:io';
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
+import 'package:tags/tags.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 import 'package:ledger_generation_probe/safety_backup.dart';
 
 part 'preview_categories.dart';
+part 'preview_tags.dart';
 part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {
@@ -35,10 +37,10 @@ final class PreviewEngine {
     this.directory,
     this.vault,
     this.factory, {
-    this.schemaVersion = 5,
+    this.schemaVersion = 6,
     this.upgradeCheckpoint,
   }) {
-    if (![3, 4, 5].contains(schemaVersion)) {
+    if (![3, 4, 5, 6].contains(schemaVersion)) {
       throw ArgumentError('Unknown schema');
     }
   }
@@ -290,12 +292,15 @@ final class PreviewEngine {
         await _session!.createAccount(account, opening);
         _check(epoch);
       });
-  Future<void> post(Posting posting) => _exclusive((epoch) async {
-    _require();
-    if (posting.operation.workspace != _workspace) throw PreviewInvalid();
-    await _session!.post(posting);
-    _check(epoch);
-  });
+  Future<void> post(Posting posting, {Iterable<TagSelection> tags = const []}) {
+    final selections = List<TagSelection>.unmodifiable(tags);
+    return _exclusive((epoch) async {
+      _require();
+      if (posting.operation.workspace != _workspace) throw PreviewInvalid();
+      await _session!.post(posting, tags: selections);
+      _check(epoch);
+    });
+  }
 
   Future<String> exportBackup() => _exclusive((epoch) async {
     _require();
@@ -442,6 +447,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       bytes,
       categoryAware: schemaVersion >= 4,
       categoryReferences: schemaVersion >= 5,
+      tagsAware: schemaVersion >= 6,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();
@@ -450,6 +456,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
   final rows = <dynamic>[
     ...tables['accounts'] as List,
     if (tables.containsKey('categories')) ...tables['categories'] as List,
+    if (tables.containsKey('tags')) ...tables['tags'] as List,
   ];
   if (rows.map((a) => a['workspace']).toSet().length > 1) {
     throw PreviewInvalid();

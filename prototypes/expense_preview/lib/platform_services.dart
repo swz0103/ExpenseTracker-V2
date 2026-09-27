@@ -51,6 +51,7 @@ Future<PreviewEngine> createEngine() async {
       SecureKeySlots(vault),
       categoryAware: schema >= 4,
       categoryReferences: schema >= 5,
+      tagsAware: schema >= 6,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

@@ -1,6 +1,15 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：`0.3.1+4` 接續下方 0.3.0，加入分類搬移與明確確認的合併。完整 36 項 App 回歸與封裝核對通過，範圍及底層沿用證據見[本批驗證清單](test-results/category-management-host-2026-09-27.json)。仍持續開發既定 CORE，不以可安裝為停止點。
+**2026-09-27 最新開發包**：`0.4.0+5` 加入交易 Tag、管理及歷史引用，既有 V2 帳本可經安全備份逐步升級至 schema 6。15 套件 562 項本機回歸、兩組獨立 5,000 筆資料流程及封裝檢查通過，詳見[驗證清單](test-results/transaction-tags-host-2026-09-27.json)及[Tag 流程](transaction-tags.md)。仍持續開發既定 CORE，不以可安裝為停止點。
+
+- 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.4.0-arm64.apk`；92,696,203 bytes。
+- SHA-256：`86f7de423957a0ec0310079bbdfeb39e3820289c28b1ed63e6d1c5a236970e15`。
+- App ID `dev.expensetracker.preview`，versionCode 5／versionName 0.4.0；最低 API 24、target API 36，APK v2 簽章驗證成功，`allowBackup=false`。
+- Flutter／SQLCipher 主程式庫為 ARM64。只做本機 debug 封裝，未安裝、未實機驗收、未正式發版；二進位及簽章金鑰不提交 Git。與舊 App 的身份、私人資料及金鑰命名空間保持分開。
+
+## 0.3.1 分類管理開發包
+
+**2026-09-27 歷史開發包**：`0.3.1+4` 接續下方 0.3.0，加入分類搬移與明確確認的合併。完整 36 項 App 回歸與封裝核對通過，範圍及底層沿用證據見[本批驗證清單](test-results/category-management-host-2026-09-27.json)。仍持續開發既定 CORE，不以可安裝為停止點。
 
 - 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.3.1-arm64.apk`；92,650,915 bytes。
 - SHA-256：`7ec418b51864e896dd512faf9b16745e9ea8880c46dbc274020141d817c4e7ea`。

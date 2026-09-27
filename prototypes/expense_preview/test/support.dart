@@ -53,6 +53,7 @@ PreviewEngine engineAt(
       SecureKeySlots(vault),
       categoryAware: schema >= 4,
       categoryReferences: schema >= 5,
+      tagsAware: schema >= 6,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

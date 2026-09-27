@@ -16,6 +16,7 @@ $checks = @(
     @{ Path = 'packages/foundation_values'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/accounts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/ledger'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },

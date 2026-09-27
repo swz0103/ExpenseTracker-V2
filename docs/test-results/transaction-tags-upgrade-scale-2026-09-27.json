@@ -1,0 +1,32 @@
+{
+  "startedUtc": "2026-09-27T10:45:48.393003Z",
+  "platform": "\"Windows 11 專業版\" 10.0 (Build 26200)",
+  "dart": "3.13.4 (stable) (Tue Sep 15 01:01:15 2026 -0700) on \"windows_x64\"",
+  "writesMs": 116854,
+  "upgradeMs": 36872,
+  "scenario": "populated-schema-5-to-6",
+  "events": 5000,
+  "tagReferences": 0,
+  "tags": 256,
+  "tagChanges": 1024,
+  "allocations": 4999,
+  "categories": 256,
+  "categoryChanges": 768,
+  "replays": 5003,
+  "snapshotBytes": 8378144,
+  "expectedMinorUnits": "509600",
+  "restores": [
+    {
+      "credential": "password",
+      "elapsedMs": 31909,
+      "passed": true
+    },
+    {
+      "credential": "recovery",
+      "elapsedMs": 36551,
+      "passed": true
+    }
+  ],
+  "totalMs": 297825,
+  "passed": true
+}

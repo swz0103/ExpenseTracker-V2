@@ -12,8 +12,11 @@ const _rowByteLimits = <String, int>{
   'audit': 512,
   'categories': 1024,
   'category_changes': 1024,
+  'tags': 1024,
+  'tag_changes': 1024,
+  'event_tags': 512,
 };
-Map<String, int> _tableLimits(bool categories, bool references) => {
+Map<String, int> _tableLimits(bool categories, bool references, bool tags) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents,
@@ -21,10 +24,15 @@ Map<String, int> _tableLimits(bool categories, bool references) => {
   'allocations': references ? SnapshotCodec.maxRows : 0,
   'receipts':
       LedgerSession.maxEvents +
-      (categories ? LedgerSession.maxCategoryChanges : 0),
+      (categories ? LedgerSession.maxCategoryChanges : 0) +
+      (tags ? LedgerSession.maxTagChanges : 0),
   'audit':
       LedgerSession.maxEvents +
-      (categories ? LedgerSession.maxCategoryChanges : 0),
+      (categories ? LedgerSession.maxCategoryChanges : 0) +
+      (tags ? LedgerSession.maxTagChanges : 0),
+  if (tags) 'tags': LedgerSession.maxTags,
+  if (tags) 'tag_changes': LedgerSession.maxTagChanges,
+  if (tags) 'event_tags': SnapshotCodec.maxRows,
   if (categories) 'categories': LedgerSession.maxCategories,
   if (categories) 'category_changes': LedgerSession.maxCategoryChanges,
 };
@@ -35,7 +43,11 @@ bool _accountReceipt(Map row) {
 }
 
 void _checkRowBytes(String table, Map row) {
-  final limit = table == 'receipts' && _accountReceipt(row)
+  final limit =
+      table == 'receipts' &&
+          (_accountReceipt(row) ||
+              (jsonDecode(row['input'] as String) as List).first ==
+                  'tagged-post-v1')
       ? 4096
       : _rowByteLimits[table];
   if (limit == null || utf8.encode(jsonEncode(row)).length > limit)
@@ -50,16 +62,19 @@ List<int> validateSessionCapacity(
   List<int> bytes, {
   bool categoryAware = false,
   bool categoryReferences = false,
+  bool tagsAware = false,
 }) {
+  categoryReferences = categoryReferences || tagsAware;
   categoryAware = categoryAware || categoryReferences;
   final codec = SnapshotCodec(
     generationAware: true,
     categoryAware: categoryAware,
     categoryReferences: categoryReferences,
+    tagsAware: tagsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
-  final limits = _tableLimits(categoryAware, categoryReferences);
+  final limits = _tableLimits(categoryAware, categoryReferences, tagsAware);
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
   for (final entry in tables.entries) {
@@ -72,9 +87,9 @@ List<int> validateSessionCapacity(
   }
   final events = tables['events'] as List;
   final receipts = tables['receipts'] as List;
-  final changes = categoryAware
-      ? (tables['category_changes'] as List).length
-      : 0;
+  final changes =
+      (categoryAware ? (tables['category_changes'] as List).length : 0) +
+      (tagsAware ? (tables['tag_changes'] as List).length : 0);
   if (events.any(
         (row) => !['opening', 'income', 'expense'].contains(row['kind']),
       ) ||

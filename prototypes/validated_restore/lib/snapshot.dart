@@ -11,6 +11,9 @@ import 'package:modular_persistence_probe/category_schema.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';
 import 'package:modular_persistence_probe/allocation_schema.dart';
 import 'package:modular_persistence_probe/allocation_validation.dart';
+import 'package:modular_persistence_probe/tag_schema.dart';
+import 'package:modular_persistence_probe/tag_reference_schema.dart';
+import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
@@ -48,6 +51,8 @@ const _integers = {
   'amount',
   'category_version',
   'category_sequence',
+  'tag_version',
+  'tag_sequence',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -64,30 +69,44 @@ final class SnapshotCodec {
   SnapshotCodec({
     bool generationAware = false,
     bool categoryAware = false,
-    this.categoryReferences = false,
-  }) : categoryAware = categoryAware || categoryReferences,
-       generationAware = generationAware || categoryAware || categoryReferences;
+    bool categoryReferences = false,
+    this.tagsAware = false,
+  }) : categoryReferences = categoryReferences || tagsAware,
+       categoryAware = categoryAware || categoryReferences || tagsAware,
+       generationAware =
+           generationAware || categoryAware || categoryReferences || tagsAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
+  final bool tagsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (categoryAware) ...categoryColumns,
+    if (tagsAware) ...tagColumns,
+    if (tagsAware) 'event_tags': tagReferenceColumns,
     if (categoryReferences) 'allocations': allocationReferenceColumns,
   };
 
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion =>
-      categoryReferences ? 4 : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion =>
-      categoryReferences ? 5 : (categoryAware ? 4 : (generationAware ? 3 : 2));
+  int get _formatVersion => tagsAware
+      ? 5
+      : categoryReferences
+      ? 4
+      : (categoryAware ? 3 : (generationAware ? 2 : 1));
+  int get _schemaVersion => tagsAware
+      ? 6
+      : categoryReferences
+      ? 5
+      : (categoryAware ? 4 : (generationAware ? 3 : 2));
   Map<String, int> get _manifest => {
     ..._modules,
     if (categoryReferences) 'ledger': 3,
     if (generationAware) 'local_identity': 1,
     if (categoryAware) 'categories': 1,
+    if (tagsAware) 'tags': 1,
+    if (tagsAware) 'ledger_tags': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -214,14 +233,17 @@ final class SnapshotCodec {
               (categoryAware && root['version'] == 3 && root['schema'] == 4) ||
               (categoryReferences &&
                   root['version'] == 4 &&
-                  root['schema'] == 5)))
+                  root['schema'] == 5) ||
+              (tagsAware && root['version'] == 5 && root['schema'] == 6)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
         ..._modules,
-        if (root['version'] == 4) 'ledger': 3,
+        if (root['version'] >= 4) 'ledger': 3,
         if (root['version'] != 1) 'local_identity': 1,
-        if (root['version'] == 3 || root['version'] == 4) 'categories': 1,
+        if (root['version'] >= 3) 'categories': 1,
+        if (root['version'] == 5) 'tags': 1,
+        if (root['version'] == 5) 'ledger_tags': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -230,8 +252,10 @@ final class SnapshotCodec {
       final tables = root['tables'];
       final inputColumns = {
         ..._financialColumns,
-        if (root['version'] == 3 || root['version'] == 4) ...categoryColumns,
-        if (root['version'] == 4) 'allocations': allocationReferenceColumns,
+        if (root['version'] >= 3) ...categoryColumns,
+        if (root['version'] == 5) ...tagColumns,
+        if (root['version'] == 5) 'event_tags': tagReferenceColumns,
+        if (root['version'] >= 4) 'allocations': allocationReferenceColumns,
       };
       if (tables is! Map || tables.length != inputColumns.length)
         throw const InvalidSnapshot();
@@ -245,7 +269,7 @@ final class SnapshotCodec {
         // No released older writer could persist validated selections. Never
         // invent a revision/sequence while converting an old allocation row.
         if (entry.key == 'allocations' &&
-            root['version'] != 4 &&
+            root['version'] < 4 &&
             rows.isNotEmpty) {
           throw const InvalidSnapshot();
         }
@@ -280,7 +304,8 @@ final class SnapshotCodec {
   Future<void> validate(ProbeDatabase db) async {
     if (generationAware != (db.storageBinding != null) ||
         categoryAware != db.categoryAware ||
-        categoryReferences != db.categoryReferences)
+        categoryReferences != db.categoryReferences ||
+        tagsAware != db.tagsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var categoryOperations = <(String, String)>{};
@@ -289,6 +314,14 @@ final class SnapshotCodec {
         categoryOperations = categoryReferences
             ? await validateAllocationHistory(db)
             : await validateCategoryHistory(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    var tagOperations = <(String, String)>{};
+    if (tagsAware) {
+      try {
+        tagOperations = await validateTagReferences(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }
@@ -473,7 +506,7 @@ final class SnapshotCodec {
       UNION ALL SELECT e.id FROM events e LEFT JOIN
       (SELECT r.workspace,r.result_id,COUNT(*) AS n FROM receipts r
        JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id
-       WHERE a.kind NOT LIKE 'category.%' GROUP BY r.workspace,r.result_id) counts
+       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' GROUP BY r.workspace,r.result_id) counts
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
@@ -483,7 +516,7 @@ final class SnapshotCodec {
               'SELECT r.*,a.kind AS audit_kind FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id',
             )
             .get()) {
-      final input = jsonDecode(row.read<String>('input'));
+      var input = jsonDecode(row.read<String>('input'));
       if (input is! List ||
           input.isEmpty ||
           ![
@@ -492,11 +525,22 @@ final class SnapshotCodec {
             if (categoryReferences) 'posting-v2',
             'archive-v1',
             if (categoryAware) 'category-v1',
+            if (tagsAware) 'tag-v1',
+            if (tagsAware) 'tagged-post-v1',
           ].contains(input.first))
         throw const InvalidSnapshot();
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'tag-v1') {
+        if (!tagOperations.remove((ws, row.read<String>('operation_id'))))
+          throw const InvalidSnapshot();
+        continue;
+      }
+      if (input.first == 'tagged-post-v1') {
+        // The tag validator checks the wrapper and its exact retained rows.
+        input = input[1];
+      }
       if (input.first == 'category-v1') {
         if (!categoryOperations.remove((
           ws,
@@ -603,7 +647,8 @@ final class SnapshotCodec {
           throw const InvalidSnapshot();
       }
     }
-    if (categoryOperations.isNotEmpty) throw const InvalidSnapshot();
+    if (categoryOperations.isNotEmpty || tagOperations.isNotEmpty)
+      throw const InvalidSnapshot();
     for (final row
         in await db.customSelect('SELECT recorded_at FROM audit').get()) {
       UtcInstant.parse(row.read<String>('recorded_at'));

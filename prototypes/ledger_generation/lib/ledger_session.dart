@@ -27,6 +27,8 @@ final class LedgerSession {
   static const maxAccounts = 32;
   static const maxCategories = 256;
   static const maxCategoryChanges = 1024;
+  static const maxTags = 256;
+  static const maxTagChanges = 1024;
   final ProbeDatabase _db;
   Future<void> _tail = Future.value();
   bool _closed = false;
@@ -79,9 +81,11 @@ final class LedgerSession {
         categoryAware: _db.categoryAware,
         generationAware: true,
         categoryReferences: _db.categoryReferences,
+        tagsAware: _db.tagsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
+      tagsAware: _db.tagsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -110,21 +114,34 @@ final class LedgerSession {
         }),
       );
 
-  Future<CommitResult> post(Posting posting) => _enqueue(
-    () => _write(() async {
-      if (posting.kind != PostingKind.income &&
-          posting.kind != PostingKind.expense) {
-        throw UnsupportedError('Preview accepts income and expense only');
-      }
-      await _capacity(posting);
-      final result = await FinancialWorkflows(
-        _db,
-        sourceContext: 'preview-manual-v1',
-      ).post(posting);
-      if (!result.replayed) await _checkFinancialRows(posting);
-      return result;
-    }),
-  );
+  Future<CommitResult> post(
+    Posting posting, {
+    Iterable<TagSelection> tags = const [],
+  }) {
+    final selections = canonicalTags(tags);
+    return _enqueue(
+      () => _write(() async {
+        if (posting.kind != PostingKind.income &&
+            posting.kind != PostingKind.expense) {
+          throw UnsupportedError('Preview accepts income and expense only');
+        }
+        await _capacity(posting);
+        final result = await FinancialWorkflows(
+          _db,
+          sourceContext: 'preview-manual-v1',
+        ).post(posting, tags: selections);
+        if (!result.replayed) {
+          await _checkFinancialRows(posting);
+          if (_db.tagsAware)
+            await _checkRows('event_tags', 'workspace=? AND event_id=?', [
+              posting.operation.workspace.toString(),
+              posting.id.value,
+            ]);
+        }
+        return result;
+      }),
+    );
+  }
 
   Future<List<AccountSummary>> accounts(WorkspaceId workspace) =>
       _enqueue(() async {
@@ -202,6 +219,7 @@ final class LedgerSession {
       generationAware: true,
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
+      tagsAware: _db.tagsAware,
     ).capture(_db),
   );
 
@@ -210,6 +228,7 @@ final class LedgerSession {
         .customSelect(
           'SELECT DISTINCT workspace FROM accounts '
           '${_db.categoryAware ? 'UNION SELECT workspace FROM categories ' : ''}'
+          '${_db.tagsAware ? 'UNION SELECT workspace FROM tags ' : ''}'
           'ORDER BY workspace',
         )
         .get();

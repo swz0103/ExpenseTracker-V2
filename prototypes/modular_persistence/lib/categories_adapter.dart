@@ -313,11 +313,13 @@ Future<Set<(String, String)>> validateCategoryHistory(
       )) {
     throw const InvalidCategoryHistory();
   }
+  final seen = <(String, PublicId)>{};
   for (final row in current) {
     final ws = row.read<String>('workspace');
     final id = PublicId.parse(row.read<String>('id'));
     final state = states[ws];
-    if (state == null ||
+    if (!seen.add((ws, id)) ||
+        state == null ||
         jsonEncode(categoryJson(state.get(id))) !=
             row.read<String>('payload')) {
       throw const InvalidCategoryHistory();

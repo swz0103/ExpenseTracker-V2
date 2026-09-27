@@ -1,26 +1,58 @@
 {
   "version": 1,
-  "sdkLibraries": ["dart:async", "dart:collection", "dart:convert", "dart:core", "dart:math", "dart:typed_data"],
+  "sdkLibraries": [
+    "dart:async",
+    "dart:collection",
+    "dart:convert",
+    "dart:core",
+    "dart:math",
+    "dart:typed_data"
+  ],
   "modules": {
     "foundation_values": {
       "directory": "packages/foundation_values",
-      "publicEntrypoints": ["foundation_values.dart"],
-      "dependencies": ["uuid"]
+      "publicEntrypoints": [
+        "foundation_values.dart"
+      ],
+      "dependencies": [
+        "uuid"
+      ]
     },
     "accounts": {
       "directory": "packages/accounts",
-      "publicEntrypoints": ["accounts.dart"],
-      "dependencies": ["foundation_values"]
+      "publicEntrypoints": [
+        "accounts.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
     },
     "categories": {
       "directory": "packages/categories",
-      "publicEntrypoints": ["categories.dart"],
-      "dependencies": ["foundation_values"]
+      "publicEntrypoints": [
+        "categories.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
     },
     "ledger": {
       "directory": "packages/ledger",
-      "publicEntrypoints": ["ledger.dart"],
-      "dependencies": ["foundation_values"]
+      "publicEntrypoints": [
+        "ledger.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
+    },
+    "tags": {
+      "directory": "packages/tags",
+      "publicEntrypoints": [
+        "tags.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
     }
   }
 }
