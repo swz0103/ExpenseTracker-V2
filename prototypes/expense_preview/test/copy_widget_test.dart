@@ -75,7 +75,13 @@ void main() {
         await input(tester, '密碼', password);
         await tap(tester, '解鎖');
         final actions = find.byKey(ValueKey('entry-actions-$sourceId'));
-        await tester.ensureVisible(actions);
+        await tester.scrollUntilVisible(
+          actions.hitTestable(),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(actions.hitTestable(), findsOneWidget);
         await tester.tap(actions);
         await tester.pumpAndSettle();
         await tap(tester, '再記一筆類似交易');
@@ -94,6 +100,12 @@ void main() {
         );
         expect(fieldValue('金額（正數）'), isEmpty);
         expect(fieldValue('日期（YYYY-MM-DD）'), isEmpty);
+        await tester.scrollUntilVisible(
+          find.byType(FilterChip),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(
           tester
               .widget<FilterChip>(find.widgetWithText(FilterChip, '固定'))
@@ -152,6 +164,12 @@ void main() {
           );
         });
         await tap(tester, '記一筆');
+        await tester.scrollUntilVisible(
+          find.byType(FilterChip),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(
           tester
               .widget<FilterChip>(find.widgetWithText(FilterChip, '固定'))

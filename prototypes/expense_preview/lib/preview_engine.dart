@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:entry_drafts/entry_drafts.dart';
 
 import 'local_draft_store.dart';
+import 'privacy_presentation.dart' show PrivacyMode;
+export 'privacy_presentation.dart' show PrivacyMode;
 export 'local_draft_store.dart' show DraftUnavailable, DraftNeedsResolution;
 
 export 'package:entry_drafts/entry_drafts.dart';
@@ -24,6 +26,7 @@ part 'preview_tags.dart';
 part 'preview_merchants.dart';
 part 'preview_copy.dart';
 part 'preview_drafts.dart';
+part 'preview_privacy.dart';
 part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {
@@ -63,6 +66,7 @@ final class PreviewEngine {
   final void Function(String)? upgradeCheckpoint;
   final void Function(String)? draftCheckpoint;
   LocalDraftStore? _draftStore;
+  PublicId? _identity;
   File get _profile => File('${directory.path}/profile.envelope');
   File get _pendingProfile => File('${directory.path}/profile.pending');
   bool _busy = false;
@@ -264,6 +268,7 @@ final class PreviewEngine {
       _check(epoch);
       _workspace = spaces.isEmpty ? info.workspace : spaces.single;
       _initialWorkspace = info.workspace;
+      _identity = info.identity;
       _password = password;
       _recovery = recovery;
       _draftStore = LocalDraftStore(
@@ -328,6 +333,7 @@ final class PreviewEngine {
     _recovery = null;
     _workspace = null;
     _initialWorkspace = null;
+    _identity = null;
     return _closeLease(waitFor: _draftActive ? _operationDone?.future : null);
   }
 

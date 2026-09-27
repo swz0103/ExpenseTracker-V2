@@ -52,3 +52,5 @@
 `feat/safe-posting-copy` 接續 #47（`053b476342b0929f974d1541cc52f1b77e30d128`），完成[安全複製收支](safe-posting-copy.md)，73 項相關回歸、格式／分析／架構掃描及 0.5.1 封裝通過。正式資料格式和保存核心未變更；沿用父提交整合及大量資料證據，沒有冒充全部套件重跑。此批保留獨立 PR，兩個 workflow 仍停用，依賴鏈及 main 不變更。下一步是 M1-02 表單草稿／恢復及其餘既定日常操作。
 
 feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156c815bf3777dd5942bd2e69f427），以完整[手動收支草稿](manual-entry-drafts.md)為單位交付，含加密保存、恢復、重試唯一性、備份／還原／升級 gate。162 項本機回歸、4 次真實程序退出恢復及 0.6.0 封裝通過；[證據](test-results/manual-entry-drafts-host-2026-09-27.json)區分重跑與沿用。雲端未執行，依賴鏈與 main 維持，未宣稱已通過雲端而收斂舊分支。
+
+`feat/privacy-presentation` 依賴 [PR #49](https://github.com/swz0103/ExpenseTracker-V2/pull/49)（`16aba28d15a819a5c24b5249e3d853064151f87b`），交付[金額遮罩與基本無障礙](privacy-presentation.md)。114 個本機獨立案例、最終架構掃描與 0.6.1 封裝通過；詳細重跑／沿用範圍見[證據](test-results/privacy-presentation-host-2026-09-27.json)。保留完整依賴鏈，未執行雲端、未合併 main，需雲端 gate 的分支不收斂。

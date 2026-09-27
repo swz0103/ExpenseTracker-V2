@@ -12,6 +12,9 @@ import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
 import 'preview_engine.dart';
+import 'money_view.dart';
+import 'privacy_presentation.dart';
+export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
 part 'tag_screen.dart';
@@ -94,6 +97,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
   List<LedgerEntry> _entries = [];
+  PrivacyMode _privacy = PrivacyMode.hidden;
+  bool _forceHidden = false;
   bool _hasMore = false;
   bool _hasSafety = false;
   Account? _pendingAccount;
@@ -162,6 +167,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _entryDraft = null;
     _draftUnreadable = false;
     _draftSaveError = null;
+    _privacy = PrivacyMode.hidden;
   }
 
   void _lock() {
@@ -237,6 +243,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
+    final privacy = await _engine!.privacyMode();
     final accounts = await _engine!.accounts();
     final entries = await _engine!.entries();
     final catalog = await _engine!.categories();
@@ -259,6 +266,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
     if (!mounted || !_engine!.isUnlocked) return;
     setState(() {
+      _privacy = _forceHidden ? PrivacyMode.hidden : privacy;
       _accounts = accounts;
       _entries = entries;
       _entryDraft = entryDraft;
@@ -519,6 +527,36 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
     await _refresh();
   });
+  Future<void> _togglePrivacy() => _perform(() async {
+    final epoch = _viewEpoch;
+    final next = _privacy == PrivacyMode.visible
+        ? PrivacyMode.hidden
+        : PrivacyMode.visible;
+    if (next == PrivacyMode.hidden) {
+      setState(() {
+        _privacy = next;
+        _forceHidden = true;
+      });
+    }
+    try {
+      await _engine!.setPrivacyMode(next);
+      if (mounted && epoch == _viewEpoch && _engine!.isUnlocked) {
+        setState(() {
+          _privacy = next;
+          _forceHidden = false;
+        });
+      }
+    } catch (_) {
+      if (mounted && epoch == _viewEpoch && _engine!.isUnlocked) {
+        setState(() {
+          _privacy = PrivacyMode.hidden;
+          _forceHidden = true;
+          _message = '遮罩設定尚未保存，本次開啟期間維持隱藏。請稍後重試。';
+        });
+      }
+    }
+  });
+
   Future<void> _export({bool previous = false}) => _perform(() async {
     final encrypted = previous
         ? await _engine!.exportPreviousBackup()
@@ -669,6 +707,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ),
       ),
       actions: [
+        if (_page == _Page.home && (_engine?.isUnlocked ?? false))
+          IconButton(
+            onPressed: _busy ? null : _togglePrivacy,
+            tooltip: _privacy == PrivacyMode.hidden ? '顯示金額' : '隱藏金額',
+            icon: Icon(
+              _privacy == PrivacyMode.hidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+          ),
         if (_engine?.isUnlocked ?? false)
           IconButton(
             onPressed: _lock,
@@ -683,6 +731,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: ListView(
+            key: ValueKey(_page),
             padding: const EdgeInsets.all(20),
             children: [
               const Text('開發驗證版', style: TextStyle(color: Colors.grey)),
@@ -690,7 +739,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               if (_message != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(_message!, key: const Key('message')),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(_message!, key: const Key('message')),
+                  ),
                 ),
               ..._content(),
             ],
@@ -990,13 +1042,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           for (final s in _accounts)
             Card(
-              child: ListTile(
-                title: Text(s.account.name),
-                subtitle: Text(
-                  s.account.kind == AccountKind.cash ? '現金' : '銀行',
-                ),
-                trailing: Text(
-                  '${s.account.currency.code} ${moneyText(s.balance)}',
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: FinancialSummary(
+                  title: s.account.name,
+                  subtitle: s.account.kind == AccountKind.cash ? '現金' : '銀行',
+                  money: s.balance,
+                  privacy: _privacy,
+                  kind: MoneyKind.balance,
+                  moneyKey: ValueKey('account-money-${s.account.id.value}'),
                 ),
               ),
             ),
@@ -1046,35 +1100,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           if (_entries.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('尚無交易')),
           for (final e in _entries)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
-              ),
-              subtitle: Text(
-                '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('${e.amount.currency.code} ${moneyText(e.amount)}'),
-                  if ([
-                    PostingKind.income,
-                    PostingKind.expense,
-                  ].contains(e.kind))
-                    PopupMenuButton<String>(
-                      key: ValueKey('entry-actions-${e.id}'),
-                      tooltip: '交易操作',
-                      enabled: !_busy,
-                      onSelected: (_) => _copyPosting(e.id),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'copy',
-                          child: Text('再記一筆類似交易'),
-                        ),
-                      ],
-                    ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: FinancialSummary(
+                title:
+                    '${_kindLabel(e.kind)} · ${_accounts.where((a) => a.account.id == e.accountId).firstOrNull?.account.name ?? '帳戶'}',
+                subtitle:
+                    '${e.date}${_entryCategories[e.id] == null ? '' : ' · ${_entryCategories[e.id]}'}${_entryTags[e.id] == null ? '' : ' · ${_entryTags[e.id]}'}${_entryMerchants[e.id] == null ? '' : ' · ${_entryMerchants[e.id]}'}',
+                money: e.amount,
+                privacy: _privacy,
+                kind: MoneyKind.transaction,
+                moneyKey: ValueKey('entry-money-${e.id.value}'),
+                action:
+                    [PostingKind.income, PostingKind.expense].contains(e.kind)
+                    ? PopupMenuButton<String>(
+                        key: ValueKey('entry-actions-${e.id}'),
+                        tooltip: '交易操作',
+                        enabled: !_busy,
+                        onSelected: (_) => _copyPosting(e.id),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'copy',
+                            child: Text('再記一筆類似交易'),
+                          ),
+                        ],
+                      )
+                    : null,
               ),
             ),
           if (_hasMore)
@@ -1104,15 +1155,6 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
     }
   }
-}
-
-String moneyText(Money money) {
-  final digits = money.minorUnits.abs().toString().padLeft(
-    money.currency.scale + 1,
-    '0',
-  );
-  final scale = money.currency.scale;
-  return '${money.minorUnits.isNegative ? '-' : ''}${scale == 0 ? digits : '${digits.substring(0, digits.length - scale)}.${digits.substring(digits.length - scale)}'}';
 }
 
 String _kindLabel(PostingKind kind) => switch (kind) {

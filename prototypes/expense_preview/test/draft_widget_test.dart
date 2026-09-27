@@ -58,11 +58,23 @@ void main() {
               .text,
           '2026-',
         );
+        await tester.scrollUntilVisible(
+          find.text('儲存收支').hitTestable(),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tap(tester, '儲存收支');
         expect(find.text('繼續草稿'), findsNothing);
         await input(tester, '金額（正數）', '12.50');
         await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
         await tap(tester, '返回帳本');
+        await tester.scrollUntilVisible(
+          find.text('匯出加密備份').hitTestable(),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tap(tester, '匯出加密備份');
         await tester.scrollUntilVisible(
           find.byKey(const Key('message')),
@@ -71,6 +83,12 @@ void main() {
         );
         expect(find.text('請先繼續或捨棄本機草稿，再進行此操作。'), findsOneWidget);
         await tap(tester, '繼續草稿');
+        await tester.scrollUntilVisible(
+          find.text('儲存收支').hitTestable(),
+          220,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tap(tester, '儲存收支');
         expect(find.text('繼續草稿'), findsNothing);
         await tester.runAsync(() async {

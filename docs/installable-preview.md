@@ -1,6 +1,16 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：0.6.0+8 加入[手動收支草稿與恢復](manual-entry-drafts.md)。金額／日期可保留未完成文字，逐次加密保存；入帳前固定命令，重開後不重複入帳。草稿須先完成或明確捨棄才可匯出目前備份、還原或升級。正式帳本仍為 schema 7／snapshot 6。
+**2026-09-27 最新開發包**：0.6.1+9 加入[金額遮罩與基本無障礙](privacy-presentation.md)，沿用 0.6.0 的手動收支草稿。財務資料仍為 schema 7／snapshot 6。只完成主機驗證，仍持續開發既定 CORE。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.6.1-arm64.apk`，92,794,611 bytes。
+- SHA-256：`a076f12d262480370a72311d6958eb6b6a071138a816958d72e0a843f4ecf8d8`。
+- App ID `dev.expensetracker.preview`，versionCode 9／versionName 0.6.1；min API 24、target API 36、APK v2 簽章、`allowBackup=false` 均核對通過。
+- Flutter／SQLCipher 核心僅 ARM64；其他 JNI 架構檔不代表非 ARM64 App 支援。
+- [114 個本機回歸案例](test-results/privacy-presentation-host-2026-09-27.json)有通過結果；未執行雲端或實機，未正式發版。APK 與簽章金鑰不加入 Git。
+
+## 0.6.0 草稿開發包
+
+**2026-09-27 歷史開發包**：0.6.0+8 加入[手動收支草稿與恢復](manual-entry-drafts.md)。金額／日期可保留未完成文字，逐次加密保存；入帳前固定命令，重開後不重複入帳。草稿須先完成或明確捨棄才可匯出目前備份、還原或升級。正式帳本仍為 schema 7／snapshot 6。
 
 - 本機檔案：build/deliverables/ExpenseTracker-V2-development-0.6.0-arm64.apk，92,787,079 bytes。
 - SHA-256：945b4f7137dfb618da52aae3572ed22e382156a4e32e9ec9f221f3e6b29c9f38。
