@@ -1,6 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：0.7.1+11 修正[背景鎖定的確認窗與選單](lock-transient-routes.md)，以及舊確認回呼繼續捨棄草稿的時序。沿用 0.7.0 計算器與資料格式。
+## 0.8.0 共用日期與繁體中文月曆
+
+**2026-09-27 最新開發包**：0.8.0+12 加入[共用日期輸入](business-date-input.md)、日期／計算器語系資源及失敗後可見提示。資料格式與金鑰命名空間保持既有 V2 規則。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.8.0-arm64.apk`，94,525,527 bytes。
+- SHA-256：`6a2ed71b92711ab22d08c971247c8fcf3f44e2b6c13dacc92ad8c4fbd409ca3c`。
+- App ID `dev.expensetracker.preview`；versionCode 12／versionName 0.8.0、min API 24、target API 36、APK v2 簽章、`allowBackup=false` 及 ARM64 Flutter／SQLCipher 核心核對通過。
+- [131 個獨立本機案例](test-results/business-date-host-2026-09-27.json)以完整 App 回歸及修正後全部畫面回歸組合驗證，包含日期、舊版 V2 升級與雙路乾淨還原；不是同一次最終完整 18 套件重跑。
+- 僅本機 debug 建置，沒有操作手機、正式發布或上傳二進位／簽章金鑰。未執行雲端，剩餘安全與里程碑 gate 不變。
+
+## 0.7.1 背景鎖定開發包
+
+**2026-09-27 歷史開發包**：0.7.1+11 修正[背景鎖定的確認窗與選單](lock-transient-routes.md)，以及舊確認回呼繼續捨棄草稿的時序。沿用 0.7.0 計算器與資料格式。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.7.1-arm64.apk`，92,809,235 bytes。
 - SHA-256：`5485f3c512a61de8b075968c6b4f8b487a3d060894655c37ae3eae6099490165`。

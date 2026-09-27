@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:foundation_values/foundation_values.dart';
 
+import 'l10n/app_localizations.dart';
+
 /// Calculation is only a proposal. Typing and explicit application use the same
 /// parent change callback, so the existing encrypted draft owns persistence.
 class AmountInputField extends StatefulWidget {
@@ -60,6 +62,7 @@ class _AmountInputFieldState extends State<AmountInputField> {
   }
 
   void _calculate() {
+    final strings = AppLocalizations.of(context);
     final currency = widget.currency;
     if (!widget.enabled || currency == null) return;
     setState(() {
@@ -69,12 +72,12 @@ class _AmountInputFieldState extends State<AmountInputField> {
         _result = calculateAmount(currency, _source!);
       } on AmountInputException catch (e) {
         _error = switch (e.code) {
-          AmountInputError.syntax => '請檢查算式、括號與小數點。',
-          AmountInputError.divisionByZero => '不能除以零，請修改算式。',
-          AmountInputError.complexity => '算式過長或過於複雜，請分段計算。',
+          AmountInputError.syntax => strings.calculationSyntax,
+          AmountInputError.divisionByZero => strings.calculationDivisionByZero,
+          AmountInputError.complexity => strings.calculationComplexity,
         };
       } on MoneyException {
-        _error = '計算結果超出可保存的金額範圍。';
+        _error = strings.calculationRange;
       }
     });
   }
@@ -104,6 +107,7 @@ class _AmountInputFieldState extends State<AmountInputField> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final result = _result;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -126,7 +130,7 @@ class _AmountInputFieldState extends State<AmountInputField> {
             decoration: InputDecoration(
               labelText: widget.label,
               suffixIcon: IconButton(
-                tooltip: '計算金額',
+                tooltip: strings.calculateAmount,
                 onPressed: widget.enabled && widget.currency != null
                     ? _calculate
                     : null,
@@ -143,20 +147,26 @@ class _AmountInputFieldState extends State<AmountInputField> {
             Semantics(
               liveRegion: true,
               child: Text(
-                '計算結果：${result.money.currency.code} ${result.money.majorText}',
+                strings.calculationResult(
+                  result.money.currency.code,
+                  result.money.majorText,
+                ),
                 key: const Key('calculation-result'),
               ),
             ),
             if (result.rounded)
               Text(
-                '結果已依 ${result.money.currency.code} 小數 ${result.money.currency.scale} 位四捨五入。',
+                strings.calculationRounded(
+                  result.money.currency.code,
+                  result.money.currency.scale,
+                ),
               ),
-            const Text('10% = 0.1；折扣例：100 × (1 − 10%)。'),
+            Text(strings.calculationPercent),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
                 onPressed: widget.enabled ? _apply : null,
-                child: const Text('套用結果'),
+                child: Text(strings.applyAmount),
               ),
             ),
           ],

@@ -12,6 +12,8 @@ import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
 import 'amount_input_field.dart';
+import 'business_date_input_field.dart';
+import 'l10n/app_localizations.dart';
 import 'preview_engine.dart';
 import 'money_view.dart';
 import 'privacy_presentation.dart';
@@ -41,7 +43,10 @@ class _PreviewAppState extends State<PreviewApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorObservers: [_routes],
-    title: '記帳 V2',
+    locale: const Locale('zh', 'TW'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
@@ -129,6 +134,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _busy = false, _saved = false, _useRecovery = false;
   String? _message, _imported;
   CreatedBackup? _draft;
+  final _scroll = ScrollController(keepScrollOffset: false);
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _name = TextEditingController();
@@ -272,6 +278,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     for (final c in [_password, _confirm, _name, _amount, _date, _credential]) {
       c.dispose();
     }
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -288,7 +295,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       if (!mounted || epoch != _viewEpoch) return;
       await action();
     } catch (error) {
-      if (mounted) setState(() => _message = _error(error));
+      if (mounted && epoch == _viewEpoch) {
+        setState(() => _message = _error(error));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              epoch == _viewEpoch &&
+              _message != null &&
+              _scroll.hasClients) {
+            _scroll.jumpTo(0);
+          }
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -727,13 +744,33 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       obscureText: secret,
       autocorrect: false,
       enableSuggestions: !secret,
-      maxLength:
-          length ??
-          (_page == _Page.posting ? (controller == _date ? 32 : 128) : null),
+      maxLength: length ?? (_page == _Page.posting ? 128 : null),
       decoration: InputDecoration(labelText: label),
       onSubmitted: secret && _page == _Page.locked ? (_) => _unlock() : null,
     ),
   );
+  Widget _dateField({bool opening = false}) {
+    final epoch = _viewEpoch;
+    final page = _page;
+    final strings = AppLocalizations.of(context);
+    return BusinessDateInputField(
+      controller: _date,
+      label: opening ? strings.openingDateLabel : strings.entryDateLabel,
+      help: opening ? strings.openingDateHelp : strings.dateHelp,
+      enabled: !_busy && !_postingFrozen,
+      canApply: () =>
+          mounted &&
+          epoch == _viewEpoch &&
+          page == _page &&
+          !_busy &&
+          !_postingFrozen &&
+          _engine!.isUnlocked,
+      onChanged: () {
+        if (_page == _Page.posting) _queueDraft();
+      },
+    );
+  }
+
   Widget _amountField(String label, Currency? currency) => AmountInputField(
     controller: _amount,
     label: label,
@@ -802,6 +839,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           constraints: const BoxConstraints(maxWidth: 620),
           child: ListView(
             key: ValueKey(_page),
+            controller: _scroll,
             padding: const EdgeInsets.all(20),
             children: [
               const Text('開發驗證版', style: TextStyle(color: Colors.grey)),
@@ -934,7 +972,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 14),
           _amountField('期初餘額', Currency(_currency, _currency == 'JPY' ? 0 : 2)),
-          _field('起始日期（YYYY-MM-DD）', _date),
+          _dateField(opening: true),
           _button('建立帳戶', _saveAccount),
           _back(),
         ];
@@ -987,7 +1025,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ?.account
                 .currency,
           ),
-          _field('日期（YYYY-MM-DD）', _date),
+          _dateField(),
           DropdownButtonFormField<String>(
             key: ValueKey('posting-category-$_income'),
             initialValue: _categoryId,

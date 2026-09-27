@@ -15,6 +15,8 @@ void main() {
     'queued-confirmation',
     'account',
     'tag-menu',
+    'date-picker',
+    'queued-date',
   ]) {
     testWidgets('background lock cancels $scenario and retains the draft', (
       tester,
@@ -74,6 +76,21 @@ void main() {
                 .widget<FilledButton>(find.widgetWithText(FilledButton, '確認捨棄'))
                 .onPressed!();
           }
+        } else if (scenario == 'date-picker' || scenario == 'queued-date') {
+          await tap(tester, '繼續草稿');
+          final calendar = find.byTooltip('選擇日期');
+          await tester.ensureVisible(calendar);
+          await tester.pumpAndSettle();
+          await tester.tap(calendar);
+          await tester.pumpAndSettle();
+          expect(find.byType(DatePickerDialog), findsOneWidget);
+          await tester.tap(find.text('28').hitTestable());
+          await tester.pumpAndSettle();
+          if (scenario == 'queued-date') {
+            tester
+                .widget<TextButton>(find.widgetWithText(TextButton, '確定'))
+                .onPressed!();
+          }
         } else if (scenario == 'account') {
           await tap(tester, '繼續草稿');
           final dropdown = find.byType(DropdownButtonFormField<PublicId>);
@@ -98,6 +115,7 @@ void main() {
         await tester.pump();
         // Active and already exiting routes are hidden on the first frame.
         expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(DatePickerDialog), findsNothing);
         expect(find.text('保密現金 · TWD'), findsNothing);
         expect(find.text('封存'), findsNothing);
         for (final state in [
@@ -117,6 +135,7 @@ void main() {
           final restored = await engine.entryDraft();
           expect(restored?.id, saved!.id);
           expect(restored?.fields.amount, '12.50');
+          expect(restored?.fields.date, '2026-09-27');
           expect((await engine.entries()).length, 1);
           expect(
             (await engine.accounts()).single.balance.minorUnits,

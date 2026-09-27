@@ -1,4 +1,5 @@
 import 'package:expense_preview/amount_input_field.dart';
+import 'package:expense_preview/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -12,6 +13,9 @@ void main() {
       Future<void> mount(Currency currency, {bool enabled = true}) =>
           tester.pumpWidget(
             MaterialApp(
+              locale: const Locale("zh", "TW"),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: AmountInputField(
@@ -78,6 +82,9 @@ void main() {
       try {
         await tester.pumpWidget(
           MaterialApp(
+            locale: const Locale("zh", "TW"),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: MediaQuery(
               data: const MediaQueryData(textScaler: TextScaler.linear(3.2)),
               child: Scaffold(

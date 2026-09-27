@@ -480,12 +480,19 @@ void main() {
         await tap(tester, '完成設定');
         await tap(tester, '新增帳戶');
         await tap(tester, '建立帳戶');
-        expect(find.byKey(const Key('message')), findsOneWidget);
+        expect(find.byKey(const Key('message')).hitTestable(), findsOneWidget);
+        await tester.runAsync(() async {
+          expect(await engine.accounts(), isEmpty);
+          expect(await engine.entries(), isEmpty);
+        });
         await input(tester, '帳戶名稱', '銀行');
         await tester.ensureVisible(find.text('建立帳戶'));
+        await tester.pumpAndSettle();
+        final create = find.text('建立帳戶').hitTestable();
+        expect(create, findsOneWidget);
         await tester.runAsync(() async {
-          await tester.tap(find.text('建立帳戶'));
-          await tester.tap(find.text('建立帳戶'));
+          await tester.tap(create);
+          await tester.tap(create);
         });
         await tester.pump();
         await settle(tester);
