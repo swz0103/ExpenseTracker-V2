@@ -47,6 +47,8 @@
 - CI 快取回查：`ci/flutter-cache-owner`，PR #35，基於 #34，提交 `4ddc9de`。#34 與 #35 的 345 項／14 個 CI 工作均通過；兩個 Flutter App 原先爭用相同 cache，改為只由 expense_preview 保存。實際 run 確認沒有第二份重複保存；測試與 SDK 版本維持相同。[證據與代價](ci-cache-review.md)。
 - Categories 保存與可攜格式：`feat/category-persistence`，基於 PR #35。分類目前狀態／完整變更歷史與金融操作共用 transaction、receipt／Audit，抽取既有去重程式供兩者使用；schema 4／snapshot 3 明確帶 categories=1，拒絕就地升級。新增 23 項案例，本機受影響套件共 171 項通過；完整 CI 清單增為 368 項，以本 PR checks 為準。真實 SQLCipher 的 256 分類／1,024 次變更／1,026 次重送與密碼、救援雙路還原通過；既有 App 的 5,000 筆新增／5,001 次重送與完整還原回歸亦通過。正式升級協調器、schema 4 世代發布、交易引用、統一容量預檢及分類 UI 尚未完成，現有 App 保持 schema 3。[格式與原始測試證據](categories-persistence.md)。
 
+2026-09-27 本輪補記：Categories 保存 PR #36（`948571f`）完整 368 項主機測試／14 個 CI 工作全部通過，包含新 23 項及既有金融、加密、程序回歸與 App 測試。第二批 #13～#27 已收斂到 #32，整合 head `b141392` 的 303 項／12 個工作通過；#28 改接前後 patch 相同，15 個舊遠端分支移除且提交保留。#13 由 GitHub 辨識為已合入整合分支，其餘已取代 PR 關閉，main 未變。[完整收斂紀錄](branch-consolidation.md)。接續補升級紀錄、備份到發布的同鎖流程及中止復原，再接分類交易引用與 UI。
+
 ## 尚未完成的 gate
 
 整體階段 0／1 尚未完成，Architecture Baseline 仍 rc1。Android 已有可用測試手機，指定加密／secure storage／雙路乾淨還原與程序重開已有實機證據；完整 migration 故障、OS 重開機、正式備份憑證延續與 provider 路線仍未全部結案。M1／M2／M3 未完成。目前另交付具實際輸入流程的最小試用 App，其新平台流程仍待實機驗收；不可將此有限試用版視為完整日常版本或 gate 全部通過。
