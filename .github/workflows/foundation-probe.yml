@@ -30,7 +30,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        package: [packages/foundation_values, packages/accounts, packages/ledger, prototypes/modular_persistence, prototypes/backup_envelope, prototypes/validated_restore, prototypes/encrypted_storage, prototypes/storage_generation, prototypes/ledger_generation]
+        package: [packages/foundation_values, packages/accounts, packages/categories, packages/ledger, prototypes/modular_persistence, prototypes/backup_envelope, prototypes/validated_restore, prototypes/encrypted_storage, prototypes/storage_generation, prototypes/ledger_generation]
     defaults:
       run:
         working-directory: ${{ matrix.package }}

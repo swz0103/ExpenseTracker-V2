@@ -2,7 +2,7 @@
 
 Android 優先、Flutter、local-first 的個人財務管理 App。
 
-已有可側載的最小記帳試用 APK，支援帳戶、收入／支出與加密備份還原；完成主機大規模驗證，尚待新 App 的實機驗收。完整 M1／M2／M3 與安全／升級 gate 仍未完成，Architecture Baseline 仍為 rc1。
+持續開發完整 M1／M2／M3 CORE，並逐項回查、回歸與收斂分支。已有帳戶、收入／支出與加密備份還原的階段驗證入口及大量資料紀錄；實機等使用者安排，不以既有試用 APK 為停止點。完整安全／升級 gate 仍未完成，Architecture Baseline 仍為 rc1。
 
 ## 專案文件
 
@@ -23,6 +23,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [地基驗證結果與剩餘門檻](docs/foundation-validation.md)
 - [Android 實機驗證紀錄](docs/android-device-validation.md)
 - [逐項實作進度](docs/work-progress.md)
+- [持續開發與分支收斂](docs/branch-consolidation.md)
 - [SQLite 交易邊界原型](prototypes/transaction_boundary/README.md)
 
 ## 已選方向

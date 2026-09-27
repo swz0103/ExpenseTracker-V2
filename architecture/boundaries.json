@@ -12,6 +12,11 @@
       "publicEntrypoints": ["accounts.dart"],
       "dependencies": ["foundation_values"]
     },
+    "categories": {
+      "directory": "packages/categories",
+      "publicEntrypoints": ["categories.dart"],
+      "dependencies": ["foundation_values"]
+    },
     "ledger": {
       "directory": "packages/ledger",
       "publicEntrypoints": ["ledger.dart"],
