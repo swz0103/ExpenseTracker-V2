@@ -1,6 +1,16 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：`0.5.1+7` 新增[安全複製收支](safe-posting-copy.md)，金額日期重填、封存合併不自動轉向、核對非預設來源帳戶；schema 7／snapshot 6 不變。[本批 73 項回歸](test-results/safe-posting-copy-host-2026-09-27.json)與封裝核對通過，商家完整整合及大量資料證據沿用下方 0.5.0。
+**2026-09-27 最新開發包**：0.6.0+8 加入[手動收支草稿與恢復](manual-entry-drafts.md)。金額／日期可保留未完成文字，逐次加密保存；入帳前固定命令，重開後不重複入帳。草稿須先完成或明確捨棄才可匯出目前備份、還原或升級。正式帳本仍為 schema 7／snapshot 6。
+
+- 本機檔案：build/deliverables/ExpenseTracker-V2-development-0.6.0-arm64.apk，92,787,079 bytes。
+- SHA-256：945b4f7137dfb618da52aae3572ed22e382156a4e32e9ec9f221f3e6b29c9f38。
+- App ID dev.expensetracker.preview，versionCode 8／versionName 0.6.0；min API 24、target API 36、APK v2 簽章、allowBackup=false。Flutter／SQLCipher 主程式庫為 ARM64。
+- [162 項相關回歸](test-results/manual-entry-drafts-host-2026-09-27.json)與[四次程序退出恢復](test-results/manual-entry-drafts-process-2026-09-27.json)通過；其他大量財務資料證據沿用前批，未冒充本輪重跑。
+- 僅本機 debug 封裝，未安裝、未正式發版、未消耗 Actions。APK 與金鑰均不進 Git；其餘既定 CORE 持續開發。
+
+## 0.5.1 安全複製開發包
+
+**2026-09-27 歷史開發包**：`0.5.1+7` 新增[安全複製收支](safe-posting-copy.md)，金額日期重填、封存合併不自動轉向、核對非預設來源帳戶；schema 7／snapshot 6 不變。[本批 73 項回歸](test-results/safe-posting-copy-host-2026-09-27.json)與封裝核對通過，商家完整整合及大量資料證據沿用下方 0.5.0。
 
 - 本機檔名：`build/deliverables/ExpenseTracker-V2-development-0.5.1-arm64.apk`；92,748,879 bytes。
 - SHA-256：`6fb345685aa12428402b56bb1a9913d2c9e9c2647f198fbf9a48736a66b2bd09`。

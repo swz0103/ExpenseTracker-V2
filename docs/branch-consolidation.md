@@ -50,3 +50,5 @@
 `feat/transaction-merchants`／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 從 [PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）接續，保留 Domain 起始提交 `d17dec5177db67bab8bc5daf57431f01c660dfa4`，在同一 PR 完成保存、Ledger 引用、升級及 UI。16 套件 626 項本機案例及兩組五千筆流程通過，逾時重驗與適用 gate 見[清單](test-results/transaction-merchants-host-2026-09-27.json)。下一分支接安全複製交易；兩個 workflow 維持停用，沒有改動 main 或收斂待雲端 gate 分支。
 
 `feat/safe-posting-copy` 接續 #47（`053b476342b0929f974d1541cc52f1b77e30d128`），完成[安全複製收支](safe-posting-copy.md)，73 項相關回歸、格式／分析／架構掃描及 0.5.1 封裝通過。正式資料格式和保存核心未變更；沿用父提交整合及大量資料證據，沒有冒充全部套件重跑。此批保留獨立 PR，兩個 workflow 仍停用，依賴鏈及 main 不變更。下一步是 M1-02 表單草稿／恢復及其餘既定日常操作。
+
+feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156c815bf3777dd5942bd2e69f427），以完整[手動收支草稿](manual-entry-drafts.md)為單位交付，含加密保存、恢復、重試唯一性、備份／還原／升級 gate。162 項本機回歸、4 次真實程序退出恢復及 0.6.0 封裝通過；[證據](test-results/manual-entry-drafts-host-2026-09-27.json)區分重跑與沿用。雲端未執行，依賴鏈與 main 維持，未宣稱已通過雲端而收斂舊分支。

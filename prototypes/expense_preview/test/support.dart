@@ -43,6 +43,7 @@ PreviewEngine engineAt(
   MemoryVault vault, {
   int schemaVersion = 5,
   void Function(String)? checkpoint,
+  void Function(String)? draftCheckpoint,
 }) => PreviewEngine(
   directory,
   vault,
@@ -63,6 +64,7 @@ PreviewEngine engineAt(
   },
   schemaVersion: schemaVersion,
   upgradeCheckpoint: checkpoint,
+  draftCheckpoint: draftCheckpoint,
 );
 Future<String> setup(PreviewEngine engine) async {
   final draft = await engine.prepareSetup(password);
@@ -98,3 +100,12 @@ Posting income(Account a, {String amount = '7'}) => Posting.income(
   account: ref(a),
   amount: Money.parse(a.currency, amount),
 );
+
+void deleteSynthetic(Directory directory, Directory root) {
+  if (!directory.resolveSymbolicLinksSync().startsWith(
+    '${root.resolveSymbolicLinksSync()}${Platform.pathSeparator}',
+  )) {
+    throw StateError('Unsafe synthetic test cleanup');
+  }
+  directory.deleteSync(recursive: true);
+}

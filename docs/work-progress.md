@@ -12,6 +12,13 @@
 
 ## 分支與交付
 
+2026-09-27 本批 feat/manual-entry-drafts 接續安全複製 PR #48（a6ef5c834e0156c815bf3777dd5942bd2e69f427），完成[手動收支草稿與恢復](manual-entry-drafts.md)：逐次加密保存、重新開啟／鎖定後繼續、明確捨棄、提交前固定同一命令及提交後中斷防重複。未完成草稿不影響正式餘額；目前備份、還原及升級前須先處理草稿。schema 7／snapshot 6 未變；完整 Financial Inbox 與通用表單狀態框架未宣稱完成。
+
+本機 **5 個受影響套件、162 項不重複案例**通過，新增 28 項，含完整 App 回歸及最後保存提示修正後的畫面回歸；另有 **4 個真正程序退出**後的重開驗證通過。首輪完整 App 揭露的升級 publishing 接續回歸已修正，回查另重現並修正保存中提示未即時刷新；失敗／重試、備份還原與三個還原鎖定時機均覆蓋。[驗證清單](test-results/manual-entry-drafts-host-2026-09-27.json)明列受測檔案指紋、重驗與沿用證據，不將未跑的其餘套件或雲端當作通過。
+
+0.6.0+8 ARM64 開發包已建置並核對身份、簽章及備份禁用，詳見[安裝包紀錄](installable-preview.md)。本批以獨立 PR 依賴 feat/safe-posting-copy；Actions 維持停用、不操作手機、不合併 main，未通過雲端 gate 的舊分支不刪除。接續 M1-02 隱私遮罩／基本無障礙與其餘日常表單能力；其他 M1、M2、M3 CORE 仍未完成。
+
+
 商家批次上傳已核對：本機／遠端／[PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 為 `053b476342b0929f974d1541cc52f1b77e30d128`，所有本機分支未上傳提交為 0，main 仍為 `d0d39e1de32774aca319b8fed0cc9ee288cbb94a`。PR 已改為可審查，未合併；只寫入私人 V2。
 
 同輪已接續 `feat/safe-posting-copy`，完成[安全複製收入／支出](safe-posting-copy.md)：只沿用目前可用的欄位，金額日期重填，封存／合併須重新選擇。73 項相關回歸（Ledger 7／完整 App 66）、格式、分析及架構掃描通過，新增 6 項；多帳戶與新舊金融事件皆核對。[本批證據](test-results/safe-posting-copy-host-2026-09-27.json)區分重驗及沿用資料。`0.5.1+7` ARM64 debug APK 建置及身份、簽章、備份禁用核對通過，[安裝包紀錄](installable-preview.md)保存 hash。以獨立 PR 依賴 #47；接下來處理表單持久草稿與恢復，以及 M1-02 其餘操作／隱私／無障礙，不能把安全複製當成完整 M1-02。沒有修改商家批次已驗證的保存、schema、備份或還原程式。

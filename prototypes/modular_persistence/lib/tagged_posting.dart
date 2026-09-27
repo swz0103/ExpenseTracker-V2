@@ -4,16 +4,7 @@ import 'package:ledger/ledger.dart';
 import 'database.dart';
 import 'tags_adapter.dart';
 
-/// Canonical selection order makes retries independent of chip selection order.
-List<TagSelection> canonicalTags(Iterable<TagSelection> tags) {
-  final values = tags.toList()
-    ..sort((a, b) => a.id.value.compareTo(b.id.value));
-  if (values.length > 16 ||
-      values.map((v) => v.id).toSet().length != values.length) {
-    throw ArgumentError('At most 16 distinct tags are supported per posting.');
-  }
-  return List.unmodifiable(values);
-}
+export 'package:ledger/ledger.dart' show canonicalTags;
 
 Future<int?> validatePostingTags(
   ProbeDatabase db,

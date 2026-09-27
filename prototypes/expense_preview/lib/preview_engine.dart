@@ -2,6 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:entry_drafts/entry_drafts.dart';
+
+import 'local_draft_store.dart';
+export 'local_draft_store.dart' show DraftUnavailable, DraftNeedsResolution;
+
+export 'package:entry_drafts/entry_drafts.dart';
+
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
@@ -16,6 +23,7 @@ part 'preview_categories.dart';
 part 'preview_tags.dart';
 part 'preview_merchants.dart';
 part 'preview_copy.dart';
+part 'preview_drafts.dart';
 part 'preview_upgrade.dart';
 
 abstract interface class PreviewVault {
@@ -42,6 +50,7 @@ final class PreviewEngine {
     this.factory, {
     this.schemaVersion = 7,
     this.upgradeCheckpoint,
+    this.draftCheckpoint,
   }) {
     if (![3, 4, 5, 6, 7].contains(schemaVersion)) {
       throw ArgumentError('Unknown schema');
@@ -52,9 +61,13 @@ final class PreviewEngine {
   final StoreFactory factory;
   final int schemaVersion;
   final void Function(String)? upgradeCheckpoint;
+  final void Function(String)? draftCheckpoint;
+  LocalDraftStore? _draftStore;
   File get _profile => File('${directory.path}/profile.envelope');
   File get _pendingProfile => File('${directory.path}/profile.pending');
   bool _busy = false;
+  Completer<void>? _operationDone;
+  bool _draftActive = false;
   int _epoch = 0;
   String? _password;
   String? _recovery;
@@ -86,10 +99,14 @@ final class PreviewEngine {
   Future<T> _exclusive<T>(Future<T> Function(int) work) async {
     if (_busy) throw PreviewBusy();
     _busy = true;
+    final done = Completer<void>();
+    _operationDone = done;
     try {
       return await work(_epoch);
     } finally {
       _busy = false;
+      _operationDone = null;
+      done.complete();
     }
   }
 
@@ -203,6 +220,31 @@ final class PreviewEngine {
         throw PreviewInvalid();
       }
       if (!allowUpgrade) throw PreviewUpgradeRequired();
+      // Upgrading a ledger cannot silently strand local staging under an old
+      // generation binding. Resolve it in the source version first.
+      if (await File('${directory.path}/manual-draft.enc').exists() ||
+          await File('${directory.path}/manual-draft.pending').exists()) {
+        final sourceStore = factory(
+          ledgerDirectory,
+          info.identity,
+          sourceVersion,
+        );
+        await sourceStore.withSession((session) async {
+          final spaces = await session.workspaces();
+          final drafts = LocalDraftStore(
+            directory,
+            info.identity,
+            current!.receipt.generation,
+            spaces.isEmpty ? info.workspace : spaces.single,
+            vault.read,
+            vault.write,
+          );
+          if (await drafts.read() != null) throw DraftNeedsResolution();
+          // Remove an empty completion marker before changing its binding.
+          if (await drafts.file.exists()) await drafts.discard();
+        });
+      }
+      _check(epoch);
       await _upgradeLedger(
         info.identity,
         sourceVersion,
@@ -210,6 +252,7 @@ final class PreviewEngine {
         recovery,
         epoch,
       );
+      current = await store.generations.current();
     }
     _check(epoch);
     if (pending) await source.rename(_profile.path);
@@ -223,6 +266,15 @@ final class PreviewEngine {
       _initialWorkspace = info.workspace;
       _password = password;
       _recovery = recovery;
+      _draftStore = LocalDraftStore(
+        directory,
+        info.identity,
+        current!.receipt.generation,
+        _workspace!,
+        vault.read,
+        vault.write,
+        checkpoint: draftCheckpoint,
+      );
     } catch (_) {
       await _closeLease();
       rethrow;
@@ -250,17 +302,21 @@ final class PreviewEngine {
     await ready.future;
   }
 
-  Future<void> _closeLease() {
+  Future<void> _closeLease({Future<void>? waitFor}) {
     _session = null;
     final release = _release;
     final lease = _lease;
     _release = null;
     _lease = null;
-    if (release != null && !release.isCompleted) release.complete();
     if (lease == null) return _closing ?? Future.value();
     final previous = _closing;
+    final drafts = _draftStore;
+    _draftStore = null;
     _closing = () async {
       await previous;
+      await waitFor;
+      await drafts?.drained;
+      if (release != null && !release.isCompleted) release.complete();
       await lease;
     }();
     return _closing!;
@@ -272,7 +328,7 @@ final class PreviewEngine {
     _recovery = null;
     _workspace = null;
     _initialWorkspace = null;
-    return _closeLease();
+    return _closeLease(waitFor: _draftActive ? _operationDone?.future : null);
   }
 
   Future<List<AccountSummary>> accounts() => _exclusive((epoch) async {
@@ -311,6 +367,8 @@ final class PreviewEngine {
 
   Future<String> exportBackup() => _exclusive((epoch) async {
     _require();
+    await _requireNoDraft();
+    _check(epoch);
     final password = _password!;
     final recovery = _recovery!;
     final snapshot = await _session!.snapshot();
@@ -383,6 +441,8 @@ final class PreviewEngine {
     required bool recovery,
   }) => _exclusive((epoch) async {
     _require();
+    await _requireNoDraft();
+    _check(epoch);
     final codec = EnvelopeCodec();
     final bytes = recovery
         ? await codec.openWithRecovery(envelope, credential)
@@ -414,6 +474,10 @@ final class PreviewEngine {
       throw PreviewInvalid();
     }
     _check(epoch);
+    final priorDraftStore = _draftStore!;
+    await priorDraftStore.discard();
+    draftCheckpoint?.call('draft-restore-cleared');
+    _check(epoch);
     await _closeLease();
     try {
       // Publication is a bounded atomic operation; backgrounding after acceptance
@@ -423,12 +487,33 @@ final class PreviewEngine {
         OperationId(PublicId.generate()),
       );
     } finally {
-      if (_epoch == epoch) await _openLease();
+      if (_epoch == epoch) {
+        final current = await _store!.generations.current();
+        draftCheckpoint?.call('draft-restore-ready');
+        _check(epoch);
+        await _openLease();
+        try {
+          draftCheckpoint?.call('draft-restore-opened');
+          _check(epoch);
+          final spaces = await _session!.workspaces();
+          _check(epoch);
+          _workspace = spaces.isEmpty ? _initialWorkspace! : spaces.single;
+          _draftStore = LocalDraftStore(
+            directory,
+            priorDraftStore.identity,
+            current!.receipt.generation,
+            _workspace!,
+            vault.read,
+            vault.write,
+            checkpoint: draftCheckpoint,
+          );
+        } catch (_) {
+          await _closeLease();
+          rethrow;
+        }
+      }
     }
     _check(epoch);
-    final spaces = await _session!.workspaces();
-    _check(epoch);
-    _workspace = spaces.isEmpty ? _initialWorkspace! : spaces.single;
   });
 }
 

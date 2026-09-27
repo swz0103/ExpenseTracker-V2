@@ -18,6 +18,7 @@ $checks = @(
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/merchants'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/entry_drafts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/ledger'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
@@ -65,7 +66,9 @@ foreach ($check in $selected) {
         if ($check.ContainsKey('Worker')) {
             Invoke-CheckCommand $Dart @('build', 'cli', '--target', $check.Worker, '--output', '.dart_tool/worker')
         }
-        Invoke-CheckCommand $driver @('test', '--reporter', 'expanded')
+        $testArguments = @('test', '--reporter', 'expanded')
+        if ($isFlutter) { $testArguments += '--concurrency=1' }
+        Invoke-CheckCommand $driver $testArguments
         if ($check.ContainsKey('Architecture')) {
             Invoke-CheckCommand $Dart @('run', 'bin/check.dart', '../..')
         }

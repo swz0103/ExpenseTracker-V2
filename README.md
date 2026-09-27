@@ -6,6 +6,8 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [手動收支草稿與恢復](docs/manual-entry-drafts.md)
+
 - [試用 APK 安裝與驗收](docs/installable-preview.md)
 - [大規模測試、原始結果與容量限制](docs/preview-validation-report.md)
 - [完整願景與原始 170 項決策](docs/full-vision-baseline.md)

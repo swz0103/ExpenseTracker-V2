@@ -30,7 +30,7 @@ class PreviewApp extends StatelessWidget {
   final BackupDocuments documents;
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: '記帳 V2 試用版',
+    title: '記帳 V2',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
@@ -99,6 +99,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Account? _pendingAccount;
   Posting? _pendingPosting;
   String? _inputSignature;
+  EntryDraft? _entryDraft;
+  bool _draftUnreadable = false;
+  Future<void> _draftSaveTail = Future.value();
+  Future<void>? _lockBarrier;
+  Object? _draftSaveError;
+  int _viewEpoch = 0, _draftWrites = 0;
+  bool get _postingFrozen =>
+      _page == _Page.posting && _entryDraft?.submission != null;
 
   @override
   void initState() {
@@ -151,13 +159,18 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _pendingAccount = null;
     _pendingPosting = null;
     _inputSignature = null;
+    _entryDraft = null;
+    _draftUnreadable = false;
+    _draftSaveError = null;
   }
 
   void _lock() {
     final engine = _engine;
     if (engine == null) return;
+    _viewEpoch++;
+    _lockBarrier = _draftSaveTail.then((_) => engine.lock());
     unawaited(
-      engine.lock().catchError((Object _) {
+      _lockBarrier!.catchError((Object _) {
         if (mounted) {
           setState(() {
             _page = _Page.blocked;
@@ -191,7 +204,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     // The view is being disposed; the engine retains a failed close future and
     // refuses subsequent sessions. There is no remaining view to notify here.
-    unawaited(_engine?.lock().catchError((Object _) {}));
+    _viewEpoch++;
+    unawaited(
+      _draftSaveTail.then((_) => _engine?.lock()).catchError((Object _) {}),
+    );
     for (final c in [_password, _confirm, _name, _amount, _date, _credential]) {
       c.dispose();
     }
@@ -204,7 +220,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _busy = true;
       _message = null;
     });
+    final epoch = _viewEpoch;
     try {
+      await _lockBarrier;
+      await _draftSaveTail;
+      if (!mounted || epoch != _viewEpoch) return;
       await action();
     } catch (error) {
       if (mounted) setState(() => _message = _error(error));
@@ -230,10 +250,19 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         : null;
     final merchantLabels = await _merchantLabels(entries, merchantCatalog);
     final safety = await _engine!.hasSafetyCopy();
+    EntryDraft? entryDraft;
+    var draftUnreadable = false;
+    try {
+      entryDraft = await _engine!.entryDraft();
+    } on DraftUnavailable {
+      draftUnreadable = true;
+    }
     if (!mounted || !_engine!.isUnlocked) return;
     setState(() {
       _accounts = accounts;
       _entries = entries;
+      _entryDraft = entryDraft;
+      _draftUnreadable = draftUnreadable;
       _catalog = catalog;
       _tagCatalog = tagCatalog;
       _merchantCatalog = merchantCatalog;
@@ -307,6 +336,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
 
   Future<void> _copyPosting(PublicId id) => _perform(() async {
     await _refresh();
+    if (_entryDraft != null || _draftUnreadable) throw DraftNeedsResolution();
     final copy = await _engine!.preparePostingCopy(id);
     if (!mounted || !_engine!.isUnlocked) return;
     _edit(_Page.posting);
@@ -321,6 +351,119 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ? '已沿用可用欄位；部分分類、標籤或商家需重新選擇。請輸入本次金額與日期。'
           : '已沿用帳戶、分類、標籤與商家；請輸入本次金額與日期。';
     });
+  });
+
+  void _queueDraft() {
+    if (_page != _Page.posting || _postingFrozen) return;
+    final epoch = _viewEpoch;
+    final engine = _engine!;
+    final fields = EntryFields(
+      income: _income,
+      amount: _amount.text,
+      date: _date.text,
+      accountId: _accountId,
+      categoryId: _categoryId.isEmpty ? null : PublicId.parse(_categoryId),
+      merchantId: _merchantId.isEmpty ? null : PublicId.parse(_merchantId),
+      tags: _selectedTags,
+    );
+    setState(() => _draftWrites++);
+    _draftSaveTail = _draftSaveTail.then((_) async {
+      try {
+        final draft = await engine.saveEntryDraft(fields);
+        if (mounted && epoch == _viewEpoch) {
+          setState(() {
+            _entryDraft = draft;
+            _draftSaveError = null;
+          });
+        }
+      } catch (error) {
+        if (mounted && epoch == _viewEpoch) {
+          setState(() => _draftSaveError = error);
+        }
+      } finally {
+        _draftWrites--;
+        if (mounted && epoch == _viewEpoch) setState(() {});
+      }
+    });
+  }
+
+  Future<void> _resumeDraft() => _perform(() async {
+    final saved = await _engine!.entryDraft();
+    if (saved == null) {
+      await _refresh();
+      return;
+    }
+    final fields = saved.fields;
+    _edit(_Page.posting);
+    var omitted = false;
+    setState(() {
+      _entryDraft = saved;
+      _draftSaveError = null;
+      _income = fields.income;
+      _amount.text = fields.amount;
+      _date.text = fields.date;
+      _accountId =
+          _accounts.any(
+            (a) =>
+                a.account.id == fields.accountId &&
+                a.account.state == AccountState.active,
+          )
+          ? fields.accountId
+          : null;
+      if (fields.accountId != null && _accountId == null) omitted = true;
+      final categories = _catalog!.categories.where(
+        (c) =>
+            c.id == fields.categoryId &&
+            !c.archived &&
+            c.replacementId == null &&
+            c.kind == (_income ? CategoryKind.income : CategoryKind.expense),
+      );
+      _categoryId = categories.firstOrNull?.id.value ?? '';
+      if (fields.categoryId != null && _categoryId.isEmpty) omitted = true;
+      _selectedTags.clear();
+      for (final id in fields.tags) {
+        if (_tagCatalog?.tags.any(
+              (t) => t.id == id && !t.archived && t.replacementId == null,
+            ) ??
+            false) {
+          _selectedTags.add(id);
+        } else {
+          omitted = true;
+        }
+      }
+      final merchants = _merchantCatalog?.merchants.where(
+        (m) =>
+            m.id == fields.merchantId && !m.archived && m.replacementId == null,
+      );
+      _merchantId = merchants?.firstOrNull?.id.value ?? '';
+      if (fields.merchantId != null && _merchantId.isEmpty) omitted = true;
+      _message = omitted
+          ? '部分帳戶或分類資料已停用，請重新選擇並確認。原草稿仍保留。'
+          : '已恢復草稿，請確認欄位後再儲存收支。';
+    });
+  });
+
+  Future<void> _discardDraft() => _perform(() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('捨棄本機草稿？'),
+        content: const Text('未完成的欄位將移除；已入帳的交易不會刪除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('保留'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('確認捨棄'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !_engine!.isUnlocked) return;
+    await _engine!.discardEntryDraft();
+    await _refresh();
   });
 
   PostingAccount _ref(Account a) => PostingAccount(
@@ -356,44 +499,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     await _refresh();
   });
   Future<void> _savePosting() => _perform(() async {
-    final a = _accounts.firstWhere((a) => a.account.id == _accountId).account;
-    final category = _categoryId.isEmpty
-        ? null
-        : _catalog!.get(PublicId.parse(_categoryId));
-    final merchant = _merchantId.isEmpty
-        ? null
-        : _merchantCatalog!.get(PublicId.parse(_merchantId));
-    final tags = _selectedTags.map((id) => _tagCatalog!.get(id)).toList()
-      ..sort((a, b) => a.id.value.compareTo(b.id.value));
-    final signature =
-        '${a.id}|$_income|${_amount.text}|${_date.text}|$_categoryId|${category?.version}|${merchant?.id}:${merchant?.version}|${tags.map((t) => '${t.id}:${t.version}').join(',')}';
-    if (_inputSignature != signature) {
-      final factory = _income ? Posting.income : Posting.expense;
-      _pendingPosting = factory(
-        id: PublicId.generate(),
-        operation: OperationKey(a.workspace, OperationId(PublicId.generate())),
-        date: BusinessDate.parse(_date.text),
-        account: _ref(a),
-        amount: Money.parse(a.currency, _amount.text),
-        allocations: category == null
-            ? const []
-            : [
-                Allocation(
-                  category.id,
-                  Money.parse(a.currency, _amount.text),
-                  expectedCategoryVersion: category.version,
-                ),
-              ],
-      );
-      _inputSignature = signature;
+    if (!_postingFrozen) {
+      _queueDraft();
+      await _draftSaveTail;
+      if (_draftSaveError != null) throw _draftSaveError!;
     }
-    await _engine!.post(
-      _pendingPosting!,
-      tags: [for (final tag in tags) TagSelection(tag.id, tag.version)],
-      merchant: merchant == null
-          ? null
-          : MerchantSelection(merchant.id, merchant.version),
-    );
+    try {
+      await _engine!.submitEntryDraft();
+    } catch (_) {
+      if (_engine!.isUnlocked) {
+        final saved = await _engine!.entryDraft();
+        if (mounted) setState(() => _entryDraft = saved);
+        if (saved == null) {
+          await _refresh();
+          return;
+        }
+      }
+      rethrow;
+    }
     await _refresh();
   });
   Future<void> _export({bool previous = false}) => _perform(() async {
@@ -498,11 +621,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     padding: const EdgeInsets.only(bottom: 14),
     child: TextField(
       controller: controller,
-      enabled: !_busy,
+      enabled: !_busy && !_postingFrozen,
+      onChanged: (_) {
+        if (_page == _Page.posting) _queueDraft();
+      },
       obscureText: secret,
       autocorrect: false,
       enableSuggestions: !secret,
-      maxLength: length,
+      maxLength:
+          length ??
+          (_page == _Page.posting ? (controller == _date ? 32 : 128) : null),
       decoration: InputDecoration(labelText: label),
       onSubmitted: secret && _page == _Page.locked ? (_) => _unlock() : null,
     ),
@@ -517,11 +645,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Widget _back() => TextButton(
     onPressed: _busy
         ? null
-        : () => setState(() {
-            _page = _Page.home;
+        : () => _perform(() async {
+            if (_draftSaveError != null && _page == _Page.posting) {
+              _queueDraft();
+              await _draftSaveTail;
+              if (_draftSaveError != null) throw _draftSaveError!;
+            }
             _imported = null;
             _credential.clear();
-            _message = null;
+            await _refresh();
           }),
     child: const Text('返回帳本'),
   );
@@ -553,7 +685,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              const Text('最小試用版', style: TextStyle(color: Colors.grey)),
+              const Text('開發驗證版', style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
               if (_message != null)
                 Padding(
@@ -694,13 +826,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               ButtonSegment(value: true, label: Text('收入')),
             ],
             selected: {_income},
-            onSelectionChanged: _busy
+            onSelectionChanged: (_busy || _postingFrozen)
                 ? null
                 : (v) => setState(() {
                     _income = v.single;
                     _categoryId = '';
                     _merchantId = '';
                     _selectedTags.clear();
+                    _queueDraft();
                   }),
           ),
           const SizedBox(height: 16),
@@ -716,7 +849,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   child: Text('${s.account.name} · ${s.account.currency.code}'),
                 ),
             ],
-            onChanged: _busy ? null : (v) => setState(() => _accountId = v),
+            onChanged: (_busy || _postingFrozen)
+                ? null
+                : (v) => setState(() {
+                    _accountId = v;
+                    _queueDraft();
+                  }),
           ),
           const SizedBox(height: 14),
           _field('金額（正數）', _amount),
@@ -742,9 +880,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ),
                 ),
             ],
-            onChanged: _busy
+            onChanged: (_busy || _postingFrozen)
                 ? null
-                : (value) => setState(() => _categoryId = value ?? ''),
+                : (value) => setState(() {
+                    _categoryId = value ?? '';
+                    _queueDraft();
+                  }),
           ),
           const SizedBox(height: 14),
           if (_merchantCatalog != null)
@@ -752,8 +893,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               key: ValueKey('merchant-picker-$_income'),
               catalog: _merchantCatalog!,
               selected: _merchantId,
-              enabled: !_busy,
-              onChanged: (value) => setState(() => _merchantId = value),
+              enabled: !_busy && !_postingFrozen,
+              onChanged: (value) => setState(() {
+                _merchantId = value;
+                _queueDraft();
+              }),
             ),
           if (_tagCatalog != null &&
               _tagCatalog!.tags.any((t) => !t.archived)) ...[
@@ -765,7 +909,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   FilterChip(
                     label: Text(tag.name),
                     selected: _selectedTags.contains(tag.id),
-                    onSelected: _busy
+                    onSelected: (_busy || _postingFrozen)
                         ? null
                         : (selected) => setState(() {
                             if (!selected) {
@@ -775,13 +919,41 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                             } else {
                               _message = '一筆交易最多選擇 16 個標籤。';
                             }
+                            _queueDraft();
                           }),
                   ),
               ],
             ),
             const SizedBox(height: 14),
           ],
-          _button('儲存收支', _savePosting),
+          Text(
+            _draftSaveError != null
+                ? '草稿保存失敗，請重試；尚未安全保存。'
+                : _draftWrites > 0
+                ? '正在加密保存草稿…'
+                : _entryDraft == null
+                ? '輸入後會自動保存本機草稿。'
+                : _postingFrozen
+                ? '上次送出尚待確認；欄位暫時鎖定，避免重複入帳。'
+                : '草稿已加密保存；尚未影響餘額。',
+            key: const Key('draft-status'),
+          ),
+          _button(_postingFrozen ? '確認上次送出' : '儲存收支', _savePosting),
+          if (_postingFrozen)
+            _button(
+              '返回編輯草稿',
+              () => _perform(() async {
+                await _engine!.reopenEntryDraft();
+                final saved = await _engine!.entryDraft();
+                if (mounted) setState(() => _entryDraft = saved);
+              }),
+            ),
+
+          if (_entryDraft != null || _draftSaveError != null)
+            TextButton(
+              onPressed: _busy ? null : _discardDraft,
+              child: const Text('捨棄草稿'),
+            ),
           _back(),
         ];
       case _Page.restore:
@@ -829,9 +1001,19 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               ),
             ),
           const SizedBox(height: 16),
+          if (_entryDraft != null || _draftUnreadable) ...[
+            Text(_draftUnreadable ? '本機草稿無法驗證，已保留檔案；請先處理。' : '有一份尚未完成的本機收支草稿。'),
+            if (!_draftUnreadable) _button('繼續草稿', _resumeDraft),
+            TextButton(
+              onPressed: _busy ? null : _discardDraft,
+              child: const Text('捨棄草稿'),
+            ),
+          ],
           _button(
             '記一筆',
-            _accounts.any((s) => s.account.state == AccountState.active)
+            _entryDraft == null &&
+                    !_draftUnreadable &&
+                    _accounts.any((s) => s.account.state == AccountState.active)
                 ? () => _edit(_Page.posting)
                 : null,
           ),
@@ -940,6 +1122,9 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
 };
 String _error(Object error) => switch (error) {
+  DraftNeedsResolution() => '請先繼續或捨棄本機草稿，再進行此操作。',
+  DraftUnavailable() => '草稿無法驗證，原檔已保留；請勿清除 App 資料。',
+
   MerchantException(code: MerchantError.versionConflict) =>
     '商家已變更，請返回帳本重新整理後再試。',
   MerchantException() => '請檢查商家名稱、別名或合併目標；別名不可重複，封存商家不能用於新交易。',
@@ -951,7 +1136,7 @@ String _error(Object error) => switch (error) {
   CategoryException() => '請檢查分類名稱、收支類型及上層分類；已封存的分類不能用於新交易。',
   PreviewLocked() => '已鎖定，請重新解鎖後查看結果。',
   PreviewBusy() => '前一項操作尚未完成，請稍候。',
-  PreviewCapacity() => '已達試用版容量上限，請先匯出備份。',
+  PreviewCapacity() => '已達目前容量上限，請先處理本機草稿，再匯出備份。',
   MoneyException() => '金額格式、精度或大小不符。請輸入該幣別可接受的金額。',
   AccountException() => '帳戶或日期不符：日期不可早於帳戶起始日，名稱不能空白。',
   LedgerException() => '請檢查帳戶與金額；收支必須是正數。',
