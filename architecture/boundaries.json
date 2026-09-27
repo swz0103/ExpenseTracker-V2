@@ -72,6 +72,15 @@
         "foundation_values",
         "ledger"
       ]
+    },
+    "amount_input": {
+      "directory": "packages/amount_input",
+      "publicEntrypoints": [
+        "amount_input.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
     }
   }
 }

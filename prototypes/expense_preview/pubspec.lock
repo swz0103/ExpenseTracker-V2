@@ -8,6 +8,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  amount_input:
+    dependency: "direct main"
+    description:
+      path: "../../packages/amount_input"
+      relative: true
+    source: path
+    version: "0.1.0"
   android_foundation:
     dependency: "direct main"
     description:

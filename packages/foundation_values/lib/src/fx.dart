@@ -90,13 +90,11 @@ final class FxRate {
   Money convert(Money input) {
     if (input.currency != base)
       throw const FxException(FxError.currencyMismatch);
-    final n =
-        input.minorUnits.abs() * numerator * BigInt.from(10).pow(quote.scale);
-    final d = denominator * BigInt.from(10).pow(base.scale);
-    var units = n ~/ d;
-    if (n.remainder(d) * BigInt.two >= d) units += BigInt.one;
-    // Money enforces signed 64-bit storage bounds after exact computation.
-    return Money(quote, input.minorUnits.isNegative ? -units : units);
+    return Money.quantizeRatio(
+      quote,
+      input.minorUnits * numerator,
+      denominator * BigInt.from(10).pow(base.scale),
+    );
   }
 
   Map<String, Object> toJson() => {

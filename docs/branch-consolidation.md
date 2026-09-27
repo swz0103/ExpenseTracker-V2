@@ -54,3 +54,5 @@
 feat/manual-entry-drafts 依賴 feat/safe-posting-copy／PR #48（a6ef5c834e0156c815bf3777dd5942bd2e69f427），以完整[手動收支草稿](manual-entry-drafts.md)為單位交付，含加密保存、恢復、重試唯一性、備份／還原／升級 gate。162 項本機回歸、4 次真實程序退出恢復及 0.6.0 封裝通過；[證據](test-results/manual-entry-drafts-host-2026-09-27.json)區分重跑與沿用。雲端未執行，依賴鏈與 main 維持，未宣稱已通過雲端而收斂舊分支。
 
 `feat/privacy-presentation` 依賴 [PR #49](https://github.com/swz0103/ExpenseTracker-V2/pull/49)（`16aba28d15a819a5c24b5249e3d853064151f87b`），交付[金額遮罩與基本無障礙](privacy-presentation.md)。114 個本機獨立案例、最終架構掃描與 0.6.1 封裝通過；詳細重跑／沿用範圍見[證據](test-results/privacy-presentation-host-2026-09-27.json)。保留完整依賴鏈，未執行雲端、未合併 main，需雲端 gate 的分支不收斂。
+
+`feat/amount-calculator` 依賴 [PR #50](https://github.com/swz0103/ExpenseTracker-V2/pull/50)（`35de4aae1df0adb1192314e117ce5c87dcc8a408`），完成[金額計算、明確套用與草稿入帳](amount-calculator.md)。完整 18 套件 684 項、本批五千筆混合資料流程與 0.7.0 封裝通過。保留所有提交及 PR 依賴；雲端未執行，不合併 main，不收斂待雲端 gate 的分支。

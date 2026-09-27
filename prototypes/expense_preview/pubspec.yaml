@@ -1,10 +1,12 @@
 name: expense_preview
 description: ExpenseTracker V2 可安裝最小記帳試用版，非正式發版。
 publish_to: none
-version: 0.6.1+9
+version: 0.7.0+10
 environment:
   sdk: ^3.13.4
 dependencies:
+  amount_input:
+    path: ../../packages/amount_input
   cryptography: 2.9.0
   entry_drafts:
     path: ../../packages/entry_drafts

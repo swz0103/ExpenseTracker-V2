@@ -53,18 +53,32 @@ final class Money {
   /// Calculation boundary only. Never use this to silently round manual input.
   factory Money.quantize(Currency currency, String calculatedMajorAmount) {
     final (coefficient, scale) = _decimal(calculatedMajorAmount);
-    if (scale <= currency.scale) {
-      return Money(
-        currency,
-        coefficient * BigInt.from(10).pow(currency.scale - scale),
-      );
+    return Money.quantizeRatio(
+      currency,
+      coefficient,
+      BigInt.from(10).pow(scale),
+    );
+  }
+
+  /// Final calculation boundary for an exact ratio in major units. Manual
+  /// input still uses parse and must fit its denomination without rounding.
+  factory Money.quantizeRatio(
+    Currency currency,
+    BigInt numerator,
+    BigInt denominator,
+  ) {
+    if (denominator <= BigInt.zero) {
+      throw const MoneyException(MoneyError.invalidInput);
     }
-    final divisor = BigInt.from(10).pow(scale - currency.scale);
-    var result = coefficient.abs() ~/ divisor;
-    if (coefficient.abs().remainder(divisor) * BigInt.two >= divisor) {
-      result += BigInt.one;
+    if (numerator.bitLength > 4096 || denominator.bitLength > 4096) {
+      throw const MoneyException(MoneyError.precision);
     }
-    return Money(currency, coefficient.isNegative ? -result : result);
+    final scaled = numerator.abs() * BigInt.from(10).pow(currency.scale);
+    var units = scaled ~/ denominator;
+    if (scaled.remainder(denominator) * BigInt.two >= denominator) {
+      units += BigInt.one;
+    }
+    return Money(currency, numerator.isNegative ? -units : units);
   }
 
   factory Money.fromJson(Map<String, Object?> json) {

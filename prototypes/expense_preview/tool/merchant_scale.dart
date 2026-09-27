@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:amount_input/amount_input.dart';
 import 'package:categories/categories.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -25,6 +26,8 @@ bool sameBytes(List<int> a, List<int> b) {
 /// Synthetic mixed metadata or already-populated schema-6 upgrade validation.
 Future<void> main(List<String> args) async {
   final legacy = args.contains('legacy');
+  final calculator = args.contains('calculator');
+  var calculations = 0, roundedCalculations = 0;
   final root = Directory('.dart_tool/app-merchant-scale')
     ..createSync(recursive: true);
   final work = root.createTempSync('case-');
@@ -92,7 +95,27 @@ Future<void> main(List<String> args) async {
     final writesStart = watch.elapsedMilliseconds;
     for (var i = 1; i < 5000; i++) {
       final incoming = i.isEven;
-      final amount = Money(a.currency, BigInt.from(incoming ? 400 : 200));
+      final major = incoming ? 4 : 2;
+      final expression = switch (i % 3) {
+        0 => '$i/3*3-$i+$major',
+        1 => '$major-0.005',
+        _ => '$major*(1-10%)+$major*10%',
+      };
+      final calculation = calculator
+          ? calculateAmount(a.currency, expression)
+          : null;
+      final amount =
+          calculation?.money ??
+          Money(a.currency, BigInt.from(incoming ? 400 : 200));
+      check(
+        amount.minorUnits == BigInt.from(incoming ? 400 : 200),
+        'Independent computed amount',
+      );
+      if (calculation != null) {
+        calculations++;
+        if (calculation.rounded) roundedCalculations++;
+        check(calculation.rounded == (i % 3 == 1), 'Rounding disclosure');
+      }
       final category = ids[i % ids.length];
       final create = incoming ? Posting.income : Posting.expense;
       final posting = create(
@@ -113,7 +136,7 @@ Future<void> main(List<String> args) async {
       );
       allocations++;
       retries++;
-      expected += incoming ? amount.minorUnits : -amount.minorUnits;
+      expected += BigInt.from(incoming ? 400 : -200);
       last = posting;
       if (i % 1000 == 0) {
         stdout.writeln('Verified $i classified writes and replays.');
@@ -354,6 +377,9 @@ Future<void> main(List<String> args) async {
     }
     report.addAll({
       'scenario': legacy ? 'populated-schema-6-to-7' : 'mixed-schema-7',
+      'calculatorEnabled': calculator,
+      'calculations': calculations,
+      'roundedCalculations': roundedCalculations,
       'events': count,
       'tagReferences': 4999,
       'merchantReferences': legacy ? 0 : 4999,
@@ -372,11 +398,12 @@ Future<void> main(List<String> args) async {
       'totalMs': watch.elapsedMilliseconds,
       'passed': true,
     });
-    File('.dart_tool/app-merchant-${legacy ? 'upgrade-' : ''}scale-report.json')
-        .writeAsStringSync(
-          const JsonEncoder.withIndent('  ').convert(report),
-          flush: true,
-        );
+    File(
+      '.dart_tool/app-merchant-${calculator ? 'calculator-' : ''}${legacy ? 'upgrade-' : ''}scale-report.json',
+    ).writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(report),
+      flush: true,
+    );
     stdout.writeln(jsonEncode(report));
     succeeded = true;
   } finally {

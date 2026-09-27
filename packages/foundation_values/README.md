@@ -21,3 +21,7 @@ dart test --reporter expanded
 身份產生使用 [uuid 4.6.0](https://pub.dev/packages/uuid/versions/4.6.0)，接收端額外強制 UUID v7 與 RFC variant，正規化為小寫。OperationKey 包含 workspace；相同意圖重試須保留 ID，不可每次自動產生新 ID。生成樣本無重複不代表數學上不會碰撞，正式儲存仍需唯一鍵。
 
 BusinessDate 接受 0001～9999 的有效日曆日期，不附帶時區，不自動轉午夜。UtcInstant 嚴格文字格式只接受 Z 與最多六位小數；其他 offset 的輸入須明確解析後透過 DateTime 建構轉 UTC。無效日期／時間拒絕，不讓 DateTime 的自動進位掩蓋錯誤。IANA 時區資料與事件的當地時間 context 留待業務資料模型接入，沒有宣稱完整時區規則引擎。
+
+## 精確計算邊界
+
+Money.quantizeRatio 以主要幣別單位的有理數作最後取位，與 Money.quantize、FxRate.convert 共用 half-away-from-zero-v1。只接受正分母，分子／分母各限 4,096 bits，結果仍受有號 64-bit minor units 限制。手動輸入仍用嚴格 Money.parse；此接口不改 JSON 格式或匯率資料來源。

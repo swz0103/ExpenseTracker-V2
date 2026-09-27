@@ -206,8 +206,11 @@ void main() {
         await tap(tester, '解鎖');
         await tap(tester, '管理分類');
         Future<void> menu(String action) async {
-          await tester.ensureVisible(find.byTooltip('操作 薪資'));
-          await tester.tap(find.byTooltip('操作 薪資'));
+          final target = find.byTooltip('操作 薪資');
+          await tester.ensureVisible(target);
+          await tester.pumpAndSettle();
+          expect(target.hitTestable(), findsOneWidget);
+          await tester.tap(target.hitTestable());
           await tester.pumpAndSettle();
           await tap(tester, action);
         }

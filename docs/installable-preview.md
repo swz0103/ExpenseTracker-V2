@@ -1,6 +1,16 @@
 # 開發安裝包與歷史驗收紀錄
 
-**2026-09-27 最新開發包**：0.6.1+9 加入[金額遮罩與基本無障礙](privacy-presentation.md)，沿用 0.6.0 的手動收支草稿。財務資料仍為 schema 7／snapshot 6。只完成主機驗證，仍持續開發既定 CORE。
+**2026-09-27 最新開發包**：0.7.0+10 加入[金額欄計算器](amount-calculator.md)。期初與收支支援明確計算後套用，原算式可保留於草稿；沿用隱私遮罩與既有入帳保護，schema 7／snapshot 6 不變。
+
+- 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.7.0-arm64.apk`，92,802,419 bytes。
+- SHA-256：`14b939ccba250eb501ce8ef2418b4299552a263a7563228410e64a272841ba06`。
+- App ID `dev.expensetracker.preview`，versionCode 10／versionName 0.7.0；min API 24、target API 36、APK v2 簽章、`allowBackup=false` 核對通過。
+- Flutter／SQLCipher 核心僅 ARM64。[完整 18 套件 684 項與最終 UI 修正回歸](test-results/amount-calculator-host-2026-09-27.json)及[五千筆資料](test-results/amount-calculator-scale-2026-09-27.json)通過。
+- 僅本機 debug 封裝，未安裝、未實機驗收、未正式發布；APK 與簽章金鑰不提交 Git。其餘既定 CORE 持續接續。
+
+## 0.6.1 金額遮罩開發包
+
+**2026-09-27 歷史開發包**：0.6.1+9 加入[金額遮罩與基本無障礙](privacy-presentation.md)，沿用 0.6.0 的手動收支草稿。財務資料仍為 schema 7／snapshot 6。只完成主機驗證，仍持續開發既定 CORE。
 
 - 本機檔案：`build/deliverables/ExpenseTracker-V2-development-0.6.1-arm64.apk`，92,794,611 bytes。
 - SHA-256：`a076f12d262480370a72311d6958eb6b6a071138a816958d72e0a843f4ecf8d8`。

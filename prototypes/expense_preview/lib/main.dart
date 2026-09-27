@@ -11,6 +11,7 @@ import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
+import 'amount_input_field.dart';
 import 'preview_engine.dart';
 import 'money_view.dart';
 import 'privacy_presentation.dart';
@@ -673,6 +674,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       onSubmitted: secret && _page == _Page.locked ? (_) => _unlock() : null,
     ),
   );
+  Widget _amountField(String label, Currency? currency) => AmountInputField(
+    controller: _amount,
+    label: label,
+    currency: currency,
+    enabled: !_busy && !_postingFrozen,
+    onChanged: () {
+      if (_page == _Page.posting) _queueDraft();
+    },
+  );
   Widget _button(String label, VoidCallback? onPressed) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: FilledButton(
@@ -863,7 +873,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onChanged: _busy ? null : (v) => setState(() => _currency = v!),
           ),
           const SizedBox(height: 14),
-          _field('期初餘額', _amount),
+          _amountField('期初餘額', Currency(_currency, _currency == 'JPY' ? 0 : 2)),
           _field('起始日期（YYYY-MM-DD）', _date),
           _button('建立帳戶', _saveAccount),
           _back(),
@@ -909,7 +919,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   }),
           ),
           const SizedBox(height: 14),
-          _field('金額（正數）', _amount),
+          _amountField(
+            '金額（正數）',
+            _accounts
+                .where((a) => a.account.id == _accountId)
+                .firstOrNull
+                ?.account
+                .currency,
+          ),
           _field('日期（YYYY-MM-DD）', _date),
           DropdownButtonFormField<String>(
             key: ValueKey('posting-category-$_income'),
