@@ -17,6 +17,7 @@ enum LedgerError {
   refundLimit,
   reversalReference,
   reversalDependency,
+  correctionReference,
 }
 
 final class LedgerException implements Exception {
