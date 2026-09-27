@@ -24,8 +24,9 @@
 - DB／key 配對原型：`feat/storage-generation-probe`，PR #15，基於 PR #14，提交 `b9b5c52`。SQLite 控制紀錄一次提交發布配對、加密 DB 內身份核對、舊組合保留與安裝去重；26 項新 host 測試與所有既有測試（共 158 項）的十個 CI 工作全部通過。詳見[原型範圍](../prototypes/storage_generation/README.md)。fixture key 是明文暫存檔，不能當作平台 secure storage。
 - Ledger／世代整合：`feat/ledger-generation-integration`，PR #16，基於 PR #15，提交 `3e0ee54`。明確版本化 schema 3 的本機身份與 format 2 可攜 snapshot；舊備份可匯入，全部權威列／receipt 保留，還原後可新增交易並再備份。23 項新 host 案例包括七處程序中止、新舊格式各兩條乾淨程序還原、未知版本／結構拒絕、加密 binding migration 回滾。本機受影響的既有 98 項回歸及遠端全部 181 項測試的十一個 CI 工作通過。詳見[整合範圍](../prototypes/ledger_generation/README.md)。
 - Android 世代 key slot：`feat/android-generation-key-slots`，PR #17，基於 PR #16，提交 `5fcaacf`。新增 Android 安全儲存逐 slot adapter，寫後核對、既有欄位不可覆寫、錯誤去敏；原型雙路還原改用持久配對並核對完整資料與 receipt replay。新增 11 項 host 測試，與既有 6 項合計 17 項通過，靜態分析及更新 ARM64 debug APK 建置／封裝檢查通過；全部 192 項測試的十一個 CI 工作通過。未連接裝置，未宣稱平台測試通過。
-- 控制紀錄加密：`feat/storage-control-protection`，基於 PR #17。明確選用獨立控制 key 與 SQLCipher catalog schema 2，保護去重摘要與參照，核對 store 身份；舊明文模式不自動升級／降級。18 項新增控制案例與 2 項 Ledger 雙路整合案例通過，連同受影響套件共 86 項本機測試及靜態分析通過。Android 已接平台 loader，新 APK 建置及封裝核對通過；遠端以 PR checks 為準。[邊界文件](storage-control-protection.md)記錄初始建表中止仍保留並停止，未宣稱自動復原或防整套舊資料回放。
-- 下一項：補連線等待／取消協調與初始控制建表中止復原，繼續保留裝置 gate。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置實測待測試手機連接並允許 USB 偵錯後接續。
+- 控制紀錄加密：`feat/storage-control-protection`，PR #18，基於 PR #17，提交 `2d4da42`。明確選用獨立控制 key 與 SQLCipher catalog schema 2，保護去重摘要與參照，核對 store 身份；舊明文模式不自動升級／降級。18 項新增控制案例與 2 項 Ledger 雙路整合案例通過，連同受影響套件共 86 項本機測試及靜態分析通過。Android 已接平台 loader，新 APK 建置及封裝核對通過；全部 212 項測試的十一個 CI 工作通過。[邊界文件](storage-control-protection.md)記錄初始建表中止仍保留並停止，未宣稱自動復原或防整套舊資料回放。
+- 排他權等待與取消：`feat/storage-lock-wait`，基於 PR #18。預設 10 秒有界等待、零期限嘗試、等待階段取消，已接入 Ledger 讀寫與備份入口；11 項儲存新案例、2 項 Ledger 新案例，連同受影響套件 99 項本機測試及靜態分析通過。Android ARM64 debug APK 建置通過；遠端以 PR checks 為準。[契約](storage-lock-wait.md)明列取消不代表取得鎖後的操作回滾。
+- 下一項：補初始控制建表中止復原，繼續保留裝置 gate。不放寬未知 schema 拒絕規則，不把 fixture 明文 key 用於真實資料。裝置實測待測試手機連接並允許 USB 偵錯後接續。
 
 ## 尚未完成的 gate
 

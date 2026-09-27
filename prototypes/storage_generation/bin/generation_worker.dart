@@ -19,7 +19,20 @@ Future<void> main(List<String> args) async {
     catalogProtection: protected ? fixtureCatalogProtection(slots) : null,
   );
   try {
-    if (args[0] == 'install') {
+    if (args[0] == 'hold') {
+      await directory.create(recursive: true);
+      final handle = await File('${directory.path}/lifecycle.lock')
+          .open(mode: FileMode.append);
+      try {
+        await handle.lock(FileLock.exclusive);
+        stdout.writeln('locked');
+        await stdout.flush();
+        await stdin.first;
+        await handle.unlock();
+      } finally {
+        await handle.close();
+      }
+    } else if (args[0] == 'install') {
       await store.install(
         args[3],
         OperationId.parse(args[2]),

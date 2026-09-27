@@ -8,8 +8,15 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'key_slots.dart';
 import 'catalog_protection.dart';
+import 'lock_wait.dart';
 
-enum GenerationProblem { busy, operationConflict, recoveryRequired }
+enum GenerationProblem {
+  busy,
+  lockTimeout,
+  lockCancelled,
+  operationConflict,
+  recoveryRequired,
+}
 
 final class GenerationUnavailable implements Exception {
   const GenerationUnavailable(this.problem);
@@ -72,11 +79,16 @@ final class GenerationStore {
     this.keys, {
     this.payload,
     this.catalogProtection,
-  });
+    this.lockTimeout = const Duration(seconds: 10),
+  }) {
+    if (lockTimeout.isNegative)
+      throw ArgumentError.value(lockTimeout, 'lockTimeout');
+  }
   final Directory directory;
   final KeySlots keys;
   final GenerationPayload? payload;
   final CatalogProtection? catalogProtection;
+  final Duration lockTimeout;
   static final _busy = <String>{};
 
   File _file(String name) => File('${directory.path}/$name');
@@ -88,90 +100,99 @@ final class GenerationStore {
     String fixture,
     OperationId operation, {
     void Function(String)? checkpoint,
+    LockWaitCancellation? cancellation,
   }) async {
     if (utf8.encode(fixture).length > (payload?.maxBytes ?? 4096))
       throw ArgumentError('Fixture too large');
     fixture = payload?.canonicalize(fixture) ?? fixture;
     if (utf8.encode(fixture).length > (payload?.maxBytes ?? 4096))
       throw ArgumentError('Canonical payload too large');
-    return _locked((catalog) async {
-      await _recover(catalog);
-      final fingerprint = _fingerprint(fixture);
-      final earlier = catalog.select(
-        'SELECT * FROM attempts WHERE operation=?',
-        [operation.toString()],
-      );
-      if (earlier.any((r) => r['fingerprint'] != fingerprint)) {
-        throw const GenerationUnavailable(GenerationProblem.operationConflict);
-      }
-      final committed = earlier
-          .where((r) => r['status'] == 'committed')
-          .toList();
-      if (committed.isNotEmpty) {
-        final receipt = GenerationReceipt.fromRow(committed.single);
-        await _inspect(receipt);
-        return receipt; // Does not reactivate an older committed generation.
-      }
-      final previous = _active(catalog);
-      final receipt = GenerationReceipt(
-        PublicId.generate(),
-        PublicId.generate(),
-        operation,
-        fingerprint,
-      );
-      catalog.execute('INSERT INTO attempts VALUES(?,?,?,?,?,?)', [
-        receipt.generation.value,
-        receipt.slot.value,
-        operation.toString(),
-        fingerprint,
-        'pending',
-        previous?.generation.value,
-      ]);
-      checkpoint?.call('reserved');
-      await keys.create(receipt.slot);
-      checkpoint?.call('keySaved');
-      await _createDatabase(receipt, fixture, checkpoint);
-      checkpoint?.call('staged');
-      final staged = await _inspect(
-        receipt,
-      ); // Reads the persisted key again and reopens the file.
-      if (_fingerprint(staged.value) != fingerprint)
-        throw StateError('Staged payload mismatch');
-      checkpoint?.call('validated');
-      catalog.execute('BEGIN IMMEDIATE');
-      try {
-        if (_active(catalog)?.generation != previous?.generation)
-          throw StateError('Active reference changed');
-        catalog.execute(
-          "UPDATE attempts SET status='committed' WHERE generation=? AND status='pending'",
-          [receipt.generation.value],
+    return _locked(
+      (catalog) async {
+        await _recover(catalog);
+        final fingerprint = _fingerprint(fixture);
+        final earlier = catalog.select(
+          'SELECT * FROM attempts WHERE operation=?',
+          [operation.toString()],
         );
-        catalog.execute('UPDATE active SET generation=? WHERE singleton=1', [
+        if (earlier.any((r) => r['fingerprint'] != fingerprint)) {
+          throw const GenerationUnavailable(
+            GenerationProblem.operationConflict,
+          );
+        }
+        final committed = earlier
+            .where((r) => r['status'] == 'committed')
+            .toList();
+        if (committed.isNotEmpty) {
+          final receipt = GenerationReceipt.fromRow(committed.single);
+          await _inspect(receipt);
+          return receipt; // Does not reactivate an older committed generation.
+        }
+        final previous = _active(catalog);
+        final receipt = GenerationReceipt(
+          PublicId.generate(),
+          PublicId.generate(),
+          operation,
+          fingerprint,
+        );
+        catalog.execute('INSERT INTO attempts VALUES(?,?,?,?,?,?)', [
           receipt.generation.value,
+          receipt.slot.value,
+          operation.toString(),
+          fingerprint,
+          'pending',
+          previous?.generation.value,
         ]);
-        checkpoint?.call('publishing');
-        catalog.execute('COMMIT'); // The only publication commit point.
-      } catch (_) {
-        if (!catalog.autocommit) catalog.execute('ROLLBACK');
-        rethrow;
-      }
-      checkpoint?.call('published');
-      await _inspect(_active(catalog)!);
-      return receipt;
-    }, checkpoint: checkpoint);
+        checkpoint?.call('reserved');
+        await keys.create(receipt.slot);
+        checkpoint?.call('keySaved');
+        await _createDatabase(receipt, fixture, checkpoint);
+        checkpoint?.call('staged');
+        final staged = await _inspect(
+          receipt,
+        ); // Reads the persisted key again and reopens the file.
+        if (_fingerprint(staged.value) != fingerprint)
+          throw StateError('Staged payload mismatch');
+        checkpoint?.call('validated');
+        catalog.execute('BEGIN IMMEDIATE');
+        try {
+          if (_active(catalog)?.generation != previous?.generation)
+            throw StateError('Active reference changed');
+          catalog.execute(
+            "UPDATE attempts SET status='committed' WHERE generation=? AND status='pending'",
+            [receipt.generation.value],
+          );
+          catalog.execute('UPDATE active SET generation=? WHERE singleton=1', [
+            receipt.generation.value,
+          ]);
+          checkpoint?.call('publishing');
+          catalog.execute('COMMIT'); // The only publication commit point.
+        } catch (_) {
+          if (!catalog.autocommit) catalog.execute('ROLLBACK');
+          rethrow;
+        }
+        checkpoint?.call('published');
+        await _inspect(_active(catalog)!);
+        return receipt;
+      },
+      checkpoint: checkpoint,
+      cancellation: cancellation,
+    );
   }
 
-  Future<InstalledFixture?> current() => _locked((catalog) async {
-    await _recover(catalog);
-    final active = _active(catalog);
-    return active == null ? null : _inspect(active);
-  });
+  Future<InstalledFixture?> current({LockWaitCancellation? cancellation}) =>
+      _locked((catalog) async {
+        await _recover(catalog);
+        final active = _active(catalog);
+        return active == null ? null : _inspect(active);
+      }, cancellation: cancellation);
 
   /// Internal adapter scope, not an application connection API. Callback must
   /// close all DB handles before returning and must never retain them.
   Future<T> withCurrent<T>(
-    Future<T> Function(File, StorageKey, GenerationReceipt) work,
-  ) => _locked((catalog) async {
+    Future<T> Function(File, StorageKey, GenerationReceipt) work, {
+    LockWaitCancellation? cancellation,
+  }) => _locked((catalog) async {
     await _recover(catalog);
     final active = _active(catalog);
     if (active == null) throw StateError('No active generation');
@@ -180,7 +201,7 @@ final class GenerationStore {
       await keys.read(active.slot),
       active,
     );
-  });
+  }, cancellation: cancellation);
 
   GenerationReceipt? _active(Database catalog) {
     final refs = catalog.select(
@@ -407,12 +428,14 @@ final class GenerationStore {
   Future<T> _locked<T>(
     Future<T> Function(Database) work, {
     void Function(String)? checkpoint,
+    LockWaitCancellation? cancellation,
   }) async {
     String? identity;
     RandomAccessFile? lock;
     Database? catalog;
     var acquired = false;
     try {
+      if (cancellation?.isCancelled ?? false) throw LockWaitAborted();
       final type = await FileSystemEntity.type(
         directory.path,
         followLinks: false,
@@ -430,10 +453,18 @@ final class GenerationStore {
       final lockFile = _file('lifecycle.lock');
       await _regular(lockFile, allowAbsent: true);
       lock = await lockFile.open(mode: FileMode.append);
-      await lock.lock(FileLock.blockingExclusive);
+      await acquireLifecycleLock(
+        lock,
+        timeout: lockTimeout,
+        cancellation: cancellation,
+      );
       acquired = true;
       catalog = await _catalog(checkpoint);
       return await work(catalog);
+    } on LockWaitExpired {
+      throw const GenerationUnavailable(GenerationProblem.lockTimeout);
+    } on LockWaitAborted {
+      throw const GenerationUnavailable(GenerationProblem.lockCancelled);
     } on GenerationUnavailable {
       rethrow;
     } catch (_) {

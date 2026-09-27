@@ -12,6 +12,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
 import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 import 'package:storage_generation_probe/generation_store.dart';
+import 'package:storage_generation_probe/lock_wait.dart';
 import 'package:test/test.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
@@ -103,6 +104,66 @@ void main() {
       if (protected) 'protected',
     ]);
   }
+
+  test(
+    'cancelled financial access preserves snapshot and posting can retry',
+    () async {
+      await install();
+      final before = await store.snapshot();
+      final cancellation = LockWaitCancellation()..cancel();
+      final rejected = throwsA(
+        isA<GenerationUnavailable>().having(
+          (error) => error.problem,
+          'problem',
+          GenerationProblem.lockCancelled,
+        ),
+      );
+      final posting = income('7');
+      await expectLater(
+        store.post(posting, cancellation: cancellation),
+        rejected,
+      );
+      await expectLater(
+        store.balance(account, cancellation: cancellation),
+        rejected,
+      );
+      await expectLater(store.snapshot(cancellation: cancellation), rejected);
+      await expectLater(
+        store.backup(password, cancellation: cancellation),
+        rejected,
+      );
+      expect(await store.snapshot(), before);
+      expect((await store.post(posting)).replayed, isFalse);
+      expect((await store.post(posting)).replayed, isTrue);
+      expect((await store.balance(account)).minorUnits, BigInt.from(12200));
+    },
+  );
+
+  test(
+    'cancelled restore creates no target and same operation can retry',
+    () async {
+      final op = operation();
+      await expectLater(
+        store.restore(
+          backup.envelope,
+          op,
+          password: password,
+          cancellation: LockWaitCancellation()..cancel(),
+        ),
+        throwsA(
+          isA<GenerationUnavailable>().having(
+            (error) => error.problem,
+            'problem',
+            GenerationProblem.lockCancelled,
+          ),
+        ),
+      );
+      expect(store.generations.directory.existsSync(), isFalse);
+      expect(keys.directory.existsSync(), isFalse);
+      await store.restore(backup.envelope, op, password: password);
+      expect(await store.snapshot(), codec.canonicalize(source));
+    },
+  );
 
   for (final mode in ['password', 'recovery']) {
     test(

@@ -48,7 +48,7 @@ dart test --reporter expanded
 
 預設文字 fixture 有自己的 schema 1。後續新增 `GenerationPayload` adapter 與受鎖保護的內部連線 scope，由 [Ledger 整合原型](../ledger_generation/README.md) 接入明確的財務 schema 3／snapshot format 2，未放寬未知欄位檢查。發布前重開後的內容必須與正規化輸入摘要相同；文字 fixture 仍要求內容不可變，Ledger adapter 則允許發布後合法入帳。
 
-尚未實作平台 secure storage adapter、App 活躍連線租約、跨程序等待超時／取消、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放。原型跨程序鎖會等待持鎖者釋放，不能直接拿來滿足正式超時契約；同程序 busy 保護不代替正式背景工作協調。
+後續已接入 Android secure storage adapter，尚未完成裝置驗收。跨程序鎖改為預設 10 秒有界等待，支援等待階段取消與零期限嘗試；11 項新增案例及既有 44 項通過，詳見[等待契約](../../docs/storage-lock-wait.md)。尚未實作 App 活躍連線租約、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放；同 isolate busy 保護不代替正式背景工作協調。
 
 不刪除任何舊世代或 slot，尚不支援長期保留政策。若 active key 遺失，這個原型停止操作；正式產品從可攜備份恢復到新安全環境的路徑仍需另行整合。
 
