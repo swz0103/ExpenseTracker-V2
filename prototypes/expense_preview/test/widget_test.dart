@@ -15,6 +15,7 @@ import 'support.dart';
 
 final class Documents implements BackupDocuments {
   String? saved;
+  VoidCallback? onOpen;
   String? simple;
   VoidCallback? onChooseSimple;
   String? simpleExport;
@@ -27,7 +28,10 @@ final class Documents implements BackupDocuments {
   }
 
   @override
-  Future<String?> open() async => saved;
+  Future<String?> open() async {
+    onOpen?.call();
+    return saved;
+  }
 
   @override
   Future<bool> chooseSimpleImport() async {
