@@ -19,6 +19,8 @@ dependencies:
     path: ../../packages/foundation_values
   ledger:
     path: ../../packages/ledger
+  reports:
+    path: ../../packages/reports
   modular_persistence_probe:
     path: ../modular_persistence
   backup_envelope_probe:

@@ -29,6 +29,8 @@ dependencies:
     path: ../../packages/foundation_values
   ledger:
     path: ../../packages/ledger
+  reports:
+    path: ../../packages/reports
   android_foundation:
     path: ../android_foundation
   ledger_generation_probe:

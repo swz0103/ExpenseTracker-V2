@@ -45,6 +45,16 @@
         "foundation_values"
       ]
     },
+    "reports": {
+      "directory": "packages/reports",
+      "publicEntrypoints": [
+        "reports.dart"
+      ],
+      "dependencies": [
+        "foundation_values",
+        "ledger"
+      ]
+    },
     "tags": {
       "directory": "packages/tags",
       "publicEntrypoints": [
@@ -86,7 +96,7 @@
   "runtimeModules": {
     "expense_preview": {
       "directory": "prototypes/expense_preview",
-      "dependencies": ["amount_input", "entry_drafts", "tags", "merchants", "accounts", "categories", "foundation_values", "ledger", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
+      "dependencies": ["amount_input", "entry_drafts", "tags", "merchants", "accounts", "categories", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
     },
     "android_foundation": {
       "directory": "prototypes/android_foundation",
@@ -94,7 +104,7 @@
     },
     "ledger_generation_probe": {
       "directory": "prototypes/ledger_generation",
-      "dependencies": ["tags", "merchants", "categories", "accounts", "foundation_values", "ledger", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
+      "dependencies": ["tags", "merchants", "categories", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
     },
     "storage_generation_probe": {
       "directory": "prototypes/storage_generation",

@@ -11,6 +11,7 @@ import 'package:backup_envelope_probe/envelope.dart';
 import 'package:encrypted_storage_probe/encrypted_database.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:reports/reports.dart';
 import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';

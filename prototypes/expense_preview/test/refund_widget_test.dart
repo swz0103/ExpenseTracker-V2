@@ -123,6 +123,11 @@ void main() {
         await visible(find.byKey(ValueKey('refund-source-$refund')));
         await tester.tap(find.byTooltip('隱藏金額'));
         await settle(tester);
+        await Scrollable.ensureVisible(
+          tester.element(find.byKey(ValueKey('refund-source-$refund'))),
+          alignment: 0.4,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(ValueKey('refund-source-$refund')));
         await tester.pump(const Duration(milliseconds: 350));
         // Allow async DB read without waiting on the intentionally busy modal.

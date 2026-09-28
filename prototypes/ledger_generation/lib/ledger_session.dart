@@ -503,6 +503,47 @@ final class LedgerSession {
     return List.unmodifiable(rows.map(_entryFromRow));
   });
 
+  /// Rebuilds this month's financial report from committed event report facts.
+  /// The Ledger's signed income/expense fields already encode refunds, fees
+  /// and reversals; tombstoned events leave the effective view. Each currency
+  /// is kept separate and no exchange rate is inferred.
+  Future<MonthlyReport> monthlyReport(
+    WorkspaceId workspace,
+    ReportMonth month,
+  ) => _enqueue(() async {
+    final rows = await _db
+        .customSelect(
+          'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale '
+          'FROM events e '
+          '${_db.tombstonesAware ? 'LEFT JOIN event_tombstones t ON t.workspace=e.workspace AND t.event_id=e.id ' : ''}'
+          'WHERE e.workspace=? AND e.business_date>=? AND e.business_date<=? '
+          '${_db.tombstonesAware ? 'AND t.event_id IS NULL ' : ''}'
+          'ORDER BY e.business_date DESC,e.id DESC',
+          variables: [
+            Variable.withString(workspace.toString()),
+            Variable.withString(month.first.toString()),
+            Variable.withString(month.last.toString()),
+          ],
+        )
+        .get();
+    return MonthlyReport.build(month, [
+      for (final row in rows)
+        MonthlyFact(
+          id: PublicId.parse(row.read<String>('id')),
+          date: BusinessDate.parse(row.read<String>('business_date')),
+          kind: PostingKind.values.byName(row.read<String>('kind')),
+          income: Money(
+            Currency(row.read<String>('currency'), row.read<int>('scale')),
+            BigInt.from(row.read<int>('income')),
+          ),
+          expense: Money(
+            Currency(row.read<String>('currency'), row.read<int>('scale')),
+            BigInt.from(row.read<int>('expense')),
+          ),
+        ),
+    ]);
+  });
+
   /// Historical deleted entries remain inspectable, but never enter the
   /// effective list or balance. Uses the same stable keyset as active entries.
   Future<List<LedgerEntry>> deletedEntries(

@@ -18,6 +18,7 @@ import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:reports/reports.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 import 'package:ledger_generation_probe/safety_backup.dart';
 
@@ -402,6 +403,13 @@ final class PreviewEngine {
     _check(epoch);
     return result;
   });
+  Future<MonthlyReport> monthlyReport(ReportMonth month) =>
+      _exclusive((epoch) async {
+        _require();
+        final result = await _session!.monthlyReport(_workspace!, month);
+        _check(epoch);
+        return result;
+      });
   Future<List<LedgerEntry>> deletedEntries({LedgerEntry? before}) =>
       _exclusive((epoch) async {
         _require();

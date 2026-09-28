@@ -63,7 +63,17 @@ void main() {
         await tester.pumpAndSettle();
         await tap(tester, '儲存收支');
         expect(find.text('TWD 90.00'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.textContaining('2026-09-27 · 未分類 · 商店甲'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.textContaining('2026-09-27 · 未分類 · 商店甲'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('記一筆'),
+          -180,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tap(tester, '記一筆');
         expect(
           tester

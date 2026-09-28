@@ -100,6 +100,11 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('保密現金 · TWD'), findsWidgets);
         } else {
+          await tester.scrollUntilVisible(
+            find.text('管理標籤'),
+            180,
+            scrollable: find.byType(Scrollable).first,
+          );
           await tap(tester, '管理標籤');
           final menu = find.byTooltip('操作 保密標籤');
           await tester.ensureVisible(menu);

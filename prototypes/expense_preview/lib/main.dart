@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInputFormatter;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:reports/reports.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
@@ -34,6 +35,7 @@ part 'activity_dialog.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
 part 'search_screen.dart';
+part 'monthly_report_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,6 +122,7 @@ enum _Page {
   tags,
   merchants,
   search,
+  monthlyReport,
   home,
   account,
   posting,
@@ -184,6 +187,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   List<AccountSummary> _accounts = [];
   List<LedgerEntry> _entries = [];
   List<LedgerEntry> _deletedEntries = [];
+  MonthlyReport? _monthlyReport;
+  bool _monthlyOverflow = false;
   PrivacyMode _privacy = PrivacyMode.hidden;
   bool _forceHidden = false;
   bool _hasMore = false;
@@ -262,6 +267,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _accounts = [];
     _entries = [];
     _deletedEntries = [];
+    _monthlyReport = null;
+    _monthlyOverflow = false;
     _catalog = null;
     _tagCatalog = null;
     _merchantCatalog = null;
@@ -397,6 +404,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ? await _engine!.merchants()
         : null;
     final merchantLabels = await _merchantLabels(entries, merchantCatalog);
+    final now = DateTime.now();
+    MonthlyReport? monthlyReport;
+    var monthlyOverflow = false;
+    try {
+      monthlyReport = await _engine!.monthlyReport(
+        ReportMonth(now.year, now.month),
+      );
+    } on MoneyException {
+      monthlyOverflow = true;
+    }
     final safety = await _engine!.hasSafetyCopy();
     EntryDraft? entryDraft;
     var draftUnreadable = false;
@@ -411,6 +428,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _accounts = accounts;
       _entries = entries;
       _deletedEntries = deletedEntries;
+      _monthlyReport = monthlyReport;
+      _monthlyOverflow = monthlyOverflow;
       _entryDraft = entryDraft;
       _draftUnreadable = draftUnreadable;
       _catalog = catalog;
@@ -1036,7 +1055,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ),
       ),
       actions: [
-        if (_page == _Page.home && (_engine?.isUnlocked ?? false))
+        if ({_Page.home, _Page.search, _Page.monthlyReport}.contains(_page) &&
+            (_engine?.isUnlocked ?? false))
           IconButton(
             onPressed: _busy ? null : _togglePrivacy,
             tooltip: _privacy == PrivacyMode.hidden ? '顯示金額' : '隱藏金額',
@@ -1129,6 +1149,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             categories: _catalog!.categories,
             tags: _tagCatalog?.tags ?? const [],
             merchants: _merchantCatalog?.merchants ?? const [],
+            privacy: _privacy,
+            onActivity: _showActivity,
+          ),
+          _back(),
+        ];
+      case _Page.monthlyReport:
+        return [
+          _MonthlyReportScreen(
+            engine: _engine!,
+            initial: _monthlyReport!,
             privacy: _privacy,
             onActivity: _showActivity,
           ),
@@ -1591,6 +1621,40 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 : () => setState(() => _page = _Page.search),
             child: const Text('搜尋交易'),
           ),
+          const SizedBox(height: 12),
+          Text('本月收支', style: Theme.of(context).textTheme.titleLarge),
+          if (_monthlyOverflow)
+            const Text('本月合計超過可表示範圍，暫不顯示報表；帳本交易仍保留。')
+          else if (_monthlyReport?.currencies.isEmpty ?? true)
+            const Text('本月尚無收入或支出。')
+          else ...[
+            for (final summary in _monthlyReport!.currencies) ...[
+              Text(summary.currency.code),
+              FinancialSummary(
+                title: '收入',
+                subtitle: _monthlyReport!.month.toString(),
+                money: summary.income,
+                privacy: _privacy,
+                kind: MoneyKind.transaction,
+                moneyKey: ValueKey('monthly-income-${summary.currency.code}'),
+              ),
+              FinancialSummary(
+                title: '淨支出',
+                subtitle: '退款與撤銷在發生月份沖減',
+                money: summary.expense,
+                privacy: _privacy,
+                kind: MoneyKind.transaction,
+                moneyKey: ValueKey('monthly-expense-${summary.currency.code}'),
+              ),
+            ],
+          ],
+          if (_monthlyReport != null)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.monthlyReport),
+              child: const Text('查看月收支明細'),
+            ),
           const SizedBox(height: 12),
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)

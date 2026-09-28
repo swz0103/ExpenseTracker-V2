@@ -6,6 +6,7 @@ import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
 import 'package:test/test.dart';
@@ -292,6 +293,15 @@ void main() {
         before = page.last;
       }
       expect(seen, hasLength(5000));
+      final report = await session.monthlyReport(
+        workspace,
+        ReportMonth(2026, 9),
+      );
+      final twdSummary = report.currencies.single;
+      expect(twdSummary.income.majorText, '4995.00');
+      expect(twdSummary.expense.majorText, '17.50');
+      expect(twdSummary.net.majorText, '4977.50');
+      expect(twdSummary.facts, hasLength(4997));
     });
   }, timeout: const Timeout(Duration(minutes: 10)));
 

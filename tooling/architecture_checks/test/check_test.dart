@@ -65,9 +65,13 @@ void main() {
         'values': {'path': '../values'},
       },
     );
-    package('prototypes/app', 'app', dependencies: {
-      'ledger': {'path': '../../packages/ledger'},
-    });
+    package(
+      'prototypes/app',
+      'app',
+      dependencies: {
+        'ledger': {'path': '../../packages/ledger'},
+      },
+    );
     write(
       'packages/ledger/lib/ledger.dart',
       "import 'package:values/values.dart';",

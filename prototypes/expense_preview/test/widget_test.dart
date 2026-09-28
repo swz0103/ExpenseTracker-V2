@@ -122,7 +122,17 @@ void main() {
         expect(find.text('儲存收支').hitTestable(), findsOneWidget);
         await tap(tester, '儲存收支');
         expect(find.text('TWD 90.00'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.textContaining('#出差'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.textContaining('#出差'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('記一筆'),
+          -180,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tap(tester, '記一筆');
         await tester.scrollUntilVisible(
           find.text('返回帳本').hitTestable(),
@@ -159,7 +169,17 @@ void main() {
         await tester.pumpAndSettle();
         await tap(tester, '確認合併並保留歷史');
         await tap(tester, '返回帳本');
+        await tester.scrollUntilVisible(
+          find.textContaining('#出差（已合併至 旅行）'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.textContaining('#出差（已合併至 旅行）'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('管理標籤'),
+          -180,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tap(tester, '管理標籤');
         await tester.ensureVisible(find.byTooltip('操作 旅行'));
         await tester.tap(find.byTooltip('操作 旅行'));
@@ -370,7 +390,17 @@ void main() {
         await tester.pumpAndSettle();
         await tap(tester, '儲存收支');
         expect(find.text('TWD 74.50'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('2026-09-27 · 午餐'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('2026-09-27 · 午餐'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('管理分類'),
+          -180,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tap(tester, '管理分類');
         await tester.ensureVisible(find.byTooltip('操作 午餐'));
         await tester.tap(find.byTooltip('操作 午餐'));
@@ -383,7 +413,17 @@ void main() {
         await tester.pumpAndSettle();
         await tap(tester, '封存');
         await tap(tester, '返回帳本');
+        await tester.scrollUntilVisible(
+          find.text('2026-09-27 · 餐食（已封存）'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('2026-09-27 · 餐食（已封存）'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('記一筆'),
+          -180,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tap(tester, '記一筆');
         final field = tester.widget<DropdownButtonFormField<String>>(
           find.byKey(const ValueKey('posting-category-false')),
@@ -454,6 +494,11 @@ void main() {
         await input(tester, '日期（YYYY-MM-DD）', '2026-09-27');
         await tap(tester, '儲存收支');
         expect(find.text('TWD 974.50'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('TWD -25.50'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('TWD -25.50'), findsOneWidget);
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive,
