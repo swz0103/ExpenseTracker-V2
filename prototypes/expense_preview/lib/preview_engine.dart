@@ -22,6 +22,7 @@ import 'package:ledger/ledger.dart';
 import 'package:reports/reports.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 import 'package:ledger_generation_probe/safety_backup.dart';
+import 'package:storage_generation_probe/generation_store.dart';
 
 part 'preview_categories.dart';
 part 'preview_tags.dart';
@@ -43,6 +44,10 @@ final class PreviewLocked implements Exception {}
 final class PreviewBusy implements Exception {}
 
 final class PreviewInvalid implements Exception {}
+
+/// Profile credentials are valid, but the published local Ledger cannot be
+/// validated. Keep its files intact and expose only read-only recovery paths.
+final class PreviewDataUnavailable implements Exception {}
 
 final class PreviewSplitInvalid implements Exception {}
 
@@ -241,17 +246,25 @@ final class PreviewEngine {
     final ledgerDirectory = Directory('${directory.path}/ledger');
     if (!pending &&
         !await File('${ledgerDirectory.path}/catalog.db').exists()) {
-      throw PreviewInvalid();
+      throw PreviewDataUnavailable();
     }
     final store = factory(ledgerDirectory, info.identity, schemaVersion);
-    var current = await store.generations.current();
+    // The profile password was authenticated above. A failure from the
+    // published generation is a data-health failure, not a bad password.
+    // Never initialize or replace a published Ledger while diagnosing it.
+    late InstalledFixture? current;
+    try {
+      current = await store.generations.current();
+    } catch (_) {
+      throw PreviewDataUnavailable();
+    }
     if (current == null) {
-      if (!pending) throw PreviewInvalid();
+      if (!pending) throw PreviewDataUnavailable();
       await store.initialize(info.initialization);
       current = await store.generations.current();
     }
     _check(epoch);
-    if (current == null) throw PreviewInvalid();
+    if (current == null) throw PreviewDataUnavailable();
     final sourceVersion = (jsonDecode(current.value) as Map)['schema'];
     if (sourceVersion != schemaVersion) {
       if (sourceVersion is! int || sourceVersion > schemaVersion) {

@@ -138,6 +138,8 @@
 
 ### M1-07｜完整首批保護與日常試用發布
 
+2026-09-29 已驗證密碼後的帳本健康阻擋：已發布的加密 Ledger 若遺失或目錄資料庫驗證失敗，畫面進入唯讀安全模式，不新建空帳本或覆寫既有資料；錯誤密碼仍保持一般解鎖重試。界線與保留資料做法見[帳本安全模式](ledger-safe-mode.md)。這只涵蓋此類登入時故障，不能替代其他安全模式、實機或雲端 gate。
+
 2026-09-29 App PIN 主機子項：加入本機 PIN 驗證，與每次 Android Keystore 系統認證合用，帳本密碼及救援文字仍是獨立恢復路徑。實作界線見 [App PIN 說明](app-pin.md)；主機回歸與建置結果記於[工作進度](work-progress.md)。尚須真實 Android 認證、鎖定及完整安全／隱私 gate，不宣稱 M1-07 完成。
 
 2026-09-29 安全模式接續：已加入[鎖定狀態的加密副本唯讀匯出](locked-safety-export.md)，可在 V2 設定檔受損時以原密碼或救援文字驗證後保存還原前副本；[首批主機證據](test-results/locked-safety-export-host-2026-09-29.json)涵蓋 199 項 App 測試、裝置解鎖競爭修正與 ARM64 debug 建置。接著補上升級前副本的鎖定匯出，可跳過中斷留下的損壞檔並驗證原 schema；[受影響回歸](test-results/locked-upgrade-export-host-2026-09-29.json)通過，未重跑全量。獨立 App PIN、Android 實機文件保存與雲端 gate 仍未完成，不能把這兩個子項視為完整安全模式或 M1-07 驗收。

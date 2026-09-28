@@ -61,10 +61,39 @@ void main() {
     final keys = Map.of(vault.values);
     final retained = Directory('${work.path}/ledger')
         .renameSync('${work.path}/retained-ledger');
-    await expectLater(engine.unlock(password), throwsA(isA<PreviewInvalid>()));
+    await expectLater(
+      engine.unlock(password),
+      throwsA(isA<PreviewDataUnavailable>()),
+    );
     expect(Directory('${work.path}/ledger').existsSync(), isFalse);
     expect(vault.values, keys);
     retained.renameSync('${work.path}/ledger');
+    await engine.unlock(password);
+    expect(
+      (await engine.accounts()).single.balance.minorUnits,
+      BigInt.from(10000),
+    );
+  });
+  test('authenticated profile with damaged catalog enters read-only failure without replacing data', () async {
+    await setup(engine);
+    final a = account(engine);
+    await engine.createAccount(a, opening(a));
+    await engine.lock();
+    final catalog = File('${work.path}/ledger/catalog.db');
+    final original = catalog.readAsBytesSync();
+    final damaged = List<int>.filled(64, 0);
+    catalog.writeAsBytesSync(damaged, flush: true);
+    final retainedKeys = Map.of(vault.values);
+
+    await expectLater(
+      engine.unlock(password),
+      throwsA(isA<PreviewDataUnavailable>()),
+    );
+    expect(engine.isUnlocked, isFalse);
+    expect(catalog.readAsBytesSync(), damaged);
+    expect(vault.values, retainedKeys);
+
+    catalog.writeAsBytesSync(original, flush: true);
     await engine.unlock(password);
     expect(
       (await engine.accounts()).single.balance.minorUnits,
