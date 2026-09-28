@@ -389,6 +389,19 @@ final class PreviewEngine {
         _check(epoch);
         return result;
       });
+  Future<List<LedgerEntry>> searchEntries(
+    LedgerSearchQuery query, {
+    LedgerEntry? before,
+  }) => _exclusive((epoch) async {
+    _require();
+    final result = await _session!.searchEntries(
+      _workspace!,
+      query,
+      before: before,
+    );
+    _check(epoch);
+    return result;
+  });
   Future<List<LedgerEntry>> deletedEntries({LedgerEntry? before}) =>
       _exclusive((epoch) async {
         _require();

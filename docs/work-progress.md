@@ -1,5 +1,13 @@
 # 逐項實作進度
 
+## 2026-09-28 M1-05 交易搜尋與整合候選
+
+接續已上傳的架構邊界 [PR #65](https://github.com/swz0103/ExpenseTracker-V2/pull/65) head `ab72700ae362272e6f0a27947dc1488d64773095`，在 `feat/transaction-search` 完成[唯讀交易搜尋](transaction-search.md)：版本化 AND 條件包含日期、任一帳戶、分類、標籤、商家、幣別、交易類型、原幣本金絕對金額及最新備註；查詢由 Ledger session 讀取正式事件，刪除標記排除，沒有新資料格式或衍生索引。首頁搜尋畫面沿用金額／備註遮罩，離頁與鎖定清掉條件及結果。
+
+Ledger Domain 全量 **27**、Ledger generation 全量 **243**、額外 **5,000 筆**查詢與完整分頁、App 逐檔全量 **170**、架構工具 **20** 及工作區掃描均通過；詳細來源雜湊與首輪並行測試失敗及修復見[本機證據](test-results/transaction-search-host-2026-09-28.json)。首輪 App 並行全量有一個因新入口使既有商家列離開可見區的斷言失敗，以及一個重負載逾時；修正測試捲動後逐檔全量通過，沒有放寬逾時。兩個 Actions workflow 持續停用。這批手機搜尋測試未執行：當下 `adb devices -l` 未偵測到手機；先前 schema 12 的[實機初驗](test-results/device-smoke-2026-09-28.json)不能代替搜尋驗收。M1-05 的月收支及分類／資產報表仍待完成，main 未合併。
+
+分支收斂依使用者最新授權進行：目前 #28～#65 是串接 PR，#32 是舊整合 PR；#65 沒有雲端 checks。先從經本機驗證的搜尋提交建立一條新的整合候選分支，保留原 PR 的完整提交及依賴；等待所需雲端 gate 與差異核對後再收掉被涵蓋的舊 PR／遠端分支，不向 main 自行合併或以移動舊 PR base 造成自動關閉。
+
 ## 2026-09-28 執行時架構邊界與實機初驗（進行中）
 
 接續已上傳的 [Tombstone PR #64](https://github.com/swz0103/ExpenseTracker-V2/pull/64) head `ef5f3b4ddcd78fc10c905510e8a3375d23c35233` 另開 `fix/runtime-boundary-policy`。依[架構核對](architecture-audit-2026-09-28.md#接續執行時模組依賴邊界)把正式 App 和它依賴的 prototype 明列於檢查規則，禁止未核准的本機依賴、錯誤來源、反向依賴與循環；Domain 既有規則不放寬。架構工具靜態分析、20 個單元案例及全工作區掃描通過。只改檢查器、政策、測試與文件，未動財務運算或資料格式；雲端 workflow 保持停用，待提交後才算 GitHub 交付。

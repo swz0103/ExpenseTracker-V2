@@ -33,6 +33,7 @@ part 'note_entry.dart';
 part 'activity_dialog.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
+part 'search_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -118,6 +119,7 @@ enum _Page {
   categories,
   tags,
   merchants,
+  search,
   home,
   account,
   posting,
@@ -1119,6 +1121,19 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onDone: () => _perform(_refresh),
           ),
         ];
+      case _Page.search:
+        return [
+          _SearchScreen(
+            engine: _engine!,
+            accounts: _accounts,
+            categories: _catalog!.categories,
+            tags: _tagCatalog?.tags ?? const [],
+            merchants: _merchantCatalog?.merchants ?? const [],
+            privacy: _privacy,
+            onActivity: _showActivity,
+          ),
+          _back(),
+        ];
       case _Page.loading:
         return [const Center(child: CircularProgressIndicator())];
       case _Page.blocked:
@@ -1570,6 +1585,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               child: const Text('管理商家'),
             ),
           const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: _busy
+                ? null
+                : () => setState(() => _page = _Page.search),
+            child: const Text('搜尋交易'),
+          ),
+          const SizedBox(height: 12),
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('尚無交易')),

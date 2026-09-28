@@ -98,6 +98,12 @@ void main() {
         await tester.pumpAndSettle();
         await tap(tester, '確認合併並保留歷史');
         await tap(tester, '返回帳本');
+        await tester.scrollUntilVisible(
+          find.textContaining('商店甲（已合併至 商店乙）'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+          maxScrolls: 30,
+        );
         expect(find.textContaining('商店甲（已合併至 商店乙）'), findsOneWidget);
         await tester.runAsync(() async {
           final catalog = await engine.merchants();

@@ -396,6 +396,113 @@ final class LedgerSession {
     return List.unmodifiable(rows.map(_entryFromRow));
   });
 
+  /// Reads the authoritative Ledger with AND predicates and a stable keyset.
+  /// No index or projection is persisted, so an immediately repeated search
+  /// observes completed writes and restores from the same session.
+  Future<List<LedgerEntry>> searchEntries(
+    WorkspaceId workspace,
+    LedgerSearchQuery query, {
+    LedgerEntry? before,
+    int limit = 30,
+  }) => _enqueue(() async {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    if (query.categoryId != null && !_db.categoryAware ||
+        query.tagId != null && !_db.tagsAware ||
+        query.merchantId != null && !_db.merchantsAware ||
+        query.noteContains != null && !_db.notesAware) {
+      throw UnsupportedError('Search condition is unavailable in this schema.');
+    }
+    final filter = StringBuffer('WHERE e.workspace=? ');
+    final values = <Variable<Object>>[
+      Variable.withString(workspace.toString()),
+    ];
+    if (_db.tombstonesAware) filter.write('AND t.event_id IS NULL ');
+    if (query.from != null) {
+      filter.write('AND e.business_date>=? ');
+      values.add(Variable.withString(query.from.toString()));
+    }
+    if (query.through != null) {
+      filter.write('AND e.business_date<=? ');
+      values.add(Variable.withString(query.through.toString()));
+    }
+    if (query.accountId != null) {
+      filter.write(
+        'AND EXISTS (SELECT 1 FROM legs x WHERE x.workspace=e.workspace '
+        'AND x.event_id=e.id AND x.account_id=?) ',
+      );
+      values.add(Variable.withString(query.accountId!.value));
+    }
+    if (query.categoryId != null) {
+      filter.write(
+        'AND EXISTS (SELECT 1 FROM allocations x WHERE x.workspace=e.workspace '
+        'AND x.event_id=e.id AND x.category_id=?) ',
+      );
+      values.add(Variable.withString(query.categoryId!.value));
+    }
+    if (query.tagId != null) {
+      filter.write(
+        'AND EXISTS (SELECT 1 FROM event_tags x WHERE x.workspace=e.workspace '
+        'AND x.event_id=e.id AND x.tag_id=?) ',
+      );
+      values.add(Variable.withString(query.tagId!.value));
+    }
+    if (query.merchantId != null) {
+      filter.write(
+        'AND EXISTS (SELECT 1 FROM event_merchants x WHERE x.workspace=e.workspace '
+        'AND x.event_id=e.id AND x.merchant_id=?) ',
+      );
+      values.add(Variable.withString(query.merchantId!.value));
+    }
+    if (query.currency != null) {
+      filter.write('AND l.currency=? AND l.scale=? ');
+      values.add(Variable.withString(query.currency!.code));
+      values.add(Variable.withInt(query.currency!.scale));
+    }
+    if (query.kind != null) {
+      filter.write('AND e.kind=? ');
+      values.add(Variable.withString(query.kind!.name));
+    }
+    if (query.minAbsAmount != null) {
+      // Avoid abs(-2^63), which overflows SQLite's signed integer range.
+      final lower = query.minAbsAmount!.minorUnits.toInt();
+      filter.write('AND (l.amount>=? OR l.amount<=?) ');
+      values.add(Variable.withInt(lower));
+      values.add(Variable.withInt(-lower));
+    }
+    if (query.maxAbsAmount != null) {
+      final upper = query.maxAbsAmount!.minorUnits.toInt();
+      filter.write('AND l.amount BETWEEN ? AND ? ');
+      values.add(Variable.withInt(-upper));
+      values.add(Variable.withInt(upper));
+    }
+    if (query.noteContains != null) {
+      filter.write(
+        'AND instr(lower(COALESCE((SELECT n.text FROM event_note_revisions n '
+        'WHERE n.workspace=e.workspace AND n.event_id=e.id '
+        "ORDER BY n.revision DESC LIMIT 1),'')),lower(?))>0 ",
+      );
+      values.add(Variable.withString(query.noteContains!));
+    }
+    if (before != null) {
+      filter.write(
+        'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?)) ',
+      );
+      values.addAll([
+        Variable.withString(before.date.toString()),
+        Variable.withString(before.date.toString()),
+        Variable.withString(before.id.value),
+      ]);
+    }
+    values.add(Variable.withInt(limit));
+    final rows = await _db
+        .customSelect(
+          '$_entrySelect$filter ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
+          variables: values,
+        )
+        .get();
+    return List.unmodifiable(rows.map(_entryFromRow));
+  });
+
   /// Historical deleted entries remain inspectable, but never enter the
   /// effective list or balance. Uses the same stable keyset as active entries.
   Future<List<LedgerEntry>> deletedEntries(
