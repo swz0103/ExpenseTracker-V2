@@ -5,6 +5,7 @@ import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:reports/reports.dart';
 import 'package:test/test.dart';
 
 import 'support/reference_fixture.dart';
@@ -75,6 +76,24 @@ void main() {
         await f.store().balance(f.reference),
         Money(f.account.currency, expectedUnits),
       );
+      final reportTimer = Stopwatch()..start();
+      final report = await f.store().withSession(
+        (s) => s.monthlyReport(f.workspace, ReportMonth(2026, 9)),
+      );
+      reportTimer.stop();
+      expect(report.currencies.single.facts, hasLength(4999));
+      expect(report.accounts, hasLength(1));
+      expect(report.accounts.single.accountId, f.account.id);
+      expect(report.accounts.single.facts, hasLength(4999));
+      expect(
+        report.accounts.single.income,
+        Money(f.account.currency, BigInt.from(5000000)),
+      );
+      expect(
+        report.accounts.single.expense,
+        Money(f.account.currency, BigInt.from(2499000)),
+      );
+      expect(report.accounts.single.net, report.currencies.single.net);
       final backup = await f.store().backup(
         referencePassword,
         recoveryKey: f.credential.recoveryKey,
@@ -100,6 +119,15 @@ void main() {
             (await s.categories(f.workspace)).resolve(f.food).archived,
             isTrue,
           );
+          final restoredReport = await s.monthlyReport(
+            f.workspace,
+            ReportMonth(2026, 9),
+          );
+          expect(
+            restoredReport.accounts.single.net,
+            report.accounts.single.net,
+          );
+          expect(restoredReport.accounts.single.facts, hasLength(4999));
           await expectLater(
             s.post(f.income()),
             throwsA(isA<PreviewCapacity>()),
@@ -127,6 +155,9 @@ void main() {
           'fullDataEquality': true,
           'replayAfterMergeArchive': true,
           'capacityGuardPreserved': true,
+          'monthlyAccountReportFacts': 4999,
+          'monthlyAccountReportQueryMs': reportTimer.elapsedMilliseconds,
+          'monthlyAccountReportRestoredBothRoutes': true,
           'deviceTested': false,
         }),
         flush: true,

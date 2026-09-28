@@ -1,0 +1,64 @@
+{
+  "date": "2026-09-28",
+  "branch": "integration/v2-core",
+  "baseCommit": "f62681be3be546e42110ddb044142e2326ee5c76",
+  "scope": "Read-only monthly income/expense attribution by posting primary account and report currency, activity drilldown, privacy, responsive month navigation; no schema, backup format or authoritative write change.",
+  "localChecks": [
+    {
+      "package": "tooling/architecture_checks",
+      "result": "pass",
+      "cases": 20,
+      "scope": "Full package and whole-workspace boundary scan before the scale-test-only addition; format and static analysis passed"
+    },
+    {
+      "package": "packages/reports",
+      "result": "pass",
+      "cases": 11,
+      "scope": "Full package: account/currency reconciliation, foreign-currency refund, transfer fee, signed reversals and existing report behavior; format and static analysis passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "result": "pass",
+      "cases": 246,
+      "scope": "Full package before the scale-test-only addition; includes account attribution, legacy schema, clean restore, upgrade failures and existing 5000-event capacity; format and static analysis passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "result": "pass",
+      "cases": 174,
+      "scope": "Full serial App suite, including account drilldown at 320px and double text scale, privacy, lifecycle lock, month navigation, encrypted restores and existing flows; format and Flutter analyze passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "result": "pass",
+      "cases": 1,
+      "scope": "Targeted scale rerun after adding account report assertions: 5000 events, 4999 report facts, 7497 allocations, 256 categories, 1024 changes, password and recovery clean restores; test file formatted and statically analyzed"
+    }
+  ],
+  "scale": {
+    "events": 5000,
+    "reportFacts": 4999,
+    "reportQueryMsOnThisHost": 1561,
+    "snapshotBytes": 8610782,
+    "bothRestoreRoutesVerified": true,
+    "note": "One local performance observation, not a service-level guarantee."
+  },
+  "androidBuild": {
+    "result": "pass",
+    "variant": "debug android-arm64",
+    "applicationId": "dev.expensetracker.preview",
+    "artifact": "prototypes/expense_preview/build/app/outputs/flutter-apk/app-debug.apk (ignored local output; not uploaded)",
+    "bytes": 120581340,
+    "sha256": "4173c60b0f2dbfd8f2f95fe0a6470802e584458c0656dbe1554a59b7735afa78"
+  },
+  "windowsWorkingTreeSourceSha256": {
+    "packages/reports/lib/src/monthly.dart": "21d8122fa6d88110961ee65184e926b8cb8588a62befbeb8b39c633f6a7e571c",
+    "prototypes/ledger_generation/lib/ledger_session.dart": "457828d7d9e733a8d609b338b6eba64713158e29ad282a43642c051ea24e528f",
+    "prototypes/expense_preview/lib/main.dart": "81fefdf09feee613a6fa56028849b92260315f5e62d664ccdf46ed00a3cbf365",
+    "prototypes/expense_preview/lib/monthly_report_screen.dart": "90264948f59aeab09a631c756b9a27cf1a49ad765f6ed9037cdb8cba6b7c8ce5",
+    "prototypes/ledger_generation/test/reference_scale_test.dart": "f930075fd4b7e957136e8773240982651cb3bce8a40b6ac31275cd8603023447"
+  },
+  "cloudActions": "not run; both workflows disabled_manually and Draft PR #67 has no check rollup",
+  "physicalDevice": "not run; adb devices -l returned no device during this turn",
+  "remaining": "M1-05 whole-flow acceptance and device/cloud gates, M1-06 onward through M3 CORE, branch consolidation gates and main merge"
+}

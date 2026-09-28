@@ -58,7 +58,8 @@ void main() {
       expect(find.text('本月尚無收入或支出。'), findsOneWidget);
       await tap(tester, '查看月收支明細');
       expect(find.text('這個月沒有影響收入或支出的交易。'), findsOneWidget);
-      await tap(tester, '上個月');
+      await tester.tap(find.byTooltip('上個月'));
+      await settle(tester);
       expect(find.text('TWD 12.00'), findsWidgets);
       expect(tester.takeException(), null);
     } finally {
@@ -79,11 +80,12 @@ void main() {
       ..createSync(recursive: true);
     final work = root.createTempSync('monthly-');
     final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
-    late PublicId food, shop;
+    late PublicId food, shop, accountId;
     try {
       await tester.runAsync(() async {
         await setup(engine);
         final a = account(engine);
+        accountId = a.id;
         await engine.createAccount(a, opening(a));
         food = PublicId.generate();
         shop = PublicId.generate();
@@ -158,9 +160,11 @@ void main() {
       expect(find.text('TWD 60.00'), findsOneWidget);
       expect(find.text('明細'), findsOneWidget);
       expect(find.text('查看活動'), findsNWidgets(2));
-      await tap(tester, '上個月');
+      await tester.tap(find.byTooltip('上個月'));
+      await settle(tester);
       expect(find.text('這個月沒有影響收入或支出的交易。'), findsOneWidget);
-      await tap(tester, '下個月');
+      await tester.tap(find.byTooltip('下個月'));
+      await settle(tester);
       expect(find.text('TWD 60.00'), findsOneWidget);
       await tap(tester, '分類');
       expect(find.text('餐飲 · TWD'), findsOneWidget);
@@ -173,6 +177,18 @@ void main() {
       );
       await settle(tester);
       expect(find.text('餐飲明細'), findsOneWidget);
+      expect(find.text('TWD 40.00'), findsWidgets);
+      await tap(tester, '帳戶');
+      expect(find.text('日常現金（帳戶幣別 TWD） · 報表 TWD'), findsOneWidget);
+      final accountRow = find.byKey(
+        ValueKey('account-report-TWD-${accountId.value}'),
+      );
+      await tester.ensureVisible(accountRow);
+      await tester.tap(
+        find.descendant(of: accountRow, matching: find.text('查看帳戶明細')),
+      );
+      await settle(tester);
+      expect(find.text('日常現金（帳戶幣別 TWD）明細'), findsOneWidget);
       expect(find.text('TWD 40.00'), findsWidgets);
       await tap(tester, '商家');
       expect(find.text('商店 · TWD'), findsOneWidget);

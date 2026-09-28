@@ -193,6 +193,60 @@ void main() {
   });
 
   test(
+    'account attribution uses report currency even for foreign refund cash',
+    () {
+      final cash = PublicId.generate(), foreign = PublicId.generate();
+      MonthlyFact row(
+        PostingKind kind,
+        Currency currency,
+        String income,
+        String expense,
+        PublicId account,
+      ) => MonthlyFact(
+        id: PublicId.generate(),
+        date: BusinessDate(2026, 9, 2),
+        kind: kind,
+        income: Money.parse(currency, income),
+        expense: Money.parse(currency, expense),
+        accountId: account,
+      );
+      final report = MonthlyReport.build(month, [
+        row(PostingKind.expense, twd, '0', '10', cash),
+        row(PostingKind.transfer, twd, '0', '1', cash),
+        row(PostingKind.refund, twd, '0', '-3', foreign),
+        row(PostingKind.income, usd, '12', '0', foreign),
+      ]);
+      final byAccount = {
+        for (final summary in report.accounts)
+          (summary.accountId, summary.currency): summary,
+      };
+      expect(byAccount[(cash, twd)]!.expense.majorText, '11.00');
+      expect(byAccount[(foreign, twd)]!.expense.majorText, '-3.00');
+      expect(byAccount[(foreign, usd)]!.income.majorText, '12.00');
+      for (final currency in report.currencies) {
+        expect(
+          report.accounts
+              .where((row) => row.currency == currency.currency)
+              .fold<BigInt>(
+                BigInt.zero,
+                (sum, row) => sum + row.income.minorUnits,
+              ),
+          currency.income.minorUnits,
+        );
+        expect(
+          report.accounts
+              .where((row) => row.currency == currency.currency)
+              .fold<BigInt>(
+                BigInt.zero,
+                (sum, row) => sum + row.expense.minorUnits,
+              ),
+          currency.expense.minorUnits,
+        );
+      }
+    },
+  );
+
+  test(
     'out-of-period, duplicate, mismatched currency and overflow fail closed',
     () {
       final day = BusinessDate(2026, 9, 1);

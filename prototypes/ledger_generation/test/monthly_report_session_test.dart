@@ -212,6 +212,9 @@ void main() {
         expect(septemberMerchants[shop]!.expense.majorText, '40.00');
         expect(septemberMerchants[payroll]!.income.majorText, '100.00');
         expect(septemberMerchants[null]!.expense.majorText, '2.00');
+        expect(septemberReport.accounts.single.accountId, cash.id);
+        expect(septemberReport.accounts.single.income.majorText, '100.00');
+        expect(septemberReport.accounts.single.expense.majorText, '42.00');
         await session.renameCategory(operation(), food, 1, 'food renamed');
         await session.renameMerchant(operation(), shop, 1, 'store renamed');
         final afterRename = await session.monthlyReport(
@@ -264,6 +267,12 @@ void main() {
               .majorText,
           '-100.00',
         );
+        final octoberAccounts = {
+          for (final row in octoberReport.accounts) row.accountId: row,
+        };
+        expect(octoberAccounts[foreign.id]!.currency, twd);
+        expect(octoberAccounts[foreign.id]!.expense.majorText, '-10.00');
+        expect(octoberAccounts[cash.id]!.income.majorText, '-100.00');
         expect(
           (await session.monthlyReport(
             WorkspaceId(PublicId.generate()),
@@ -295,6 +304,8 @@ void main() {
               .majorText,
           '40.00',
         );
+        expect(report.accounts.single.accountId, cash.id);
+        expect(report.accounts.single.net.majorText, '58.00');
       });
     },
   );
@@ -334,6 +345,8 @@ void main() {
       expect(report.currencies.single.expense.majorText, '3.00');
       expect(report.categories.single.categoryId, isNull);
       expect(report.categories.single.expense.majorText, '3.00');
+      expect(report.accounts.single.accountId, cash.id);
+      expect(report.accounts.single.expense.majorText, '3.00');
     });
   });
 }

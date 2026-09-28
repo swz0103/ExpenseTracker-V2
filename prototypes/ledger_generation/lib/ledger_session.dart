@@ -513,10 +513,11 @@ final class LedgerSession {
   ) => _enqueue(() async {
     final rows = await _db
         .customSelect(
-          'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale, '
+          'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale,p.account_id AS primary_account_id, '
           '${_db.categoryReferences ? 'a.category_id,a.amount AS allocated_amount,' : 'NULL AS category_id,NULL AS allocated_amount,'}'
           '${_db.merchantsAware ? 'm.merchant_id ' : 'NULL AS merchant_id '}'
           'FROM events e '
+          'LEFT JOIN legs p ON p.workspace=e.workspace AND p.event_id=e.id AND p.ordinal=0 '
           '${_db.categoryReferences ? 'LEFT JOIN allocations a ON a.workspace=e.workspace AND a.event_id=e.id ' : ''}'
           '${_db.merchantsAware ? 'LEFT JOIN event_merchants m ON m.workspace=e.workspace AND m.event_id=e.id ' : ''}'
           '${_db.tombstonesAware ? 'LEFT JOIN event_tombstones t ON t.workspace=e.workspace AND t.event_id=e.id ' : ''}'
@@ -532,6 +533,9 @@ final class LedgerSession {
         .get();
     final grouped = <String, List<QueryRow>>{};
     for (final row in rows) {
+      if (row.read<String?>('primary_account_id') == null) {
+        throw const FormatException('Report event lacks a primary account.');
+      }
       grouped.putIfAbsent(row.read<String>('id'), () => []).add(row);
     }
     return MonthlyReport.build(month, [
@@ -555,6 +559,9 @@ final class LedgerSession {
               eventRows.first.read<int>('scale'),
             ),
             BigInt.from(eventRows.first.read<int>('expense')),
+          ),
+          accountId: PublicId.parse(
+            eventRows.first.read<String>('primary_account_id'),
           ),
           merchantId: switch (eventRows.first.read<String?>('merchant_id')) {
             final id? => PublicId.parse(id),

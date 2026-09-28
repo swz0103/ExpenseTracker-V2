@@ -29,6 +29,7 @@ final class MonthlyFact {
     required this.kind,
     required this.income,
     required this.expense,
+    this.accountId,
     this.merchantId,
     List<CategoryAllocation> allocations = const [],
   }) : allocations = List.unmodifiable(allocations) {
@@ -68,6 +69,9 @@ final class MonthlyFact {
   final BusinessDate date;
   final PostingKind kind;
   final Money income, expense;
+
+  /// The posting's primary account; this attributes report effects, not cash flow.
+  final PublicId? accountId;
 
   /// Saved identity, not today's canonical merchant after a merge.
   final PublicId? merchantId;
@@ -123,6 +127,23 @@ final class MonthlyMerchantSummary {
   final List<MonthlyFact> facts;
 }
 
+final class MonthlyAccountSummary {
+  const MonthlyAccountSummary(
+    this.accountId,
+    this.currency,
+    this.income,
+    this.expense,
+    this.net,
+    this.facts,
+  );
+
+  /// Saved posting account; currency is the report effect's denomination.
+  final PublicId? accountId;
+  final Currency currency;
+  final Money income, expense, net;
+  final List<MonthlyFact> facts;
+}
+
 final class MonthlyCurrencySummary {
   const MonthlyCurrencySummary(
     this.currency,
@@ -147,12 +168,19 @@ final class MonthlyCurrencySummary {
 /// events. Refuse sums outside Money's supported range instead of overflowing
 /// or displaying a partial financial total.
 final class MonthlyReport {
-  MonthlyReport._(this.month, this.currencies, this.categories, this.merchants);
+  MonthlyReport._(
+    this.month,
+    this.currencies,
+    this.categories,
+    this.merchants,
+    this.accounts,
+  );
 
   final ReportMonth month;
   final List<MonthlyCurrencySummary> currencies;
   final List<MonthlyCategorySummary> categories;
   final List<MonthlyMerchantSummary> merchants;
+  final List<MonthlyAccountSummary> accounts;
 
   factory MonthlyReport.build(ReportMonth month, Iterable<MonthlyFact> source) {
     final grouped = <Currency, List<MonthlyFact>>{};
@@ -175,7 +203,11 @@ final class MonthlyReport {
       });
     final categoryFacts = <(Currency, PublicId?), List<MonthlyCategoryFact>>{};
     final merchantFacts = <(Currency, PublicId?), List<MonthlyFact>>{};
+    final accountFacts = <(Currency, PublicId?), List<MonthlyFact>>{};
     for (final fact in allFacts.where((row) => row.contributes)) {
+      accountFacts
+          .putIfAbsent((fact.currency, fact.accountId), () => [])
+          .add(fact);
       merchantFacts
           .putIfAbsent((fact.currency, fact.merchantId), () => [])
           .add(fact);
@@ -233,6 +265,16 @@ final class MonthlyReport {
         if (b.$2 == null) return -1;
         return a.$2!.value.compareTo(b.$2!.value);
       });
+    final accountKeys = accountFacts.keys.toList()
+      ..sort((a, b) {
+        final code = a.$1.code.compareTo(b.$1.code);
+        if (code != 0) return code;
+        final scale = a.$1.scale.compareTo(b.$1.scale);
+        if (scale != 0) return scale;
+        if (a.$2 == null) return 1;
+        if (b.$2 == null) return -1;
+        return a.$2!.value.compareTo(b.$2!.value);
+      });
     return MonthlyReport._(
       month,
       List.unmodifiable([
@@ -247,6 +289,32 @@ final class MonthlyReport {
         for (final key in merchantKeys)
           _summarizeMerchant(key, merchantFacts[key]!),
       ]),
+      List.unmodifiable([
+        for (final key in accountKeys)
+          _summarizeAccount(key, accountFacts[key]!),
+      ]),
+    );
+  }
+
+  static MonthlyAccountSummary _summarizeAccount(
+    (Currency, PublicId?) key,
+    List<MonthlyFact> facts,
+  ) {
+    final income = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.income.minorUnits,
+    );
+    final expense = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.expense.minorUnits,
+    );
+    return MonthlyAccountSummary(
+      key.$2,
+      key.$1,
+      Money(key.$1, income),
+      Money(key.$1, expense),
+      Money(key.$1, income - expense),
+      List.unmodifiable(facts),
     );
   }
 

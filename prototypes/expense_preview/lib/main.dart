@@ -1180,6 +1180,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             initial: _monthlyReport!,
             catalog: _catalog!,
+            accounts: _accounts,
             merchants: _merchantCatalog,
             privacy: _privacy,
             onActivity: _showActivity,
