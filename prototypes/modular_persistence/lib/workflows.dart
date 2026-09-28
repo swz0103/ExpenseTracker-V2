@@ -275,6 +275,84 @@ final class FinancialWorkflows {
     });
   }
 
+  /// Excludes an independent posted event from the effective ledger without
+  /// deleting its historical rows or adding a second, reversing event.
+  Future<CommitResult> tombstone(
+    PostingTombstone command, {
+    void Function(String)? checkpoint,
+  }) async {
+    if (!db.tombstonesAware) {
+      throw UnsupportedError('Tombstones require schema 14.');
+    }
+    final original = command.original;
+    final ws = command.operation.workspace.toString();
+    final op = command.operation.operation.toString();
+    final input = jsonEncode([
+      'tombstone-v1',
+      immutablePostingFacts(original),
+      command.reason,
+    ]);
+    return db.transaction(() async {
+      final marker = await db
+          .customSelect(
+            'SELECT operation_id,reason FROM event_tombstones WHERE workspace=? AND event_id=?',
+            variables: [
+              Variable.withString(ws),
+              Variable.withString(original.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      final receipt = await db
+          .customSelect(
+            'SELECT input,result_id FROM receipts WHERE workspace=? AND operation_id=?',
+            variables: [Variable.withString(ws), Variable.withString(op)],
+          )
+          .getSingleOrNull();
+      final audit = await db
+          .customSelect(
+            'SELECT entity_id,kind FROM audit WHERE workspace=? AND operation_id=?',
+            variables: [Variable.withString(ws), Variable.withString(op)],
+          )
+          .getSingleOrNull();
+      if (marker != null) {
+        if (marker.read<String>('operation_id') != op ||
+            marker.read<String>('reason') != command.reason ||
+            receipt?.read<String>('input') != input ||
+            receipt?.read<String>('result_id') != original.id.value ||
+            audit?.read<String?>('entity_id') != original.id.value ||
+            audit?.read<String>('kind') != 'ledger.tombstone') {
+          throw OperationConflict();
+        }
+        return CommitResult(original.id, replayed: true);
+      }
+      if (receipt != null || audit != null) throw OperationConflict();
+      return _commit(
+        command.operation,
+        input,
+        original.id,
+        () async {
+          final source = await readReversalSource(
+            db,
+            command.operation.workspace,
+            original.id,
+          );
+          if (jsonEncode(immutablePostingFacts(source.posting)) !=
+              jsonEncode(immutablePostingFacts(original))) {
+            throw const LedgerException(LedgerError.tombstoneReference);
+          }
+          await db.customStatement(
+            'INSERT INTO event_tombstones VALUES (?,?,?,?)',
+            [ws, original.id.value, op, command.reason],
+          );
+          checkpoint?.call('tombstone');
+          await _checkBalances(original);
+        },
+        'ledger.tombstone',
+        checkpoint,
+      );
+    });
+  }
+
   Future<QueryRow?> _correctionReceipt(String ws, String operation) => db
       .customSelect(
         'SELECT r.result_id,a.entity_id,a.kind FROM receipts r LEFT JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE r.workspace=? AND r.operation_id=?',

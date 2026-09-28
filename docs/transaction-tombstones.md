@@ -2,6 +2,8 @@
 
 本批接續[財務更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63)，完成 [M1-04](implementation-plan.md#m1-04拆分退款更正與刪除規則) 尚缺的一般刪除規則。依據 [RC-03](architecture-baseline-v1.0-rc1.md#rc-03)、[FV-008](full-vision-baseline.md#fv-008) 及[財務契約第 5 節](foundation-contracts.md#5-財務規則與狀態轉移)。本文件是待實作與驗證的契約，不是完成聲明。
 
+2026-09-28 保存層檢查點：schema 14 原型已建立唯一 `event_tombstones`，單一 SQLite transaction 寫入 marker、收據與 audit；相同命令需三者匹配才重送。帳戶有效餘額從權威 legs 排除 tombstone，原事件仍在歷史。既有退款、撤銷、更正來源讀取拒絕已刪除原事件；反向次序的撤銷／更正依賴亦拒絕刪除。收入／支出與跨幣轉帳、來源事實變更、三處寫入故障及重送已做合成資料定向驗證，保存層全量 **60 項**與靜態分析通過。可攜 snapshot、加密 generation、正式 App 讀取／草稿／畫面、大量資料與完整還原尚未接上；此 schema 14 只供保存層測試，不能開放使用者資料。
+
 ## 有效集合與操作範圍
 
 - 一般刪除只接受單筆正式收入、支出或轉帳，包括同幣與跨幣轉帳；原始 `events`、legs、歸屬、備註、收據與 audit 不刪除。獨立的 `event_tombstones` 記錄原事件及刪除 operation；原事件從**目前有效集合**退出，餘額、期間收支、分類與搜尋都只計入仍有效的事件。交易活動仍可查閱原事實與刪除時間。

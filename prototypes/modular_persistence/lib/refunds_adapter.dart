@@ -33,6 +33,16 @@ Future<RefundSourceRecord> readRefundSource(
     Variable.withString(workspace.toString()),
     Variable.withString(originalId.value),
   ];
+  if (db.tombstonesAware &&
+      (await db
+              .customSelect(
+                'SELECT event_id FROM event_tombstones WHERE workspace=? AND event_id=?',
+                variables: args,
+              )
+              .get())
+          .isNotEmpty) {
+    throw const LedgerException(LedgerError.tombstoneDependency);
+  }
   if (db.reversalsAware &&
       (await db
               .customSelect(

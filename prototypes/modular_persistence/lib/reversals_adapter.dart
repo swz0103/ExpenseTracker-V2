@@ -46,6 +46,16 @@ Future<ReversalSourceRecord> readReversalSource(
       !['income', 'expense', 'transfer'].contains(e.read<String>('kind'))) {
     throw const LedgerException(LedgerError.reversalReference);
   }
+  if (db.tombstonesAware &&
+      (await db
+              .customSelect(
+                'SELECT event_id FROM event_tombstones WHERE workspace=? AND event_id=?',
+                variables: args,
+              )
+              .get())
+          .isNotEmpty) {
+    throw const LedgerException(LedgerError.tombstoneDependency);
+  }
   for (final table in [
     'event_refunds',
     if (requireEligible) 'event_reversals',
@@ -180,27 +190,8 @@ Future<ReversalSourceRecord> validateReversalPosting(
   );
   // Version staleness is checked by Account.requirePosting below. Compare all
   // original financial facts independently of those refreshed account versions.
-  Object facts(Posting p) => [
-    p.id.value,
-    p.operation.operation.toString(),
-    p.kind.name,
-    p.date.toString(),
-    p.reportIncome.toJson(),
-    p.reportExpense.toJson(),
-    p.conversion?.toJson(),
-    [
-      for (final l in p.legs)
-        [l.account.id.value, l.amount.toJson(), l.role.name],
-    ],
-    [
-      for (final a
-          in (p.allocations.toList()
-            ..sort((a, b) => a.categoryId.value.compareTo(b.categoryId.value))))
-        [a.categoryId.value, a.expectedCategoryVersion, a.amount.toJson()],
-    ],
-  ];
-  if (jsonEncode(facts(source.posting)) !=
-          jsonEncode(facts(posting.reversedPosting!)) ||
+  if (jsonEncode(immutablePostingFacts(source.posting)) !=
+          jsonEncode(immutablePostingFacts(posting.reversedPosting!)) ||
       jsonEncode([
             for (final t in source.tags) [t.id.value, t.expectedVersion],
           ]) !=
@@ -213,3 +204,25 @@ Future<ReversalSourceRecord> validateReversalPosting(
   }
   return source;
 }
+
+/// Financial identity excludes current account versions, which may have
+/// changed since the immutable event was originally committed.
+Object immutablePostingFacts(Posting p) => [
+  p.id.value,
+  p.operation.operation.toString(),
+  p.kind.name,
+  p.date.toString(),
+  p.reportIncome.toJson(),
+  p.reportExpense.toJson(),
+  p.conversion?.toJson(),
+  [
+    for (final l in p.legs)
+      [l.account.id.value, l.amount.toJson(), l.role.name],
+  ],
+  [
+    for (final a
+        in (p.allocations.toList()
+          ..sort((a, b) => a.categoryId.value.compareTo(b.categoryId.value))))
+      [a.categoryId.value, a.expectedCategoryVersion, a.amount.toJson()],
+  ],
+];

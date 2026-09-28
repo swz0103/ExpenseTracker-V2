@@ -27,6 +27,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool reversalsAware = false,
     bool notesAware = false,
     this.correctionsAware = false,
+    this.tombstonesAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -99,6 +100,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool reversalsAware = false,
     bool notesAware = false,
     this.correctionsAware = false,
+    this.tombstonesAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -167,7 +169,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool reversalsAware;
   final bool notesAware;
   final bool correctionsAware;
+  final bool tombstonesAware;
   void _configuration() {
+    if (tombstonesAware && !correctionsAware) {
+      throw ArgumentError('Tombstones require the correction-aware schema.');
+    }
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
     }
@@ -176,7 +182,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => correctionsAware
+  int get schemaVersion => tombstonesAware
+      ? 14
+      : correctionsAware
       ? 13
       : notesAware
       ? 12
@@ -217,6 +225,7 @@ final class ProbeDatabase extends GeneratedDatabase {
       if (reversalsAware) await customStatement(reversalSchema);
       if (notesAware) await customStatement(noteSchema);
       if (correctionsAware) await customStatement(correctionSchema);
+      if (tombstonesAware) await customStatement(tombstoneSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
@@ -403,3 +412,10 @@ const correctionSchema = '''CREATE TABLE event_corrections (
  FOREIGN KEY(workspace,original_id) REFERENCES events(workspace,id),
  FOREIGN KEY(workspace,reversal_id) REFERENCES events(workspace,id),
  FOREIGN KEY(workspace,replacement_id) REFERENCES events(workspace,id)) STRICT''';
+
+const tombstoneColumns = ['workspace', 'event_id', 'operation_id', 'reason'];
+const tombstoneSchema = '''CREATE TABLE event_tombstones (
+ workspace TEXT NOT NULL, event_id TEXT NOT NULL,
+ operation_id TEXT NOT NULL, reason TEXT NOT NULL,
+ PRIMARY KEY(workspace,event_id), UNIQUE(workspace,operation_id),
+ FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id)) STRICT''';

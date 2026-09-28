@@ -2,7 +2,7 @@
 
 ## 2026-09-28 一般交易 Tombstone（進行中）
 
-從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及報表，不能同時再用反向事件抵銷造成雙扣。已加入凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因的拒絕；Ledger Domain 全量 24 項及靜態分析通過。schema、原子保存、權威讀取、可攜還原、加密升級、草稿及 UI 尚未完成，沒有本功能 PR，不能宣稱 M1-04 完成。
+從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及報表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原型也已完成唯一 marker、原子收據／audit、有效餘額查詢、依賴互斥及失敗回滾；保存層全量 **60 項**與靜態分析通過。可攜 snapshot、加密升級、App 權威讀取／草稿／UI、完整還原與雲端／實機 gate 尚未完成，沒有本功能 PR，不宣稱 M1-04 完成。
 
 ## 2026-09-28 財務更正加密保存與升級（進行中）
 

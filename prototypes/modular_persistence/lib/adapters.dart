@@ -177,7 +177,11 @@ final class LedgerAdapter {
   Future<Money> balance(PostingAccount account) async {
     final rows = await db
         .customSelect(
-          'SELECT amount,currency,scale FROM legs WHERE workspace = ? AND account_id = ?',
+          db.tombstonesAware
+              ? 'SELECT l.amount,l.currency,l.scale FROM legs l '
+                    'WHERE l.workspace=? AND l.account_id=? AND NOT EXISTS ('
+                    'SELECT 1 FROM event_tombstones t WHERE t.workspace=l.workspace AND t.event_id=l.event_id)'
+              : 'SELECT amount,currency,scale FROM legs WHERE workspace = ? AND account_id = ?',
           variables: [
             Variable.withString(account.workspace.toString()),
             Variable.withString(account.id.value),
