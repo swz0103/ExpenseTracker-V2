@@ -1,0 +1,38 @@
+{
+  "scope": "M1-07 optional App PIN as a local second factor for Keystore-authenticated device unlock",
+  "baseCommit": "ec2535ea965f7d56cdb8be949f86486092c33c22",
+  "date": "2026-09-29",
+  "environment": "Windows Flutter host; synthetic V2 schema 14 ledger; ADB listed no devices; GitHub Actions disabled",
+  "checks": [
+    {
+      "command": "flutter test test/app_pin_test.dart test/device_unlock_widget_test.dart --reporter expanded --timeout 2m",
+      "result": "passed; 13 verifier and widget tests covering enrollment, 5-attempt lockout, password recovery, unreadable PIN state, cancellation and background races"
+    },
+    {
+      "command": "flutter test --no-pub --timeout 2m --concurrency 2 --reporter expanded",
+      "result": "passed; full App suite 212 tests on final source"
+    },
+    {
+      "command": "flutter analyze --no-pub",
+      "result": "passed; no issues on final source"
+    },
+    {
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; architecture boundaries on final source"
+    },
+    {
+      "command": "dart format --output=none --set-exit-if-changed lib/app_pin.dart lib/main.dart lib/platform_services.dart test/app_pin_test.dart test/device_unlock_widget_test.dart",
+      "result": "passed; no formatting changes"
+    },
+    {
+      "command": "flutter build apk --debug --target-platform android-arm64 --no-pub",
+      "result": "passed; debug APK built on host, not installed"
+    }
+  ],
+  "notVerified": [
+    "Android Keystore system authentication and PIN flow on a physical device; ADB listed no devices",
+    "device background locking, reset, and Android document provider behavior",
+    "other M1-07 security, privacy, migration, and safe-mode gates",
+    "GitHub Actions checks; workflows remain disabled"
+  ]
+}

@@ -10,13 +10,14 @@ import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show TextInputFormatter, PlatformException;
+    show TextInputFormatter, FilteringTextInputFormatter, PlatformException;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:reports/reports.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 
 import 'platform_services.dart';
+import 'app_pin.dart';
 import 'amount_input_field.dart';
 import 'split_allocation_dialog.dart';
 import 'business_date_input_field.dart';
@@ -48,6 +49,7 @@ void main() {
       engine: createEngine(),
       documents: AndroidBackupDocuments(),
       deviceUnlock: AndroidDeviceUnlockStore(),
+      appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
     ),
   );
 }
@@ -58,10 +60,12 @@ class PreviewApp extends StatefulWidget {
     required this.engine,
     required this.documents,
     this.deviceUnlock,
+    this.appPin,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   final DeviceUnlockStore? deviceUnlock;
+  final AppPinStore? appPin;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -87,6 +91,7 @@ class _PreviewAppState extends State<PreviewApp> {
       engine: widget.engine,
       documents: widget.documents,
       deviceUnlock: widget.deviceUnlock,
+      appPin: widget.appPin,
       onLock: _routes.cancel,
     ),
   );
@@ -132,6 +137,8 @@ enum _Page {
   setup,
   recovery,
   locked,
+  pinSetup,
+  pinDisable,
   upgrade,
   categories,
   tags,
@@ -153,11 +160,13 @@ class PreviewHome extends StatefulWidget {
     required this.engine,
     required this.documents,
     this.deviceUnlock,
+    this.appPin,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   final DeviceUnlockStore? deviceUnlock;
+  final AppPinStore? appPin;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -170,6 +179,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
   bool _rememberDevice = false, _deviceUnlockEnabled = false;
+  bool _pinEnabled = false;
   bool _devicePromptActive = false;
   String? _message, _imported;
   bool _simpleImportSelected = false;
@@ -182,6 +192,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   CreatedBackup? _draft;
   final _scroll = ScrollController(keepScrollOffset: false);
   final _password = TextEditingController();
+  final _pin = TextEditingController();
+  final _pinConfirm = TextEditingController();
   final _confirm = TextEditingController();
   final _name = TextEditingController();
   final _amount = TextEditingController();
@@ -254,11 +266,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       final safety = await _availableLockedSafetyCopy(engine);
       final upgradeSafety = await _availableLockedUpgradeCopy(engine);
       var deviceEnabled = false;
+      var pinEnabled = false;
       try {
         deviceEnabled =
             exists && (await widget.deviceUnlock?.isEnabled() ?? false);
       } catch (_) {
         // Device convenience unlock must never prevent password recovery.
+      }
+      if (deviceEnabled && widget.appPin != null) {
+        try {
+          pinEnabled = await widget.appPin!.isEnabled();
+        } catch (_) {
+          // An unreadable PIN state must not expose the device-only shortcut.
+          deviceEnabled = false;
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -266,6 +287,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         _hasSafety = safety;
         _hasUpgradeSafety = upgradeSafety;
         _deviceUnlockEnabled = deviceEnabled;
+        _pinEnabled = pinEnabled;
         _page = exists ? _Page.locked : _Page.setup;
       });
     } catch (_) {
@@ -337,11 +359,22 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     throw PreviewLocked();
   }
 
+  void _requireForeground(int epoch) {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (!mounted ||
+        epoch != _viewEpoch ||
+        (state != null && state != AppLifecycleState.resumed)) {
+      throw PreviewLocked();
+    }
+  }
+
   void _clear() {
     _clearSimpleImport();
     _clearSimpleExport();
     for (final c in [
       _password,
+      _pin,
+      _pinConfirm,
       _confirm,
       _name,
       _amount,
@@ -453,6 +486,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     );
     for (final c in [
       _password,
+      _pin,
+      _pinConfirm,
       _confirm,
       _name,
       _amount,
@@ -611,8 +646,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       // Do not leave any financial content behind the system prompt.
       if (mounted) setState(() => _page = _Page.locked);
       try {
+        // A disabled shortcut must never revive a verifier from a prior setup.
+        await widget.appPin?.disable();
         await _withDevicePrompt(() => widget.deviceUnlock!.enable(password));
         _deviceUnlockEnabled = true;
+        _pinEnabled = false;
       } catch (_) {
         deviceError = true;
       }
@@ -624,6 +662,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
 
   Future<void> _unlockWithDevice() => _perform(() async {
+    if (_pinEnabled || (await widget.appPin?.isEnabled() ?? false)) {
+      throw PreviewInvalid();
+    }
     final password = await _withDevicePrompt(
       () => widget.deviceUnlock!.readPassword(),
     );
@@ -637,10 +678,96 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     await _refresh();
   });
 
+  Future<void> _unlockWithPin() => _perform(() async {
+    if (!_pinEnabled || !_deviceUnlockEnabled || widget.appPin == null) {
+      throw PreviewInvalid();
+    }
+    final pin = _pin.text;
+    final epoch = _viewEpoch;
+    try {
+      // The Keystore prompt is required on every attempt; a short PIN alone
+      // never unwraps the ledger password or becomes an offline backup key.
+      final password = await _withDevicePrompt(
+        () => widget.deviceUnlock!.readPassword(),
+      );
+      if (password == null || !await widget.appPin!.matches(pin)) {
+        throw const AppPinRejected();
+      }
+      _requireForeground(epoch);
+      try {
+        await _engine!.unlock(password);
+      } on PreviewUpgradeRequired {
+        if (mounted) setState(() => _page = _Page.upgrade);
+        return;
+      }
+      await _refresh();
+    } finally {
+      _pin.clear();
+    }
+  });
+
+  Future<void> _enableAppPin() => _perform(() async {
+    try {
+      if (!_engine!.isUnlocked ||
+          !_deviceUnlockEnabled ||
+          _pinEnabled ||
+          widget.appPin == null) {
+        throw PreviewInvalid();
+      }
+      if (_pin.text != _pinConfirm.text) {
+        throw const FormatException('App PIN confirmation');
+      }
+      if (!RegExp(r'^[0-9]{6,12}$').hasMatch(_pin.text)) {
+        throw const FormatException('App PIN format');
+      }
+      final pin = _pin.text;
+      final epoch = _viewEpoch;
+      final password = await _withDevicePrompt(
+        () => widget.deviceUnlock!.readPassword(),
+      );
+      if (password == null) throw PreviewInvalid();
+      await widget.appPin!.enable(pin);
+      if (epoch != _viewEpoch) {
+        await widget.appPin!.disable();
+        throw PreviewLocked();
+      }
+      _requireForeground(epoch);
+      _pinEnabled = true;
+      await _refresh();
+    } finally {
+      _pin.clear();
+      _pinConfirm.clear();
+    }
+  });
+
+  Future<void> _disableAppPin() => _perform(() async {
+    if (!_engine!.isUnlocked || !_pinEnabled || widget.appPin == null) {
+      throw PreviewInvalid();
+    }
+    final pin = _pin.text;
+    final epoch = _viewEpoch;
+    try {
+      final password = await _withDevicePrompt(
+        () => widget.deviceUnlock!.readPassword(),
+      );
+      if (password == null || !await widget.appPin!.matches(pin)) {
+        throw const AppPinRejected();
+      }
+      _requireForeground(epoch);
+      await widget.appPin!.disable();
+      _pinEnabled = false;
+      await _refresh();
+    } finally {
+      _pin.clear();
+    }
+  });
+
   Future<void> _disableDeviceUnlock() => _perform(() async {
     if (mounted) setState(() => _page = _Page.locked);
     try {
       await _withDevicePrompt(() => widget.deviceUnlock!.disable());
+      await widget.appPin?.disable();
+      _pinEnabled = false;
     } finally {
       final enabled = await widget.deviceUnlock!.isEnabled();
       if (mounted) setState(() => _deviceUnlockEnabled = enabled);
@@ -1225,9 +1352,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       obscureText: secret,
       autocorrect: false,
       enableSuggestions: !secret,
+      keyboardType: controller == _pin || controller == _pinConfirm
+          ? TextInputType.number
+          : null,
+      inputFormatters: controller == _pin || controller == _pinConfirm
+          ? [FilteringTextInputFormatter.digitsOnly]
+          : null,
       maxLength: length ?? (_page == _Page.posting ? 128 : null),
       decoration: InputDecoration(labelText: label),
-      onSubmitted: secret && _page == _Page.locked ? (_) => _unlock() : null,
+      onSubmitted: secret && _page == _Page.locked
+          ? (_) => controller == _pin ? _unlockWithPin() : _unlock()
+          : null,
     ),
   );
   Widget _dateField({bool opening = false}) {
@@ -1287,6 +1422,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               await widget.documents.discardSimpleExport();
             }
             _credential.clear();
+            _pin.clear();
+            _pinConfirm.clear();
             await _refresh();
           }),
     child: const Text('返回帳本'),
@@ -1463,6 +1600,23 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           _button('完成設定', _saved ? _finish : null),
         ];
+      case _Page.pinSetup:
+        return [
+          Text('設定 App PIN', style: Theme.of(context).textTheme.headlineSmall),
+          const Text('App PIN 需搭配每次裝置認證；帳本密碼與救援文字維持獨立。'),
+          _field('新 App PIN（6–12 位數字）', _pin, secret: true, length: 12),
+          _field('再次輸入 App PIN', _pinConfirm, secret: true, length: 12),
+          _button('啟用 App PIN', _enableAppPin),
+          _back(),
+        ];
+      case _Page.pinDisable:
+        return [
+          Text('停用 App PIN', style: Theme.of(context).textTheme.headlineSmall),
+          const Text('需輸入目前 App PIN 並通過裝置認證。忘記 PIN 時可用帳本密碼解鎖，再停用本機裝置解鎖。'),
+          _field('目前 App PIN', _pin, secret: true, length: 12),
+          _button('確認停用 App PIN', _disableAppPin),
+          _back(),
+        ];
       case _Page.locked:
         return [
           Text('解鎖帳本', style: Theme.of(context).textTheme.headlineSmall),
@@ -1479,8 +1633,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : (value) => setState(() => _rememberDevice = value ?? false),
             ),
-          if (widget.deviceUnlock != null && _deviceUnlockEnabled)
+          if (widget.deviceUnlock != null &&
+              _deviceUnlockEnabled &&
+              !_pinEnabled)
             _button('使用裝置解鎖', _unlockWithDevice),
+          if (widget.deviceUnlock != null &&
+              _deviceUnlockEnabled &&
+              _pinEnabled) ...[
+            _field('App PIN（6–12 位數字）', _pin, secret: true, length: 12),
+            _button('使用 App PIN 與裝置認證', _unlockWithPin),
+          ],
           if (_hasSafety || _hasUpgradeSafety) ..._lockedSafetyControls(),
           if (_imported != null) const Text('已選取加密備份；解鎖後繼續確認還原。'),
           const Text('救援文字用於加密備份還原。忘記此密碼時，可在新的安裝中設定新密碼後，再匯入已保存的備份。'),
@@ -1819,6 +1981,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         return _simpleExportContent();
       case _Page.home:
         return [
+          if (widget.appPin != null && _deviceUnlockEnabled)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(
+                      () => _page = _pinEnabled
+                          ? _Page.pinDisable
+                          : _Page.pinSetup,
+                    ),
+              child: Text(_pinEnabled ? '停用 App PIN' : '設定 App PIN'),
+            ),
           Text('我的帳本', style: Theme.of(context).textTheme.headlineSmall),
           if (widget.deviceUnlock != null && _deviceUnlockEnabled)
             TextButton(
@@ -2200,6 +2373,9 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  AppPinRejected() => 'App PIN 或裝置認證未通過；五次 PIN 錯誤後請用帳本密碼解鎖，停用本機裝置解鎖。帳本未變更。',
+  FormatException(message: 'App PIN format') => 'App PIN 需為 6–12 位數字。',
+  FormatException(message: 'App PIN confirmation') => '兩次 App PIN 不一致。',
   PlatformException(code: 'simple_export') =>
     '簡易匯出寫入或回讀核對失敗；請檢查並刪除可能不完整的檔案，再重試。',
   ExchangeException(code: 'empty_export') => '目前沒有可匯出的普通收入或支出。完整帳本請使用加密備份。',

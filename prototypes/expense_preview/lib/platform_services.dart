@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:storage_generation_probe/catalog_protection.dart';
 
 import 'preview_engine.dart';
+import 'app_pin.dart';
 
 final class AndroidPreviewVault implements PreviewVault, SlotVault {
   static const storage = FlutterSecureStorage(
@@ -74,6 +75,24 @@ final class AndroidDeviceUnlockStore implements DeviceUnlockStore {
     await _metadata.write(_marker, '0');
     await _protected.delete(key: _secret);
   }
+}
+
+final class AndroidPinRecordStore implements PinRecordStore {
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      storageNamespace: 'expense_v2_app_pin_v1',
+      resetOnError: false,
+      migrateOnAlgorithmChange: false,
+    ),
+  );
+  static const _key = 'app_pin_verifier_v1';
+
+  @override
+  Future<String?> read() => _storage.read(key: _key);
+  @override
+  Future<void> write(String value) => _storage.write(key: _key, value: value);
+  @override
+  Future<void> delete() => _storage.delete(key: _key);
 }
 
 final class _CatalogVault implements KeyVault {
