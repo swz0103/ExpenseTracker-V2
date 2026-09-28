@@ -1,0 +1,38 @@
+{
+  "scope": "M1-07 interrupted schema 12 to 14 migration, authoritative encrypted backup and independent clean restore",
+  "baseCommit": "8119a7ce8b24fbe9403080c9e19c0f3471c205b8",
+  "date": "2026-09-29",
+  "environment": "Windows host; synthetic V2 ledgers and independent vaults; no GitHub Actions run",
+  "checks": [
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter test test/multi_upgrade_backup_gate_test.dart --reporter expanded",
+      "result": "passed; 2 independent restore paths"
+    },
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter analyze",
+      "result": "passed; no issues"
+    },
+    {
+      "directory": "tooling/architecture_checks",
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; workspace boundaries"
+    }
+  ],
+  "financialCases": [
+    "schema 12 note revision survives committed 12 to 13 upgrade, interrupted 13 to 14 stage and retry from schema 13",
+    "schema 13 remains readable and encrypted-backup exportable after the injected schema 14 failure",
+    "opening 100, original expense 10, correction to expense 7 and tombstoned income 7 yield exact balance 93",
+    "both password and recovery-text clean restores preserve two note revisions, correction, tombstone, audit, receipt and deduplication state through byte-identical canonical snapshot comparison",
+    "replaying the restored tombstone changes neither balance nor history"
+  ],
+  "sourceSha256": {
+    "prototypes/expense_preview/test/multi_upgrade_backup_gate_test.dart": "c7869ac5312057cd72aeed20a3506a830656f81bd96173c2eed2f27f478c3439"
+  },
+  "notVerified": [
+    "all M1-07 modules and user-facing flows as a single Android scenario",
+    "Android device backup save, background lock and restore; ADB had no connected device",
+    "cloud checks; both workflows remain disabled"
+  ]
+}
