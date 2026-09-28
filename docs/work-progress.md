@@ -1,5 +1,11 @@
 # 逐項實作進度
 
+## 2026-09-28 架構審查第一批：集中 App 能力門檻
+
+依使用者提供的[審查清單](architecture-audit-2026-09-28.md)逐項對照程式，確認畫面與草稿流程原本直接比較資料庫版本、既有架構檢查尚未涵蓋執行時 prototype 依賴；未發現需全面重寫的錯誤字串分派。本批將 schema 3～12 的功能門檻收斂到 `PreviewCapabilities`，供畫面、草稿、複製、App 儲存建立與測試 fixture 使用，原有可用功能與資料格式不變。大型首頁狀態及異步次序仍需以具體案例繼續檢驗。
+
+本機 App 靜態分析與完整 161 項案例通過；架構工具 15 項案例及實際儲存庫檢查通過。未重跑未變更的底層套件；雲端 Actions 停用、實機未驗證，`main` 未合併。本批由依賴備註的 [PR #62](https://github.com/swz0103/ExpenseTracker-V2/pull/62) 交付；接入進行中的財務更正分支後續作 M1-04，不能因本次檢查而宣稱地基、M1～M3 或 Architecture Freeze 完成。
+
 ## 2026-09-28 下一批：財務更正（進行中）
 
 由已上傳的 [備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61) 建立 `feat/transaction-corrections`；[操作契約](transaction-corrections.md)固定原交易完整反向、替代事件及兩者原子提交／追溯。Ledger 更正提案已實作身分與 operation 衝突拒絕、原日期精確沖回，含跨幣轉帳與手續費；該套件分析與 22 案例本機通過，遠端 checkpoint 為 `8a48b326b905c67c0ed804ba197080c730bf0da5`。資料庫原子提交、關聯表、備份還原、V2 安全升級、加密草稿與 UI 尚未完成；目前沒有此功能 PR，也未開放入口。下一步從受控 Application／Persistence 寫入與失敗回滾開始，再接資料演進及 UI，不把此 checkpoint 當作功能完成。

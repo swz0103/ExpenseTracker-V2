@@ -49,18 +49,19 @@ PreviewEngine engineAt(
   vault,
   (root, id, schema) {
     final access = KeyAccess(CatalogVault(vault, 'catalog_${id.value}'));
+    final capabilities = PreviewCapabilities(schema);
     return LedgerStore(
       root,
       SecureKeySlots(vault),
-      categoryAware: schema >= 4,
-      categoryReferences: schema >= 5,
-      tagsAware: schema >= 6,
-      merchantsAware: schema >= 7,
-      transfersAware: schema >= 8,
-      fxTransfersAware: schema >= 9,
-      refundsAware: schema >= 10,
-      reversalsAware: schema >= 11,
-      notesAware: schema >= 12,
+      categoryAware: capabilities.categories,
+      categoryReferences: capabilities.categoryReferences,
+      tagsAware: capabilities.tags,
+      merchantsAware: capabilities.merchants,
+      transfersAware: capabilities.transfers,
+      fxTransfersAware: capabilities.crossCurrencyTransfers,
+      refundsAware: capabilities.refunds,
+      reversalsAware: capabilities.reversals,
+      notesAware: capabilities.notes,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

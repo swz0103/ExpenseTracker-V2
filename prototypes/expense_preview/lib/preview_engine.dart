@@ -46,6 +46,28 @@ final class PreviewTransferAccountInvalid implements Exception {}
 
 final class PreviewUpgradeRequired implements Exception {}
 
+/// User-facing abilities of one V2 data generation. Keep schema numbers at
+/// the application boundary so widgets do not encode migration history.
+final class PreviewCapabilities {
+  PreviewCapabilities(this.schemaVersion) {
+    if (schemaVersion < 3 || schemaVersion > 12) {
+      throw ArgumentError.value(schemaVersion, 'schemaVersion');
+    }
+  }
+
+  final int schemaVersion;
+  bool get categories => schemaVersion >= 4;
+  bool get categoryReferences => schemaVersion >= 5;
+  bool get split => categoryReferences;
+  bool get tags => schemaVersion >= 6;
+  bool get merchants => schemaVersion >= 7;
+  bool get transfers => schemaVersion >= 8;
+  bool get crossCurrencyTransfers => schemaVersion >= 9;
+  bool get refunds => schemaVersion >= 10;
+  bool get reversals => schemaVersion >= 11;
+  bool get notes => schemaVersion >= 12;
+}
+
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
 
 /// Application coordinator. Password is retained only while foreground/unlocked.
@@ -58,15 +80,12 @@ final class PreviewEngine {
     this.schemaVersion = 12,
     this.upgradeCheckpoint,
     this.draftCheckpoint,
-  }) {
-    if (![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].contains(schemaVersion)) {
-      throw ArgumentError('Unknown schema');
-    }
-  }
+  }) : capabilities = PreviewCapabilities(schemaVersion);
   final Directory directory;
   final PreviewVault vault;
   final StoreFactory factory;
   final int schemaVersion;
+  final PreviewCapabilities capabilities;
   final void Function(String)? upgradeCheckpoint;
   final void Function(String)? draftCheckpoint;
   LocalDraftStore? _draftStore;
@@ -557,19 +576,20 @@ _profileInfo(List<int> bytes) {
 /// Restrict this UI to the subset it can represent; full import validation still
 /// runs on the encrypted stage before publication.
 List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
+  final capabilities = PreviewCapabilities(schemaVersion);
   late List<int> canonical;
   try {
     canonical = validateSessionCapacity(
       bytes,
-      categoryAware: schemaVersion >= 4,
-      categoryReferences: schemaVersion >= 5,
-      tagsAware: schemaVersion >= 6,
-      merchantsAware: schemaVersion >= 7,
-      transfersAware: schemaVersion >= 8,
-      fxTransfersAware: schemaVersion >= 9,
-      refundsAware: schemaVersion >= 10,
-      reversalsAware: schemaVersion >= 11,
-      notesAware: schemaVersion >= 12,
+      categoryAware: capabilities.categories,
+      categoryReferences: capabilities.categoryReferences,
+      tagsAware: capabilities.tags,
+      merchantsAware: capabilities.merchants,
+      transfersAware: capabilities.transfers,
+      fxTransfersAware: capabilities.crossCurrencyTransfers,
+      refundsAware: capabilities.refunds,
+      reversalsAware: capabilities.reversals,
+      notesAware: capabilities.notes,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

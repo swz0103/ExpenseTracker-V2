@@ -49,12 +49,12 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if ((fields.noteOf != null && schemaVersion < 12) ||
-        (fields.reversalOf != null && schemaVersion < 11) ||
-        (fields.refundOf != null && schemaVersion < 10) ||
-        (fields.transfer && schemaVersion < 8) ||
-        (fields.received != null && schemaVersion < 9) ||
-        (fields.split && schemaVersion < 5)) {
+    if ((fields.noteOf != null && !capabilities.notes) ||
+        (fields.reversalOf != null && !capabilities.reversals) ||
+        (fields.refundOf != null && !capabilities.refunds) ||
+        (fields.transfer && !capabilities.transfers) ||
+        (fields.received != null && !capabilities.crossCurrencyTransfers) ||
+        (fields.split && !capabilities.split)) {
       throw PreviewInvalid();
     }
     final prior = await store.read();
@@ -89,7 +89,7 @@ extension PreviewDrafts on PreviewEngine {
     _check(epoch);
     if (draft == null) throw PreviewInvalid();
     if (draft.fields.noteOf != null) {
-      if (schemaVersion < 12) throw PreviewInvalid();
+      if (!capabilities.notes) throw PreviewInvalid();
       if (!draft.isPrepared) {
         final f = draft.fields;
         draft = draft.prepareNote(
@@ -159,7 +159,7 @@ extension PreviewDrafts on PreviewEngine {
             );
           }
           if (fields.split) {
-            if (schemaVersion < 5 || fields.splits.length < 2) {
+            if (!capabilities.split || fields.splits.length < 2) {
               throw PreviewSplitInvalid();
             }
             final catalog = await session.categories(workspace);
@@ -187,7 +187,7 @@ extension PreviewDrafts on PreviewEngine {
           }
           final tags = <TagSelection>[];
           if (fields.tags.isNotEmpty) {
-            if (schemaVersion < 6) throw PreviewInvalid();
+            if (!capabilities.tags) throw PreviewInvalid();
             final catalog = await session.tags(workspace);
             for (final id in fields.tags) {
               final tag = catalog.get(id);
@@ -199,7 +199,7 @@ extension PreviewDrafts on PreviewEngine {
           }
           MerchantSelection? merchant;
           if (fields.merchantId != null) {
-            if (schemaVersion < 7) throw PreviewInvalid();
+            if (!capabilities.merchants) throw PreviewInvalid();
             final item = (await session.merchants(workspace))
                 .get(fields.merchantId!);
             if (item.archived || item.replacementId != null) {
@@ -209,7 +209,7 @@ extension PreviewDrafts on PreviewEngine {
           }
           final factory = fields.income ? Posting.income : Posting.expense;
           EntrySubmission transfer() {
-            if (schemaVersion < 8) throw PreviewInvalid();
+            if (!capabilities.transfers) throw PreviewInvalid();
             final destination = accounts
                 .where((a) => a.account.id == fields.destinationId)
                 .firstOrNull
@@ -225,7 +225,9 @@ extension PreviewDrafts on PreviewEngine {
               expectedVersion: a.version,
             );
             final foreign = account.currency != destination.currency;
-            if ((foreign && (schemaVersion < 9 || fields.received == null)) ||
+            if ((foreign &&
+                    (!capabilities.crossCurrencyTransfers ||
+                        fields.received == null)) ||
                 (!foreign && fields.received != null)) {
               throw PreviewInvalid();
             }
@@ -343,7 +345,7 @@ extension PreviewDrafts on PreviewEngine {
     Account account,
     LedgerSession session,
   ) async {
-    if (schemaVersion < 10) throw PreviewInvalid();
+    if (!capabilities.refunds) throw PreviewInvalid();
     final fields = draft.fields;
     final status = await session.refundStatus(workspace, fields.refundOf!);
     final currency = status.originalAmount.currency;

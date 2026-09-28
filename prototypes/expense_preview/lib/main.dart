@@ -373,11 +373,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final entries = await _engine!.entries();
     final catalog = await _engine!.categories();
     final labels = await _categoryLabels(entries, catalog);
-    final tagCatalog = _engine!.schemaVersion >= 6
+    final tagCatalog = _engine!.capabilities.tags
         ? await _engine!.tags()
         : null;
     final tagLabels = await _tagLabels(entries, tagCatalog);
-    final merchantCatalog = _engine!.schemaVersion >= 7
+    final merchantCatalog = _engine!.capabilities.merchants
         ? await _engine!.merchants()
         : null;
     final merchantLabels = await _merchantLabels(entries, merchantCatalog);
@@ -489,7 +489,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         a.account.state == AccountState.active &&
         a.account.id != _accountId &&
         (a.account.currency == _sourceCurrency ||
-            (_engine!.schemaVersion >= 9 &&
+            (_engine!.capabilities.crossCurrencyTransfers &&
                 a.account.currency.code != _sourceCurrency?.code)),
   );
   Currency? get _destinationCurrency => _accounts
@@ -1230,7 +1230,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                     DropdownMenuItem(
                       value: a.account.id,
                       child: Text(
-                        _engine!.schemaVersion >= 9
+                        _engine!.capabilities.crossCurrencyTransfers
                             ? '${a.account.name} · ${a.account.currency.code}'
                             : a.account.name,
                         overflow: TextOverflow.ellipsis,
@@ -1249,7 +1249,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               const SizedBox(height: 14),
             ],
             _amountField(
-              _transfer && _engine!.schemaVersion >= 9 ? '轉出本金（正數）' : '金額（正數）',
+              _transfer && _engine!.capabilities.crossCurrencyTransfers
+                  ? '轉出本金（正數）'
+                  : '金額（正數）',
               _accounts
                   .where((a) => a.account.id == _accountId)
                   .firstOrNull
@@ -1480,9 +1482,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? () => _edit(_Page.posting)
                 : null,
           ),
-          if (_engine!.schemaVersion >= 8)
+          if (_engine!.capabilities.transfers)
             _button(
-              _engine!.schemaVersion >= 9 ? '轉帳' : '同幣轉帳',
+              _engine!.capabilities.crossCurrencyTransfers ? '轉帳' : '同幣轉帳',
               _entryDraft == null &&
                       !_draftUnreadable &&
                       _accounts.any(
@@ -1544,7 +1546,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                           children: [
                             if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
                             if (e.reversedBy == null &&
-                                _engine!.schemaVersion >= 11)
+                                _engine!.capabilities.reversals)
                               TextButton(
                                 key: ValueKey('entry-reverse-${e.id}'),
                                 onPressed: _busy
@@ -1597,7 +1599,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     value: 'activity',
                                     child: Text('查看活動'),
                                   ),
-                                  if (_engine!.schemaVersion >= 11 &&
+                                  if (_engine!.capabilities.reversals &&
                                       e.reversedBy == null &&
                                       [
                                         PostingKind.income,
@@ -1616,7 +1618,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                       child: Text('再記一筆類似交易'),
                                     ),
                                   if (e.kind == PostingKind.expense &&
-                                      _engine!.schemaVersion >= 10 &&
+                                      _engine!.capabilities.refunds &&
                                       e.reversedBy == null)
                                     const PopupMenuItem(
                                       value: 'refund',
@@ -1630,7 +1632,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                             ..._splitDetails(e.id),
                           ],
                         ),
-                  if (_engine!.schemaVersion >= 12) ..._noteSummary(e),
+                  if (_engine!.capabilities.notes) ..._noteSummary(e),
                 ],
               ),
             ),
