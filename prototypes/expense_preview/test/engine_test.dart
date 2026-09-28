@@ -145,6 +145,76 @@ void main() {
     },
   );
   test(
+    'locked safety export verifies credentials and preserves the ledger',
+    () async {
+      final key = await setup(engine);
+      final a = account(engine);
+      await engine.createAccount(a, opening(a));
+      final earlier = await engine.exportBackup();
+      await engine.post(income(a));
+      final before = await EnvelopeCodec().openWithPassword(
+        await engine.exportBackup(),
+        password,
+      );
+      await engine.importBackup(earlier, password, recovery: false);
+      await engine.lock();
+
+      expect(await engine.hasLockedSafetyCopy(), isTrue);
+      await expectLater(
+        engine.exportLockedSafetyCopy('wrong-password', recovery: false),
+        throwsA(isA<BackupException>()),
+      );
+      for (final recovery in [false, true]) {
+        final envelope = await engine.exportLockedSafetyCopy(
+          recovery ? key : password,
+          recovery: recovery,
+        );
+        expect(
+          await EnvelopeCodec().openWithPassword(envelope, password),
+          before,
+        );
+      }
+      final saved = work.listSync().whereType<File>().singleWhere(
+        (file) => file.path.contains('before-restore'),
+      );
+      saved.writeAsStringSync('damaged', flush: true);
+      await expectLater(
+        engine.exportLockedSafetyCopy(password, recovery: false),
+        throwsA(isA<BackupException>()),
+      );
+      await engine.unlock(password);
+      expect(
+        (await engine.accounts()).single.balance.minorUnits,
+        BigInt.from(10000),
+      );
+    },
+  );
+  test('locked safety export chooses the newest restore copy', () async {
+    await setup(engine);
+    final a = account(engine);
+    await engine.createAccount(a, opening(a));
+    final original = await engine.exportBackup();
+    await engine.post(income(a));
+    await engine.importBackup(original, password, recovery: false);
+    final first = work.listSync().whereType<File>().singleWhere(
+      (file) => file.path.contains('before-restore'),
+    );
+    first.setLastModifiedSync(DateTime.utc(2000));
+    await engine.post(income(a));
+    await engine.post(income(a));
+    final latest = await EnvelopeCodec().openWithPassword(
+      await engine.exportBackup(),
+      password,
+    );
+    await engine.importBackup(original, password, recovery: false);
+    await engine.lock();
+    final exported = await engine.exportLockedSafetyCopy(
+      password,
+      recovery: false,
+    );
+    expect(await EnvelopeCodec().openWithPassword(exported, password), latest);
+  });
+  test(
     'repeated lock waits for accepted posting and never silently duplicates it',
     () async {
       await setup(engine);

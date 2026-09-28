@@ -248,7 +248,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Future<void> _load() async {
     try {
       final engine = await widget.engine;
+      _engine = engine;
       final exists = await engine.hasProfile();
+      final safety = await _availableLockedSafetyCopy(engine);
       var deviceEnabled = false;
       try {
         deviceEnabled =
@@ -259,16 +261,31 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         _engine = engine;
+        _hasSafety = safety;
         _deviceUnlockEnabled = deviceEnabled;
         _page = exists ? _Page.locked : _Page.setup;
       });
     } catch (_) {
       if (mounted) {
+        final safety = _engine == null
+            ? false
+            : await _availableLockedSafetyCopy(_engine!);
+        if (!mounted) return;
         setState(() {
+          _hasSafety = safety;
           _page = _Page.blocked;
           _message = '無法讀取設定。原資料已保留，請勿清除 App 資料。';
         });
       }
+    }
+  }
+
+  Future<bool> _availableLockedSafetyCopy(PreviewEngine engine) async {
+    try {
+      return await engine.hasLockedSafetyCopy();
+    } catch (_) {
+      // An optional copy must not prevent a healthy profile from unlocking.
+      return false;
     }
   }
 
@@ -387,13 +404,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   Future<void> _resolveLockedPage() async {
+    if (_busy) return;
     try {
       final exists = await _engine!.hasProfile();
       if (mounted && !_engine!.isUnlocked && !_busy) {
-        setState(() => _page = exists ? _Page.locked : _Page.setup);
+        setState(() {
+          _page = exists ? _Page.locked : _Page.setup;
+        });
       }
     } catch (_) {
-      if (mounted) setState(() => _page = _Page.blocked);
+      if (mounted && !_busy && !_engine!.isUnlocked) {
+        final safety = await _availableLockedSafetyCopy(_engine!);
+        if (mounted && !_busy && !_engine!.isUnlocked) {
+          setState(() {
+            _hasSafety = safety;
+            _page = _Page.blocked;
+          });
+        }
+      }
     }
   }
 
@@ -1015,6 +1043,40 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       setState(() => _message = saved ? '加密備份已儲存，並讀回核對成功。' : '已取消儲存。');
     }
   });
+  Future<void> _exportLockedSafetyCopy() => _perform(() async {
+    final encrypted = await _engine!.exportLockedSafetyCopy(
+      _credential.text,
+      recovery: _useRecovery,
+    );
+    final saved = await widget.documents.save(encrypted);
+    _credential.clear();
+    if (mounted) {
+      setState(
+        () => _message = saved
+            ? '加密安全副本已儲存；可於新的 V2 安裝中用原密碼或救援文字還原。'
+            : '已取消儲存；本機帳本未變更。',
+      );
+    }
+  });
+
+  List<Widget> _lockedSafetyControls() => [
+    const SizedBox(height: 16),
+    const Text('帳本無法開啟時，可用原密碼或救援文字驗證並匯出上次還原前的加密安全副本。此操作不會替換目前資料。'),
+    SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('使用救援文字'),
+      value: _useRecovery,
+      onChanged: _busy
+          ? null
+          : (value) => setState(() {
+              _useRecovery = value;
+              _credential.clear();
+            }),
+    ),
+    _field(_useRecovery ? '原帳本救援文字' : '原帳本密碼', _credential, secret: true),
+    _button('匯出還原前加密安全副本', _exportLockedSafetyCopy),
+  ];
+
   Future<void> _openImport() => _perform(() async {
     final encrypted = await widget.documents.open();
     if (!mounted || encrypted == null) return;
@@ -1323,7 +1385,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       case _Page.loading:
         return [const Center(child: CircularProgressIndicator())];
       case _Page.blocked:
-        return [const Text('設定或儲存發生問題，已停止開啟帳本。請保留現有資料與加密備份。')];
+        return [
+          const Text('設定或儲存發生問題，已停止開啟帳本。請保留現有資料與加密備份。'),
+          if (_engine != null && _hasSafety) ..._lockedSafetyControls(),
+        ];
       case _Page.setup:
         return [
           Text('建立你的帳本', style: Theme.of(context).textTheme.headlineSmall),
@@ -1376,6 +1441,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           if (widget.deviceUnlock != null && _deviceUnlockEnabled)
             _button('使用裝置解鎖', _unlockWithDevice),
+          if (_hasSafety) ..._lockedSafetyControls(),
           if (_imported != null) const Text('已選取加密備份；解鎖後繼續確認還原。'),
           const Text('救援文字用於加密備份還原。忘記此密碼時，可在新的安裝中設定新密碼後，再匯入已保存的備份。'),
         ];

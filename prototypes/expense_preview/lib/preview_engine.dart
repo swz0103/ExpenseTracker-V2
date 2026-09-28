@@ -489,6 +489,7 @@ final class PreviewEngine {
 
   Future<List<File>> _safetyCopies() async {
     final files = <File>[];
+    if (!await directory.exists()) return files;
     await for (final item in directory.list(followLinks: false)) {
       final name = item.uri.pathSegments.last;
       if (item is File &&
@@ -496,8 +497,16 @@ final class PreviewEngine {
         files.add(item);
       }
     }
-    files.sort((a, b) => b.path.compareTo(a.path));
-    return files;
+    final dated = await Future.wait(
+      files.map(
+        (file) async => (file: file, modified: (await file.stat()).modified),
+      ),
+    );
+    dated.sort((a, b) {
+      final byDate = b.modified.compareTo(a.modified);
+      return byDate != 0 ? byDate : b.file.path.compareTo(a.file.path);
+    });
+    return dated.map((entry) => entry.file).toList();
   }
 
   Future<bool> hasSafetyCopy() => _exclusive((epoch) async {
@@ -505,6 +514,34 @@ final class PreviewEngine {
     final found = (await _safetyCopies()).isNotEmpty;
     _check(epoch);
     return found;
+  });
+
+  /// Read-only escape hatch when a damaged local ledger cannot be unlocked.
+  /// The user must prove possession of a credential for the saved envelope;
+  /// this never opens or replaces the current ledger.
+  Future<bool> hasLockedSafetyCopy() => _exclusive((epoch) async {
+    final found = (await _safetyCopies()).isNotEmpty;
+    _check(epoch);
+    return found;
+  });
+
+  Future<String> exportLockedSafetyCopy(
+    String credential, {
+    required bool recovery,
+  }) => _exclusive((epoch) async {
+    if (isUnlocked || credential.isEmpty) throw PreviewInvalid();
+    final files = await _safetyCopies();
+    if (files.isEmpty ||
+        await files.first.length() > EnvelopeCodec.maxEnvelopeCharacters) {
+      throw PreviewInvalid();
+    }
+    final saved = await files.first.readAsString();
+    final bytes = recovery
+        ? await EnvelopeCodec().openWithRecovery(saved, credential)
+        : await EnvelopeCodec().openWithPassword(saved, credential);
+    validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
+    _check(epoch);
+    return saved;
   });
 
   Future<String> exportPreviousBackup() => _exclusive((epoch) async {
