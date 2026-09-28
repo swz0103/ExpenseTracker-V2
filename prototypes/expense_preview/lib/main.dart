@@ -44,14 +44,24 @@ part 'simple_export_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    PreviewApp(engine: createEngine(), documents: AndroidBackupDocuments()),
+    PreviewApp(
+      engine: createEngine(),
+      documents: AndroidBackupDocuments(),
+      deviceUnlock: AndroidDeviceUnlockStore(),
+    ),
   );
 }
 
 class PreviewApp extends StatefulWidget {
-  const PreviewApp({super.key, required this.engine, required this.documents});
+  const PreviewApp({
+    super.key,
+    required this.engine,
+    required this.documents,
+    this.deviceUnlock,
+  });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
+  final DeviceUnlockStore? deviceUnlock;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -76,6 +86,7 @@ class _PreviewAppState extends State<PreviewApp> {
     home: PreviewHome(
       engine: widget.engine,
       documents: widget.documents,
+      deviceUnlock: widget.deviceUnlock,
       onLock: _routes.cancel,
     ),
   );
@@ -141,10 +152,12 @@ class PreviewHome extends StatefulWidget {
     super.key,
     required this.engine,
     required this.documents,
+    this.deviceUnlock,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
+  final DeviceUnlockStore? deviceUnlock;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -156,6 +169,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   PreviewEngine? _engine;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
+  bool _rememberDevice = false, _deviceUnlockEnabled = false;
+  bool _devicePromptActive = false;
   String? _message, _imported;
   bool _simpleImportSelected = false;
   SimpleTransactionBatch? _simpleImportBatch;
@@ -234,9 +249,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     try {
       final engine = await widget.engine;
       final exists = await engine.hasProfile();
+      var deviceEnabled = false;
+      try {
+        deviceEnabled =
+            exists && (await widget.deviceUnlock?.isEnabled() ?? false);
+      } catch (_) {
+        // Device convenience unlock must never prevent password recovery.
+      }
       if (!mounted) return;
       setState(() {
         _engine = engine;
+        _deviceUnlockEnabled = deviceEnabled;
         _page = exists ? _Page.locked : _Page.setup;
       });
     } catch (_) {
@@ -251,7 +274,35 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android's authentication sheet can briefly remove window focus. The
+    // financial view is hidden during enrollment and already locked for read.
+    // A real background transition (paused/hidden) must still lock immediately.
+    if (state == AppLifecycleState.inactive && _devicePromptActive) return;
     if (state != AppLifecycleState.resumed) _lock();
+  }
+
+  Future<T> _withDevicePrompt<T>(Future<T> Function() operation) async {
+    final epoch = _viewEpoch;
+    _devicePromptActive = true;
+    try {
+      return await operation();
+    } finally {
+      try {
+        await _waitForForeground(epoch);
+      } finally {
+        _devicePromptActive = false;
+      }
+    }
+  }
+
+  Future<void> _waitForForeground(int epoch) async {
+    for (var attempt = 0; attempt < 100; attempt++) {
+      if (!mounted || epoch != _viewEpoch) throw PreviewLocked();
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state == null || state == AppLifecycleState.resumed) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    throw PreviewLocked();
   }
 
   void _clear() {
@@ -306,6 +357,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _draftUnreadable = false;
     _draftSaveError = null;
     _privacy = PrivacyMode.hidden;
+    _rememberDevice = false;
   }
 
   void _lock() {
@@ -495,18 +547,62 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   Future<void> _unlock({bool upgrade = false}) => _perform(() async {
+    final password = _password.text;
     try {
       if (upgrade) {
-        await _engine!.upgrade(_password.text);
+        await _engine!.upgrade(password);
       } else {
-        await _engine!.unlock(_password.text);
+        await _engine!.unlock(password);
       }
     } on PreviewUpgradeRequired {
       if (mounted) setState(() => _page = _Page.upgrade);
       return;
     }
     _password.clear();
+    var deviceError = false;
+    if (_rememberDevice && widget.deviceUnlock != null) {
+      // Do not leave any financial content behind the system prompt.
+      if (mounted) setState(() => _page = _Page.locked);
+      try {
+        await _withDevicePrompt(() => widget.deviceUnlock!.enable(password));
+        _deviceUnlockEnabled = true;
+      } catch (_) {
+        deviceError = true;
+      }
+    }
     await _refresh();
+    if (mounted && deviceError) {
+      setState(() => _message = '裝置解鎖未啟用；仍可使用帳本密碼。');
+    }
+  });
+
+  Future<void> _unlockWithDevice() => _perform(() async {
+    final password = await _withDevicePrompt(
+      () => widget.deviceUnlock!.readPassword(),
+    );
+    if (password == null) throw PreviewInvalid();
+    try {
+      await _engine!.unlock(password);
+    } on PreviewUpgradeRequired {
+      if (mounted) setState(() => _page = _Page.upgrade);
+      return;
+    }
+    await _refresh();
+  });
+
+  Future<void> _disableDeviceUnlock() => _perform(() async {
+    if (mounted) setState(() => _page = _Page.locked);
+    try {
+      await _withDevicePrompt(() => widget.deviceUnlock!.disable());
+    } finally {
+      final enabled = await widget.deviceUnlock!.isEnabled();
+      if (mounted) setState(() => _deviceUnlockEnabled = enabled);
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (_engine!.isUnlocked &&
+          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
+        await _refresh();
+      }
+    }
   });
   Future<void> _prepare() => _perform(() async {
     if (_password.text != _confirm.text) throw const FormatException();
@@ -1268,6 +1364,18 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           const SizedBox(height: 20),
           _field('密碼', _password, secret: true),
           _button('解鎖', _unlock),
+          if (widget.deviceUnlock != null && !_deviceUnlockEnabled)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('在這台手機啟用裝置解鎖'),
+              subtitle: const Text('需先用帳本密碼解鎖，並通過手機的生物辨識或螢幕鎖；加密備份仍須原密碼或救援文字。'),
+              value: _rememberDevice,
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() => _rememberDevice = value ?? false),
+            ),
+          if (widget.deviceUnlock != null && _deviceUnlockEnabled)
+            _button('使用裝置解鎖', _unlockWithDevice),
           if (_imported != null) const Text('已選取加密備份；解鎖後繼續確認還原。'),
           const Text('救援文字用於加密備份還原。忘記此密碼時，可在新的安裝中設定新密碼後，再匯入已保存的備份。'),
         ];
@@ -1606,6 +1714,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       case _Page.home:
         return [
           Text('我的帳本', style: Theme.of(context).textTheme.headlineSmall),
+          if (widget.deviceUnlock != null && _deviceUnlockEnabled)
+            TextButton(
+              onPressed: _busy ? null : _disableDeviceUnlock,
+              child: const Text('停用這台手機的裝置解鎖'),
+            ),
           const SizedBox(height: 12),
           if (_accounts.isEmpty)
             const Padding(

@@ -26,6 +26,56 @@ final class AndroidPreviewVault implements PreviewVault, SlotVault {
       storage.write(key: name, value: value);
 }
 
+/// Optional local convenience unlock. The master password remains portable only
+/// through the encrypted backup; this copy is bound to the Android Keystore.
+abstract interface class DeviceUnlockStore {
+  Future<bool> isEnabled();
+  Future<void> enable(String password);
+  Future<String?> readPassword();
+  Future<void> disable();
+}
+
+final class AndroidDeviceUnlockStore implements DeviceUnlockStore {
+  static const _marker = 'device_unlock_enabled_v1';
+  static const _secret = 'master_password_v1';
+  static const _protected = FlutterSecureStorage(
+    aOptions: AndroidOptions.biometric(
+      storageNamespace: 'expense_v2_device_unlock_v1',
+      enforceBiometrics: true,
+      requireBiometricsPerOperation: true,
+      resetOnError: false,
+      migrateOnAlgorithmChange: false,
+      biometricPromptTitle: '解鎖記帳 V2',
+    ),
+  );
+
+  final AndroidPreviewVault _metadata = AndroidPreviewVault();
+
+  @override
+  Future<bool> isEnabled() async => await _metadata.read(_marker) == '1';
+
+  @override
+  Future<void> enable(String password) async {
+    if (password.isEmpty) throw ArgumentError.value(password, 'password');
+    // Publish the marker only after a Keystore-authenticated write succeeds.
+    await _protected.write(key: _secret, value: password);
+    await _metadata.write(_marker, '1');
+  }
+
+  @override
+  Future<String?> readPassword() async {
+    if (!await isEnabled()) return null;
+    return _protected.read(key: _secret);
+  }
+
+  @override
+  Future<void> disable() async {
+    // Hide the shortcut before any protected-store operation can fail.
+    await _metadata.write(_marker, '0');
+    await _protected.delete(key: _secret);
+  }
+}
+
 final class _CatalogVault implements KeyVault {
   _CatalogVault(this.vault, this.identity);
   final PreviewVault vault;

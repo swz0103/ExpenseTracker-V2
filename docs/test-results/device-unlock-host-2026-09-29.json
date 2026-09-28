@@ -1,0 +1,42 @@
+{
+  "scope": "Optional Android Keystore-protected device unlock for the separate V2 App",
+  "baseCommit": "820a9ffa76f5b76ecc09d4454ec4ddf09be59e04",
+  "date": "2026-09-29",
+  "environment": "Windows Flutter host; synthetic V2 schema 14 ledger; no ADB device; GitHub Actions disabled",
+  "checks": [
+    {
+      "command": "flutter test --no-pub",
+      "result": "passed; 194 App tests before the final focused lifecycle fix"
+    },
+    {
+      "command": "flutter test --no-pub test/device_unlock_widget_test.dart test/lock_routes_test.dart test/backup_widget_gate_test.dart",
+      "result": "passed; 12 affected tests after the lifecycle fix"
+    },
+    {
+      "command": "flutter test --no-pub test/device_unlock_widget_test.dart --plain-name 'leaving the app during device prompt locks the ledger'",
+      "result": "passed; final background cancellation fix"
+    },
+    {
+      "command": "flutter analyze --no-pub",
+      "result": "passed; no issues"
+    },
+    {
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; architecture boundaries on final source"
+    },
+    {
+      "command": "flutter build apk --debug --target-platform android-arm64 --no-pub",
+      "result": "passed; local debug APK not installed or uploaded; SHA256 1cb00470d699a6a03eac1bec41f75d22f6df8b0065a3908b6842e517e5f050d1"
+    }
+  ],
+  "mergedManifest": {
+    "package": "dev.expensetracker.preview",
+    "permission": "android.permission.USE_BIOMETRIC",
+    "allowBackup": false
+  },
+  "notVerified": [
+    "real Android Keystore enrollment/read/delete and prompt lifecycle; ADB listed no devices",
+    "a separate App PIN or M1-07 safe mode",
+    "GitHub Actions checks; workflows remain disabled"
+  ]
+}
