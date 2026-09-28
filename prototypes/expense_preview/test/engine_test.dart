@@ -215,6 +215,54 @@ void main() {
     expect(await EnvelopeCodec().openWithPassword(exported, password), latest);
   });
   test(
+    'interrupted newest restore copy falls back without changing ledger',
+    () async {
+      final key = await setup(engine);
+      final a = account(engine);
+      await engine.createAccount(a, opening(a));
+      final original = await engine.exportBackup();
+      await engine.post(income(a));
+      await engine.importBackup(original, password, recovery: false);
+      final first = work.listSync().whereType<File>().singleWhere(
+        (file) => file.path.contains('before-restore'),
+      );
+      final expected = first.readAsStringSync();
+      first.setLastModifiedSync(DateTime.utc(2000));
+      await engine.post(income(a));
+      await engine.importBackup(original, password, recovery: false);
+      final newest = work.listSync().whereType<File>().singleWhere(
+        (file) =>
+            file.path.contains('before-restore') && file.path != first.path,
+      );
+      newest.writeAsStringSync('interrupted', flush: true);
+      await engine.lock();
+      for (final recovery in [false, true]) {
+        expect(
+          await engine.exportLockedSafetyCopy(
+            recovery ? key : password,
+            recovery: recovery,
+          ),
+          expected,
+        );
+      }
+      await expectLater(
+        engine.exportLockedSafetyCopy('wrong-password', recovery: false),
+        throwsA(isA<BackupException>()),
+      );
+      await engine.unlock(password);
+      expect(await engine.exportPreviousBackup(), expected);
+      expect(
+        (await engine.accounts()).single.balance.minorUnits,
+        BigInt.from(10000),
+      );
+      first.writeAsStringSync('also damaged', flush: true);
+      await expectLater(
+        engine.exportPreviousBackup(),
+        throwsA(isA<BackupException>()),
+      );
+    },
+  );
+  test(
     'repeated lock waits for accepted posting and never silently duplicates it',
     () async {
       await setup(engine);

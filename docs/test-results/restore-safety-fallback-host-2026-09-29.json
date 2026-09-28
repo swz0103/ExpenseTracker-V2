@@ -1,0 +1,30 @@
+{
+  "scope": "M1-07 pre-restore encrypted safety-copy fallback after an interrupted newer write",
+  "baseCommit": "cdbcca859e5025bd23edcd7cdd0ed3a26563e8c2",
+  "date": "2026-09-29",
+  "environment": "Windows Flutter host; synthetic V2 schema 14 ledger; ADB listed no devices; GitHub Actions disabled",
+  "checks": [
+    {
+      "command": "flutter test test/engine_test.dart --reporter compact --timeout 2m",
+      "result": "passed; 20 tests including two restore copies, interrupted newest file, password and recovery fallback, wrong credential, all copies damaged, unchanged ledger and unlocked previous-backup export"
+    },
+    {
+      "command": "flutter test test/locked_safety_export_widget_test.dart --reporter compact --timeout 2m",
+      "result": "passed; 2 locked-profile document export tests"
+    },
+    {
+      "command": "flutter analyze --no-pub",
+      "result": "passed; no issues"
+    },
+    {
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; architecture boundaries"
+    }
+  ],
+  "notVerified": [
+    "full App suite on this commit; preceding commit passed 199 App tests and this change was covered by affected engine and widget tests",
+    "Android document provider save and reread on device; ADB listed no devices",
+    "separate App PIN and complete M1-07 safe mode",
+    "GitHub Actions checks; workflows remain disabled"
+  ]
+}

@@ -594,39 +594,58 @@ final class PreviewEngine {
     required bool recovery,
   }) => _exclusive((epoch) async {
     if (isUnlocked || credential.isEmpty) throw PreviewInvalid();
-    final files = await _safetyCopies();
-    if (files.isEmpty ||
-        await files.first.length() > EnvelopeCodec.maxEnvelopeCharacters) {
-      throw PreviewInvalid();
+    Object? failure;
+    for (final file in await _safetyCopies()) {
+      _check(epoch);
+      try {
+        if (await file.length() > EnvelopeCodec.maxEnvelopeCharacters) {
+          failure ??= PreviewInvalid();
+          continue;
+        }
+        final saved = await file.readAsString();
+        final bytes = recovery
+            ? await EnvelopeCodec().openWithRecovery(saved, credential)
+            : await EnvelopeCodec().openWithPassword(saved, credential);
+        validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
+        _check(epoch);
+        return saved;
+      } catch (error) {
+        // An interrupted newer restore must not hide an older verified copy.
+        failure ??= error;
+      }
     }
-    final saved = await files.first.readAsString();
-    final bytes = recovery
-        ? await EnvelopeCodec().openWithRecovery(saved, credential)
-        : await EnvelopeCodec().openWithPassword(saved, credential);
-    validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
     _check(epoch);
-    return saved;
+    throw failure ?? PreviewInvalid();
   });
 
   Future<String> exportPreviousBackup() => _exclusive((epoch) async {
     _require();
     final password = _password!;
     final recovery = _recovery!;
-    final files = await _safetyCopies();
-    if (files.isEmpty ||
-        await files.first.length() > EnvelopeCodec.maxEnvelopeCharacters) {
-      throw PreviewInvalid();
+    Object? failure;
+    for (final file in await _safetyCopies()) {
+      _check(epoch);
+      try {
+        if (await file.length() > EnvelopeCodec.maxEnvelopeCharacters) {
+          failure ??= PreviewInvalid();
+          continue;
+        }
+        final saved = await file.readAsString();
+        final codec = EnvelopeCodec();
+        final bytes = await codec.openWithPassword(saved, password);
+        if (utf8.decode(await codec.openWithRecovery(saved, recovery)) !=
+            utf8.decode(bytes)) {
+          throw PreviewInvalid();
+        }
+        validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
+        _check(epoch);
+        return saved;
+      } catch (error) {
+        failure ??= error;
+      }
     }
-    final saved = await files.first.readAsString();
-    final codec = EnvelopeCodec();
-    final bytes = await codec.openWithPassword(saved, password);
-    if (utf8.decode(await codec.openWithRecovery(saved, recovery)) !=
-        utf8.decode(bytes)) {
-      throw PreviewInvalid();
-    }
-    validatePreviewSnapshot(bytes, schemaVersion: schemaVersion);
     _check(epoch);
-    return saved;
+    throw failure ?? PreviewInvalid();
   });
 
   /// User confirms replacement. Preserve a verified encrypted safety copy first.
