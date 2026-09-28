@@ -1,0 +1,39 @@
+{
+  "scope": "M1-07 schema 14 combined category, tag, merchant, correction, note revision and tombstone authority backup",
+  "baseCommit": "d9f456dc4c239e5046dd9b0902fe237bef22250c",
+  "date": "2026-09-29",
+  "environment": "Windows Flutter host; independent synthetic V2 ledgers and vaults; no Android device or GitHub Actions run",
+  "checks": [
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter test test/combined_authority_backup_gate_test.dart --reporter compact",
+      "result": "passed; 2 independent clean restore paths"
+    },
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter analyze",
+      "result": "passed; no issues"
+    },
+    {
+      "directory": "tooling/architecture_checks",
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; workspace boundaries"
+    }
+  ],
+  "financialCases": [
+    "opening 100, classified expense 5, corrected expense 10 to 7, and tombstoned income 7 produce exact balance 88",
+    "category, tag and merchant historical reference versions remain 1 after their catalog changes; current names and merchant alias survive",
+    "correction replacement note revision, tombstone audit and authority tables survive password and recovery-text restores into independent clean V2 ledgers",
+    "decrypted authoritative snapshots are byte-identical before and after each restore and remain unchanged after replaying the classified posting and tombstone",
+    "pre-restore destination safety copy exists for both credentials"
+  ],
+  "sourceSha256": {
+    "prototypes/expense_preview/test/combined_authority_backup_gate_test.dart": "4b90ba86d4fe937bab5d1270eb60e65ff26cb0723866ef0df92fa89649c01084"
+  },
+  "notVerified": [
+    "source importer dedup state in the same cross-module fixture; it has separate host restore tests",
+    "real Android save, background lock and restore; ADB had no connected device",
+    "cloud checks; both workflows remain disabled",
+    "complete M1-07 acceptance across PIN, biometrics, privacy and all restore failure modes"
+  ]
+}
