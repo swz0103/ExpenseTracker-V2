@@ -1,6 +1,6 @@
 {
-  "scope": "M1-07 schema 14 combined category, tag, merchant, correction, note revision and tombstone authority backup",
-  "baseCommit": "d9f456dc4c239e5046dd9b0902fe237bef22250c",
+  "scope": "M1-07 schema 14 combined catalog, correction, deletion and imported-source authority backup",
+  "baseCommit": "c1db0a78017a03ab2badfe887ec643bbbe1e8c27",
   "date": "2026-09-29",
   "environment": "Windows Flutter host; independent synthetic V2 ledgers and vaults; no Android device or GitHub Actions run",
   "checks": [
@@ -21,17 +21,17 @@
     }
   ],
   "financialCases": [
-    "opening 100, classified expense 5, corrected expense 10 to 7, and tombstoned income 7 produce exact balance 88",
+    "opening 100, classified expense 5, corrected expense 10 to 7, tombstoned income 7 and imported income 1.25 produce exact balance 89.25",
     "category, tag and merchant historical reference versions remain 1 after their catalog changes; current names and merchant alias survive",
     "correction replacement note revision, tombstone audit and authority tables survive password and recovery-text restores into independent clean V2 ledgers",
-    "decrypted authoritative snapshots are byte-identical before and after each restore and remain unchanged after replaying the classified posting and tombstone",
+    "one JSON-imported external source record is recognized as replay when resent as CSV after both clean restores; its entry ID and note remain unchanged",
+    "decrypted authoritative snapshots are byte-identical before and after each restore and remain unchanged after replaying the classified posting, tombstone and imported source",
     "pre-restore destination safety copy exists for both credentials"
   ],
   "sourceSha256": {
-    "prototypes/expense_preview/test/combined_authority_backup_gate_test.dart": "4b90ba86d4fe937bab5d1270eb60e65ff26cb0723866ef0df92fa89649c01084"
+    "prototypes/expense_preview/test/combined_authority_backup_gate_test.dart": "5a0e4cbbd2e97bd562d6a2cdff00a0daec7b4c33942e72b684e28697150f883e"
   },
   "notVerified": [
-    "source importer dedup state in the same cross-module fixture; it has separate host restore tests",
     "real Android save, background lock and restore; ADB had no connected device",
     "cloud checks; both workflows remain disabled",
     "complete M1-07 acceptance across PIN, biometrics, privacy and all restore failure modes"

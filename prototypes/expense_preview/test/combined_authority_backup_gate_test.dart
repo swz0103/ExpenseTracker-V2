@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
+import 'package:data_exchange/data_exchange.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -124,9 +125,31 @@ void main() {
           reason: 'duplicate',
         );
         await source.tombstone(deletion);
+        final externalAccount = PublicId.generate();
+        final imported = SimpleTransactionBatch(
+          WorkspaceId(PublicId.generate()),
+          [
+            SimpleTransaction(
+              sourceRecordId: PublicId.generate(),
+              date: BusinessDate(2026, 9, 29),
+              kind: PostingKind.income,
+              accountId: externalAccount,
+              amount: Money.parse(a.currency, '1.25'),
+              note: 'Imported once',
+            ),
+          ],
+        );
+        final mapping = {externalAccount: a.id};
+        final importReview = await source.reviewSimpleImport(
+          SimpleTransactionCodec.encodeJson(imported),
+          csv: false,
+          accountMapping: mapping,
+        );
+        final importResult = await source.confirmSimpleImport(importReview);
+        expect(importResult.inserted, 1);
         expect(
           (await source.accounts()).single.balance,
-          Money.parse(a.currency, '88'),
+          Money.parse(a.currency, '89.25'),
         );
 
         final backup = await source.exportBackup();
@@ -158,7 +181,7 @@ void main() {
         );
         expect(
           (await target.accounts()).single.balance,
-          Money.parse(a.currency, '88'),
+          Money.parse(a.currency, '89.25'),
         );
         expect(
           (await target.allocations(classified.id)).single.categoryVersion,
@@ -191,6 +214,19 @@ void main() {
           merchant: MerchantSelection(merchant, 1),
         );
         await target.tombstone(deletion);
+        final replayReview = await target.reviewSimpleImport(
+          SimpleTransactionCodec.encodeCsv(imported),
+          csv: true,
+          accountMapping: mapping,
+        );
+        final replay = await target.confirmSimpleImport(replayReview);
+        expect(replay.inserted, 0);
+        expect(replay.replayed, 1);
+        expect(replay.entryIds, importResult.entryIds);
+        expect(
+          (await target.entryNote(importResult.entryIds.single)).text,
+          'Imported once',
+        );
         expect(
           await codec.openWithPassword(await target.exportBackup(), password),
           plain,
