@@ -74,7 +74,12 @@ void main() {
           -180,
           scrollable: find.byType(Scrollable).first,
         );
-        await tap(tester, '記一筆');
+        // Keep the button below the AppBar after returning from a long ledger.
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 120));
+        await tester.pumpAndSettle();
+        expect(find.text('記一筆').hitTestable(), findsOneWidget);
+        await tester.tap(find.text('記一筆').hitTestable());
+        await settle(tester);
         expect(
           tester
               .widget<DropdownButtonFormField<String>>(

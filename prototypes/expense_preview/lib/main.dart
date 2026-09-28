@@ -189,6 +189,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   List<LedgerEntry> _deletedEntries = [];
   MonthlyReport? _monthlyReport;
   bool _monthlyOverflow = false;
+  AssetReport? _assetReport;
+  bool _assetOverflow = false;
   PrivacyMode _privacy = PrivacyMode.hidden;
   bool _forceHidden = false;
   bool _hasMore = false;
@@ -269,6 +271,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _deletedEntries = [];
     _monthlyReport = null;
     _monthlyOverflow = false;
+    _assetReport = null;
+    _assetOverflow = false;
     _catalog = null;
     _tagCatalog = null;
     _merchantCatalog = null;
@@ -390,6 +394,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Future<void> _refresh() async {
     final privacy = await _engine!.privacyMode();
     final accounts = await _engine!.accounts();
+    AssetReport? assetReport;
+    var assetOverflow = false;
+    try {
+      assetReport = AssetReport.build([
+        for (final row in accounts)
+          AssetBalanceFact(
+            row.account.id,
+            row.balance,
+            row.account.includeInNetWorth,
+          ),
+      ]);
+    } on MoneyException {
+      assetOverflow = true;
+    }
     final entries = await _engine!.entries();
     final deletedEntries = _engine!.capabilities.tombstones
         ? await _engine!.deletedEntries()
@@ -430,6 +448,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _deletedEntries = deletedEntries;
       _monthlyReport = monthlyReport;
       _monthlyOverflow = monthlyOverflow;
+      _assetReport = assetReport;
+      _assetOverflow = assetOverflow;
       _entryDraft = entryDraft;
       _draftUnreadable = draftUnreadable;
       _catalog = catalog;
@@ -1657,6 +1677,27 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               child: const Text('查看月收支明細'),
             ),
           const SizedBox(height: 12),
+          if (_accounts.isNotEmpty) ...[
+            Text('資產摘要', style: Theme.of(context).textTheme.titleLarge),
+            const Text('只合計目前現金與銀行帳戶餘額；逐幣別顯示，尚無跨幣估值或投資資產。'),
+            if (_assetOverflow)
+              const Text('帳戶合計超過可表示範圍，暫不顯示資產摘要；個別帳戶餘額仍保留。')
+            else if (_assetReport?.currencies.isEmpty ?? true)
+              const Text('沒有納入摘要的帳戶。')
+            else
+              for (final summary in _assetReport!.currencies)
+                FinancialSummary(
+                  title: '${summary.currency.code} 帳戶餘額',
+                  subtitle: '含期初餘額；個別帳戶見上方',
+                  money: summary.total,
+                  privacy: _privacy,
+                  kind: MoneyKind.balance,
+                  moneyKey: ValueKey('asset-total-${summary.currency.code}'),
+                ),
+            if ((_assetReport?.excludedCount ?? 0) > 0)
+              Text('另有 ${_assetReport!.excludedCount} 個帳戶設定為不納入摘要。'),
+            const SizedBox(height: 12),
+          ],
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
           if (_entries.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('尚無交易')),

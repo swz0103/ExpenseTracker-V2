@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-28",
+  "branch": "integration/v2-core",
+  "baseCommit": "5d8b2b69f7519fcc7c99f9b5e3b2e64071b18d0b",
+  "scope": "Current cash/bank Ledger balances summarized per currency using account inclusion state; no cross-currency valuation, new authoritative data, schema or backup format.",
+  "localChecks": [
+    {
+      "package": "packages/reports",
+      "result": "pass",
+      "cases": 9,
+      "scope": "Full package via offline host checks: enforce-lockfile, format, analyze and tests including negative balances, excluded accounts, multiple currencies, duplicate identity and overflow rejection"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "result": "partial full run plus repaired targeted case",
+      "initialFullRunPassed": 172,
+      "initialFullRunFailed": 1,
+      "initialFullRunWallClock": "13m46s",
+      "initialFailure": "Merchant widget returned from a long ledger and programmatically scrolled the 記一筆 button under the AppBar; the missed tap made its later merchant selector absent. No finance, encrypted restore or storage assertion failed.",
+      "repair": "Test explicitly scrolls the button into the hit-testable viewport below the AppBar before tapping; no production source, assertion, timeout or financial behavior was relaxed.",
+      "targetedRerunPassed": 1,
+      "finalFullRun": "not rerun after the test-only locator repair; the 172 other cases had passed on the same production source",
+      "staticAnalysis": "pass after test repair"
+    },
+    {
+      "package": "tooling/architecture_checks",
+      "result": "pass",
+      "cases": 20,
+      "scope": "Full offline package and whole-workspace dependency boundary scan"
+    }
+  ],
+  "androidBuild": {
+    "result": "pass",
+    "variant": "debug android-arm64",
+    "applicationId": "dev.expensetracker.preview",
+    "artifact": "prototypes/expense_preview/build/app/outputs/flutter-apk/app-debug.apk (ignored local output; not uploaded)",
+    "bytes": 120570537,
+    "sha256": "539c2882b6f1541e0dd1beb16d2dee38962bf5231b0c28137bb244b5ef40e979"
+  },
+  "windowsWorkingTreeSourceSha256": {
+    "packages/reports/lib/src/assets.dart": "c065a38fde3ecfddeda5330904f69a7889bd0b3adc6cef658bee127133fadec4",
+    "packages/reports/lib/reports.dart": "0a6225a3523949975ba40daab3060202709d875a0a522127e68d7668cd6a6348",
+    "prototypes/expense_preview/lib/main.dart": "23263513b6aca7bafdef3cd40e7937f1f5d248fc137938979ba839c82023fadf",
+    "prototypes/expense_preview/test/asset_report_widget_test.dart": "0a1bf41df08366be9005916c91594a7d0ae2142283cd67f3ac8f24cebe151bbb",
+    "prototypes/expense_preview/test/merchant_widget_test.dart": "d0a6a95584cc48c2f78edd8b4dd1adb0b622cb0af8c6c0c2172d67e4ce6ba8af"
+  },
+  "cloudActions": "not run; both V2 workflows remain disabled_manually",
+  "physicalDevice": "not run; adb devices -l returned no device",
+  "remaining": "M1-05 merchant and account dimensions, full milestone gate, device and cloud verification, M2/M3 CORE and main merge"
+}
