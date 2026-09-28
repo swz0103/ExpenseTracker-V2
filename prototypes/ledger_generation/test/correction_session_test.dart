@@ -211,4 +211,92 @@ void main() {
       });
     },
   );
+
+  test(
+    'activity pages retain a chain of original, reversals and replacements',
+    () async {
+      final active = store();
+      await seed(active);
+      final next = PostingCorrection(
+        original: proposal.replacement,
+        replacement: Posting.expense(
+          id: PublicId.generate(),
+          operation: op(),
+          date: BusinessDate(2026, 10, 2),
+          account: ref(),
+          amount: money('5'),
+        ),
+        reversalId: PublicId.generate(),
+        reversalOperation: op(),
+        reason: 'second correction',
+      );
+      await active.withSession((session) async {
+        await session.correct(proposal);
+        await session.correct(next);
+        final expected = {
+          original.id,
+          proposal.reversal.id,
+          proposal.replacement.id,
+          next.reversal.id,
+          next.replacement.id,
+        };
+        for (final selected in [
+          original.id,
+          proposal.replacement.id,
+          next.replacement.id,
+        ]) {
+          final ids = <PublicId>[];
+          LedgerActivityCursor? cursor;
+          for (;;) {
+            final page = await session.activity(
+              workspace,
+              selected,
+              before: cursor,
+              limit: 2,
+            );
+            if (page.isEmpty) break;
+            ids.addAll(page.map((row) => row.entry.id));
+            cursor = page.last.cursor;
+          }
+          expect(ids.toSet(), expected);
+          expect(ids, hasLength(expected.length));
+        }
+        final history = await session.activity(
+          workspace,
+          original.id,
+          limit: 10,
+        );
+        expect(
+          history
+              .singleWhere((row) => row.entry.id == original.id)
+              .correctionRole,
+          CorrectionActivityRole.original,
+        );
+        expect(
+          history
+              .singleWhere((row) => row.entry.id == proposal.reversal.id)
+              .correctionRole,
+          CorrectionActivityRole.reversal,
+        );
+        expect(
+          history
+              .singleWhere((row) => row.entry.id == next.replacement.id)
+              .correctionRole,
+          CorrectionActivityRole.replacement,
+        );
+        expect(
+          (await session.entry(workspace, original.id))!.correctedBy,
+          proposal.replacement.id,
+        );
+        expect(
+          (await session.entry(
+            workspace,
+            proposal.replacement.id,
+          ))!.correctedBy,
+          next.replacement.id,
+        );
+        expect((await session.accounts(workspace)).single.balance, money('95'));
+      });
+    },
+  );
 }

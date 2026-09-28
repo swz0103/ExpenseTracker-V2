@@ -1,12 +1,18 @@
 # 財務更正與替代：實作契約（進行中）
 
-本批接續[交易備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61)，屬於 [M1-04](implementation-plan.md#m1-04拆分退款更正與刪除規則) 的下一個流程；依據 [FV-008](full-vision-baseline.md#fv-008)、[RC-03](architecture-baseline-v1.0-rc1.md#rc-03) 及[財務契約](foundation-contracts.md)。此文件先固定操作與驗證邊界，功能尚未實作或通過 gate。
+本批接續[交易備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61)，屬於 [M1-04](implementation-plan.md#m1-04拆分退款更正與刪除規則) 的下一個流程；依據 [FV-008](full-vision-baseline.md#fv-008)、[RC-03](architecture-baseline-v1.0-rc1.md#rc-03) 及[財務契約](foundation-contracts.md)。此文件固定操作、已實作範圍與尚待驗證的 gate。
 
 2026-09-28 進度：Ledger 提案、SQLite 原子保存、可攜 snapshot 及 schema 13 加密 generation 已實作。`event_corrections` 以原事件、反向事件及替代事件建立唯一關聯；兩筆金融收據、audit 與關聯在同一個交易內提交，收據另外保留相同三個 ID 與各自角色。重送核對完整關聯，獨立做過的撤銷不得被收編；還原拒絕缺漏關聯、孤兒、角色、種類、日期及 audit 不一致。Ledger session 已能執行及重送更正，並在提交前檢查事件／關聯容量；12 → 13 使用 staged generation upgrade，升級前安全副本由密碼與救援金鑰分別驗證，中途失敗保留舊 generation 並可重試。schema 13 備份已由兩種憑證各自乾淨還原；這些測試使用合成資料。
 
-本機保存層 55 項、可攜還原 103 項、Ledger generation 237 項、SQLCipher 儲存 34 項及 App 舊 schema 完整 161 項通過；受影響套件靜態分析與格式檢查通過。App 目前預設 schema 12，更正的草稿與 UI 尚未接上，大量資料及完整中斷驗證未完成；不能用此版本處理真實使用者資料。雲端 Actions 未執行，實機未操作，`main` 未合併。
+第一輪本機保存層 55 項、可攜還原 103 項、Ledger generation 237 項、SQLCipher 儲存 34 項及 App 舊 schema 完整 161 項通過；受影響套件靜態分析與格式檢查通過。雲端 Actions 未執行，實機未操作，`main` 未合併。
 
-App 的 schema 13 factory／快照核對及 12 → 13 明確升級路由已加入，但預設仍為 schema 12。新增主機案例涵蓋升級時注入故障、舊版重開與備份、再升級、匯出與重開。該案例找出 session 快照漏傳 `correctionsAware`，已修正並補入加密 session 快照與 store 快照一致的回歸斷言。App 升級案例及 Ledger 更正 session 兩項均通過；正式更正輸入仍未完成。
+App 的 schema 13 factory／快照核對及 12 → 13 明確升級路由已加入，但預設仍為 schema 12。新增主機案例涵蓋升級時注入故障、舊版重開與備份、再升級、匯出與重開。該案例找出 session 快照漏傳 `correctionsAware`，已修正並補入加密 session 快照與 store 快照一致的回歸斷言。
+
+草稿格式及 schema 13 測試 App 現已支援更正的未完成輸入、原事件與替代事件的凍結命令、兩個獨立 operation、加密本機保存與提交後重啟核對。收支與跨幣轉帳可使用同一套正常表單輸入替代交易；測試畫面提供原金額沖回摘要、原因、明確確認及隱私遮罩。
+
+Activity 回查另補原交易、沖回及替代交易的完整鏈，包含替代交易再次更正時共用的根事件與游標；列表區分「已更正」與一般「已撤銷」。新更正鏈／舊退款活動的 Ledger 定向 5 項及 App 定向 3 項通過；Activity 修正後 App 全量 **165 項**、Ledger generation 全量 **238 項**及草稿套件 **25 項**通過。最大拆分、標籤與原因的凍結草稿可在 16 KiB 加密槽限制內往返。[主機驗證清單](test-results/corrections-host-2026-09-28.json)列出受影響套件及未執行的 gate。
+
+接續的[5,000 事件大量資料結果](test-results/corrections-scale-2026-09-28.json)已通過：1,666 組更正中有 833 組跨幣轉帳，合計 30,833 列、9,622,122 位元組；1,666 次完整重送及兩條還原後各一次重送都沒有再入帳，達事件上限後的新交易遭拒且快照不變。先刪除來源 DB 和金鑰，再以密碼、救援金鑰分別乾淨還原，兩份快照逐位元組相同。另以[四個實際行程退出點](test-results/corrections-process-2026-09-28.json)驗證草稿寫入、發布、凍結及提交後重開；每次僅留下四筆事件與正確餘額。所有結果使用合成資料；雲端 Actions 與實機未執行，App 預設仍是 schema 12，不能以此宣稱正式功能 gate 完成。
 
 ## 使用者流程與財務語意
 

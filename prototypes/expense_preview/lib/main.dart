@@ -27,6 +27,7 @@ part 'category_screen.dart';
 part 'split_entry.dart';
 part 'refund_entry.dart';
 part 'reversal_entry.dart';
+part 'correction_entry.dart';
 part 'note_entry.dart';
 part 'activity_dialog.dart';
 part 'tag_screen.dart';
@@ -153,10 +154,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _transfer = false;
   RefundStatus? _refund;
   EntrySubmission? _reversal;
+  EntrySubmission? _correction;
   PublicId? _noteTarget;
   int _noteRevision = 0;
   final _noteText = TextEditingController();
   final _reversalReason = TextEditingController();
+  final _correctionReason = TextEditingController();
   PublicId? _destinationId;
   final _date = TextEditingController();
   final _credential = TextEditingController();
@@ -233,6 +236,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _fee,
       _received,
       _reversalReason,
+      _correctionReason,
       _noteText,
       _date,
       _credential,
@@ -242,10 +246,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _resetSplits();
     _refund = null;
     _reversal = null;
+    _correction = null;
     _noteTarget = null;
     _noteRevision = 0;
     _noteText.clear();
     _reversalReason.clear();
+    _correctionReason.clear();
     _draft = null;
     _saved = false;
     _accounts = [];
@@ -322,6 +328,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _fee,
       _received,
       _reversalReason,
+      _correctionReason,
       _noteText,
       _date,
       _credential,
@@ -450,10 +457,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _resetSplits();
       _refund = null;
       _reversal = null;
+      _correction = null;
       _noteTarget = null;
       _noteRevision = 0;
       _noteText.clear();
       _reversalReason.clear();
+      _correctionReason.clear();
       _page = page;
       _transfer = transfer;
       if (transfer) _income = false;
@@ -556,6 +565,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           )
         : EntryFields(
             income: _income,
+            correctionOf: _correction?.posting.id,
+            correctionReason: _correction == null ? '' : _correctionReason.text,
             refundOf: _refund?.budget.originalId,
             split: _split,
             splits: [
@@ -619,10 +630,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       await _resumeRefund(saved);
       return;
     }
+    final correctionSource = fields.correctionOf == null
+        ? null
+        : saved.correctionSubmission == null
+        ? await _engine!.reversalSource(fields.correctionOf!)
+        : EntrySubmission(saved.correctionSubmission!.pair.original);
     _edit(_Page.posting, transfer: fields.transfer);
     var omitted = false;
     setState(() {
       _entryDraft = saved;
+      _correction = correctionSource;
+      _correctionReason.text = fields.correctionReason;
       _draftSaveError = null;
       _income = fields.income;
       _fee.text = fields.fee;
@@ -691,6 +709,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       if (fields.merchantId != null && _merchantId.isEmpty) omitted = true;
       _message = omitted
           ? '部分帳戶或分類資料已停用，請重新選擇並確認。原草稿仍保留。'
+          : fields.correctionOf != null
+          ? '已恢復更正草稿，請確認原交易及替代金額後送出。'
           : '已恢復草稿，請確認欄位後再儲存收支。';
     });
   });
@@ -758,6 +778,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   });
   Future<void> _savePosting() => _perform(() async {
     if (_reversal != null && !_postingFrozen && !await _confirmReversal()) {
+      return;
+    }
+    if (_correction != null && !_postingFrozen && !await _confirmCorrection()) {
       return;
     }
     if (!_postingFrozen) {
@@ -1160,14 +1183,19 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           else if (_refund != null)
             ..._refundInputs()
           else ...[
+            if (_correction != null) ..._correctionIntro(),
             Text(
-              _transfer ? '轉帳' : '記一筆',
+              _correction != null
+                  ? '替代交易'
+                  : _transfer
+                  ? '轉帳'
+                  : '記一筆',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
             if (_transfer)
               const Text('本金只移動帳戶餘額；手續費另外計入支出，從轉出帳戶扣除。')
-            else
+            else if (_correction == null)
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(value: false, label: Text('支出')),
@@ -1395,6 +1423,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? '儲存備註'
                 : _reversal != null
                 ? '撤銷這筆交易'
+                : _correction != null
+                ? '送出更正'
                 : _refund != null
                 ? '儲存退款'
                 : _transfer
@@ -1544,7 +1574,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
+                            if (e.correctedBy != null)
+                              const Text('已更正；原交易、沖回與替代交易均保留')
+                            else if (e.reversedBy != null)
+                              const Text('已撤銷；反向紀錄另列'),
                             if (e.reversedBy == null &&
                                 _engine!.capabilities.reversals)
                               TextButton(
@@ -1553,6 +1586,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     ? null
                                     : () => _startReversal(e.id),
                                 child: const Text('撤銷交易'),
+                              ),
+                            if (e.reversedBy == null &&
+                                _engine!.capabilities.corrections)
+                              TextButton(
+                                key: ValueKey('entry-correct-${e.id}'),
+                                onPressed: _busy
+                                    ? null
+                                    : () => _startCorrection(e.id),
+                                child: const Text('更正交易'),
                               ),
                             TransferSummary(
                               entry: e,
@@ -1592,6 +1634,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                   'activity' => _showActivity(e.id),
                                   'refund' => _startRefund(e.id),
                                   'reversal' => _startReversal(e.id),
+                                  'correction' => _startCorrection(e.id),
                                   _ => _copyPosting(e.id),
                                 },
                                 itemBuilder: (_) => [
@@ -1608,6 +1651,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     const PopupMenuItem(
                                       value: 'reversal',
                                       child: Text('撤銷交易'),
+                                    ),
+                                  if (_engine!.capabilities.corrections &&
+                                      e.reversedBy == null &&
+                                      [
+                                        PostingKind.income,
+                                        PostingKind.expense,
+                                      ].contains(e.kind))
+                                    const PopupMenuItem(
+                                      value: 'correction',
+                                      child: Text('更正交易'),
                                     ),
                                   if ([
                                     PostingKind.income,
@@ -1627,7 +1680,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                 ],
                               ),
                             ),
-                            if (e.reversedBy != null) const Text('已撤銷；反向紀錄另列'),
+                            if (e.correctedBy != null)
+                              const Text('已更正；原交易、沖回與替代交易均保留')
+                            else if (e.reversedBy != null)
+                              const Text('已撤銷；反向紀錄另列'),
                             if (e.refundOf != null) ..._refundDetails(e),
                             ..._splitDetails(e.id),
                           ],
@@ -1657,7 +1713,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。金額更正／刪除與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。刪除與報表尚未開放。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -1679,9 +1735,11 @@ String _error(Object error) => switch (error) {
   NoteException() => '備註格式或交易不符；最多 1024 個字元。',
 
   LedgerException(code: LedgerError.reversalDependency) =>
-    '交易已有退款或撤銷紀錄，無法再次撤銷或退款。',
+    '交易已有退款、撤銷或更正紀錄，不能再對原交易操作。',
   LedgerException(code: LedgerError.reversalReference) =>
     '僅能撤銷完整的收入、支出或轉帳；日期不可早於原交易。',
+  LedgerException(code: LedgerError.correctionReference) =>
+    '只能把完整收入、支出或轉帳更正為相同種類；請重新確認原交易。',
   LedgerException(code: LedgerError.refundLimit) => '退款超過原支出或該分類剩餘可退金額，請重新確認。',
   LedgerException(code: LedgerError.refundReference) =>
     '退款須對應原支出及原分類，日期不可早於原支出。',

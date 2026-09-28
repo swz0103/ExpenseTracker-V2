@@ -28,6 +28,18 @@ extension PreviewDrafts on PreviewEngine {
       _check(epoch);
       return null;
     }
+    if (draft?.correctionSubmission != null &&
+        await session.entry(workspace, draft!.id) != null) {
+      final frozen = draft.correctionSubmission!;
+      await session.correct(
+        frozen.pair,
+        replacementTags: frozen.tags,
+        replacementMerchant: frozen.merchant,
+      );
+      await store.write(null);
+      _check(epoch);
+      return null;
+    }
     if (draft?.submission != null &&
         await session.entry(workspace, draft!.id) != null) {
       // Receipt equality proves this event is exactly our frozen command.
@@ -49,7 +61,8 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if ((fields.noteOf != null && !capabilities.notes) ||
+    if ((fields.correctionOf != null && !capabilities.corrections) ||
+        (fields.noteOf != null && !capabilities.notes) ||
         (fields.reversalOf != null && !capabilities.reversals) ||
         (fields.refundOf != null && !capabilities.refunds) ||
         (fields.transfer && !capabilities.transfers) ||
@@ -105,7 +118,7 @@ extension PreviewDrafts on PreviewEngine {
       _check(epoch);
       return;
     }
-    if (draft.submission == null) {
+    if (draft.submission == null && draft.correctionSubmission == null) {
       final fields = draft.fields;
       late EntrySubmission command;
       if (fields.reversalOf != null) {
@@ -269,17 +282,50 @@ extension PreviewDrafts on PreviewEngine {
         }
       }
       _check(epoch);
-      draft = draft.prepare(command);
+      if (fields.correctionOf != null) {
+        if (!capabilities.corrections) throw PreviewInvalid();
+        final source = await session.reversalSource(
+          workspace,
+          fields.correctionOf!,
+        );
+        draft = draft.prepareCorrection(
+          CorrectionSubmission(
+            PostingCorrection(
+              original: source.posting,
+              replacement: command.posting,
+              reversalId: PublicId.generate(),
+              reversalOperation: OperationKey(
+                workspace,
+                OperationId(PublicId.generate()),
+              ),
+              reason: fields.correctionReason.trim(),
+            ),
+            tags: command.tags,
+            merchant: command.merchant,
+          ),
+        );
+      } else {
+        draft = draft.prepare(command);
+      }
       await store.write(draft);
       draftCheckpoint?.call('draft-prepared');
       _check(epoch);
     }
-    final command = draft.submission!;
-    await session.post(
-      command.posting,
-      tags: command.tags,
-      merchant: command.merchant,
-    );
+    final correction = draft.correctionSubmission;
+    if (correction != null) {
+      await session.correct(
+        correction.pair,
+        replacementTags: correction.tags,
+        replacementMerchant: correction.merchant,
+      );
+    } else {
+      final command = draft.submission!;
+      await session.post(
+        command.posting,
+        tags: command.tags,
+        merchant: command.merchant,
+      );
+    }
     draftCheckpoint?.call('draft-committed');
     await store.write(null);
     _check(epoch);
@@ -412,7 +458,13 @@ extension PreviewDrafts on PreviewEngine {
     if (draft == null) throw PreviewInvalid();
     if (draft.fields.noteOf != null
         ? await session.noteOperationExists(draft.operation)
-        : await session.entry(workspace, draft.id) != null) {
+        : await session.entry(workspace, draft.id) != null ||
+              (draft.correctionSubmission != null &&
+                  await session.entry(
+                        workspace,
+                        draft.correctionSubmission!.pair.reversal.id,
+                      ) !=
+                      null)) {
       throw DraftNeedsResolution();
     }
     _check(epoch);

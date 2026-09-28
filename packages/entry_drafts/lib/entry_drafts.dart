@@ -5,6 +5,7 @@ import 'package:ledger/ledger.dart';
 
 part 'refund_draft.dart';
 part 'reversal_draft.dart';
+part 'correction_draft.dart';
 
 /// Bounded partial allocation input; values are validated only on submission.
 final class SplitFields {
@@ -32,6 +33,8 @@ final class EntryFields {
     this.refundOf,
     this.reversalOf,
     this.reversalReason = '',
+    this.correctionOf,
+    this.correctionReason = '',
     this.noteOf,
     this.noteRevision = 0,
     this.noteText = '',
@@ -50,6 +53,7 @@ final class EntryFields {
                 split ||
                 refundOf != null ||
                 reversalOf != null ||
+                correctionOf != null ||
                 accountId != null ||
                 categoryId != null ||
                 merchantId != null ||
@@ -62,7 +66,11 @@ final class EntryFields {
                 this.tags.isNotEmpty))) {
       throw const FormatException('Invalid note draft fields');
     }
-    if ((reversalOf != null &&
+    if ((correctionOf == null && correctionReason.isNotEmpty) ||
+        correctionReason.runes.length > 256 ||
+        (correctionOf != null &&
+            (refundOf != null || reversalOf != null || noteOf != null)) ||
+        (reversalOf != null &&
             (income ||
                 transfer ||
                 split ||
@@ -112,6 +120,8 @@ final class EntryFields {
   final List<SplitFields> splits;
   final PublicId? destinationId, refundOf, reversalOf;
   final String reversalReason;
+  final PublicId? correctionOf;
+  final String correctionReason;
   final PublicId? noteOf;
   final int noteRevision;
   final String noteText;
@@ -120,7 +130,9 @@ final class EntryFields {
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => noteOf != null
+  List<Object?> toJson() => correctionOf != null
+      ? _correctionFields(this)
+      : noteOf != null
       ? [noteOf!.value, noteRevision, noteText]
       : reversalOf != null
       ? [reversalOf!.value, date, reversalReason]
@@ -165,7 +177,9 @@ final class EntryFields {
     bool refund = false,
     bool reversal = false,
     bool note = false,
+    bool correction = false,
   }) {
+    if (correction) return _readCorrectionFields(value);
     if (note) {
       final v = _list(value, 3);
       return EntryFields(
@@ -390,7 +404,29 @@ final class EntryDraft {
     required this.fields,
     this.submission,
     this.noteSubmission,
+    this.correctionSubmission,
   }) {
+    if (fields.correctionOf != null) {
+      if (submission != null ||
+          noteSubmission != null ||
+          (correctionSubmission != null &&
+              (correctionSubmission!.pair.original.id != fields.correctionOf ||
+                  correctionSubmission!.pair.replacement.id != id ||
+                  correctionSubmission!.pair.replacement.operation !=
+                      operation ||
+                  correctionSubmission!.pair.reversal.reversalReason !=
+                      fields.correctionReason.trim() ||
+                  (correctionSubmission!.pair.replacement.kind ==
+                          PostingKind.transfer) !=
+                      fields.transfer ||
+                  (correctionSubmission!.pair.replacement.kind ==
+                          PostingKind.income) !=
+                      fields.income))) {
+        throw const FormatException('Correction submission mismatch');
+      }
+    } else if (correctionSubmission != null) {
+      throw const FormatException('Unexpected correction submission');
+    }
     if ((fields.noteOf != null && submission != null) ||
         (noteSubmission != null &&
             (submission != null ||
@@ -423,7 +459,11 @@ final class EntryDraft {
   final EntryFields fields;
   final EntrySubmission? submission;
   final NoteChange? noteSubmission;
-  bool get isPrepared => submission != null || noteSubmission != null;
+  final CorrectionSubmission? correctionSubmission;
+  bool get isPrepared =>
+      submission != null ||
+      noteSubmission != null ||
+      correctionSubmission != null;
   EntryDraft edit(EntryFields fields) {
     if (isPrepared) throw StateError('Resolve pending submission first');
     return EntryDraft(id: id, operation: operation, fields: fields);
@@ -441,8 +481,16 @@ final class EntryDraft {
     fields: fields,
     noteSubmission: command,
   );
+  EntryDraft prepareCorrection(CorrectionSubmission command) => EntryDraft(
+    id: id,
+    operation: operation,
+    fields: fields,
+    correctionSubmission: command,
+  );
   String encode() => jsonEncode([
-    fields.noteOf != null
+    fields.correctionOf != null
+        ? 'manual-correction-v1'
+        : fields.noteOf != null
         ? 'manual-note-v1'
         : fields.reversalOf != null
         ? 'manual-reversal-v1'
@@ -459,7 +507,9 @@ final class EntryDraft {
     operation.workspace.toString(),
     operation.operation.toString(),
     fields.toJson(),
-    noteSubmission?.input ?? submission?.toJson(split: fields.split),
+    correctionSubmission?.toJson() ??
+        noteSubmission?.input ??
+        submission?.toJson(split: fields.split),
   ]);
   factory EntryDraft.decode(String text) {
     if (utf8.encode(text).length > 16384)
@@ -467,6 +517,7 @@ final class EntryDraft {
     final v = _list(jsonDecode(text), 6);
     if (![
       'manual-note-v1',
+      'manual-correction-v1',
       'manual-refund-v1',
       'manual-reversal-v1',
       'manual-entry-v1',
@@ -486,6 +537,16 @@ final class EntryDraft {
         operation: op,
         fields: EntryFields.fromJson(v[4], note: true),
         noteSubmission: v[5] == null ? null : NoteChange.fromInput(v[5]),
+      );
+    }
+    if (v[0] == 'manual-correction-v1') {
+      return EntryDraft(
+        id: id,
+        operation: op,
+        fields: EntryFields.fromJson(v[4], correction: true),
+        correctionSubmission: v[5] == null
+            ? null
+            : CorrectionSubmission.fromJson(v[5], id, op),
       );
     }
     return EntryDraft(

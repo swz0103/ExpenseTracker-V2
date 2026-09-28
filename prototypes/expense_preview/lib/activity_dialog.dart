@@ -88,6 +88,12 @@ class _ActivityDialogState extends State<_ActivityDialog> {
         children: [
           Text('記錄時間：${_recorded(row.recordedAt)}（本機時區）'),
           if (e.id == widget.selected) const Text('目前選取的交易'),
+          if (row.noteRevision == null && row.correctionRole != null)
+            Text(switch (row.correctionRole!) {
+              CorrectionActivityRole.original => '更正鏈：原交易',
+              CorrectionActivityRole.reversal => '更正鏈：原交易沖回',
+              CorrectionActivityRole.replacement => '更正鏈：替代交易',
+            }),
           if (row.noteRevision != null) ...[
             Text('備註修訂 #${row.noteRevision!.revision}'),
             Text(
@@ -157,7 +163,7 @@ class _ActivityDialogState extends State<_ActivityDialog> {
                 ),
               ],
             ),
-            const Text('由新到舊，包含原交易、相關退款與撤銷。'),
+            const Text('由新到舊，包含原交易、相關退款、撤銷及更正替代交易。'),
             Expanded(
               child: ListView(
                 key: const Key('activity-list'),

@@ -24,6 +24,7 @@ final class LedgerEntry {
     this.refunded,
     this.reversalOf,
     this.reversedBy,
+    this.correctedBy,
     this.reversalReason,
     this.note = const EntryNote(0, ''),
   });
@@ -40,6 +41,7 @@ final class LedgerEntry {
   final PublicId? refundOf;
   final Money? refunded;
   final PublicId? reversalOf, reversedBy;
+  final PublicId? correctedBy;
   final String? reversalReason;
   final EntryNote note;
 }
@@ -311,11 +313,13 @@ final class LedgerSession {
       '${_db.refundsAware ? 'r.original_id' : 'NULL'} AS refund_of,'
       '${_db.reversalsAware ? 'v.original_id' : 'NULL'} AS reversal_of,'
       '${_db.reversalsAware ? 'v.reason' : 'NULL'} AS reversal_reason,'
-      '${_db.reversalsAware ? 'b.event_id' : 'NULL'} AS reversed_by '
+      '${_db.reversalsAware ? 'b.event_id' : 'NULL'} AS reversed_by,'
+      '${_db.correctionsAware ? 'c.replacement_id' : 'NULL'} AS corrected_by '
       'FROM events e JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0 '
       'LEFT JOIN legs d ON d.workspace=e.workspace AND d.event_id=e.id AND d.ordinal=1 '
       '${_db.refundsAware ? 'LEFT JOIN event_refunds r ON r.workspace=e.workspace AND r.event_id=e.id ' : ''}'
-      '${_db.reversalsAware ? 'LEFT JOIN event_reversals v ON v.workspace=e.workspace AND v.event_id=e.id LEFT JOIN event_reversals b ON b.workspace=e.workspace AND b.original_id=e.id ' : ''}';
+      '${_db.reversalsAware ? 'LEFT JOIN event_reversals v ON v.workspace=e.workspace AND v.event_id=e.id LEFT JOIN event_reversals b ON b.workspace=e.workspace AND b.original_id=e.id ' : ''}'
+      '${_db.correctionsAware ? 'LEFT JOIN event_corrections c ON c.workspace=e.workspace AND c.original_id=e.id ' : ''}';
 
   /// Persisted entry in this workspace, independent of pagination or UI state.
   Future<LedgerEntry?> entry(WorkspaceId workspace, PublicId id) =>
@@ -405,6 +409,9 @@ LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(
   reversedBy: r.readNullable<String>('reversed_by') == null
       ? null
       : PublicId.parse(r.read<String>('reversed_by')),
+  correctedBy: r.readNullable<String>('corrected_by') == null
+      ? null
+      : PublicId.parse(r.read<String>('corrected_by')),
   reversalReason: r.readNullable<String>('reversal_reason'),
   note: EntryNote(
     r.readNullable<int>('note_revision') ?? 0,
