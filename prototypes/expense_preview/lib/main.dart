@@ -1159,6 +1159,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _MonthlyReportScreen(
             engine: _engine!,
             initial: _monthlyReport!,
+            catalog: _catalog!,
             privacy: _privacy,
             onActivity: _showActivity,
           ),

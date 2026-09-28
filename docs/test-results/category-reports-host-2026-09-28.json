@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-28",
+  "branch": "integration/v2-core",
+  "baseCommit": "57d8c0fe39711731b48aac063054f7f56419185f",
+  "scope": "Read-only historical category attribution added to the existing per-currency monthly report and App screen; no schema, authoritative table, migration, backup or restore format change.",
+  "localChecks": [
+    {
+      "package": "packages/reports",
+      "result": "pass",
+      "cases": 6,
+      "scope": "Full package via offline host checks: enforce-lockfile, format, analyze, split/refund/fee reconciliation, invalid attribution rejection and existing monetary boundaries"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "result": "pass",
+      "cases": 3,
+      "scope": "Two monthly session tests (split, cross-currency refund, tombstone, rename, clean restore, schema without category references) plus one 5000-event search/keyset/monthly-report test; static analysis passed. The 5000-event case took 1m53s including creation and search, not isolated report timing. Full Ledger suite was not rerun after this read-only change."
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "result": "pass",
+      "cases": 2,
+      "scope": "Monthly widget tests: empty-month navigation, category totals and drilldown, privacy mask and lifecycle lock; Flutter analyze passed. Full App suite was not rerun on this change."
+    },
+    {
+      "package": "tooling/architecture_checks",
+      "result": "pass",
+      "cases": 20,
+      "scope": "Full package via offline host checks and whole-workspace dependency scan"
+    }
+  ],
+  "androidBuild": {
+    "result": "pass",
+    "variant": "debug android-arm64",
+    "applicationId": "dev.expensetracker.preview",
+    "artifact": "prototypes/expense_preview/build/app/outputs/flutter-apk/app-debug.apk (ignored local output; not uploaded)",
+    "bytes": 120566365,
+    "sha256": "024aa29c86161f375027819015844e3e5cd0dec966905eabb0a7d1aa95fb53df"
+  },
+  "windowsWorkingTreeSourceSha256": {
+    "packages/reports/lib/src/monthly.dart": "8e8798b08f1687fd511d57749af1f2ad2d8ffdbe38f80ac08ecc1434f694d00a",
+    "prototypes/ledger_generation/lib/ledger_session.dart": "b6d4edaceda24025e377ff7b93270d6335cdaecca8c44311c3c04e2e263b95fe",
+    "prototypes/expense_preview/lib/main.dart": "b314200a7e831f334166db489bf17d2eedd74d6ebee7181160e87f45f1945d79",
+    "prototypes/expense_preview/lib/monthly_report_screen.dart": "fcf6925e35567dae38f651e47b07847d6f32c4a12808b289532e365dccb56b65",
+    "prototypes/expense_preview/test/monthly_report_widget_test.dart": "ef1a2e6d54963153a5dbe10e7b0026a75e0c704cbd14e5db0cb2ce92610b4e9a"
+  },
+  "cloudActions": "not run; both workflows were verified disabled_manually before delivery",
+  "physicalDevice": "not run; adb devices -l returned no device",
+  "remaining": "M1-05 merchant/account dimensions and asset summary, full milestone gates, device and cloud verification, M2/M3 CORE and main merge"
+}

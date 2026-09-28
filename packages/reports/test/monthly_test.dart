@@ -63,6 +63,85 @@ void main() {
   });
 
   test(
+    'historical split and signed refunds reconcile with currency totals',
+    () {
+      final food = PublicId.generate(), travel = PublicId.generate();
+      final expense = MonthlyFact(
+        id: PublicId.generate(),
+        date: BusinessDate(2026, 9, 2),
+        kind: PostingKind.expense,
+        income: Money(twd, BigInt.zero),
+        expense: Money.parse(twd, '10'),
+        allocations: [
+          CategoryAllocation(food, Money.parse(twd, '6')),
+          CategoryAllocation(travel, Money.parse(twd, '4')),
+        ],
+      );
+      final refund = MonthlyFact(
+        id: PublicId.generate(),
+        date: BusinessDate(2026, 9, 3),
+        kind: PostingKind.refund,
+        income: Money(twd, BigInt.zero),
+        expense: Money.parse(twd, '-2'),
+        allocations: [CategoryAllocation(food, Money.parse(twd, '2'))],
+      );
+      final fee = fact(
+        PostingKind.transfer,
+        BusinessDate(2026, 9, 4),
+        twd,
+        '0',
+        '1',
+      );
+      final report = MonthlyReport.build(month, [expense, refund, fee]);
+      expect(report.currencies.single.expense.majorText, '9.00');
+      final byCategory = {
+        for (final row in report.categories) row.categoryId: row,
+      };
+      expect(byCategory[food]!.expense.majorText, '4.00');
+      expect(byCategory[food]!.facts.map((row) => row.source.id), {
+        expense.id,
+        refund.id,
+      });
+      expect(byCategory[travel]!.expense.majorText, '4.00');
+      expect(byCategory[null]!.expense.majorText, '1.00');
+      expect(
+        report.categories.fold<BigInt>(
+          BigInt.zero,
+          (sum, row) => sum + row.expense.minorUnits,
+        ),
+        report.currencies.single.expense.minorUnits,
+      );
+    },
+  );
+
+  test('invalid category attribution fails closed', () {
+    final id = PublicId.generate();
+    MonthlyFact row(List<CategoryAllocation> allocations) => MonthlyFact(
+      id: PublicId.generate(),
+      date: BusinessDate(2026, 9, 2),
+      kind: PostingKind.expense,
+      income: Money(twd, BigInt.zero),
+      expense: Money.parse(twd, '5'),
+      allocations: allocations,
+    );
+    expect(
+      () => row([CategoryAllocation(id, Money.parse(twd, '4'))]),
+      throwsFormatException,
+    );
+    expect(
+      () => row([
+        CategoryAllocation(id, Money.parse(twd, '2')),
+        CategoryAllocation(id, Money.parse(twd, '3')),
+      ]),
+      throwsFormatException,
+    );
+    expect(
+      () => row([CategoryAllocation(id, Money.parse(usd, '5'))]),
+      throwsA(isA<MoneyException>()),
+    );
+  });
+
+  test(
     'out-of-period, duplicate, mismatched currency and overflow fail closed',
     () {
       final day = BusinessDate(2026, 9, 1);

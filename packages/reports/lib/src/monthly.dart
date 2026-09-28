@@ -29,9 +29,37 @@ final class MonthlyFact {
     required this.kind,
     required this.income,
     required this.expense,
-  }) {
+    List<CategoryAllocation> allocations = const [],
+  }) : allocations = List.unmodifiable(allocations) {
     if (income.currency != expense.currency) {
       throw const MoneyException(MoneyError.currencyMismatch);
+    }
+    if (allocations.isNotEmpty) {
+      final effect = income.minorUnits != BigInt.zero
+          ? income.minorUnits
+          : expense.minorUnits;
+      if (effect == BigInt.zero ||
+          (income.minorUnits != BigInt.zero &&
+              expense.minorUnits != BigInt.zero)) {
+        throw const FormatException('Ambiguous category attribution.');
+      }
+      final ids = <PublicId>{};
+      var total = BigInt.zero;
+      for (final allocation in allocations) {
+        if (allocation.amount.currency != currency) {
+          throw const MoneyException(MoneyError.currencyMismatch);
+        }
+        if (allocation.amount.minorUnits <= BigInt.zero ||
+            !ids.add(allocation.categoryId)) {
+          throw const FormatException('Invalid category allocation.');
+        }
+        total += allocation.amount.minorUnits;
+      }
+      if (total != effect.abs()) {
+        throw const FormatException(
+          'Category allocations do not match report effect.',
+        );
+      }
     }
   }
 
@@ -39,9 +67,39 @@ final class MonthlyFact {
   final BusinessDate date;
   final PostingKind kind;
   final Money income, expense;
+  final List<CategoryAllocation> allocations;
   Currency get currency => income.currency;
   bool get contributes =>
       income.minorUnits != BigInt.zero || expense.minorUnits != BigInt.zero;
+}
+
+final class CategoryAllocation {
+  const CategoryAllocation(this.categoryId, this.amount);
+  final PublicId categoryId;
+  final Money amount;
+}
+
+final class MonthlyCategoryFact {
+  const MonthlyCategoryFact(this.source, this.income, this.expense);
+  final MonthlyFact source;
+  final Money income, expense;
+}
+
+final class MonthlyCategorySummary {
+  const MonthlyCategorySummary(
+    this.categoryId,
+    this.currency,
+    this.income,
+    this.expense,
+    this.net,
+    this.facts,
+  );
+
+  /// Null means no historical allocation, including transfer fees.
+  final PublicId? categoryId;
+  final Currency currency;
+  final Money income, expense, net;
+  final List<MonthlyCategoryFact> facts;
 }
 
 final class MonthlyCurrencySummary {
@@ -68,20 +126,23 @@ final class MonthlyCurrencySummary {
 /// events. Refuse sums outside Money's supported range instead of overflowing
 /// or displaying a partial financial total.
 final class MonthlyReport {
-  MonthlyReport._(this.month, this.currencies);
+  MonthlyReport._(this.month, this.currencies, this.categories);
 
   final ReportMonth month;
   final List<MonthlyCurrencySummary> currencies;
+  final List<MonthlyCategorySummary> categories;
 
   factory MonthlyReport.build(ReportMonth month, Iterable<MonthlyFact> source) {
     final grouped = <Currency, List<MonthlyFact>>{};
     final ids = <PublicId>{};
+    final allFacts = <MonthlyFact>[];
     for (final fact in source) {
       if (fact.date.year != month.year ||
           fact.date.month != month.month ||
           !ids.add(fact.id)) {
         throw const FormatException('Invalid monthly report facts.');
       }
+      allFacts.add(fact);
       if (fact.contributes)
         grouped.putIfAbsent(fact.currency, () => []).add(fact);
     }
@@ -90,12 +151,84 @@ final class MonthlyReport {
         final code = a.code.compareTo(b.code);
         return code != 0 ? code : a.scale.compareTo(b.scale);
       });
+    final categoryFacts = <(Currency, PublicId?), List<MonthlyCategoryFact>>{};
+    for (final fact in allFacts.where((row) => row.contributes)) {
+      final allocations = fact.allocations;
+      if (allocations.isEmpty) {
+        categoryFacts
+            .putIfAbsent((fact.currency, null), () => [])
+            .add(MonthlyCategoryFact(fact, fact.income, fact.expense));
+      } else {
+        for (final allocation in allocations) {
+          final units = allocation.amount.minorUnits;
+          categoryFacts
+              .putIfAbsent((fact.currency, allocation.categoryId), () => [])
+              .add(
+                MonthlyCategoryFact(
+                  fact,
+                  Money(
+                    fact.currency,
+                    fact.income.minorUnits == BigInt.zero
+                        ? BigInt.zero
+                        : fact.income.minorUnits.isNegative
+                        ? -units
+                        : units,
+                  ),
+                  Money(
+                    fact.currency,
+                    fact.expense.minorUnits == BigInt.zero
+                        ? BigInt.zero
+                        : fact.expense.minorUnits.isNegative
+                        ? -units
+                        : units,
+                  ),
+                ),
+              );
+        }
+      }
+    }
+    final categoryKeys = categoryFacts.keys.toList()
+      ..sort((a, b) {
+        final code = a.$1.code.compareTo(b.$1.code);
+        if (code != 0) return code;
+        final scale = a.$1.scale.compareTo(b.$1.scale);
+        if (scale != 0) return scale;
+        if (a.$2 == null) return 1;
+        if (b.$2 == null) return -1;
+        return a.$2!.value.compareTo(b.$2!.value);
+      });
     return MonthlyReport._(
       month,
       List.unmodifiable([
         for (final currency in currencies)
           _summarize(currency, grouped[currency]!),
       ]),
+      List.unmodifiable([
+        for (final key in categoryKeys)
+          _summarizeCategory(key, categoryFacts[key]!),
+      ]),
+    );
+  }
+
+  static MonthlyCategorySummary _summarizeCategory(
+    (Currency, PublicId?) key,
+    List<MonthlyCategoryFact> facts,
+  ) {
+    final income = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.income.minorUnits,
+    );
+    final expense = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.expense.minorUnits,
+    );
+    return MonthlyCategorySummary(
+      key.$2,
+      key.$1,
+      Money(key.$1, income),
+      Money(key.$1, expense),
+      Money(key.$1, income - expense),
+      List.unmodifiable(facts),
     );
   }
 

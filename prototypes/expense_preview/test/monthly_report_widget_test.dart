@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_preview/main.dart';
+import 'package:expense_preview/preview_engine.dart';
+import 'package:categories/categories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -77,11 +79,16 @@ void main() {
       ..createSync(recursive: true);
     final work = root.createTempSync('monthly-');
     final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
+    late PublicId food;
     try {
       await tester.runAsync(() async {
         await setup(engine);
         final a = account(engine);
         await engine.createAccount(a, opening(a));
+        food = PublicId.generate();
+        OperationKey op() =>
+            OperationKey(engine.workspace, OperationId(PublicId.generate()));
+        await engine.createCategory(op(), food, '餐飲', CategoryKind.expense);
         final now = DateTime.now();
         final day = BusinessDate(now.year, now.month, 1);
         await engine.post(
@@ -99,13 +106,17 @@ void main() {
         await engine.post(
           Posting.expense(
             id: PublicId.generate(),
-            operation: OperationKey(
-              engine.workspace,
-              OperationId(PublicId.generate()),
-            ),
+            operation: op(),
             date: day,
             account: ref(a),
             amount: Money.parse(a.currency, '40'),
+            allocations: [
+              Allocation(
+                food,
+                Money.parse(a.currency, '40'),
+                expectedCategoryVersion: 1,
+              ),
+            ],
           ),
         );
         await engine.lock();
@@ -148,9 +159,22 @@ void main() {
       expect(find.text('這個月沒有影響收入或支出的交易。'), findsOneWidget);
       await tap(tester, '下個月');
       expect(find.text('TWD 60.00'), findsOneWidget);
+      await tap(tester, '分類');
+      expect(find.text('餐飲 · TWD'), findsOneWidget);
+      final category = find.byKey(
+        ValueKey('category-report-TWD-${food.value}'),
+      );
+      await tester.ensureVisible(category);
+      await tester.tap(
+        find.descendant(of: category, matching: find.text('查看分類明細')),
+      );
+      await settle(tester);
+      expect(find.text('餐飲明細'), findsOneWidget);
+      expect(find.text('TWD 40.00'), findsWidgets);
       await tester.tap(find.byTooltip('隱藏金額'));
       await settle(tester);
       expect(find.text('TWD 60.00'), findsNothing);
+      expect(find.text('TWD 40.00'), findsNothing);
       expect(find.bySemanticsLabel(RegExp(r'交易金額已隱藏')), findsWidgets);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await settle(tester);

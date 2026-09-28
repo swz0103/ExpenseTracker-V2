@@ -4,12 +4,14 @@ class _MonthlyReportScreen extends StatefulWidget {
   const _MonthlyReportScreen({
     required this.engine,
     required this.initial,
+    required this.catalog,
     required this.privacy,
     required this.onActivity,
   });
 
   final PreviewEngine engine;
   final MonthlyReport initial;
+  final CategoryCatalog catalog;
   final PrivacyMode privacy;
   final void Function(PublicId) onActivity;
 
@@ -22,6 +24,8 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
   bool _busy = false;
   String? _errorText;
   int _visible = 30, _request = 0;
+  bool _byCategory = false;
+  MonthlyCategorySummary? _selectedCategory;
 
   @override
   void dispose() {
@@ -51,6 +55,7 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
       setState(() {
         _report = next;
         _visible = 30;
+        _selectedCategory = null;
       });
     } on MoneyException {
       if (mounted && request == _request && widget.engine.isUnlocked) {
@@ -73,6 +78,18 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
         return date != 0 ? date : b.id.value.compareTo(a.id.value);
       });
     final enabled = !_busy && widget.engine.isUnlocked;
+    final categoryFacts =
+        _selectedCategory?.facts ?? const <MonthlyCategoryFact>[];
+    String categoryName(PublicId? id) {
+      if (id == null) return '未分類（含轉帳費用）';
+      final row = widget.catalog.categories
+          .where((c) => c.id == id)
+          .firstOrNull;
+      return row == null
+          ? '分類資料缺失：${id.value}'
+          : _categoryLabel(widget.catalog, row);
+    }
+
     return Column(
       key: const Key('monthly-report-screen'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -100,84 +117,212 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
         if (_busy) const LinearProgressIndicator(),
         if (_errorText != null)
           Semantics(liveRegion: true, child: Text(_errorText!)),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, label: Text('月收支')),
+            ButtonSegment(value: true, label: Text('分類')),
+          ],
+          selected: {_byCategory},
+          onSelectionChanged: enabled
+              ? (value) => setState(() {
+                  _byCategory = value.single;
+                  _selectedCategory = null;
+                  _visible = 30;
+                })
+              : null,
+        ),
         if (_report.currencies.isEmpty) const Text('這個月沒有影響收入或支出的交易。'),
-        for (final summary in _report.currencies)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  summary.currency.code,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                FinancialSummary(
-                  title: '收入',
-                  subtitle: '含收入撤銷',
-                  money: summary.income,
-                  privacy: widget.privacy,
-                  kind: MoneyKind.transaction,
-                  moneyKey: ValueKey('report-income-${summary.currency.code}'),
-                ),
-                FinancialSummary(
-                  title: '淨支出',
-                  subtitle: '退款與撤銷在當月沖減',
-                  money: summary.expense,
-                  privacy: widget.privacy,
-                  kind: MoneyKind.transaction,
-                  moneyKey: ValueKey('report-expense-${summary.currency.code}'),
-                ),
-                FinancialSummary(
-                  title: '收支差額',
-                  subtitle: '僅此幣別，不含估值',
-                  money: summary.net,
-                  privacy: widget.privacy,
-                  kind: MoneyKind.transaction,
-                  moneyKey: ValueKey('report-net-${summary.currency.code}'),
-                ),
-              ],
+        if (_byCategory) ...[
+          const Text('依交易當時的分類歸屬統計；未分類與轉帳費用另列，合併分類不改寫歷史。'),
+          for (final summary in _report.categories)
+            Padding(
+              key: ValueKey(
+                'category-report-${summary.currency.code}-${summary.categoryId?.value ?? 'none'}',
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${categoryName(summary.categoryId)} · ${summary.currency.code}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (summary.income.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '收入',
+                      subtitle: summary.currency.code,
+                      money: summary.income,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey(
+                        'category-income-${summary.currency.code}-${summary.categoryId?.value ?? 'none'}',
+                      ),
+                    ),
+                  if (summary.expense.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '淨支出',
+                      subtitle: summary.currency.code,
+                      money: summary.expense,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey(
+                        'category-expense-${summary.currency.code}-${summary.categoryId?.value ?? 'none'}',
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: enabled
+                        ? () => setState(() {
+                            _selectedCategory = summary;
+                            _visible = 30;
+                          })
+                        : null,
+                    child: const Text('查看分類明細'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        const Divider(),
-        Text('明細', style: Theme.of(context).textTheme.titleLarge),
-        for (final fact in facts.take(_visible))
-          Padding(
-            key: ValueKey('report-fact-${fact.id.value}'),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('${_kindLabel(fact.kind)} · ${fact.date}'),
-                if (fact.income.minorUnits != BigInt.zero)
+          if (_selectedCategory != null) ...[
+            const Divider(),
+            Text(
+              '${categoryName(_selectedCategory!.categoryId)}明細',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            for (final fact in categoryFacts.take(_visible))
+              Padding(
+                key: ValueKey('category-fact-${fact.source.id.value}'),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${_kindLabel(fact.source.kind)} · ${fact.source.date}',
+                    ),
+                    if (fact.income.minorUnits != BigInt.zero)
+                      FinancialSummary(
+                        title: '收入影響',
+                        subtitle: fact.source.currency.code,
+                        money: fact.income,
+                        privacy: widget.privacy,
+                        kind: MoneyKind.transaction,
+                        moneyKey: ValueKey(
+                          'category-fact-income-${fact.source.id.value}',
+                        ),
+                      ),
+                    if (fact.expense.minorUnits != BigInt.zero)
+                      FinancialSummary(
+                        title: '支出影響',
+                        subtitle: fact.source.currency.code,
+                        money: fact.expense,
+                        privacy: widget.privacy,
+                        kind: MoneyKind.transaction,
+                        moneyKey: ValueKey(
+                          'category-fact-expense-${fact.source.id.value}',
+                        ),
+                      ),
+                    TextButton(
+                      onPressed: enabled
+                          ? () => widget.onActivity(fact.source.id)
+                          : null,
+                      child: const Text('查看活動'),
+                    ),
+                  ],
+                ),
+              ),
+            if (categoryFacts.length > _visible)
+              TextButton(
+                onPressed: enabled
+                    ? () => setState(() => _visible += 30)
+                    : null,
+                child: const Text('載入更多分類明細'),
+              ),
+          ],
+        ] else ...[
+          for (final summary in _report.currencies)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    summary.currency.code,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   FinancialSummary(
-                    title: '收入影響',
-                    subtitle: fact.currency.code,
-                    money: fact.income,
+                    title: '收入',
+                    subtitle: '含收入撤銷',
+                    money: summary.income,
                     privacy: widget.privacy,
                     kind: MoneyKind.transaction,
-                    moneyKey: ValueKey('report-fact-income-${fact.id.value}'),
+                    moneyKey: ValueKey(
+                      'report-income-${summary.currency.code}',
+                    ),
                   ),
-                if (fact.expense.minorUnits != BigInt.zero)
                   FinancialSummary(
-                    title: '支出影響',
-                    subtitle: fact.currency.code,
-                    money: fact.expense,
+                    title: '淨支出',
+                    subtitle: '退款與撤銷在當月沖減',
+                    money: summary.expense,
                     privacy: widget.privacy,
                     kind: MoneyKind.transaction,
-                    moneyKey: ValueKey('report-fact-expense-${fact.id.value}'),
+                    moneyKey: ValueKey(
+                      'report-expense-${summary.currency.code}',
+                    ),
                   ),
-                TextButton(
-                  onPressed: enabled ? () => widget.onActivity(fact.id) : null,
-                  child: const Text('查看活動'),
-                ),
-              ],
+                  FinancialSummary(
+                    title: '收支差額',
+                    subtitle: '僅此幣別，不含估值',
+                    money: summary.net,
+                    privacy: widget.privacy,
+                    kind: MoneyKind.transaction,
+                    moneyKey: ValueKey('report-net-${summary.currency.code}'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        if (facts.length > _visible)
-          TextButton(
-            onPressed: enabled ? () => setState(() => _visible += 30) : null,
-            child: const Text('載入更多報表明細'),
-          ),
+          const Divider(),
+          Text('明細', style: Theme.of(context).textTheme.titleLarge),
+          for (final fact in facts.take(_visible))
+            Padding(
+              key: ValueKey('report-fact-${fact.id.value}'),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('${_kindLabel(fact.kind)} · ${fact.date}'),
+                  if (fact.income.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '收入影響',
+                      subtitle: fact.currency.code,
+                      money: fact.income,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey('report-fact-income-${fact.id.value}'),
+                    ),
+                  if (fact.expense.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '支出影響',
+                      subtitle: fact.currency.code,
+                      money: fact.expense,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey(
+                        'report-fact-expense-${fact.id.value}',
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: enabled
+                        ? () => widget.onActivity(fact.id)
+                        : null,
+                    child: const Text('查看活動'),
+                  ),
+                ],
+              ),
+            ),
+          if (facts.length > _visible)
+            TextButton(
+              onPressed: enabled ? () => setState(() => _visible += 30) : null,
+              child: const Text('載入更多報表明細'),
+            ),
+        ],
       ],
     );
   }

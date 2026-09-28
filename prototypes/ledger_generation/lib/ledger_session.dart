@@ -513,12 +513,14 @@ final class LedgerSession {
   ) => _enqueue(() async {
     final rows = await _db
         .customSelect(
-          'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale '
+          'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale, '
+          '${_db.categoryReferences ? 'a.category_id,a.amount AS allocated_amount ' : 'NULL AS category_id,NULL AS allocated_amount '}'
           'FROM events e '
+          '${_db.categoryReferences ? 'LEFT JOIN allocations a ON a.workspace=e.workspace AND a.event_id=e.id ' : ''}'
           '${_db.tombstonesAware ? 'LEFT JOIN event_tombstones t ON t.workspace=e.workspace AND t.event_id=e.id ' : ''}'
           'WHERE e.workspace=? AND e.business_date>=? AND e.business_date<=? '
           '${_db.tombstonesAware ? 'AND t.event_id IS NULL ' : ''}'
-          'ORDER BY e.business_date DESC,e.id DESC',
+          'ORDER BY e.business_date DESC,e.id DESC${_db.categoryReferences ? ',a.category_id' : ''}',
           variables: [
             Variable.withString(workspace.toString()),
             Variable.withString(month.first.toString()),
@@ -526,20 +528,46 @@ final class LedgerSession {
           ],
         )
         .get();
+    final grouped = <String, List<QueryRow>>{};
+    for (final row in rows) {
+      grouped.putIfAbsent(row.read<String>('id'), () => []).add(row);
+    }
     return MonthlyReport.build(month, [
-      for (final row in rows)
+      for (final eventRows in grouped.values)
         MonthlyFact(
-          id: PublicId.parse(row.read<String>('id')),
-          date: BusinessDate.parse(row.read<String>('business_date')),
-          kind: PostingKind.values.byName(row.read<String>('kind')),
+          id: PublicId.parse(eventRows.first.read<String>('id')),
+          date: BusinessDate.parse(
+            eventRows.first.read<String>('business_date'),
+          ),
+          kind: PostingKind.values.byName(eventRows.first.read<String>('kind')),
           income: Money(
-            Currency(row.read<String>('currency'), row.read<int>('scale')),
-            BigInt.from(row.read<int>('income')),
+            Currency(
+              eventRows.first.read<String>('currency'),
+              eventRows.first.read<int>('scale'),
+            ),
+            BigInt.from(eventRows.first.read<int>('income')),
           ),
           expense: Money(
-            Currency(row.read<String>('currency'), row.read<int>('scale')),
-            BigInt.from(row.read<int>('expense')),
+            Currency(
+              eventRows.first.read<String>('currency'),
+              eventRows.first.read<int>('scale'),
+            ),
+            BigInt.from(eventRows.first.read<int>('expense')),
           ),
+          allocations: [
+            for (final row in eventRows)
+              if (row.read<String?>('category_id') case final categoryId?)
+                CategoryAllocation(
+                  PublicId.parse(categoryId),
+                  Money(
+                    Currency(
+                      row.read<String>('currency'),
+                      row.read<int>('scale'),
+                    ),
+                    BigInt.from(row.read<int>('allocated_amount')),
+                  ),
+                ),
+          ],
         ),
     ]);
   });
