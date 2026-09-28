@@ -46,18 +46,19 @@ Future<PreviewEngine> createEngine() async {
     schema,
   ) {
     final access = KeyAccess(_CatalogVault(vault, identity));
+    final capabilities = PreviewCapabilities(schema);
     return LedgerStore(
       directory,
       SecureKeySlots(vault),
-      categoryAware: schema >= 4,
-      categoryReferences: schema >= 5,
-      tagsAware: schema >= 6,
-      merchantsAware: schema >= 7,
-      transfersAware: schema >= 8,
-      fxTransfersAware: schema >= 9,
-      refundsAware: schema >= 10,
-      reversalsAware: schema >= 11,
-      notesAware: schema >= 12,
+      categoryAware: capabilities.categories,
+      categoryReferences: capabilities.categoryReferences,
+      tagsAware: capabilities.tags,
+      merchantsAware: capabilities.merchants,
+      transfersAware: capabilities.transfers,
+      fxTransfersAware: capabilities.crossCurrencyTransfers,
+      refundsAware: capabilities.refunds,
+      reversalsAware: capabilities.reversals,
+      notesAware: capabilities.notes,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

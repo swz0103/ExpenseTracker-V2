@@ -27,7 +27,7 @@ extension PreviewCopy on PreviewEngine {
     epoch,
   ) async {
     _require();
-    if (schemaVersion < 5) throw PreviewInvalid();
+    if (!capabilities.split) throw PreviewInvalid();
     final session = _session!;
     final source = await session.entry(workspace, id);
     if (source == null ||
@@ -64,7 +64,7 @@ extension PreviewCopy on PreviewEngine {
       }
     }
     final tags = <TagSelection>[];
-    if (schemaVersion >= 6) {
+    if (capabilities.tags) {
       final catalog = await session.tags(workspace);
       for (final ref in await session.tagsFor(workspace, id)) {
         final tag = catalog.get(ref.id);
@@ -76,7 +76,7 @@ extension PreviewCopy on PreviewEngine {
       }
     }
     MerchantSelection? merchant;
-    if (schemaVersion >= 7) {
+    if (capabilities.merchants) {
       final ref = await session.merchantFor(workspace, id);
       if (ref != null) {
         final item = (await session.merchants(workspace)).get(ref.id);
