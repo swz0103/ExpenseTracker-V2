@@ -34,10 +34,18 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
   if (policy['version'] is! int ||
       policy['version'] != 1 ||
       policy['modules'] is! Map ||
+      (policy.containsKey('runtimeModules') &&
+          policy['runtimeModules'] is! Map) ||
       policy['sdkLibraries'] is! List) {
     throw const FormatException('Unsupported boundary policy');
   }
   final modules = (policy['modules'] as Map).cast<String, Map>();
+  final runtimeModules = (policy['runtimeModules'] as Map? ?? {})
+      .cast<String, Map>();
+  final registered = <String, Map>{...modules, ...runtimeModules};
+  if (registered.length != modules.length + runtimeModules.length) {
+    throw const FormatException('Duplicate boundary module');
+  }
   final sdk = (policy['sdkLibraries'] as List).cast<String>().toSet();
   final issues = <BoundaryIssue>[];
   void report(String code, String file, String message, [int line = 1]) =>
@@ -79,6 +87,14 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
             specFile.path,
             'Business package needs an explicit boundary policy.',
           );
+        } else if (runtimeModules.isNotEmpty &&
+            p.isWithin(p.join(root, 'prototypes'), entry.path) &&
+            !runtimeModules.containsKey(name)) {
+          report(
+            'unregistered-runtime',
+            specFile.path,
+            'Runtime package needs an explicit boundary policy.',
+          );
         }
       }
     }
@@ -94,7 +110,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
     }
   }
   final graph = <String, Set<String>>{};
-  for (final entry in modules.entries) {
+  for (final entry in registered.entries) {
     final module = entry.value;
     final owner = packages[entry.key];
     final declaredPath = module['directory'] as String;
@@ -107,7 +123,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
       report(
         'module-location',
         p.join(root, declaredPath),
-        'Expected business package is missing or moved.',
+        'Expected package is missing or moved.',
       );
       continue;
     }
@@ -116,7 +132,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
     final specFile = p.join(owner.directory, 'pubspec.yaml');
     graph[owner.name] = deps.keys
         .whereType<String>()
-        .where(modules.containsKey)
+        .where(registered.containsKey)
         .toSet();
     if (owner.spec.containsKey('dependency_overrides') ||
         File(p.join(owner.directory, 'pubspec_overrides.yaml')).existsSync()) {
@@ -127,16 +143,20 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
       );
     }
     for (final dependency in deps.entries) {
-      if (!allowed.contains(dependency.key)) {
+      if ((modules.containsKey(owner.name) ||
+              registered.containsKey(dependency.key) ||
+              dependency.value is Map &&
+                  (dependency.value as Map).containsKey('path')) &&
+          !allowed.contains(dependency.key)) {
         report(
           'forbidden-dependency',
           specFile,
           'Dependency ${dependency.key} is outside the allowed direction.',
         );
       }
-      if (modules.containsKey(dependency.key)) {
+      if (registered.containsKey(dependency.key)) {
         final expected = p.normalize(
-          p.join(root, modules[dependency.key]!['directory'] as String),
+          p.join(root, registered[dependency.key]!['directory'] as String),
         );
         final value = dependency.value;
         if (value is! Map ||
@@ -160,7 +180,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
         );
       }
     }
-    for (final value in module['publicEntrypoints'] as List) {
+    for (final value in module['publicEntrypoints'] as List? ?? []) {
       final path = value as String;
       final target = p.normalize(p.join(owner.directory, 'lib', path));
       if (!p.isWithin(p.join(owner.directory, 'lib'), target) ||
@@ -180,7 +200,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
       report(
         'dependency-cycle',
         p.join(root, 'architecture/boundaries.json'),
-        'Business dependency cycle includes $name.',
+        'Package dependency cycle includes $name.',
       );
       return;
     }
@@ -212,6 +232,9 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
     }
     final production =
         modules.containsKey(owner.name) &&
+        p.isWithin(p.join(owner.directory, 'lib'), file.path);
+    final runtimeProduction =
+        runtimeModules.containsKey(owner.name) &&
         p.isWithin(p.join(owner.directory, 'lib'), file.path);
     void inspectUri(StringLiteral literal) {
       final line = parsed.lineInfo.getLocation(literal.offset).lineNumber;
@@ -284,6 +307,20 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
             'private-import',
             file.path,
             'Use a public entrypoint of $targetName.',
+            line,
+          );
+        }
+        if (runtimeProduction &&
+            targetName != owner.name &&
+            registered.containsKey(targetName) &&
+            (!owner.dependencies.containsKey(targetName) ||
+                !(runtimeModules[owner.name]!['dependencies'] as List).contains(
+                  targetName,
+                ))) {
+          report(
+            'undeclared-import',
+            file.path,
+            'Runtime import $targetName is not allowed.',
             line,
           );
         }

@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 void main() {
   late Directory root;
   late Map<String, Object> modules;
+  late Map<String, Object> runtimeModules;
   void write(String path, String text) {
     final file = File(p.join(root.path, path));
     file.parent.createSync(recursive: true);
@@ -20,6 +21,7 @@ void main() {
       'version': 1,
       'sdkLibraries': ['dart:core', 'dart:math'],
       'modules': modules,
+      'runtimeModules': runtimeModules,
     }),
   );
   void package(
@@ -49,6 +51,12 @@ void main() {
         'dependencies': ['values'],
       },
     };
+    runtimeModules = {
+      'app': {
+        'directory': 'prototypes/app',
+        'dependencies': ['ledger'],
+      },
+    };
     package('packages/values', 'values');
     package(
       'packages/ledger',
@@ -57,7 +65,9 @@ void main() {
         'values': {'path': '../values'},
       },
     );
-    package('prototypes/app', 'app');
+    package('prototypes/app', 'app', dependencies: {
+      'ledger': {'path': '../../packages/ledger'},
+    });
     write(
       'packages/ledger/lib/ledger.dart',
       "import 'package:values/values.dart';",
@@ -161,6 +171,66 @@ const text = "import 'dart:ui';";
   test('new business module cannot silently skip registration', () {
     package('packages/new_feature', 'new_feature');
     expect(codes(), contains('unregistered-module'));
+  });
+  test('new runtime package cannot silently skip registration', () {
+    package('prototypes/new_feature', 'new_feature');
+    expect(codes(), contains('unregistered-runtime'));
+  });
+  test('runtime cannot add an unapproved local dependency', () {
+    package('prototypes/storage', 'storage');
+    runtimeModules['storage'] = {
+      'directory': 'prototypes/storage',
+      'dependencies': <String>[],
+    };
+    package(
+      'prototypes/app',
+      'app',
+      dependencies: {
+        'storage': {'path': '../storage'},
+      },
+    );
+    policy();
+    expect(codes(), contains('forbidden-dependency'));
+  });
+  test('runtime cannot import an unlisted local package', () {
+    write(
+      'prototypes/app/lib/app.dart',
+      "import 'package:values/values.dart';",
+    );
+    expect(codes(), contains('undeclared-import'));
+  });
+  test('runtime cannot point a local dependency at a different package', () {
+    package(
+      'prototypes/app',
+      'app',
+      dependencies: {
+        'ledger': {'path': '../../packages/values'},
+      },
+    );
+    expect(codes(), contains('dependency-location'));
+  });
+  test('runtime cycle is rejected across prototype packages', () {
+    package(
+      'prototypes/storage',
+      'storage',
+      dependencies: {
+        'app': {'path': '../app'},
+      },
+    );
+    runtimeModules['storage'] = {
+      'directory': 'prototypes/storage',
+      'dependencies': ['app'],
+    };
+    (runtimeModules['app'] as Map)['dependencies'] = ['storage'];
+    package(
+      'prototypes/app',
+      'app',
+      dependencies: {
+        'storage': {'path': '../storage'},
+      },
+    );
+    policy();
+    expect(codes(), contains('dependency-cycle'));
   });
   test(
     'registered local dependency cannot resolve to another implementation',

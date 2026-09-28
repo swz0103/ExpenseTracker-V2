@@ -1,5 +1,11 @@
 # 逐項實作進度
 
+## 2026-09-28 執行時架構邊界與實機初驗（進行中）
+
+接續已上傳的 [Tombstone PR #64](https://github.com/swz0103/ExpenseTracker-V2/pull/64) head `ef5f3b4ddcd78fc10c905510e8a3375d23c35233` 另開 `fix/runtime-boundary-policy`。依[架構核對](architecture-audit-2026-09-28.md#接續執行時模組依賴邊界)把正式 App 和它依賴的 prototype 明列於檢查規則，禁止未核准的本機依賴、錯誤來源、反向依賴與循環；Domain 既有規則不放寬。架構工具靜態分析、20 個單元案例及全工作區掃描通過。只改檢查器、政策、測試與文件，未動財務運算或資料格式；雲端 workflow 保持停用，待提交後才算 GitHub 交付。
+
+使用者已接入並授權測試 Android 實機。主使用者空間原先沒有 V2 App；安裝獨立 ID `dev.expensetracker.preview` 的本機 ARM64 debug APK 後，以**合成帳本**完成首次設定、TWD 1,000.00 期初與 125.50 支出，餘額 874.50；鎖定及程序重啟後仍需密碼，解鎖後資料保持。加密備份經系統文件選取器儲存並讀回核對；再記 10.00 支出後，錯誤備份密碼被拒且餘額保持 864.50，密碼及救援文字兩條實際還原各回到 874.50，重啟後仍保持。完整範圍與未測項見[實機證據](test-results/device-smoke-2026-09-28.json)。本機合成救援文字放在 Git 忽略檔，測試備份留在手機；沒有讀取舊 App。**這是 schema 12 流程的單一 Android 16 實機驗證，不是 M1/M2/M3 或 schema 13／14 的完整實機 gate。** 新更正與 Tombstone 仍是測試入口，尚未在預設 App 開放。
+
 ## 2026-09-28 一般交易 Tombstone（進行中）
 
 從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及列表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原子 marker／收據／audit 與失敗回滾、可攜 snapshot format 13、加密 generation 容量及有效讀取、雙憑證乾淨還原、安全備份及 13→14 故障後保留來源已接通。[保存檢查點](test-results/tombstone-storage-host-2026-09-28.json)：保存層 **60**、還原 **106**、加密 generation **240**、SQLCipher **34** 項和分析、邊界檢查通過。回查修正安全備份讀取器漏傳近期 schema 旗標，避免新版被錯誤拒絕。

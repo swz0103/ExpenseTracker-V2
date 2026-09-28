@@ -82,5 +82,43 @@
         "foundation_values"
       ]
     }
+  },
+  "runtimeModules": {
+    "expense_preview": {
+      "directory": "prototypes/expense_preview",
+      "dependencies": ["amount_input", "entry_drafts", "tags", "merchants", "accounts", "categories", "foundation_values", "ledger", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
+    },
+    "android_foundation": {
+      "directory": "prototypes/android_foundation",
+      "dependencies": ["accounts", "foundation_values", "ledger", "modular_persistence_probe", "encrypted_storage_probe", "validated_restore_probe", "ledger_generation_probe", "storage_generation_probe"]
+    },
+    "ledger_generation_probe": {
+      "directory": "prototypes/ledger_generation",
+      "dependencies": ["tags", "merchants", "categories", "accounts", "foundation_values", "ledger", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
+    },
+    "storage_generation_probe": {
+      "directory": "prototypes/storage_generation",
+      "dependencies": ["foundation_values", "encrypted_storage_probe"]
+    },
+    "validated_restore_probe": {
+      "directory": "prototypes/validated_restore",
+      "dependencies": ["backup_envelope_probe", "modular_persistence_probe", "foundation_values", "ledger"]
+    },
+    "modular_persistence_probe": {
+      "directory": "prototypes/modular_persistence",
+      "dependencies": ["tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
+    },
+    "encrypted_storage_probe": {
+      "directory": "prototypes/encrypted_storage",
+      "dependencies": ["accounts", "foundation_values", "ledger", "modular_persistence_probe", "validated_restore_probe", "backup_envelope_probe"]
+    },
+    "backup_envelope_probe": {
+      "directory": "prototypes/backup_envelope",
+      "dependencies": []
+    },
+    "transaction_boundary_probe": {
+      "directory": "prototypes/transaction_boundary",
+      "dependencies": []
+    }
   }
 }
