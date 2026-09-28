@@ -1,0 +1,40 @@
+{
+  "scope": "M1 current integration candidate, 20 local host packages",
+  "baseCommit": "b6ae418d43b87b3e18726198261b48b8250f4ef5",
+  "date": "2026-09-29",
+  "environment": "Windows; locked Dart and Flutter dependencies; offline host checks; synthetic data only; GitHub Actions disabled",
+  "result": "passed across segmented local runs after repairing formatter-only failures and the Android foundation lockfile; not one uninterrupted run at a single committed SHA",
+  "packageTestCounts": {
+    "tooling/architecture_checks": 20,
+    "packages/foundation_values": 37,
+    "packages/accounts": 9,
+    "packages/categories": 14,
+    "packages/tags": 6,
+    "packages/merchants": 15,
+    "packages/entry_drafts": 28,
+    "packages/amount_input": 16,
+    "packages/ledger": 27,
+    "packages/reports": 11,
+    "packages/data_exchange": 12,
+    "prototypes/modular_persistence": 60,
+    "prototypes/backup_envelope": 16,
+    "prototypes/validated_restore": 106,
+    "prototypes/encrypted_storage": 34,
+    "prototypes/storage_generation": 95,
+    "prototypes/ledger_generation": 251,
+    "prototypes/transaction_boundary": 11,
+    "prototypes/android_foundation": 17,
+    "prototypes/expense_preview": 215
+  },
+  "totalPassingTests": 1000,
+  "repairNotes": [
+    "The first run stopped at a preexisting formatting mismatch in modular_persistence; subsequent scan also found formatting mismatches in encrypted_storage, ledger_generation and expense_preview. These were formatter-only changes.",
+    "The resumed run stopped at android_foundation because its enforced lockfile lacked two transitive local path dependencies, data_exchange and reports. Offline pub get added those path entries without upgrading hosted packages.",
+    "The resumed run completed android_foundation with 17 passing tests. The App's 215-test full suite and ARM64 debug build had passed before formatter-only test changes; its locked offline resolution, full format check and analysis passed afterward. The App test suite was not repeated on formatting-only changes."
+  ],
+  "notVerified": [
+    "M1 complete acceptance: Android device routes and external provider workflows remain open",
+    "cloud checks: disabled under the Actions budget policy; no check run on this SHA",
+    "one uninterrupted 20-package run at the final committed SHA"
+  ]
+}

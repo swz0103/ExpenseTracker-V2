@@ -47,7 +47,8 @@ Future<ReversalSourceRecord> readReversalSource(
       !['income', 'expense', 'transfer'].contains(e.read<String>('kind'))) {
     throw const LedgerException(LedgerError.reversalReference);
   }
-  if (db.tombstonesAware && !allowTombstoned &&
+  if (db.tombstonesAware &&
+      !allowTombstoned &&
       (await db
               .customSelect(
                 'SELECT event_id FROM event_tombstones WHERE workspace=? AND event_id=?',

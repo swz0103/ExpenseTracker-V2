@@ -31,21 +31,21 @@ void main() {
         final sourceWorkspace = WorkspaceId(PublicId.generate());
         final sourceAccount = PublicId.generate();
         final currency = Currency('TWD', 2);
-      final account = Account.open(
+        final account = Account.open(
           id: PublicId.generate(),
           workspace: workspace,
           name: 'Scale cash',
           kind: AccountKind.bank,
           currency: currency,
-        openedOn: BusinessDate(2020, 1, 1),
-      );
-      final reference = PostingAccount(
-        id: account.id,
-        workspace: workspace,
-        currency: currency,
-        expectedVersion: account.version,
-      );
-      await store.withSession((session) async {
+          openedOn: BusinessDate(2020, 1, 1),
+        );
+        final reference = PostingAccount(
+          id: account.id,
+          workspace: workspace,
+          currency: currency,
+          expectedVersion: account.version,
+        );
+        await store.withSession((session) async {
           await session.createAccount(
             account,
             Posting.opening(
@@ -55,7 +55,7 @@ void main() {
                 OperationId(PublicId.generate()),
               ),
               date: account.openedOn,
-            account: reference,
+              account: reference,
               amount: Money(currency, BigInt.from(10000)),
             ),
           );
@@ -94,7 +94,7 @@ void main() {
         final writeMs = timer.elapsedMilliseconds - parseMs - previewMs;
         expect(firstIds.toSet(), hasLength(4999));
         expect(
-        await store.balance(reference),
+          await store.balance(reference),
           Money(currency, BigInt.from(14999)),
         );
         final fullSnapshot = await store.snapshot();
@@ -108,7 +108,7 @@ void main() {
             timer.elapsedMilliseconds - parseMs - previewMs - writeMs;
         expect(await store.snapshot(), fullSnapshot);
 
-      final overflow = SimpleTransactionBatch(sourceWorkspace, [
+        final overflow = SimpleTransactionBatch(sourceWorkspace, [
           ...rows,
           SimpleTransaction(
             sourceRecordId: PublicId.generate(),
@@ -116,22 +116,22 @@ void main() {
             kind: PostingKind.expense,
             accountId: sourceAccount,
             amount: Money(currency, BigInt.one),
-        ),
-      ]);
-      final overflowReview = mapped(
-        SimpleTransactionCodec.decodeCsv(
-          SimpleTransactionCodec.encodeCsv(overflow),
-        ),
-      );
-      await store.withSession((session) async {
-        await expectLater(
-          session.importSimple(overflowReview),
-          throwsA(isA<PreviewCapacity>()),
+          ),
+        ]);
+        final overflowReview = mapped(
+          SimpleTransactionCodec.decodeCsv(
+            SimpleTransactionCodec.encodeCsv(overflow),
+          ),
         );
-      });
+        await store.withSession((session) async {
+          await expectLater(
+            session.importSimple(overflowReview),
+            throwsA(isA<PreviewCapacity>()),
+          );
+        });
         expect(await store.snapshot(), fullSnapshot);
         expect(
-        await store.balance(reference),
+          await store.balance(reference),
           Money(currency, BigInt.from(14999)),
         );
         File('.dart_tool/simple-import-scale-result.json').writeAsStringSync(

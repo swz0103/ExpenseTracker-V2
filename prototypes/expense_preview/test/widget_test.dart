@@ -800,17 +800,14 @@ void main() {
         await settle(tester);
         await input(tester, '密碼', password);
         await tap(tester, '解鎖');
-      await tester.scrollUntilVisible(
-        find.text('匯出簡易收支檔'),
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.drag(
-        find.byType(Scrollable).first,
-        const Offset(0, -120),
-      );
-      await tester.pumpAndSettle();
-      await tap(tester, '匯出簡易收支檔');
+        await tester.scrollUntilVisible(
+          find.text('匯出簡易收支檔'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+        await tester.pumpAndSettle();
+        await tap(tester, '匯出簡易收支檔');
         await tap(tester, '選擇 JSON 儲存位置');
         expect(docs.selectedExportFormat, 'json');
         expect(find.text('解鎖帳本'), findsOneWidget);

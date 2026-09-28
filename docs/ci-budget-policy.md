@@ -28,7 +28,7 @@
 
 使用鎖定的 Dart 3.13.4／Flutter 3.47.5，可用 `-Dart`、`-Flutter` 指定本機完整執行檔路徑。先確認版本符合兩份 workflow。`-Offline` 只限制 pub 相依解析，不是所有底層建置工具的網路隔離；首次缺相依需正常取得既有鎖定版本，不自動升級套件。
 
-腳本涵蓋目前兩份 workflow 的 19 個主機套件（包含 Tags、Merchants、手動 Entry Drafts、金額輸入與 Reports 業務），保留 lockfile、格式、靜態分析、五個原生 worker 建置、測試與架構掃描；循序執行避免 Windows 原生檔案互鎖，任一步失敗即停止且不輸出全數通過。新增套件時必須同步更新 workflow 與本機清單。每次驗證在進度／PR 記錄實際版本、範圍、結果及尚未執行的 gate；測試未提交的修改時不得當成 PR exact SHA 已通過。
+腳本目前列出 20 個主機套件（包含 Tags、Merchants、手動 Entry Drafts、金額輸入、Reports 與 Data Exchange 業務）；兩份停用的 workflow 與本機清單是否完全同步，需在恢復雲端驗證前另行核對。腳本檢查 lockfile、格式、靜態分析、五個原生 worker 建置、測試與架構邊界；循序執行避免 Windows 原生檔案互鎖，任一步失敗即停止且不輸出全數通過。新增套件時必須同步更新 workflow 與本機清單。每次驗證在進度／PR 記錄實際版本、範圍、結果及尚未執行的 gate；測試未提交的修改時不得當成 PR exact SHA 已通過。
 
 ## 何時恢復雲端驗證
 
