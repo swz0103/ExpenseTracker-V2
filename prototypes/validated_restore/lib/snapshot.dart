@@ -929,6 +929,13 @@ final class SnapshotCodec {
         }
         continue;
       }
+      // Note revisions can target a correction replacement, but they are not
+      // the replacement's financial posting receipt.
+      if (input.first == 'note-v1') {
+        if (!noteOperations.remove((ws, row.read<String>('operation_id'))))
+          throw const InvalidSnapshot();
+        continue;
+      }
       final correction = correctionLinks[(ws, resultId)];
       if (correction != null) {
         if (input.first != 'correction-event-v1' ||
@@ -944,11 +951,6 @@ final class SnapshotCodec {
         input = input[5];
       } else if (input.first == 'correction-event-v1') {
         throw const InvalidSnapshot();
-      }
-      if (input.first == 'note-v1') {
-        if (!noteOperations.remove((ws, row.read<String>('operation_id'))))
-          throw const InvalidSnapshot();
-        continue;
       }
       if (input.first == 'merchant-v1') {
         if (!merchantOperations.remove((ws, row.read<String>('operation_id'))))

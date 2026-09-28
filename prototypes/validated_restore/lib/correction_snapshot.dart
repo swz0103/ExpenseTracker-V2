@@ -27,6 +27,16 @@ _validateCorrectionHistory(
             'SELECT r.workspace,r.operation_id,r.result_id,a.entity_id,a.kind FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id',
           )
           .get()) {
+    // A later note revision or tombstone may reuse the event as its result ID.
+    // Only the event's financial posting receipt proves a correction link.
+    if (!const {
+      'ledger.income',
+      'ledger.expense',
+      'ledger.transfer',
+      'ledger.reversal',
+    }.contains(row.read<String>('kind'))) {
+      continue;
+    }
     (receipts[(
               row.read<String>('workspace'),
               row.read<String>('result_id'),
@@ -78,6 +88,9 @@ _validateCorrectionHistory(
     if (originalOperation == inverseOperation ||
         originalOperation == replacementOperation ||
         inverseOperation == replacementOperation ||
+        originalReceipt.single.read<String>('entity_id') != originalId ||
+        originalReceipt.single.read<String>('kind') !=
+            'ledger.${original.read<String>('kind')}' ||
         inverseReceipt.single.read<String>('entity_id') != reversalId ||
         inverseReceipt.single.read<String>('kind') != 'ledger.reversal' ||
         replacementReceipt.single.read<String>('entity_id') != replacementId ||
