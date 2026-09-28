@@ -9,6 +9,7 @@ const _rowByteLimits = <String, int>{
   'event_refunds': 512,
   'event_reversals': 2048,
   'event_note_revisions': 8192,
+  'event_corrections': 512,
   'legs': 512,
   'openings': 512,
   'allocations': 512,
@@ -33,6 +34,7 @@ Map<String, int> _tableLimits(
   bool refunds,
   bool reversals,
   bool notes,
+  bool corrections,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -40,6 +42,7 @@ Map<String, int> _tableLimits(
   if (refunds) 'event_refunds': LedgerSession.maxEvents,
   if (reversals) 'event_reversals': LedgerSession.maxEvents,
   if (notes) 'event_note_revisions': LedgerSession.maxNoteChanges,
+  if (corrections) 'event_corrections': LedgerSession.maxEvents ~/ 2,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -72,6 +75,11 @@ bool _accountReceipt(Map row) {
 
 bool _reversalReceipt(Map row) {
   var input = jsonDecode(row['input'] as String);
+  if (input is List &&
+      input.length == 6 &&
+      input.first == 'correction-event-v1') {
+    input = input[5];
+  }
   // Only known outer attribution wrappers may carry a reversal receipt.
   for (final wrapper in ['merchant-post-v1', 'tagged-post-v1']) {
     if (input is List && input.length == 3 && input.first == wrapper)
@@ -83,10 +91,14 @@ bool _reversalReceipt(Map row) {
 }
 
 void _checkRowBytes(String table, Map row) {
-  final limit =
-      table == 'receipts' &&
-          (_reversalReceipt(row) ||
-              (jsonDecode(row['input'] as String) as List).first == 'note-v1')
+  final input = table == 'receipts'
+      ? jsonDecode(row['input'] as String) as List
+      : null;
+  final limit = input != null && input.first == 'correction-event-v1'
+      ? 12288
+      : table == 'receipts' &&
+            (_reversalReceipt(row) ||
+                (jsonDecode(row['input'] as String) as List).first == 'note-v1')
       ? 8192
       : table == 'receipts' &&
             (_accountReceipt(row) ||
@@ -119,7 +131,9 @@ List<int> validateSessionCapacity(
   bool refundsAware = false,
   bool reversalsAware = false,
   bool notesAware = false,
+  bool correctionsAware = false,
 }) {
+  notesAware = notesAware || correctionsAware;
   reversalsAware = reversalsAware || notesAware;
   refundsAware = refundsAware || reversalsAware;
   fxTransfersAware = fxTransfersAware || refundsAware;
@@ -139,6 +153,7 @@ List<int> validateSessionCapacity(
     refundsAware: refundsAware,
     reversalsAware: reversalsAware,
     notesAware: notesAware,
+    correctionsAware: correctionsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -152,6 +167,7 @@ List<int> validateSessionCapacity(
     refundsAware,
     reversalsAware,
     notesAware,
+    correctionsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();

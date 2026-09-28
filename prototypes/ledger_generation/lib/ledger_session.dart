@@ -116,6 +116,7 @@ final class LedgerSession {
         refundsAware: _db.refundsAware,
         reversalsAware: _db.reversalsAware,
         notesAware: _db.notesAware,
+        correctionsAware: _db.correctionsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -126,6 +127,7 @@ final class LedgerSession {
       refundsAware: _db.refundsAware,
       reversalsAware: _db.reversalsAware,
       notesAware: _db.notesAware,
+      correctionsAware: _db.correctionsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -190,6 +192,60 @@ final class LedgerSession {
               posting.operation.workspace.toString(),
               posting.id.value,
             ]);
+        }
+        return result;
+      }),
+    );
+  }
+
+  Future<CorrectionCommitResult> correct(
+    PostingCorrection correction, {
+    Iterable<TagSelection> replacementTags = const [],
+    MerchantSelection? replacementMerchant,
+  }) {
+    final selections = canonicalTags(replacementTags);
+    return _enqueue(
+      () => _write(() async {
+        if (!_db.correctionsAware) {
+          throw UnsupportedError('Corrections require schema 13.');
+        }
+        if (correction.replacement.kind == PostingKind.transfer &&
+            (selections.isNotEmpty || replacementMerchant != null)) {
+          throw UnsupportedError('Transfer metadata is not yet supported');
+        }
+        final previousReversal = await _hasOperation(
+          correction.reversal.operation,
+        );
+        final previousReplacement = await _hasOperation(
+          correction.replacement.operation,
+        );
+        if (!previousReversal && !previousReplacement) {
+          await _admitCapacity();
+          if (await _count('events') > maxEvents - 2 ||
+              await _count('event_corrections') >= maxEvents ~/ 2) {
+            throw PreviewCapacity();
+          }
+        }
+        final result =
+            await FinancialWorkflows(
+              _db,
+              sourceContext: 'preview-manual-v1',
+            ).correct(
+              correction,
+              replacementTags: selections,
+              replacementMerchant: replacementMerchant,
+            );
+        if (!result.replayed) {
+          await _checkFinancialRows(correction.reversal);
+          await _checkFinancialRows(correction.replacement);
+          await _checkRows(
+            'event_corrections',
+            'workspace=? AND original_id=?',
+            [
+              correction.original.operation.workspace.toString(),
+              correction.original.id.value,
+            ],
+          );
         }
         return result;
       }),

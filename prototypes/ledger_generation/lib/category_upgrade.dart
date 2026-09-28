@@ -10,7 +10,8 @@ enum _LedgerUpgrade {
   fxTransfers(8, 9, 'ledger-8-to-9-v1'),
   refunds(9, 10, 'ledger-9-to-10-v1'),
   reversals(10, 11, 'ledger-10-to-11-v1'),
-  notes(11, 12, 'ledger-11-to-12-v1');
+  notes(11, 12, 'ledger-11-to-12-v1'),
+  corrections(12, 13, 'ledger-12-to-13-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -25,6 +26,7 @@ enum _LedgerUpgrade {
     refundsAware: to >= 10,
     reversalsAware: to >= 11,
     notesAware: to >= 12,
+    correctionsAware: to >= 13,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -41,6 +43,7 @@ enum _LedgerUpgrade {
       refundsAware: from >= 10,
       reversalsAware: from >= 11,
       notesAware: from >= 12,
+      correctionsAware: from >= 13,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -53,7 +56,8 @@ enum _LedgerUpgrade {
         store.fxTransfersAware != (to >= 9) ||
         store.refundsAware != (to >= 10) ||
         store.reversalsAware != (to >= 11) ||
-        store.notesAware != (to >= 12)) {
+        store.notesAware != (to >= 12) ||
+        store.correctionsAware != (to >= 13)) {
       throw const InvalidSnapshot();
     }
   }
@@ -408,6 +412,38 @@ Future<UpgradeReceipt> upgradeNotes(
   request,
   backupDirectory,
   _LedgerUpgrade.notes,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planCorrectionUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.corrections,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeCorrections(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.corrections,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,
