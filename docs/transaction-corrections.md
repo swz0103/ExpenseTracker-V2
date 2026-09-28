@@ -2,6 +2,8 @@
 
 本批接續[交易備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61)，屬於 [M1-04](implementation-plan.md#m1-04拆分退款更正與刪除規則) 的下一個流程；依據 [FV-008](full-vision-baseline.md#fv-008)、[RC-03](architecture-baseline-v1.0-rc1.md#rc-03) 及[財務契約](foundation-contracts.md)。此文件先固定操作與驗證邊界，功能尚未實作或通過 gate。
 
+2026-09-28 進度：Ledger 提案與 SQLite 保存第一段已實作。schema 13 的 `event_corrections` 以原事件、反向事件及替代事件建立唯一關聯；兩筆既有金融收據、audit 與關聯在同一個交易內提交，重送核對完整關聯，獨立做過的撤銷不得被收編。保存層 55 項與既有上層 Ledger session 235 項本機案例通過，涵蓋寫入點失敗回滾、不同內容重送、跨幣與費用、5,000 筆分類歷史回歸。這是未啟用的保存層 checkpoint；schema 13 的可攜 snapshot／還原、staged upgrade、容量、App 草稿與 UI 尚未接入，不能用此版本處理真實使用者資料。
+
 ## 使用者流程與財務語意
 
 - 使用者從一筆已入帳的收入、支出或同／跨幣轉帳發起「更正交易」，查看原值及擬替代的新值，輸入原因並明確確認。期初餘額、退款、撤銷本身不走此通用更正流程。

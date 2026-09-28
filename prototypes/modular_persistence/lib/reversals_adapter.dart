@@ -27,8 +27,9 @@ final class ReversalSourceRecord {
 Future<ReversalSourceRecord> readReversalSource(
   ProbeDatabase db,
   WorkspaceId workspace,
-  PublicId originalId,
-) async {
+  PublicId originalId, {
+  bool requireEligible = true,
+}) async {
   if (!db.reversalsAware)
     throw UnsupportedError('Reversals require schema 11.');
   final args = [
@@ -45,7 +46,10 @@ Future<ReversalSourceRecord> readReversalSource(
       !['income', 'expense', 'transfer'].contains(e.read<String>('kind'))) {
     throw const LedgerException(LedgerError.reversalReference);
   }
-  for (final table in ['event_refunds', 'event_reversals']) {
+  for (final table in [
+    'event_refunds',
+    if (requireEligible) 'event_reversals',
+  ]) {
     if ((await db
             .customSelect(
               'SELECT event_id FROM $table WHERE workspace=? AND original_id=? LIMIT 1',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart';
 import 'package:accounts/accounts.dart';
 import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -15,6 +16,18 @@ import 'refunds_adapter.dart';
 import 'reversals_adapter.dart';
 
 export 'operations.dart' show OperationConflict, CommitResult;
+
+final class CorrectionCommitResult {
+  const CorrectionCommitResult(
+    this.reversalId,
+    this.replacementId, {
+    required this.replayed,
+  });
+
+  final PublicId reversalId;
+  final PublicId replacementId;
+  final bool replayed;
+}
 
 final class FinancialWorkflows {
   FinancialWorkflows(this.db, {String sourceContext = 'fixture-manual-v1'})
@@ -137,6 +150,126 @@ final class FinancialWorkflows {
       checkpoint,
     );
   }
+
+  /// The two financial receipts and their unique source link are one write.
+  /// An independently committed reversal or replacement is never a replay.
+  Future<CorrectionCommitResult> correct(
+    PostingCorrection correction, {
+    Iterable<TagSelection> replacementTags = const [],
+    MerchantSelection? replacementMerchant,
+    void Function(String)? checkpoint,
+  }) async {
+    if (!db.correctionsAware) {
+      throw UnsupportedError('Corrections require schema 13.');
+    }
+    final original = correction.original;
+    final reversal = correction.reversal;
+    final replacement = correction.replacement;
+    final workspace = original.operation.workspace;
+    final ws = workspace.toString();
+    final selections = canonicalTags(replacementTags);
+    return db.transaction(() async {
+      final link = await db
+          .customSelect(
+            'SELECT reversal_id,replacement_id FROM event_corrections WHERE workspace=? AND original_id=?',
+            variables: [
+              Variable.withString(ws),
+              Variable.withString(original.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      final reversalReceipt = await _correctionReceipt(
+        ws,
+        reversal.operation.operation.toString(),
+      );
+      final replacementReceipt = await _correctionReceipt(
+        ws,
+        replacement.operation.operation.toString(),
+      );
+      if (link == null) {
+        if (reversalReceipt != null || replacementReceipt != null) {
+          throw OperationConflict();
+        }
+      } else {
+        if (link.read<String>('reversal_id') != reversal.id.value ||
+            link.read<String>('replacement_id') != replacement.id.value ||
+            !_matchingCorrectionReceipt(
+              reversalReceipt,
+              reversal,
+              'ledger.reversal',
+            ) ||
+            !_matchingCorrectionReceipt(
+              replacementReceipt,
+              replacement,
+              'ledger.${replacement.kind.name}',
+            )) {
+          throw OperationConflict();
+        }
+        final edge = await db
+            .customSelect(
+              'SELECT original_id FROM event_reversals WHERE workspace=? AND event_id=?',
+              variables: [
+                Variable.withString(ws),
+                Variable.withString(reversal.id.value),
+              ],
+            )
+            .getSingleOrNull();
+        if (edge?.read<String>('original_id') != original.id.value) {
+          throw OperationConflict();
+        }
+      }
+      final source = await readReversalSource(
+        db,
+        workspace,
+        original.id,
+        requireEligible: link == null,
+      );
+      final reversed = await post(
+        reversal,
+        tags: source.tags,
+        merchant: source.merchant,
+        checkpoint: (point) => checkpoint?.call('reversal:$point'),
+      );
+      final replaced = await post(
+        replacement,
+        tags: selections,
+        merchant: replacementMerchant,
+        checkpoint: (point) => checkpoint?.call('replacement:$point'),
+      );
+      if (link == null) {
+        if (reversed.replayed || replaced.replayed) throw OperationConflict();
+        await db.customStatement(
+          'INSERT INTO event_corrections VALUES (?,?,?,?)',
+          [ws, original.id.value, reversal.id.value, replacement.id.value],
+        );
+        checkpoint?.call('correction:link');
+      } else if (!reversed.replayed || !replaced.replayed) {
+        throw OperationConflict();
+      }
+      return CorrectionCommitResult(
+        reversal.id,
+        replacement.id,
+        replayed: link != null,
+      );
+    });
+  }
+
+  Future<QueryRow?> _correctionReceipt(String ws, String operation) => db
+      .customSelect(
+        'SELECT r.result_id,a.entity_id,a.kind FROM receipts r LEFT JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id WHERE r.workspace=? AND r.operation_id=?',
+        variables: [Variable.withString(ws), Variable.withString(operation)],
+      )
+      .getSingleOrNull();
+
+  bool _matchingCorrectionReceipt(
+    QueryRow? row,
+    Posting posting,
+    String kind,
+  ) =>
+      row != null &&
+      row.read<String>('result_id') == posting.id.value &&
+      row.read<String?>('entity_id') == posting.id.value &&
+      row.read<String?>('kind') == kind;
 
   Future<CommitResult> archive(
     WorkspaceId workspace,

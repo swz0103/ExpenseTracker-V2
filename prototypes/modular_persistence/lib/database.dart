@@ -25,24 +25,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool fxTransfersAware = false,
     bool refundsAware = false,
     bool reversalsAware = false,
-    this.notesAware = false,
-  }) : reversalsAware = reversalsAware || notesAware,
-       refundsAware = refundsAware || reversalsAware || notesAware,
+    bool notesAware = false,
+    this.correctionsAware = false,
+  }) : notesAware = notesAware || correctionsAware,
+       reversalsAware = reversalsAware || notesAware || correctionsAware,
+       refundsAware =
+           refundsAware || reversalsAware || notesAware || correctionsAware,
        fxTransfersAware =
-           fxTransfersAware || refundsAware || reversalsAware || notesAware,
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware ||
+           notesAware ||
+           correctionsAware,
        transfersAware =
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        merchantsAware =
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
@@ -50,7 +59,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
@@ -59,7 +69,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -69,7 +80,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        super(NativeDatabase(file)) {
     _configuration();
   }
@@ -85,24 +97,33 @@ final class ProbeDatabase extends GeneratedDatabase {
     bool fxTransfersAware = false,
     bool refundsAware = false,
     bool reversalsAware = false,
-    this.notesAware = false,
-  }) : reversalsAware = reversalsAware || notesAware,
-       refundsAware = refundsAware || reversalsAware || notesAware,
+    bool notesAware = false,
+    this.correctionsAware = false,
+  }) : notesAware = notesAware || correctionsAware,
+       reversalsAware = reversalsAware || notesAware || correctionsAware,
+       refundsAware =
+           refundsAware || reversalsAware || notesAware || correctionsAware,
        fxTransfersAware =
-           fxTransfersAware || refundsAware || reversalsAware || notesAware,
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware ||
+           notesAware ||
+           correctionsAware,
        transfersAware =
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        merchantsAware =
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
@@ -110,7 +131,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
@@ -119,7 +141,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -129,7 +152,8 @@ final class ProbeDatabase extends GeneratedDatabase {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        super(executor) {
     _configuration();
   }
@@ -142,6 +166,7 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool refundsAware;
   final bool reversalsAware;
   final bool notesAware;
+  final bool correctionsAware;
   void _configuration() {
     if (categoryAware && storageBinding == null) {
       throw ArgumentError('Categories require an explicitly bound stage.');
@@ -151,7 +176,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => notesAware
+  int get schemaVersion => correctionsAware
+      ? 13
+      : notesAware
       ? 12
       : reversalsAware
       ? 11
@@ -189,6 +216,7 @@ final class ProbeDatabase extends GeneratedDatabase {
       }
       if (reversalsAware) await customStatement(reversalSchema);
       if (notesAware) await customStatement(noteSchema);
+      if (correctionsAware) await customStatement(correctionSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
@@ -359,3 +387,19 @@ const noteSchema = '''CREATE TABLE event_note_revisions (
  operation_id TEXT NOT NULL, text TEXT NOT NULL,
  PRIMARY KEY(workspace,event_id,revision), UNIQUE(workspace,operation_id),
  FOREIGN KEY(workspace,event_id) REFERENCES events(workspace,id)) STRICT''';
+
+const correctionColumns = [
+  'workspace',
+  'original_id',
+  'reversal_id',
+  'replacement_id',
+];
+const correctionSchema = '''CREATE TABLE event_corrections (
+ workspace TEXT NOT NULL, original_id TEXT NOT NULL,
+ reversal_id TEXT NOT NULL, replacement_id TEXT NOT NULL,
+ PRIMARY KEY(workspace,original_id),
+ UNIQUE(workspace,reversal_id), UNIQUE(workspace,replacement_id),
+ CHECK(original_id != reversal_id AND original_id != replacement_id AND reversal_id != replacement_id),
+ FOREIGN KEY(workspace,original_id) REFERENCES events(workspace,id),
+ FOREIGN KEY(workspace,reversal_id) REFERENCES events(workspace,id),
+ FOREIGN KEY(workspace,replacement_id) REFERENCES events(workspace,id)) STRICT''';
