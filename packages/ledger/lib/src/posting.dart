@@ -18,6 +18,8 @@ enum LedgerError {
   reversalReference,
   reversalDependency,
   correctionReference,
+  tombstoneReference,
+  tombstoneDependency,
 }
 
 final class LedgerException implements Exception {
