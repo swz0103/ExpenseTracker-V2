@@ -4,6 +4,8 @@
 
 2026-09-28 保存與加密檢查點：schema 14 建立唯一 `event_tombstones`，單一 SQLite transaction 寫入 marker、收據與 audit；相同命令需三者匹配才重送。帳戶有效餘額從權威 legs 排除 tombstone，原事件仍在歷史。既有退款、撤銷、更正來源讀取拒絕已刪除原事件；反向次序的撤銷／更正依賴亦拒絕刪除。收入／支出與跨幣轉帳、來源事實變更、三處寫入故障及重送已做合成資料定向驗證。可攜 snapshot format 13 保存 marker 並逐項比對原事件、完整財務事實、收據、audit、原因及操作；舊 schema 13 可升到空 marker 的 schema 14。加密 LedgerStore 已接上容量預檢、有效列表、歷史單筆、活動、雙憑證乾淨還原及事前安全備份的 staged 13→14 升級，失敗保留舊 generation。本機保存層 **60**、可攜還原 **106**、加密 generation **240**、SQLCipher **34** 項與相關分析、架構邊界檢查通過；證據見[保存檢查點](test-results/tombstone-storage-host-2026-09-28.json)。App schema 14 的草稿、確認與歷史入口、四處真實行程退出及 5,000 筆容量與雙路乾淨還原亦已通過[主機檢查](work-progress.md#2026-09-28-一般交易-tombstone進行中)；大量資料接續測試曾為分段診斷而中斷，完整過程見[量測結果](test-results/tombstone-scale-2026-09-28.json)。預設 App 仍使用 schema 12，雲端與實機 gate 尚未通過；不能開放使用者資料或宣稱 M1-04 完成。
 
+交付審查入口：[PR #64](https://github.com/swz0103/ExpenseTracker-V2/pull/64)，base 為[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) 的功能分支；不合併 main。
+
 ## 有效集合與操作範圍
 
 - 一般刪除只接受單筆正式收入、支出或轉帳，包括同幣與跨幣轉帳；原始 `events`、legs、歸屬、備註、收據與 audit 不刪除。獨立的 `event_tombstones` 記錄原事件及刪除 operation；原事件從**目前有效集合**退出，餘額、期間收支、分類與搜尋都只計入仍有效的事件。交易活動仍可查閱原事實與刪除時間。

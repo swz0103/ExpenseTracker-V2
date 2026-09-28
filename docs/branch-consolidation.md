@@ -82,3 +82,5 @@ feat/financial-reversals 依賴 #59（0b8ba69471d156f93c1be6931b9eb6db931a8401�
 
 
 2026-09-28 備註批次：feat/transaction-notes 依賴 feat/financial-reversals（#60，56743aa150cb33dd7054a87327e008c3498dd19c），完整 18 套件／869 本機案例及大量／程序退出通過；雲端尚未執行，workflow 保持停用。保留原 PR 與提交，待雲端 gate 的分支暫不收斂，main 未合併。
+
+2026-09-28 架構與 M1-04 接續：[能力邊界 PR #62](https://github.com/swz0103/ExpenseTracker-V2/pull/62) 收斂 App schema 門檻；[財務更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) 依賴 #62，最初核對 head 為 `c38853e9633c48b2c2f9edcaf7e8bc365354f130`；[Tombstone PR #64](https://github.com/swz0103/ExpenseTracker-V2/pull/64) 再依賴 #63，本機／遠端／PR 初次交付 head 同為 `fc7dc0ba399419263d108c81725536ba4a7953c7`。#64 的主機 App 169 項、四處真實退出、5,000 筆中斷後恢復量測與 ARM64 debug 封裝已記錄；大資料全量驗證成本偏高，列為[架構後續](architecture-audit-2026-09-28.md#後續實測大量帳本的開啟驗證成本)。兩個 Actions workflow 仍停用，#62～#64 沒有新雲端 checks；需該 gate 的整合與舊分支清理暫緩，main 未合併。
