@@ -5,10 +5,12 @@ import 'dart:async';
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
+import 'package:data_exchange/data_exchange.dart';
 import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show TextInputFormatter;
+import 'package:flutter/services.dart'
+    show TextInputFormatter, PlatformException;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:reports/reports.dart';
@@ -36,6 +38,7 @@ part 'tag_screen.dart';
 part 'merchant_screen.dart';
 part 'search_screen.dart';
 part 'monthly_report_screen.dart';
+part 'simple_import_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,6 +130,7 @@ enum _Page {
   account,
   posting,
   restore,
+  simpleImport,
   blocked,
 }
 
@@ -145,10 +149,15 @@ class PreviewHome extends StatefulWidget {
 }
 
 class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
+  void _updateSimpleImport(VoidCallback change) => setState(change);
   PreviewEngine? _engine;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
   String? _message, _imported;
+  bool _simpleImportSelected = false;
+  SimpleTransactionBatch? _simpleImportBatch;
+  SimpleImportReview? _simpleImportReview;
+  final _simpleImportMapping = <PublicId, PublicId>{};
   CreatedBackup? _draft;
   final _scroll = ScrollController(keepScrollOffset: false);
   final _password = TextEditingController();
@@ -240,6 +249,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   void _clear() {
+    _clearSimpleImport();
     for (final c in [
       _password,
       _confirm,
@@ -467,7 +477,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _hasMore = entries.length == 30;
       _hasMoreDeleted = deletedEntries.length == 30;
       _hasSafety = safety;
-      _page = _imported == null ? _Page.home : _Page.restore;
+      _page = _simpleImportSelected
+          ? _Page.simpleImport
+          : _imported == null
+          ? _Page.home
+          : _Page.restore;
     });
   }
 
@@ -1058,6 +1072,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               if (_draftSaveError != null) throw _draftSaveError!;
             }
             _imported = null;
+            if (_page == _Page.simpleImport) {
+              _clearSimpleImport();
+              await widget.documents.discardSimpleImport();
+            }
             _credential.clear();
             await _refresh();
           }),
@@ -1075,7 +1093,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ),
       ),
       actions: [
-        if ({_Page.home, _Page.search, _Page.monthlyReport}.contains(_page) &&
+        if ({
+              _Page.home,
+              _Page.search,
+              _Page.monthlyReport,
+              _Page.simpleImport,
+            }.contains(_page) &&
             (_engine?.isUnlocked ?? false))
           IconButton(
             onPressed: _busy ? null : _togglePrivacy,
@@ -1562,6 +1585,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _button('確認取代並還原', _restore),
           _back(),
         ];
+      case _Page.simpleImport:
+        return _simpleImportContent();
       case _Page.home:
         return [
           Text('我的帳本', style: Theme.of(context).textTheme.headlineSmall),
@@ -1911,9 +1936,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : _openImport,
             child: const Text('從檔案還原'),
           ),
+          TextButton(
+            onPressed: _busy ? null : _chooseSimpleImport,
+            child: const Text('匯入簡易收支檔'),
+          ),
           const SizedBox(height: 16),
           const Text(
-            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。刪除與報表尚未開放。',
+            '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。',
             style: TextStyle(color: Colors.grey),
           ),
         ];
@@ -1930,6 +1959,11 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  ExchangeException(code: 'source_conflict', row: final row) =>
+    '檔案第 $row 筆與先前匯入的同來源資料不同；整批未寫入。',
+  ExchangeException(row: final row) =>
+    '匯入檔案或帳戶對應無效${row == null ? '' : '（第 $row 筆）'}；請檢查後重試。',
+  PlatformException(code: 'document') => '無法讀取所選檔案；請確認檔案仍可存取且為 UTF-8。',
   NoteException(code: NoteError.conflict) => '備註已有新版本。請查看活動，再讀取最新版本並確認你的草稿。',
   NoteException(code: NoteError.unchanged) => '備註內容沒有變更；可返回編輯或捨棄草稿。',
   NoteException() => '備註格式或交易不符；最多 1024 個字元。',

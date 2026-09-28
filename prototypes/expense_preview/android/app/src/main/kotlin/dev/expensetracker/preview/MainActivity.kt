@@ -3,15 +3,19 @@ package dev.expensetracker.preview
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.net.Uri
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
 
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
     private var encrypted: ByteArray? = null
+    private var selectedSimple: Uri? = null
     private val maxBytes = 24 * 1024 * 1024
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,18 +29,39 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 if (pending != null) {
                     result.error("busy", "另一個檔案選擇尚未結束", null)
-                } else if (call.method == "open" || call.method == "save") {
+                } else if (call.method == "readSimpleImport") {
+                    val uri = selectedSimple
+                    selectedSimple = null
+                    if (uri == null) {
+                        result.error("document", "尚未選取匯入檔案", null)
+                    } else Thread {
+                        try {
+                            val text = Charsets.UTF_8.newDecoder()
+                                .onMalformedInput(CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                                .decode(ByteBuffer.wrap(readBounded(uri))).toString()
+                            runOnUiThread { result.success(text) }
+                        } catch (_: Exception) {
+                            runOnUiThread { result.error("document", "匯入檔案無法讀取或不是 UTF-8", null) }
+                        }
+                    }.apply { name = "simple-import-document"; isDaemon = true }.start()
+                } else if (call.method == "discardSimpleImport") {
+                    selectedSimple = null
+                    result.success(null)
+                } else if (call.method == "open" || call.method == "save" || call.method == "chooseSimpleImport") {
                     try {
                         val saving = call.method == "save"
+                        val simple = call.method == "chooseSimpleImport"
                         val data = if (saving) (call.arguments as? String)?.toByteArray(Charsets.UTF_8) else null
                         if (saving && (data == null || data.size > maxBytes)) throw IllegalArgumentException()
                         pending = result
                         encrypted = data
+                        if (simple) selectedSimple = null
                         val intent = Intent(if (saving) Intent.ACTION_CREATE_DOCUMENT else Intent.ACTION_OPEN_DOCUMENT)
                             .addCategory(Intent.CATEGORY_OPENABLE)
                             .setType(if (saving) "application/octet-stream" else "*/*")
                         if (saving) intent.putExtra(Intent.EXTRA_TITLE, "ExpenseTracker-${System.currentTimeMillis()}.etv2")
-                        startActivityForResult(intent, if (saving) 401 else 402)
+                        startActivityForResult(intent, if (saving) 401 else if (simple) 403 else 402)
                     } catch (_: Exception) {
                         pending = null
                         encrypted = null
@@ -64,7 +89,7 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Android result bridge")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != 401 && requestCode != 402) return
+        if (requestCode != 401 && requestCode != 402 && requestCode != 403) return
         val result = pending ?: return
         val bytes = encrypted
         val uri = data?.data
@@ -72,6 +97,13 @@ class MainActivity : FlutterActivity() {
             pending = null
             encrypted = null
             result.success(null)
+            return
+        }
+        if (requestCode == 403) {
+            selectedSimple = uri
+            pending = null
+            encrypted = null
+            result.success(true)
             return
         }
         Thread {

@@ -72,6 +72,9 @@ Future<PreviewEngine> createEngine() async {
 abstract interface class BackupDocuments {
   Future<bool> save(String encrypted);
   Future<String?> open();
+  Future<bool> chooseSimpleImport();
+  Future<String?> readSimpleImport();
+  Future<void> discardSimpleImport();
 }
 
 final class AndroidBackupDocuments implements BackupDocuments {
@@ -81,4 +84,14 @@ final class AndroidBackupDocuments implements BackupDocuments {
       await channel.invokeMethod<bool>('save', encrypted) ?? false;
   @override
   Future<String?> open() => channel.invokeMethod<String>('open');
+
+  @override
+  Future<bool> chooseSimpleImport() async =>
+      await channel.invokeMethod<bool>('chooseSimpleImport') ?? false;
+  @override
+  Future<String?> readSimpleImport() =>
+      channel.invokeMethod<String>('readSimpleImport');
+  @override
+  Future<void> discardSimpleImport() =>
+      channel.invokeMethod<void>('discardSimpleImport');
 }

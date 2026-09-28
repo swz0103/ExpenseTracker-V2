@@ -4,7 +4,9 @@ import 'package:expense_preview/main.dart';
 import 'package:expense_preview/platform_services.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:categories/categories.dart';
+import 'package:data_exchange/data_exchange.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,8 @@ import 'support.dart';
 
 final class Documents implements BackupDocuments {
   String? saved;
+  String? simple;
+  VoidCallback? onChooseSimple;
   @override
   Future<bool> save(String encrypted) async {
     saved = encrypted;
@@ -21,6 +25,22 @@ final class Documents implements BackupDocuments {
 
   @override
   Future<String?> open() async => saved;
+
+  @override
+  Future<bool> chooseSimpleImport() async {
+    onChooseSimple?.call();
+    return simple != null;
+  }
+
+  @override
+  Future<String?> readSimpleImport() async {
+    final selected = simple;
+    simple = null;
+    return selected;
+  }
+
+  @override
+  Future<void> discardSimpleImport() async => simple = null;
 }
 
 Future<void> settle(WidgetTester tester) async {
@@ -36,6 +56,17 @@ Future<void> settle(WidgetTester tester) async {
     }
   }
   throw StateError('UI operation did not finish');
+}
+
+Future<void> waitForImportDialog(WidgetTester tester) async {
+  for (var i = 0; i < 100; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 25)),
+    );
+    await tester.pump();
+    if (find.text('確認匯入').evaluate().isNotEmpty) return;
+  }
+  throw StateError('Import confirmation did not open');
 }
 
 Future<void> tap(WidgetTester tester, String text) async {
@@ -133,9 +164,12 @@ void main() {
           -180,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 120));
+        await tester.pumpAndSettle();
+        expect(find.text('記一筆').hitTestable(), findsOneWidget);
         await tap(tester, '記一筆');
         await tester.scrollUntilVisible(
-          find.text('返回帳本').hitTestable(),
+          find.text('返回帳本'),
           180,
           scrollable: find.byType(Scrollable).first,
         );
@@ -563,6 +597,129 @@ void main() {
         await settle(tester);
         expect(find.byType(Card), findsOneWidget);
         expect(find.text('銀行'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.absolute.path.startsWith(
+          '${root.absolute.path}${Platform.pathSeparator}',
+        )) {
+          throw StateError('unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  testWidgets(
+    'simple import picker locks, requires review and explicit confirmation',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('simple-import-');
+      final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
+      final docs = Documents();
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          final cash = account(engine, name: 'Import target');
+          await engine.createAccount(cash, opening(cash));
+          docs.simple = SimpleTransactionCodec.encodeJson(
+            SimpleTransactionBatch(WorkspaceId(PublicId.generate()), [
+              SimpleTransaction(
+                sourceRecordId: PublicId.generate(),
+                date: BusinessDate(2026, 9, 28),
+                kind: PostingKind.income,
+                accountId: PublicId.generate(),
+                amount: Money.parse(cash.currency, '12.34'),
+              ),
+            ]),
+          );
+          await engine.setPrivacyMode(PrivacyMode.hidden);
+          await engine.lock();
+        });
+        final source = SimpleTransactionCodec.decodeJson(docs.simple!)
+            .records
+            .single
+            .accountId;
+        docs.onChooseSimple = () => tester.binding
+            .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: docs),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tester.scrollUntilVisible(
+          find.text('匯入簡易收支檔'),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tap(tester, '匯入簡易收支檔');
+        expect(find.text('解鎖帳本'), findsOneWidget);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '讀取所選檔案');
+        expect(find.textContaining('檔案共有 1 筆'), findsOneWidget);
+        final mapping = find.byKey(ValueKey('simple-account-${source.value}'));
+        await tester.ensureVisible(mapping);
+        await tester.tap(mapping);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Import target · TWD').last);
+        await tester.pumpAndSettle();
+        await tap(tester, '檢查對應與金額');
+        await tester.runAsync(() async {
+          expect(
+            (await engine.accounts()).single.balance.minorUnits,
+            BigInt.from(10000),
+          );
+        });
+        if (tester
+                .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, '確認匯入目前帳本'),
+                )
+                .onPressed ==
+            null) {
+          await tester.tap(find.byTooltip('顯示金額'));
+          await tester.pump();
+          await settle(tester);
+        }
+        await tester.ensureVisible(find.text('確認匯入目前帳本'));
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, '確認匯入目前帳本'),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.text('確認匯入目前帳本'));
+        await waitForImportDialog(tester);
+        await tester.tap(find.text('取消'));
+        await tester.pump();
+        await settle(tester);
+        await tester.runAsync(() async {
+          expect(
+            (await engine.accounts()).single.balance.minorUnits,
+            BigInt.from(10000),
+          );
+        });
+        await tester.tap(find.text('確認匯入目前帳本'));
+        await waitForImportDialog(tester);
+        await tester.tap(find.text('確認匯入'));
+        await tester.pump();
+        await settle(tester);
+        await tester.runAsync(() async {
+          expect(
+            (await engine.accounts()).single.balance.minorUnits,
+            BigInt.from(11234),
+          );
+        });
+        expect(find.textContaining('新增 1 筆'), findsOneWidget);
         expect(tester.takeException(), isNull);
       } finally {
         await closeEngine(tester, engine);
