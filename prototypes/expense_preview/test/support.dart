@@ -62,6 +62,7 @@ PreviewEngine engineAt(
       refundsAware: capabilities.refunds,
       reversalsAware: capabilities.reversals,
       notesAware: capabilities.notes,
+      correctionsAware: capabilities.corrections,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

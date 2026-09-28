@@ -6,6 +6,8 @@ schema 13 更正鏈已從明文保存／可攜 snapshot 接到加密 Ledger sess
 
 本機受影響套件：保存層 55、可攜還原 103、Ledger generation 237、SQLCipher 儲存 34、App 舊 schema 完整 161 項通過；相關靜態分析與格式檢查通過。這是未完成的功能檢查點：App 預設 schema 12，尚未接更正草稿／畫面，還缺大量資料與完整程序中斷驗證。兩個 GitHub Actions workflow 維持停用，沒有雲端通過證據；實機未操作、`main` 未合併，不宣稱 M1-04 或安全 gate 完成。詳見[更正契約](transaction-corrections.md)。
 
+接續 App schema 13 建立／驗證及 12 → 13 升級路由。新增故障後舊版可讀、可備份及重試升級案例；它找出 Ledger session 對新關聯表快照漏傳能力旗標，已修正並新增 session／store 快照相等斷言。App 定向案例與 Ledger 更正 session 兩項通過，靜態分析通過；App 預設仍是 schema 12，正式更正草稿和畫面還沒接入。
+
 ## 2026-09-28 架構審查第一批：集中 App 能力門檻
 
 依使用者提供的[審查清單](architecture-audit-2026-09-28.md)逐項對照程式，確認畫面與草稿流程原本直接比較資料庫版本、既有架構檢查尚未涵蓋執行時 prototype 依賴；未發現需全面重寫的錯誤字串分派。本批將 schema 3～12 的功能門檻收斂到 `PreviewCapabilities`，供畫面、草稿、複製、App 儲存建立與測試 fixture 使用，原有可用功能與資料格式不變。大型首頁狀態及異步次序仍需以具體案例繼續檢驗。

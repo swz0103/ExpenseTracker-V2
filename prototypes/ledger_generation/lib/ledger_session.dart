@@ -370,6 +370,7 @@ final class LedgerSession {
       refundsAware: _db.refundsAware,
       reversalsAware: _db.reversalsAware,
       notesAware: _db.notesAware,
+      correctionsAware: _db.correctionsAware,
     ).capture(_db),
   );
 

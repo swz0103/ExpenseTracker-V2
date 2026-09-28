@@ -114,12 +114,15 @@ void main() {
   test('schema 13 correction restores independently with password and recovery key', () async {
     final active = store();
     await seed(active);
+    late List<int> sessionSnapshot;
     await active.withSession((session) async {
       expect((await session.correct(proposal)).replayed, false);
       expect((await session.correct(proposal)).replayed, true);
       expect((await session.accounts(workspace)).single.balance, money('93'));
+      sessionSnapshot = await session.snapshot();
     });
     final before = await active.snapshot();
+    expect(sessionSnapshot, before);
     final backup = await active.backup(password);
     for (final method in ['password', 'recovery']) {
       final restored = destination(method);

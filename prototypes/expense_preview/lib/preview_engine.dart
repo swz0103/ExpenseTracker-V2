@@ -50,7 +50,7 @@ final class PreviewUpgradeRequired implements Exception {}
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 12) {
+    if (schemaVersion < 3 || schemaVersion > 13) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -66,6 +66,7 @@ final class PreviewCapabilities {
   bool get refunds => schemaVersion >= 10;
   bool get reversals => schemaVersion >= 11;
   bool get notes => schemaVersion >= 12;
+  bool get corrections => schemaVersion >= 13;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -590,6 +591,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       refundsAware: capabilities.refunds,
       reversalsAware: capabilities.reversals,
       notesAware: capabilities.notes,
+      correctionsAware: capabilities.corrections,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

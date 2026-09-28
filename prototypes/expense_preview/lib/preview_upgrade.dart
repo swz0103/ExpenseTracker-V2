@@ -22,7 +22,8 @@ extension _PreviewUpgrade on PreviewEngine {
           version != 8 &&
           version != 9 &&
           version != 10 &&
-          version != 11) {
+          version != 11 &&
+          version != 12) {
         throw PreviewInvalid();
       }
       _check(epoch);
@@ -43,7 +44,9 @@ extension _PreviewUpgrade on PreviewEngine {
         8 => planFxTransferUpgrade,
         9 => planRefundUpgrade,
         10 => planReversalUpgrade,
-        _ => planNoteUpgrade,
+        11 => planNoteUpgrade,
+        12 => planCorrectionUpgrade,
+        _ => throw PreviewInvalid(),
       };
       final request = await plan(
         target,
@@ -60,7 +63,9 @@ extension _PreviewUpgrade on PreviewEngine {
         8 => upgradeFxTransfers,
         9 => upgradeRefunds,
         10 => upgradeReversals,
-        _ => upgradeNotes,
+        11 => upgradeNotes,
+        12 => upgradeCorrections,
+        _ => throw PreviewInvalid(),
       };
       await upgrade(
         target,
