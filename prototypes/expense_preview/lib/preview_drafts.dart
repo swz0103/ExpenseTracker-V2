@@ -21,6 +21,13 @@ extension PreviewDrafts on PreviewEngine {
     final session = _session!;
     final draft = await store.read();
     _check(epoch);
+    if (draft?.tombstoneSubmission != null &&
+        (await session.entry(workspace, draft!.id))?.tombstoneReason != null) {
+      await session.tombstone(draft.tombstoneSubmission!.command);
+      await store.write(null);
+      _check(epoch);
+      return null;
+    }
     if (draft?.noteSubmission != null &&
         await session.noteOperationExists(draft!.operation)) {
       await session.reviseNote(draft.operation, draft.noteSubmission!);
@@ -61,7 +68,8 @@ extension PreviewDrafts on PreviewEngine {
     epoch,
   ) async {
     final store = _drafts;
-    if ((fields.correctionOf != null && !capabilities.corrections) ||
+    if ((fields.tombstoneOf != null && !capabilities.tombstones) ||
+        (fields.correctionOf != null && !capabilities.corrections) ||
         (fields.noteOf != null && !capabilities.notes) ||
         (fields.reversalOf != null && !capabilities.reversals) ||
         (fields.refundOf != null && !capabilities.refunds) ||
@@ -76,7 +84,7 @@ extension PreviewDrafts on PreviewEngine {
     final draft =
         prior?.edit(fields) ??
         EntryDraft(
-          id: PublicId.generate(),
+          id: fields.tombstoneOf ?? PublicId.generate(),
           operation: OperationKey(workspace, OperationId(PublicId.generate())),
           fields: fields,
         );
@@ -101,6 +109,33 @@ extension PreviewDrafts on PreviewEngine {
     var draft = await store.read();
     _check(epoch);
     if (draft == null) throw PreviewInvalid();
+    if (draft.fields.tombstoneOf != null) {
+      if (!capabilities.tombstones) throw PreviewInvalid();
+      if (!draft.isPrepared) {
+        final source = await session.reversalSource(
+          workspace,
+          draft.fields.tombstoneOf!,
+        );
+        _check(epoch);
+        draft = draft.prepareTombstone(
+          TombstoneSubmission(
+            PostingTombstone(
+              original: source.posting,
+              operation: draft.operation,
+              reason: draft.fields.tombstoneReason.trim(),
+            ),
+          ),
+        );
+        await store.write(draft);
+        draftCheckpoint?.call('draft-prepared');
+        _check(epoch);
+      }
+      await session.tombstone(draft.tombstoneSubmission!.command);
+      draftCheckpoint?.call('draft-committed');
+      await store.write(null);
+      _check(epoch);
+      return;
+    }
     if (draft.fields.noteOf != null) {
       if (!capabilities.notes) throw PreviewInvalid();
       if (!draft.isPrepared) {

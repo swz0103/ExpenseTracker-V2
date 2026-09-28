@@ -102,6 +102,7 @@ void main() {
       expect((await session.tombstone(deletion)).replayed, true);
       expect((await session.accounts(workspace)).single.balance, money('100'));
       expect(await session.entries(workspace), hasLength(1));
+      expect((await session.deletedEntries(workspace)).single.id, original.id);
       expect(
         (await session.entry(workspace, original.id))!.tombstoneReason,
         'duplicate entry',
@@ -156,6 +157,10 @@ void main() {
           money('100'),
         );
         expect(await session.entries(workspace), hasLength(1));
+        expect(
+          (await session.deletedEntries(workspace)).single.id,
+          original.id,
+        );
       });
     }
   });

@@ -63,6 +63,7 @@ PreviewEngine engineAt(
       reversalsAware: capabilities.reversals,
       notesAware: capabilities.notes,
       correctionsAware: capabilities.corrections,
+      tombstonesAware: capabilities.tombstones,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

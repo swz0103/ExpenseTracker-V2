@@ -28,6 +28,7 @@ part 'split_entry.dart';
 part 'refund_entry.dart';
 part 'reversal_entry.dart';
 part 'correction_entry.dart';
+part 'tombstone_entry.dart';
 part 'note_entry.dart';
 part 'activity_dialog.dart';
 part 'tag_screen.dart';
@@ -180,9 +181,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
   List<LedgerEntry> _entries = [];
+  List<LedgerEntry> _deletedEntries = [];
   PrivacyMode _privacy = PrivacyMode.hidden;
   bool _forceHidden = false;
   bool _hasMore = false;
+  bool _hasMoreDeleted = false;
   bool _hasSafety = false;
   Account? _pendingAccount;
   Posting? _pendingPosting;
@@ -256,6 +259,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _saved = false;
     _accounts = [];
     _entries = [];
+    _deletedEntries = [];
     _catalog = null;
     _tagCatalog = null;
     _merchantCatalog = null;
@@ -378,6 +382,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     final privacy = await _engine!.privacyMode();
     final accounts = await _engine!.accounts();
     final entries = await _engine!.entries();
+    final deletedEntries = _engine!.capabilities.tombstones
+        ? await _engine!.deletedEntries()
+        : const <LedgerEntry>[];
     final catalog = await _engine!.categories();
     final labels = await _categoryLabels(entries, catalog);
     final tagCatalog = _engine!.capabilities.tags
@@ -401,6 +408,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _privacy = _forceHidden ? PrivacyMode.hidden : privacy;
       _accounts = accounts;
       _entries = entries;
+      _deletedEntries = deletedEntries;
       _entryDraft = entryDraft;
       _draftUnreadable = draftUnreadable;
       _catalog = catalog;
@@ -416,6 +424,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ..clear()
         ..addAll(labels);
       _hasMore = entries.length == 30;
+      _hasMoreDeleted = deletedEntries.length == 30;
       _hasSafety = safety;
       _page = _imported == null ? _Page.home : _Page.restore;
     });
@@ -618,6 +627,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     final fields = saved.fields;
+    if (fields.tombstoneOf != null) {
+      await _resumeTombstone(saved);
+      return;
+    }
     if (fields.noteOf != null) {
       _resumeNote(saved);
       return;
@@ -873,6 +886,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         _entryTags.addAll(tagLabels);
         _entryMerchants.addAll(merchantLabels);
         _hasMore = next.length == 30;
+      });
+    }
+  });
+  Future<void> _moreDeleted() => _perform(() async {
+    final next = await _engine!.deletedEntries(before: _deletedEntries.last);
+    if (mounted && _engine!.isUnlocked) {
+      setState(() {
+        _deletedEntries.addAll(next);
+        _hasMoreDeleted = next.length == 30;
       });
     }
   });
@@ -1596,6 +1618,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     : () => _startCorrection(e.id),
                                 child: const Text('更正交易'),
                               ),
+                            if (e.reversedBy == null &&
+                                e.correctedBy == null &&
+                                _engine!.capabilities.tombstones)
+                              TextButton(
+                                key: ValueKey('entry-tombstone-${e.id}'),
+                                onPressed: _busy
+                                    ? null
+                                    : () => _startTombstone(e.id),
+                                child: const Text('刪除交易'),
+                              ),
                             TransferSummary(
                               entry: e,
                               source: _accountName(e.accountId),
@@ -1635,6 +1667,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                   'refund' => _startRefund(e.id),
                                   'reversal' => _startReversal(e.id),
                                   'correction' => _startCorrection(e.id),
+                                  'tombstone' => _startTombstone(e.id),
                                   _ => _copyPosting(e.id),
                                 },
                                 itemBuilder: (_) => [
@@ -1661,6 +1694,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     const PopupMenuItem(
                                       value: 'correction',
                                       child: Text('更正交易'),
+                                    ),
+                                  if (_engine!.capabilities.tombstones &&
+                                      e.reversedBy == null &&
+                                      e.correctedBy == null &&
+                                      [
+                                        PostingKind.income,
+                                        PostingKind.expense,
+                                      ].contains(e.kind))
+                                    const PopupMenuItem(
+                                      value: 'tombstone',
+                                      child: Text('刪除交易'),
                                     ),
                                   if ([
                                     PostingKind.income,
@@ -1697,6 +1741,32 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               onPressed: _busy ? null : _more,
               child: const Text('載入更多'),
             ),
+          if (_deletedEntries.isNotEmpty) ...[
+            const Divider(),
+            Text('已刪除交易', style: Theme.of(context).textTheme.titleLarge),
+            const Text('僅供查閱歷史；不計入目前餘額。'),
+            for (final e in _deletedEntries)
+              ListTile(
+                key: ValueKey('deleted-entry-${e.id}'),
+                title: Text('${_kindLabel(e.kind)} · ${e.date}'),
+                subtitle: e.tombstoneReason?.isNotEmpty == true
+                    ? Text(
+                        _privacy == PrivacyMode.hidden
+                            ? '原因已隱藏'
+                            : e.tombstoneReason!,
+                      )
+                    : const Text('交易已刪除'),
+                trailing: TextButton(
+                  onPressed: _busy ? null : () => _showActivity(e.id),
+                  child: const Text('查看活動'),
+                ),
+              ),
+            if (_hasMoreDeleted)
+              TextButton(
+                onPressed: _busy ? null : _moreDeleted,
+                child: const Text('載入更多已刪除交易'),
+              ),
+          ],
           const Divider(),
           if (_hasSafety)
             OutlinedButton(
@@ -1740,6 +1810,10 @@ String _error(Object error) => switch (error) {
     '僅能撤銷完整的收入、支出或轉帳；日期不可早於原交易。',
   LedgerException(code: LedgerError.correctionReference) =>
     '只能把完整收入、支出或轉帳更正為相同種類；請重新確認原交易。',
+  LedgerException(code: LedgerError.tombstoneDependency) =>
+    '交易已有後續紀錄或已刪除，不能再次刪除；請查看活動。',
+  LedgerException(code: LedgerError.tombstoneReference) =>
+    '原交易資料已變更或不適用一般刪除；請重新整理後確認。',
   LedgerException(code: LedgerError.refundLimit) => '退款超過原支出或該分類剩餘可退金額，請重新確認。',
   LedgerException(code: LedgerError.refundReference) =>
     '退款須對應原支出及原分類，日期不可早於原支出。',

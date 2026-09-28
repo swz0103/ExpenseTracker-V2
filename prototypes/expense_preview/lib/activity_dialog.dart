@@ -88,6 +88,15 @@ class _ActivityDialogState extends State<_ActivityDialog> {
         children: [
           Text('記錄時間：${_recorded(row.recordedAt)}（本機時區）'),
           if (e.id == widget.selected) const Text('目前選取的交易'),
+          if (row.auditKind == 'ledger.tombstone') ...[
+            const Text('交易已刪除；原始紀錄仍保留，不再計入目前餘額。'),
+            if (e.tombstoneReason?.isNotEmpty == true)
+              Text(
+                widget.privacy == PrivacyMode.hidden
+                    ? '刪除原因已隱藏'
+                    : '原因：${e.tombstoneReason}',
+              ),
+          ],
           if (row.noteRevision == null && row.correctionRole != null)
             Text(switch (row.correctionRole!) {
               CorrectionActivityRole.original => '更正鏈：原交易',
@@ -163,7 +172,7 @@ class _ActivityDialogState extends State<_ActivityDialog> {
                 ),
               ],
             ),
-            const Text('由新到舊，包含原交易、相關退款、撤銷及更正替代交易。'),
+            const Text('由新到舊，包含原交易、退款、撤銷、更正與刪除紀錄。'),
             Expanded(
               child: ListView(
                 key: const Key('activity-list'),

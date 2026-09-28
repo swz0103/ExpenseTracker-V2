@@ -2,7 +2,9 @@
 
 ## 2026-09-28 一般交易 Tombstone（進行中）
 
-從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及列表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原子 marker／收據／audit 與失敗回滾、可攜 snapshot format 13、加密 generation 容量及有效讀取、雙憑證乾淨還原、安全備份及 13→14 故障後保留來源已接通。[本機檢查點](test-results/tombstone-storage-host-2026-09-28.json)：保存層 **60**、還原 **106**、加密 generation **240**、SQLCipher **34** 項和分析、邊界檢查通過。回查修正安全備份讀取器漏傳近期 schema 旗標，避免新版被錯誤拒絕。App schema 14／草稿／UI、大量資料／程序退出及雲端／實機 gate 尚未完成，沒有本功能 PR，不宣稱 M1-04 完成。下一步先接 App 測試入口和升級，再完成可恢復草稿、確認與活動畫面；之後做大量資料、故障、全量回歸。
+從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及列表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原子 marker／收據／audit 與失敗回滾、可攜 snapshot format 13、加密 generation 容量及有效讀取、雙憑證乾淨還原、安全備份及 13→14 故障後保留來源已接通。[保存檢查點](test-results/tombstone-storage-host-2026-09-28.json)：保存層 **60**、還原 **106**、加密 generation **240**、SQLCipher **34** 項和分析、邊界檢查通過。回查修正安全備份讀取器漏傳近期 schema 旗標，避免新版被錯誤拒絕。
+
+App 的 schema 14 測試入口、安全升級、凍結加密草稿、提交後回覆遺失的精確恢復、刪除確認與已刪除歷史已接通；預設 App 仍使用 schema 12，未開放新功能。本機草稿套件 **28** 項、App 完整 **169** 項與最後畫面定向回歸、相關靜態分析通過；四處真實程序退出後均只留下單次刪除與可查活動，[結果](test-results/tombstone-process-2026-09-28.json)已保存。[5,000 筆合成資料](test-results/tombstone-scale-2026-09-28.json)在中斷後重新開啟同一持久帳本，核對 2,499 刪除標記、兩組分頁、兩個獨立幣別餘額、容量拒絕後快照不變，以及移除原 DB／金鑰後密碼與救援各自乾淨還原。該筆資料的全量開啟、快照及兩條還原耗時偏高，詳見[架構審查量測](architecture-audit-2026-09-28.md#後續實測大量帳本的開啟驗證成本)，不宣稱 100k+ 效能 gate 通過。ARM64 debug APK 本機封裝通過，V2 App ID 仍為 `dev.expensetracker.preview`；[本機證據](test-results/tombstone-app-host-2026-09-28.json)記錄範圍與產物雜湊。雲端與實機 gate 及本功能 PR 仍待結果；M1-04 和整體 CORE 尚未完成。
 
 ## 2026-09-28 財務更正加密保存與升級（進行中）
 

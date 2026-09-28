@@ -27,3 +27,9 @@
 - `prototypes/expense_preview`：`flutter analyze --no-pub` 通過；`flutter test --no-pub --concurrency=1 --reporter expanded` 共 161 個案例通過。覆蓋舊 V2 版本升級、各交易入口、加密草稿、背景鎖定、隱私與大字體。這是修正後 App 的完整測試清單，不等於全部 18 套件或實機驗證。
 - `tooling/architecture_checks`：15 個單元案例通過，對儲存庫執行的 `bin/check.dart ../..` 亦通過。該工具目前只保護已登記的 Domain 邊界；通過不代表前述 runtime prototype 依賴已被檢查。
 - 此批未修改金融計算、資料格式或加密實作；歷史能力門檻保持 schema 3～12 的既有對應。雲端 workflow 停用，未執行新的 GitHub Actions；未進行實機驗證或合併 `main`。
+
+## 後續實測：大量帳本的開啟驗證成本
+
+schema 14 Tombstone 的 5,000 筆合成帳本（含 2,499 筆刪除標記，約 14 MB SQLCipher 檔）暴露出可重現的延遲。一次診斷中，重新開啟並取得 workspace／帳戶花 **108,210 ms**，有效與已刪除兩組 keyset 分頁合計約 **11 秒**，在同一 session 另取完整可攜快照花 **115,396 ms**。接續驗證的同量帳本重新開啟約 **105 秒**、分頁約 **9 秒**、快照約 **101 秒**。這些是 Windows 主機上的單次合成測量，不是 Android 效能承諾或已完成的 100k+ gate。
+
+程式路徑顯示 `GenerationStore._recover` 每次進入目前世代都執行 `_inspect`，`LedgerPayload.inspect` 再以 `SnapshotCodec.capture` 完整驗證並序列化權威資料；Tombstone 歷史驗證逐標記重建原交易。這能在開啟時發現邏輯破損，但也讓普通讀寫工作階段重複付出全帳本成本。此問題已有量測支持；不能只取消驗證或以未驗證的快取換取速度。後續效能批次應先分別量測物理完整性、邏輯歷史驗證與序列化，再評估可保留相同損壞偵測能力的驗證時機與快取失效策略，並以錯誤資料、程序中斷、升級及兩條還原路徑回歸證明沒有降低 fail-closed 保護。Tombstone 大量資料、容量及雙憑證還原結果另於該功能證據記錄；本節不將進行中的測試預先列為通過。

@@ -60,6 +60,7 @@ Future<PreviewEngine> createEngine() async {
       reversalsAware: capabilities.reversals,
       notesAware: capabilities.notes,
       correctionsAware: capabilities.corrections,
+      tombstonesAware: capabilities.tombstones,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

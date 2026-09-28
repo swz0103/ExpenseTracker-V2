@@ -50,7 +50,7 @@ final class PreviewUpgradeRequired implements Exception {}
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 13) {
+    if (schemaVersion < 3 || schemaVersion > 14) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -67,6 +67,7 @@ final class PreviewCapabilities {
   bool get reversals => schemaVersion >= 11;
   bool get notes => schemaVersion >= 12;
   bool get corrections => schemaVersion >= 13;
+  bool get tombstones => schemaVersion >= 14;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -388,6 +389,16 @@ final class PreviewEngine {
         _check(epoch);
         return result;
       });
+  Future<List<LedgerEntry>> deletedEntries({LedgerEntry? before}) =>
+      _exclusive((epoch) async {
+        _require();
+        final result = await _session!.deletedEntries(
+          _workspace!,
+          before: before,
+        );
+        _check(epoch);
+        return result;
+      });
   Future<void> createAccount(Account account, Posting opening) =>
       _exclusive((epoch) async {
         _require();
@@ -408,6 +419,15 @@ final class PreviewEngine {
       _check(epoch);
     });
   }
+
+  Future<void> tombstone(PostingTombstone command) => _exclusive((epoch) async {
+    _require();
+    if (!capabilities.tombstones || command.operation.workspace != _workspace) {
+      throw PreviewInvalid();
+    }
+    await _session!.tombstone(command);
+    _check(epoch);
+  });
 
   Future<String> exportBackup() => _exclusive((epoch) async {
     _require();
@@ -592,6 +612,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       reversalsAware: capabilities.reversals,
       notesAware: capabilities.notes,
       correctionsAware: capabilities.corrections,
+      tombstonesAware: capabilities.tombstones,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

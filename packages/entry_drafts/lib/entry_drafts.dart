@@ -6,6 +6,7 @@ import 'package:ledger/ledger.dart';
 part 'refund_draft.dart';
 part 'reversal_draft.dart';
 part 'correction_draft.dart';
+part 'tombstone_draft.dart';
 
 /// Bounded partial allocation input; values are validated only on submission.
 final class SplitFields {
@@ -35,6 +36,8 @@ final class EntryFields {
     this.reversalReason = '',
     this.correctionOf,
     this.correctionReason = '',
+    this.tombstoneOf,
+    this.tombstoneReason = '',
     this.noteOf,
     this.noteRevision = 0,
     this.noteText = '',
@@ -44,6 +47,28 @@ final class EntryFields {
   }) : tags = List.unmodifiable(tags),
        splits = List.unmodifiable(splits) {
     NoteChange.validateText(noteText);
+    if ((tombstoneOf == null && tombstoneReason.isNotEmpty) ||
+        tombstoneReason.runes.length > 256 ||
+        (tombstoneOf != null &&
+            (income ||
+                transfer ||
+                split ||
+                amount.isNotEmpty ||
+                date.isNotEmpty ||
+                accountId != null ||
+                categoryId != null ||
+                merchantId != null ||
+                destinationId != null ||
+                fee != '0' ||
+                received != null ||
+                refundOf != null ||
+                reversalOf != null ||
+                correctionOf != null ||
+                noteOf != null ||
+                this.splits.isNotEmpty ||
+                this.tags.isNotEmpty))) {
+      throw const FormatException('Invalid tombstone draft fields');
+    }
     if ((noteOf == null && (noteRevision != 0 || noteText.isNotEmpty)) ||
         (noteOf != null &&
             (noteRevision < 0 ||
@@ -122,6 +147,8 @@ final class EntryFields {
   final String reversalReason;
   final PublicId? correctionOf;
   final String correctionReason;
+  final PublicId? tombstoneOf;
+  final String tombstoneReason;
   final PublicId? noteOf;
   final int noteRevision;
   final String noteText;
@@ -130,7 +157,9 @@ final class EntryFields {
   final String amount, date;
   final PublicId? accountId, categoryId, merchantId;
   final List<PublicId> tags;
-  List<Object?> toJson() => correctionOf != null
+  List<Object?> toJson() => tombstoneOf != null
+      ? [tombstoneOf!.value, tombstoneReason]
+      : correctionOf != null
       ? _correctionFields(this)
       : noteOf != null
       ? [noteOf!.value, noteRevision, noteText]
@@ -178,7 +207,18 @@ final class EntryFields {
     bool reversal = false,
     bool note = false,
     bool correction = false,
+    bool tombstone = false,
   }) {
+    if (tombstone) {
+      final v = _list(value, 2);
+      return EntryFields(
+        income: false,
+        amount: '',
+        date: '',
+        tombstoneOf: PublicId.parse(v[0] as String),
+        tombstoneReason: v[1] as String,
+      );
+    }
     if (correction) return _readCorrectionFields(value);
     if (note) {
       final v = _list(value, 3);
@@ -405,7 +445,23 @@ final class EntryDraft {
     this.submission,
     this.noteSubmission,
     this.correctionSubmission,
+    this.tombstoneSubmission,
   }) {
+    if (fields.tombstoneOf != null) {
+      if (id != fields.tombstoneOf ||
+          submission != null ||
+          noteSubmission != null ||
+          correctionSubmission != null ||
+          (tombstoneSubmission != null &&
+              (tombstoneSubmission!.command.original.id != id ||
+                  tombstoneSubmission!.command.operation != operation ||
+                  tombstoneSubmission!.command.reason !=
+                      fields.tombstoneReason.trim()))) {
+        throw const FormatException('Tombstone submission mismatch');
+      }
+    } else if (tombstoneSubmission != null) {
+      throw const FormatException('Unexpected tombstone submission');
+    }
     if (fields.correctionOf != null) {
       if (submission != null ||
           noteSubmission != null ||
@@ -460,10 +516,12 @@ final class EntryDraft {
   final EntrySubmission? submission;
   final NoteChange? noteSubmission;
   final CorrectionSubmission? correctionSubmission;
+  final TombstoneSubmission? tombstoneSubmission;
   bool get isPrepared =>
       submission != null ||
       noteSubmission != null ||
-      correctionSubmission != null;
+      correctionSubmission != null ||
+      tombstoneSubmission != null;
   EntryDraft edit(EntryFields fields) {
     if (isPrepared) throw StateError('Resolve pending submission first');
     return EntryDraft(id: id, operation: operation, fields: fields);
@@ -487,8 +545,16 @@ final class EntryDraft {
     fields: fields,
     correctionSubmission: command,
   );
+  EntryDraft prepareTombstone(TombstoneSubmission command) => EntryDraft(
+    id: id,
+    operation: operation,
+    fields: fields,
+    tombstoneSubmission: command,
+  );
   String encode() => jsonEncode([
-    fields.correctionOf != null
+    fields.tombstoneOf != null
+        ? 'manual-tombstone-v1'
+        : fields.correctionOf != null
         ? 'manual-correction-v1'
         : fields.noteOf != null
         ? 'manual-note-v1'
@@ -507,7 +573,8 @@ final class EntryDraft {
     operation.workspace.toString(),
     operation.operation.toString(),
     fields.toJson(),
-    correctionSubmission?.toJson() ??
+    tombstoneSubmission?.toJson() ??
+        correctionSubmission?.toJson() ??
         noteSubmission?.input ??
         submission?.toJson(split: fields.split),
   ]);
@@ -518,6 +585,7 @@ final class EntryDraft {
     if (![
       'manual-note-v1',
       'manual-correction-v1',
+      'manual-tombstone-v1',
       'manual-refund-v1',
       'manual-reversal-v1',
       'manual-entry-v1',
@@ -537,6 +605,16 @@ final class EntryDraft {
         operation: op,
         fields: EntryFields.fromJson(v[4], note: true),
         noteSubmission: v[5] == null ? null : NoteChange.fromInput(v[5]),
+      );
+    }
+    if (v[0] == 'manual-tombstone-v1') {
+      return EntryDraft(
+        id: id,
+        operation: op,
+        fields: EntryFields.fromJson(v[4], tombstone: true),
+        tombstoneSubmission: v[5] == null
+            ? null
+            : TombstoneSubmission.fromJson(v[5], id, op),
       );
     }
     if (v[0] == 'manual-correction-v1') {

@@ -396,6 +396,35 @@ final class LedgerSession {
     return List.unmodifiable(rows.map(_entryFromRow));
   });
 
+  /// Historical deleted entries remain inspectable, but never enter the
+  /// effective list or balance. Uses the same stable keyset as active entries.
+  Future<List<LedgerEntry>> deletedEntries(
+    WorkspaceId workspace, {
+    LedgerEntry? before,
+    int limit = 30,
+  }) => _enqueue(() async {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    if (!_db.tombstonesAware) return const <LedgerEntry>[];
+    final rows = await _db
+        .customSelect(
+          _entrySelect +
+              'WHERE e.workspace=? AND t.event_id IS NOT NULL '
+                  '${before == null ? '' : 'AND (e.business_date < ? OR (e.business_date = ? AND e.id < ?))'} '
+                  'ORDER BY e.business_date DESC,e.id DESC LIMIT ?',
+          variables: [
+            Variable.withString(workspace.toString()),
+            if (before != null) ...[
+              Variable.withString(before.date.toString()),
+              Variable.withString(before.date.toString()),
+              Variable.withString(before.id.value),
+            ],
+            Variable.withInt(limit),
+          ],
+        )
+        .get();
+    return List.unmodifiable(rows.map(_entryFromRow));
+  });
+
   Future<List<int>> snapshot() => _enqueue(
     () => SnapshotCodec(
       generationAware: true,

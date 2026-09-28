@@ -1,0 +1,31 @@
+{
+  "status": "local-host-passed",
+  "scope": "schema 14 tombstone Application, encrypted draft, history and UI behind schema 12 App default",
+  "localTests": {
+    "entryDraftsFull": 28,
+    "expensePreviewFull": 169,
+    "expensePreviewPostMessageWidgetFocused": 1,
+    "ledgerGenerationFocusedAfterHistoricalReader": 2,
+    "modularPersistenceFromBackendCheckpoint": 60,
+    "validatedRestoreFromBackendCheckpoint": 106,
+    "ledgerGenerationFromBackendCheckpoint": 240,
+    "encryptedStorageFromBackendCheckpoint": 34
+  },
+  "staticAnalysis": "passed for affected packages and final App source",
+  "architectureBoundaryCheck": "passed",
+  "processCrashEvidence": "tombstone-process-2026-09-28.json",
+  "scaleEvidence": "tombstone-scale-2026-09-28.json",
+  "androidArm64DebugBuild": {
+    "status": "passed",
+    "applicationId": "dev.expensetracker.preview",
+    "apkBytes": 120517984,
+    "apkSha256": "F773C150E2F6D79D8D63B3B918D6A635CCBEB750635FCA529D7D8821067DC5B7",
+    "artifactLocation": "local ignored build output; not uploaded"
+  },
+  "githubActions": "not run; workflows remain disabled_manually",
+  "physicalAndroidDevice": "not run",
+  "defaultSchema": 12,
+  "tombstoneTestSchema": 14,
+  "mainMerge": "not performed",
+  "gate": "reviewable host implementation; cloud, device and M1-04 milestone gates are not complete"
+}
