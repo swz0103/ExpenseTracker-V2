@@ -1,0 +1,58 @@
+{
+  "scope": "M1-06 exact 5,000-row format boundary, 4,999-row encrypted ledger import, replay and atomic overflow",
+  "baseCommit": "702a1fabee10b5b67ff779605a889b95235d4b03",
+  "date": "2026-09-28",
+  "environment": "Windows 11 host, Dart 3.13.4, local SQLCipher, synthetic data; GitHub Actions not run",
+  "checks": [
+    {
+      "directory": "packages/data_exchange",
+      "command": "dart analyze; dart test --reporter expanded",
+      "result": "passed; 12 tests including refusal to import an export into its own workspace"
+    },
+    {
+      "directory": "prototypes/ledger_generation",
+      "command": "dart analyze; dart test test/simple_import_session_test.dart test/simple_import_scale_test.dart --reporter compact",
+      "result": "passed; no analysis issues; 5 focused import tests"
+    },
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter analyze; flutter test test/simple_import_engine_test.dart --reporter expanded",
+      "result": "passed; no analysis issues; 2 App import and clean-restore tests"
+    },
+    {
+      "directory": "tooling/architecture_checks",
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; full workspace dependency scan"
+    }
+  ],
+  "observed": {
+    "formatRows": 5000,
+    "importedRows": 4999,
+    "existingOpeningEvents": 1,
+    "ledgerEventsAtCapacity": 5000,
+    "jsonSourceBytes": 994932,
+    "snapshotBytes": 5841266,
+    "jsonParseMs": 709,
+    "accountPreviewMs": 21,
+    "atomicWriteMs": 23099,
+    "fullReplayMs": 4651,
+    "wholeTestMs": 39343
+  },
+  "financialCases": [
+    "4,999 distinct source rows create 4,999 unique events and exact balance beside one required opening event",
+    "replaying all source rows returns the original event IDs without changing the snapshot",
+    "a 5,000-row CSV document is valid interchange input but one additional new event is refused atomically when the ledger already has 5,000 events",
+    "a same-workspace document is rejected at read-only account preview before it can duplicate existing entries"
+  ],
+  "sourceSha256": {
+    "packages/data_exchange/lib/src/simple_import_preview.dart": "9abbd6875cc8ff1d1b646b8b79769410725764435f8fee23ea74188efcf0b294",
+    "packages/data_exchange/test/simple_import_preview_test.dart": "7627b2108f078648953884cc7b8cfcd54e6f8cc31315dddf331daccdcdf82552",
+    "prototypes/ledger_generation/test/simple_import_scale_test.dart": "dc5e3992907ae516ffa84be0097c8fe15e84496c8bf073516264bfd66b9b4326",
+    "prototypes/expense_preview/lib/main.dart": "e75f61843360926118e4d64e00cf95cfa72a4f02df927a42e9a8902321655899"
+  },
+  "notVerified": [
+    "Android device latency, document providers and process-background behavior",
+    "loss-declared user-visible export and fixture round-trip",
+    "cloud checks; both workflows remain disabled"
+  ]
+}

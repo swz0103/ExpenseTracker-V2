@@ -25,6 +25,9 @@ final class SimpleImportPreview {
     if (batch.records.isEmpty) {
       throw const ExchangeException('empty_import');
     }
+    if (batch.sourceWorkspace == destinationWorkspace) {
+      throw const ExchangeException('same_workspace_import');
+    }
     final rows = <SimpleImportRow>[];
     final income = <Currency, BigInt>{};
     final expense = <Currency, BigInt>{};

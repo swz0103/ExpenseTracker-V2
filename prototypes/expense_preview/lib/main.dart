@@ -1959,6 +1959,8 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  ExchangeException(code: 'same_workspace_import') =>
+    '不能把這本帳的簡易匯出再匯入同一本帳，避免重複入帳。請使用另一個 V2 帳本。',
   ExchangeException(code: 'source_conflict', row: final row) =>
     '檔案第 $row 筆與先前匯入的同來源資料不同；整批未寫入。',
   ExchangeException(row: final row) =>

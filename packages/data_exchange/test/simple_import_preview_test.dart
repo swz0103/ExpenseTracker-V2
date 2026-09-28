@@ -156,4 +156,24 @@ void main() {
       ),
     );
   });
+
+  test('rejects importing a workspace export into itself before any write', () {
+    final batch = SimpleTransactionBatch(destinationWorkspace, [
+      row(PostingKind.income, sourceCash, twd, 10),
+    ]);
+    expect(
+      () => SimpleImportPreview.prepare(
+        batch: batch,
+        destinationWorkspace: destinationWorkspace,
+        accountMapping: {sourceCash: account(twd)},
+      ),
+      throwsA(
+        isA<ExchangeException>().having(
+          (error) => error.code,
+          'code',
+          'same_workspace_import',
+        ),
+      ),
+    );
+  });
 }
