@@ -1,0 +1,58 @@
+{
+  "scope": "M1-06 atomic simple income/expense import and durable source deduplication",
+  "baseCommit": "0196ccf12fc770db012b6f78cfdcb1a170c3820e",
+  "date": "2026-09-28",
+  "environment": "Windows host; local Dart and SQLCipher test dependencies; GitHub Actions not run",
+  "checks": [
+    {
+      "directory": "prototypes/ledger_generation",
+      "command": "dart pub get --offline",
+      "result": "passed; data_exchange local dependency added"
+    },
+    {
+      "directory": "packages/data_exchange",
+      "command": "dart analyze; dart test --reporter expanded",
+      "result": "passed; no analysis issues; 11 tests"
+    },
+    {
+      "directory": "prototypes/ledger_generation",
+      "command": "dart analyze; dart test --reporter compact",
+      "result": "passed; no analysis issues; full 250-test host suite before the final integration-test-only JSON/CSV fixture change"
+    },
+    {
+      "directory": "prototypes/ledger_generation",
+      "command": "dart test test/simple_import_session_test.dart --reporter expanded",
+      "result": "passed; 4 integration tests after the final JSON/CSV fixture change"
+    },
+    {
+      "directory": "tooling/architecture_checks",
+      "command": "dart run bin/check.dart ../..; dart test --reporter expanded",
+      "result": "passed; workspace boundary scan and 20 architecture tests"
+    }
+  ],
+  "financialCases": [
+    "JSON source imported into encrypted Ledger, CSV of same source replayed without duplicate",
+    "exact income/expense balances and first note revision",
+    "same source key with changed amount rejected without new writes",
+    "mixed replay inserts only new records and retains prior destination event ID",
+    "stale second account version rolls back the first inserted event and retry succeeds",
+    "portable snapshot installed into an independent encrypted Ledger retains source identity and replays without change",
+    "staging note validation now matches Ledger note character restrictions"
+  ],
+  "sourceSha256": {
+    "packages/data_exchange/lib/src/simple_transactions.dart": "c8d17573d45bd92dbfd40d2b6f044a31e4b3456daa44f964913d4ebfbc120264",
+    "packages/data_exchange/test/simple_transactions_test.dart": "7c6e3cd4c8a1ac0ecac206188e3c872d3f3529c7092d5d7162f49687b2b48898",
+    "prototypes/ledger_generation/lib/ledger_store.dart": "0a7e71a1cd188b66cdc9e0ffb3d6ee42c7d892f0ca918b20a0725781ce40a153",
+    "prototypes/ledger_generation/lib/simple_import_session.dart": "294266bdea450785e8277070473f3e17d1c84be4cfc479e926db45ea862471b0",
+    "prototypes/ledger_generation/test/simple_import_session_test.dart": "c42178396da6ca58dff42513ec1ed8d2d140cddbb35204ef4954d10b42a0766f",
+    "prototypes/ledger_generation/pubspec.yaml": "37c2d9175f178c6efaa6cb9346c0bd7c38af78760d6530d9df8b0712b8742e15",
+    "prototypes/ledger_generation/pubspec.lock": "a83b810d2e103bf2ea55cab9ae92d3dbbc9f0bc3931d3189a049bad9337ad517",
+    "architecture/boundaries.json": "b59dc1be4e6b6aa96d5b140c831faa5a8fb682c599ae4633f59dbcf0d42ea047"
+  },
+  "notVerified": [
+    "Android document selection, confirmation and export user flow",
+    "5,000-record import capacity and performance",
+    "device behavior",
+    "cloud checks; both workflows remain disabled"
+  ]
+}

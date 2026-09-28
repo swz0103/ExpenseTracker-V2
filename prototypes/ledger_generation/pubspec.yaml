@@ -10,6 +10,8 @@ dependencies:
     path: ../../packages/merchants
   categories:
     path: ../../packages/categories
+  data_exchange:
+    path: ../../packages/data_exchange
   crypto: 3.0.7
   accounts:
     path: ../../packages/accounts

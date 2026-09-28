@@ -40,6 +40,11 @@ final class SimpleTransaction {
     if (amount.minorUnits <= BigInt.zero) {
       throw const ExchangeException('non_positive_amount');
     }
+    try {
+      NoteChange.validateText(note);
+    } on NoteException {
+      throw const ExchangeException('invalid_note');
+    }
     if (utf8.encode(note).length > 4096) {
       throw const ExchangeException('note_too_long');
     }

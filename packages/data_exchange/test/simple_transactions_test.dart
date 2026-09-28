@@ -180,6 +180,22 @@ void main() {
     );
   });
 
+  test('staging note rules match the Ledger note command', () {
+    for (final invalid in ['a' * 1025, 'embedded\u0000nul']) {
+      expect(
+        () => row(note: invalid),
+        throwsA(
+          isA<ExchangeException>().having(
+            (error) => error.code,
+            'code',
+            'invalid_note',
+          ),
+        ),
+      );
+    }
+    expect(() => row(note: 'a' * 1024), returnsNormally);
+  });
+
   test('batch capacity and unsupported financial kinds fail before import', () {
     expect(
       () => SimpleTransactionBatch(workspace, [
