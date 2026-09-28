@@ -76,6 +76,14 @@ final class FinancialWorkflows {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
     void Function(String)? checkpoint,
+  }) => _post(posting, tags: tags, merchant: merchant, checkpoint: checkpoint);
+
+  Future<CommitResult> _post(
+    Posting posting, {
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+    void Function(String)? checkpoint,
+    ({PostingCorrection pair, String role})? correctionReceipt,
   }) {
     final selections = canonicalTags(tags);
     final input = postingInput(posting);
@@ -97,9 +105,20 @@ final class FinancialWorkflows {
               [merchant.id.value, merchant.expectedVersion],
             ],
           ];
+    final pair = correctionReceipt?.pair;
+    final receiptInput = pair == null
+        ? selected
+        : [
+            'correction-event-v1',
+            pair.original.id.value,
+            pair.reversal.id.value,
+            pair.replacement.id.value,
+            correctionReceipt!.role,
+            selected,
+          ];
     return _commit(
       posting.operation,
-      jsonEncode(selected),
+      jsonEncode(receiptInput),
       posting.id,
       () async {
         final refund = posting.refundOf == null
@@ -224,17 +243,19 @@ final class FinancialWorkflows {
         original.id,
         requireEligible: link == null,
       );
-      final reversed = await post(
+      final reversed = await _post(
         reversal,
         tags: source.tags,
         merchant: source.merchant,
         checkpoint: (point) => checkpoint?.call('reversal:$point'),
+        correctionReceipt: (pair: correction, role: 'reversal'),
       );
-      final replaced = await post(
+      final replaced = await _post(
         replacement,
         tags: selections,
         merchant: replacementMerchant,
         checkpoint: (point) => checkpoint?.call('replacement:$point'),
+        correctionReceipt: (pair: correction, role: 'replacement'),
       );
       if (link == null) {
         if (reversed.replayed || replaced.replayed) throw OperationConflict();

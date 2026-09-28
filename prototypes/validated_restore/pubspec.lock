@@ -10,7 +10,7 @@ packages:
     source: hosted
     version: "108.0.0"
   accounts:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       path: "../../packages/accounts"
       relative: true

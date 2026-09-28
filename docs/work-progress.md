@@ -8,7 +8,7 @@
 
 ## 2026-09-28 下一批：財務更正（進行中）
 
-由已上傳的 [備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61) 建立 `feat/transaction-corrections`；[操作契約](transaction-corrections.md)固定原交易完整反向、替代事件及兩者原子提交／追溯。Ledger 更正提案已實作身分與 operation 衝突拒絕、原日期精確沖回，含跨幣轉帳與手續費；該套件分析與 22 案例本機通過。接入架構修正 [PR #62](https://github.com/swz0103/ExpenseTracker-V2/pull/62) 後，新增未啟用的 schema 13 保存層：兩筆金融操作與唯一更正關聯原子提交，完整匹配才接受重送；保存層 55 項與既有上層 Ledger session 235 項案例通過，包括注入失敗回滾、跨幣費用、既有能力表及 5,000 筆分類歷史回歸。可攜備份還原、V2 安全升級、容量、加密草稿與 UI 尚未完成；目前沒有此功能 PR，也未開放入口。下一步接資料演進與 Application 流程，不把保存層 checkpoint 當作功能完成。
+由已上傳的 [備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61) 建立 `feat/transaction-corrections`；[操作契約](transaction-corrections.md)固定原交易完整反向、替代事件及兩者原子提交／追溯。Ledger 更正提案已實作身分與 operation 衝突拒絕、原日期精確沖回，含跨幣轉帳與手續費；該套件分析與 22 案例本機通過。接入架構修正 [PR #62](https://github.com/swz0103/ExpenseTracker-V2/pull/62) 後，新增未啟用的 schema 13 保存層：兩筆金融操作與唯一更正關聯原子提交，收據綁定完整三事件與各自角色，完整匹配才接受重送；可攜 snapshot 明確拒絕缺漏或錯誤關聯。保存層 55 項、可攜還原套件 103 項、既有上層 Ledger session 235 項及最後受影響的備註／撤銷 session 10 項本機案例通過。加密雙憑證安全備份、V2 staged upgrade、容量、加密草稿與 UI 尚未完成；目前沒有此功能 PR，也未開放入口。下一步接 Application 與安全資料演進，不把保存層 checkpoint 當作功能完成。
 
 ## 2026-09-28 本批：交易備註修訂與安全恢復
 

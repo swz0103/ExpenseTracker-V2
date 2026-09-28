@@ -22,6 +22,7 @@ import 'package:modular_persistence_probe/notes_adapter.dart';
 
 part 'refund_snapshot.dart';
 part 'reversal_snapshot.dart';
+part 'correction_snapshot.dart';
 
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
@@ -87,24 +88,33 @@ final class SnapshotCodec {
     bool fxTransfersAware = false,
     bool refundsAware = false,
     bool reversalsAware = false,
-    this.notesAware = false,
-  }) : reversalsAware = reversalsAware || notesAware,
-       refundsAware = refundsAware || reversalsAware || notesAware,
+    bool notesAware = false,
+    this.correctionsAware = false,
+  }) : notesAware = notesAware || correctionsAware,
+       reversalsAware = reversalsAware || notesAware || correctionsAware,
+       refundsAware =
+           refundsAware || reversalsAware || notesAware || correctionsAware,
        fxTransfersAware =
-           fxTransfersAware || refundsAware || reversalsAware || notesAware,
+           fxTransfersAware ||
+           refundsAware ||
+           reversalsAware ||
+           notesAware ||
+           correctionsAware,
        transfersAware =
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        merchantsAware =
            merchantsAware ||
            transfersAware ||
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        tagsAware =
            tagsAware ||
            merchantsAware ||
@@ -112,7 +122,8 @@ final class SnapshotCodec {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryReferences =
            categoryReferences ||
            tagsAware ||
@@ -121,7 +132,8 @@ final class SnapshotCodec {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        categoryAware =
            categoryAware ||
            categoryReferences ||
@@ -131,7 +143,8 @@ final class SnapshotCodec {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware,
+           notesAware ||
+           correctionsAware,
        generationAware =
            generationAware ||
            categoryAware ||
@@ -142,7 +155,8 @@ final class SnapshotCodec {
            fxTransfersAware ||
            refundsAware ||
            reversalsAware ||
-           notesAware;
+           notesAware ||
+           correctionsAware;
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
@@ -153,12 +167,14 @@ final class SnapshotCodec {
   final bool refundsAware;
   final bool reversalsAware;
   final bool notesAware;
+  final bool correctionsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
     if (refundsAware) 'event_refunds': refundColumns,
     if (reversalsAware) 'event_reversals': reversalColumns,
     if (notesAware) 'event_note_revisions': noteColumns,
+    if (correctionsAware) 'event_corrections': correctionColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -170,7 +186,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => notesAware
+  int get _formatVersion => correctionsAware
+      ? 12
+      : notesAware
       ? 11
       : reversalsAware
       ? 10
@@ -187,7 +205,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => notesAware
+  int get _schemaVersion => correctionsAware
+      ? 13
+      : notesAware
       ? 12
       : reversalsAware
       ? 11
@@ -218,6 +238,7 @@ final class SnapshotCodec {
     if (refundsAware) 'ledger_refunds': 1,
     if (reversalsAware) 'ledger_reversals': 1,
     if (notesAware) 'ledger_notes': 1,
+    if (correctionsAware) 'ledger_corrections': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -355,7 +376,10 @@ final class SnapshotCodec {
               (reversalsAware &&
                   root['version'] == 10 &&
                   root['schema'] == 11) ||
-              (notesAware && root['version'] == 11 && root['schema'] == 12)))
+              (notesAware && root['version'] == 11 && root['schema'] == 12) ||
+              (correctionsAware &&
+                  root['version'] == 12 &&
+                  root['schema'] == 13)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -372,6 +396,7 @@ final class SnapshotCodec {
         if (root['version'] >= 9) 'ledger_refunds': 1,
         if (root['version'] >= 10) 'ledger_reversals': 1,
         if (root['version'] >= 11) 'ledger_notes': 1,
+        if (root['version'] >= 12) 'ledger_corrections': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -384,6 +409,7 @@ final class SnapshotCodec {
         if (root['version'] >= 9) 'event_refunds': refundColumns,
         if (root['version'] >= 10) 'event_reversals': reversalColumns,
         if (root['version'] >= 11) 'event_note_revisions': noteColumns,
+        if (root['version'] >= 12) 'event_corrections': correctionColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -428,6 +454,26 @@ final class SnapshotCodec {
           });
         }
       }
+      if (correctionsAware) {
+        final events = {
+          for (final event in result['events']!)
+            (event['workspace'], event['id']),
+        };
+        for (final link in result['event_corrections']!) {
+          final ws = link['workspace'];
+          final original = link['original_id'];
+          final inverse = link['reversal_id'];
+          final replacement = link['replacement_id'];
+          if (original == inverse ||
+              original == replacement ||
+              inverse == replacement ||
+              !events.contains((ws, original)) ||
+              !events.contains((ws, inverse)) ||
+              !events.contains((ws, replacement))) {
+            throw const InvalidSnapshot();
+          }
+        }
+      }
       return result;
     } on FormatException {
       throw const InvalidSnapshot();
@@ -445,7 +491,8 @@ final class SnapshotCodec {
         fxTransfersAware != db.fxTransfersAware ||
         refundsAware != db.refundsAware ||
         reversalsAware != db.reversalsAware ||
-        notesAware != db.notesAware)
+        notesAware != db.notesAware ||
+        correctionsAware != db.correctionsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var noteOperations = <(String, String)>{};
@@ -595,6 +642,9 @@ final class SnapshotCodec {
     final reversalLinks = reversalsAware
         ? await _validateReversalHistory(db, events)
         : <(String, String), ({String original, String reason})>{};
+    final correctionLinks = correctionsAware
+        ? await _validateCorrectionHistory(db, events, reversalLinks)
+        : <(String, String), _CorrectionReceiptLink>{};
     final checkedConversions = <(String, String)>{};
     for (final event in events) {
       final ws = event.read<String>('workspace');
@@ -796,6 +846,7 @@ final class SnapshotCodec {
             if (fxTransfersAware) 'fx-posting-v1',
             if (refundsAware) 'refund-posting-v1',
             if (reversalsAware) 'reversal-posting-v1',
+            if (correctionsAware) 'correction-event-v1',
             if (notesAware) 'note-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
@@ -809,6 +860,22 @@ final class SnapshotCodec {
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      final correction = correctionLinks[(ws, resultId)];
+      if (correction != null) {
+        if (input.first != 'correction-event-v1' ||
+            input.length != 6 ||
+            input[1] != correction.original ||
+            input[2] != correction.reversal ||
+            input[3] != correction.replacement ||
+            input[4] != correction.role ||
+            input[5] is! List ||
+            (input[5] as List).isEmpty) {
+          throw const InvalidSnapshot();
+        }
+        input = input[5];
+      } else if (input.first == 'correction-event-v1') {
+        throw const InvalidSnapshot();
+      }
       if (input.first == 'note-v1') {
         if (!noteOperations.remove((ws, row.read<String>('operation_id'))))
           throw const InvalidSnapshot();

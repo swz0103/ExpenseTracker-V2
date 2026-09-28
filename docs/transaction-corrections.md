@@ -2,7 +2,7 @@
 
 本批接續[交易備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61)，屬於 [M1-04](implementation-plan.md#m1-04拆分退款更正與刪除規則) 的下一個流程；依據 [FV-008](full-vision-baseline.md#fv-008)、[RC-03](architecture-baseline-v1.0-rc1.md#rc-03) 及[財務契約](foundation-contracts.md)。此文件先固定操作與驗證邊界，功能尚未實作或通過 gate。
 
-2026-09-28 進度：Ledger 提案與 SQLite 保存第一段已實作。schema 13 的 `event_corrections` 以原事件、反向事件及替代事件建立唯一關聯；兩筆既有金融收據、audit 與關聯在同一個交易內提交，重送核對完整關聯，獨立做過的撤銷不得被收編。保存層 55 項與既有上層 Ledger session 235 項本機案例通過，涵蓋寫入點失敗回滾、不同內容重送、跨幣與費用、5,000 筆分類歷史回歸。這是未啟用的保存層 checkpoint；schema 13 的可攜 snapshot／還原、staged upgrade、容量、App 草稿與 UI 尚未接入，不能用此版本處理真實使用者資料。
+2026-09-28 進度：Ledger 提案、SQLite 原子保存及可攜 snapshot 第一段已實作。schema 13 的 `event_corrections` 以原事件、反向事件及替代事件建立唯一關聯；兩筆金融收據、audit 與關聯在同一個交易內提交，收據另外保留相同三個 ID 與各自角色。重送核對完整關聯，獨立做過的撤銷不得被收編；還原拒絕缺漏關聯、孤兒、角色、種類、日期及 audit 不一致。保存層 55 項、可攜還原套件 103 項、既有上層 Ledger session 235 項及最後受影響的備註／撤銷 session 10 項本機案例通過。現有驗證涵蓋新階段的明文結構還原，尚未串接 schema 13 的加密雙憑證安全備份、staged generation upgrade、容量、App 草稿與 UI；不能用此版本處理真實使用者資料。
 
 ## 使用者流程與財務語意
 
