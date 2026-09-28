@@ -6,7 +6,7 @@
 
 Ledger Domain 全量 **27**、Ledger generation 全量 **243**、額外 **5,000 筆**查詢與完整分頁、App 逐檔全量 **170**、架構工具 **20** 及工作區掃描均通過；詳細來源雜湊與首輪並行測試失敗及修復見[本機證據](test-results/transaction-search-host-2026-09-28.json)。首輪 App 並行全量有一個因新入口使既有商家列離開可見區的斷言失敗，以及一個重負載逾時；修正測試捲動後逐檔全量通過，沒有放寬逾時。兩個 Actions workflow 持續停用。這批手機搜尋測試未執行：當下 `adb devices -l` 未偵測到手機；先前 schema 12 的[實機初驗](test-results/device-smoke-2026-09-28.json)不能代替搜尋驗收。M1-05 的月收支及分類／資產報表仍待完成，main 未合併。
 
-分支收斂依使用者最新授權進行：目前 #28～#65 是串接 PR，#32 是舊整合 PR；#65 沒有雲端 checks。先從經本機驗證的搜尋提交建立一條新的整合候選分支，保留原 PR 的完整提交及依賴；等待所需雲端 gate 與差異核對後再收掉被涵蓋的舊 PR／遠端分支，不向 main 自行合併或以移動舊 PR base 造成自動關閉。
+分支收斂依使用者最新授權進行：搜尋已在私人 V2 [PR #66](https://github.com/swz0103/ExpenseTracker-V2/pull/66) 交付，本機、遠端與 PR head 均為 `bddcb135a33cd4b51f08caea1aa7cfbf15d53ae5`。同一提交作為 `integration/v2-core` 的起點，建立對 main 的 [Draft PR #67](https://github.com/swz0103/ExpenseTracker-V2/pull/67)。40 個當時開放 PR 的 head 均已確認為候選線祖先；完整[收斂紀錄](branch-consolidation.md#2026-09-28單一整合候選線)保留舊 PR 的提交與依賴。#66／#67 均無雲端 checks，所需 gate、差異及審查核對前不關閉／刪除被涵蓋的舊 PR／遠端分支，不向 main 自行合併或移動舊 PR base 造成自動關閉。
 
 ## 2026-09-28 執行時架構邊界與實機初驗（進行中）
 

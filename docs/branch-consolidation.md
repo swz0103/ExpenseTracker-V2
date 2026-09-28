@@ -1,5 +1,13 @@
 # 持續開發與分支收斂
 
+## 2026-09-28：單一整合候選線
+
+依使用者最新指示，建立私人 V2 分支 `integration/v2-core` 與對 `main` 的 [Draft PR #67](https://github.com/swz0103/ExpenseTracker-V2/pull/67)。候選線起點是已通過本機搜尋驗證的 `bddcb135a33cd4b51f08caea1aa7cfbf15d53ae5`（[搜尋 PR #66](https://github.com/swz0103/ExpenseTracker-V2/pull/66)）；它保留全部原始提交，不重寫 #28～#66 的歷史。新功能以此為後續整合目標，每批仍保留可審查的差異與驗證紀錄。
+
+建立時逐一讀取 GitHub **40 個開放 PR 的 exact head**，核對都為該候選提交的祖先（未包含的 head 為 0）。其中 #28～#31、#33～#66 是串接鏈，#32 是先前 `integration/foundation-core` 對 main 的整合 PR；#67 是新的總覽 Draft。候選及 #66 均沒有新雲端 checks，兩個 workflow 仍停用。這一步完成了**收斂目標與完整提交涵蓋**，尚未完成舊分支清理或正式整合驗收；不得把 40 個 PR 都含在歷史中誤稱為 40 個 PR 已通過 gate。
+
+後續於固定候選 SHA 完成必要雲端 gate、核對原 PR 無獨有提交與未處理審查後，先確認調整依賴不改變審查差異，再分批關閉被取代 PR 並刪除無獨有提交的遠端功能分支。不能直接快轉舊 `integration/foundation-core`：#28 以它為 base，移到近期 head 可能使 GitHub 自動關閉堆疊 PR。不得因此跳過 gate、強推或自行合併 main。手機已獲准在接入時測試；搜尋批次檢查時未偵測到手機，實機 gate 另記。
+
 2026-09-27：依使用者最新指示，恢復地基與 M1／M2／M3 CORE 開發直到使用者回來；目前不做實機、不正式發版。既有試用 APK 與測試結果是階段產物，停止條件已取消。
 
 ## 固定工作循環
