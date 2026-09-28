@@ -2,7 +2,7 @@
 
 ## 2026-09-28 一般交易 Tombstone（進行中）
 
-從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及報表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原型也已完成唯一 marker、原子收據／audit、有效餘額查詢、依賴互斥及失敗回滾；保存層全量 **60 項**與靜態分析通過。可攜 snapshot、加密升級、App 權威讀取／草稿／UI、完整還原與雲端／實機 gate 尚未完成，沒有本功能 PR，不宣稱 M1-04 完成。
+從已上傳的[更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63) head 建立 `feat/transaction-tombstones`，保留 #63 → #62 的審查依賴。[刪除契約](transaction-tombstones.md)固定只有無退款、撤銷、更正等後續依賴的一般正式收支／轉帳可進入 tombstone；原事件留在歷史，但退出有效餘額及列表，不能同時再用反向事件抵銷造成雙扣。凍結原事件的 Domain 命令與不合法種類、workspace、operation、原因拒絕已實作，Ledger Domain 全量 24 項及靜態分析通過。schema 14 保存層原子 marker／收據／audit 與失敗回滾、可攜 snapshot format 13、加密 generation 容量及有效讀取、雙憑證乾淨還原、安全備份及 13→14 故障後保留來源已接通。[本機檢查點](test-results/tombstone-storage-host-2026-09-28.json)：保存層 **60**、還原 **106**、加密 generation **240**、SQLCipher **34** 項和分析、邊界檢查通過。回查修正安全備份讀取器漏傳近期 schema 旗標，避免新版被錯誤拒絕。App schema 14／草稿／UI、大量資料／程序退出及雲端／實機 gate 尚未完成，沒有本功能 PR，不宣稱 M1-04 完成。下一步先接 App 測試入口和升級，再完成可恢復草稿、確認與活動畫面；之後做大量資料、故障、全量回歸。
 
 ## 2026-09-28 財務更正加密保存與升級（進行中）
 

@@ -19,10 +19,12 @@ import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 
 import 'package:modular_persistence_probe/notes_adapter.dart';
+import 'package:modular_persistence_probe/reversals_adapter.dart';
 
 part 'refund_snapshot.dart';
 part 'reversal_snapshot.dart';
 part 'correction_snapshot.dart';
+part 'tombstone_snapshot.dart';
 
 const _financialColumns = {
   'accounts': ['workspace', 'id', 'payload'],
@@ -90,6 +92,7 @@ final class SnapshotCodec {
     bool reversalsAware = false,
     bool notesAware = false,
     this.correctionsAware = false,
+    this.tombstonesAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -156,7 +159,11 @@ final class SnapshotCodec {
            refundsAware ||
            reversalsAware ||
            notesAware ||
-           correctionsAware;
+           correctionsAware {
+    if (tombstonesAware && !correctionsAware) {
+      throw ArgumentError('Tombstones require correction-aware snapshots.');
+    }
+  }
   final bool generationAware;
   final bool categoryAware;
   final bool categoryReferences;
@@ -168,6 +175,7 @@ final class SnapshotCodec {
   final bool reversalsAware;
   final bool notesAware;
   final bool correctionsAware;
+  final bool tombstonesAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -175,6 +183,7 @@ final class SnapshotCodec {
     if (reversalsAware) 'event_reversals': reversalColumns,
     if (notesAware) 'event_note_revisions': noteColumns,
     if (correctionsAware) 'event_corrections': correctionColumns,
+    if (tombstonesAware) 'event_tombstones': tombstoneColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -186,7 +195,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => correctionsAware
+  int get _formatVersion => tombstonesAware
+      ? 13
+      : correctionsAware
       ? 12
       : notesAware
       ? 11
@@ -205,7 +216,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => correctionsAware
+  int get _schemaVersion => tombstonesAware
+      ? 14
+      : correctionsAware
       ? 13
       : notesAware
       ? 12
@@ -239,6 +252,7 @@ final class SnapshotCodec {
     if (reversalsAware) 'ledger_reversals': 1,
     if (notesAware) 'ledger_notes': 1,
     if (correctionsAware) 'ledger_corrections': 1,
+    if (tombstonesAware) 'ledger_tombstones': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -379,7 +393,10 @@ final class SnapshotCodec {
               (notesAware && root['version'] == 11 && root['schema'] == 12) ||
               (correctionsAware &&
                   root['version'] == 12 &&
-                  root['schema'] == 13)))
+                  root['schema'] == 13) ||
+              (tombstonesAware &&
+                  root['version'] == 13 &&
+                  root['schema'] == 14)))
         throw const InvalidSnapshot();
       final modules = root['modules'];
       final expectedModules = {
@@ -397,6 +414,7 @@ final class SnapshotCodec {
         if (root['version'] >= 10) 'ledger_reversals': 1,
         if (root['version'] >= 11) 'ledger_notes': 1,
         if (root['version'] >= 12) 'ledger_corrections': 1,
+        if (root['version'] >= 13) 'ledger_tombstones': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -410,6 +428,7 @@ final class SnapshotCodec {
         if (root['version'] >= 10) 'event_reversals': reversalColumns,
         if (root['version'] >= 11) 'event_note_revisions': noteColumns,
         if (root['version'] >= 12) 'event_corrections': correctionColumns,
+        if (root['version'] >= 13) 'event_tombstones': tombstoneColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -474,6 +493,36 @@ final class SnapshotCodec {
           }
         }
       }
+      if (tombstonesAware) {
+        final events = {
+          for (final event in result['events']!)
+            (event['workspace'], event['id']),
+        };
+        final receipts = {
+          for (final receipt in result['receipts']!)
+            (
+              receipt['workspace'],
+              receipt['operation_id'],
+              receipt['result_id'],
+            ),
+        };
+        final audits = {
+          for (final audit in result['audit']!)
+            (audit['workspace'], audit['operation_id'], audit['entity_id']),
+        };
+        for (final link in result['event_tombstones']!) {
+          final operation = (
+            link['workspace'],
+            link['operation_id'],
+            link['event_id'],
+          );
+          if (!events.contains((link['workspace'], link['event_id'])) ||
+              !receipts.contains(operation) ||
+              !audits.contains(operation)) {
+            throw const InvalidSnapshot();
+          }
+        }
+      }
       return result;
     } on FormatException {
       throw const InvalidSnapshot();
@@ -492,7 +541,8 @@ final class SnapshotCodec {
         refundsAware != db.refundsAware ||
         reversalsAware != db.reversalsAware ||
         notesAware != db.notesAware ||
-        correctionsAware != db.correctionsAware)
+        correctionsAware != db.correctionsAware ||
+        tombstonesAware != db.tombstonesAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     var noteOperations = <(String, String)>{};
@@ -645,6 +695,9 @@ final class SnapshotCodec {
     final correctionLinks = correctionsAware
         ? await _validateCorrectionHistory(db, events, reversalLinks)
         : <(String, String), _CorrectionReceiptLink>{};
+    final tombstoneOperations = tombstonesAware
+        ? await _validateTombstoneHistory(db)
+        : <(String, String), _TombstoneLink>{};
     final checkedConversions = <(String, String)>{};
     for (final event in events) {
       final ws = event.read<String>('workspace');
@@ -827,7 +880,7 @@ final class SnapshotCodec {
       UNION ALL SELECT e.id FROM events e LEFT JOIN
       (SELECT r.workspace,r.result_id,COUNT(*) AS n FROM receipts r
        JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id
-       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' AND a.kind NOT LIKE 'merchant.%' AND a.kind!='ledger.note' GROUP BY r.workspace,r.result_id) counts
+       WHERE a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%' AND a.kind NOT LIKE 'merchant.%' AND a.kind!='ledger.note' AND a.kind!='ledger.tombstone' GROUP BY r.workspace,r.result_id) counts
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
@@ -847,6 +900,7 @@ final class SnapshotCodec {
             if (refundsAware) 'refund-posting-v1',
             if (reversalsAware) 'reversal-posting-v1',
             if (correctionsAware) 'correction-event-v1',
+            if (tombstonesAware) 'tombstone-v1',
             if (notesAware) 'note-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
@@ -860,6 +914,21 @@ final class SnapshotCodec {
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'tombstone-v1') {
+        final link = tombstoneOperations.remove((
+          ws,
+          row.read<String>('operation_id'),
+        ));
+        if (link == null ||
+            input.length != 3 ||
+            resultId != link.original ||
+            auditKind != 'ledger.tombstone' ||
+            input[2] != link.reason ||
+            jsonEncode(input[1]) != jsonEncode(link.facts)) {
+          throw const InvalidSnapshot();
+        }
+        continue;
+      }
       final correction = correctionLinks[(ws, resultId)];
       if (correction != null) {
         if (input.first != 'correction-event-v1' ||
@@ -1061,7 +1130,8 @@ final class SnapshotCodec {
     if (categoryOperations.isNotEmpty ||
         tagOperations.isNotEmpty ||
         merchantOperations.isNotEmpty ||
-        noteOperations.isNotEmpty)
+        noteOperations.isNotEmpty ||
+        tombstoneOperations.isNotEmpty)
       throw const InvalidSnapshot();
     for (final row
         in await db.customSelect('SELECT recorded_at FROM audit').get()) {

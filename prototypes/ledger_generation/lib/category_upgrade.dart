@@ -11,7 +11,8 @@ enum _LedgerUpgrade {
   refunds(9, 10, 'ledger-9-to-10-v1'),
   reversals(10, 11, 'ledger-10-to-11-v1'),
   notes(11, 12, 'ledger-11-to-12-v1'),
-  corrections(12, 13, 'ledger-12-to-13-v1');
+  corrections(12, 13, 'ledger-12-to-13-v1'),
+  tombstones(13, 14, 'ledger-13-to-14-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -27,6 +28,7 @@ enum _LedgerUpgrade {
     reversalsAware: to >= 11,
     notesAware: to >= 12,
     correctionsAware: to >= 13,
+    tombstonesAware: to >= 14,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -44,6 +46,7 @@ enum _LedgerUpgrade {
       reversalsAware: from >= 11,
       notesAware: from >= 12,
       correctionsAware: from >= 13,
+      tombstonesAware: from >= 14,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -57,7 +60,8 @@ enum _LedgerUpgrade {
         store.refundsAware != (to >= 10) ||
         store.reversalsAware != (to >= 11) ||
         store.notesAware != (to >= 12) ||
-        store.correctionsAware != (to >= 13)) {
+        store.correctionsAware != (to >= 13) ||
+        store.tombstonesAware != (to >= 14)) {
       throw const InvalidSnapshot();
     }
   }
@@ -444,6 +448,38 @@ Future<UpgradeReceipt> upgradeCorrections(
   request,
   backupDirectory,
   _LedgerUpgrade.corrections,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planTombstoneUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.tombstones,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeTombstones(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.tombstones,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

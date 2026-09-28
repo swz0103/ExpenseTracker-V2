@@ -10,6 +10,7 @@ const _rowByteLimits = <String, int>{
   'event_reversals': 2048,
   'event_note_revisions': 8192,
   'event_corrections': 512,
+  'event_tombstones': 512,
   'legs': 512,
   'openings': 512,
   'allocations': 512,
@@ -35,6 +36,7 @@ Map<String, int> _tableLimits(
   bool reversals,
   bool notes,
   bool corrections,
+  bool tombstones,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -43,6 +45,7 @@ Map<String, int> _tableLimits(
   if (reversals) 'event_reversals': LedgerSession.maxEvents,
   if (notes) 'event_note_revisions': LedgerSession.maxNoteChanges,
   if (corrections) 'event_corrections': LedgerSession.maxEvents ~/ 2,
+  if (tombstones) 'event_tombstones': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -51,13 +54,15 @@ Map<String, int> _tableLimits(
       (categories ? LedgerSession.maxCategoryChanges : 0) +
       (tags ? LedgerSession.maxTagChanges : 0) +
       (merchants ? LedgerSession.maxMerchantChanges : 0) +
-      (notes ? LedgerSession.maxNoteChanges : 0),
+      (notes ? LedgerSession.maxNoteChanges : 0) +
+      (tombstones ? LedgerSession.maxEvents : 0),
   'audit':
       LedgerSession.maxEvents +
       (categories ? LedgerSession.maxCategoryChanges : 0) +
       (tags ? LedgerSession.maxTagChanges : 0) +
       (merchants ? LedgerSession.maxMerchantChanges : 0) +
-      (notes ? LedgerSession.maxNoteChanges : 0),
+      (notes ? LedgerSession.maxNoteChanges : 0) +
+      (tombstones ? LedgerSession.maxEvents : 0),
   if (merchants) 'merchants': LedgerSession.maxMerchants,
   if (merchants) 'merchant_changes': LedgerSession.maxMerchantChanges,
   if (merchants) 'event_merchants': LedgerSession.maxEvents,
@@ -94,7 +99,10 @@ void _checkRowBytes(String table, Map row) {
   final input = table == 'receipts'
       ? jsonDecode(row['input'] as String) as List
       : null;
-  final limit = input != null && input.first == 'correction-event-v1'
+  final limit =
+      input != null &&
+          (input.first == 'correction-event-v1' ||
+              input.first == 'tombstone-v1')
       ? 12288
       : table == 'receipts' &&
             (_reversalReceipt(row) ||
@@ -132,7 +140,9 @@ List<int> validateSessionCapacity(
   bool reversalsAware = false,
   bool notesAware = false,
   bool correctionsAware = false,
+  bool tombstonesAware = false,
 }) {
+  correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
   reversalsAware = reversalsAware || notesAware;
   refundsAware = refundsAware || reversalsAware;
@@ -154,6 +164,7 @@ List<int> validateSessionCapacity(
     reversalsAware: reversalsAware,
     notesAware: notesAware,
     correctionsAware: correctionsAware,
+    tombstonesAware: tombstonesAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -168,6 +179,7 @@ List<int> validateSessionCapacity(
     reversalsAware,
     notesAware,
     correctionsAware,
+    tombstonesAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -185,7 +197,8 @@ List<int> validateSessionCapacity(
       (categoryAware ? (tables['category_changes'] as List).length : 0) +
       (tagsAware ? (tables['tag_changes'] as List).length : 0) +
       (merchantsAware ? (tables['merchant_changes'] as List).length : 0) +
-      (notesAware ? (tables['event_note_revisions'] as List).length : 0);
+      (notesAware ? (tables['event_note_revisions'] as List).length : 0) +
+      (tombstonesAware ? (tables['event_tombstones'] as List).length : 0);
   if (events.any(
         (row) => ![
           'opening',

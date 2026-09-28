@@ -21,12 +21,14 @@ final class LedgerActivity {
     this.cursor,
     this.noteRevision,
     this.correctionRole,
+    this.auditKind,
   );
   final LedgerEntry entry;
   final UtcInstant recordedAt;
   final LedgerActivityCursor cursor;
   final EntryNote? noteRevision;
   final CorrectionActivityRole? correctionRole;
+  final String auditKind;
   String get key => cursor._id;
 }
 
@@ -91,7 +93,9 @@ extension ActivitySession on LedgerSession {
       throw ArgumentError('Activity cursor belongs to another transaction.');
     }
     final key =
-        "CASE WHEN a.kind='ledger.note' THEN 'n:'||a.operation_id ELSE 'e:'||e.id END";
+        "CASE WHEN a.kind='ledger.note' THEN 'n:'||a.operation_id "
+        "WHEN a.kind='ledger.tombstone' THEN 't:'||a.operation_id "
+        "ELSE 'e:'||e.id END";
     final correctionRole = _db.correctionsAware
         ? "CASE WHEN cp.replacement_id IS NOT NULL THEN 'replacement' "
               "WHEN cr.reversal_id IS NOT NULL THEN 'reversal' "
@@ -99,7 +103,7 @@ extension ActivitySession on LedgerSession {
         : 'NULL';
     final query = _entrySelect.replaceFirst(
       'SELECT e.id',
-      'SELECT a.recorded_at AS activity_recorded_at,($_activityTime) AS activity_time,($key) AS activity_key,'
+      'SELECT a.kind AS activity_kind,a.recorded_at AS activity_recorded_at,($_activityTime) AS activity_time,($key) AS activity_key,'
           '${_db.notesAware ? "n.text" : "NULL"} AS revision_text,${_db.notesAware ? "n.revision" : "NULL"} AS revision_number,'
           '$correctionRole AS correction_role,e.id',
     );
@@ -119,7 +123,7 @@ extension ActivitySession on LedgerSession {
           family +
               query +
               "JOIN audit a ON a.workspace=e.workspace AND a.entity_id=e.id "
-                  "AND (a.kind='ledger.'||e.kind OR (e.kind='opening' AND a.kind='account.open') ${_db.notesAware ? "OR a.kind='ledger.note'" : ''}) "
+                  "AND (a.kind='ledger.'||e.kind OR (e.kind='opening' AND a.kind='account.open') ${_db.notesAware ? "OR a.kind='ledger.note'" : ''} ${_db.tombstonesAware ? "OR a.kind='ledger.tombstone'" : ''}) "
                   "${_db.notesAware ? 'LEFT JOIN event_note_revisions n ON n.workspace=a.workspace AND n.operation_id=a.operation_id ' : ''}"
                   "${_db.correctionsAware ? 'LEFT JOIN event_corrections cr ON cr.workspace=e.workspace AND cr.reversal_id=e.id LEFT JOIN event_corrections cp ON cp.workspace=e.workspace AND cp.replacement_id=e.id ' : ''}"
                   'WHERE e.workspace=? AND ($scope) '
@@ -168,6 +172,7 @@ extension ActivitySession on LedgerSession {
               : CorrectionActivityRole.values.byName(
                   row.read<String>('correction_role'),
                 ),
+          row.read<String>('activity_kind'),
         );
       }),
     );

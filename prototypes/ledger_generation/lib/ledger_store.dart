@@ -58,6 +58,7 @@ final class LedgerPayload implements GenerationPayload {
     bool reversalsAware = false,
     bool notesAware = false,
     this.correctionsAware = false,
+    this.tombstonesAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -126,6 +127,7 @@ final class LedgerPayload implements GenerationPayload {
          reversalsAware: reversalsAware,
          notesAware: notesAware,
          correctionsAware: correctionsAware,
+         tombstonesAware: tombstonesAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -137,6 +139,7 @@ final class LedgerPayload implements GenerationPayload {
   final bool reversalsAware;
   final bool notesAware;
   final bool correctionsAware;
+  final bool tombstonesAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -169,6 +172,7 @@ final class LedgerPayload implements GenerationPayload {
       reversalsAware: reversalsAware,
       notesAware: notesAware,
       correctionsAware: correctionsAware,
+      tombstonesAware: tombstonesAware,
     ),
   );
 
@@ -194,7 +198,8 @@ final class LedgerPayload implements GenerationPayload {
               (refundsAware && version == 10) ||
               (reversalsAware && version == 11) ||
               (notesAware && version == 12) ||
-              (correctionsAware && version == 13)) ||
+              (correctionsAware && version == 13) ||
+              (tombstonesAware && version == 14)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -218,6 +223,7 @@ final class LedgerPayload implements GenerationPayload {
       reversalsAware: version >= 11,
       notesAware: version >= 12,
       correctionsAware: version >= 13,
+      tombstonesAware: version >= 14,
     );
     final db = openEncrypted(
       file,
@@ -233,6 +239,7 @@ final class LedgerPayload implements GenerationPayload {
       reversalsAware: version >= 11,
       notesAware: version >= 12,
       correctionsAware: version >= 13,
+      tombstonesAware: version >= 14,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -261,6 +268,7 @@ final class LedgerStore {
     bool reversalsAware = false,
     bool notesAware = false,
     this.correctionsAware = false,
+    this.tombstonesAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
@@ -332,6 +340,7 @@ final class LedgerStore {
            reversalsAware: reversalsAware,
            notesAware: notesAware,
            correctionsAware: correctionsAware,
+           tombstonesAware: tombstonesAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -343,7 +352,8 @@ final class LedgerStore {
              refundsAware ||
              reversalsAware ||
              notesAware ||
-             correctionsAware,
+             correctionsAware ||
+             tombstonesAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -358,6 +368,7 @@ final class LedgerStore {
   final bool reversalsAware;
   final bool notesAware;
   final bool correctionsAware;
+  final bool tombstonesAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -378,6 +389,7 @@ final class LedgerStore {
             reversalsAware: reversalsAware,
             notesAware: notesAware,
             correctionsAware: correctionsAware,
+            tombstonesAware: tombstonesAware,
           ).empty(),
         ),
         operation,
@@ -406,6 +418,7 @@ final class LedgerStore {
         reversalsAware: reversalsAware,
         notesAware: notesAware,
         correctionsAware: correctionsAware,
+        tombstonesAware: tombstonesAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -479,6 +492,7 @@ final class LedgerStore {
       reversalsAware: reversalsAware,
       notesAware: notesAware,
       correctionsAware: correctionsAware,
+      tombstonesAware: tombstonesAware,
     );
     try {
       return await work(db);

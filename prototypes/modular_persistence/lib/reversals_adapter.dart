@@ -29,6 +29,7 @@ Future<ReversalSourceRecord> readReversalSource(
   WorkspaceId workspace,
   PublicId originalId, {
   bool requireEligible = true,
+  bool allowTombstoned = false,
 }) async {
   if (!db.reversalsAware)
     throw UnsupportedError('Reversals require schema 11.');
@@ -46,7 +47,7 @@ Future<ReversalSourceRecord> readReversalSource(
       !['income', 'expense', 'transfer'].contains(e.read<String>('kind'))) {
     throw const LedgerException(LedgerError.reversalReference);
   }
-  if (db.tombstonesAware &&
+  if (db.tombstonesAware && !allowTombstoned &&
       (await db
               .customSelect(
                 'SELECT event_id FROM event_tombstones WHERE workspace=? AND event_id=?',
