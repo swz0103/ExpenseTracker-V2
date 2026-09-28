@@ -75,6 +75,9 @@ abstract interface class BackupDocuments {
   Future<bool> chooseSimpleImport();
   Future<String?> readSimpleImport();
   Future<void> discardSimpleImport();
+  Future<bool> chooseSimpleExport(String format);
+  Future<bool> writeSimpleExport(String contents);
+  Future<void> discardSimpleExport();
 }
 
 final class AndroidBackupDocuments implements BackupDocuments {
@@ -94,4 +97,14 @@ final class AndroidBackupDocuments implements BackupDocuments {
   @override
   Future<void> discardSimpleImport() =>
       channel.invokeMethod<void>('discardSimpleImport');
+
+  @override
+  Future<bool> chooseSimpleExport(String format) async =>
+      await channel.invokeMethod<bool>('chooseSimpleExport', format) ?? false;
+  @override
+  Future<bool> writeSimpleExport(String contents) async =>
+      await channel.invokeMethod<bool>('writeSimpleExport', contents) ?? false;
+  @override
+  Future<void> discardSimpleExport() =>
+      channel.invokeMethod<void>('discardSimpleExport');
 }

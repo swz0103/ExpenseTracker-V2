@@ -17,6 +17,9 @@ final class Documents implements BackupDocuments {
   String? saved;
   String? simple;
   VoidCallback? onChooseSimple;
+  String? simpleExport;
+  String? selectedExportFormat;
+  VoidCallback? onChooseSimpleExport;
   @override
   Future<bool> save(String encrypted) async {
     saved = encrypted;
@@ -41,6 +44,23 @@ final class Documents implements BackupDocuments {
 
   @override
   Future<void> discardSimpleImport() async => simple = null;
+
+  @override
+  Future<bool> chooseSimpleExport(String format) async {
+    selectedExportFormat = format;
+    onChooseSimpleExport?.call();
+    return true;
+  }
+
+  @override
+  Future<bool> writeSimpleExport(String contents) async {
+    simpleExport = contents;
+    selectedExportFormat = null;
+    return true;
+  }
+
+  @override
+  Future<void> discardSimpleExport() async => selectedExportFormat = null;
 }
 
 Future<void> settle(WidgetTester tester) async {
@@ -67,6 +87,17 @@ Future<void> waitForImportDialog(WidgetTester tester) async {
     if (find.text('確認匯入').evaluate().isNotEmpty) return;
   }
   throw StateError('Import confirmation did not open');
+}
+
+Future<void> waitForExportDialog(WidgetTester tester) async {
+  for (var i = 0; i < 100; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 25)),
+    );
+    await tester.pump();
+    if (find.text('確認儲存未加密交換檔').evaluate().isNotEmpty) return;
+  }
+  throw StateError('Export confirmation did not open');
 }
 
 Future<void> tap(WidgetTester tester, String text) async {
@@ -458,6 +489,8 @@ void main() {
           -180,
           scrollable: find.byType(Scrollable).first,
         );
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 120));
+        await tester.pumpAndSettle();
         await tap(tester, '記一筆');
         final field = tester.widget<DropdownButtonFormField<String>>(
           find.byKey(const ValueKey('posting-category-false')),
@@ -720,6 +753,94 @@ void main() {
           );
         });
         expect(find.textContaining('新增 1 筆'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await closeEngine(tester, engine);
+        await tester.pumpWidget(const SizedBox());
+        if (!work.absolute.path.startsWith(
+          '${root.absolute.path}${Platform.pathSeparator}',
+        )) {
+          throw StateError('unsafe cleanup');
+        }
+        work.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  testWidgets(
+    'simple export locks, discloses omissions and saves only after confirmation',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final root = Directory('.dart_tool/widget-tests')
+        ..createSync(recursive: true);
+      final work = root.createTempSync('simple-export-');
+      final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
+      final docs = Documents();
+      try {
+        await tester.runAsync(() async {
+          await setup(engine);
+          final cash = account(engine, name: 'Export source');
+          await engine.createAccount(cash, opening(cash));
+          await engine.post(income(cash));
+          await engine.setPrivacyMode(PrivacyMode.hidden);
+          await engine.lock();
+        });
+        docs.onChooseSimpleExport = () => tester.binding
+            .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        await tester.pumpWidget(
+          PreviewApp(engine: Future.value(engine), documents: docs),
+        );
+        await settle(tester);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+      await tester.scrollUntilVisible(
+        find.text('匯出簡易收支檔'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -120),
+      );
+      await tester.pumpAndSettle();
+      await tap(tester, '匯出簡易收支檔');
+        await tap(tester, '選擇 JSON 儲存位置');
+        expect(docs.selectedExportFormat, 'json');
+        expect(find.text('解鎖帳本'), findsOneWidget);
+        await input(tester, '密碼', password);
+        await tap(tester, '解鎖');
+        await tap(tester, '檢查將匯出的交易');
+        expect(find.text('將匯出 1 筆普通收支。'), findsOneWidget);
+        expect(find.textContaining('略過 1 筆期初'), findsOneWidget);
+        final confirm = find.widgetWithText(FilledButton, '確認儲存 JSON 交換檔');
+        expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+        await tester.tap(find.byTooltip('顯示金額'));
+        await tester.pump();
+        await settle(tester);
+        await tester.ensureVisible(confirm);
+        await tester.tap(confirm);
+        await waitForExportDialog(tester);
+        await tester.tap(find.text('取消'));
+        await tester.pump();
+        await settle(tester);
+        expect(docs.simpleExport, isNull);
+        await tester.tap(confirm);
+        await waitForExportDialog(tester);
+        await tester.tap(find.text('確認儲存'));
+        await tester.pump();
+        await settle(tester);
+        final exported = SimpleTransactionCodec.decodeJson(docs.simpleExport!);
+        expect(exported.records, hasLength(1));
+        expect(exported.records.single.amount.minorUnits, BigInt.from(700));
+        await tester.runAsync(() async {
+          expect(
+            (await engine.accounts()).single.balance.minorUnits,
+            BigInt.from(10700),
+          );
+        });
         expect(tester.takeException(), isNull);
       } finally {
         await closeEngine(tester, engine);

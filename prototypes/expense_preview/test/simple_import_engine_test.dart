@@ -123,4 +123,110 @@ void main() {
       },
     );
   }
+
+  test('simple export round-trips ordinary income and expense into another V2 book', () async {
+    final work = root.createTempSync('export-');
+    final source = engineAt(
+      Directory('${work.path}/source'),
+      MemoryVault(),
+      schemaVersion: 12,
+    );
+    final target = engineAt(
+      Directory('${work.path}/target'),
+      MemoryVault(),
+      schemaVersion: 12,
+    );
+    try {
+      await setup(source);
+      final cash = account(source);
+      await source.createAccount(cash, opening(cash));
+      await source.post(income(cash));
+      await source.post(
+        Posting.expense(
+          id: PublicId.generate(),
+          operation: OperationKey(
+            source.workspace,
+            OperationId(PublicId.generate()),
+          ),
+          date: BusinessDate(2026, 9, 28),
+          account: ref(cash),
+          amount: Money.parse(cash.currency, '2.50'),
+        ),
+      );
+      final export = await source.reviewSimpleExport();
+      expect(export.openingCount, 1);
+      expect(export.unsupportedCount, 0);
+      expect(export.includedCount, 2);
+      expect(export.batch.sourceWorkspace, source.workspace);
+      expect(export.batch.records.map((row) => row.kind).toSet(), {
+        PostingKind.income,
+        PostingKind.expense,
+      });
+      final csv = export.toCsv();
+      final json = export.toJson();
+      expect(SimpleTransactionCodec.decodeCsv(csv).records, hasLength(2));
+      expect(SimpleTransactionCodec.decodeJson(json).records, hasLength(2));
+      await expectLater(
+        source.reviewSimpleImport(
+          json,
+          csv: false,
+          accountMapping: {cash.id: cash.id},
+        ),
+        throwsA(
+          isA<ExchangeException>().having(
+            (error) => error.code,
+            'code',
+            'same_workspace_import',
+          ),
+        ),
+      );
+      expect(
+        (await source.accounts()).single.balance.minorUnits,
+        BigInt.from(10450),
+      );
+
+      final transferTarget = account(source, name: 'Other source account');
+      await source.createAccount(transferTarget, opening(transferTarget));
+      await source.post(
+        Posting.transfer(
+          id: PublicId.generate(),
+          operation: OperationKey(
+            source.workspace,
+            OperationId(PublicId.generate()),
+          ),
+          date: BusinessDate(2026, 9, 28),
+          source: ref(cash),
+          destination: ref(transferTarget),
+          principal: Money.parse(cash.currency, '1'),
+          received: Money.parse(cash.currency, '1'),
+          fee: Money.parse(cash.currency, '0.10'),
+        ),
+      );
+      final partial = await source.reviewSimpleExport();
+      expect(partial.includedCount, 2);
+      expect(partial.openingCount, 2);
+      expect(partial.unsupportedCount, 1);
+
+      await setup(target);
+      final targetCash = account(target);
+      await target.createAccount(targetCash, opening(targetCash));
+      final review = await target.reviewSimpleImport(
+        csv,
+        csv: true,
+        accountMapping: {cash.id: targetCash.id},
+      );
+      final imported = await target.confirmSimpleImport(review);
+      expect(imported.inserted, 2);
+      expect(imported.replayed, 0);
+      expect(
+        (await target.accounts()).single.balance.minorUnits,
+        BigInt.from(10450),
+      );
+      expect((await target.entries()), hasLength(3));
+    } finally {
+      await source.lock();
+      await target.lock();
+      deleteSynthetic(work, root);
+    }
+  });
 }

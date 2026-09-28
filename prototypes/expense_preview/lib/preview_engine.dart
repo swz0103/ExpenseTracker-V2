@@ -31,6 +31,7 @@ part 'preview_drafts.dart';
 part 'preview_privacy.dart';
 part 'preview_upgrade.dart';
 part 'preview_simple_import.dart';
+part 'preview_simple_export.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);

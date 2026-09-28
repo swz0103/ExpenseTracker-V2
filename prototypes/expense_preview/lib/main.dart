@@ -39,6 +39,7 @@ part 'merchant_screen.dart';
 part 'search_screen.dart';
 part 'monthly_report_screen.dart';
 part 'simple_import_screen.dart';
+part 'simple_export_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -131,6 +132,7 @@ enum _Page {
   posting,
   restore,
   simpleImport,
+  simpleExport,
   blocked,
 }
 
@@ -150,6 +152,7 @@ class PreviewHome extends StatefulWidget {
 
 class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _updateSimpleImport(VoidCallback change) => setState(change);
+  void _updateSimpleExport(VoidCallback change) => setState(change);
   PreviewEngine? _engine;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
@@ -158,6 +161,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   SimpleTransactionBatch? _simpleImportBatch;
   SimpleImportReview? _simpleImportReview;
   final _simpleImportMapping = <PublicId, PublicId>{};
+  bool _simpleExportSelected = false;
+  String? _simpleExportFormat;
+  SimpleExportReview? _simpleExportReview;
   CreatedBackup? _draft;
   final _scroll = ScrollController(keepScrollOffset: false);
   final _password = TextEditingController();
@@ -250,6 +256,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
 
   void _clear() {
     _clearSimpleImport();
+    _clearSimpleExport();
     for (final c in [
       _password,
       _confirm,
@@ -479,6 +486,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _hasSafety = safety;
       _page = _simpleImportSelected
           ? _Page.simpleImport
+          : _simpleExportSelected
+          ? _Page.simpleExport
           : _imported == null
           ? _Page.home
           : _Page.restore;
@@ -1076,6 +1085,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _clearSimpleImport();
               await widget.documents.discardSimpleImport();
             }
+            if (_page == _Page.simpleExport) {
+              _clearSimpleExport();
+              await widget.documents.discardSimpleExport();
+            }
             _credential.clear();
             await _refresh();
           }),
@@ -1098,6 +1111,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.search,
               _Page.monthlyReport,
               _Page.simpleImport,
+              _Page.simpleExport,
             }.contains(_page) &&
             (_engine?.isUnlocked ?? false))
           IconButton(
@@ -1587,6 +1601,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
       case _Page.simpleImport:
         return _simpleImportContent();
+      case _Page.simpleExport:
+        return _simpleExportContent();
       case _Page.home:
         return [
           Text('我的帳本', style: Theme.of(context).textTheme.headlineSmall),
@@ -1940,6 +1956,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : _chooseSimpleImport,
             child: const Text('匯入簡易收支檔'),
           ),
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () => setState(() => _page = _Page.simpleExport),
+            child: const Text('匯出簡易收支檔'),
+          ),
           const SizedBox(height: 16),
           const Text(
             '目前上限：32 個帳戶、5,000 筆交易（含期初）、256 個分類、256 個標籤、256 個商家。另支援最多 5,000 次備註修訂。',
@@ -1959,6 +1981,9 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
+  PlatformException(code: 'simple_export') =>
+    '簡易匯出寫入或回讀核對失敗；請檢查並刪除可能不完整的檔案，再重試。',
+  ExchangeException(code: 'empty_export') => '目前沒有可匯出的普通收入或支出。完整帳本請使用加密備份。',
   ExchangeException(code: 'same_workspace_import') =>
     '不能把這本帳的簡易匯出再匯入同一本帳，避免重複入帳。請使用另一個 V2 帳本。',
   ExchangeException(code: 'source_conflict', row: final row) =>

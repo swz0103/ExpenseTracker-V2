@@ -16,6 +16,7 @@ class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
     private var encrypted: ByteArray? = null
     private var selectedSimple: Uri? = null
+    private var selectedSimpleExport: Uri? = null
     private val maxBytes = 24 * 1024 * 1024
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,20 +49,53 @@ class MainActivity : FlutterActivity() {
                 } else if (call.method == "discardSimpleImport") {
                     selectedSimple = null
                     result.success(null)
-                } else if (call.method == "open" || call.method == "save" || call.method == "chooseSimpleImport") {
+                } else if (call.method == "writeSimpleExport") {
+                    val uri = selectedSimpleExport
+                    selectedSimpleExport = null
+                    val bytes = (call.arguments as? String)?.toByteArray(Charsets.UTF_8)
+                    if (uri == null || bytes == null || bytes.isEmpty() || bytes.size > maxBytes) {
+                        result.error("simple_export", "尚未選擇匯出位置或內容超過上限", null)
+                    } else {
+                        pending = result
+                        Thread {
+                            try {
+                                contentResolver.openOutputStream(uri, "wt").use { output ->
+                                    requireNotNull(output)
+                                    output.write(bytes)
+                                    output.flush()
+                                }
+                                check(readBounded(uri).contentEquals(bytes))
+                                runOnUiThread { pending = null; result.success(true) }
+                            } catch (_: Exception) {
+                                runOnUiThread {
+                                    pending = null
+                                    result.error("simple_export", "匯出檔案寫入或回讀核對失敗；檔案可能不完整", null)
+                                }
+                            }
+                        }.apply { name = "simple-export-document"; isDaemon = true }.start()
+                    }
+                } else if (call.method == "discardSimpleExport") {
+                    selectedSimpleExport = null
+                    result.success(null)
+                } else if (call.method == "open" || call.method == "save" || call.method == "chooseSimpleImport" || call.method == "chooseSimpleExport") {
                     try {
                         val saving = call.method == "save"
                         val simple = call.method == "chooseSimpleImport"
+                        val simpleExport = call.method == "chooseSimpleExport"
+                        val format = if (simpleExport) call.arguments as? String else null
+                        if (simpleExport && format != "json" && format != "csv") throw IllegalArgumentException()
                         val data = if (saving) (call.arguments as? String)?.toByteArray(Charsets.UTF_8) else null
                         if (saving && (data == null || data.size > maxBytes)) throw IllegalArgumentException()
                         pending = result
                         encrypted = data
                         if (simple) selectedSimple = null
-                        val intent = Intent(if (saving) Intent.ACTION_CREATE_DOCUMENT else Intent.ACTION_OPEN_DOCUMENT)
+                        if (simpleExport) selectedSimpleExport = null
+                        val intent = Intent(if (saving || simpleExport) Intent.ACTION_CREATE_DOCUMENT else Intent.ACTION_OPEN_DOCUMENT)
                             .addCategory(Intent.CATEGORY_OPENABLE)
-                            .setType(if (saving) "application/octet-stream" else "*/*")
+                            .setType(if (saving) "application/octet-stream" else if (simpleExport && format == "json") "application/json" else if (simpleExport) "text/csv" else "*/*")
                         if (saving) intent.putExtra(Intent.EXTRA_TITLE, "ExpenseTracker-${System.currentTimeMillis()}.etv2")
-                        startActivityForResult(intent, if (saving) 401 else if (simple) 403 else 402)
+                        if (simpleExport) intent.putExtra(Intent.EXTRA_TITLE, "ExpenseTracker-simple-${System.currentTimeMillis()}.$format")
+                        startActivityForResult(intent, if (saving) 401 else if (simple) 403 else if (simpleExport) 404 else 402)
                     } catch (_: Exception) {
                         pending = null
                         encrypted = null
@@ -89,7 +123,7 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Android result bridge")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != 401 && requestCode != 402 && requestCode != 403) return
+        if (requestCode != 401 && requestCode != 402 && requestCode != 403 && requestCode != 404) return
         val result = pending ?: return
         val bytes = encrypted
         val uri = data?.data
@@ -101,6 +135,13 @@ class MainActivity : FlutterActivity() {
         }
         if (requestCode == 403) {
             selectedSimple = uri
+            pending = null
+            encrypted = null
+            result.success(true)
+            return
+        }
+        if (requestCode == 404) {
+            selectedSimpleExport = uri
             pending = null
             encrypted = null
             result.success(true)
