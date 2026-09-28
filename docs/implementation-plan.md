@@ -138,7 +138,7 @@
 
 ### M1-07｜完整首批保護與日常試用發布
 
-2026-09-29 安全模式接續：已加入[鎖定狀態的還原前加密副本唯讀匯出](locked-safety-export.md)，可在 V2 設定檔受損時以原密碼或救援文字驗證後保存副本；[主機證據](test-results/locked-safety-export-host-2026-09-29.json)涵蓋 199 項 App 測試、裝置解鎖競爭修正與 ARM64 debug 建置。升級前備份、獨立 App PIN、Android 實機文件保存與雲端 gate 仍未完成，不能把此子項視為完整安全模式或 M1-07 驗收。
+2026-09-29 安全模式接續：已加入[鎖定狀態的加密副本唯讀匯出](locked-safety-export.md)，可在 V2 設定檔受損時以原密碼或救援文字驗證後保存還原前副本；[首批主機證據](test-results/locked-safety-export-host-2026-09-29.json)涵蓋 199 項 App 測試、裝置解鎖競爭修正與 ARM64 debug 建置。接著補上升級前副本的鎖定匯出，可跳過中斷留下的損壞檔並驗證原 schema；[受影響回歸](test-results/locked-upgrade-export-host-2026-09-29.json)通過，未重跑全量。獨立 App PIN、Android 實機文件保存與雲端 gate 仍未完成，不能把這兩個子項視為完整安全模式或 M1-07 驗收。
 
 2026-09-29 整合候選進度：V2 App 目前資料格式已由 schema 12 升至 14，既有 V2 帳本須經畫面明確確認與逐版加密安全備份才會升級；新帳本可開啟更正與軟刪除。12→14 升級、兩份備份的密碼／救援憑證驗證、餘額與備註保留、完整 App 189 項測試及 ARM64 debug 建置的主機證據見[此批紀錄](test-results/current-schema-14-host-2026-09-29.json)。前文「App 預設仍是 schema 12」是當時的歷史狀態。實機和雲端 gate 未通過，M1-07 與 M1 整體仍未驗收。
 

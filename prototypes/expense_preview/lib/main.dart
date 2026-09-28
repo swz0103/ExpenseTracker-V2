@@ -226,6 +226,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _hasMore = false;
   bool _hasMoreDeleted = false;
   bool _hasSafety = false;
+  bool _hasUpgradeSafety = false;
   Account? _pendingAccount;
   Posting? _pendingPosting;
   String? _inputSignature;
@@ -251,6 +252,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _engine = engine;
       final exists = await engine.hasProfile();
       final safety = await _availableLockedSafetyCopy(engine);
+      final upgradeSafety = await _availableLockedUpgradeCopy(engine);
       var deviceEnabled = false;
       try {
         deviceEnabled =
@@ -262,6 +264,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       setState(() {
         _engine = engine;
         _hasSafety = safety;
+        _hasUpgradeSafety = upgradeSafety;
         _deviceUnlockEnabled = deviceEnabled;
         _page = exists ? _Page.locked : _Page.setup;
       });
@@ -270,9 +273,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         final safety = _engine == null
             ? false
             : await _availableLockedSafetyCopy(_engine!);
+        final upgradeSafety = _engine == null
+            ? false
+            : await _availableLockedUpgradeCopy(_engine!);
         if (!mounted) return;
         setState(() {
           _hasSafety = safety;
+          _hasUpgradeSafety = upgradeSafety;
           _page = _Page.blocked;
           _message = '無法讀取設定。原資料已保留，請勿清除 App 資料。';
         });
@@ -285,6 +292,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return await engine.hasLockedSafetyCopy();
     } catch (_) {
       // An optional copy must not prevent a healthy profile from unlocking.
+      return false;
+    }
+  }
+
+  Future<bool> _availableLockedUpgradeCopy(PreviewEngine engine) async {
+    try {
+      return await engine.hasLockedUpgradeCopy();
+    } catch (_) {
       return false;
     }
   }
@@ -415,9 +430,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted && !_busy && !_engine!.isUnlocked) {
         final safety = await _availableLockedSafetyCopy(_engine!);
+        final upgradeSafety = await _availableLockedUpgradeCopy(_engine!);
         if (mounted && !_busy && !_engine!.isUnlocked) {
           setState(() {
             _hasSafety = safety;
+            _hasUpgradeSafety = upgradeSafety;
             _page = _Page.blocked;
           });
         }
@@ -530,6 +547,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       monthlyOverflow = true;
     }
     final safety = await _engine!.hasSafetyCopy();
+    final upgradeSafety = await _engine!.hasLockedUpgradeCopy();
     EntryDraft? entryDraft;
     var draftUnreadable = false;
     try {
@@ -564,6 +582,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _hasMore = entries.length == 30;
       _hasMoreDeleted = deletedEntries.length == 30;
       _hasSafety = safety;
+      _hasUpgradeSafety = upgradeSafety;
       _page = _simpleImportSelected
           ? _Page.simpleImport
           : _simpleExportSelected
@@ -1059,9 +1078,25 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
   });
 
+  Future<void> _exportLockedUpgradeCopy() => _perform(() async {
+    final encrypted = await _engine!.exportLockedUpgradeCopy(
+      _credential.text,
+      recovery: _useRecovery,
+    );
+    final saved = await widget.documents.save(encrypted);
+    _credential.clear();
+    if (mounted) {
+      setState(
+        () => _message = saved
+            ? '升級前加密備份已儲存；可能是較早版本，可用原憑證還原後依提示更新。'
+            : '已取消儲存；本機帳本未變更。',
+      );
+    }
+  });
+
   List<Widget> _lockedSafetyControls() => [
     const SizedBox(height: 16),
-    const Text('帳本無法開啟時，可用原密碼或救援文字驗證並匯出上次還原前的加密安全副本。此操作不會替換目前資料。'),
+    const Text('帳本無法開啟時，可用原密碼或救援文字驗證並匯出加密安全副本。此操作不會替換目前資料。'),
     SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: const Text('使用救援文字'),
@@ -1074,7 +1109,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             }),
     ),
     _field(_useRecovery ? '原帳本救援文字' : '原帳本密碼', _credential, secret: true),
-    _button('匯出還原前加密安全副本', _exportLockedSafetyCopy),
+    if (_hasSafety) _button('匯出還原前加密安全副本', _exportLockedSafetyCopy),
+    if (_hasUpgradeSafety) ...[
+      const Text('升級副本可能是較早版本；優先匯出最近一份可驗證的檔案。'),
+      _button('匯出升級前加密備份', _exportLockedUpgradeCopy),
+    ],
   ];
 
   Future<void> _openImport() => _perform(() async {
@@ -1387,7 +1426,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       case _Page.blocked:
         return [
           const Text('設定或儲存發生問題，已停止開啟帳本。請保留現有資料與加密備份。'),
-          if (_engine != null && _hasSafety) ..._lockedSafetyControls(),
+          if (_engine != null && (_hasSafety || _hasUpgradeSafety))
+            ..._lockedSafetyControls(),
         ];
       case _Page.setup:
         return [
@@ -1441,7 +1481,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           if (widget.deviceUnlock != null && _deviceUnlockEnabled)
             _button('使用裝置解鎖', _unlockWithDevice),
-          if (_hasSafety) ..._lockedSafetyControls(),
+          if (_hasSafety || _hasUpgradeSafety) ..._lockedSafetyControls(),
           if (_imported != null) const Text('已選取加密備份；解鎖後繼續確認還原。'),
           const Text('救援文字用於加密備份還原。忘記此密碼時，可在新的安裝中設定新密碼後，再匯入已保存的備份。'),
         ];

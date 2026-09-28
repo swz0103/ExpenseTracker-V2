@@ -509,6 +509,70 @@ final class PreviewEngine {
     return dated.map((entry) => entry.file).toList();
   }
 
+  Future<List<File>> _upgradeCopies() async {
+    final folder = Directory('${directory.path}/upgrade-backups');
+    if (!await folder.exists()) return [];
+    final files = <File>[];
+    await for (final item in folder.list(followLinks: false)) {
+      if (item is File &&
+          RegExp(r'^[0-9a-f-]{36}\.envelope$')
+              .hasMatch(item.uri.pathSegments.last)) {
+        files.add(item);
+      }
+    }
+    final dated = await Future.wait(
+      files.map(
+        (file) async => (file: file, modified: (await file.stat()).modified),
+      ),
+    );
+    dated.sort((a, b) {
+      final byDate = b.modified.compareTo(a.modified);
+      return byDate != 0 ? byDate : b.file.path.compareTo(a.file.path);
+    });
+    return dated.map((entry) => entry.file).toList();
+  }
+
+  Future<bool> hasLockedUpgradeCopy() => _exclusive((epoch) async {
+    final found = (await _upgradeCopies()).isNotEmpty;
+    _check(epoch);
+    return found;
+  });
+
+  /// Upgrade attempts can leave an incomplete newest file. Search newest first
+  /// for a complete, authenticated older-schema snapshot without opening the
+  /// current ledger or replacing its generation.
+  Future<String> exportLockedUpgradeCopy(
+    String credential, {
+    required bool recovery,
+  }) => _exclusive((epoch) async {
+    if (isUnlocked || credential.isEmpty) throw PreviewInvalid();
+    for (final file in await _upgradeCopies()) {
+      _check(epoch);
+      try {
+        if (await file.length() > EnvelopeCodec.maxEnvelopeCharacters) {
+          continue;
+        }
+        final saved = await file.readAsString();
+        final bytes = recovery
+            ? await EnvelopeCodec().openWithRecovery(saved, credential)
+            : await EnvelopeCodec().openWithPassword(saved, credential);
+        final decoded = jsonDecode(utf8.decode(bytes));
+        if (decoded is! Map<String, dynamic>) continue;
+        final version = decoded['schema'];
+        if (version is! int || version < 3 || version >= schemaVersion) {
+          continue;
+        }
+        validatePreviewSnapshot(bytes, schemaVersion: version);
+        _check(epoch);
+        return saved;
+      } catch (_) {
+        // A partial or damaged attempt must not hide an older verified copy.
+      }
+    }
+    _check(epoch);
+    throw PreviewInvalid();
+  });
+
   Future<bool> hasSafetyCopy() => _exclusive((epoch) async {
     _require();
     final found = (await _safetyCopies()).isNotEmpty;

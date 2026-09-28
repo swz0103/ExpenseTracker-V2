@@ -1,0 +1,38 @@
+{
+  "scope": "M1-07 read-only export of verified encrypted pre-upgrade backup while V2 is locked or profile opening is blocked",
+  "baseCommit": "501901072caf06bc162073782d35a4b0adbe35bc",
+  "date": "2026-09-29",
+  "environment": "Windows Flutter host; synthetic V2 schema 12-to-14 upgrade; ADB listed no devices; GitHub Actions disabled",
+  "checks": [
+    {
+      "command": "flutter test --no-pub test/locked_upgrade_export_test.dart --timeout 2m",
+      "result": "passed; 3 cases: password and recovery, wrong credential, newest valid schema 13, authenticated current-schema rejection, damaged schema 13 fallback to schema 12, and blocked-profile UI save without replacement"
+    },
+    {
+      "command": "flutter test --no-pub test/locked_upgrade_export_test.dart test/device_unlock_widget_test.dart test/locked_safety_export_widget_test.dart --timeout 2m --concurrency 2",
+      "result": "passed; 9 affected cases on final source"
+    },
+    {
+      "command": "flutter test --no-pub test/multi_upgrade_backup_gate_test.dart test/current_schema_upgrade_widget_test.dart test/backup_widget_gate_test.dart --timeout 2m --concurrency 2",
+      "result": "passed; 5 upgrade and restore regressions on final source"
+    },
+    {
+      "command": "flutter analyze --no-pub",
+      "result": "passed; no issues on final source"
+    },
+    {
+      "command": "dart run bin/check.dart ../..",
+      "result": "passed; architecture boundaries on final source"
+    },
+    {
+      "command": "flutter build apk --debug --target-platform android-arm64 --no-pub",
+      "result": "passed; local debug APK not installed or uploaded; SHA256 4b21a185f38f9a01b3834d4b6e1849471637a8255fffd08678bb715943b92de4"
+    }
+  ],
+  "priorIntegration": "The previous integration commit passed the full 199-case App suite; the new source ran affected regressions, not a new full suite.",
+  "notVerified": [
+    "Android document provider save and reread on device; ADB listed no devices",
+    "separate App PIN and remaining M1-07 security/restore gates",
+    "GitHub Actions checks; workflows remain disabled"
+  ]
+}
