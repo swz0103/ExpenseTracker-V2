@@ -1,0 +1,58 @@
+{
+  "scope": "M1-06 read-only account-mapping import preview",
+  "baseCommit": "cc3ea00d18013d133cb6cd885bd020f12f339856",
+  "date": "2026-09-28",
+  "environment": "Windows host, Dart 3.13.4; GitHub Actions not run",
+  "checks": [
+    {
+      "command": "dart pub get --offline",
+      "directory": "packages/data_exchange",
+      "result": "passed; accounts path dependency added to lockfile"
+    },
+    {
+      "command": "dart format lib test",
+      "directory": "packages/data_exchange",
+      "result": "passed"
+    },
+    {
+      "command": "dart analyze",
+      "directory": "packages/data_exchange",
+      "result": "passed; no issues"
+    },
+    {
+      "command": "dart test --reporter expanded",
+      "directory": "packages/data_exchange",
+      "result": "passed; 10 tests including existing JSON/CSV format tests"
+    },
+    {
+      "command": "dart test --reporter compact",
+      "directory": "tooling/architecture_checks",
+      "result": "passed; 20 tests"
+    },
+    {
+      "command": "dart run bin/check.dart ../..",
+      "directory": "tooling/architecture_checks",
+      "result": "passed; workspace boundary scan"
+    }
+  ],
+  "financialCases": [
+    "exact separate income and expense totals by currency",
+    "aggregate BigInt total beyond one Money bound",
+    "missing account mapping and cross-workspace target rejected with row",
+    "currency mismatch, archived account and date before account opening rejected with row",
+    "empty import rejected and preview collections immutable"
+  ],
+  "sourceSha256": {
+    "packages/data_exchange/lib/src/simple_import_preview.dart": "426b170c0d69f6188741324ebaa7b04f4c894300b385bb3290339b8e2ead152a",
+    "packages/data_exchange/test/simple_import_preview_test.dart": "ed8cea290041da486205f73afc38411de383338b17087f3ac80b25a328036a70",
+    "packages/data_exchange/pubspec.yaml": "2f5663de42dea277422386ff0d90dee370615f61200cec66d7459981b9803614",
+    "packages/data_exchange/pubspec.lock": "21c9a085bb98cd7fe198b40ff6da51891f5c020ef74e965fce11b63f406741bf",
+    "architecture/boundaries.json": "0de94eb091a07810c593c42f50f641bd4a9aa1f9157f071e187a595b4e67ce12"
+  },
+  "notVerified": [
+    "Ledger atomic import and durable source deduplication",
+    "Android document interface and device test",
+    "encrypted backup/restore and upgrade for future import receipt data",
+    "cloud checks; both workflows remain disabled"
+  ]
+}

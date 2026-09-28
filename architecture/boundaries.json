@@ -61,6 +61,7 @@
         "data_exchange.dart"
       ],
       "dependencies": [
+        "accounts",
         "foundation_values",
         "ledger"
       ]

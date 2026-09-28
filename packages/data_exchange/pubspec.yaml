@@ -5,6 +5,8 @@ publish_to: none
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
+  accounts:
+    path: ../accounts
   foundation_values:
     path: ../foundation_values
   ledger:

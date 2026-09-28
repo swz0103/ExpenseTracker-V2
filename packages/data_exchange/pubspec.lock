@@ -9,6 +9,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "108.0.0"
+  accounts:
+    dependency: "direct main"
+    description:
+      path: "../accounts"
+      relative: true
+    source: path
+    version: "0.1.0"
   analyzer:
     dependency: transitive
     description:
