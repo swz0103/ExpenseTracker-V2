@@ -29,6 +29,7 @@ final class MonthlyFact {
     required this.kind,
     required this.income,
     required this.expense,
+    this.merchantId,
     List<CategoryAllocation> allocations = const [],
   }) : allocations = List.unmodifiable(allocations) {
     if (income.currency != expense.currency) {
@@ -67,6 +68,9 @@ final class MonthlyFact {
   final BusinessDate date;
   final PostingKind kind;
   final Money income, expense;
+
+  /// Saved identity, not today's canonical merchant after a merge.
+  final PublicId? merchantId;
   final List<CategoryAllocation> allocations;
   Currency get currency => income.currency;
   bool get contributes =>
@@ -102,6 +106,23 @@ final class MonthlyCategorySummary {
   final List<MonthlyCategoryFact> facts;
 }
 
+final class MonthlyMerchantSummary {
+  const MonthlyMerchantSummary(
+    this.merchantId,
+    this.currency,
+    this.income,
+    this.expense,
+    this.net,
+    this.facts,
+  );
+
+  /// Null includes entries without a merchant and transfer fees.
+  final PublicId? merchantId;
+  final Currency currency;
+  final Money income, expense, net;
+  final List<MonthlyFact> facts;
+}
+
 final class MonthlyCurrencySummary {
   const MonthlyCurrencySummary(
     this.currency,
@@ -126,11 +147,12 @@ final class MonthlyCurrencySummary {
 /// events. Refuse sums outside Money's supported range instead of overflowing
 /// or displaying a partial financial total.
 final class MonthlyReport {
-  MonthlyReport._(this.month, this.currencies, this.categories);
+  MonthlyReport._(this.month, this.currencies, this.categories, this.merchants);
 
   final ReportMonth month;
   final List<MonthlyCurrencySummary> currencies;
   final List<MonthlyCategorySummary> categories;
+  final List<MonthlyMerchantSummary> merchants;
 
   factory MonthlyReport.build(ReportMonth month, Iterable<MonthlyFact> source) {
     final grouped = <Currency, List<MonthlyFact>>{};
@@ -152,7 +174,11 @@ final class MonthlyReport {
         return code != 0 ? code : a.scale.compareTo(b.scale);
       });
     final categoryFacts = <(Currency, PublicId?), List<MonthlyCategoryFact>>{};
+    final merchantFacts = <(Currency, PublicId?), List<MonthlyFact>>{};
     for (final fact in allFacts.where((row) => row.contributes)) {
+      merchantFacts
+          .putIfAbsent((fact.currency, fact.merchantId), () => [])
+          .add(fact);
       final allocations = fact.allocations;
       if (allocations.isEmpty) {
         categoryFacts
@@ -197,6 +223,16 @@ final class MonthlyReport {
         if (b.$2 == null) return -1;
         return a.$2!.value.compareTo(b.$2!.value);
       });
+    final merchantKeys = merchantFacts.keys.toList()
+      ..sort((a, b) {
+        final code = a.$1.code.compareTo(b.$1.code);
+        if (code != 0) return code;
+        final scale = a.$1.scale.compareTo(b.$1.scale);
+        if (scale != 0) return scale;
+        if (a.$2 == null) return 1;
+        if (b.$2 == null) return -1;
+        return a.$2!.value.compareTo(b.$2!.value);
+      });
     return MonthlyReport._(
       month,
       List.unmodifiable([
@@ -207,6 +243,32 @@ final class MonthlyReport {
         for (final key in categoryKeys)
           _summarizeCategory(key, categoryFacts[key]!),
       ]),
+      List.unmodifiable([
+        for (final key in merchantKeys)
+          _summarizeMerchant(key, merchantFacts[key]!),
+      ]),
+    );
+  }
+
+  static MonthlyMerchantSummary _summarizeMerchant(
+    (Currency, PublicId?) key,
+    List<MonthlyFact> facts,
+  ) {
+    final income = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.income.minorUnits,
+    );
+    final expense = facts.fold<BigInt>(
+      BigInt.zero,
+      (sum, fact) => sum + fact.expense.minorUnits,
+    );
+    return MonthlyMerchantSummary(
+      key.$2,
+      key.$1,
+      Money(key.$1, income),
+      Money(key.$1, expense),
+      Money(key.$1, income - expense),
+      List.unmodifiable(facts),
     );
   }
 

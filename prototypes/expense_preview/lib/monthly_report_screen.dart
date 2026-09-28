@@ -1,10 +1,13 @@
 part of 'main.dart';
 
+enum _MonthlyView { totals, category, merchant }
+
 class _MonthlyReportScreen extends StatefulWidget {
   const _MonthlyReportScreen({
     required this.engine,
     required this.initial,
     required this.catalog,
+    required this.merchants,
     required this.privacy,
     required this.onActivity,
   });
@@ -12,6 +15,7 @@ class _MonthlyReportScreen extends StatefulWidget {
   final PreviewEngine engine;
   final MonthlyReport initial;
   final CategoryCatalog catalog;
+  final MerchantCatalog? merchants;
   final PrivacyMode privacy;
   final void Function(PublicId) onActivity;
 
@@ -24,8 +28,9 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
   bool _busy = false;
   String? _errorText;
   int _visible = 30, _request = 0;
-  bool _byCategory = false;
+  _MonthlyView _view = _MonthlyView.totals;
   MonthlyCategorySummary? _selectedCategory;
+  MonthlyMerchantSummary? _selectedMerchant;
 
   @override
   void dispose() {
@@ -56,6 +61,7 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
         _report = next;
         _visible = 30;
         _selectedCategory = null;
+        _selectedMerchant = null;
       });
     } on MoneyException {
       if (mounted && request == _request && widget.engine.isUnlocked) {
@@ -80,6 +86,7 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
     final enabled = !_busy && widget.engine.isUnlocked;
     final categoryFacts =
         _selectedCategory?.facts ?? const <MonthlyCategoryFact>[];
+    final merchantFacts = _selectedMerchant?.facts ?? const <MonthlyFact>[];
     String categoryName(PublicId? id) {
       if (id == null) return '未分類（含轉帳費用）';
       final row = widget.catalog.categories
@@ -88,6 +95,16 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
       return row == null
           ? '分類資料缺失：${id.value}'
           : _categoryLabel(widget.catalog, row);
+    }
+
+    String merchantName(PublicId? id) {
+      if (id == null) return '未指定商家（含轉帳費用）';
+      final row = widget.merchants?.merchants
+          .where((m) => m.id == id)
+          .firstOrNull;
+      return row == null
+          ? '商家資料缺失：${id.value}'
+          : _merchantLabel(widget.merchants!, row);
     }
 
     return Column(
@@ -117,22 +134,31 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
         if (_busy) const LinearProgressIndicator(),
         if (_errorText != null)
           Semantics(liveRegion: true, child: Text(_errorText!)),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('月收支')),
-            ButtonSegment(value: true, label: Text('分類')),
+        SegmentedButton<_MonthlyView>(
+          segments: [
+            const ButtonSegment(value: _MonthlyView.totals, label: Text('月收支')),
+            const ButtonSegment(
+              value: _MonthlyView.category,
+              label: Text('分類'),
+            ),
+            if (widget.merchants != null)
+              const ButtonSegment(
+                value: _MonthlyView.merchant,
+                label: Text('商家'),
+              ),
           ],
-          selected: {_byCategory},
+          selected: {_view},
           onSelectionChanged: enabled
               ? (value) => setState(() {
-                  _byCategory = value.single;
+                  _view = value.single;
                   _selectedCategory = null;
+                  _selectedMerchant = null;
                   _visible = 30;
                 })
               : null,
         ),
         if (_report.currencies.isEmpty) const Text('這個月沒有影響收入或支出的交易。'),
-        if (_byCategory) ...[
+        if (_view == _MonthlyView.category) ...[
           const Text('依交易當時的分類歸屬統計；未分類與轉帳費用另列，合併分類不改寫歷史。'),
           for (final summary in _report.categories)
             Padding(
@@ -234,6 +260,108 @@ class _MonthlyReportScreenState extends State<_MonthlyReportScreen> {
                     ? () => setState(() => _visible += 30)
                     : null,
                 child: const Text('載入更多分類明細'),
+              ),
+          ],
+        ] else if (_view == _MonthlyView.merchant) ...[
+          const Text('依交易保存的商家 ID 統計；合併後仍保留原歸屬，未指定與轉帳費用另列。'),
+          for (final summary in _report.merchants)
+            Padding(
+              key: ValueKey(
+                'merchant-report-${summary.currency.code}-${summary.merchantId?.value ?? 'none'}',
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${merchantName(summary.merchantId)} · ${summary.currency.code}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (summary.income.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '收入',
+                      subtitle: summary.currency.code,
+                      money: summary.income,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey(
+                        'merchant-income-${summary.currency.code}-${summary.merchantId?.value ?? 'none'}',
+                      ),
+                    ),
+                  if (summary.expense.minorUnits != BigInt.zero)
+                    FinancialSummary(
+                      title: '淨支出',
+                      subtitle: summary.currency.code,
+                      money: summary.expense,
+                      privacy: widget.privacy,
+                      kind: MoneyKind.transaction,
+                      moneyKey: ValueKey(
+                        'merchant-expense-${summary.currency.code}-${summary.merchantId?.value ?? 'none'}',
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: enabled
+                        ? () => setState(() {
+                            _selectedMerchant = summary;
+                            _visible = 30;
+                          })
+                        : null,
+                    child: const Text('查看商家明細'),
+                  ),
+                ],
+              ),
+            ),
+          if (_selectedMerchant != null) ...[
+            const Divider(),
+            Text(
+              '${merchantName(_selectedMerchant!.merchantId)}明細',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            for (final fact in merchantFacts.take(_visible))
+              Padding(
+                key: ValueKey('merchant-fact-${fact.id.value}'),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('${_kindLabel(fact.kind)} · ${fact.date}'),
+                    if (fact.income.minorUnits != BigInt.zero)
+                      FinancialSummary(
+                        title: '收入影響',
+                        subtitle: fact.currency.code,
+                        money: fact.income,
+                        privacy: widget.privacy,
+                        kind: MoneyKind.transaction,
+                        moneyKey: ValueKey(
+                          'merchant-fact-income-${fact.id.value}',
+                        ),
+                      ),
+                    if (fact.expense.minorUnits != BigInt.zero)
+                      FinancialSummary(
+                        title: '支出影響',
+                        subtitle: fact.currency.code,
+                        money: fact.expense,
+                        privacy: widget.privacy,
+                        kind: MoneyKind.transaction,
+                        moneyKey: ValueKey(
+                          'merchant-fact-expense-${fact.id.value}',
+                        ),
+                      ),
+                    TextButton(
+                      onPressed: enabled
+                          ? () => widget.onActivity(fact.id)
+                          : null,
+                      child: const Text('查看活動'),
+                    ),
+                  ],
+                ),
+              ),
+            if (merchantFacts.length > _visible)
+              TextButton(
+                onPressed: enabled
+                    ? () => setState(() => _visible += 30)
+                    : null,
+                child: const Text('載入更多商家明細'),
               ),
           ],
         ] else ...[

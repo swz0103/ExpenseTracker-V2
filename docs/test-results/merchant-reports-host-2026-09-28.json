@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-28",
+  "branch": "integration/v2-core",
+  "baseCommit": "b63265233f637a1aac7a08d9e72f46407b30e485",
+  "scope": "Read-only historical merchant identity in the per-currency monthly report, drilldown and privacy-aware UI; no schema, migration, authoritative data or backup-format change.",
+  "localChecks": [
+    {
+      "package": "tooling/architecture_checks",
+      "result": "pass",
+      "cases": 20,
+      "scope": "Full package and whole-workspace boundary scan; format and static analysis passed"
+    },
+    {
+      "package": "packages/reports",
+      "result": "pass",
+      "cases": 10,
+      "scope": "Full package; historical IDs, refunds, transfer fees, currency reconciliation, overflow and existing category/asset behavior; format and static analysis passed"
+    },
+    {
+      "package": "prototypes/ledger_generation",
+      "result": "pass",
+      "cases": 246,
+      "scope": "Full package including merchant posting, cross-month refund and reversal attribution, rename, legacy schema, clean restore, native upgrade failure paths and 5000-event reference test; format and static analysis passed"
+    },
+    {
+      "package": "prototypes/expense_preview",
+      "result": "pass",
+      "cases": 173,
+      "scope": "Full serial App suite, including narrow monthly merchant drilldown, privacy mask, lifecycle lock, merchant merge/history, encrypted restores and existing flows; format and Flutter analyze passed"
+    }
+  ],
+  "androidBuild": {
+    "result": "pass",
+    "variant": "debug android-arm64",
+    "applicationId": "dev.expensetracker.preview",
+    "artifact": "prototypes/expense_preview/build/app/outputs/flutter-apk/app-debug.apk (ignored local output; not uploaded)",
+    "bytes": 120576091,
+    "sha256": "2ba06f89a333551500ebb4fbd40213becb2766a898e2e6a76c061b306c016d17"
+  },
+  "windowsWorkingTreeSourceSha256": {
+    "packages/reports/lib/src/monthly.dart": "babba96fb02f330f56a65d36576c3809aea897f994e513866cd21bb392cd8e7d",
+    "prototypes/ledger_generation/lib/ledger_session.dart": "5f7a5efaad41d4b8383a8af38717b0897f34875fb9951e8490c2f2112b603327",
+    "prototypes/expense_preview/lib/main.dart": "3db4ad6edf231fad17abd001046e8bb5cfade8b53c71d1fb6649a4353eff28ad",
+    "prototypes/expense_preview/lib/monthly_report_screen.dart": "5e85bf10adea73fb06befcfec7580b7ae806c26fb448a2d3264d257127fc2797"
+  },
+  "cloudActions": "not run; both workflows remain disabled_manually and PR #67 has no check rollup",
+  "physicalDevice": "not run; adb devices -l returned no device on this turn",
+  "remaining": "M1-05 account dimension and milestone gate, device/cloud verification, M1-06 onward through M3 CORE and main merge"
+}

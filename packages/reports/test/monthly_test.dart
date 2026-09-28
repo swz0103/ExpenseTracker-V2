@@ -141,6 +141,57 @@ void main() {
     );
   });
 
+  test('saved merchant identities reconcile, including refunds and fees', () {
+    final shop = PublicId.generate(), incomeMerchant = PublicId.generate();
+    MonthlyFact row(
+      PostingKind kind,
+      String income,
+      String expense,
+      PublicId? merchant,
+    ) => MonthlyFact(
+      id: PublicId.generate(),
+      date: BusinessDate(2026, 9, 2),
+      kind: kind,
+      income: Money.parse(twd, income),
+      expense: Money.parse(twd, expense),
+      merchantId: merchant,
+    );
+    final expense = row(PostingKind.expense, '0', '10', shop);
+    final refund = row(PostingKind.refund, '0', '-3', shop);
+    final transferFee = row(PostingKind.transfer, '0', '1', null);
+    final income = row(PostingKind.income, '12', '0', incomeMerchant);
+    final report = MonthlyReport.build(month, [
+      expense,
+      refund,
+      transferFee,
+      income,
+    ]);
+    final byMerchant = {
+      for (final summary in report.merchants) summary.merchantId: summary,
+    };
+    expect(byMerchant[shop]!.expense.majorText, '7.00');
+    expect(byMerchant[shop]!.facts.map((fact) => fact.id), [
+      expense.id,
+      refund.id,
+    ]);
+    expect(byMerchant[null]!.expense.majorText, '1.00');
+    expect(byMerchant[incomeMerchant]!.income.majorText, '12.00');
+    expect(
+      report.merchants.fold<BigInt>(
+        BigInt.zero,
+        (sum, summary) => sum + summary.expense.minorUnits,
+      ),
+      report.currencies.single.expense.minorUnits,
+    );
+    expect(
+      report.merchants.fold<BigInt>(
+        BigInt.zero,
+        (sum, summary) => sum + summary.income.minorUnits,
+      ),
+      report.currencies.single.income.minorUnits,
+    );
+  });
+
   test(
     'out-of-period, duplicate, mismatched currency and overflow fail closed',
     () {

@@ -92,6 +92,7 @@ void main() {
       final september = BusinessDate(2026, 9, 28);
       final october = BusinessDate(2026, 10, 2);
       final food = PublicId.generate(), travel = PublicId.generate();
+      final shop = PublicId.generate(), payroll = PublicId.generate();
       final earned = Posting.income(
         id: PublicId.generate(),
         operation: operation(),
@@ -158,6 +159,8 @@ void main() {
           'travel',
           CategoryKind.expense,
         );
+        await session.createMerchant(operation(), shop, 'store');
+        await session.createMerchant(operation(), payroll, 'employer');
         for (final posting in [
           earned,
           spent,
@@ -166,7 +169,14 @@ void main() {
           refund,
           reversal,
         ]) {
-          await session.post(posting);
+          await session.post(
+            posting,
+            merchant: posting.id == spent.id || posting.id == refund.id
+                ? MerchantSelection(shop, 1)
+                : posting.id == earned.id || posting.id == reversal.id
+                ? MerchantSelection(payroll, 1)
+                : null,
+          );
         }
         await session.tombstone(
           PostingTombstone(
@@ -196,7 +206,14 @@ void main() {
         expect(septemberCategories[travel]!.expense.majorText, '15.00');
         expect(septemberCategories[null]!.expense.majorText, '2.00');
         expect(septemberCategories[null]!.income.majorText, '100.00');
+        final septemberMerchants = {
+          for (final row in septemberReport.merchants) row.merchantId: row,
+        };
+        expect(septemberMerchants[shop]!.expense.majorText, '40.00');
+        expect(septemberMerchants[payroll]!.income.majorText, '100.00');
+        expect(septemberMerchants[null]!.expense.majorText, '2.00');
         await session.renameCategory(operation(), food, 1, 'food renamed');
+        await session.renameMerchant(operation(), shop, 1, 'store renamed');
         final afterRename = await session.monthlyReport(
           workspace,
           ReportMonth(2026, 9),
@@ -207,6 +224,13 @@ void main() {
               .expense
               .majorText,
           '25.00',
+        );
+        expect(
+          afterRename.merchants
+              .singleWhere((row) => row.merchantId == shop)
+              .expense
+              .majorText,
+          '40.00',
         );
         final octoberReport = await session.monthlyReport(
           workspace,
@@ -226,6 +250,20 @@ void main() {
         };
         expect(octoberCategories[food]!.expense.majorText, '-10.00');
         expect(octoberCategories[null]!.income.majorText, '-100.00');
+        expect(
+          octoberReport.merchants
+              .singleWhere((row) => row.merchantId == shop)
+              .expense
+              .majorText,
+          '-10.00',
+        );
+        expect(
+          octoberReport.merchants
+              .singleWhere((row) => row.merchantId == payroll)
+              .income
+              .majorText,
+          '-100.00',
+        );
         expect(
           (await session.monthlyReport(
             WorkspaceId(PublicId.generate()),
@@ -249,6 +287,13 @@ void main() {
               .expense
               .majorText,
           '25.00',
+        );
+        expect(
+          report.merchants
+              .singleWhere((row) => row.merchantId == shop)
+              .expense
+              .majorText,
+          '40.00',
         );
       });
     },

@@ -514,9 +514,11 @@ final class LedgerSession {
     final rows = await _db
         .customSelect(
           'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale, '
-          '${_db.categoryReferences ? 'a.category_id,a.amount AS allocated_amount ' : 'NULL AS category_id,NULL AS allocated_amount '}'
+          '${_db.categoryReferences ? 'a.category_id,a.amount AS allocated_amount,' : 'NULL AS category_id,NULL AS allocated_amount,'}'
+          '${_db.merchantsAware ? 'm.merchant_id ' : 'NULL AS merchant_id '}'
           'FROM events e '
           '${_db.categoryReferences ? 'LEFT JOIN allocations a ON a.workspace=e.workspace AND a.event_id=e.id ' : ''}'
+          '${_db.merchantsAware ? 'LEFT JOIN event_merchants m ON m.workspace=e.workspace AND m.event_id=e.id ' : ''}'
           '${_db.tombstonesAware ? 'LEFT JOIN event_tombstones t ON t.workspace=e.workspace AND t.event_id=e.id ' : ''}'
           'WHERE e.workspace=? AND e.business_date>=? AND e.business_date<=? '
           '${_db.tombstonesAware ? 'AND t.event_id IS NULL ' : ''}'
@@ -554,6 +556,10 @@ final class LedgerSession {
             ),
             BigInt.from(eventRows.first.read<int>('expense')),
           ),
+          merchantId: switch (eventRows.first.read<String?>('merchant_id')) {
+            final id? => PublicId.parse(id),
+            null => null,
+          },
           allocations: [
             for (final row in eventRows)
               if (row.read<String?>('category_id') case final categoryId?)

@@ -79,16 +79,18 @@ void main() {
       ..createSync(recursive: true);
     final work = root.createTempSync('monthly-');
     final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
-    late PublicId food;
+    late PublicId food, shop;
     try {
       await tester.runAsync(() async {
         await setup(engine);
         final a = account(engine);
         await engine.createAccount(a, opening(a));
         food = PublicId.generate();
+        shop = PublicId.generate();
         OperationKey op() =>
             OperationKey(engine.workspace, OperationId(PublicId.generate()));
         await engine.createCategory(op(), food, '餐飲', CategoryKind.expense);
+        await engine.createMerchant(op(), shop, '商店');
         final now = DateTime.now();
         final day = BusinessDate(now.year, now.month, 1);
         await engine.post(
@@ -118,6 +120,7 @@ void main() {
               ),
             ],
           ),
+          merchant: MerchantSelection(shop, 1),
         );
         await engine.lock();
       });
@@ -170,6 +173,18 @@ void main() {
       );
       await settle(tester);
       expect(find.text('餐飲明細'), findsOneWidget);
+      expect(find.text('TWD 40.00'), findsWidgets);
+      await tap(tester, '商家');
+      expect(find.text('商店 · TWD'), findsOneWidget);
+      final merchant = find.byKey(
+        ValueKey('merchant-report-TWD-${shop.value}'),
+      );
+      await tester.ensureVisible(merchant);
+      await tester.tap(
+        find.descendant(of: merchant, matching: find.text('查看商家明細')),
+      );
+      await settle(tester);
+      expect(find.text('商店明細'), findsOneWidget);
       expect(find.text('TWD 40.00'), findsWidgets);
       await tester.tap(find.byTooltip('隱藏金額'));
       await settle(tester);
