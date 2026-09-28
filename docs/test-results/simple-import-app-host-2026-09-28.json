@@ -1,0 +1,48 @@
+{
+  "scope": "M1-06 App-side read-only document review, explicit atomic import confirmation and encrypted restore replay",
+  "baseCommit": "0216f02da65087e023e36b2ba3895086c9b5a298",
+  "date": "2026-09-28",
+  "environment": "Windows host; synthetic financial data; local Flutter and SQLCipher dependencies; GitHub Actions not run",
+  "checks": [
+    {
+      "directory": "prototypes/expense_preview",
+      "command": "flutter pub get; flutter analyze; flutter test --reporter compact",
+      "result": "passed; 176 App tests, including 2 new import/restore tests; no analysis issues"
+    },
+    {
+      "directory": "tooling/architecture_checks",
+      "command": "dart test test/check_test.dart --reporter expanded; dart run bin/check.dart ../..",
+      "result": "passed; 20 architecture tests and full workspace dependency scan"
+    },
+    {
+      "directory": "repository root",
+      "command": "git diff --check",
+      "result": "passed; no whitespace errors"
+    },
+    {
+      "directory": "repository root",
+      "command": "adb devices -l",
+      "result": "no device detected; import device gate not run"
+    }
+  ],
+  "financialCases": [
+    "reviewing JSON with explicit source-to-target account mapping does not change the ledger",
+    "confirmation inserts exact income, expense and note once; CSV replay returns original event IDs",
+    "review created before lock cannot be confirmed after unlock",
+    "clean password restore preserves imported provenance and CSV retry does not duplicate",
+    "clean recovery-key restore preserves imported provenance and CSV retry does not duplicate"
+  ],
+  "sourceSha256": {
+    "prototypes/expense_preview/lib/preview_engine.dart": "3824afc1abb7d70620f55a13168111c5666bc2d9bfa7ed7c41ebbf0dd6101963",
+    "prototypes/expense_preview/lib/preview_simple_import.dart": "f00243b8ac96133fb0088bd3672b1762a45b0ee555d24af657dbe917409890c8",
+    "prototypes/expense_preview/test/simple_import_engine_test.dart": "bad18caf32310771cf4b23d9e37ced89d0120a1b1f5e3e5fe44858700ceeac99",
+    "architecture/boundaries.json": "323ee2832e349f6a974b7991858e21eebcee1aaf76b7589f4b180e07dc77c6a7"
+  },
+  "notVerified": [
+    "Android document selection, account mapping and confirmation UI",
+    "lossless export from a full ledger and user-visible save flow",
+    "5,000-record import capacity and performance",
+    "device behavior; ADB reported no attached device",
+    "cloud checks; both workflows remain disabled"
+  ]
+}

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:entry_drafts/entry_drafts.dart';
+import 'package:data_exchange/data_exchange.dart';
 
 import 'local_draft_store.dart';
 import 'privacy_presentation.dart' show PrivacyMode;
@@ -29,6 +30,7 @@ part 'preview_copy.dart';
 part 'preview_drafts.dart';
 part 'preview_privacy.dart';
 part 'preview_upgrade.dart';
+part 'preview_simple_import.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);
@@ -98,6 +100,7 @@ final class PreviewEngine {
   bool _busy = false;
   Completer<void>? _operationDone;
   bool _draftActive = false;
+  bool _importActive = false;
   int _epoch = 0;
   String? _password;
   String? _recovery;
@@ -360,7 +363,9 @@ final class PreviewEngine {
     _workspace = null;
     _initialWorkspace = null;
     _identity = null;
-    return _closeLease(waitFor: _draftActive ? _operationDone?.future : null);
+    return _closeLease(
+      waitFor: _draftActive || _importActive ? _operationDone?.future : null,
+    );
   }
 
   Future<List<LedgerActivity>> activity(

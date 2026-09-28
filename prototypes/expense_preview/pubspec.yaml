@@ -10,6 +10,8 @@ dependencies:
   cryptography: 2.9.0
   entry_drafts:
     path: ../../packages/entry_drafts
+  data_exchange:
+    path: ../../packages/data_exchange
   tags:
     path: ../../packages/tags
   merchants:
