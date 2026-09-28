@@ -105,6 +105,11 @@
     }
   },
   "runtimeModules": {
+    "persistent_jobs_probe": {
+      "directory": "prototypes/persistent_jobs",
+      "publicEntrypoints": ["persistent_jobs.dart"],
+      "dependencies": ["encrypted_storage_probe"]
+    },
     "expense_preview": {
       "directory": "prototypes/expense_preview",
         "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
