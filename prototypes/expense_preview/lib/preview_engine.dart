@@ -45,8 +45,8 @@ final class PreviewBusy implements Exception {}
 
 final class PreviewInvalid implements Exception {}
 
-/// Profile credentials are valid, but the published local Ledger cannot be
-/// validated. Keep its files intact and expose only read-only recovery paths.
+/// Profile credentials are valid, but required local data cannot be validated.
+/// Keep its files intact and expose only read-only recovery paths.
 final class PreviewDataUnavailable implements Exception {}
 
 final class PreviewSplitInvalid implements Exception {}
@@ -233,14 +233,26 @@ final class PreviewEngine {
     final envelope = await source.readAsString();
     final bytes = await EnvelopeCodec().openWithPassword(envelope, password);
     final info = _profileInfo(bytes);
-    final recovery = await vault.read('recovery_${info.identity.value}');
-    if (recovery == null ||
-        utf8.decode(
-              await EnvelopeCodec().openWithRecovery(envelope, recovery),
-            ) !=
-            utf8.decode(bytes)) {
-      throw PreviewInvalid();
+    // The password has authenticated the profile. Missing, unreadable or
+    // mismatched secure recovery state is now a local data-health failure;
+    // never offer setup or replace the published profile to recover from it.
+    late final String? recovery;
+    try {
+      recovery = await vault.read('recovery_${info.identity.value}');
+    } catch (_) {
+      throw PreviewDataUnavailable();
     }
+    _check(epoch);
+    if (recovery == null) throw PreviewDataUnavailable();
+    late final String recovered;
+    try {
+      recovered = utf8.decode(
+        await EnvelopeCodec().openWithRecovery(envelope, recovery),
+      );
+    } catch (_) {
+      throw PreviewDataUnavailable();
+    }
+    if (recovered != utf8.decode(bytes)) throw PreviewDataUnavailable();
     _check(epoch);
     final pending = source.path == _pendingProfile.path;
     final ledgerDirectory = Directory('${directory.path}/ledger');

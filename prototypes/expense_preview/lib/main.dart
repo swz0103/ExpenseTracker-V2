@@ -2385,7 +2385,7 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
 };
 String _error(Object error) => switch (error) {
-  PreviewDataUnavailable() => '帳本密碼已通過，但本機帳本完整性無法確認。已停止財務操作；請保留目前資料與加密備份。',
+  PreviewDataUnavailable() => '帳本密碼已通過，但本機帳本或安全設定完整性無法確認。已停止財務操作；請保留目前資料與加密備份。',
   AppPinRejected() => 'App PIN 或裝置認證未通過；五次 PIN 錯誤後請用帳本密碼解鎖，停用本機裝置解鎖。帳本未變更。',
   FormatException(message: 'App PIN format') => 'App PIN 需為 6–12 位數字。',
   FormatException(message: 'App PIN confirmation') => '兩次 App PIN 不一致。',

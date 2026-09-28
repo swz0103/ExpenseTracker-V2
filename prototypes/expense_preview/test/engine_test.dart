@@ -408,27 +408,49 @@ void main() {
     expect(engine.isUnlocked, isTrue);
   });
   test(
-    'missing or altered secure recovery fails without replacement',
+    'authenticated profile with unavailable recovery state cannot replace data',
     () async {
       await setup(engine);
+      final a = account(engine);
+      await engine.createAccount(a, opening(a));
       await engine.lock();
+      final profile = File('${work.path}/profile.envelope');
+      final retainedProfile = profile.readAsBytesSync();
+      final catalog = File('${work.path}/ledger/catalog.db');
+      final retainedCatalog = catalog.readAsBytesSync();
       final name = vault.values.keys.singleWhere(
         (k) => k.startsWith('recovery_'),
       );
       final prior = vault.values.remove(name);
       await expectLater(
         engine.unlock(password),
-        throwsA(isA<PreviewInvalid>()),
+        throwsA(isA<PreviewDataUnavailable>()),
       );
+      expect(engine.isUnlocked, isFalse);
       expect(vault.values.containsKey(name), isFalse);
       vault.values[name] = 'corrupt';
       await expectLater(
         engine.unlock(password),
-        throwsA(isA<BackupException>()),
+        throwsA(isA<PreviewDataUnavailable>()),
       );
+      expect(engine.isUnlocked, isFalse);
       expect(vault.values[name], 'corrupt');
+      vault.beforeRead = (key) async {
+        if (key == name) throw StateError('secure storage unavailable');
+      };
+      await expectLater(
+        engine.unlock(password),
+        throwsA(isA<PreviewDataUnavailable>()),
+      );
+      vault.beforeRead = null;
+      expect(profile.readAsBytesSync(), retainedProfile);
+      expect(catalog.readAsBytesSync(), retainedCatalog);
       vault.values[name] = prior!;
       await engine.unlock(password);
+      expect(
+        (await engine.accounts()).single.balance.minorUnits,
+        BigInt.from(10000),
+      );
     },
   );
   test('known pending profile resumes after authentication, unknown does not reset', () async {
