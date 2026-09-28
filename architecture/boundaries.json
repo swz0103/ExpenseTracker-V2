@@ -55,6 +55,16 @@
         "ledger"
       ]
     },
+    "data_exchange": {
+      "directory": "packages/data_exchange",
+      "publicEntrypoints": [
+        "data_exchange.dart"
+      ],
+      "dependencies": [
+        "foundation_values",
+        "ledger"
+      ]
+    },
     "tags": {
       "directory": "packages/tags",
       "publicEntrypoints": [
