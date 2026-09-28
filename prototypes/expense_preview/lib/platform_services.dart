@@ -66,7 +66,7 @@ Future<PreviewEngine> createEngine() async {
         (exists) => access.load(databaseExists: () async => exists),
       ),
     );
-  });
+  }, schemaVersion: currentPreviewSchemaVersion);
 }
 
 abstract interface class BackupDocuments {
