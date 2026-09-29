@@ -1,0 +1,28 @@
+{
+  "scope": "M2-03 schema-16 recurring template revision prototype",
+  "environment": "Windows host, Dart 3.13.4, SQLite fixture",
+  "checks": {
+    "newStorageTests": "5 passed on final source",
+    "fullModularPersistenceTests": "67 passed before final adapter-only chain-validation change",
+    "architectureTests": "21 passed",
+    "architectureBoundaries": "passed",
+    "staticAnalysis": "passed",
+    "format": "passed"
+  },
+  "validated": [
+    "append-only version history with tombstone",
+    "same-operation retry and conflicting-operation rejection",
+    "stale revision and changed deletion rollback",
+    "account foreign-key rejection",
+    "reopen and corrupted-payload rejection",
+    "current reader rejects a revision gap"
+  ],
+  "notCovered": [
+    "schema-15 to schema-16 staged upgrade of existing encrypted V2 data",
+    "portable snapshot capture and two-credential restore",
+    "app session and explicit posting confirmation",
+    "durable occurrence receipts and notifications",
+    "Android device and exact-head cloud checks"
+  ],
+  "gate": "host prototype only; not M2-03 acceptance"
+}

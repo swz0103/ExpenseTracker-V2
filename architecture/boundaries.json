@@ -142,7 +142,7 @@
     },
     "modular_persistence_probe": {
       "directory": "prototypes/modular_persistence",
-      "dependencies": ["budgets", "tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
+      "dependencies": ["budgets", "recurring_transactions", "tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
     },
     "encrypted_storage_probe": {
       "directory": "prototypes/encrypted_storage",

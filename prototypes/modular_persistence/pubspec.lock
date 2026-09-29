@@ -315,6 +315,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  recurring_transactions:
+    dependency: "direct main"
+    description:
+      path: "../../packages/recurring_transactions"
+      relative: true
+    source: path
+    version: "0.1.0"
   reports:
     dependency: transitive
     description:

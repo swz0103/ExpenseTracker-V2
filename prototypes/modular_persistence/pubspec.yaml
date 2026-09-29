@@ -6,6 +6,8 @@ environment:
 dependencies:
   budgets:
     path: ../../packages/budgets
+  recurring_transactions:
+    path: ../../packages/recurring_transactions
   tags:
     path: ../../packages/tags
   merchants:

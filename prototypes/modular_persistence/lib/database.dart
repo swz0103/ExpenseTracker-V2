@@ -11,6 +11,7 @@ import 'merchant_reference_schema.dart';
 import 'tag_reference_schema.dart';
 import 'allocation_schema.dart';
 import 'budget_schema.dart';
+import 'recurring_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -30,6 +31,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.correctionsAware = false,
     this.tombstonesAware = false,
     this.budgetsAware = false,
+    this.recurringAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -104,6 +106,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.correctionsAware = false,
     this.tombstonesAware = false,
     this.budgetsAware = false,
+    this.recurringAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -174,7 +177,13 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool correctionsAware;
   final bool tombstonesAware;
   final bool budgetsAware;
+  final bool recurringAware;
   void _configuration() {
+    if (recurringAware && !budgetsAware) {
+      throw ArgumentError(
+        'Recurring templates require the budget-aware schema.',
+      );
+    }
     if (budgetsAware && !tombstonesAware) {
       throw ArgumentError('Budgets require the tombstone-aware schema.');
     }
@@ -189,7 +198,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => budgetsAware
+  int get schemaVersion => recurringAware
+      ? 16
+      : budgetsAware
       ? 15
       : tombstonesAware
       ? 14
@@ -236,6 +247,7 @@ final class ProbeDatabase extends GeneratedDatabase {
       if (correctionsAware) await customStatement(correctionSchema);
       if (tombstonesAware) await customStatement(tombstoneSchema);
       if (budgetsAware) await customStatement(budgetRevisionSchema);
+      if (recurringAware) await customStatement(recurringRevisionSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
