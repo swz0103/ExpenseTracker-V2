@@ -24,6 +24,8 @@ import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_schema.dart';
 import 'package:modular_persistence_probe/card_facts_schema.dart';
 import 'package:modular_persistence_probe/card_installments_adapter.dart';
+import 'package:modular_persistence_probe/investment_schema.dart';
+import 'package:modular_persistence_probe/investment_adapter.dart';
 import 'package:modular_persistence_probe/card_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_statements_adapter.dart';
 
@@ -115,6 +117,7 @@ final class SnapshotCodec {
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
     this.installmentsAware = false,
+    this.investmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -209,6 +212,9 @@ final class SnapshotCodec {
         'Installment plans require card-authorization snapshots.',
       );
     }
+    if (investmentsAware && !installmentsAware) {
+      throw ArgumentError('Investments require installment-aware snapshots.');
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -228,6 +234,7 @@ final class SnapshotCodec {
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
   final bool installmentsAware;
+  final bool investmentsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -250,6 +257,11 @@ final class SnapshotCodec {
     if (cardAuthorizationsAware)
       'card_authorization_resolutions': cardAuthorizationResolutionColumns,
     if (installmentsAware) 'card_installment_plans': cardInstallmentPlanColumns,
+    if (investmentsAware) 'investment_brokers': investmentBrokerColumns,
+    if (investmentsAware) 'investment_accounts': investmentAccountColumns,
+    if (investmentsAware) 'investment_instruments': investmentInstrumentColumns,
+    if (investmentsAware) 'investment_buys': investmentBuyColumns,
+    if (investmentsAware) 'investment_lots': investmentLotColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -261,7 +273,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => installmentsAware
+  int get _formatVersion => investmentsAware
+      ? 20
+      : installmentsAware
       ? 19
       : cardAuthorizationsAware
       ? 18
@@ -294,7 +308,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => installmentsAware
+  int get _schemaVersion => investmentsAware
+      ? 21
+      : installmentsAware
       ? 20
       : cardAuthorizationsAware
       ? 19
@@ -349,6 +365,7 @@ final class SnapshotCodec {
     if (cardStatementsAware) 'card_statements': 1,
     if (cardAuthorizationsAware) 'card_authorizations': 1,
     if (installmentsAware) 'card_installments': 1,
+    if (investmentsAware) 'investments': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -506,6 +523,9 @@ final class SnapshotCodec {
               (installmentsAware &&
                   root['version'] == 19 &&
                   root['schema'] == 20) ||
+              (investmentsAware &&
+                  root['version'] == 20 &&
+                  root['schema'] == 21) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -533,6 +553,7 @@ final class SnapshotCodec {
         if (root['version'] >= 17) 'card_statements': 1,
         if (root['version'] >= 18) 'card_authorizations': 1,
         if (root['version'] >= 19) 'card_installments': 1,
+        if (root['version'] >= 20) 'investments': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -565,6 +586,14 @@ final class SnapshotCodec {
           'card_authorization_resolutions': cardAuthorizationResolutionColumns,
         if (root['version'] >= 19)
           'card_installment_plans': cardInstallmentPlanColumns,
+        if (root['version'] >= 20)
+          'investment_brokers': investmentBrokerColumns,
+        if (root['version'] >= 20)
+          'investment_accounts': investmentAccountColumns,
+        if (root['version'] >= 20)
+          'investment_instruments': investmentInstrumentColumns,
+        if (root['version'] >= 20) 'investment_buys': investmentBuyColumns,
+        if (root['version'] >= 20) 'investment_lots': investmentLotColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -698,6 +727,7 @@ final class SnapshotCodec {
       throw const InvalidSnapshot();
     if (installmentsAware != db.installmentsAware)
       throw const InvalidSnapshot();
+    if (investmentsAware != db.investmentsAware) throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
       try {
@@ -731,6 +761,13 @@ final class SnapshotCodec {
     if (installmentsAware) {
       try {
         await validateCardInstallmentPlans(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    if (investmentsAware) {
+      try {
+        await validateInvestmentFacts(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }
@@ -1050,6 +1087,12 @@ final class SnapshotCodec {
               expense != -amount ||
               income != BigInt.zero)
             throw const InvalidSnapshot();
+        } else if (investmentsAware && kind == 'investmentBuy') {
+          if (amount >= BigInt.zero ||
+              income != BigInt.zero ||
+              expense != BigInt.zero ||
+              attributed != null)
+            throw const InvalidSnapshot();
         } else {
           throw const InvalidSnapshot();
         }
@@ -1100,11 +1143,26 @@ final class SnapshotCodec {
             if (tagsAware) 'tagged-post-v1',
             if (merchantsAware) 'merchant-v1',
             if (merchantsAware) 'merchant-post-v1',
+            if (investmentsAware) 'investment-buy-v1',
           ].contains(input.first))
         throw const InvalidSnapshot();
       final ws = row.read<String>('workspace');
       final resultId = row.read<String>('result_id');
       final auditKind = row.read<String>('audit_kind');
+      if (input.first == 'investment-buy-v1') {
+        if (!investmentsAware ||
+            input.length != 3 ||
+            input[1] != resultId ||
+            input[2] is! Map ||
+            auditKind != 'ledger.investmentBuy' ||
+            eventsById[(ws, resultId)]?.read<String>('kind') !=
+                'investmentBuy') {
+          throw const InvalidSnapshot();
+        }
+        // validateInvestmentFacts checks the exact preview, buy, lot, cash
+        // posting, and receipt/audit links together.
+        continue;
+      }
       if (input.first == 'tombstone-v1') {
         final link = tombstoneOperations.remove((
           ws,

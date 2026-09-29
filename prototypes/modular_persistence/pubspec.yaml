@@ -22,6 +22,8 @@ dependencies:
     path: ../../packages/foundation_values
   ledger:
     path: ../../packages/ledger
+  investments:
+    path: ../../packages/investments
   drift: 2.35.0
   sqlite3: 3.6.0
 dev_dependencies:

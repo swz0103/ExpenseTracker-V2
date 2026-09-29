@@ -84,6 +84,100 @@ void main() {
     expect(transfer.reportExpense, money('1'));
     expect(transfer.legs.where((l) => l.role == LegRole.fee).length, 1);
   });
+  test('investment buy debits cash once without income or consumption', () {
+    final a = account();
+    final buyId = PublicId.generate();
+    final purchase = Posting.investmentBuy(
+      id: PublicId.generate(),
+      operation: operation(),
+      date: date,
+      account: a,
+      investmentBuyId: buyId,
+      gross: money('50'),
+      fee: money('0.75'),
+      tax: money('0.25'),
+      cashDebit: money('51'),
+    );
+    expect(purchase.kind, PostingKind.investmentBuy);
+    expect(purchase.legs, hasLength(1));
+    expect(purchase.legs.single.account.id, a.id);
+    expect(purchase.legs.single.role, LegRole.principal);
+    expect(purchase.legs.single.amount, money('-51'));
+    expect(purchase.reportIncome, money('0'));
+    expect(purchase.reportExpense, money('0'));
+    expect(purchase.allocations, isEmpty);
+    expect(purchase.conversion, isNull);
+    expect(purchase.investmentBuy?.buyId, buyId);
+    expect(purchase.investmentBuy?.gross, money('50'));
+    expect(purchase.investmentBuy?.fee, money('0.75'));
+    expect(purchase.investmentBuy?.tax, money('0.25'));
+    expect(purchase.investmentBuy?.cashDebit, money('51'));
+    expect(rebuildBalance(a, [opening(a, '100'), purchase]), money('49'));
+  });
+  test('investment buy rejects wrong workspace, currency and buy identity', () {
+    final a = account();
+    final id = PublicId.generate();
+    Posting purchase({
+      PostingAccount? cashAccount,
+      PublicId? buyId,
+      Money? gross,
+      Money? fee,
+      Money? tax,
+      Money? debit,
+    }) => Posting.investmentBuy(
+      id: id,
+      operation: operation(),
+      date: date,
+      account: cashAccount ?? a,
+      investmentBuyId: buyId ?? PublicId.generate(),
+      gross: gross ?? money('50'),
+      fee: fee ?? money('1'),
+      tax: tax ?? money('0'),
+      cashDebit: debit ?? money('51'),
+    );
+    expect(
+      () => purchase(
+        cashAccount: account(owner: WorkspaceId(PublicId.generate())),
+      ),
+      error(LedgerError.workspaceMismatch),
+    );
+    expect(
+      () => purchase(fee: Money.parse(Currency('EUR', 2), '1')),
+      error(LedgerError.currencyMismatch),
+    );
+    expect(() => purchase(buyId: id), error(LedgerError.duplicateIdentity));
+  });
+  test('investment buy rejects invalid components and inconsistent debit', () {
+    final a = account();
+    Posting purchase({Money? gross, Money? fee, Money? tax, Money? debit}) =>
+        Posting.investmentBuy(
+          id: PublicId.generate(),
+          operation: operation(),
+          date: date,
+          account: a,
+          investmentBuyId: PublicId.generate(),
+          gross: gross ?? money('50'),
+          fee: fee ?? money('1'),
+          tax: tax ?? money('0'),
+          cashDebit: debit ?? money('51'),
+        );
+    expect(() => purchase(gross: money('0')), error(LedgerError.invalidAmount));
+    expect(() => purchase(fee: money('-1')), error(LedgerError.invalidAmount));
+    expect(() => purchase(tax: money('-1')), error(LedgerError.invalidAmount));
+    expect(() => purchase(debit: money('0')), error(LedgerError.invalidAmount));
+    expect(
+      () => purchase(debit: money('50.99')),
+      error(LedgerError.investmentBuyMismatch),
+    );
+    expect(
+      () => purchase(
+        gross: Money(usd, Money.maxMinorUnits),
+        fee: money('0.01'),
+        debit: Money(usd, Money.maxMinorUnits),
+      ),
+      error(LedgerError.investmentBuyMismatch),
+    );
+  });
   test('LED-05 split allocation is not another cash movement', () {
     final a = account();
     final allocations = [

@@ -2,7 +2,15 @@ import 'package:foundation_values/foundation_values.dart';
 
 part 'refund.dart';
 
-enum PostingKind { opening, income, expense, transfer, refund, reversal }
+enum PostingKind {
+  opening,
+  income,
+  expense,
+  transfer,
+  refund,
+  reversal,
+  investmentBuy,
+}
 
 enum LegRole { principal, fee }
 
@@ -20,6 +28,7 @@ enum LedgerError {
   correctionReference,
   tombstoneReference,
   tombstoneDependency,
+  investmentBuyMismatch,
 }
 
 final class LedgerException implements Exception {
@@ -69,6 +78,25 @@ final class Allocation {
   final int? expectedCategoryVersion;
 }
 
+/// Ledger-side cash breakdown for one investment acquisition. The investment
+/// module owns the quote, instrument and lot; this records only the validated
+/// cash effect and a link to the buy committed with it.
+final class InvestmentBuyCashDetails {
+  const InvestmentBuyCashDetails._({
+    required this.buyId,
+    required this.gross,
+    required this.fee,
+    required this.tax,
+    required this.cashDebit,
+  });
+
+  final PublicId buyId;
+  final Money gross;
+  final Money fee;
+  final Money tax;
+  final Money cashDebit;
+}
+
 /// Validated immutable posting proposal. Has no financial effect until committed.
 final class Posting {
   Posting._({
@@ -83,6 +111,7 @@ final class Posting {
     this.refundOf,
     this.reversedPosting,
     this.reversalReason,
+    this.investmentBuy,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -150,6 +179,56 @@ final class Posting {
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: amount,
       allocations: allocations,
+    );
+  }
+
+  /// Debits cash for an investment acquisition without recording consumption.
+  /// Application must compare these values and identities with its validated
+  /// InvestmentBuyPreview and commit both records in the same transaction.
+  factory Posting.investmentBuy({
+    required PublicId id,
+    required OperationKey operation,
+    required BusinessDate date,
+    required PostingAccount account,
+    required PublicId investmentBuyId,
+    required Money gross,
+    required Money fee,
+    required Money tax,
+    required Money cashDebit,
+  }) {
+    _participation(operation, account, gross);
+    _participation(operation, account, fee);
+    _participation(operation, account, tax);
+    _participation(operation, account, cashDebit);
+    _positive(gross);
+    if (fee.minorUnits < BigInt.zero ||
+        tax.minorUnits < BigInt.zero ||
+        cashDebit.minorUnits <= BigInt.zero) {
+      throw const LedgerException(LedgerError.invalidAmount);
+    }
+    if (id == investmentBuyId) {
+      throw const LedgerException(LedgerError.duplicateIdentity);
+    }
+    final expectedDebit = gross.minorUnits + fee.minorUnits + tax.minorUnits;
+    if (expectedDebit > Money.maxMinorUnits ||
+        expectedDebit != cashDebit.minorUnits) {
+      throw const LedgerException(LedgerError.investmentBuyMismatch);
+    }
+    return Posting._(
+      id: id,
+      operation: operation,
+      date: date,
+      kind: PostingKind.investmentBuy,
+      legs: [LedgerLeg._(account, -cashDebit, LegRole.principal)],
+      reportIncome: Money(account.currency, BigInt.zero),
+      reportExpense: Money(account.currency, BigInt.zero),
+      investmentBuy: InvestmentBuyCashDetails._(
+        buyId: investmentBuyId,
+        gross: gross,
+        fee: fee,
+        tax: tax,
+        cashDebit: cashDebit,
+      ),
     );
   }
 
@@ -287,6 +366,7 @@ final class Posting {
   final PublicId? refundOf;
   final Posting? reversedPosting;
   final String? reversalReason;
+  final InvestmentBuyCashDetails? investmentBuy;
   PublicId? get reversalOf => reversedPosting?.id;
 }
 

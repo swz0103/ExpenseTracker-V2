@@ -17,6 +17,7 @@ import 'package:reports/reports.dart';
 import 'package:budgets/budgets.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:credit_cards/credit_cards.dart';
+import 'package:investments/investments.dart';
 import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';
@@ -36,6 +37,8 @@ import 'package:modular_persistence_probe/card_authorizations_adapter.dart'
     as card_auth;
 import 'package:modular_persistence_probe/card_installments_adapter.dart'
     as card_installments;
+import 'package:modular_persistence_probe/investment_adapter.dart'
+    as investment;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/key_slots.dart';
@@ -90,6 +93,7 @@ final class LedgerPayload implements GenerationPayload {
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
     this.installmentsAware = false,
+    this.investmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -165,6 +169,7 @@ final class LedgerPayload implements GenerationPayload {
          cardStatementsAware: cardStatementsAware,
          cardAuthorizationsAware: cardAuthorizationsAware,
          installmentsAware: installmentsAware,
+         investmentsAware: investmentsAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -183,12 +188,13 @@ final class LedgerPayload implements GenerationPayload {
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
   final bool installmentsAware;
+  final bool investmentsAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
   @override
   String canonicalize(String input) {
-    if (installmentsAware || cardAuthorizationsAware) {
+    if (investmentsAware || installmentsAware || cardAuthorizationsAware) {
       // The codec can add an empty target table to a previous manifest, but
       // installation must use the explicit safety-backed upgrade route.
       Object? source;
@@ -197,7 +203,11 @@ final class LedgerPayload implements GenerationPayload {
       } catch (_) {
         throw const InvalidSnapshot();
       }
-      final expectedSchema = installmentsAware ? 20 : 19;
+      final expectedSchema = investmentsAware
+          ? 21
+          : installmentsAware
+          ? 20
+          : 19;
       if (source is! Map ||
           source['schema'] != expectedSchema ||
           source['version'] != expectedSchema - 1) {
@@ -240,6 +250,7 @@ final class LedgerPayload implements GenerationPayload {
       cardStatementsAware: cardStatementsAware,
       cardAuthorizationsAware: cardAuthorizationsAware,
       installmentsAware: installmentsAware,
+      investmentsAware: investmentsAware,
     ),
   );
 
@@ -272,7 +283,8 @@ final class LedgerPayload implements GenerationPayload {
               (creditCardsAware && version == 17) ||
               (cardStatementsAware && version == 18) ||
               (cardAuthorizationsAware && version == 19) ||
-              (installmentsAware && version == 20)) ||
+              (installmentsAware && version == 20) ||
+              (investmentsAware && version == 21)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -303,6 +315,7 @@ final class LedgerPayload implements GenerationPayload {
       cardStatementsAware: version >= 18,
       cardAuthorizationsAware: version >= 19,
       installmentsAware: version >= 20,
+      investmentsAware: version >= 21,
     );
     final db = openEncrypted(
       file,
@@ -325,6 +338,7 @@ final class LedgerPayload implements GenerationPayload {
       cardStatementsAware: version >= 18,
       cardAuthorizationsAware: version >= 19,
       installmentsAware: version >= 20,
+      investmentsAware: version >= 21,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -360,6 +374,7 @@ final class LedgerStore {
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
     this.installmentsAware = false,
+    this.investmentsAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
@@ -438,6 +453,7 @@ final class LedgerStore {
            cardStatementsAware: cardStatementsAware,
            cardAuthorizationsAware: cardAuthorizationsAware,
            installmentsAware: installmentsAware,
+           investmentsAware: investmentsAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -456,7 +472,8 @@ final class LedgerStore {
              creditCardsAware ||
              cardStatementsAware ||
              cardAuthorizationsAware ||
-             installmentsAware,
+             installmentsAware ||
+             investmentsAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -478,6 +495,7 @@ final class LedgerStore {
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
   final bool installmentsAware;
+  final bool investmentsAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -505,6 +523,7 @@ final class LedgerStore {
             cardStatementsAware: cardStatementsAware,
             cardAuthorizationsAware: cardAuthorizationsAware,
             installmentsAware: installmentsAware,
+            investmentsAware: investmentsAware,
           ).empty(),
         ),
         operation,
@@ -540,6 +559,7 @@ final class LedgerStore {
         cardStatementsAware: cardStatementsAware,
         cardAuthorizationsAware: cardAuthorizationsAware,
         installmentsAware: installmentsAware,
+        investmentsAware: investmentsAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -620,6 +640,7 @@ final class LedgerStore {
       cardStatementsAware: cardStatementsAware,
       cardAuthorizationsAware: cardAuthorizationsAware,
       installmentsAware: installmentsAware,
+      investmentsAware: investmentsAware,
     );
     try {
       return await work(db);
@@ -632,6 +653,9 @@ final class LedgerStore {
     Posting posting, {
     LockWaitCancellation? cancellation,
   }) => _use((db) async {
+    if (posting.kind == PostingKind.investmentBuy) {
+      throw StateError('Investment buys require the investment session route.');
+    }
     await _rejectUntrackedCardPosting(db, posting);
     return FinancialWorkflows(db).post(posting);
   }, cancellation: cancellation);

@@ -108,7 +108,17 @@ final class FinancialWorkflows {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
     void Function(String)? checkpoint,
-  }) => _post(posting, tags: tags, merchant: merchant, checkpoint: checkpoint);
+  }) {
+    if (posting.kind == PostingKind.investmentBuy) {
+      throw UnsupportedError('Use the atomic investment buy workflow');
+    }
+    return _post(
+      posting,
+      tags: tags,
+      merchant: merchant,
+      checkpoint: checkpoint,
+    );
+  }
 
   Future<CommitResult> _post(
     Posting posting, {

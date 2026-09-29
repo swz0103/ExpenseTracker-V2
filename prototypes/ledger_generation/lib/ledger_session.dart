@@ -131,6 +131,7 @@ final class LedgerSession {
         cardStatementsAware: _db.cardStatementsAware,
         cardAuthorizationsAware: _db.cardAuthorizationsAware,
         installmentsAware: _db.installmentsAware,
+        investmentsAware: _db.investmentsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -149,6 +150,7 @@ final class LedgerSession {
       cardStatementsAware: _db.cardStatementsAware,
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
       installmentsAware: _db.installmentsAware,
+      investmentsAware: _db.investmentsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -193,6 +195,61 @@ final class LedgerSession {
 
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
+
+  /// A buy changes cash and the owned lot in one encrypted SQLite transaction.
+  /// The event ID must be retained by the caller for an unambiguous retry.
+  Future<CommitResult> postInvestmentBuy(
+    InvestmentBuyPreview preview,
+    PublicId eventId, {
+    void Function(String)? checkpoint,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.investmentsAware) {
+        throw UnsupportedError('Investment buys require schema 21');
+      }
+      final posting = Posting.investmentBuy(
+        id: eventId,
+        operation: preview.operation,
+        date: preview.tradedOn,
+        account: PostingAccount(
+          id: preview.funding.id,
+          workspace: preview.funding.workspace,
+          currency: preview.funding.currency,
+          expectedVersion: preview.funding.expectedVersion,
+        ),
+        investmentBuyId: preview.id,
+        gross: preview.gross,
+        fee: preview.fee,
+        tax: preview.tax,
+        cashDebit: preview.cashDebit,
+      );
+      if (!await _hasOperation(preview.operation)) {
+        await _admitCapacity();
+        if (await _count('events') >= maxEvents ||
+            await _count('investment_buys') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final result = await investment.commitInvestmentBuy(
+        _db,
+        preview,
+        posting,
+        checkpoint: checkpoint,
+      );
+      if (!result.replayed) {
+        await _checkFinancialRows(posting);
+        await _checkRows('investment_buys', 'workspace=? AND buy_id=?', [
+          preview.operation.workspace.id.value,
+          preview.id.value,
+        ]);
+        await _checkRows('investment_lots', 'workspace=? AND lot_id=?', [
+          preview.operation.workspace.id.value,
+          preview.lot.id.value,
+        ]);
+      }
+      return result;
+    }),
+  );
 
   /// Plans project an already-posted card purchase; they create no new spend.
   Future<card_installments.CardInstallmentFact> createCardInstallmentPlan(
@@ -244,16 +301,14 @@ final class LedgerSession {
   );
 
   Future<List<card_installments.CardInstallmentPurchase>>
-  availableCardInstallmentPurchases(
-    WorkspaceId workspace,
-    PublicId cardId,
-  ) => _enqueue(
-    () => card_installments.availableCardInstallmentPurchases(
-      _db,
-      workspace,
-      cardId,
-    ),
-  );
+  availableCardInstallmentPurchases(WorkspaceId workspace, PublicId cardId) =>
+      _enqueue(
+        () => card_installments.availableCardInstallmentPurchases(
+          _db,
+          workspace,
+          cardId,
+        ),
+      );
 
   /// A pending authorization is an estimate, not a posted expense. Retain
   /// both the charge ID and creation operation across retries.
@@ -1269,6 +1324,7 @@ final class LedgerSession {
       cardStatementsAware: _db.cardStatementsAware,
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
       installmentsAware: _db.installmentsAware,
+      investmentsAware: _db.investmentsAware,
     ).capture(_db),
   );
 

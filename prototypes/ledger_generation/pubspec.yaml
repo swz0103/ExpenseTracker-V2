@@ -29,6 +29,8 @@ dependencies:
     path: ../../packages/recurring_transactions
   credit_cards:
     path: ../../packages/credit_cards
+  investments:
+    path: ../../packages/investments
   modular_persistence_probe:
     path: ../modular_persistence
   backup_envelope_probe:

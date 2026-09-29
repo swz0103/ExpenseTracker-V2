@@ -2937,6 +2937,7 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.transfer => '轉帳',
   PostingKind.refund => '退款',
   PostingKind.reversal => '撤銷',
+  PostingKind.investmentBuy => '投資買入',
 };
 String _error(Object error) => switch (error) {
   PreviewDataUnavailable() => '帳本密碼已通過，但本機帳本或安全設定完整性無法確認。已停止財務操作；請保留目前資料與加密備份。',

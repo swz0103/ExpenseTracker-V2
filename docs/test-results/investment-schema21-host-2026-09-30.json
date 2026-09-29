@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-30",
+  "milestone": "M3-01 投資買入資料流程，schema 21 選用",
+  "scope": "單次現金扣款、買入與持股批次同交易、失敗回滾、重試防重、20→21 安全升級、加密快照與雙憑證還原",
+  "host": {
+    "ledger_posting": "11/11 通過",
+    "investment_persistence": "3/3 通過",
+    "modular_persistence_full": "87/87 通過",
+    "investment_session": "3/3 通過；升級中斷進入唯讀阻擋，重新開啟後安全重試",
+    "schema20_snapshot_regression": "4/4 通過",
+    "analysis": "modular_persistence、ledger_generation、validated_restore 與 Flutter App 均無問題",
+    "architecture_boundaries": "通過",
+    "ledger_generation_full": "執行至 144 項無失敗後為節省主機時間中止；不得視為完整通過"
+  },
+  "device": "ADB 未列出裝置；未執行 schema 21 實機測試",
+  "cloud": "本批未執行 exact-head GitHub Actions；剩餘額度未核實",
+  "release_gate": "未完成：App 仍預設 schema 18，投資買入尚無可操作畫面與實機驗證；M3-01 不稱完成"
+}

@@ -14,6 +14,7 @@ import 'budget_schema.dart';
 import 'recurring_schema.dart';
 import 'card_schema.dart';
 import 'card_facts_schema.dart';
+import 'investment_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -38,6 +39,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
     this.installmentsAware = false,
+    this.investmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -117,6 +119,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
     this.installmentsAware = false,
+    this.investmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -192,7 +195,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
   final bool installmentsAware;
+  final bool investmentsAware;
   void _configuration() {
+    if (investmentsAware && !installmentsAware) {
+      throw ArgumentError('Investments require the installment-aware schema.');
+    }
     if (installmentsAware && !cardAuthorizationsAware) {
       throw ArgumentError('Installment plans require card authorizations.');
     }
@@ -224,7 +231,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => installmentsAware
+  int get schemaVersion => investmentsAware
+      ? 21
+      : installmentsAware
       ? 20
       : cardAuthorizationsAware
       ? 19
@@ -297,6 +306,11 @@ final class ProbeDatabase extends GeneratedDatabase {
         }
       }
       if (installmentsAware) await customStatement(cardInstallmentPlanSchema);
+      if (investmentsAware) {
+        for (final sql in investmentSchema) {
+          await customStatement(sql);
+        }
+      }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {
