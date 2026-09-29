@@ -28,7 +28,8 @@ extension _PreviewUpgrade on PreviewEngine {
           version != 14 &&
           version != 15 &&
           version != 16 &&
-          version != 17) {
+          version != 17 &&
+          version != 18) {
         throw PreviewInvalid();
       }
       _check(epoch);
@@ -56,6 +57,7 @@ extension _PreviewUpgrade on PreviewEngine {
         15 => planRecurringUpgrade,
         16 => planCreditCardUpgrade,
         17 => planCardStatementUpgrade,
+        18 => planCardAuthorizationUpgrade,
         _ => throw PreviewInvalid(),
       };
       final request = await plan(
@@ -80,6 +82,7 @@ extension _PreviewUpgrade on PreviewEngine {
         15 => upgradeRecurring,
         16 => upgradeCreditCards,
         17 => upgradeCardStatements,
+        18 => upgradeCardAuthorizations,
         _ => throw PreviewInvalid(),
       };
       await upgrade(

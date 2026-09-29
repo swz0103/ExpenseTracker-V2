@@ -12,6 +12,7 @@ import 'ledger_store.dart';
 
 part 'category_upgrade.dart';
 part 'card_statement_upgrade.dart';
+part 'card_authorization_upgrade.dart';
 
 enum SafetyBackupProblem { destination, verification, storage }
 
@@ -70,6 +71,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
         recurringAware: store.recurringAware,
         creditCardsAware: store.creditCardsAware,
         cardStatementsAware: store.cardStatementsAware,
+        cardAuthorizationsAware: store.cardAuthorizationsAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

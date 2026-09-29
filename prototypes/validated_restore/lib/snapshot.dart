@@ -80,6 +80,8 @@ const _integers = {
   'amount_minor',
   'billed_minor',
   'statement_revision',
+  'settled_minor',
+  'fee_minor',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -110,6 +112,7 @@ final class SnapshotCodec {
     this.recurringAware = false,
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
+    this.cardAuthorizationsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -194,6 +197,11 @@ final class SnapshotCodec {
     if (cardStatementsAware && !creditCardsAware) {
       throw ArgumentError('Card statements require credit-card snapshots.');
     }
+    if (cardAuthorizationsAware && !cardStatementsAware) {
+      throw ArgumentError(
+        'Card authorizations require card-statement snapshots.',
+      );
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -211,6 +219,7 @@ final class SnapshotCodec {
   final bool recurringAware;
   final bool creditCardsAware;
   final bool cardStatementsAware;
+  final bool cardAuthorizationsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -228,6 +237,10 @@ final class SnapshotCodec {
     if (cardStatementsAware) 'card_payments': cardPaymentColumns,
     if (cardStatementsAware)
       'card_payment_allocations': cardPaymentAllocationColumns,
+    if (cardAuthorizationsAware)
+      'card_authorizations': cardAuthorizationColumns,
+    if (cardAuthorizationsAware)
+      'card_authorization_resolutions': cardAuthorizationResolutionColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -239,7 +252,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => cardStatementsAware
+  int get _formatVersion => cardAuthorizationsAware
+      ? 18
+      : cardStatementsAware
       ? 17
       : creditCardsAware
       ? 16
@@ -268,7 +283,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => cardStatementsAware
+  int get _schemaVersion => cardAuthorizationsAware
+      ? 19
+      : cardStatementsAware
       ? 18
       : creditCardsAware
       ? 17
@@ -317,6 +334,7 @@ final class SnapshotCodec {
     if (recurringAware) 'recurring_transactions': 1,
     if (creditCardsAware) 'credit_cards': 1,
     if (cardStatementsAware) 'card_statements': 1,
+    if (cardAuthorizationsAware) 'card_authorizations': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -413,7 +431,7 @@ final class SnapshotCodec {
               'INSERT INTO ${entry.key} (${entry.value.join(',')}) VALUES (${List.filled(entry.value.length, '?').join(',')})',
               [
                 for (final column in entry.value)
-                  _integers.contains(column)
+                  _integers.contains(column) && row[column] != null
                       ? _integer(row[column])
                       : row[column],
               ],
@@ -468,6 +486,9 @@ final class SnapshotCodec {
               (cardStatementsAware &&
                   root['version'] == 17 &&
                   root['schema'] == 18) ||
+              (cardAuthorizationsAware &&
+                  root['version'] == 18 &&
+                  root['schema'] == 19) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -493,6 +514,7 @@ final class SnapshotCodec {
         if (root['version'] >= 15) 'recurring_transactions': 1,
         if (root['version'] >= 16) 'credit_cards': 1,
         if (root['version'] >= 17) 'card_statements': 1,
+        if (root['version'] >= 18) 'card_authorizations': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -519,6 +541,10 @@ final class SnapshotCodec {
         if (root['version'] >= 17) 'card_payments': cardPaymentColumns,
         if (root['version'] >= 17)
           'card_payment_allocations': cardPaymentAllocationColumns,
+        if (root['version'] >= 18)
+          'card_authorizations': cardAuthorizationColumns,
+        if (root['version'] >= 18)
+          'card_authorization_resolutions': cardAuthorizationResolutionColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -551,6 +577,16 @@ final class SnapshotCodec {
               !entry.value.every(row.containsKey))
             throw const InvalidSnapshot();
           for (final column in entry.value) {
+            if (entry.key == 'card_authorization_resolutions' &&
+                const {
+                  'event_id',
+                  'posted_on',
+                  'settled_minor',
+                  'fee_minor',
+                }.contains(column) &&
+                row[column] == null) {
+              continue;
+            }
             if (row[column] is! String) throw const InvalidSnapshot();
             if (_integers.contains(column)) _integer(row[column]);
             if (column == 'workspace' ||
@@ -637,6 +673,8 @@ final class SnapshotCodec {
         recurringAware != db.recurringAware ||
         creditCardsAware != db.creditCardsAware ||
         cardStatementsAware != db.cardStatementsAware)
+      throw const InvalidSnapshot();
+    if (cardAuthorizationsAware != db.cardAuthorizationsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {

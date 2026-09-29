@@ -9,13 +9,14 @@ import 'snapshot.dart';
 
 /// Owned fixture directory only. Caller must close every DB handle before switching.
 final class RestoreStore {
-  RestoreStore(this.directory, {this.openDatabase});
+  RestoreStore(this.directory, {this.openDatabase, SnapshotCodec? snapshot})
+      : _snapshot = snapshot ?? SnapshotCodec();
   final Directory directory;
   final ProbeDatabase Function(File)? openDatabase;
   static final _busy = <String>{};
   File _file(String name) => File('${directory.absolute.path}/$name');
   File get current => _file('current.db');
-  final _snapshot = SnapshotCodec();
+  final SnapshotCodec _snapshot;
 
   Future<CreatedBackup> backup(ProbeDatabase source, String password) async =>
       EnvelopeCodec().create(

@@ -129,6 +129,7 @@ final class LedgerSession {
         recurringAware: _db.recurringAware,
         creditCardsAware: _db.creditCardsAware,
         cardStatementsAware: _db.cardStatementsAware,
+        cardAuthorizationsAware: _db.cardAuthorizationsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -145,6 +146,7 @@ final class LedgerSession {
       recurringAware: _db.recurringAware,
       creditCardsAware: _db.creditCardsAware,
       cardStatementsAware: _db.cardStatementsAware,
+      cardAuthorizationsAware: _db.cardAuthorizationsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -189,6 +191,92 @@ final class LedgerSession {
 
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
+
+  /// A pending authorization is an estimate, not a posted expense. Retain
+  /// both the charge ID and creation operation across retries.
+  Future<card_auth.CardAuthorizationFact> authorizeCardPurchase(
+    CardCharge charge,
+    OperationId operation,
+  ) => _enqueue(
+    () => _write(() async {
+      if (!_db.cardAuthorizationsAware) {
+        throw UnsupportedError('Card authorizations require schema 19');
+      }
+      final existing = await _db
+          .customSelect(
+            'SELECT 1 FROM card_authorizations '
+            'WHERE workspace=? AND operation_id=?',
+            variables: [
+              Variable(charge.workspace.id.value),
+              Variable(operation.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      if (existing == null) {
+        await _admitCapacity();
+        if (await _count('card_authorizations') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final fact = await card_auth.createCardAuthorization(
+        _db,
+        charge,
+        operation,
+      );
+      if (existing == null) {
+        await _checkRows(
+          'card_authorizations',
+          'workspace=? AND operation_id=?',
+          [charge.workspace.id.value, operation.id.value],
+        );
+      }
+      return fact;
+    }),
+  );
+
+  /// Cancellation is a terminal authorization fact and has no Ledger event.
+  Future<card_auth.CardAuthorizationFact> cancelCardAuthorization({
+    required WorkspaceId workspace,
+    required PublicId chargeId,
+    required OperationId operation,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.cardAuthorizationsAware) {
+        throw UnsupportedError('Card authorizations require schema 19');
+      }
+      final existing = await _db
+          .customSelect(
+            'SELECT 1 FROM card_authorization_resolutions '
+            'WHERE workspace=? AND charge_id=?',
+            variables: [Variable(workspace.id.value), Variable(chargeId.value)],
+          )
+          .getSingleOrNull();
+      if (existing == null) {
+        await _admitCapacity();
+        if (await _count('card_authorization_resolutions') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final fact = await card_auth.cancelCardAuthorization(
+        _db,
+        workspace,
+        chargeId,
+        operation,
+      );
+      if (existing == null) {
+        await _checkRows(
+          'card_authorization_resolutions',
+          'workspace=? AND charge_id=?',
+          [workspace.id.value, chargeId.value],
+        );
+      }
+      return fact;
+    }),
+  );
+
+  Future<List<card_auth.CardAuthorizationFact>> cardAuthorizations(
+    WorkspaceId workspace,
+  ) => _enqueue(() => card_auth.cardAuthorizations(_db, workspace));
 
   Future<void> confirmCardStatement({
     required WorkspaceId workspace,
@@ -350,6 +438,128 @@ final class LedgerSession {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
   }) => _post(purchase, tags: tags, merchant: merchant, cardPurchase: true);
+
+  /// Replaces a pending estimate with one posted Ledger expense. The posting
+  /// ID, operation, settled amount and fee must all be retained on retry.
+  Future<CommitResult> postAuthorizedCardPurchase({
+    required PublicId chargeId,
+    required Posting purchase,
+    required Money settledAmount,
+    required Money fee,
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+  }) {
+    final selections = canonicalTags(tags);
+    return _enqueue(
+      () => _write(() async {
+        if (!_db.cardAuthorizationsAware) {
+          throw UnsupportedError('Card authorizations require schema 19');
+        }
+        if (purchase.kind != PostingKind.expense ||
+            purchase.legs.length != 1 ||
+            purchase.legs.single.role != LegRole.principal ||
+            settledAmount.minorUnits <= BigInt.zero ||
+            fee.minorUnits < BigInt.zero ||
+            settledAmount.currency != fee.currency ||
+            purchase.reportExpense != settledAmount + fee) {
+          throw const FormatException('Invalid authorized card settlement');
+        }
+        final ws = purchase.operation.workspace;
+        final auth = await _db
+            .customSelect(
+              'SELECT card_id FROM card_authorizations '
+              'WHERE workspace=? AND charge_id=?',
+              variables: [Variable(ws.id.value), Variable(chargeId.value)],
+            )
+            .getSingleOrNull();
+        if (auth == null ||
+            auth.read<String>('card_id') !=
+                purchase.legs.single.account.id.value) {
+          throw const FormatException('Unknown card authorization');
+        }
+        final resolution = await _db
+            .customSelect(
+              'SELECT state,operation_id,event_id '
+              'FROM card_authorization_resolutions '
+              'WHERE workspace=? AND charge_id=?',
+              variables: [Variable(ws.id.value), Variable(chargeId.value)],
+            )
+            .getSingleOrNull();
+        final replay = await _hasOperation(purchase.operation);
+        if ((resolution == null && replay) ||
+            (resolution != null &&
+                (resolution.read<String>('state') != 'posted' ||
+                    resolution.read<String>('operation_id') !=
+                        purchase.operation.operation.id.value ||
+                    resolution.read<String?>('event_id') != purchase.id.value ||
+                    !replay))) {
+          throw const FormatException('Card authorization already resolved');
+        }
+        if (!replay) {
+          final account = await AccountsAdapter(_db)
+              .read(ws, purchase.legs.single.account.id);
+          if (account.kind != AccountKind.creditCard ||
+              account.currency != settledAmount.currency) {
+            throw const CreditCardException(CreditCardError.currencyMismatch);
+          }
+          final terms = await currentCardTerms(_db, ws);
+          if (!terms.any(
+            (term) =>
+                term.cardId == account.id && term.currency == account.currency,
+          )) {
+            throw const FormatException('Card is disabled or unconfigured');
+          }
+        }
+        await _capacity(purchase);
+        final result = await FinancialWorkflows(
+          _db,
+          sourceContext: 'preview-manual-v1',
+        ).post(purchase, tags: selections, merchant: merchant);
+        await card_facts.registerPostedCardCharge(
+          _db,
+          ws,
+          purchase.id,
+          purchase.legs.single.account.id,
+        );
+        await card_auth.postCardAuthorization(
+          _db,
+          workspace: ws,
+          chargeId: chargeId,
+          operation: purchase.operation.operation,
+          eventId: purchase.id,
+          postedOn: purchase.date,
+          settledAmount: settledAmount,
+          fee: fee,
+        );
+        if (!result.replayed) {
+          await _checkFinancialRows(purchase);
+          await _checkRows(
+            'card_posted_charges',
+            'workspace=? AND event_id=?',
+            [ws.id.value, purchase.id.value],
+          );
+          await _checkRows(
+            'card_authorization_resolutions',
+            'workspace=? AND charge_id=?',
+            [ws.id.value, chargeId.value],
+          );
+          if (_db.merchantsAware) {
+            await _checkRows('event_merchants', 'workspace=? AND event_id=?', [
+              ws.id.value,
+              purchase.id.value,
+            ]);
+          }
+          if (_db.tagsAware) {
+            await _checkRows('event_tags', 'workspace=? AND event_id=?', [
+              ws.id.value,
+              purchase.id.value,
+            ]);
+          }
+        }
+        return result;
+      }),
+    );
+  }
 
   /// Pays an outstanding card liability from a bank account. This account-
   /// level transfer is not assigned to an issuer statement and adds no spend.
@@ -944,6 +1154,7 @@ final class LedgerSession {
       recurringAware: _db.recurringAware,
       creditCardsAware: _db.creditCardsAware,
       cardStatementsAware: _db.cardStatementsAware,
+      cardAuthorizationsAware: _db.cardAuthorizationsAware,
     ).capture(_db),
   );
 

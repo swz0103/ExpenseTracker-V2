@@ -39,6 +39,7 @@ part 'preview_simple_export.dart';
 part 'preview_budgets.dart';
 part 'preview_recurring.dart';
 part 'preview_cards.dart';
+part 'preview_authorizations.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);
@@ -69,7 +70,7 @@ const currentPreviewSchemaVersion = 18;
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 18) {
+    if (schemaVersion < 3 || schemaVersion > 19) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -91,6 +92,7 @@ final class PreviewCapabilities {
   bool get recurring => schemaVersion >= 16;
   bool get creditCards => schemaVersion >= 17;
   bool get cardStatements => schemaVersion >= 18;
+  bool get cardAuthorizations => schemaVersion >= 19;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -823,6 +825,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       recurringAware: capabilities.recurring,
       creditCardsAware: capabilities.creditCards,
       cardStatementsAware: capabilities.cardStatements,
+      cardAuthorizationsAware: capabilities.cardAuthorizations,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

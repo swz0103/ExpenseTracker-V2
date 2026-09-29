@@ -68,6 +68,7 @@ PreviewEngine engineAt(
       recurringAware: capabilities.recurring,
       creditCardsAware: capabilities.creditCards,
       cardStatementsAware: capabilities.cardStatements,
+      cardAuthorizationsAware: capabilities.cardAuthorizations,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),
