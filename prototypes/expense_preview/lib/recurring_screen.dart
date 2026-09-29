@@ -5,11 +5,13 @@ class _RecurringScreen extends StatefulWidget {
     required this.engine,
     required this.accounts,
     required this.privacy,
+    this.reminder,
   });
 
   final PreviewEngine engine;
   final List<AccountSummary> accounts;
   final PrivacyMode privacy;
+  final RecurringReminderService? reminder;
 
   @override
   State<_RecurringScreen> createState() => _RecurringScreenState();
@@ -33,6 +35,8 @@ class _RecurringScreenState extends State<_RecurringScreen> {
   String? _account;
   RecurrenceUnit _unit = RecurrenceUnit.month;
   bool _expense = true, _busy = false;
+  bool _reminderEnabled = false, _reminderBusy = false;
+  String? _reminderMessage;
   String? _message;
   int _request = 0;
 
@@ -54,6 +58,7 @@ class _RecurringScreenState extends State<_RecurringScreen> {
         .id
         .value;
     unawaited(_load());
+    if (widget.reminder != null) unawaited(_loadReminder());
   }
 
   @override
@@ -87,6 +92,44 @@ class _RecurringScreenState extends State<_RecurringScreen> {
       if (mounted && request == _request && widget.engine.isUnlocked) {
         setState(() => _message = '候選讀取失敗。請檢查查詢起日；數量過多時可縮短期間。');
       }
+    }
+  }
+
+  Future<void> _loadReminder() async {
+    try {
+      final enabled = await widget.reminder!.isEnabled();
+      if (mounted && widget.engine.isUnlocked) {
+        setState(() => _reminderEnabled = enabled);
+      }
+    } catch (_) {
+      if (mounted && widget.engine.isUnlocked) {
+        setState(() => _reminderMessage = '提醒狀態無法讀取；不影響帳本。');
+      }
+    }
+  }
+
+  Future<void> _setReminder(bool enabled) async {
+    if (_reminderBusy || !widget.engine.isUnlocked) return;
+    setState(() {
+      _reminderBusy = true;
+      _reminderMessage = null;
+    });
+    try {
+      final active = await widget.reminder!.setEnabled(enabled);
+      if (mounted && widget.engine.isUnlocked) {
+        setState(() {
+          _reminderEnabled = active;
+          if (enabled && !active) {
+            _reminderMessage = '系統未允許通知；請在 Android 設定開啟後重試。帳本不受影響。';
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted && widget.engine.isUnlocked) {
+        setState(() => _reminderMessage = '提醒設定失敗；帳本不受影響。');
+      }
+    } finally {
+      if (mounted) setState(() => _reminderBusy = false);
     }
   }
 
@@ -281,6 +324,17 @@ class _RecurringScreenState extends State<_RecurringScreen> {
       children: [
         Text('定期交易', style: Theme.of(context).textTheme.headlineSmall),
         const Text('到期只列候選；逐筆確認後才入帳。'),
+        if (widget.reminder != null) ...[
+          SwitchListTile(
+            title: const Text('每日檢查提醒'),
+            subtitle: const Text('約上午 9 點提醒開啟 App 檢查；通知不含帳戶或金額，入帳仍需逐筆確認。'),
+            value: _reminderEnabled,
+            onChanged: _reminderBusy || !widget.engine.isUnlocked
+                ? null
+                : _setReminder,
+          ),
+          if (_reminderMessage != null) Text(_reminderMessage!),
+        ],
         if (_message != null)
           Text(_message!, key: const Key('recurring-message')),
         if (_busy) const LinearProgressIndicator(),

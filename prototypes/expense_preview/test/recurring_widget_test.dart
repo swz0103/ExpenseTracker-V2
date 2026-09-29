@@ -1,12 +1,26 @@
 import 'dart:io';
 
 import 'package:expense_preview/main.dart';
+import 'package:expense_preview/platform_services.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support.dart';
 import 'widget_test.dart' show Documents, closeEngine, input, settle, tap;
+
+final class FakeReminder implements RecurringReminderService {
+  bool enabled = false;
+  bool permissionAllowed = true;
+  @override
+  Future<bool> isEnabled() async => enabled;
+  @override
+  Future<bool> setEnabled(bool next) async {
+    if (next && !permissionAllowed) return false;
+    enabled = next;
+    return enabled;
+  }
+}
 
 void main() {
   testWidgets('recurring candidate needs confirmation and never posts twice', (
@@ -16,6 +30,7 @@ void main() {
       ..createSync(recursive: true);
     final work = root.createTempSync('case-');
     final engine = engineAt(work, MemoryVault(), schemaVersion: 16);
+    final reminder = FakeReminder();
     try {
       await tester.runAsync(() async {
         await setup(engine);
@@ -24,7 +39,11 @@ void main() {
         await engine.lock();
       });
       await tester.pumpWidget(
-        PreviewApp(engine: Future.value(engine), documents: Documents()),
+        PreviewApp(
+          engine: Future.value(engine),
+          documents: Documents(),
+          recurringReminder: reminder,
+        ),
       );
       await settle(tester);
       await input(tester, '密碼', password);
@@ -35,6 +54,15 @@ void main() {
       }
       await tester.scrollUntilVisible(find.text('定期交易'), 300);
       await tap(tester, '定期交易');
+      await tap(tester, '每日檢查提醒');
+      expect(reminder.enabled, isTrue);
+      await tap(tester, '每日檢查提醒');
+      expect(reminder.enabled, isFalse);
+      reminder.permissionAllowed = false;
+      await tap(tester, '每日檢查提醒');
+      expect(reminder.enabled, isFalse);
+      expect(find.textContaining('系統未允許通知'), findsOneWidget);
+      expect((await tester.runAsync(() => engine.entries()))!, hasLength(1));
       await input(tester, '名稱', '房租');
       await input(tester, '每期金額', '10');
       await tap(tester, '建立模板');

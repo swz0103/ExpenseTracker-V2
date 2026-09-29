@@ -179,3 +179,22 @@ final class AndroidBackupDocuments implements BackupDocuments {
   Future<void> discardSimpleExport() =>
       channel.invokeMethod<void>('discardSimpleExport');
 }
+
+/// Optional generic daily check. No account, amount or template data leaves
+/// the encrypted Ledger for the Android notification scheduler.
+abstract interface class RecurringReminderService {
+  Future<bool> isEnabled();
+  Future<bool> setEnabled(bool enabled);
+}
+
+final class AndroidRecurringReminderService
+    implements RecurringReminderService {
+  static const _channel = MethodChannel('expense_preview/recurring_reminders');
+  @override
+  Future<bool> isEnabled() async =>
+      await _channel.invokeMethod<bool>('isEnabled') ?? false;
+
+  @override
+  Future<bool> setEnabled(bool enabled) async =>
+      await _channel.invokeMethod<bool>('setEnabled', enabled) ?? false;
+}

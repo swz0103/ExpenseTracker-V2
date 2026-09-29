@@ -54,6 +54,7 @@ void main() {
       documents: AndroidBackupDocuments(),
       deviceUnlock: AndroidDeviceUnlockStore(),
       appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
+      recurringReminder: AndroidRecurringReminderService(),
     ),
   );
 }
@@ -65,11 +66,13 @@ class PreviewApp extends StatefulWidget {
     required this.documents,
     this.deviceUnlock,
     this.appPin,
+    this.recurringReminder,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   final DeviceUnlockStore? deviceUnlock;
   final AppPinStore? appPin;
+  final RecurringReminderService? recurringReminder;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -96,6 +99,7 @@ class _PreviewAppState extends State<PreviewApp> {
       documents: widget.documents,
       deviceUnlock: widget.deviceUnlock,
       appPin: widget.appPin,
+      recurringReminder: widget.recurringReminder,
       onLock: _routes.cancel,
     ),
   );
@@ -167,12 +171,14 @@ class PreviewHome extends StatefulWidget {
     required this.documents,
     this.deviceUnlock,
     this.appPin,
+    this.recurringReminder,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   final DeviceUnlockStore? deviceUnlock;
   final AppPinStore? appPin;
+  final RecurringReminderService? recurringReminder;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -1642,6 +1648,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
+            reminder: widget.recurringReminder,
           ),
           _back(),
         ];

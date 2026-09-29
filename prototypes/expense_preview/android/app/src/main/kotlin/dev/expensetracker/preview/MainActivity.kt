@@ -1,6 +1,9 @@
 package dev.expensetracker.preview
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Intent
 import android.os.Bundle
 import android.net.Uri
@@ -14,6 +17,7 @@ import java.nio.charset.CodingErrorAction
 
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
+    private var reminderPermissionPending: MethodChannel.Result? = null
     private var encrypted: ByteArray? = null
     private var selectedSimple: Uri? = null
     private var selectedSimpleExport: Uri? = null
@@ -26,6 +30,30 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
+        MethodChannel(engine.dartExecutor.binaryMessenger, "expense_preview/recurring_reminders")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isEnabled" -> result.success(RecurringReminderScheduler.isEnabled(this))
+                    "setEnabled" -> {
+                        val enabled = call.arguments as? Boolean
+                        if (enabled == null || reminderPermissionPending != null) {
+                            result.error("reminder", "無法更新提醒設定", null)
+                        } else if (enabled && Build.VERSION.SDK_INT >= 33 &&
+                            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            reminderPermissionPending = result
+                            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 502)
+                        } else {
+                            try {
+                                result.success(RecurringReminderScheduler.setEnabled(this, enabled))
+                            } catch (_: Exception) {
+                                result.error("reminder", "無法更新提醒設定", null)
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(engine.dartExecutor.binaryMessenger, "expense_preview/documents")
             .setMethodCallHandler { call, result ->
                 if (pending != null) {
@@ -103,6 +131,25 @@ class MainActivity : FlutterActivity() {
                     }
                 } else result.notImplemented()
             }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != 502) return
+        val result = reminderPermissionPending ?: return
+        reminderPermissionPending = null
+        try {
+            result.success(
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+                    RecurringReminderScheduler.setEnabled(this, true) else false,
+            )
+        } catch (_: Exception) {
+            result.error("reminder", "無法啟用提醒", null)
+        }
     }
 
     private fun readBounded(uri: android.net.Uri): ByteArray {
