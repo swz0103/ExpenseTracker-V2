@@ -137,6 +137,35 @@ void main() {
       );
 
   test(
+    'generic workflow cannot credit investment sale without lot facts',
+    () async {
+      final sale = Posting.investmentSell(
+        id: PublicId.generate(),
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        date: BusinessDate(2028, 1, 2),
+        account: PostingAccount(
+          id: cash.id,
+          workspace: workspace,
+          currency: usd,
+          expectedVersion: 1,
+        ),
+        investmentSellId: PublicId.generate(),
+        gross: Money.parse(usd, '20'),
+        fee: Money.parse(usd, '1'),
+        tax: Money.parse(usd, '0'),
+        cashCredit: Money.parse(usd, '19'),
+      );
+      expect(() => FinancialWorkflows(db).post(sale), throwsUnsupportedError);
+      expect(
+        await db
+            .customSelect("SELECT id FROM events WHERE kind='investmentSell'")
+            .get(),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'schema21 commits exactly one cash debit, buy, lot and receipt',
     () async {
       final buy = preview();

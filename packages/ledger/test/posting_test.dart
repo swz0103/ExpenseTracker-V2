@@ -178,6 +178,67 @@ void main() {
       error(LedgerError.investmentBuyMismatch),
     );
   });
+  test('investment sale credits cash without ordinary income or expense', () {
+    final a = account();
+    final sellId = PublicId.generate();
+    final sale = Posting.investmentSell(
+      id: PublicId.generate(),
+      operation: operation(),
+      date: date,
+      account: a,
+      investmentSellId: sellId,
+      gross: money('50'),
+      fee: money('0.75'),
+      tax: money('0.25'),
+      cashCredit: money('49'),
+    );
+    expect(sale.kind, PostingKind.investmentSell);
+    expect(sale.legs.single.amount, money('49'));
+    expect(sale.reportIncome, money('0'));
+    expect(sale.reportExpense, money('0'));
+    expect(sale.investmentSell?.sellId, sellId);
+    expect(sale.investmentSell?.cashCredit, money('49'));
+    expect(rebuildBalance(a, [opening(a, '100'), sale]), money('149'));
+  });
+  test('investment sale rejects invalid settlement and participation', () {
+    final a = account();
+    final id = PublicId.generate();
+    Posting sale({
+      PostingAccount? cashAccount,
+      PublicId? sellId,
+      Money? gross,
+      Money? fee,
+      Money? tax,
+      Money? credit,
+    }) => Posting.investmentSell(
+      id: id,
+      operation: operation(),
+      date: date,
+      account: cashAccount ?? a,
+      investmentSellId: sellId ?? PublicId.generate(),
+      gross: gross ?? money('50'),
+      fee: fee ?? money('1'),
+      tax: tax ?? money('0'),
+      cashCredit: credit ?? money('49'),
+    );
+    expect(() => sale(sellId: id), error(LedgerError.duplicateIdentity));
+    expect(() => sale(gross: money('0')), error(LedgerError.invalidAmount));
+    expect(() => sale(fee: money('-1')), error(LedgerError.invalidAmount));
+    expect(() => sale(tax: money('-1')), error(LedgerError.invalidAmount));
+    expect(() => sale(credit: money('0')), error(LedgerError.invalidAmount));
+    expect(
+      () => sale(credit: money('48.99')),
+      error(LedgerError.investmentSellMismatch),
+    );
+    expect(
+      () => sale(cashAccount: account(owner: WorkspaceId(PublicId.generate()))),
+      error(LedgerError.workspaceMismatch),
+    );
+    expect(
+      () => sale(fee: Money.parse(Currency('EUR', 2), '1')),
+      error(LedgerError.currencyMismatch),
+    );
+  });
   test('LED-05 split allocation is not another cash movement', () {
     final a = account();
     final allocations = [

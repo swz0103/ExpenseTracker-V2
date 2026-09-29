@@ -655,8 +655,11 @@ final class LedgerStore {
     Posting posting, {
     LockWaitCancellation? cancellation,
   }) => _use((db) async {
-    if (posting.kind == PostingKind.investmentBuy) {
-      throw StateError('Investment buys require the investment session route.');
+    if (posting.kind == PostingKind.investmentBuy ||
+        posting.kind == PostingKind.investmentSell) {
+      throw StateError(
+        'Investment trades require the investment session route.',
+      );
     }
     await _rejectUntrackedCardPosting(db, posting);
     return FinancialWorkflows(db).post(posting);

@@ -10,6 +10,7 @@ enum PostingKind {
   refund,
   reversal,
   investmentBuy,
+  investmentSell,
 }
 
 enum LegRole { principal, fee }
@@ -29,6 +30,7 @@ enum LedgerError {
   tombstoneReference,
   tombstoneDependency,
   investmentBuyMismatch,
+  investmentSellMismatch,
 }
 
 final class LedgerException implements Exception {
@@ -97,6 +99,24 @@ final class InvestmentBuyCashDetails {
   final Money cashDebit;
 }
 
+/// Cash settlement for a sale. The investment module owns disposed lots and
+/// realized profit; proceeds must never enter ordinary income totals.
+final class InvestmentSellCashDetails {
+  const InvestmentSellCashDetails._({
+    required this.sellId,
+    required this.gross,
+    required this.fee,
+    required this.tax,
+    required this.cashCredit,
+  });
+
+  final PublicId sellId;
+  final Money gross;
+  final Money fee;
+  final Money tax;
+  final Money cashCredit;
+}
+
 /// Validated immutable posting proposal. Has no financial effect until committed.
 final class Posting {
   Posting._({
@@ -112,6 +132,7 @@ final class Posting {
     this.reversedPosting,
     this.reversalReason,
     this.investmentBuy,
+    this.investmentSell,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -228,6 +249,55 @@ final class Posting {
         fee: fee,
         tax: tax,
         cashDebit: cashDebit,
+      ),
+    );
+  }
+
+  /// Credits settled cash exactly once. The application must atomically link
+  /// this proposal to a validated investment disposition and its lot changes.
+  factory Posting.investmentSell({
+    required PublicId id,
+    required OperationKey operation,
+    required BusinessDate date,
+    required PostingAccount account,
+    required PublicId investmentSellId,
+    required Money gross,
+    required Money fee,
+    required Money tax,
+    required Money cashCredit,
+  }) {
+    _participation(operation, account, gross);
+    _participation(operation, account, fee);
+    _participation(operation, account, tax);
+    _participation(operation, account, cashCredit);
+    _positive(gross);
+    if (fee.minorUnits < BigInt.zero ||
+        tax.minorUnits < BigInt.zero ||
+        cashCredit.minorUnits <= BigInt.zero) {
+      throw const LedgerException(LedgerError.invalidAmount);
+    }
+    if (id == investmentSellId) {
+      throw const LedgerException(LedgerError.duplicateIdentity);
+    }
+    final expectedCredit = gross.minorUnits - fee.minorUnits - tax.minorUnits;
+    if (expectedCredit <= BigInt.zero ||
+        expectedCredit != cashCredit.minorUnits) {
+      throw const LedgerException(LedgerError.investmentSellMismatch);
+    }
+    return Posting._(
+      id: id,
+      operation: operation,
+      date: date,
+      kind: PostingKind.investmentSell,
+      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      reportIncome: Money(account.currency, BigInt.zero),
+      reportExpense: Money(account.currency, BigInt.zero),
+      investmentSell: InvestmentSellCashDetails._(
+        sellId: investmentSellId,
+        gross: gross,
+        fee: fee,
+        tax: tax,
+        cashCredit: cashCredit,
       ),
     );
   }
@@ -367,6 +437,7 @@ final class Posting {
   final Posting? reversedPosting;
   final String? reversalReason;
   final InvestmentBuyCashDetails? investmentBuy;
+  final InvestmentSellCashDetails? investmentSell;
   PublicId? get reversalOf => reversedPosting?.id;
 }
 

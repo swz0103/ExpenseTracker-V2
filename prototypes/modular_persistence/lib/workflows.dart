@@ -109,8 +109,9 @@ final class FinancialWorkflows {
     MerchantSelection? merchant,
     void Function(String)? checkpoint,
   }) {
-    if (posting.kind == PostingKind.investmentBuy) {
-      throw UnsupportedError('Use the atomic investment buy workflow');
+    if (posting.kind == PostingKind.investmentBuy ||
+        posting.kind == PostingKind.investmentSell) {
+      throw UnsupportedError('Use the atomic investment trade workflow');
     }
     return _post(
       posting,
