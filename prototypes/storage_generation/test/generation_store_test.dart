@@ -45,6 +45,21 @@ final class PausedSlots implements KeySlots {
   Future<StorageKey> read(PublicId slot) => delegate.read(slot);
 }
 
+final class CountingSlots implements KeySlots {
+  CountingSlots(this.delegate);
+  final KeySlots delegate;
+  int reads = 0;
+
+  @override
+  Future<void> create(PublicId slot) => delegate.create(slot);
+
+  @override
+  Future<StorageKey> read(PublicId slot) {
+    reads++;
+    return delegate.read(slot);
+  }
+}
+
 void main() {
   late Directory root;
   late FixtureKeySlots slots;
@@ -68,6 +83,19 @@ void main() {
   ]) => Process.run(worker.path, [action, root.path, id, value, point]);
   Future<GenerationReceipt> installOld() =>
       store.install(oldValue, OperationId.parse(oldId));
+
+  test('current reuses the validation performed during recovery', () async {
+    await installOld();
+    final counted = CountingSlots(slots);
+    final reopened = GenerationStore(root, counted);
+    expect((await reopened.current())!.value, oldValue);
+    expect(counted.reads, 1);
+    expect(
+      await reopened.withCurrent((_, __, ___) async => oldValue),
+      oldValue,
+    );
+    expect(counted.reads, 3); // Recovery and the callback each need a key.
+  });
 
   test(
     'publishes a paired encrypted generation and retains old database and key',

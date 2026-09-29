@@ -292,9 +292,7 @@ final class GenerationStore {
     bool requireExistingCatalog = false,
   }) => _locked(
     (catalog) async {
-      await _recover(catalog);
-      final active = _active(catalog);
-      return active == null ? null : _inspect(active);
+      return _recover(catalog);
     },
     cancellation: cancellation,
     requireExistingCatalog: requireExistingCatalog,
@@ -331,9 +329,11 @@ final class GenerationStore {
     return GenerationReceipt.fromRow(rows.single);
   }
 
-  Future<void> _recover(Database catalog) async {
+  Future<InstalledFixture?> _recover(Database catalog) async {
     final active = _active(catalog);
-    if (active != null) await _inspect(active);
+    // Recovery validates the active payload. Reuse that validation in current()
+    // instead of scanning and serializing a large Ledger a second time.
+    final inspected = active == null ? null : await _inspect(active);
     final pending = catalog.select(
       "SELECT * FROM attempts WHERE status='pending'",
     );
@@ -348,6 +348,7 @@ final class GenerationStore {
         [row['generation']],
       );
     }
+    return inspected;
   }
 
   Future<void> _createDatabase(

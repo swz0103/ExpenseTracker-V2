@@ -1,0 +1,18 @@
+{
+  "scope": "GenerationStore.current() reuses the active generation already inspected during recovery",
+  "host": "Windows x64, Dart 3.13.4",
+  "checks": {
+    "storageGenerationAnalyze": "passed",
+    "storageGenerationTests": 96,
+    "ledgerGenerationTests": 251,
+    "architectureTests": 21,
+    "architectureBoundaryScan": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "security": "The active generation is still inspected before pending attempts are retired or current() returns; corruption and interruption regression cases remain in the full suites.",
+  "limits": [
+    "No same-fixture before-and-after latency measurement yet",
+    "withCurrent() and current() still validate the full Ledger on every call",
+    "No Android device or exact-head cloud validation for this change"
+  ]
+}
