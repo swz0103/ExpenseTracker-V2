@@ -56,6 +56,25 @@ const cardAuthorizationResolutionColumns = [
   'fee_minor',
 ];
 
+const cardInstallmentPlanColumns = [
+  'workspace',
+  'purchase_event_id',
+  'card_id',
+  'operation_id',
+  'payload',
+];
+
+/// A plan refers to an existing posted purchase. It never creates a second
+/// Ledger expense or asserts that an issuer has confirmed a statement.
+const cardInstallmentPlanSchema = '''CREATE TABLE card_installment_plans (
+  workspace TEXT NOT NULL, purchase_event_id TEXT NOT NULL,
+  card_id TEXT NOT NULL, operation_id TEXT NOT NULL, payload TEXT NOT NULL,
+  PRIMARY KEY(workspace,purchase_event_id), UNIQUE(workspace,operation_id),
+  FOREIGN KEY(workspace,purchase_event_id)
+    REFERENCES card_posted_charges(workspace,event_id),
+  FOREIGN KEY(workspace,card_id) REFERENCES accounts(workspace,id)
+) STRICT''';
+
 /// The authorization is immutable. A single terminal fact either cancels it
 /// or links it to an already committed card purchase and Ledger receipt.
 const cardAuthorizationSchema = [

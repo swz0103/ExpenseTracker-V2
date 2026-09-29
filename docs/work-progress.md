@@ -631,3 +631,8 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 退款採實際入帳日期沖減支出與卡片負債；發卡行已確認帳單、繳款分配與應繳金額不自動改寫。現有退款畫面固定顯示原信用卡；schema 18 隱藏無法執行的卡片操作。
 - [x] 指定 schema 19 的 App 跨帳期流程、密碼與救援文字乾淨還原；受影響 App 12 項、Ledger 8 項、分析、架構邊界與 Android ARM64 debug 建置主機通過。證據：[card-cross-cycle-refund-host-2026-09-30.json](test-results/card-cross-cycle-refund-host-2026-09-30.json)。
 - [ ] 正式 App 仍維持 schema 18；schema 19 的正式啟用、完整回歸、實機與目前 SHA 的雲端 gate 未通過，M2-04 不稱完成。ADB 本輪未偵測到裝置。
+## 2026-09-30 M2-05 分期計畫權威保存（schema 20 opt-in，尚未開放）
+
+- [x] 固定本金與明列費用的逐月預計金額及尾差規則；固定帳期日與首期短月日期分開，避免閏年後錯算。版本化編碼拒絕非標準及竄改資料。
+- [x] opt-in schema 20 分期表只連結已入帳的卡片購買；相同操作可重試，錯卡、錯金額、未知購買與竄改資料拒絕，不新增第二筆消費或冒充發卡行帳單。信用卡套件 14 項、持久層 81 項測試及兩套件靜態分析在主機通過。證據：[分期規則](test-results/installment-domain-host-2026-09-30.md)、[分期保存](test-results/installment-authority-host-2026-09-30.md)。
+- [ ] 尚缺 Ledger Session 接入、19→20 安全升級、加密快照與密碼／救援文字還原、可選已入帳購買與建立／查看計畫的簡潔 UI、退款後呈現及實機／目前 SHA 雲端 gate。App 仍使用 schema 18；schema 19 與 20 都未正式開放。M2-05 不稱完成。前輪 App 全套回歸跑至 66 項通過後中止，不能視為全套通過。

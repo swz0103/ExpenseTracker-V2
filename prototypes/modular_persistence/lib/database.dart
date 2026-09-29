@@ -37,6 +37,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
+    this.installmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -115,6 +116,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
+    this.installmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -189,7 +191,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool creditCardsAware;
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
+  final bool installmentsAware;
   void _configuration() {
+    if (installmentsAware && !cardAuthorizationsAware) {
+      throw ArgumentError('Installment plans require card authorizations.');
+    }
     if (cardAuthorizationsAware && !cardStatementsAware) {
       throw ArgumentError('Card authorizations require statement schema.');
     }
@@ -218,7 +224,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => cardAuthorizationsAware
+  int get schemaVersion => installmentsAware
+      ? 20
+      : cardAuthorizationsAware
       ? 19
       : cardStatementsAware
       ? 18
@@ -288,6 +296,7 @@ final class ProbeDatabase extends GeneratedDatabase {
           await customStatement(sql);
         }
       }
+      if (installmentsAware) await customStatement(cardInstallmentPlanSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {

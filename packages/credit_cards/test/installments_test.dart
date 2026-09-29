@@ -8,20 +8,21 @@ void main() {
     String principal = '100.01',
     String fee = '1.01',
     int count = 3,
-    BusinessDate? firstClose,
+    BusinessDate? firstScheduledClose,
   }) => CardInstallmentSchedule(
     purchaseEventId: PublicId.generate(),
     workspace: WorkspaceId(PublicId.generate()),
     cardId: PublicId.generate(),
     principal: Money.parse(twd, principal),
     fixedFee: Money.parse(twd, fee),
-    firstClose: firstClose ?? BusinessDate(2028, 1, 31),
+    firstScheduledClose: firstScheduledClose ?? BusinessDate(2028, 1, 31),
+    closingDay: 31,
     count: count,
   );
 
   test('monthly schedule allocates principal and explicit fee with final remainder', () {
     final parts = schedule().installments;
-    expect(parts.map((part) => part.closesOn.toString()), [
+    expect(parts.map((part) => part.scheduledClose.toString()), [
       '2028-01-31',
       '2028-02-29',
       '2028-03-31',
@@ -33,7 +34,10 @@ void main() {
     ]);
     expect(parts.map((part) => part.fee.majorText), ['0.33', '0.33', '0.35']);
     expect(
-      parts.fold<BigInt>(BigInt.zero, (sum, part) => sum + part.due.minorUnits),
+      parts.fold<BigInt>(
+        BigInt.zero,
+        (sum, part) => sum + part.projectedCharge.minorUnits,
+      ),
       Money.parse(twd, '101.02').minorUnits,
     );
   });
@@ -47,7 +51,7 @@ void main() {
     expect(() => schedule(count: 1), throwsA(isA<CreditCardException>()));
     expect(() => schedule(count: 121), throwsA(isA<CreditCardException>()));
     expect(
-      () => schedule(firstClose: BusinessDate(9999, 12, 31)),
+      () => schedule(firstScheduledClose: BusinessDate(9999, 12, 31)),
       throwsA(isA<CreditCardException>()),
     );
     expect(
@@ -57,7 +61,8 @@ void main() {
         cardId: PublicId.generate(),
         principal: Money.parse(twd, '10'),
         fixedFee: Money.parse(Currency('USD', 2), '1'),
-        firstClose: BusinessDate(2028, 1, 31),
+        firstScheduledClose: BusinessDate(2028, 1, 31),
+        closingDay: 31,
         count: 2,
       ),
       throwsA(isA<CreditCardException>()),
@@ -65,6 +70,46 @@ void main() {
     expect(
       () => schedule(principal: '92233720368547758.07', fee: '0.01'),
       throwsA(isA<CreditCardException>()),
+    );
+  });
+
+  test('nominal 31st returns after a leap-February first cycle', () {
+    final parts = schedule(firstScheduledClose: BusinessDate(2028, 2, 29))
+        .installments;
+    expect(parts.map((part) => part.scheduledClose.toString()), [
+      '2028-02-29',
+      '2028-03-31',
+      '2028-04-30',
+    ]);
+    expect(
+      () => schedule(firstScheduledClose: BusinessDate(2028, 2, 28)),
+      throwsA(isA<CreditCardException>()),
+    );
+  });
+
+  test('versioned plan round-trips and rejects tampering', () {
+    const codec = CardInstallmentScheduleCodec();
+    final original = schedule();
+    final encoded = codec.encode(original);
+    final decoded = codec.decode(encoded);
+    expect(codec.encode(decoded), encoded);
+    expect(decoded.installments.last.projectedCharge.majorText, '33.70');
+    expect(
+      () => codec.decode(encoded.replaceFirst('"format":1', '"format":2')),
+      throwsFormatException,
+    );
+    expect(
+      () => codec.decode(
+        encoded.replaceFirst(
+          '"principalMinor":"10001"',
+          '"principalMinor":"010001"',
+        ),
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => codec.decode(encoded.replaceFirst('"count":3', '"count":0')),
+      throwsFormatException,
     );
   });
 }
