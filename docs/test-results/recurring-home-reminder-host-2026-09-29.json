@@ -1,0 +1,25 @@
+{
+  "scope": "M2-03 in-app home reminder for due recurring candidates",
+  "date": "2026-09-29",
+  "hostChecks": {
+    "focusedWidgetFlow": "1 test passed after final UI/privacy changes",
+    "fullExpensePreview": "219 tests passed on the final source",
+    "analysis": "flutter analyze --no-pub: no issues",
+    "diffCheck": "git diff --check passed",
+    "architecture": "dart run bin/check.dart ../..: Architecture boundaries passed"
+  },
+  "behavior": [
+    "home shows pending count for the same one-year default review window",
+    "privacy-hidden mode shows a generic reminder without count",
+    "candidate read failure is disclosed rather than reported as zero",
+    "cancel does not post; explicit confirmation posts once and clears the reminder"
+  ],
+  "device": "not run; SDK adb devices -l returned no attached device",
+  "cloud": "not run at current PR head; Actions budget remains unverified",
+  "remaining": [
+    "Android scheduled notification, permission and failure handling",
+    "physical device review of schema 16, recurring UI and reminder",
+    "exact-head cloud gate before milestone acceptance"
+  ],
+  "gate": "in-app reminder host verified; M2-03 not fully accepted"
+}

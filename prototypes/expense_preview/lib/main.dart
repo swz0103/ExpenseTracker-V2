@@ -237,6 +237,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   List<LedgerEntry> _deletedEntries = [];
   MonthlyReport? _monthlyReport;
   bool _monthlyOverflow = false;
+  int? _recurringDueCount;
+  bool _recurringReminderError = false;
+  int _recurringReminderRequest = 0;
   AssetReport? _assetReport;
   bool _assetOverflow = false;
   PrivacyMode _privacy = PrivacyMode.hidden;
@@ -410,6 +413,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _deletedEntries = [];
     _monthlyReport = null;
     _monthlyOverflow = false;
+    _recurringReminderRequest++;
+    _recurringDueCount = null;
+    _recurringReminderError = false;
     _assetReport = null;
     _assetOverflow = false;
     _catalog = null;
@@ -558,6 +564,42 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadRecurringReminder() async {
+    final request = ++_recurringReminderRequest;
+    final epoch = _viewEpoch;
+    try {
+      final now = DateTime.now();
+      final start = DateTime(now.year - 1, now.month, now.day);
+      final due = await _engine!.dueRecurringCandidates(
+        after: BusinessDate(start.year, start.month, start.day),
+        through: BusinessDate(now.year, now.month, now.day),
+      );
+      if (!mounted ||
+          epoch != _viewEpoch ||
+          request != _recurringReminderRequest ||
+          !_engine!.isUnlocked ||
+          _page != _Page.home) {
+        return;
+      }
+      setState(() {
+        _recurringDueCount = due.length;
+        _recurringReminderError = false;
+      });
+    } catch (_) {
+      if (!mounted ||
+          epoch != _viewEpoch ||
+          request != _recurringReminderRequest ||
+          !_engine!.isUnlocked ||
+          _page != _Page.home) {
+        return;
+      }
+      setState(() {
+        _recurringDueCount = null;
+        _recurringReminderError = true;
+      });
+    }
+  }
+
   Future<void> _refresh() async {
     final privacy = await _engine!.privacyMode();
     final accounts = await _engine!.accounts();
@@ -616,6 +658,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _deletedEntries = deletedEntries;
       _monthlyReport = monthlyReport;
       _monthlyOverflow = monthlyOverflow;
+      _recurringDueCount = null;
+      _recurringReminderError = false;
       _assetReport = assetReport;
       _assetOverflow = assetOverflow;
       _entryDraft = entryDraft;
@@ -644,6 +688,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ? _Page.home
           : _Page.restore;
     });
+    if (_engine!.capabilities.recurring && _page == _Page.home) {
+      unawaited(_loadRecurringReminder());
+    }
   }
 
   Future<void> _unlock({bool upgrade = false}) => _perform(() async {
@@ -2164,6 +2211,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : () => setState(() => _page = _Page.recurring),
               child: const Text('定期交易'),
+            ),
+          if (_engine!.capabilities.recurring && _recurringReminderError)
+            const Text('定期交易提醒無法更新，請開啟定期交易檢查。'),
+          if (_engine!.capabilities.recurring && (_recurringDueCount ?? 0) > 0)
+            Text(
+              _privacy == PrivacyMode.hidden
+                  ? '有定期交易待確認。'
+                  : '有 $_recurringDueCount 筆定期交易待確認。',
             ),
           const SizedBox(height: 12),
           if (_accounts.isNotEmpty) ...[
