@@ -125,7 +125,7 @@
     },
     "ledger_generation_probe": {
       "directory": "prototypes/ledger_generation",
-      "dependencies": ["tags", "merchants", "categories", "data_exchange", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
+      "dependencies": ["budgets", "tags", "merchants", "categories", "data_exchange", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
     },
     "storage_generation_probe": {
       "directory": "prototypes/storage_generation",
@@ -137,7 +137,7 @@
     },
     "modular_persistence_probe": {
       "directory": "prototypes/modular_persistence",
-      "dependencies": ["tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
+      "dependencies": ["budgets", "tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
     },
     "encrypted_storage_probe": {
       "directory": "prototypes/encrypted_storage",

@@ -23,6 +23,8 @@ dependencies:
     path: ../../packages/ledger
   reports:
     path: ../../packages/reports
+  budgets:
+    path: ../../packages/budgets
   modular_persistence_probe:
     path: ../modular_persistence
   backup_envelope_probe:
