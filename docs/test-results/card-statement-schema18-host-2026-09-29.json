@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-29",
+  "baseCommit": "f70f24a0efd8a35b06eea763a81f5ad420107422",
+  "scope": "M2-04 發卡行實際帳單與部分繳款分配；尚非信用卡整體驗收",
+  "behavior": [
+    "schema 18 以獨立權威事實保存已入帳刷卡、銀行繳款、發卡行實際帳單及繳款分配",
+    "帳單金額由使用者依發卡行資料確認；本機刷卡加總另行顯示差異，不推定為正式帳單",
+    "使用者可在簡潔畫面選卡、確認實際帳單、選擇未分配繳款並指定部分金額",
+    "同一繳款可分次分配，同操作重試不重複；超出帳單餘額或繳款可用額時整筆拒絕",
+    "schema 17 到 18 只回填可無歧義辨識的卡片事件；異常歷史事件拒絕升級並保留安全副本",
+    "既有含手續費轉帳的草稿提交修正目的帳戶檢查，避免把費用腿誤認為目的腿"
+  ],
+  "hostChecks": {
+    "expensePreview": "flutter test --concurrency=2 --timeout 2m：227 passed",
+    "ledgerGeneration": "dart test --concurrency=2 --timeout 2m：272 passed",
+    "modularPersistence": "dart test --concurrency=2 --timeout 2m：73 passed",
+    "validatedRestore": "dart test --concurrency=2 --timeout 2m：116 passed",
+    "architecture": "dart test：21 passed；完整邊界掃描通過",
+    "analysis": "App flutter analyze 與三個受影響 Dart 套件 dart analyze 均通過",
+    "androidBuild": "flutter build apk --debug --target-platform android-arm64 --no-pub 通過",
+    "diffCheck": "git diff --check 通過"
+  },
+  "device": "未執行；adb devices -l 未列出裝置，只能核對 Android 建置，不能稱實機驗收",
+  "cloud": "未執行；Actions 剩餘額度未核實，不能以其他 SHA 的結果代替此批 exact-head checks",
+  "remaining": [
+    "實機確認帳單建立、部分繳款、背景鎖定與重啟後保留",
+    "M2-04 pending/posted、跨帳期退款與卡片設定修改的完整可操作流程",
+    "適用的雲端 gate 與整體產品驗收"
+  ],
+  "gate": "主機可驗證子流程通過；M2-04 整體、實機及雲端 gate 未完成"
+}

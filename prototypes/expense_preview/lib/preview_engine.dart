@@ -63,13 +63,13 @@ final class PreviewUpgradeRequired implements Exception {}
 
 /// Version opened by the V2 application; older local V2 ledgers require the
 /// explicit, safety-backed upgrade flow before a session becomes available.
-const currentPreviewSchemaVersion = 17;
+const currentPreviewSchemaVersion = 18;
 
 /// User-facing abilities of one V2 data generation. Keep schema numbers at
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 17) {
+    if (schemaVersion < 3 || schemaVersion > 18) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -90,6 +90,7 @@ final class PreviewCapabilities {
   bool get budgets => schemaVersion >= 15;
   bool get recurring => schemaVersion >= 16;
   bool get creditCards => schemaVersion >= 17;
+  bool get cardStatements => schemaVersion >= 18;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -821,6 +822,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       budgetsAware: capabilities.budgets,
       recurringAware: capabilities.recurring,
       creditCardsAware: capabilities.creditCards,
+      cardStatementsAware: capabilities.cardStatements,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

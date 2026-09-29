@@ -128,6 +128,7 @@ final class LedgerSession {
         budgetsAware: _db.budgetsAware,
         recurringAware: _db.recurringAware,
         creditCardsAware: _db.creditCardsAware,
+        cardStatementsAware: _db.cardStatementsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -143,6 +144,7 @@ final class LedgerSession {
       budgetsAware: _db.budgetsAware,
       recurringAware: _db.recurringAware,
       creditCardsAware: _db.creditCardsAware,
+      cardStatementsAware: _db.cardStatementsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -163,6 +165,11 @@ final class LedgerSession {
     CreditCardTerms? cardTerms,
   }) => _enqueue(
     () => _write(() async {
+      if (_db.cardStatementsAware &&
+          account.kind == AccountKind.creditCard &&
+          opening.legs.single.amount.minorUnits != BigInt.zero) {
+        throw const CreditCardException(CreditCardError.invalidInput);
+      }
       await _capacity(opening, account: true);
       final result = await FinancialWorkflows(
         _db,
@@ -182,6 +189,111 @@ final class LedgerSession {
 
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
+
+  Future<void> confirmCardStatement({
+    required WorkspaceId workspace,
+    required PublicId statementId,
+    required PublicId cardId,
+    required int revision,
+    required CardCycle cycle,
+    required Money billed,
+    required OperationId operation,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.cardStatementsAware) {
+        throw UnsupportedError('Card statements require schema 18');
+      }
+      await _admitCapacity();
+      final prior = await _db
+          .customSelect(
+            'SELECT 1 FROM card_statements WHERE workspace=? AND operation_id=?',
+            variables: [
+              Variable(workspace.id.value),
+              Variable(operation.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      if (prior == null && await _count('card_statements') >= maxEvents) {
+        throw PreviewCapacity();
+      }
+      await card_facts.appendCardStatementRevision(
+        _db,
+        workspace: workspace,
+        statementId: statementId,
+        cardId: cardId,
+        revision: revision,
+        cycle: cycle,
+        billed: billed,
+        operation: operation,
+      );
+      if (prior == null) {
+        await _checkRows('card_statements', 'workspace=? AND operation_id=?', [
+          workspace.id.value,
+          operation.id.value,
+        ]);
+      }
+    }),
+  );
+
+  Future<List<card_facts.ConfirmedCardStatement>> confirmedCardStatements({
+    required WorkspaceId workspace,
+    required PublicId cardId,
+  }) => _enqueue(
+    () => card_facts.confirmedCardStatements(_db, workspace, cardId),
+  );
+
+  Future<List<card_facts.CardUnallocatedPayment>> unallocatedCardPayments({
+    required WorkspaceId workspace,
+    required PublicId cardId,
+  }) => _enqueue(
+    () => card_facts.unallocatedCardPayments(_db, workspace, cardId),
+  );
+
+  Future<void> allocateCardPayment({
+    required WorkspaceId workspace,
+    required PublicId paymentEventId,
+    required PublicId statementId,
+    required int statementRevision,
+    required Money amount,
+    required OperationId operation,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.cardStatementsAware) {
+        throw UnsupportedError('Card statements require schema 18');
+      }
+      await _admitCapacity();
+      final prior = await _db
+          .customSelect(
+            'SELECT 1 FROM card_payment_allocations '
+            'WHERE workspace=? AND operation_id=?',
+            variables: [
+              Variable(workspace.id.value),
+              Variable(operation.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      if (prior == null &&
+          await _count('card_payment_allocations') >= SnapshotCodec.maxRows) {
+        throw PreviewCapacity();
+      }
+      await card_facts.allocateCardPayment(
+        _db,
+        workspace: workspace,
+        paymentEventId: paymentEventId,
+        statementId: statementId,
+        statementRevision: statementRevision,
+        amount: amount,
+        operation: operation,
+      );
+      if (prior == null) {
+        await _checkRows(
+          'card_payment_allocations',
+          'workspace=? AND operation_id=?',
+          [workspace.id.value, operation.id.value],
+        );
+      }
+    }),
+  );
 
   Future<CardTermsRevision> reviseCreditCard(
     CreditCardTerms terms,
@@ -362,6 +474,22 @@ final class LedgerSession {
           _db,
           sourceContext: 'preview-manual-v1',
         ).post(posting, tags: selections, merchant: merchant);
+        if (_db.cardStatementsAware && cardPurchase) {
+          await card_facts.registerPostedCardCharge(
+            _db,
+            posting.operation.workspace,
+            posting.id,
+            posting.legs.single.account.id,
+          );
+        }
+        if (_db.cardStatementsAware && cardPayment) {
+          await card_facts.registerCardPayment(
+            _db,
+            posting.operation.workspace,
+            posting.id,
+            posting.legs.last.account.id,
+          );
+        }
         if (!result.replayed) {
           await _checkFinancialRows(posting);
           if (_db.merchantsAware)
@@ -815,6 +943,7 @@ final class LedgerSession {
       budgetsAware: _db.budgetsAware,
       recurringAware: _db.recurringAware,
       creditCardsAware: _db.creditCardsAware,
+      cardStatementsAware: _db.cardStatementsAware,
     ).capture(_db),
   );
 

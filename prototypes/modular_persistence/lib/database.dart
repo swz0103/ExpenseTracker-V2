@@ -13,6 +13,7 @@ import 'allocation_schema.dart';
 import 'budget_schema.dart';
 import 'recurring_schema.dart';
 import 'card_schema.dart';
+import 'card_facts_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -34,6 +35,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.budgetsAware = false,
     this.recurringAware = false,
     this.creditCardsAware = false,
+    this.cardStatementsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -110,6 +112,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.budgetsAware = false,
     this.recurringAware = false,
     this.creditCardsAware = false,
+    this.cardStatementsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -182,7 +185,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool budgetsAware;
   final bool recurringAware;
   final bool creditCardsAware;
+  final bool cardStatementsAware;
   void _configuration() {
+    if (cardStatementsAware && !creditCardsAware) {
+      throw ArgumentError('Card statements require credit-card schema.');
+    }
     if (creditCardsAware && !recurringAware) {
       throw ArgumentError('Credit cards require the recurring-aware schema.');
     }
@@ -205,7 +212,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => creditCardsAware
+  int get schemaVersion => cardStatementsAware
+      ? 18
+      : creditCardsAware
       ? 17
       : recurringAware
       ? 16
@@ -261,6 +270,11 @@ final class ProbeDatabase extends GeneratedDatabase {
         await customStatement(recurringOccurrenceSchema);
       }
       if (creditCardsAware) await customStatement(cardRevisionSchema);
+      if (cardStatementsAware) {
+        for (final sql in cardFactsSchema) {
+          await customStatement(sql);
+        }
+      }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {

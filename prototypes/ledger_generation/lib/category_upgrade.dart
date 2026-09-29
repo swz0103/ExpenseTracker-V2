@@ -15,7 +15,8 @@ enum _LedgerUpgrade {
   tombstones(13, 14, 'ledger-13-to-14-v1'),
   budgets(14, 15, 'ledger-14-to-15-v1'),
   recurring(15, 16, 'ledger-15-to-16-v1'),
-  creditCards(16, 17, 'ledger-16-to-17-v1');
+  creditCards(16, 17, 'ledger-16-to-17-v1'),
+  cardStatements(17, 18, 'ledger-17-to-18-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -35,6 +36,7 @@ enum _LedgerUpgrade {
     budgetsAware: to >= 15,
     recurringAware: to >= 16,
     creditCardsAware: to >= 17,
+    cardStatementsAware: to >= 18,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -56,6 +58,7 @@ enum _LedgerUpgrade {
       budgetsAware: from >= 15,
       recurringAware: from >= 16,
       creditCardsAware: from >= 17,
+      cardStatementsAware: from >= 18,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -73,7 +76,8 @@ enum _LedgerUpgrade {
         store.tombstonesAware != (to >= 14) ||
         store.budgetsAware != (to >= 15) ||
         store.recurringAware != (to >= 16) ||
-        store.creditCardsAware != (to >= 17)) {
+        store.creditCardsAware != (to >= 17) ||
+        store.cardStatementsAware != (to >= 18)) {
       throw const InvalidSnapshot();
     }
   }
@@ -364,7 +368,10 @@ Future<UpgradeReceipt> _upgradeLedger(
         },
       );
       final target = route.target.canonicalize(utf8.encode(source.value));
-      return PreparedUpgrade(utf8.decode(target), verified.envelopeDigest);
+      final upgraded = route == _LedgerUpgrade.cardStatements
+          ? _backfillCardStatementFacts(target)
+          : target;
+      return PreparedUpgrade(utf8.decode(upgraded), verified.envelopeDigest);
     },
     checkpoint: checkpoint,
     cancellation: cancellation,
@@ -588,6 +595,38 @@ Future<UpgradeReceipt> upgradeCreditCards(
   request,
   backupDirectory,
   _LedgerUpgrade.creditCards,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planCardStatementUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.cardStatements,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeCardStatements(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.cardStatements,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

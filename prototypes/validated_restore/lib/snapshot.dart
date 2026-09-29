@@ -22,7 +22,9 @@ import 'package:modular_persistence_probe/budget_revisions_adapter.dart';
 import 'package:modular_persistence_probe/recurring_schema.dart';
 import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_schema.dart';
+import 'package:modular_persistence_probe/card_facts_schema.dart';
 import 'package:modular_persistence_probe/card_revisions_adapter.dart';
+import 'package:modular_persistence_probe/card_statements_adapter.dart';
 
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/reversals_adapter.dart';
@@ -75,6 +77,9 @@ const _integers = {
   'revision',
   'version',
   'template_version',
+  'amount_minor',
+  'billed_minor',
+  'statement_revision',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -104,6 +109,7 @@ final class SnapshotCodec {
     this.budgetsAware = false,
     this.recurringAware = false,
     this.creditCardsAware = false,
+    this.cardStatementsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -185,6 +191,9 @@ final class SnapshotCodec {
     if (creditCardsAware && !recurringAware) {
       throw ArgumentError('Credit cards require recurring-aware snapshots.');
     }
+    if (cardStatementsAware && !creditCardsAware) {
+      throw ArgumentError('Card statements require credit-card snapshots.');
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -201,6 +210,7 @@ final class SnapshotCodec {
   final bool budgetsAware;
   final bool recurringAware;
   final bool creditCardsAware;
+  final bool cardStatementsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -213,6 +223,11 @@ final class SnapshotCodec {
     if (recurringAware) 'recurring_revisions': recurringRevisionColumns,
     if (recurringAware) 'recurring_occurrences': recurringOccurrenceColumns,
     if (creditCardsAware) 'card_revisions': cardRevisionColumns,
+    if (cardStatementsAware) 'card_posted_charges': cardPostedChargeColumns,
+    if (cardStatementsAware) 'card_statements': cardStatementColumns,
+    if (cardStatementsAware) 'card_payments': cardPaymentColumns,
+    if (cardStatementsAware)
+      'card_payment_allocations': cardPaymentAllocationColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -224,7 +239,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => creditCardsAware
+  int get _formatVersion => cardStatementsAware
+      ? 17
+      : creditCardsAware
       ? 16
       : recurringAware
       ? 15
@@ -251,7 +268,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => creditCardsAware
+  int get _schemaVersion => cardStatementsAware
+      ? 18
+      : creditCardsAware
       ? 17
       : recurringAware
       ? 16
@@ -297,6 +316,7 @@ final class SnapshotCodec {
     if (budgetsAware) 'budgets': 1,
     if (recurringAware) 'recurring_transactions': 1,
     if (creditCardsAware) 'credit_cards': 1,
+    if (cardStatementsAware) 'card_statements': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -445,6 +465,9 @@ final class SnapshotCodec {
               (creditCardsAware &&
                   root['version'] == 16 &&
                   root['schema'] == 17) ||
+              (cardStatementsAware &&
+                  root['version'] == 17 &&
+                  root['schema'] == 18) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -469,6 +492,7 @@ final class SnapshotCodec {
         if (root['version'] >= 14) 'budgets': 1,
         if (root['version'] >= 15) 'recurring_transactions': 1,
         if (root['version'] >= 16) 'credit_cards': 1,
+        if (root['version'] >= 17) 'card_statements': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -489,6 +513,12 @@ final class SnapshotCodec {
         if (root['version'] >= 15)
           'recurring_occurrences': recurringOccurrenceColumns,
         if (root['version'] >= 16) 'card_revisions': cardRevisionColumns,
+        if (root['version'] >= 17)
+          'card_posted_charges': cardPostedChargeColumns,
+        if (root['version'] >= 17) 'card_statements': cardStatementColumns,
+        if (root['version'] >= 17) 'card_payments': cardPaymentColumns,
+        if (root['version'] >= 17)
+          'card_payment_allocations': cardPaymentAllocationColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -605,7 +635,8 @@ final class SnapshotCodec {
         tombstonesAware != db.tombstonesAware ||
         budgetsAware != db.budgetsAware ||
         recurringAware != db.recurringAware ||
-        creditCardsAware != db.creditCardsAware)
+        creditCardsAware != db.creditCardsAware ||
+        cardStatementsAware != db.cardStatementsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
@@ -626,6 +657,13 @@ final class SnapshotCodec {
     if (creditCardsAware) {
       try {
         await validateCardTermsRevisions(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    if (cardStatementsAware) {
+      try {
+        await validateCardStatementFacts(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }

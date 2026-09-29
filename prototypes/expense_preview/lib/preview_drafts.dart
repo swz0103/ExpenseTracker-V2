@@ -24,8 +24,9 @@ extension PreviewDrafts on PreviewEngine {
             command.posting.kind != PostingKind.transfer ||
             command.posting.legs.length < 2 ||
             command.posting.legs.first.account.id != accountId ||
-            command.posting.legs.last.account.id !=
-                draft.fields.destinationId)) {
+            command.posting.legs.first.role != LegRole.principal ||
+            command.posting.legs[1].role != LegRole.principal ||
+            command.posting.legs[1].account.id != draft.fields.destinationId)) {
       throw PreviewInvalid();
     }
     final isCard =

@@ -28,6 +28,10 @@ const _rowByteLimits = <String, int>{
   'recurring_revisions': 8192,
   'recurring_occurrences': 1024,
   'card_revisions': 8192,
+  'card_posted_charges': 512,
+  'card_statements': 1024,
+  'card_payments': 512,
+  'card_payment_allocations': 512,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -44,6 +48,7 @@ Map<String, int> _tableLimits(
   bool budgets,
   bool recurring,
   bool creditCards,
+  bool cardStatements,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -57,6 +62,10 @@ Map<String, int> _tableLimits(
   if (recurring) 'recurring_revisions': LedgerSession.maxRecurringChanges,
   if (recurring) 'recurring_occurrences': LedgerSession.maxEvents,
   if (creditCards) 'card_revisions': LedgerSession.maxCardChanges,
+  if (cardStatements) 'card_posted_charges': LedgerSession.maxEvents,
+  if (cardStatements) 'card_statements': LedgerSession.maxEvents,
+  if (cardStatements) 'card_payments': LedgerSession.maxEvents,
+  if (cardStatements) 'card_payment_allocations': SnapshotCodec.maxRows,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -157,6 +166,7 @@ List<int> validateSessionCapacity(
   bool budgetsAware = false,
   bool recurringAware = false,
   bool creditCardsAware = false,
+  bool cardStatementsAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -184,6 +194,7 @@ List<int> validateSessionCapacity(
     budgetsAware: budgetsAware,
     recurringAware: recurringAware,
     creditCardsAware: creditCardsAware,
+    cardStatementsAware: cardStatementsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -202,6 +213,7 @@ List<int> validateSessionCapacity(
     budgetsAware,
     recurringAware,
     creditCardsAware,
+    cardStatementsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();

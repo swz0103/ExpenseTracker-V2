@@ -44,6 +44,7 @@ part 'search_screen.dart';
 part 'monthly_report_screen.dart';
 part 'budget_screen.dart';
 part 'recurring_screen.dart';
+part 'card_statement_screen.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -156,6 +157,7 @@ enum _Page {
   monthlyReport,
   budgets,
   recurring,
+  cardStatements,
   home,
   account,
   cardPurchase,
@@ -1638,6 +1640,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.monthlyReport,
               _Page.budgets,
               _Page.recurring,
+              _Page.cardStatements,
               _Page.simpleImport,
               _Page.simpleExport,
             }.contains(_page) &&
@@ -1770,6 +1773,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             accounts: _accounts,
             privacy: _privacy,
             reminder: widget.recurringReminder,
+          ),
+          _back(),
+        ];
+      case _Page.cardStatements:
+        return [
+          _CardStatementScreen(
+            engine: _engine!,
+            accounts: _accounts,
+            privacy: _privacy,
           ),
           _back(),
         ];
@@ -2488,6 +2500,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : () => _edit(_Page.cardPayment),
               child: const Text('信用卡繳款'),
+            ),
+          if (_engine!.capabilities.cardStatements &&
+              _accounts.any(
+                (row) => row.account.kind == AccountKind.creditCard,
+              ))
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.cardStatements),
+              child: const Text('信用卡帳單'),
             ),
           TextButton(
             onPressed: _busy
