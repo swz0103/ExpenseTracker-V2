@@ -19,6 +19,8 @@ import 'package:modular_persistence_probe/tag_reference_schema.dart';
 import 'package:modular_persistence_probe/tag_reference_validation.dart';
 import 'package:modular_persistence_probe/budget_schema.dart';
 import 'package:modular_persistence_probe/budget_revisions_adapter.dart';
+import 'package:modular_persistence_probe/recurring_schema.dart';
+import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
 
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/reversals_adapter.dart';
@@ -97,6 +99,7 @@ final class SnapshotCodec {
     this.correctionsAware = false,
     this.tombstonesAware = false,
     this.budgetsAware = false,
+    this.recurringAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -170,6 +173,11 @@ final class SnapshotCodec {
     if (budgetsAware && !tombstonesAware) {
       throw ArgumentError('Budgets require tombstone-aware snapshots.');
     }
+    if (recurringAware && !budgetsAware) {
+      throw ArgumentError(
+        'Recurring templates require budget-aware snapshots.',
+      );
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -184,6 +192,7 @@ final class SnapshotCodec {
   final bool correctionsAware;
   final bool tombstonesAware;
   final bool budgetsAware;
+  final bool recurringAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -193,6 +202,7 @@ final class SnapshotCodec {
     if (correctionsAware) 'event_corrections': correctionColumns,
     if (tombstonesAware) 'event_tombstones': tombstoneColumns,
     if (budgetsAware) 'budget_revisions': budgetRevisionColumns,
+    if (recurringAware) 'recurring_revisions': recurringRevisionColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -204,7 +214,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => budgetsAware
+  int get _formatVersion => recurringAware
+      ? 15
+      : budgetsAware
       ? 14
       : tombstonesAware
       ? 13
@@ -227,7 +239,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => budgetsAware
+  int get _schemaVersion => recurringAware
+      ? 16
+      : budgetsAware
       ? 15
       : tombstonesAware
       ? 14
@@ -267,6 +281,7 @@ final class SnapshotCodec {
     if (correctionsAware) 'ledger_corrections': 1,
     if (tombstonesAware) 'ledger_tombstones': 1,
     if (budgetsAware) 'budgets': 1,
+    if (recurringAware) 'recurring_transactions': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -409,6 +424,9 @@ final class SnapshotCodec {
                   root['version'] == 12 &&
                   root['schema'] == 13) ||
               (budgetsAware && root['version'] == 14 && root['schema'] == 15) ||
+              (recurringAware &&
+                  root['version'] == 15 &&
+                  root['schema'] == 16) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -431,6 +449,7 @@ final class SnapshotCodec {
         if (root['version'] >= 12) 'ledger_corrections': 1,
         if (root['version'] >= 13) 'ledger_tombstones': 1,
         if (root['version'] >= 14) 'budgets': 1,
+        if (root['version'] >= 15) 'recurring_transactions': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -446,6 +465,8 @@ final class SnapshotCodec {
         if (root['version'] >= 12) 'event_corrections': correctionColumns,
         if (root['version'] >= 13) 'event_tombstones': tombstoneColumns,
         if (root['version'] >= 14) 'budget_revisions': budgetRevisionColumns,
+        if (root['version'] >= 15)
+          'recurring_revisions': recurringRevisionColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -560,12 +581,20 @@ final class SnapshotCodec {
         notesAware != db.notesAware ||
         correctionsAware != db.correctionsAware ||
         tombstonesAware != db.tombstonesAware ||
-        budgetsAware != db.budgetsAware)
+        budgetsAware != db.budgetsAware ||
+        recurringAware != db.recurringAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
       try {
         await validateBudgetRevisions(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    if (recurringAware) {
+      try {
+        await validateRecurringRevisions(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }

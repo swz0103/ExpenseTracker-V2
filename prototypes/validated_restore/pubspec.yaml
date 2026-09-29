@@ -16,6 +16,8 @@ dependencies:
 dev_dependencies:
   budgets:
     path: ../../packages/budgets
+  recurring_transactions:
+    path: ../../packages/recurring_transactions
   reports:
     path: ../../packages/reports
   accounts:
