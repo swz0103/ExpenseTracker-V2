@@ -24,9 +24,7 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
   List<ConfirmedCardStatement> _statements = const [];
   List<CardUnallocatedPayment> _payments = const [];
   String? _cardId, _statementId, _paymentId, _message;
-  String? _pendingStatementSignature, _pendingAllocationSignature;
-  PublicId? _pendingStatementId;
-  OperationId? _pendingStatementOperation, _pendingAllocationOperation;
+  bool _pendingConfirmation = false, _pendingAllocation = false;
   bool _busy = false;
   int _request = 0;
 
@@ -63,10 +61,13 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
       final payments = await widget.engine.unallocatedCardPayments(
         PublicId.parse(cardId),
       );
+      final intents = await widget.engine.pendingCardStatementIntents();
       if (!mounted || request != _request || !widget.engine.isUnlocked) return;
       setState(() {
         _statements = statements;
         _payments = payments;
+        _pendingConfirmation = intents.confirmation;
+        _pendingAllocation = intents.allocation;
         if (!statements.any(
           (row) =>
               row.id.value == _statementId &&
@@ -105,6 +106,7 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
     } catch (_) {
       if (mounted && widget.engine.isUnlocked) {
         setState(() => _message = error);
+        await _load();
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -120,29 +122,16 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
     );
     final card = _cards.singleWhere((row) => row.account.id == cardId);
     final billed = Money.parse(card.account.currency, _billed.text.trim());
-    final signature =
-        '$cardId|${cycle.startsAfter}|${cycle.closesOn}|${cycle.dueOn}|${billed.minorUnits}';
-    if (signature != _pendingStatementSignature) {
-      _pendingStatementSignature = signature;
-      _pendingStatementId = PublicId.generate();
-      _pendingStatementOperation = OperationId(PublicId.generate());
-    }
-    await widget.engine.confirmCardStatement(
-      statementId: _pendingStatementId!,
+    await widget.engine.submitCardStatementConfirmation(
       cardId: cardId,
-      revision: 1,
       cycle: cycle,
       billed: billed,
-      operation: _pendingStatementOperation!,
     );
     if (mounted) {
       _startsAfter.clear();
       _closesOn.clear();
       _dueOn.clear();
       _billed.clear();
-      _pendingStatementSignature = null;
-      _pendingStatementId = null;
-      _pendingStatementOperation = null;
       setState(() => _message = '已保存實際帳單。');
     }
   }, '帳單未保存；請檢查實際日期、重疊帳期與卡片設定後重試。');
@@ -163,26 +152,28 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
         amount.minorUnits > payment.unallocated.minorUnits) {
       throw const FormatException('Allocation exceeds available amount');
     }
-    final signature =
-        '${payment.eventId}|${statement.id}|${statement.revision}|${amount.minorUnits}';
-    if (signature != _pendingAllocationSignature) {
-      _pendingAllocationSignature = signature;
-      _pendingAllocationOperation = OperationId(PublicId.generate());
-    }
-    await widget.engine.allocateCardPayment(
+    await widget.engine.submitCardPaymentAllocation(
       paymentEventId: payment.eventId,
       statementId: statement.id,
       statementRevision: statement.revision,
+      cardId: statement.cardId,
       amount: amount,
-      operation: _pendingAllocationOperation!,
     );
     if (mounted) {
       _allocation.clear();
-      _pendingAllocationSignature = null;
-      _pendingAllocationOperation = null;
       setState(() => _message = '已將繳款分配至帳單。');
     }
   }, '分配未保存；請檢查帳單未繳額及繳款未分配額後重試。');
+
+  Future<void> _retryConfirmation() => _run(() async {
+    await widget.engine.retryPendingCardStatementIntent('confirmation');
+    if (mounted) setState(() => _message = '已核對並保存前次帳單。');
+  }, '前次帳單仍未確認；請保留紀錄並稍後重試。');
+
+  Future<void> _retryAllocation() => _run(() async {
+    await widget.engine.retryPendingCardStatementIntent('allocation');
+    if (mounted) setState(() => _message = '已核對前次繳款分配。');
+  }, '前次分配仍未確認；請保留紀錄並稍後重試。');
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +243,16 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
           child: const Text('確認並保存帳單'),
         ),
         const SizedBox(height: 16),
+        if (_pendingConfirmation) ...[
+          const Text('前次帳單確認尚待核對，請先重試；系統會沿用原操作。'),
+          TextButton(
+            key: const ValueKey('retry-statement-confirmation'),
+            onPressed: _busy || widget.privacy == PrivacyMode.hidden
+                ? null
+                : _retryConfirmation,
+            child: const Text('重試前次帳單確認'),
+          ),
+        ],
         for (final row in _statements)
           ListTile(
             title: Text('結帳 ${row.cycle.closesOn} · 繳款 ${row.cycle.dueOn}'),
@@ -319,6 +320,16 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
           ),
         ] else
           const Text('目前沒有可分配的繳款或未繳帳單。'),
+        if (_pendingAllocation) ...[
+          const Text('前次繳款分配尚待核對，請先重試；系統會沿用原操作。'),
+          TextButton(
+            key: const ValueKey('retry-card-allocation'),
+            onPressed: _busy || widget.privacy == PrivacyMode.hidden
+                ? null
+                : _retryAllocation,
+            child: const Text('重試前次繳款分配'),
+          ),
+        ],
         if (_message != null)
           Text(_message!, key: const ValueKey('statement-status')),
       ],
