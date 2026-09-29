@@ -32,9 +32,14 @@ final class MonthlyFact {
     this.accountId,
     this.merchantId,
     List<CategoryAllocation> allocations = const [],
-  }) : allocations = List.unmodifiable(allocations) {
+    Set<PublicId> tagIds = const {},
+  }) : allocations = List.unmodifiable(allocations),
+       tagIds = Set.unmodifiable(tagIds) {
     if (income.currency != expense.currency) {
       throw const MoneyException(MoneyError.currencyMismatch);
+    }
+    if (tagIds.length > 16) {
+      throw const FormatException('Too many report tags.');
     }
     if (allocations.isNotEmpty) {
       final effect = income.minorUnits != BigInt.zero
@@ -76,6 +81,7 @@ final class MonthlyFact {
   /// Saved identity, not today's canonical merchant after a merge.
   final PublicId? merchantId;
   final List<CategoryAllocation> allocations;
+  final Set<PublicId> tagIds;
   Currency get currency => income.currency;
   bool get contributes =>
       income.minorUnits != BigInt.zero || expense.minorUnits != BigInt.zero;

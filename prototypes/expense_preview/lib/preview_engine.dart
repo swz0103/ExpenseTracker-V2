@@ -13,6 +13,7 @@ export 'local_draft_store.dart' show DraftUnavailable, DraftNeedsResolution;
 export 'package:entry_drafts/entry_drafts.dart';
 
 import 'package:accounts/accounts.dart';
+import 'package:budgets/budgets.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:categories/categories.dart';
 import 'package:tags/tags.dart';
@@ -444,6 +445,19 @@ final class PreviewEngine {
         final result = await _session!.monthlyReport(_workspace!, month);
         _check(epoch);
         return result;
+      });
+  Future<BudgetResult> evaluateMonthlyBudget(BudgetPlan plan) =>
+      _exclusive((epoch) async {
+        _require();
+        if (plan.workspace != _workspace) throw PreviewInvalid();
+        final report = await _session!.monthlyReport(_workspace!, plan.month);
+        final categories = await _session!.categories(_workspace!);
+        _check(epoch);
+        return evaluateBudget(plan, [
+          for (final currency in report.currencies)
+            for (final fact in currency.facts)
+              BudgetFact(workspace: _workspace!, report: fact),
+        ], categories: categories);
       });
   Future<List<LedgerEntry>> deletedEntries({LedgerEntry? before}) =>
       _exclusive((epoch) async {

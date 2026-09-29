@@ -1,0 +1,47 @@
+{
+  "scope": "M2-02 effective Ledger budget read path; not persisted settings or acceptance",
+  "baseCommit": "e2e08b04cd335a3b78b2cd7d3971cc2a58bcd363",
+  "date": "2026-09-29",
+  "environment": "Windows host; private V2 repository; synthetic encrypted Ledger only; GitHub Actions disabled",
+  "checks": [
+    {
+      "command": "pwsh -NoProfile -File tooling/run-host-checks.ps1 -Package packages/reports -Offline",
+      "result": "passed; 11 tests, format and analysis"
+    },
+    {
+      "command": "pwsh -NoProfile -File tooling/run-host-checks.ps1 -Package packages/budgets -Offline",
+      "result": "passed; 4 tests, format and analysis"
+    },
+    {
+      "command": "pwsh -NoProfile -File tooling/run-host-checks.ps1 -Package prototypes/ledger_generation -Offline",
+      "result": "passed; 251 tests, format, analysis and native worker"
+    },
+    {
+      "command": "flutter test --no-pub -r compact test/budget_engine_test.dart test/category_engine_test.dart test/tag_engine_test.dart test/monthly_report_widget_test.dart",
+      "result": "passed; 28 focused app tests"
+    },
+    {
+      "command": "flutter analyze",
+      "result": "passed as part of app host check; full app test run stopped after 23 passes to avoid repeating previously verified unrelated suites"
+    },
+    {
+      "command": "dart run bin/check.dart ../.. && dart test",
+      "result": "passed; architecture boundaries and 20 checker tests"
+    },
+    {
+      "command": "flutter build apk --debug --target-platform android-arm64 --no-pub",
+      "result": "passed; output remains local and untracked"
+    }
+  ],
+  "covered": [
+    "single effective month query loads saved historical tag IDs without joining duplicate financial allocations",
+    "budget uses saved account, category and tag facts across expense and refund months",
+    "reopening encrypted V2 Ledger retains budget calculation; foreign-workspace plan rejected",
+    "report currency and existing financial effect rules remain unchanged"
+  ],
+  "notVerified": [
+    "versioned budget settings persistence, migration, UI and encrypted backup restore",
+    "physical device; ADB listed no attached devices",
+    "GitHub Actions checks; workflows remain disabled"
+  ]
+}

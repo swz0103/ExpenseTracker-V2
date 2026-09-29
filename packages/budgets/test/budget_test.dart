@@ -52,7 +52,6 @@ void main() {
     PublicId? id,
   }) => BudgetFact(
     workspace: workspace ?? space,
-    tagIds: tags,
     report: MonthlyFact(
       id: id ?? PublicId.generate(),
       date: date,
@@ -60,6 +59,7 @@ void main() {
       income: Money(currency, BigInt.zero),
       expense: Money.parse(currency, expense),
       accountId: accountId,
+      tagIds: tags,
       allocations: allocations,
     ),
   );

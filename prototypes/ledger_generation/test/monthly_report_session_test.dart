@@ -93,6 +93,7 @@ void main() {
       final october = BusinessDate(2026, 10, 2);
       final food = PublicId.generate(), travel = PublicId.generate();
       final shop = PublicId.generate(), payroll = PublicId.generate();
+      final budgetTag = PublicId.generate();
       final earned = Posting.income(
         id: PublicId.generate(),
         operation: operation(),
@@ -161,6 +162,7 @@ void main() {
         );
         await session.createMerchant(operation(), shop, 'store');
         await session.createMerchant(operation(), payroll, 'employer');
+        await session.createTag(operation(), budgetTag, 'budget');
         for (final posting in [
           earned,
           spent,
@@ -171,6 +173,9 @@ void main() {
         ]) {
           await session.post(
             posting,
+            tags: posting.id == spent.id || posting.id == refund.id
+                ? [TagSelection(budgetTag, 1)]
+                : const [],
             merchant: posting.id == spent.id || posting.id == refund.id
                 ? MerchantSelection(shop, 1)
                 : posting.id == earned.id || posting.id == reversal.id
@@ -199,6 +204,14 @@ void main() {
           spent.id,
           transfer.id,
         });
+        expect(
+          septemberTwd.facts.singleWhere((row) => row.id == spent.id).tagIds,
+          {budgetTag},
+        );
+        expect(
+          septemberTwd.facts.singleWhere((row) => row.id == earned.id).tagIds,
+          isEmpty,
+        );
         final septemberCategories = {
           for (final row in septemberReport.categories) row.categoryId: row,
         };

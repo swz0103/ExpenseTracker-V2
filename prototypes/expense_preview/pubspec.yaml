@@ -27,6 +27,8 @@ dependencies:
     path: ../../packages/accounts
   categories:
     path: ../../packages/categories
+  budgets:
+    path: ../../packages/budgets
   foundation_values:
     path: ../../packages/foundation_values
   ledger:

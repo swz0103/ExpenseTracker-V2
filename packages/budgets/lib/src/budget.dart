@@ -37,18 +37,13 @@ final class BudgetPlan {
 }
 
 /// The same classified report effect used by monthly reports, with its saved
-/// workspace and tag identities. Callers must load effective Ledger facts, not
+/// workspace. Callers must load effective Ledger facts, not
 /// raw legs, to avoid treating transfers or card payments as new spending.
 final class BudgetFact {
-  BudgetFact({
-    required this.workspace,
-    required this.report,
-    Set<PublicId> tagIds = const {},
-  }) : tagIds = Set.unmodifiable(tagIds);
+  const BudgetFact({required this.workspace, required this.report});
 
   final WorkspaceId workspace;
   final MonthlyFact report;
-  final Set<PublicId> tagIds;
 }
 
 final class BudgetResult {
@@ -103,7 +98,7 @@ BudgetResult evaluateBudget(
         !plan.accountIds.contains(row.accountId)) {
       continue;
     }
-    if (plan.tagIds.isNotEmpty && !fact.tagIds.any(plan.tagIds.contains)) {
+    if (plan.tagIds.isNotEmpty && !row.tagIds.any(plan.tagIds.contains)) {
       continue;
     }
     final units = selected == null

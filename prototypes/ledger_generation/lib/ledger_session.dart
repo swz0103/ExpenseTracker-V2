@@ -515,6 +515,7 @@ final class LedgerSession {
         .customSelect(
           'SELECT e.id,e.business_date,e.kind,e.income,e.expense,e.currency,e.scale,p.account_id AS primary_account_id, '
           '${_db.categoryReferences ? 'a.category_id,a.amount AS allocated_amount,' : 'NULL AS category_id,NULL AS allocated_amount,'}'
+          '${_db.tagsAware ? '(SELECT group_concat(x.tag_id) FROM event_tags x WHERE x.workspace=e.workspace AND x.event_id=e.id) AS tag_ids,' : 'NULL AS tag_ids,'}'
           '${_db.merchantsAware ? 'm.merchant_id ' : 'NULL AS merchant_id '}'
           'FROM events e '
           'LEFT JOIN legs p ON p.workspace=e.workspace AND p.event_id=e.id AND p.ordinal=0 '
@@ -566,6 +567,10 @@ final class LedgerSession {
           merchantId: switch (eventRows.first.read<String?>('merchant_id')) {
             final id? => PublicId.parse(id),
             null => null,
+          },
+          tagIds: switch (eventRows.first.read<String?>('tag_ids')) {
+            final ids? => ids.split(',').map(PublicId.parse).toSet(),
+            null => const <PublicId>{},
           },
           allocations: [
             for (final row in eventRows)
