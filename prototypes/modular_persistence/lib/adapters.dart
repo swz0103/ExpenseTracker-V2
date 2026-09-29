@@ -10,12 +10,15 @@ import 'database.dart';
 final class AccountsAdapter {
   AccountsAdapter(this.db);
   final ProbeDatabase db;
-  Future<void> insert(Account account) =>
-      db.customStatement('INSERT INTO accounts VALUES (?,?,?)', [
-        account.workspace.toString(),
-        account.id.value,
-        jsonEncode(accountJson(account)),
-      ]);
+  Future<void> insert(Account account) {
+    _checkCardSchema(account);
+    return db.customStatement('INSERT INTO accounts VALUES (?,?,?)', [
+      account.workspace.toString(),
+      account.id.value,
+      jsonEncode(accountJson(account)),
+    ]);
+  }
+
   Future<Account> read(WorkspaceId workspace, PublicId id) async {
     final rows = await db
         .customSelect(
@@ -29,11 +32,15 @@ final class AccountsAdapter {
     if (rows.isEmpty) throw const AccountException(AccountError.unavailable);
     final json =
         jsonDecode(rows.single.read<String>('payload')) as Map<String, dynamic>;
+    final kind = AccountKind.values.byName(json['kind'] as String);
+    if (kind == AccountKind.creditCard && !db.creditCardsAware) {
+      throw const FormatException('Credit-card account requires schema 17');
+    }
     return Account.restore(
       id: id,
       workspace: workspace,
       name: json['name'] as String,
-      kind: AccountKind.values.byName(json['kind'] as String),
+      kind: kind,
       currency: Currency(json['currency'] as String, json['scale'] as int),
       openedOn: BusinessDate.parse(json['openedOn'] as String),
       includeInNetWorth: json['includeInNetWorth'] as bool,
@@ -49,14 +56,23 @@ final class AccountsAdapter {
     );
   }
 
-  Future<void> replace(Account account) => db.customStatement(
-    'UPDATE accounts SET payload = ? WHERE workspace = ? AND id = ?',
-    [
-      jsonEncode(accountJson(account)),
-      account.workspace.toString(),
-      account.id.value,
-    ],
-  );
+  Future<void> replace(Account account) {
+    _checkCardSchema(account);
+    return db.customStatement(
+      'UPDATE accounts SET payload = ? WHERE workspace = ? AND id = ?',
+      [
+        jsonEncode(accountJson(account)),
+        account.workspace.toString(),
+        account.id.value,
+      ],
+    );
+  }
+
+  void _checkCardSchema(Account account) {
+    if (account.kind == AccountKind.creditCard && !db.creditCardsAware) {
+      throw const FormatException('Credit-card account requires schema 17');
+    }
+  }
 }
 
 Map<String, Object?> accountJson(Account account) => {

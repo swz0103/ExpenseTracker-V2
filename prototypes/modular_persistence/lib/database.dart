@@ -12,6 +12,7 @@ import 'tag_reference_schema.dart';
 import 'allocation_schema.dart';
 import 'budget_schema.dart';
 import 'recurring_schema.dart';
+import 'card_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -32,6 +33,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.tombstonesAware = false,
     this.budgetsAware = false,
     this.recurringAware = false,
+    this.creditCardsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -107,6 +109,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.tombstonesAware = false,
     this.budgetsAware = false,
     this.recurringAware = false,
+    this.creditCardsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -178,7 +181,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool tombstonesAware;
   final bool budgetsAware;
   final bool recurringAware;
+  final bool creditCardsAware;
   void _configuration() {
+    if (creditCardsAware && !recurringAware) {
+      throw ArgumentError('Credit cards require the recurring-aware schema.');
+    }
     if (recurringAware && !budgetsAware) {
       throw ArgumentError(
         'Recurring templates require the budget-aware schema.',
@@ -198,7 +205,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => recurringAware
+  int get schemaVersion => creditCardsAware
+      ? 17
+      : recurringAware
       ? 16
       : budgetsAware
       ? 15
@@ -251,6 +260,7 @@ final class ProbeDatabase extends GeneratedDatabase {
         await customStatement(recurringRevisionSchema);
         await customStatement(recurringOccurrenceSchema);
       }
+      if (creditCardsAware) await customStatement(cardRevisionSchema);
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {

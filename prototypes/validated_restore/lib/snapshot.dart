@@ -21,6 +21,8 @@ import 'package:modular_persistence_probe/budget_schema.dart';
 import 'package:modular_persistence_probe/budget_revisions_adapter.dart';
 import 'package:modular_persistence_probe/recurring_schema.dart';
 import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
+import 'package:modular_persistence_probe/card_schema.dart';
+import 'package:modular_persistence_probe/card_revisions_adapter.dart';
 
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/reversals_adapter.dart';
@@ -101,6 +103,7 @@ final class SnapshotCodec {
     this.tombstonesAware = false,
     this.budgetsAware = false,
     this.recurringAware = false,
+    this.creditCardsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -179,6 +182,9 @@ final class SnapshotCodec {
         'Recurring templates require budget-aware snapshots.',
       );
     }
+    if (creditCardsAware && !recurringAware) {
+      throw ArgumentError('Credit cards require recurring-aware snapshots.');
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -194,6 +200,7 @@ final class SnapshotCodec {
   final bool tombstonesAware;
   final bool budgetsAware;
   final bool recurringAware;
+  final bool creditCardsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -205,6 +212,7 @@ final class SnapshotCodec {
     if (budgetsAware) 'budget_revisions': budgetRevisionColumns,
     if (recurringAware) 'recurring_revisions': recurringRevisionColumns,
     if (recurringAware) 'recurring_occurrences': recurringOccurrenceColumns,
+    if (creditCardsAware) 'card_revisions': cardRevisionColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -216,7 +224,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => recurringAware
+  int get _formatVersion => creditCardsAware
+      ? 16
+      : recurringAware
       ? 15
       : budgetsAware
       ? 14
@@ -241,7 +251,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => recurringAware
+  int get _schemaVersion => creditCardsAware
+      ? 17
+      : recurringAware
       ? 16
       : budgetsAware
       ? 15
@@ -284,6 +296,7 @@ final class SnapshotCodec {
     if (tombstonesAware) 'ledger_tombstones': 1,
     if (budgetsAware) 'budgets': 1,
     if (recurringAware) 'recurring_transactions': 1,
+    if (creditCardsAware) 'credit_cards': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -429,6 +442,9 @@ final class SnapshotCodec {
               (recurringAware &&
                   root['version'] == 15 &&
                   root['schema'] == 16) ||
+              (creditCardsAware &&
+                  root['version'] == 16 &&
+                  root['schema'] == 17) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -452,6 +468,7 @@ final class SnapshotCodec {
         if (root['version'] >= 13) 'ledger_tombstones': 1,
         if (root['version'] >= 14) 'budgets': 1,
         if (root['version'] >= 15) 'recurring_transactions': 1,
+        if (root['version'] >= 16) 'credit_cards': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -471,6 +488,7 @@ final class SnapshotCodec {
           'recurring_revisions': recurringRevisionColumns,
         if (root['version'] >= 15)
           'recurring_occurrences': recurringOccurrenceColumns,
+        if (root['version'] >= 16) 'card_revisions': cardRevisionColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -586,7 +604,8 @@ final class SnapshotCodec {
         correctionsAware != db.correctionsAware ||
         tombstonesAware != db.tombstonesAware ||
         budgetsAware != db.budgetsAware ||
-        recurringAware != db.recurringAware)
+        recurringAware != db.recurringAware ||
+        creditCardsAware != db.creditCardsAware)
       throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
@@ -600,6 +619,13 @@ final class SnapshotCodec {
       try {
         await validateRecurringRevisions(db);
         await validateRecurringOccurrences(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    if (creditCardsAware) {
+      try {
+        await validateCardTermsRevisions(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }
@@ -954,6 +980,7 @@ final class SnapshotCodec {
           input.isEmpty ||
           ![
             'create-v1',
+            if (creditCardsAware) 'card-create-v1',
             'posting-v1',
             if (fxTransfersAware) 'fx-posting-v1',
             if (refundsAware) 'refund-posting-v1',
@@ -1107,12 +1134,30 @@ final class SnapshotCodec {
       } else if (context != null) {
         throw const InvalidSnapshot();
       }
-      final isCreate = input.first == 'create-v1';
+      final cardCreate = input.first == 'card-create-v1';
+      final isCreate = input.first == 'create-v1' || cardCreate;
       if (isCreate &&
-          (input.length != 4 ||
+          (input.length != (cardCreate ? 5 : 4) ||
               input[2] is! Map ||
               event.read<String>('kind') != 'opening'))
         throw const InvalidSnapshot();
+      if (cardCreate) {
+        final revision = await db
+            .customSelect(
+              'SELECT card_id,payload FROM card_revisions '
+              'WHERE workspace=? AND operation_id=? AND version=1',
+              variables: [
+                Variable.withString(ws),
+                Variable.withString(row.read<String>('operation_id')),
+              ],
+            )
+            .getSingleOrNull();
+        if (revision == null ||
+            revision.read<String>('card_id') != input[1] ||
+            revision.read<String>('payload') != input[4]) {
+          throw const InvalidSnapshot();
+        }
+      }
       final posting = isCreate ? input[3] : input;
       final eventLegs = legsByEvent[(ws, resultId)] ?? const <QueryRow>[];
       final eventAllocations =

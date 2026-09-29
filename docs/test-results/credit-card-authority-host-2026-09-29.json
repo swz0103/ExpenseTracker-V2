@@ -1,0 +1,28 @@
+{
+  "scope": "M2-04 schema 17 card settings authority, not the completed credit-card feature",
+  "date": "2026-09-29",
+  "hostChecks": {
+    "creditCards": "7 business tests passed; dart analyze passed",
+    "accounts": "9 tests passed; dart analyze passed",
+    "persistence": "71 tests passed; dart analyze passed",
+    "validatedRestore": "114 tests passed after the receipt validation adjustment; dart analyze passed",
+    "architecture": "Architecture boundaries passed",
+    "diffCheck": "to be verified at staged commit"
+  },
+  "behavior": [
+    "schema 17 credit-card account and versioned card settings revisions in the same local database",
+    "new card account opening, terms and Ledger receipt commit atomically and replay idempotently",
+    "edits and disable retain ordered revisions; stale versions and conflicting operations fail closed",
+    "portable snapshot round-trip with regenerated local binding preserves card settings",
+    "tampered card settings are rejected before stage or backup"
+  ],
+  "device": "not run; adb devices -l returned no attached device",
+  "cloud": "not run; exact-head PR checks absent and Actions remaining budget unverified",
+  "remaining": [
+    "wire schema 17 through encrypted Ledger generation, safety-backed migration and the App coordinator",
+    "implement atomic card purchase, pending/posted, refund and payment workflow against liability account",
+    "simple card setup, statement and payment UI with asset-report exclusion",
+    "password and recovery backup/restore, upgrade failure and synthetic device gates"
+  ],
+  "gate": "storage and snapshot prototype verified on host only; M2-04 remains not user-operable"
+}

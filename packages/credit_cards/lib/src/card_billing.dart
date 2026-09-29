@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:foundation_values/foundation_values.dart';
 
 enum CreditCardError {
@@ -25,8 +27,13 @@ final class CreditCardTerms {
     required this.closingDay,
     required this.dueDay,
     this.limit,
+    this.version = 1,
   }) {
-    if (closingDay < 1 || closingDay > 31 || dueDay < 1 || dueDay > 31) {
+    if (version < 1 ||
+        closingDay < 1 ||
+        closingDay > 31 ||
+        dueDay < 1 ||
+        dueDay > 31) {
       throw const CreditCardException(CreditCardError.invalidInput);
     }
     if (limit != null &&
@@ -41,6 +48,7 @@ final class CreditCardTerms {
   final int closingDay;
   final int dueDay;
   final Money? limit;
+  final int version;
 
   /// Nominal dates only. A real issuer statement may supply actual dates.
   CardCycle scheduledCycleFor(BusinessDate postedOn) {
@@ -56,6 +64,72 @@ final class CreditCardTerms {
       closesOn: close,
       dueOn: _day(following.$1, following.$2, dueDay),
     );
+  }
+}
+
+/// Portable, strict representation of one saved card-settings revision.
+/// The database owns the operation ID and UTC audit timestamp separately.
+final class CreditCardTermsCodec {
+  const CreditCardTermsCodec();
+
+  String encode(CreditCardTerms terms) => jsonEncode({
+    'format': 1,
+    'workspace': terms.workspace.id.value,
+    'cardId': terms.cardId.value,
+    'version': terms.version,
+    'currency': terms.currency.code,
+    'scale': terms.currency.scale,
+    'closingDay': terms.closingDay,
+    'dueDay': terms.dueDay,
+    'limitMinor': terms.limit?.minorUnits.toString(),
+  });
+
+  CreditCardTerms decode(String encoded) {
+    final Object? value = jsonDecode(encoded);
+    if (value is! Map<String, dynamic> ||
+        value.length != 9 ||
+        !const {
+          'format',
+          'workspace',
+          'cardId',
+          'version',
+          'currency',
+          'scale',
+          'closingDay',
+          'dueDay',
+          'limitMinor',
+        }.every(value.containsKey) ||
+        value['format'] != 1 ||
+        value['workspace'] is! String ||
+        value['cardId'] is! String ||
+        value['version'] is! int ||
+        value['currency'] is! String ||
+        value['scale'] is! int ||
+        value['closingDay'] is! int ||
+        value['dueDay'] is! int ||
+        (value['limitMinor'] != null && value['limitMinor'] is! String)) {
+      throw const FormatException('Invalid card settings');
+    }
+    final currency = Currency(
+      value['currency'] as String,
+      value['scale'] as int,
+    );
+    final limit = value['limitMinor'] == null
+        ? null
+        : Money(currency, BigInt.parse(value['limitMinor'] as String));
+    final terms = CreditCardTerms(
+      workspace: WorkspaceId.parse(value['workspace'] as String),
+      cardId: PublicId.parse(value['cardId'] as String),
+      currency: currency,
+      closingDay: value['closingDay'] as int,
+      dueDay: value['dueDay'] as int,
+      limit: limit,
+      version: value['version'] as int,
+    );
+    if (encode(terms) != encoded) {
+      throw const FormatException('Non-canonical card settings');
+    }
+    return terms;
   }
 }
 

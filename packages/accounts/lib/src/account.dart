@@ -1,6 +1,6 @@
 import 'package:foundation_values/foundation_values.dart';
 
-enum AccountKind { cash, bank }
+enum AccountKind { cash, bank, creditCard }
 
 enum AccountState { active, archived, closed }
 

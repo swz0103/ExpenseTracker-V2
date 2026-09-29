@@ -27,6 +27,40 @@ void main() {
     );
   });
 
+  test('versioned card settings round-trip and reject non-canonical input', () {
+    const codec = CreditCardTermsCodec();
+    final revised = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: twd,
+      closingDay: 30,
+      dueDay: 12,
+      limit: Money.parse(twd, '8000'),
+      version: 2,
+    );
+    final encoded = codec.encode(revised);
+    final decoded = codec.decode(encoded);
+    expect(codec.encode(decoded), encoded);
+    expect(decoded.version, 2);
+    expect(decoded.limit!.majorText, '8000.00');
+    expect(
+      () => codec.decode(encoded.replaceFirst('"version":2', '"version":0')),
+      throwsA(anything),
+    );
+    expect(
+      () => codec.decode(
+        encoded.replaceFirst('"closingDay":30', '"closingDay":32'),
+      ),
+      throwsA(anything),
+    );
+    expect(
+      () => codec.decode(
+        encoded.replaceFirst('"limitMinor":"800000"', '"limitMinor":"0800000"'),
+      ),
+      throwsA(anything),
+    );
+  });
+
   test('pending FX estimate is excluded; posted amount replaces it', () {
     final pending = CardCharge.pending(
       id: PublicId.generate(),

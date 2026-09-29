@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:accounts/accounts.dart';
+import 'package:credit_cards/credit_cards.dart';
 import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
@@ -14,6 +15,7 @@ import 'tagged_posting.dart';
 import 'merchant_posting.dart';
 import 'refunds_adapter.dart';
 import 'reversals_adapter.dart';
+import 'card_revisions_adapter.dart';
 
 export 'operations.dart' show OperationConflict, CommitResult;
 
@@ -40,6 +42,7 @@ final class FinancialWorkflows {
   Future<CommitResult> createAccount(
     Account account,
     Posting opening, {
+    CreditCardTerms? cardTerms,
     void Function(String)? checkpoint,
   }) {
     if (account.state != AccountState.active ||
@@ -50,14 +53,35 @@ final class FinancialWorkflows {
         opening.date != account.openedOn) {
       throw ArgumentError('Opening must describe the new active account.');
     }
+    if ((account.kind == AccountKind.creditCard) != (cardTerms != null) ||
+        (cardTerms != null &&
+            (!db.creditCardsAware ||
+                cardTerms.workspace != account.workspace ||
+                cardTerms.cardId != account.id ||
+                cardTerms.currency != account.currency ||
+                cardTerms.version != 1))) {
+      throw ArgumentError(
+        'Credit-card opening requires matching schema 17 terms.',
+      );
+    }
     return _commit(
       opening.operation,
-      jsonEncode([
-        'create-v1',
-        account.id.value,
-        accountJson(account),
-        postingInput(opening),
-      ]),
+      jsonEncode(
+        cardTerms == null
+            ? [
+                'create-v1',
+                account.id.value,
+                accountJson(account),
+                postingInput(opening),
+              ]
+            : [
+                'card-create-v1',
+                account.id.value,
+                accountJson(account),
+                postingInput(opening),
+                const CreditCardTermsCodec().encode(cardTerms),
+              ],
+      ),
       opening.id,
       () async {
         await accounts.insert(account);
@@ -65,6 +89,14 @@ final class FinancialWorkflows {
         await _validate(opening);
         await ledger.insert(opening, checkpoint: checkpoint);
         await _checkBalances(opening);
+        if (cardTerms != null) {
+          await appendCardTermsRevision(
+            db,
+            cardTerms,
+            opening.operation.operation,
+            DateTime.now().toUtc(),
+          );
+        }
       },
       'account.open',
       checkpoint,

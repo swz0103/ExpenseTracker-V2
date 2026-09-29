@@ -8,6 +8,8 @@ dependencies:
     path: ../../packages/budgets
   recurring_transactions:
     path: ../../packages/recurring_transactions
+  credit_cards:
+    path: ../../packages/credit_cards
   tags:
     path: ../../packages/tags
   merchants:
