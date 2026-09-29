@@ -6,7 +6,8 @@
 
 1. **帳本開啟的全量驗證成本（效能風險，高）**：`GenerationStore.current()` 與 `withCurrent()` 均先進入 `_recover()`，該方法對目前世代呼叫 `_inspect()`；Ledger 的 `LedgerPayload.inspect()` 又以 `SnapshotCodec.capture()` 驗證並序列化權威資料。已記錄的 5,000 事件合成帳本在 Windows 主機重開約 105 秒、另一輪約 108 秒，詳見[前次量測](architecture-audit-2026-09-28.md#後續實測大量帳本的開啟驗證成本)。目前保留 fail-closed；不可直接略過完整性檢查。修正前須分開量測密文完整性、邏輯歷史及序列化，制定可驗證的快取失效或驗證時機，並回歸損壞、升級、程序中斷與兩種憑證還原。100k+ 目標尚未驗收。
 2. **App 畫面狀態集中（維護與競爭風險，中）**：`prototypes/expense_preview/lib/main.dart` 目前約 2,448 行，單一狀態物件協調鎖定、帳本、草稿與多個業務畫面；拆出的 `part` 檔仍共享同一私有狀態。已有鎖定時延遲結果與備份路徑競爭的歷史修正，因此後續功能應先明確界定 session epoch 與狀態所有權；遇到可重現交錯再把該流程移到獨立協調層，不先全面改寫 UI。
-3. **雲端檢查清單漂移（驗證缺口，中）**：舊 `Foundation probe` 的矩陣沒有 `packages/data_exchange`，兩份原 workflow 又只可手動觸發且預設分支沒有 workflow 檔案，無法直接對整合候選執行。新增的 `V2 integration validation` 只在整合分支的 workflow 檔案變更時觸發，使用單一整合提交，依本機清單涵蓋架構、11 個業務套件、8 個資料／原型套件與 2 個 Flutter App。四個 Linux job 的 timeout 合計上限 68 分鐘，不含裝置測試。舊高成本 workflow 保持停用。
+3. **雲端檢查清單漂移（驗證缺口，中）**：舊 `Foundation probe` 的矩陣沒有 `packages/data_exchange`，兩份原 workflow 又只可手動觸發且預設分支沒有 workflow 檔案，無法直接對整合候選執行。新增的 `V2 integration validation` 在整合分支的 workflow 或本次跨平台測試檔變更時觸發，使用單一整合提交，依本機清單涵蓋架構、11 個業務套件、8 個資料／原型套件與 2 個 Flutter App。四個 Linux job 的 timeout 合計上限 68 分鐘，不含裝置測試。舊高成本 workflow 保持停用。
+4. **測試平台路徑（已修正）**：首輪雲端資料保存組在交易子程序測試找到寫死 `.exe` 的路徑；同組其他資料保存測試通過。已讓該測試依執行平台選擇副檔名，Windows 主機重新建置 worker、分析與 11 項測試通過。這是測試路徑修正，並未改變交易提交程式；新提交仍須雲端重驗。
 
 ## 本次收斂的證據與限制
 

@@ -1,11 +1,13 @@
 name: V2 integration validation
 
 # The default branch does not yet contain workflows. A tightly scoped push
-# verifies the integration commit once without waking the old PR stack.
+# verifies the integration commit without waking the old PR stack.
 on:
   push:
     branches: [integration/v2-core]
-    paths: [.github/workflows/integration-validation.yml]
+    paths:
+      - .github/workflows/integration-validation.yml
+      - prototypes/transaction_boundary/test/transaction_probe_test.dart
   workflow_dispatch:
 
 permissions:

@@ -59,7 +59,9 @@ void main() {
   }
 
   Future<ProcessResult> worker(String checkpoint) => Process.run(
-    File('.dart_tool/worker/bundle/bin/worker.exe').absolute.path,
+    File(
+      '.dart_tool/worker/bundle/bin/worker${Platform.isWindows ? '.exe' : ''}',
+    ).absolute.path,
     [databasePath, 'workspace-a', 'transfer-1', '2500', checkpoint],
     workingDirectory: Directory.current.path,
   );
