@@ -60,6 +60,11 @@
       "publicEntrypoints": ["budgets.dart"],
       "dependencies": ["categories", "foundation_values", "reports"]
     },
+    "credit_cards": {
+      "directory": "packages/credit_cards",
+      "publicEntrypoints": ["credit_cards.dart"],
+      "dependencies": ["foundation_values"]
+    },
     "recurring_transactions": {
       "directory": "packages/recurring_transactions",
       "publicEntrypoints": ["recurring_transactions.dart"],

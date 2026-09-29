@@ -1,0 +1,11 @@
+name: credit_cards
+description: Credit-card billing rules over explicitly posted Ledger effects.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  foundation_values:
+    path: ../foundation_values
+dev_dependencies:
+  test: 1.32.0

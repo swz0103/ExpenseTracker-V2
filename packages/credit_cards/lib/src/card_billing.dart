@@ -1,0 +1,319 @@
+import 'package:foundation_values/foundation_values.dart';
+
+enum CreditCardError {
+  invalidInput,
+  workspaceMismatch,
+  cardMismatch,
+  currencyMismatch,
+  duplicateIdentity,
+  alreadyPosted,
+}
+
+final class CreditCardException implements Exception {
+  const CreditCardException(this.code);
+  final CreditCardError code;
+  @override
+  String toString() => 'CreditCardException(${code.name})';
+}
+
+/// Card settings are not a Ledger balance or an issuer-specific limit engine.
+final class CreditCardTerms {
+  CreditCardTerms({
+    required this.workspace,
+    required this.cardId,
+    required this.currency,
+    required this.closingDay,
+    required this.dueDay,
+    this.limit,
+  }) {
+    if (closingDay < 1 || closingDay > 31 || dueDay < 1 || dueDay > 31) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    if (limit != null &&
+        (limit!.currency != currency || limit!.minorUnits <= BigInt.zero)) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+  }
+
+  final WorkspaceId workspace;
+  final PublicId cardId;
+  final Currency currency;
+  final int closingDay;
+  final int dueDay;
+  final Money? limit;
+
+  /// Nominal dates only. A real issuer statement may supply actual dates.
+  CardCycle scheduledCycleFor(BusinessDate postedOn) {
+    var close = _day(postedOn.year, postedOn.month, closingDay);
+    if (postedOn.compareTo(close) > 0) {
+      final next = _month(postedOn.year, postedOn.month, 1);
+      close = _day(next.$1, next.$2, closingDay);
+    }
+    final previous = _month(close.year, close.month, -1);
+    final following = _month(close.year, close.month, 1);
+    return CardCycle(
+      startsAfter: _day(previous.$1, previous.$2, closingDay),
+      closesOn: close,
+      dueOn: _day(following.$1, following.$2, dueDay),
+    );
+  }
+}
+
+/// Explicit actual dates can replace nominal issuer dates for one statement.
+final class CardCycle {
+  CardCycle({
+    required this.startsAfter,
+    required this.closesOn,
+    required this.dueOn,
+  }) {
+    if (startsAfter.compareTo(closesOn) >= 0 ||
+        closesOn.compareTo(dueOn) >= 0) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+  }
+
+  final BusinessDate startsAfter;
+  final BusinessDate closesOn;
+  final BusinessDate dueOn;
+
+  bool includes(BusinessDate postedOn) =>
+      postedOn.compareTo(startsAfter) > 0 && postedOn.compareTo(closesOn) <= 0;
+}
+
+enum CardChargeKind { purchase, refund }
+
+/// Pending is only an authorization; only a posted charge has a Ledger event.
+final class CardCharge {
+  CardCharge._({
+    required this.id,
+    required this.workspace,
+    required this.cardId,
+    required this.kind,
+    required this.authorizedOn,
+    required this.authorizedAmount,
+    this.originalChargeId,
+    this.postedOn,
+    this.settledAmount,
+    this.fee,
+    this.ledgerEventId,
+  });
+
+  factory CardCharge.pending({
+    required PublicId id,
+    required WorkspaceId workspace,
+    required PublicId cardId,
+    required CardChargeKind kind,
+    required BusinessDate authorizedOn,
+    required Money authorizedAmount,
+    PublicId? originalChargeId,
+  }) {
+    if (authorizedAmount.minorUnits <= BigInt.zero ||
+        (kind == CardChargeKind.refund) != (originalChargeId != null) ||
+        originalChargeId == id) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    return CardCharge._(
+      id: id,
+      workspace: workspace,
+      cardId: cardId,
+      kind: kind,
+      authorizedOn: authorizedOn,
+      authorizedAmount: authorizedAmount,
+      originalChargeId: originalChargeId,
+    );
+  }
+
+  final PublicId id;
+  final WorkspaceId workspace;
+  final PublicId cardId;
+  final CardChargeKind kind;
+  final BusinessDate authorizedOn;
+  final Money authorizedAmount;
+  final PublicId? originalChargeId;
+  final BusinessDate? postedOn;
+  final Money? settledAmount;
+  final Money? fee;
+  final PublicId? ledgerEventId;
+  bool get isPosted => ledgerEventId != null;
+
+  /// A changed FX settlement replaces the pending estimate, never adds a
+  /// second purchase. The application must commit the Ledger event atomically.
+  CardCharge post({
+    required BusinessDate postedOn,
+    required Money settledAmount,
+    required Money fee,
+    required PublicId ledgerEventId,
+  }) {
+    if (isPosted) {
+      throw const CreditCardException(CreditCardError.alreadyPosted);
+    }
+    if (postedOn.compareTo(authorizedOn) < 0 ||
+        settledAmount.minorUnits <= BigInt.zero ||
+        fee.minorUnits < BigInt.zero ||
+        settledAmount.currency != fee.currency) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    return CardCharge._(
+      id: id,
+      workspace: workspace,
+      cardId: cardId,
+      kind: kind,
+      authorizedOn: authorizedOn,
+      authorizedAmount: authorizedAmount,
+      originalChargeId: originalChargeId,
+      postedOn: postedOn,
+      settledAmount: settledAmount,
+      fee: fee,
+      ledgerEventId: ledgerEventId,
+    );
+  }
+}
+
+/// The application links this to a committed Ledger transfer, never expense.
+final class CardPayment {
+  CardPayment({
+    required this.id,
+    required this.workspace,
+    required this.cardId,
+    required this.statementClose,
+    required this.postedOn,
+    required this.amount,
+    required this.ledgerEventId,
+  }) {
+    if (amount.minorUnits <= BigInt.zero) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+  }
+  final PublicId id;
+  final WorkspaceId workspace;
+  final PublicId cardId;
+  final BusinessDate statementClose;
+  final BusinessDate postedOn;
+  final Money amount;
+  final PublicId ledgerEventId;
+}
+
+/// Read model only. Spending belongs to the original posted Ledger purchase;
+/// statement due and payment must never be reported as new spending.
+final class CardStatement {
+  CardStatement._({
+    required this.cycle,
+    required this.purchases,
+    required this.refunds,
+    required this.fees,
+    required this.payments,
+    required this.remainingDue,
+    required this.credit,
+    required this.pendingCount,
+  });
+
+  factory CardStatement.calculate({
+    required CreditCardTerms terms,
+    required CardCycle cycle,
+    required Iterable<CardCharge> charges,
+    required Iterable<CardPayment> payments,
+  }) {
+    var purchases = Money(terms.currency, BigInt.zero);
+    var refunds = Money(terms.currency, BigInt.zero);
+    var fees = Money(terms.currency, BigInt.zero);
+    var paid = Money(terms.currency, BigInt.zero);
+    var pendingCount = 0;
+    final ids = <PublicId>{};
+    final events = <PublicId>{};
+    final allCharges = charges.toList();
+    final chargesById = <PublicId, CardCharge>{};
+    for (final charge in allCharges) {
+      _checkOwner(terms, charge.workspace, charge.cardId);
+      if (!ids.add(charge.id)) {
+        throw const CreditCardException(CreditCardError.duplicateIdentity);
+      }
+      chargesById[charge.id] = charge;
+    }
+    for (final charge in allCharges) {
+      if (charge.kind == CardChargeKind.refund &&
+          (chargesById[charge.originalChargeId]?.kind !=
+                  CardChargeKind.purchase ||
+              chargesById[charge.originalChargeId]?.isPosted != true)) {
+        throw const CreditCardException(CreditCardError.invalidInput);
+      }
+      if (!charge.isPosted) {
+        if (cycle.includes(charge.authorizedOn)) pendingCount++;
+        continue;
+      }
+      if (charge.settledAmount!.currency != terms.currency ||
+          charge.fee!.currency != terms.currency) {
+        throw const CreditCardException(CreditCardError.currencyMismatch);
+      }
+      if (!events.add(charge.ledgerEventId!)) {
+        throw const CreditCardException(CreditCardError.duplicateIdentity);
+      }
+      if (!cycle.includes(charge.postedOn!)) continue;
+      if (charge.kind == CardChargeKind.purchase) {
+        purchases += charge.settledAmount!;
+      } else {
+        refunds += charge.settledAmount!;
+      }
+      fees += charge.fee!;
+    }
+    for (final payment in payments) {
+      _checkOwner(terms, payment.workspace, payment.cardId);
+      if (!ids.add(payment.id) || !events.add(payment.ledgerEventId)) {
+        throw const CreditCardException(CreditCardError.duplicateIdentity);
+      }
+      if (payment.amount.currency != terms.currency) {
+        throw const CreditCardException(CreditCardError.currencyMismatch);
+      }
+      if (payment.statementClose == cycle.closesOn) paid += payment.amount;
+    }
+    final net = purchases - refunds + fees - paid;
+    return CardStatement._(
+      cycle: cycle,
+      purchases: purchases,
+      refunds: refunds,
+      fees: fees,
+      payments: paid,
+      remainingDue: net.minorUnits.isNegative
+          ? Money(terms.currency, BigInt.zero)
+          : net,
+      credit: net.minorUnits.isNegative
+          ? -net
+          : Money(terms.currency, BigInt.zero),
+      pendingCount: pendingCount,
+    );
+  }
+
+  final CardCycle cycle;
+  final Money purchases;
+  final Money refunds;
+  final Money fees;
+  final Money payments;
+  final Money remainingDue;
+  final Money credit;
+  final int pendingCount;
+}
+
+void _checkOwner(
+  CreditCardTerms terms,
+  WorkspaceId workspace,
+  PublicId cardId,
+) {
+  if (workspace != terms.workspace) {
+    throw const CreditCardException(CreditCardError.workspaceMismatch);
+  }
+  if (cardId != terms.cardId) {
+    throw const CreditCardException(CreditCardError.cardMismatch);
+  }
+}
+
+(int, int) _month(int year, int month, int offset) {
+  final result = DateTime.utc(year, month + offset, 1);
+  if (result.year < 1 || result.year > 9999) {
+    throw const CreditCardException(CreditCardError.invalidInput);
+  }
+  return (result.year, result.month);
+}
+
+BusinessDate _day(int year, int month, int requested) {
+  final last = DateTime.utc(year, month + 1, 0).day;
+  return BusinessDate(year, month, requested > last ? last : requested);
+}
