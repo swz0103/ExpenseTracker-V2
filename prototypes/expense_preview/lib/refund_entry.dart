@@ -1,6 +1,14 @@
 part of 'main.dart';
 
 extension _RefundEntry on _PreviewHomeState {
+  bool get _cardRefund =>
+      _refund != null &&
+      _accounts.any(
+        (row) =>
+            row.account.id == _refund!.originalAccountId &&
+            row.account.kind == AccountKind.creditCard,
+      );
+
   bool get _foreignRefund =>
       _refund != null &&
       _sourceCurrency != null &&
@@ -10,6 +18,14 @@ extension _RefundEntry on _PreviewHomeState {
     await _refresh();
     if (_entryDraft != null || _draftUnreadable) throw DraftNeedsResolution();
     final status = await _engine!.refundStatus(original);
+    final sourceIsCard = _accounts.any(
+      (row) =>
+          row.account.id == status.originalAccountId &&
+          row.account.kind == AccountKind.creditCard,
+    );
+    if (sourceIsCard && !_engine!.capabilities.cardAuthorizations) {
+      throw PreviewInvalid();
+    }
     if (!mounted || !_engine!.isUnlocked) return;
     if (status.budget.remaining.minorUnits == BigInt.zero) {
       throw const LedgerException(LedgerError.refundLimit);
@@ -24,7 +40,8 @@ extension _RefundEntry on _PreviewHomeState {
       if (_accounts.any(
         (a) =>
             a.account.id == status.originalAccountId &&
-            a.account.state == AccountState.active,
+            (a.account.state == AccountState.active ||
+                (sourceIsCard && a.account.kind == AccountKind.creditCard)),
       )) {
         _accountId = status.originalAccountId;
       }
@@ -36,6 +53,11 @@ extension _RefundEntry on _PreviewHomeState {
 
   Future<void> _resumeRefund(EntryDraft saved) async {
     final status = await _engine!.refundStatus(saved.fields.refundOf!);
+    final sourceIsCard = _accounts.any(
+      (row) =>
+          row.account.id == status.originalAccountId &&
+          row.account.kind == AccountKind.creditCard,
+    );
     if (!mounted || !_engine!.isUnlocked) return;
     _edit(_Page.posting);
     final fields = saved.fields;
@@ -48,7 +70,8 @@ extension _RefundEntry on _PreviewHomeState {
           _accounts.any(
             (a) =>
                 a.account.id == fields.accountId &&
-                a.account.state == AccountState.active,
+                (a.account.state == AccountState.active ||
+                    (sourceIsCard && a.account.kind == AccountKind.creditCard)),
           )
           ? fields.accountId
           : null;
@@ -86,28 +109,33 @@ extension _RefundEntry on _PreviewHomeState {
       ),
       const Text('退款在本次日期沖減原支出，並沿用原分類、標籤與商家。'),
       const SizedBox(height: 14),
-      DropdownButtonFormField<PublicId>(
-        key: ValueKey('refund-account-$_accountId'),
-        initialValue: _accountId,
-        decoration: const InputDecoration(labelText: '退款入帳帳戶'),
-        isExpanded: true,
-        items: [
-          for (final s in _accounts.where(
-            (s) => s.account.state == AccountState.active,
-          ))
-            DropdownMenuItem(
-              value: s.account.id,
-              child: Text('${s.account.name} · ${s.account.currency.code}'),
-            ),
-        ],
-        onChanged: !enabled
-            ? null
-            : (id) => _changeSplit(() {
-                _accountId = id;
-                _received.clear();
-                _queueDraft();
-              }),
-      ),
+      if (_cardRefund)
+        Text(
+          '退款退回原信用卡：${_accountName(status.originalAccountId)}。退款按實際入帳日沖減支出；已確認的發卡行帳單及繳款分配不會自動改寫。',
+        )
+      else
+        DropdownButtonFormField<PublicId>(
+          key: ValueKey('refund-account-$_accountId'),
+          initialValue: _accountId,
+          decoration: const InputDecoration(labelText: '退款入帳帳戶'),
+          isExpanded: true,
+          items: [
+            for (final s in _accounts.where(
+              (s) => s.account.state == AccountState.active,
+            ))
+              DropdownMenuItem(
+                value: s.account.id,
+                child: Text('${s.account.name} · ${s.account.currency.code}'),
+              ),
+          ],
+          onChanged: !enabled
+              ? null
+              : (id) => _changeSplit(() {
+                  _accountId = id;
+                  _received.clear();
+                  _queueDraft();
+                }),
+        ),
       const SizedBox(height: 14),
       _amountField('原幣退款金額（正數）', currency),
       if (_foreignRefund) ...[

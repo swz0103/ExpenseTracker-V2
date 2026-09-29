@@ -257,4 +257,28 @@ void main() {
       expect(await session.snapshot(), before);
     });
   });
+
+  test('schema 18 refuses the newer card refund workflow', () async {
+    final original = Posting.expense(
+      id: PublicId.generate(),
+      operation: operation(),
+      date: BusinessDate(2026, 9, 29),
+      account: ref(card),
+      amount: Money.parse(currency, '10'),
+    );
+    await store.withSession((session) async {
+      await session.postCardPurchase(original);
+      final before = await session.snapshot();
+      final refund = Posting.refund(
+        id: PublicId.generate(),
+        operation: operation(),
+        date: BusinessDate(2026, 11, 1),
+        account: ref(card),
+        originalId: original.id,
+        amount: Money.parse(currency, '1'),
+      );
+      await expectLater(session.postCardRefund(refund), throwsUnsupportedError);
+      expect(await session.snapshot(), before);
+    });
+  });
 }

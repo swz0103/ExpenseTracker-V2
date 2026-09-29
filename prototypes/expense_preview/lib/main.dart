@@ -978,6 +978,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _accounts.where((a) => a.account.id == id).firstOrNull?.account.name ??
       '帳戶';
 
+  bool _isCardEntry(LedgerEntry entry) => _accounts.any(
+    (account) =>
+        account.account.id == entry.accountId &&
+        account.account.kind == AccountKind.creditCard,
+  );
+
   Future<void> _copyPosting(PublicId id) => _perform(() async {
     await _refresh();
     if (_entryDraft != null || _draftUnreadable) throw DraftNeedsResolution();
@@ -2768,6 +2774,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                     child: Text('查看活動'),
                                   ),
                                   if (_engine!.capabilities.reversals &&
+                                      !_isCardEntry(e) &&
                                       e.reversedBy == null &&
                                       [
                                         PostingKind.income,
@@ -2778,6 +2785,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                       child: Text('撤銷交易'),
                                     ),
                                   if (_engine!.capabilities.corrections &&
+                                      !_isCardEntry(e) &&
                                       e.reversedBy == null &&
                                       [
                                         PostingKind.income,
@@ -2788,6 +2796,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                       child: Text('更正交易'),
                                     ),
                                   if (_engine!.capabilities.tombstones &&
+                                      !_isCardEntry(e) &&
                                       e.reversedBy == null &&
                                       e.correctedBy == null &&
                                       [
@@ -2799,15 +2808,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                                       child: Text('刪除交易'),
                                     ),
                                   if ([
-                                    PostingKind.income,
-                                    PostingKind.expense,
-                                  ].contains(e.kind))
+                                        PostingKind.income,
+                                        PostingKind.expense,
+                                      ].contains(e.kind) &&
+                                      !_isCardEntry(e))
                                     const PopupMenuItem(
                                       value: 'copy',
                                       child: Text('再記一筆類似交易'),
                                     ),
                                   if (e.kind == PostingKind.expense &&
-                                      _engine!.capabilities.refunds &&
+                                      (_isCardEntry(e)
+                                          ? _engine!
+                                                .capabilities
+                                                .cardAuthorizations
+                                          : _engine!.capabilities.refunds) &&
                                       e.reversedBy == null)
                                     const PopupMenuItem(
                                       value: 'refund',

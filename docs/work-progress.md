@@ -625,3 +625,9 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] schema 18→19 顯式安全升級、中斷續升及雙憑證乾淨還原在主機定向測試通過。既有帳單、卡片設定與繳款回歸通過；Flutter 分析、架構邊界與 Android ARM64 debug 建置通過。證據：test-results/card-authorization-schema19-host-2026-09-30.json。
 - [ ] 正式 App 目前仍使用 schema 18。schema 19 未啟用；完整 App 回歸、實機原生流程與目前提交的雲端 checks 尚未通過。不得把預備流程稱為 M2-04 完成。
 - [ ] 下一步補足正式切換所需安全 gate，完成跨帳期退款、設定修改與實機驗證，再推進 M2-05、M3 及 M2-01。
+## 2026-09-30 M2-04 原信用卡跨帳期退款（schema 19 預備，未正式啟用）
+
+- [x] 退款只可回到原已入帳消費的同幣信用卡；Ledger 拒絕異卡、銀行、外幣、超額與普通入口旁路。停用卡仍可處理舊消費退款，重試鍵同內容冪等、異內容衝突。
+- [x] 退款採實際入帳日期沖減支出與卡片負債；發卡行已確認帳單、繳款分配與應繳金額不自動改寫。現有退款畫面固定顯示原信用卡；schema 18 隱藏無法執行的卡片操作。
+- [x] 指定 schema 19 的 App 跨帳期流程、密碼與救援文字乾淨還原；受影響 App 12 項、Ledger 8 項、分析、架構邊界與 Android ARM64 debug 建置主機通過。證據：[card-cross-cycle-refund-host-2026-09-30.json](test-results/card-cross-cycle-refund-host-2026-09-30.json)。
+- [ ] 正式 App 仍維持 schema 18；schema 19 的正式啟用、完整回歸、實機與目前 SHA 的雲端 gate 未通過，M2-04 不稱完成。ADB 本輪未偵測到裝置。

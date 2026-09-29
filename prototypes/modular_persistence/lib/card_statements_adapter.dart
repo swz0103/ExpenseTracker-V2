@@ -495,6 +495,19 @@ Future<void> validateCardStatementFacts(ProbeDatabase db) async {
     payments[(row.read<String>('workspace'), row.read<String>('event_id'))] =
         row;
   }
+  final refundSources = <_Key, String>{};
+  if (db.cardAuthorizationsAware) {
+    for (final row
+        in await db.customSelect('SELECT * FROM event_refunds').get()) {
+      refundSources[(
+        row.read<String>('workspace'),
+        row.read<String>('event_id'),
+      )] = row.read<String>(
+        'original_id',
+      );
+    }
+  }
+  final refundedByPurchase = <_Key, BigInt>{};
   final cardKeys = <_Key>{};
   for (final entry in events.entries) {
     final event = entry.value;
@@ -548,6 +561,37 @@ Future<void> validateCardStatementFacts(ProbeDatabase db) async {
           )) {
         throw const FormatException('Invalid posted card charge');
       }
+    } else if (kind == 'refund' && db.cardAuthorizationsAware) {
+      final originalId = refundSources[entry.key];
+      final original = originalId == null ? null : charges[(ws, originalId)];
+      final card = cardLegs.length == 1
+          ? accounts[(ws, cardLegs.single.read<String>('account_id'))]
+          : null;
+      final returned = -BigInt.from(event.read<int>('expense'));
+      if (charge != null ||
+          payment != null ||
+          original == null ||
+          card == null ||
+          legs.length != 1 ||
+          cardLegs.length != 1 ||
+          event.read<int>('income') != 0 ||
+          returned <= BigInt.zero ||
+          legs.single.read<String>('role') != 'principal' ||
+          BigInt.from(legs.single.read<int>('amount')) != returned ||
+          original.read<String>('card_id') != card.id.value ||
+          !_sameCurrency(event, card) ||
+          !_sameLegCurrency(legs.single, card) ||
+          _date(event.read<String>('business_date'))
+                  .compareTo(_date(original.read<String>('posted_on'))) <
+              0) {
+        throw const FormatException('Invalid posted card refund');
+      }
+      final originalKey = (ws, originalId!);
+      final total = (refundedByPurchase[originalKey] ?? BigInt.zero) + returned;
+      if (total > BigInt.from(original.read<int>('amount_minor'))) {
+        throw const FormatException('Card refunds exceed purchase');
+      }
+      refundedByPurchase[originalKey] = total;
     } else if (kind == 'transfer') {
       if (payment == null ||
           charge != null ||
@@ -582,6 +626,14 @@ Future<void> validateCardStatementFacts(ProbeDatabase db) async {
       throw const FormatException('Unsupported card Ledger event');
     }
     await _requireReceipt(db, ws, entry.key.$2);
+  }
+  if (db.cardAuthorizationsAware) {
+    for (final entry in refundSources.entries) {
+      if (charges.containsKey((entry.key.$1, entry.value)) &&
+          !cardKeys.contains(entry.key)) {
+        throw const FormatException('Card purchase refunded outside its card');
+      }
+    }
   }
   if (charges.keys.any((key) => !cardKeys.contains(key)) ||
       payments.keys.any((key) => !cardKeys.contains(key))) {

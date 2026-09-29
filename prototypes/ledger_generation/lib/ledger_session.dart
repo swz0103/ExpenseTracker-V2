@@ -566,12 +566,21 @@ final class LedgerSession {
   Future<CommitResult> postCardPayment(Posting payment) =>
       _post(payment, cardPayment: true);
 
+  /// Credits the original card for a posted purchase. The refund's own date
+  /// determines its Ledger period; issuer statement amounts remain separate.
+  Future<CommitResult> postCardRefund(
+    Posting refund, {
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+  }) => _post(refund, tags: tags, merchant: merchant, cardRefund: true);
+
   Future<CommitResult> _post(
     Posting posting, {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
     bool cardPurchase = false,
     bool cardPayment = false,
+    bool cardRefund = false,
   }) {
     final selections = canonicalTags(tags);
     return _enqueue(
@@ -665,7 +674,48 @@ final class LedgerSession {
             }
           }
         }
-        if (!cardPurchase && !cardPayment) {
+        if (cardRefund) {
+          if (!_db.cardAuthorizationsAware) {
+            throw UnsupportedError('Card refunds require schema 19');
+          }
+          if (posting.kind != PostingKind.refund ||
+              posting.refundOf == null ||
+              posting.legs.length != 1 ||
+              posting.legs.single.role != LegRole.principal ||
+              posting.conversion != null ||
+              posting.reportExpense.minorUnits >= BigInt.zero) {
+            throw const FormatException('Invalid card refund');
+          }
+          final ws = posting.operation.workspace;
+          final cardId = posting.legs.single.account.id;
+          final original = await _db
+              .customSelect(
+                'SELECT card_id FROM card_posted_charges '
+                'WHERE workspace=? AND event_id=?',
+                variables: [
+                  Variable(ws.id.value),
+                  Variable(posting.refundOf!.value),
+                ],
+              )
+              .getSingleOrNull();
+          if (original == null ||
+              original.read<String>('card_id') != cardId.value) {
+            throw const FormatException('Refund source is not a card purchase');
+          }
+          final card = await AccountsAdapter(_db).read(ws, cardId);
+          if (card.kind != AccountKind.creditCard ||
+              card.currency != posting.reportExpense.currency ||
+              card.currency != posting.legs.single.amount.currency ||
+              posting.legs.single.amount.minorUnits !=
+                  -posting.reportExpense.minorUnits) {
+            throw const FormatException(
+              'Card refund currency or amount mismatch',
+            );
+          }
+          // A disabled card still receives historical refunds. The Ledger
+          // account's normal lifecycle and refund budget checks still apply.
+        }
+        if (!cardPurchase && !cardPayment && !cardRefund) {
           await _rejectUntrackedCardPosting(_db, posting);
         }
         if (posting.kind != PostingKind.income &&
@@ -1182,6 +1232,21 @@ Future<void> _rejectUntrackedCardPosting(
   Posting posting,
 ) async {
   if (!db.creditCardsAware) return;
+  if (db.cardAuthorizationsAware && posting.refundOf != null) {
+    final cardSource = await db
+        .customSelect(
+          'SELECT 1 FROM card_posted_charges '
+          'WHERE workspace=? AND event_id=?',
+          variables: [
+            Variable(posting.operation.workspace.id.value),
+            Variable(posting.refundOf!.value),
+          ],
+        )
+        .getSingleOrNull();
+    if (cardSource != null) {
+      throw UnsupportedError('Use a credit-card refund workflow');
+    }
+  }
   final accounts = AccountsAdapter(db);
   for (final leg in posting.legs) {
     final account = await accounts.read(

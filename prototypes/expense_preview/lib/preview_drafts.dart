@@ -45,7 +45,14 @@ extension PreviewDrafts on PreviewEngine {
               row.account.kind == AccountKind.creditCard,
         );
     _check(epoch);
-    if (isCard) {
+    if (isCard && command.posting.kind == PostingKind.refund) {
+      if (!capabilities.cardAuthorizations) throw PreviewInvalid();
+      await _session!.postCardRefund(
+        command.posting,
+        tags: command.tags,
+        merchant: command.merchant,
+      );
+    } else if (isCard) {
       await _session!.postCardPurchase(
         command.posting,
         tags: command.tags,
@@ -219,7 +226,12 @@ extension PreviewDrafts on PreviewEngine {
             .where((a) => a.account.id == fields.accountId)
             .firstOrNull
             ?.account;
-        if (account == null || account.state != AccountState.active) {
+        final inactiveCardRefund =
+            fields.refundOf != null &&
+            capabilities.cardAuthorizations &&
+            account?.kind == AccountKind.creditCard;
+        if (account == null ||
+            (account.state != AccountState.active && !inactiveCardRefund)) {
           if (fields.transfer) throw PreviewTransferAccountInvalid();
           throw PreviewInvalid();
         }
@@ -466,6 +478,20 @@ extension PreviewDrafts on PreviewEngine {
     final fields = draft.fields;
     final status = await session.refundStatus(workspace, fields.refundOf!);
     final currency = status.originalAmount.currency;
+    final originalAccount = (await session.accounts(workspace))
+        .where((row) => row.account.id == status.originalAccountId)
+        .firstOrNull
+        ?.account;
+    if (originalAccount == null) throw PreviewInvalid();
+    final cardRefund = originalAccount.kind == AccountKind.creditCard;
+    if (cardRefund
+        ? !capabilities.cardAuthorizations ||
+              account.id != originalAccount.id ||
+              account.currency != currency ||
+              fields.received != null
+        : account.kind == AccountKind.creditCard) {
+      throw PreviewInvalid();
+    }
     final amount = Money.parse(currency, fields.amount);
     final available = {
       for (final a in status.budget.allocations) a.categoryId: a,
