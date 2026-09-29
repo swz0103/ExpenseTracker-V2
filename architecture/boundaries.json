@@ -127,7 +127,7 @@
     },
     "expense_preview": {
       "directory": "prototypes/expense_preview",
-        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
+        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
     },
     "android_foundation": {
       "directory": "prototypes/android_foundation",
@@ -135,7 +135,7 @@
     },
     "ledger_generation_probe": {
       "directory": "prototypes/ledger_generation",
-      "dependencies": ["budgets", "recurring_transactions", "tags", "merchants", "categories", "data_exchange", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
+      "dependencies": ["budgets", "recurring_transactions", "credit_cards", "tags", "merchants", "categories", "data_exchange", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
     },
     "storage_generation_probe": {
       "directory": "prototypes/storage_generation",

@@ -16,6 +16,7 @@ import 'package:ledger/ledger.dart';
 import 'package:reports/reports.dart';
 import 'package:budgets/budgets.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:credit_cards/credit_cards.dart';
 import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/adapters.dart';
 import 'package:modular_persistence_probe/categories_adapter.dart';
@@ -28,6 +29,7 @@ import 'package:modular_persistence_probe/reversals_adapter.dart';
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/budget_revisions_adapter.dart';
 import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
+import 'package:modular_persistence_probe/card_revisions_adapter.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 import 'package:storage_generation_probe/key_slots.dart';
@@ -71,6 +73,7 @@ final class LedgerPayload implements GenerationPayload {
     this.tombstonesAware = false,
     this.budgetsAware = false,
     this.recurringAware = false,
+    this.creditCardsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -142,6 +145,7 @@ final class LedgerPayload implements GenerationPayload {
          tombstonesAware: tombstonesAware,
          budgetsAware: budgetsAware,
          recurringAware: recurringAware,
+         creditCardsAware: creditCardsAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -156,6 +160,7 @@ final class LedgerPayload implements GenerationPayload {
   final bool tombstonesAware;
   final bool budgetsAware;
   final bool recurringAware;
+  final bool creditCardsAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
@@ -191,6 +196,7 @@ final class LedgerPayload implements GenerationPayload {
       tombstonesAware: tombstonesAware,
       budgetsAware: budgetsAware,
       recurringAware: recurringAware,
+      creditCardsAware: creditCardsAware,
     ),
   );
 
@@ -219,7 +225,8 @@ final class LedgerPayload implements GenerationPayload {
               (correctionsAware && version == 13) ||
               (tombstonesAware && version == 14) ||
               (budgetsAware && version == 15) ||
-              (recurringAware && version == 16)) ||
+              (recurringAware && version == 16) ||
+              (creditCardsAware && version == 17)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -246,6 +253,7 @@ final class LedgerPayload implements GenerationPayload {
       tombstonesAware: version >= 14,
       budgetsAware: version >= 15,
       recurringAware: version >= 16,
+      creditCardsAware: version >= 17,
     );
     final db = openEncrypted(
       file,
@@ -264,6 +272,7 @@ final class LedgerPayload implements GenerationPayload {
       tombstonesAware: version >= 14,
       budgetsAware: version >= 15,
       recurringAware: version >= 16,
+      creditCardsAware: version >= 17,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -295,6 +304,7 @@ final class LedgerStore {
     this.tombstonesAware = false,
     this.budgetsAware = false,
     this.recurringAware = false,
+    this.creditCardsAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
@@ -369,6 +379,7 @@ final class LedgerStore {
            tombstonesAware: tombstonesAware,
            budgetsAware: budgetsAware,
            recurringAware: recurringAware,
+           creditCardsAware: creditCardsAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -383,7 +394,8 @@ final class LedgerStore {
              correctionsAware ||
              tombstonesAware ||
              budgetsAware ||
-             recurringAware,
+             recurringAware ||
+             creditCardsAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -401,6 +413,7 @@ final class LedgerStore {
   final bool tombstonesAware;
   final bool budgetsAware;
   final bool recurringAware;
+  final bool creditCardsAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -424,6 +437,7 @@ final class LedgerStore {
             tombstonesAware: tombstonesAware,
             budgetsAware: budgetsAware,
             recurringAware: recurringAware,
+            creditCardsAware: creditCardsAware,
           ).empty(),
         ),
         operation,
@@ -455,6 +469,7 @@ final class LedgerStore {
         tombstonesAware: tombstonesAware,
         budgetsAware: budgetsAware,
         recurringAware: recurringAware,
+        creditCardsAware: creditCardsAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -531,6 +546,7 @@ final class LedgerStore {
       tombstonesAware: tombstonesAware,
       budgetsAware: budgetsAware,
       recurringAware: recurringAware,
+      creditCardsAware: creditCardsAware,
     );
     try {
       return await work(db);

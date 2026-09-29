@@ -14,7 +14,8 @@ enum _LedgerUpgrade {
   corrections(12, 13, 'ledger-12-to-13-v1'),
   tombstones(13, 14, 'ledger-13-to-14-v1'),
   budgets(14, 15, 'ledger-14-to-15-v1'),
-  recurring(15, 16, 'ledger-15-to-16-v1');
+  recurring(15, 16, 'ledger-15-to-16-v1'),
+  creditCards(16, 17, 'ledger-16-to-17-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -33,6 +34,7 @@ enum _LedgerUpgrade {
     tombstonesAware: to >= 14,
     budgetsAware: to >= 15,
     recurringAware: to >= 16,
+    creditCardsAware: to >= 17,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -53,6 +55,7 @@ enum _LedgerUpgrade {
       tombstonesAware: from >= 14,
       budgetsAware: from >= 15,
       recurringAware: from >= 16,
+      creditCardsAware: from >= 17,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -69,7 +72,8 @@ enum _LedgerUpgrade {
         store.correctionsAware != (to >= 13) ||
         store.tombstonesAware != (to >= 14) ||
         store.budgetsAware != (to >= 15) ||
-        store.recurringAware != (to >= 16)) {
+        store.recurringAware != (to >= 16) ||
+        store.creditCardsAware != (to >= 17)) {
       throw const InvalidSnapshot();
     }
   }
@@ -552,6 +556,38 @@ Future<UpgradeReceipt> upgradeRecurring(
   request,
   backupDirectory,
   _LedgerUpgrade.recurring,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planCreditCardUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.creditCards,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeCreditCards(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.creditCards,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

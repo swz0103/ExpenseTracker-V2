@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-29",
+  "scope": "M2-04 信用卡建戶與 schema 17 加密帳本接線（主機批次）",
+  "baseCommit": "29cc8899794b79d8582bf8d95e6ca62b72bac570",
+  "host": {
+    "creditCardUpgradeAndDualCredentialRestore": "passed: 1 Flutter integration test",
+    "currentSchemaWidgetUpgrade": "passed: 1 Flutter widget test; schema 12→17 and five safety backups",
+    "cardCreationAndAssetSummaryWidgets": "passed: 2 Flutter widget tests",
+    "ledgerSessionAndRecurringRegression": "passed: 8 Dart tests",
+    "flutterAnalyze": "passed: App source and affected tests",
+    "architectureBoundaries": "passed after declaring credit_cards dependency",
+    "androidArm64DebugBuild": "passed; debug artifact retained locally, not uploaded"
+  },
+  "device": "not run: adb devices -l found no attached device",
+  "cloud": "not run: Actions budget unverified; no exact-head checks claimed",
+  "limitations": [
+    "Credit-card setup is user-operable; posted purchases, payments, statements and pending authorizations are not yet a complete card flow.",
+    "Full App regression was not rerun in this batch; the previous full run timed out and remains an open gate.",
+    "Build success does not establish device behavior or release readiness."
+  ]
+}

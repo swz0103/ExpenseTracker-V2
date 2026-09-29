@@ -27,6 +27,7 @@ const _rowByteLimits = <String, int>{
   'budget_revisions': 8192,
   'recurring_revisions': 8192,
   'recurring_occurrences': 1024,
+  'card_revisions': 8192,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -42,6 +43,7 @@ Map<String, int> _tableLimits(
   bool tombstones,
   bool budgets,
   bool recurring,
+  bool creditCards,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -54,6 +56,7 @@ Map<String, int> _tableLimits(
   if (budgets) 'budget_revisions': LedgerSession.maxBudgetChanges,
   if (recurring) 'recurring_revisions': LedgerSession.maxRecurringChanges,
   if (recurring) 'recurring_occurrences': LedgerSession.maxEvents,
+  if (creditCards) 'card_revisions': LedgerSession.maxCardChanges,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -83,7 +86,9 @@ Map<String, int> _tableLimits(
 
 bool _accountReceipt(Map row) {
   final input = jsonDecode(row['input'] as String);
-  return input is List && input.isNotEmpty && input.first == 'create-v1';
+  return input is List &&
+      input.isNotEmpty &&
+      (input.first == 'create-v1' || input.first == 'card-create-v1');
 }
 
 bool _reversalReceipt(Map row) {
@@ -151,6 +156,7 @@ List<int> validateSessionCapacity(
   bool tombstonesAware = false,
   bool budgetsAware = false,
   bool recurringAware = false,
+  bool creditCardsAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -177,6 +183,7 @@ List<int> validateSessionCapacity(
     tombstonesAware: tombstonesAware,
     budgetsAware: budgetsAware,
     recurringAware: recurringAware,
+    creditCardsAware: creditCardsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -194,6 +201,7 @@ List<int> validateSessionCapacity(
     tombstonesAware,
     budgetsAware,
     recurringAware,
+    creditCardsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();

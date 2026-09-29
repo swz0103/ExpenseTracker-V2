@@ -63,6 +63,7 @@ final class LedgerSession {
   static const maxTagChanges = 1024;
   static const maxBudgetChanges = 1024;
   static const maxRecurringChanges = 1024;
+  static const maxCardChanges = 1024;
   final ProbeDatabase _db;
   Future<void> _tail = Future.value();
   bool _closed = false;
@@ -126,6 +127,7 @@ final class LedgerSession {
         tombstonesAware: _db.tombstonesAware,
         budgetsAware: _db.budgetsAware,
         recurringAware: _db.recurringAware,
+        creditCardsAware: _db.creditCardsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -140,6 +142,7 @@ final class LedgerSession {
       tombstonesAware: _db.tombstonesAware,
       budgetsAware: _db.budgetsAware,
       recurringAware: _db.recurringAware,
+      creditCardsAware: _db.creditCardsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -154,19 +157,72 @@ final class LedgerSession {
     }
   }
 
-  Future<CommitResult> createAccount(Account account, Posting opening) =>
-      _enqueue(
-        () => _write(() async {
-          await _capacity(opening, account: true);
-          final result = await FinancialWorkflows(
-            _db,
-            sourceContext: 'preview-manual-v1',
-          ).createAccount(account, opening);
-          if (!result.replayed)
-            await _checkFinancialRows(opening, account: account);
-          return result;
-        }),
+  Future<CommitResult> createAccount(
+    Account account,
+    Posting opening, {
+    CreditCardTerms? cardTerms,
+  }) => _enqueue(
+    () => _write(() async {
+      await _capacity(opening, account: true);
+      final result = await FinancialWorkflows(
+        _db,
+        sourceContext: 'preview-manual-v1',
+      ).createAccount(account, opening, cardTerms: cardTerms);
+      if (!result.replayed)
+        await _checkFinancialRows(opening, account: account);
+      if (!result.replayed && cardTerms != null) {
+        await _checkRows('card_revisions', 'workspace=? AND card_id=?', [
+          account.workspace.id.value,
+          account.id.value,
+        ]);
+      }
+      return result;
+    }),
+  );
+
+  Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
+      _enqueue(() => currentCardTerms(_db, workspace));
+
+  Future<CardTermsRevision> reviseCreditCard(
+    CreditCardTerms terms,
+    OperationId operation,
+    DateTime recordedAt, {
+    bool disabled = false,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.creditCardsAware) {
+        throw UnsupportedError('Credit cards require schema 17');
+      }
+      await _admitCapacity();
+      final existing = await _db
+          .customSelect(
+            'SELECT 1 FROM card_revisions WHERE workspace=? AND operation_id=?',
+            variables: [
+              Variable.withString(terms.workspace.id.value),
+              Variable.withString(operation.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      if (existing == null &&
+          await _count('card_revisions') >= maxCardChanges) {
+        throw PreviewCapacity();
+      }
+      final result = await appendCardTermsRevision(
+        _db,
+        terms,
+        operation,
+        recordedAt,
+        disabled: disabled,
       );
+      if (existing == null) {
+        await _checkRows('card_revisions', 'workspace=? AND operation_id=?', [
+          terms.workspace.id.value,
+          operation.id.value,
+        ]);
+      }
+      return result;
+    }),
+  );
 
   Future<CommitResult> post(
     Posting posting, {
@@ -641,6 +697,7 @@ final class LedgerSession {
       tombstonesAware: _db.tombstonesAware,
       budgetsAware: _db.budgetsAware,
       recurringAware: _db.recurringAware,
+      creditCardsAware: _db.creditCardsAware,
     ).capture(_db),
   );
 

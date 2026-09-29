@@ -6,6 +6,7 @@ import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:budgets/budgets.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:credit_cards/credit_cards.dart';
 import 'package:categories/categories.dart';
 import 'package:data_exchange/data_exchange.dart';
 import 'package:tags/tags.dart';
@@ -209,6 +210,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _confirm = TextEditingController();
   final _name = TextEditingController();
   final _amount = TextEditingController();
+  final _cardClosingDay = TextEditingController(text: '30');
+  final _cardDueDay = TextEditingController(text: '15');
+  final _cardLimit = TextEditingController();
   final _fee = TextEditingController();
   final _received = TextEditingController();
   bool _transfer = false;
@@ -256,6 +260,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   bool _hasUpgradeSafety = false;
   Account? _pendingAccount;
   Posting? _pendingPosting;
+  CreditCardTerms? _pendingCardTerms;
   String? _inputSignature;
   EntryDraft? _entryDraft;
   bool _draftUnreadable = false;
@@ -393,6 +398,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _confirm,
       _name,
       _amount,
+      _cardClosingDay,
+      _cardDueDay,
+      _cardLimit,
       _fee,
       _received,
       _reversalReason,
@@ -435,6 +443,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _entryCategories.clear();
     _pendingAccount = null;
     _pendingPosting = null;
+    _pendingCardTerms = null;
     _inputSignature = null;
     _entryDraft = null;
     _draftUnreadable = false;
@@ -614,11 +623,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     try {
       assetReport = AssetReport.build([
         for (final row in accounts)
-          AssetBalanceFact(
-            row.account.id,
-            row.balance,
-            row.account.includeInNetWorth,
-          ),
+          if (row.account.kind != AccountKind.creditCard)
+            AssetBalanceFact(
+              row.account.id,
+              row.balance,
+              row.account.includeInNetWorth,
+            ),
       ]);
     } on MoneyException {
       assetOverflow = true;
@@ -890,12 +900,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _date.text = BusinessDate(now.year, now.month, now.day).toString();
       _pendingPosting = null;
       _pendingAccount = null;
+      _pendingCardTerms = null;
       _inputSignature = null;
       _categoryId = '';
       _merchantId = '';
       _selectedTags.clear();
       _accountId = _accounts
-          .where((a) => a.account.state == AccountState.active)
+          .where(
+            (a) =>
+                a.account.state == AccountState.active &&
+                a.account.kind != AccountKind.creditCard,
+          )
           .firstOrNull
           ?.account
           .id;
@@ -910,6 +925,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Iterable<AccountSummary> get _destinations => _accounts.where(
     (a) =>
         a.account.state == AccountState.active &&
+        a.account.kind != AccountKind.creditCard &&
         a.account.id != _accountId &&
         (a.account.currency == _sourceCurrency ||
             (_engine!.capabilities.crossCurrencyTransfers &&
@@ -1069,7 +1085,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _accounts.any(
             (a) =>
                 a.account.id == fields.accountId &&
-                a.account.state == AccountState.active,
+                a.account.state == AccountState.active &&
+                a.account.kind != AccountKind.creditCard,
           )
           ? fields.accountId
           : null;
@@ -1170,7 +1187,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   );
   Future<void> _saveAccount() => _perform(() async {
     final signature =
-        '$_kind|$_currency|${_name.text}|${_amount.text}|${_date.text}';
+        '$_kind|$_currency|${_name.text}|${_amount.text}|${_date.text}|'
+        '${_cardClosingDay.text}|${_cardDueDay.text}|${_cardLimit.text}';
     if (_inputSignature != signature) {
       final a = Account.open(
         id: PublicId.generate(),
@@ -1185,13 +1203,31 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         operation: OperationKey(a.workspace, OperationId(PublicId.generate())),
         date: a.openedOn,
         account: _ref(a),
-        amount: Money.parse(a.currency, _amount.text),
+        amount: _kind == AccountKind.creditCard
+            ? Money(a.currency, BigInt.zero)
+            : Money.parse(a.currency, _amount.text),
       );
       _pendingAccount = a;
       _pendingPosting = p;
+      _pendingCardTerms = _kind == AccountKind.creditCard
+          ? CreditCardTerms(
+              workspace: a.workspace,
+              cardId: a.id,
+              currency: a.currency,
+              closingDay: int.parse(_cardClosingDay.text),
+              dueDay: int.parse(_cardDueDay.text),
+              limit: _cardLimit.text.trim().isEmpty
+                  ? null
+                  : Money.parse(a.currency, _cardLimit.text),
+            )
+          : null;
       _inputSignature = signature;
     }
-    await _engine!.createAccount(_pendingAccount!, _pendingPosting!);
+    await _engine!.createAccount(
+      _pendingAccount!,
+      _pendingPosting!,
+      cardTerms: _pendingCardTerms,
+    );
     await _refresh();
   });
   Future<void> _savePosting() => _perform(() async {
@@ -1752,6 +1788,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             items: const [
               DropdownMenuItem(value: AccountKind.cash, child: Text('現金')),
               DropdownMenuItem(value: AccountKind.bank, child: Text('銀行')),
+              DropdownMenuItem(
+                value: AccountKind.creditCard,
+                child: Text('信用卡'),
+              ),
             ],
             onChanged: _busy ? null : (v) => setState(() => _kind = v!),
           ),
@@ -1766,7 +1806,16 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onChanged: _busy ? null : (v) => setState(() => _currency = v!),
           ),
           const SizedBox(height: 14),
-          _amountField('期初餘額', Currency(_currency, _currency == 'JPY' ? 0 : 2)),
+          if (_kind == AccountKind.creditCard) ...[
+            const Text('目前可建立卡片與保存帳期；刷卡、繳款及帳單仍在開發，暫不開放記錄。'),
+            _field('結帳日（1–31）', _cardClosingDay, length: 2),
+            _field('繳款日（1–31）', _cardDueDay, length: 2),
+            _field('額度（可留空）', _cardLimit, length: 24),
+          ] else
+            _amountField(
+              '期初餘額',
+              Currency(_currency, _currency == 'JPY' ? 0 : 2),
+            ),
           _dateField(opening: true),
           _button('建立帳戶', _saveAccount),
           _back(),
@@ -1819,7 +1868,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               isExpanded: true,
               items: [
                 for (final s in _accounts.where(
-                  (s) => s.account.state == AccountState.active,
+                  (s) =>
+                      s.account.state == AccountState.active &&
+                      s.account.kind != AccountKind.creditCard,
                 ))
                   DropdownMenuItem(
                     value: s.account.id,
@@ -2104,7 +2155,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 padding: const EdgeInsets.all(16),
                 child: FinancialSummary(
                   title: s.account.name,
-                  subtitle: s.account.kind == AccountKind.cash ? '現金' : '銀行',
+                  subtitle: switch (s.account.kind) {
+                    AccountKind.cash => '現金',
+                    AccountKind.bank => '銀行',
+                    AccountKind.creditCard => '信用卡負債',
+                  },
                   money: s.balance,
                   privacy: _privacy,
                   kind: MoneyKind.balance,
