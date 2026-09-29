@@ -55,6 +55,11 @@
         "ledger"
       ]
     },
+    "budgets": {
+      "directory": "packages/budgets",
+      "publicEntrypoints": ["budgets.dart"],
+      "dependencies": ["categories", "foundation_values", "reports"]
+    },
     "data_exchange": {
       "directory": "packages/data_exchange",
       "publicEntrypoints": [

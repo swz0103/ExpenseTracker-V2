@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        package: [packages/foundation_values, packages/accounts, packages/categories, packages/tags, packages/merchants, packages/entry_drafts, packages/amount_input, packages/ledger, packages/reports, prototypes/modular_persistence, prototypes/backup_envelope, prototypes/validated_restore, prototypes/encrypted_storage, prototypes/storage_generation, prototypes/ledger_generation, prototypes/persistent_jobs]
+        package: [packages/foundation_values, packages/accounts, packages/categories, packages/tags, packages/merchants, packages/entry_drafts, packages/amount_input, packages/ledger, packages/reports, packages/budgets, prototypes/modular_persistence, prototypes/backup_envelope, prototypes/validated_restore, prototypes/encrypted_storage, prototypes/storage_generation, prototypes/ledger_generation, prototypes/persistent_jobs]
     defaults:
       run:
         working-directory: ${{ matrix.package }}

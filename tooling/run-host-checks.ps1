@@ -22,6 +22,7 @@ $checks = @(
     @{ Path = 'packages/amount_input'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/ledger'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/reports'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/budgets'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/persistent_jobs'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
