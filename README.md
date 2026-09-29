@@ -22,6 +22,7 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 - [大規模測試、原始結果與容量限制](docs/preview-validation-report.md)
 - [完整願景與原始 170 項決策](docs/full-vision-baseline.md)
 - [Architecture Baseline v1.0-rc1](docs/architecture-baseline-v1.0-rc1.md)
+- [文件導覽](docs/README.md)
 - [整合架構與已選方向](docs/architecture-proposal.md)
 - [實作順序與驗收安排](docs/implementation-plan.md)
 - [本輪可安裝試用版與大規模測試安排](docs/installable-preview-plan.md)
