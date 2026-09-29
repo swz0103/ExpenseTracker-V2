@@ -1,0 +1,14 @@
+{
+  "scope": "M2-04 credit-card statement refund validation",
+  "date": "2026-09-29",
+  "hostChecks": {
+    "creditCards": "dart test: 6 passed",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format: completed"
+  },
+  "finding": "Multiple posted refunds in different billing cycles could collectively exceed the original settled purchase.",
+  "change": "CardStatement now rejects a refund posted before the purchase and rejects cumulative posted refunds above the original settled amount, regardless of cycle.",
+  "device": "not run; adb devices -l returned no attached device",
+  "cloud": "not run; current PR head checks remain unverified",
+  "gate": "business rule only; card setup, posting, payment and statement UI are not user-operable"
+}

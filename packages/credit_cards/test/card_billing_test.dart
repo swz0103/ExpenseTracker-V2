@@ -174,6 +174,73 @@ void main() {
     );
   });
 
+  test('refunds across cycles cannot exceed the settled purchase', () {
+    final purchase =
+        CardCharge.pending(
+          id: PublicId.generate(),
+          workspace: space,
+          cardId: card,
+          kind: CardChargeKind.purchase,
+          authorizedOn: BusinessDate(2028, 2, 20),
+          authorizedAmount: Money.parse(twd, '100'),
+        ).post(
+          postedOn: BusinessDate(2028, 2, 21),
+          settledAmount: Money.parse(twd, '90'),
+          fee: Money.parse(twd, '0'),
+          ledgerEventId: PublicId.generate(),
+        );
+    CardCharge refund(String amount, BusinessDate day) =>
+        CardCharge.pending(
+          id: PublicId.generate(),
+          workspace: space,
+          cardId: card,
+          kind: CardChargeKind.refund,
+          authorizedOn: day,
+          authorizedAmount: Money.parse(twd, amount),
+          originalChargeId: purchase.id,
+        ).post(
+          postedOn: day,
+          settledAmount: Money.parse(twd, amount),
+          fee: Money.parse(twd, '0'),
+          ledgerEventId: PublicId.generate(),
+        );
+    final first = refund('40', BusinessDate(2028, 3, 2));
+    final second = refund('50', BusinessDate(2028, 4, 2));
+    final cycle = terms.scheduledCycleFor(BusinessDate(2028, 4, 2));
+    expect(
+      CardStatement.calculate(
+        terms: terms,
+        cycle: cycle,
+        charges: [purchase, first, second],
+        payments: [],
+      ).refunds.majorText,
+      '50.00',
+    );
+    expect(
+      () => CardStatement.calculate(
+        terms: terms,
+        cycle: cycle,
+        charges: [
+          purchase,
+          first,
+          second,
+          refund('0.01', BusinessDate(2028, 4, 3)),
+        ],
+        payments: [],
+      ),
+      throwsA(isA<CreditCardException>()),
+    );
+    expect(
+      () => CardStatement.calculate(
+        terms: terms,
+        cycle: cycle,
+        charges: [purchase, refund('1', BusinessDate(2028, 2, 20))],
+        payments: [],
+      ),
+      throwsA(isA<CreditCardException>()),
+    );
+  });
+
   test('duplicate Ledger event and wrong workspace fail closed', () {
     final cycle = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
     final event = PublicId.generate();

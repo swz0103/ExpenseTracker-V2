@@ -222,6 +222,7 @@ final class CardStatement {
     final events = <PublicId>{};
     final allCharges = charges.toList();
     final chargesById = <PublicId, CardCharge>{};
+    final refundedByPurchase = <PublicId, BigInt>{};
     for (final charge in allCharges) {
       _checkOwner(terms, charge.workspace, charge.cardId);
       if (!ids.add(charge.id)) {
@@ -235,6 +236,19 @@ final class CardStatement {
                   CardChargeKind.purchase ||
               chargesById[charge.originalChargeId]?.isPosted != true)) {
         throw const CreditCardException(CreditCardError.invalidInput);
+      }
+      if (charge.kind == CardChargeKind.refund && charge.isPosted) {
+        final original = chargesById[charge.originalChargeId]!;
+        if (charge.postedOn!.compareTo(original.postedOn!) < 0) {
+          throw const CreditCardException(CreditCardError.invalidInput);
+        }
+        final refunded =
+            (refundedByPurchase[original.id] ?? BigInt.zero) +
+            charge.settledAmount!.minorUnits;
+        if (refunded > original.settledAmount!.minorUnits) {
+          throw const CreditCardException(CreditCardError.invalidInput);
+        }
+        refundedByPurchase[original.id] = refunded;
       }
       if (!charge.isPosted) {
         if (cycle.includes(charge.authorizedOn)) pendingCount++;
