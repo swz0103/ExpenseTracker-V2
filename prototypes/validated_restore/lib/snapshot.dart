@@ -728,6 +728,9 @@ final class SnapshotCodec {
     if (installmentsAware != db.installmentsAware)
       throw const InvalidSnapshot();
     if (investmentsAware != db.investmentsAware) throw const InvalidSnapshot();
+    // Until schema 22's sale facts are in this portable manifest, a schema 21
+    // codec must never validate or export a sale-aware database as if complete.
+    if (db.investmentSalesAware) throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
       try {

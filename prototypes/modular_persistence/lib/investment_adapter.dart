@@ -10,6 +10,8 @@ import 'adapters.dart';
 import 'database.dart';
 import 'operations.dart';
 
+part 'investment_sale_adapter.dart';
+
 /// An immutable buy and its one acquisition lot, backed by a committed Ledger
 /// cash debit. This does not provide sell, valuation, or tax-basis semantics.
 final class InvestmentBuyFact {
@@ -49,6 +51,22 @@ Future<CommitResult> commitInvestmentBuy(
         expectedVersion: preview.funding.expectedVersion,
         date: preview.tradedOn,
       );
+      if (db.investmentSalesAware) {
+        final position = await _loadPosition(
+          db,
+          preview.operation.workspace,
+          preview.account.id,
+          preview.instrument.id,
+        );
+        // A later purchase cannot be inserted into an earlier disposition's
+        // full-lot snapshot. The next business date keeps replay unambiguous.
+        if (position.lastDate != null &&
+            preview.tradedOn.compareTo(position.lastDate!) <= 0) {
+          throw const FormatException(
+            'Investment buy must follow the last sale date',
+          );
+        }
+      }
       await _storeIdentities(db, preview);
       await LedgerAdapter(
         db,
