@@ -66,6 +66,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
         correctionsAware: store.correctionsAware,
         tombstonesAware: store.tombstonesAware,
         budgetsAware: store.budgetsAware,
+        recurringAware: store.recurringAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

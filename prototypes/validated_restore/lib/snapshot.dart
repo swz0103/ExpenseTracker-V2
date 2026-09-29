@@ -72,6 +72,7 @@ const _integers = {
   'merchant_sequence',
   'revision',
   'version',
+  'template_version',
 };
 const _modules = {'accounts': 1, 'ledger': 2, 'operations': 1};
 
@@ -203,6 +204,7 @@ final class SnapshotCodec {
     if (tombstonesAware) 'event_tombstones': tombstoneColumns,
     if (budgetsAware) 'budget_revisions': budgetRevisionColumns,
     if (recurringAware) 'recurring_revisions': recurringRevisionColumns,
+    if (recurringAware) 'recurring_occurrences': recurringOccurrenceColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -467,6 +469,8 @@ final class SnapshotCodec {
         if (root['version'] >= 14) 'budget_revisions': budgetRevisionColumns,
         if (root['version'] >= 15)
           'recurring_revisions': recurringRevisionColumns,
+        if (root['version'] >= 15)
+          'recurring_occurrences': recurringOccurrenceColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -595,6 +599,7 @@ final class SnapshotCodec {
     if (recurringAware) {
       try {
         await validateRecurringRevisions(db);
+        await validateRecurringOccurrences(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }

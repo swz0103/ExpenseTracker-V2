@@ -82,6 +82,13 @@ List<RecurringCandidate> dueCandidates(
   return List.unmodifiable(result);
 }
 
+/// Confirms a selected day belongs to the current template without scanning
+/// every occurrence since its start date.
+bool isScheduledDate(RecurringTemplate template, BusinessDate date) {
+  if (date.compareTo(template.firstDate) < 0) return false;
+  return _occurrence(template, _initialIndex(template, date)) == date;
+}
+
 int _initialIndex(RecurringTemplate template, BusinessDate after) {
   if (after.compareTo(template.firstDate) < 0) return 0;
   final first = template.firstDate;

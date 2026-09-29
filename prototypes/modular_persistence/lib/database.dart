@@ -247,7 +247,10 @@ final class ProbeDatabase extends GeneratedDatabase {
       if (correctionsAware) await customStatement(correctionSchema);
       if (tombstonesAware) await customStatement(tombstoneSchema);
       if (budgetsAware) await customStatement(budgetRevisionSchema);
-      if (recurringAware) await customStatement(recurringRevisionSchema);
+      if (recurringAware) {
+        await customStatement(recurringRevisionSchema);
+        await customStatement(recurringOccurrenceSchema);
+      }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();
       if (categoryAware) {

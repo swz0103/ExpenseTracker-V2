@@ -14,9 +14,9 @@ import 'widget_test.dart' show Documents, settle, tap, input, closeEngine;
 
 void main() {
   testWidgets(
-    'V2 schema 12 opens current schema 15 only after explicit safety-backed upgrade',
+    'V2 schema 12 opens current schema 16 only after explicit safety-backed upgrade',
     (tester) async {
-      expect(currentPreviewSchemaVersion, 15);
+      expect(currentPreviewSchemaVersion, 16);
       final root = Directory('.dart_tool/current-schema-upgrade-widget')
         ..createSync(recursive: true);
       final work = root.createTempSync('case-');
@@ -82,6 +82,7 @@ void main() {
         expect(engine.capabilities.corrections, isTrue);
         expect(engine.capabilities.tombstones, isTrue);
         expect(engine.capabilities.budgets, isTrue);
+        expect(engine.capabilities.recurring, isTrue);
         await tester.runAsync(() async {
           expect(
             (await engine.accounts()).single.balance,
@@ -92,7 +93,7 @@ void main() {
               .listSync()
               .whereType<File>()
               .toList();
-          expect(copies, hasLength(3));
+          expect(copies, hasLength(4));
           final schemas = <int>{};
           for (final copy in copies) {
             final encrypted = copy.readAsStringSync();
@@ -110,7 +111,7 @@ void main() {
             schemas.add(schema);
             if (schema == 12) expect(fromPassword, oldSnapshot);
           }
-          expect(schemas, {12, 13, 14});
+          expect(schemas, {12, 13, 14, 15});
           expect(await engine.exportBackup(), isNotEmpty);
         });
         final actions = find.byKey(ValueKey('entry-actions-$expenseId'));
@@ -120,6 +121,7 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         await tester.ensureVisible(actions);
+        await tester.pumpAndSettle();
         await tester.tap(actions);
         await tester.pumpAndSettle();
         expect(find.text('更正交易'), findsOneWidget);

@@ -151,6 +151,62 @@ Future<void> validateRecurringRevisions(ProbeDatabase db) async {
   _validateChain([for (final row in rows) _read(row.data)]);
 }
 
+/// A confirmed occurrence must still name the original reviewed template and
+/// the exact financial posting. Later corrections preserve that original row.
+Future<void> validateRecurringOccurrences(ProbeDatabase db) async {
+  if (!db.recurringAware) {
+    throw UnsupportedError('Recurring template schema is unavailable');
+  }
+  final rows = await db.customSelect('''
+    SELECT o.*,v.payload,v.state,e.kind,e.business_date,e.income,e.expense,
+           e.currency,e.scale,e.source_context,l.account_id,l.amount,
+           l.currency AS leg_currency,l.scale AS leg_scale,r.result_id
+    FROM recurring_occurrences o
+    JOIN recurring_revisions v ON v.workspace=o.workspace
+      AND v.id=o.template_id AND v.version=o.template_version
+    JOIN events e ON e.workspace=o.workspace AND e.id=o.event_id
+    JOIN legs l ON l.workspace=e.workspace AND l.event_id=e.id AND l.ordinal=0
+    JOIN receipts r ON r.workspace=o.workspace AND r.operation_id=o.operation_id
+    ORDER BY o.workspace,o.template_id,o.due_date
+  ''').get();
+  final count = await db
+      .customSelect('SELECT count(*) AS n FROM recurring_occurrences')
+      .getSingle();
+  if (rows.length != count.read<int>('n')) {
+    throw const FormatException('Recurring occurrence has missing authority');
+  }
+  for (final row in rows) {
+    final data = row.data;
+    final template = RecurringTemplateCodec().decode(data['payload'] as String);
+    final due = BusinessDate.parse(data['due_date'] as String);
+    final confirmedAt = DateTime.parse(data['confirmed_at'] as String);
+    final amount = template.amount.minorUnits;
+    if (data['state'] != 'active' ||
+        template.workspace.id.value != data['workspace'] ||
+        template.id.value != data['template_id'] ||
+        template.version != data['template_version'] ||
+        template.accountId.value != data['account_id'] ||
+        !isScheduledDate(template, due) ||
+        due.toString() != data['business_date'] ||
+        data['source_context'] != 'preview-recurring-v1' ||
+        data['result_id'] != data['event_id'] ||
+        data['currency'] != template.amount.currency.code ||
+        data['scale'] != template.amount.currency.scale ||
+        data['leg_currency'] != template.amount.currency.code ||
+        data['leg_scale'] != template.amount.currency.scale ||
+        BigInt.from(data['amount'] as int) != amount ||
+        data['kind'] != (amount.isNegative ? 'expense' : 'income') ||
+        BigInt.from(data['income'] as int) !=
+            (amount.isNegative ? BigInt.zero : amount) ||
+        BigInt.from(data['expense'] as int) !=
+            (amount.isNegative ? -amount : BigInt.zero) ||
+        !confirmedAt.isUtc ||
+        confirmedAt.toIso8601String() != data['confirmed_at']) {
+      throw const FormatException('Invalid recurring occurrence');
+    }
+  }
+}
+
 void _validateChain(Iterable<RecurringRevision> revisions) {
   RecurringRevision? previous;
   for (final revision in revisions) {

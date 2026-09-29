@@ -29,6 +29,8 @@ dependencies:
     path: ../../packages/categories
   budgets:
     path: ../../packages/budgets
+  recurring_transactions:
+    path: ../../packages/recurring_transactions
   foundation_values:
     path: ../../packages/foundation_values
   ledger:

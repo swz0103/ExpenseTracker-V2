@@ -25,6 +25,8 @@ const _rowByteLimits = <String, int>{
   'merchant_changes': 8192,
   'event_merchants': 512,
   'budget_revisions': 8192,
+  'recurring_revisions': 8192,
+  'recurring_occurrences': 1024,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -39,6 +41,7 @@ Map<String, int> _tableLimits(
   bool corrections,
   bool tombstones,
   bool budgets,
+  bool recurring,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -49,6 +52,8 @@ Map<String, int> _tableLimits(
   if (corrections) 'event_corrections': LedgerSession.maxEvents ~/ 2,
   if (tombstones) 'event_tombstones': LedgerSession.maxEvents,
   if (budgets) 'budget_revisions': LedgerSession.maxBudgetChanges,
+  if (recurring) 'recurring_revisions': LedgerSession.maxRecurringChanges,
+  if (recurring) 'recurring_occurrences': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -145,6 +150,7 @@ List<int> validateSessionCapacity(
   bool correctionsAware = false,
   bool tombstonesAware = false,
   bool budgetsAware = false,
+  bool recurringAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -170,6 +176,7 @@ List<int> validateSessionCapacity(
     correctionsAware: correctionsAware,
     tombstonesAware: tombstonesAware,
     budgetsAware: budgetsAware,
+    recurringAware: recurringAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -186,6 +193,7 @@ List<int> validateSessionCapacity(
     correctionsAware,
     tombstonesAware,
     budgetsAware,
+    recurringAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();

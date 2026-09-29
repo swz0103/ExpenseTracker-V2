@@ -62,6 +62,7 @@ final class LedgerSession {
   static const maxTags = 256;
   static const maxTagChanges = 1024;
   static const maxBudgetChanges = 1024;
+  static const maxRecurringChanges = 1024;
   final ProbeDatabase _db;
   Future<void> _tail = Future.value();
   bool _closed = false;
@@ -124,6 +125,7 @@ final class LedgerSession {
         correctionsAware: _db.correctionsAware,
         tombstonesAware: _db.tombstonesAware,
         budgetsAware: _db.budgetsAware,
+        recurringAware: _db.recurringAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -137,6 +139,7 @@ final class LedgerSession {
       correctionsAware: _db.correctionsAware,
       tombstonesAware: _db.tombstonesAware,
       budgetsAware: _db.budgetsAware,
+      recurringAware: _db.recurringAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -637,6 +640,7 @@ final class LedgerSession {
       correctionsAware: _db.correctionsAware,
       tombstonesAware: _db.tombstonesAware,
       budgetsAware: _db.budgetsAware,
+      recurringAware: _db.recurringAware,
     ).capture(_db),
   );
 

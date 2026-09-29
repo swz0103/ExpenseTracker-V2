@@ -13,7 +13,8 @@ enum _LedgerUpgrade {
   notes(11, 12, 'ledger-11-to-12-v1'),
   corrections(12, 13, 'ledger-12-to-13-v1'),
   tombstones(13, 14, 'ledger-13-to-14-v1'),
-  budgets(14, 15, 'ledger-14-to-15-v1');
+  budgets(14, 15, 'ledger-14-to-15-v1'),
+  recurring(15, 16, 'ledger-15-to-16-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -31,6 +32,7 @@ enum _LedgerUpgrade {
     correctionsAware: to >= 13,
     tombstonesAware: to >= 14,
     budgetsAware: to >= 15,
+    recurringAware: to >= 16,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -50,6 +52,7 @@ enum _LedgerUpgrade {
       correctionsAware: from >= 13,
       tombstonesAware: from >= 14,
       budgetsAware: from >= 15,
+      recurringAware: from >= 16,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -65,7 +68,8 @@ enum _LedgerUpgrade {
         store.notesAware != (to >= 12) ||
         store.correctionsAware != (to >= 13) ||
         store.tombstonesAware != (to >= 14) ||
-        store.budgetsAware != (to >= 15)) {
+        store.budgetsAware != (to >= 15) ||
+        store.recurringAware != (to >= 16)) {
       throw const InvalidSnapshot();
     }
   }
@@ -516,6 +520,38 @@ Future<UpgradeReceipt> upgradeBudgets(
   request,
   backupDirectory,
   _LedgerUpgrade.budgets,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planRecurringUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.recurring,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeRecurring(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.recurring,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

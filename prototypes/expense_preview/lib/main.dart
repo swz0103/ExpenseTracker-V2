@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
 import 'package:budgets/budgets.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:categories/categories.dart';
 import 'package:data_exchange/data_exchange.dart';
 import 'package:tags/tags.dart';
@@ -41,6 +42,7 @@ part 'merchant_screen.dart';
 part 'search_screen.dart';
 part 'monthly_report_screen.dart';
 part 'budget_screen.dart';
+part 'recurring_screen.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -148,6 +150,7 @@ enum _Page {
   search,
   monthlyReport,
   budgets,
+  recurring,
   home,
   account,
   posting,
@@ -1460,6 +1463,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.search,
               _Page.monthlyReport,
               _Page.budgets,
+              _Page.recurring,
               _Page.simpleImport,
               _Page.simpleExport,
             }.contains(_page) &&
@@ -1580,6 +1584,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             catalog: _catalog!,
             tags: _tagCatalog,
+            accounts: _accounts,
+            privacy: _privacy,
+          ),
+          _back(),
+        ];
+      case _Page.recurring:
+        return [
+          _RecurringScreen(
+            engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
           ),
@@ -2144,6 +2157,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : () => setState(() => _page = _Page.budgets),
               child: const Text('月預算'),
+            ),
+          if (_engine!.capabilities.recurring)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.recurring),
+              child: const Text('定期交易'),
             ),
           const SizedBox(height: 12),
           if (_accounts.isNotEmpty) ...[
