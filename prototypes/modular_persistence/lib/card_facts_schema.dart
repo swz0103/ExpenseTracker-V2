@@ -35,6 +35,58 @@ const cardPaymentAllocationColumns = [
   'operation_id',
 ];
 
+const cardAuthorizationColumns = [
+  'workspace',
+  'charge_id',
+  'card_id',
+  'authorized_on',
+  'currency',
+  'scale',
+  'amount_minor',
+  'operation_id',
+];
+const cardAuthorizationResolutionColumns = [
+  'workspace',
+  'charge_id',
+  'operation_id',
+  'state',
+  'event_id',
+  'posted_on',
+  'settled_minor',
+  'fee_minor',
+];
+
+/// The authorization is immutable. A single terminal fact either cancels it
+/// or links it to an already committed card purchase and Ledger receipt.
+const cardAuthorizationSchema = [
+  '''CREATE TABLE card_authorizations (
+    workspace TEXT NOT NULL, charge_id TEXT NOT NULL, card_id TEXT NOT NULL,
+    authorized_on TEXT NOT NULL, currency TEXT NOT NULL,
+    scale INTEGER NOT NULL CHECK(scale BETWEEN 0 AND 18),
+    amount_minor INTEGER NOT NULL CHECK(amount_minor > 0),
+    operation_id TEXT NOT NULL,
+    PRIMARY KEY(workspace,charge_id), UNIQUE(workspace,operation_id),
+    FOREIGN KEY(workspace,card_id) REFERENCES accounts(workspace,id)
+  ) STRICT''',
+  '''CREATE TABLE card_authorization_resolutions (
+    workspace TEXT NOT NULL, charge_id TEXT NOT NULL,
+    operation_id TEXT NOT NULL, state TEXT NOT NULL
+      CHECK(state IN ('cancelled','posted')),
+    event_id TEXT, posted_on TEXT, settled_minor INTEGER, fee_minor INTEGER,
+    PRIMARY KEY(workspace,charge_id), UNIQUE(workspace,operation_id),
+    UNIQUE(workspace,event_id),
+    CHECK((state='cancelled' AND event_id IS NULL AND posted_on IS NULL
+      AND settled_minor IS NULL AND fee_minor IS NULL) OR
+      (state='posted' AND event_id IS NOT NULL AND posted_on IS NOT NULL
+      AND settled_minor IS NOT NULL AND fee_minor IS NOT NULL
+      AND settled_minor > 0 AND fee_minor >= 0)),
+    FOREIGN KEY(workspace,charge_id)
+      REFERENCES card_authorizations(workspace,charge_id),
+    FOREIGN KEY(workspace,event_id)
+      REFERENCES card_posted_charges(workspace,event_id)
+  ) STRICT''',
+];
+
 const cardFactsSchema = [
   '''CREATE TABLE card_posted_charges (
     workspace TEXT NOT NULL, event_id TEXT NOT NULL, card_id TEXT NOT NULL,

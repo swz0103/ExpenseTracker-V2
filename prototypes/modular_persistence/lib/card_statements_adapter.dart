@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:foundation_values/foundation_values.dart';
 
 import 'adapters.dart';
+import 'card_authorizations_adapter.dart';
 import 'database.dart';
 
 typedef _Key = (String, String);
@@ -709,6 +710,9 @@ Future<void> validateCardStatementFacts(ProbeDatabase db) async {
     if (entry.value > BigInt.from(statement.read<int>('billed_minor'))) {
       throw const FormatException('Payment exceeds issuer statement total');
     }
+  }
+  if (db.cardAuthorizationsAware) {
+    await validateCardAuthorizations(db);
   }
 }
 

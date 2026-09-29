@@ -210,22 +210,29 @@ final class CardCharge {
   final PublicId? ledgerEventId;
   bool get isPosted => ledgerEventId != null;
 
-  /// A changed FX settlement replaces the pending estimate, never adds a
-  /// second purchase. The application must commit the Ledger event atomically.
+  /// A posting is a separate confirmed fact: its date and currency may differ
+  /// from the authorization. It replaces the pending estimate, never adds a
+  /// second purchase. The application must commit the Ledger event atomically
+  /// and retain its identity for retries.
   CardCharge post({
     required BusinessDate postedOn,
     required Money settledAmount,
     required Money fee,
     required PublicId ledgerEventId,
   }) {
-    if (isPosted) {
-      throw const CreditCardException(CreditCardError.alreadyPosted);
-    }
-    if (postedOn.compareTo(authorizedOn) < 0 ||
-        settledAmount.minorUnits <= BigInt.zero ||
+    if (settledAmount.minorUnits <= BigInt.zero ||
         fee.minorUnits < BigInt.zero ||
         settledAmount.currency != fee.currency) {
       throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    if (isPosted) {
+      if (this.postedOn == postedOn &&
+          this.settledAmount == settledAmount &&
+          this.fee == fee &&
+          this.ledgerEventId == ledgerEventId) {
+        return this;
+      }
+      throw const CreditCardException(CreditCardError.alreadyPosted);
     }
     return CardCharge._(
       id: id,

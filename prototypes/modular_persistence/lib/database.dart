@@ -36,6 +36,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.recurringAware = false,
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
+    this.cardAuthorizationsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -113,6 +114,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.recurringAware = false,
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
+    this.cardAuthorizationsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -186,7 +188,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool recurringAware;
   final bool creditCardsAware;
   final bool cardStatementsAware;
+  final bool cardAuthorizationsAware;
   void _configuration() {
+    if (cardAuthorizationsAware && !cardStatementsAware) {
+      throw ArgumentError('Card authorizations require statement schema.');
+    }
     if (cardStatementsAware && !creditCardsAware) {
       throw ArgumentError('Card statements require credit-card schema.');
     }
@@ -212,7 +218,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => cardStatementsAware
+  int get schemaVersion => cardAuthorizationsAware
+      ? 19
+      : cardStatementsAware
       ? 18
       : creditCardsAware
       ? 17
@@ -272,6 +280,11 @@ final class ProbeDatabase extends GeneratedDatabase {
       if (creditCardsAware) await customStatement(cardRevisionSchema);
       if (cardStatementsAware) {
         for (final sql in cardFactsSchema) {
+          await customStatement(sql);
+        }
+      }
+      if (cardAuthorizationsAware) {
+        for (final sql in cardAuthorizationSchema) {
           await customStatement(sql);
         }
       }

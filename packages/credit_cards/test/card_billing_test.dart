@@ -78,6 +78,9 @@ void main() {
       payments: [],
     );
     expect(before.pendingCount, 1);
+    expect(pending.ledgerEventId, isNull);
+    expect(before.purchases.majorText, '0.00');
+    expect(before.fees.majorText, '0.00');
     expect(before.remainingDue.majorText, '0.00');
     final posted = pending.post(
       postedOn: BusinessDate(2028, 2, 22),
@@ -104,6 +107,157 @@ void main() {
       ),
       throwsA(isA<CreditCardException>()),
     );
+  });
+
+  test('posting retry preserves fact and Ledger identity', () {
+    final charge = CardCharge.pending(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      kind: CardChargeKind.purchase,
+      authorizedOn: BusinessDate(2028, 2, 28),
+      authorizedAmount: Money.parse(usd, '10'),
+    );
+    final eventId = PublicId.generate();
+    final postedDate = BusinessDate(2028, 3, 2);
+    final settled = Money.parse(twd, '321');
+    final fee = Money.parse(twd, '5');
+    final posted = charge.post(
+      postedOn: postedDate,
+      settledAmount: settled,
+      fee: fee,
+      ledgerEventId: eventId,
+    );
+    expect(
+      identical(
+        posted,
+        posted.post(
+          postedOn: postedDate,
+          settledAmount: settled,
+          fee: fee,
+          ledgerEventId: eventId,
+        ),
+      ),
+      isTrue,
+    );
+    expect(posted.authorizedAmount, Money.parse(usd, '10'));
+    expect(posted.settledAmount, Money.parse(twd, '321'));
+    expect(posted.ledgerEventId, eventId);
+
+    void expectConflict({
+      BusinessDate? date,
+      Money? amount,
+      Money? postingFee,
+      PublicId? event,
+    }) {
+      expect(
+        () => posted.post(
+          postedOn: date ?? postedDate,
+          settledAmount: amount ?? settled,
+          fee: postingFee ?? fee,
+          ledgerEventId: event ?? eventId,
+        ),
+        throwsA(
+          isA<CreditCardException>().having(
+            (error) => error.code,
+            'code',
+            CreditCardError.alreadyPosted,
+          ),
+        ),
+      );
+    }
+
+    expectConflict(date: BusinessDate(2028, 3, 3));
+    expectConflict(amount: Money.parse(twd, '322'));
+    expectConflict(postingFee: Money.parse(twd, '6'));
+    expectConflict(event: PublicId.generate());
+  });
+
+  test('issuer posting date determines the cycle', () {
+    final charge = CardCharge.pending(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      kind: CardChargeKind.purchase,
+      authorizedOn: BusinessDate(2028, 3, 1),
+      authorizedAmount: Money.parse(usd, '10'),
+    );
+    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 29));
+    final march = terms.scheduledCycleFor(BusinessDate(2028, 3, 1));
+    final pendingFebruary = CardStatement.calculate(
+      terms: terms,
+      cycle: feb,
+      charges: [charge],
+      payments: [],
+    );
+    final pendingMarch = CardStatement.calculate(
+      terms: terms,
+      cycle: march,
+      charges: [charge],
+      payments: [],
+    );
+    expect(pendingFebruary.remainingDue.majorText, '0.00');
+    expect(pendingMarch.remainingDue.majorText, '0.00');
+    expect(pendingMarch.pendingCount, 1);
+
+    // The issuer's business date can precede the locally recorded auth date.
+    final posted = charge.post(
+      postedOn: BusinessDate(2028, 2, 29),
+      settledAmount: Money.parse(twd, '300'),
+      fee: Money.parse(twd, '0'),
+      ledgerEventId: PublicId.generate(),
+    );
+    final postedFebruary = CardStatement.calculate(
+      terms: terms,
+      cycle: feb,
+      charges: [posted],
+      payments: [],
+    );
+    final postedMarch = CardStatement.calculate(
+      terms: terms,
+      cycle: march,
+      charges: [posted],
+      payments: [],
+    );
+    expect(postedFebruary.purchases.majorText, '300.00');
+    expect(postedMarch.purchases.majorText, '0.00');
+    expect(postedMarch.pendingCount, 0);
+  });
+
+  test('invalid posting leaves authorization pending', () {
+    final pending = CardCharge.pending(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      kind: CardChargeKind.purchase,
+      authorizedOn: BusinessDate(2028, 2, 20),
+      authorizedAmount: Money.parse(usd, '10'),
+    );
+    final eventId = PublicId.generate();
+    final date = BusinessDate(2028, 2, 22);
+    for (final (amount, fee) in [
+      (Money.parse(twd, '0'), Money.parse(twd, '0')),
+      (Money.parse(twd, '1'), Money.parse(twd, '-0.01')),
+      (Money.parse(twd, '1'), Money.parse(usd, '0')),
+    ]) {
+      expect(
+        () => pending.post(
+          postedOn: date,
+          settledAmount: amount,
+          fee: fee,
+          ledgerEventId: eventId,
+        ),
+        throwsA(
+          isA<CreditCardException>().having(
+            (error) => error.code,
+            'code',
+            CreditCardError.invalidInput,
+          ),
+        ),
+      );
+    }
+    expect(pending.isPosted, isFalse);
+    expect(pending.ledgerEventId, isNull);
   });
 
   test('cross-cycle refund and partial payment change due, not spending', () {
