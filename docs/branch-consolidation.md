@@ -1,5 +1,11 @@
 # 持續開發與分支收斂
 
+## 2026-09-29：單一整合候選收斂批次
+
+使用者要求先啟動雲端驗證，再把積累的功能分支收斂為一支。現在仍只以 `integration/v2-core`／Draft PR #67 作後續功能候選，不合併 `main`。本次遠端核對：除 `main` 及候選外的 40 支遠端分支，全部都是候選的祖先（`integration/v2-core..origin/<branch>` 的獨有提交數均為 0）。PR #28–#66 無 review submission、一般留言或 inline review 留言；#28–#38 有成功雲端 checks，#39–#66 checks 空白。原始 PR 與提交紀錄保留在 GitHub，即使後續關閉 PR 與刪除來源分支也不以 squash／force push 重寫歷史。
+
+新增限時整合驗證 workflow，涵蓋本機清單 22 個套件；確認其固定 SHA 的各 job 結果後，再從堆疊末端逐批關閉已由 #67 涵蓋的 PR，最後刪除沒有獨有提交的舊遠端分支。關閉只標「由 #67 取代審查入口」，不稱舊 PR 曾各自通過雲端或已合併 `main`。任何失敗、未執行、審查變更或分支出現獨有提交，都先停下該批並重新核對。架構發現與限制見[本次回查](architecture-review-2026-09-29.md)。
+
 ## 2026-09-28：單一整合候選線
 
 依使用者最新指示，建立私人 V2 分支 `integration/v2-core` 與對 `main` 的 [Draft PR #67](https://github.com/swz0103/ExpenseTracker-V2/pull/67)。候選線起點是已通過本機搜尋驗證的 `bddcb135a33cd4b51f08caea1aa7cfbf15d53ae5`（[搜尋 PR #66](https://github.com/swz0103/ExpenseTracker-V2/pull/66)）；它保留全部原始提交，不重寫 #28～#66 的歷史。新功能以此為後續整合目標，每批仍保留可審查的差異與驗證紀錄。

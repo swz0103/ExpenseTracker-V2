@@ -1,0 +1,88 @@
+name: V2 integration validation
+
+# The default branch does not yet contain workflows. A tightly scoped push
+# verifies the integration commit once without waking the old PR stack.
+on:
+  push:
+    branches: [integration/v2-core]
+    paths: [.github/workflows/integration-validation.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-integration-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: '3.13.4'
+      - shell: pwsh
+        run: ./tooling/run-host-checks.ps1 -Package tooling/architecture_checks
+
+  domain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: '3.13.4'
+      - shell: pwsh
+        run: |
+          $packages = @(
+            'packages/foundation_values', 'packages/accounts',
+            'packages/categories', 'packages/tags', 'packages/merchants',
+            'packages/entry_drafts', 'packages/amount_input',
+            'packages/ledger', 'packages/reports', 'packages/budgets',
+            'packages/data_exchange'
+          )
+          foreach ($package in $packages) {
+            ./tooling/run-host-checks.ps1 -Package $package
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+  storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: '3.13.4'
+      - shell: pwsh
+        run: |
+          $packages = @(
+            'prototypes/persistent_jobs', 'prototypes/modular_persistence',
+            'prototypes/backup_envelope', 'prototypes/validated_restore',
+            'prototypes/encrypted_storage', 'prototypes/storage_generation',
+            'prototypes/ledger_generation', 'prototypes/transaction_boundary'
+          )
+          foreach ($package in $packages) {
+            ./tooling/run-host-checks.ps1 -Package $package
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+  flutter-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - shell: pwsh
+        run: |
+          flutter config --no-analytics
+          ./tooling/run-host-checks.ps1 -Package prototypes/android_foundation
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tooling/run-host-checks.ps1 -Package prototypes/expense_preview
