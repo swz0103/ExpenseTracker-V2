@@ -1,0 +1,21 @@
+{
+  "feature": "M2-05 schema 20 opt-in 分期完整主機流程",
+  "date": "2026-09-30",
+  "scope": "權威已入帳刷卡候選、同交易分期保存、加密快照、19→20 及 App 18→20 升級、雙憑證還原、畫面審閱與結果不明重試",
+  "host": {
+    "modularPersistence": "card_installments_test.dart：8 passed",
+    "validatedRestore": "card_installment_snapshot_test.dart：4 passed；既有 schema 18/19 卡片快照測試 8 passed",
+    "ledgerGeneration": "card_installment_session_test.dart：4 passed",
+    "expensePreview": "card_installment_flow_test.dart：1 passed；card_installment_widget_test.dart：1 passed；card_installment_upgrade_test.dart：1 passed",
+    "regression": "card_statement_flow_test.dart、card_authorization_flow_test.dart、credit_card_upgrade_test.dart：6 passed",
+    "analysis": "expense_preview lib 與分期測試：No issues found；Ledger 與 encrypted_storage 靜態分析通過",
+    "architecture": "architecture_checks：21 passed",
+    "diff": "git diff --check passed"
+  },
+  "warnings": [
+    "既有升級／還原測試仍輸出 Drift 多個 ProbeDatabase 指向相同 executor 的 debug 警告；測試通過，但在正式開放前應回查資料庫生命週期與並行風險。"
+  ],
+  "device": "ADB devices -l 無裝置；未執行 schema 20 實機驗證",
+  "cloud": "PR #67 此 head 尚無 Actions checks；剩餘額度未核實，未觸發雲端驗證",
+  "gate": "App 正式 currentPreviewSchemaVersion 仍為 18；schema 20 僅 opt-in，分期未正式開放或宣稱整體驗收"
+}

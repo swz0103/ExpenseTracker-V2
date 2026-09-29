@@ -135,6 +135,7 @@ Future<PreviewEngine> createEngine() async {
       creditCardsAware: capabilities.creditCards,
       cardStatementsAware: capabilities.cardStatements,
       cardAuthorizationsAware: capabilities.cardAuthorizations,
+      installmentsAware: capabilities.installments,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

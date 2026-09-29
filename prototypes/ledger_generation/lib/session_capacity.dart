@@ -34,6 +34,7 @@ const _rowByteLimits = <String, int>{
   'card_payment_allocations': 512,
   'card_authorizations': 512,
   'card_authorization_resolutions': 512,
+  'card_installment_plans': 4096,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -52,6 +53,7 @@ Map<String, int> _tableLimits(
   bool creditCards,
   bool cardStatements,
   bool cardAuthorizations,
+  bool installments,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -72,6 +74,7 @@ Map<String, int> _tableLimits(
   if (cardAuthorizations) 'card_authorizations': LedgerSession.maxEvents,
   if (cardAuthorizations)
     'card_authorization_resolutions': LedgerSession.maxEvents,
+  if (installments) 'card_installment_plans': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -174,6 +177,7 @@ List<int> validateSessionCapacity(
   bool creditCardsAware = false,
   bool cardStatementsAware = false,
   bool cardAuthorizationsAware = false,
+  bool installmentsAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -203,6 +207,7 @@ List<int> validateSessionCapacity(
     creditCardsAware: creditCardsAware,
     cardStatementsAware: cardStatementsAware,
     cardAuthorizationsAware: cardAuthorizationsAware,
+    installmentsAware: installmentsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -223,6 +228,7 @@ List<int> validateSessionCapacity(
     creditCardsAware,
     cardStatementsAware,
     cardAuthorizationsAware,
+    installmentsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();

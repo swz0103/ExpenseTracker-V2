@@ -12,6 +12,81 @@ final class CardInstallmentFact {
   final OperationId operation;
 }
 
+/// A committed, still-active card purchase that can be assigned a plan.
+/// The amount is the original posted Ledger expense, not an issuer bill.
+final class CardInstallmentPurchase {
+  const CardInstallmentPurchase({
+    required this.purchaseEventId,
+    required this.cardId,
+    required this.postedOn,
+    required this.amount,
+  });
+
+  final PublicId purchaseEventId, cardId;
+  final BusinessDate postedOn;
+  final Money amount;
+}
+
+/// Read at most the 100 newest unplanned purchases. A candidate is returned
+/// only after its authoritative Ledger event, leg and receipt are verified.
+Future<List<CardInstallmentPurchase>> availableCardInstallmentPurchases(
+  ProbeDatabase db,
+  WorkspaceId workspace,
+  PublicId cardId,
+) async {
+  _requireSchema(db);
+  final card = await AccountsAdapter(db).read(workspace, cardId);
+  if (card.kind != AccountKind.creditCard) {
+    throw const FormatException('Installment card mismatch');
+  }
+  final ws = workspace.id.value;
+  final rows = await db
+      .customSelect(
+        'SELECT p.event_id,p.posted_on,p.amount_minor FROM card_posted_charges p '
+        'WHERE p.workspace=? AND p.card_id=? AND p.amount_minor>=2 '
+        'AND NOT EXISTS (SELECT 1 FROM card_installment_plans i '
+        'WHERE i.workspace=p.workspace AND i.purchase_event_id=p.event_id) '
+        'AND NOT EXISTS (SELECT 1 FROM event_refunds r '
+        'WHERE r.workspace=p.workspace AND r.original_id=p.event_id) '
+        'AND NOT EXISTS (SELECT 1 FROM event_reversals r '
+        'WHERE r.workspace=p.workspace AND r.original_id=p.event_id) '
+        'AND NOT EXISTS (SELECT 1 FROM event_corrections c '
+        'WHERE c.workspace=p.workspace AND c.original_id=p.event_id) '
+        'AND NOT EXISTS (SELECT 1 FROM event_tombstones t '
+        'WHERE t.workspace=p.workspace AND t.event_id=p.event_id) '
+        'ORDER BY p.posted_on DESC,p.event_id DESC LIMIT 100',
+        variables: [Variable(ws), Variable(cardId.value)],
+      )
+      .get();
+  final candidates = <CardInstallmentPurchase>[];
+  for (final row in rows) {
+    final eventId = PublicId.parse(row.read<String>('event_id'));
+    final postedOn = BusinessDate.parse(row.read<String>('posted_on'));
+    final amount = Money(
+      card.currency,
+      BigInt.from(row.read<int>('amount_minor')),
+    );
+    await _validatePurchaseLink(
+      db,
+      workspace,
+      cardId,
+      eventId,
+      postedOn,
+      amount,
+      requireActive: true,
+    );
+    candidates.add(
+      CardInstallmentPurchase(
+        purchaseEventId: eventId,
+        cardId: cardId,
+        postedOn: postedOn,
+        amount: amount,
+      ),
+    );
+  }
+  return List.unmodifiable(candidates);
+}
+
 /// Save a plan for one already-posted card purchase. The plan is a projection:
 /// it does not create an expense, issuer statement, or payment allocation.
 Future<CardInstallmentFact> createCardInstallmentPlan(
@@ -158,43 +233,61 @@ Future<void> _validateLink(
           0) {
     throw const FormatException('Installment purchase mismatch');
   }
-  final card = await AccountsAdapter(db).read(plan.workspace, plan.cardId);
-  if (card.kind != AccountKind.creditCard ||
-      card.currency != plan.principal.currency) {
+  await _validatePurchaseLink(
+    db,
+    plan.workspace,
+    plan.cardId,
+    plan.purchaseEventId,
+    BusinessDate.parse(rows.single.read<String>('posted_on')),
+    plan.principal + plan.fixedFee,
+    requireActive: requireActive,
+  );
+}
+
+Future<void> _validatePurchaseLink(
+  ProbeDatabase db,
+  WorkspaceId workspace,
+  PublicId cardId,
+  PublicId eventId,
+  BusinessDate postedOn,
+  Money amount, {
+  required bool requireActive,
+}) async {
+  final ws = workspace.id.value;
+  final card = await AccountsAdapter(db).read(workspace, cardId);
+  if (card.kind != AccountKind.creditCard || card.currency != amount.currency) {
     throw const FormatException('Installment card mismatch');
   }
   final event = await db
       .customSelect(
         'SELECT kind,business_date,income,expense,currency,scale FROM events '
         'WHERE workspace=? AND id=?',
-        variables: [Variable(ws), Variable(plan.purchaseEventId.value)],
+        variables: [Variable(ws), Variable(eventId.value)],
       )
       .get();
   final legs = await db
       .customSelect(
         'SELECT account_id,amount,currency,scale,role FROM legs '
         'WHERE workspace=? AND event_id=?',
-        variables: [Variable(ws), Variable(plan.purchaseEventId.value)],
+        variables: [Variable(ws), Variable(eventId.value)],
       )
       .get();
   final receipts = await db
       .customSelect(
         'SELECT 1 FROM receipts WHERE workspace=? AND result_id=? LIMIT 1',
-        variables: [Variable(ws), Variable(plan.purchaseEventId.value)],
+        variables: [Variable(ws), Variable(eventId.value)],
       )
       .get();
-  final amount = rows.single.read<int>('amount_minor');
   if (event.length != 1 ||
       event.single.read<String>('kind') != 'expense' ||
       event.single.read<int>('income') != 0 ||
-      event.single.read<int>('expense') != amount ||
-      event.single.read<String>('business_date') !=
-          rows.single.read<String>('posted_on') ||
+      event.single.read<int>('expense') != amount.minorUnits.toInt() ||
+      event.single.read<String>('business_date') != postedOn.toString() ||
       event.single.read<String>('currency') != card.currency.code ||
       event.single.read<int>('scale') != card.currency.scale ||
       legs.length != 1 ||
-      legs.single.read<String>('account_id') != plan.cardId.value ||
-      legs.single.read<int>('amount') != -amount ||
+      legs.single.read<String>('account_id') != cardId.value ||
+      legs.single.read<int>('amount') != -amount.minorUnits.toInt() ||
       legs.single.read<String>('currency') != card.currency.code ||
       legs.single.read<int>('scale') != card.currency.scale ||
       legs.single.read<String>('role') != 'principal' ||
@@ -211,7 +304,7 @@ Future<void> _validateLink(
     final invalid = await db
         .customSelect(
           'SELECT 1 FROM $table WHERE workspace=? AND $column=? LIMIT 1',
-          variables: [Variable(ws), Variable(plan.purchaseEventId.value)],
+          variables: [Variable(ws), Variable(eventId.value)],
         )
         .get();
     if (invalid.isNotEmpty) {

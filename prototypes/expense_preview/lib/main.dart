@@ -47,6 +47,7 @@ part 'recurring_screen.dart';
 part 'card_statement_screen.dart';
 part 'card_settings_screen.dart';
 part 'card_authorization_screen.dart';
+part 'card_installment_screen.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -162,6 +163,7 @@ enum _Page {
   cardStatements,
   cardSettings,
   cardAuthorizations,
+  cardInstallments,
   home,
   account,
   cardPurchase,
@@ -1653,6 +1655,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.cardStatements,
               _Page.cardSettings,
               _Page.cardAuthorizations,
+              _Page.cardInstallments,
               _Page.simpleImport,
               _Page.simpleExport,
             }.contains(_page) &&
@@ -1813,6 +1816,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             accounts: _accounts,
             privacy: _privacy,
             onChanged: _refresh,
+          ),
+          _back(),
+        ];
+      case _Page.cardInstallments:
+        return [
+          _CardInstallmentScreen(
+            engine: _engine!,
+            accounts: _accounts,
+            privacy: _privacy,
           ),
           _back(),
         ];
@@ -2501,6 +2513,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
           ),
+          if (_engine!.capabilities.installments &&
+              _accounts.any(
+                (row) => row.account.kind == AccountKind.creditCard,
+              ))
+            TextButton(
+              key: const ValueKey('open-card-installments'),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.cardInstallments),
+              child: const Text('信用卡分期'),
+            ),
           if (_engine!.capabilities.creditCards &&
               _accounts.any(
                 (row) =>

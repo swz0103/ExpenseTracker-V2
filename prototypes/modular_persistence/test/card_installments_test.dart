@@ -176,6 +176,57 @@ void main() {
     expect(await cardInstallmentPlans(db, workspace, card.id), isEmpty);
   });
 
+  test(
+    'candidate list is sourced from valid posted Ledger purchases',
+    () async {
+      final purchase = await postedPurchase();
+      final available = await availableCardInstallmentPurchases(
+        db,
+        workspace,
+        card.id,
+      );
+      expect(available, hasLength(1));
+      expect(available.single.purchaseEventId, purchase);
+      expect(available.single.postedOn, BusinessDate(2028, 2, 20));
+      expect(available.single.amount, Money.parse(twd, '101.02'));
+      await createCardInstallmentPlan(db, plan(purchase), operation());
+      expect(
+        await availableCardInstallmentPurchases(db, workspace, card.id),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'candidate list excludes refunded purchases and fails on corruption',
+    () async {
+      final refunded = await postedPurchase();
+      await flows.post(
+        Posting.refund(
+          id: PublicId.generate(),
+          operation: OperationKey(workspace, operation()),
+          date: BusinessDate(2028, 3, 5),
+          account: ref(card),
+          originalId: refunded,
+          amount: Money.parse(twd, '10'),
+        ),
+      );
+      expect(
+        await availableCardInstallmentPurchases(db, workspace, card.id),
+        isEmpty,
+      );
+      final damaged = await postedPurchase();
+      await db.customStatement(
+        'UPDATE events SET expense=expense+1 WHERE workspace=? AND id=?',
+        [workspace.id.value, damaged.value],
+      );
+      await expectLater(
+        availableCardInstallmentPurchases(db, workspace, card.id),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('tampered plan payload fails validation before publication', () async {
     final purchase = await postedPurchase();
     await createCardInstallmentPlan(db, plan(purchase), operation());

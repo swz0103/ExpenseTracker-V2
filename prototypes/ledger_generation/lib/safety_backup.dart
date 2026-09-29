@@ -13,6 +13,7 @@ import 'ledger_store.dart';
 part 'category_upgrade.dart';
 part 'card_statement_upgrade.dart';
 part 'card_authorization_upgrade.dart';
+part 'card_installment_upgrade.dart';
 
 enum SafetyBackupProblem { destination, verification, storage }
 

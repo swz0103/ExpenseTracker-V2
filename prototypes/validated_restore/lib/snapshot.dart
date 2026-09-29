@@ -23,6 +23,7 @@ import 'package:modular_persistence_probe/recurring_schema.dart';
 import 'package:modular_persistence_probe/recurring_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_schema.dart';
 import 'package:modular_persistence_probe/card_facts_schema.dart';
+import 'package:modular_persistence_probe/card_installments_adapter.dart';
 import 'package:modular_persistence_probe/card_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_statements_adapter.dart';
 
@@ -113,6 +114,7 @@ final class SnapshotCodec {
     this.creditCardsAware = false,
     this.cardStatementsAware = false,
     this.cardAuthorizationsAware = false,
+    this.installmentsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -202,6 +204,11 @@ final class SnapshotCodec {
         'Card authorizations require card-statement snapshots.',
       );
     }
+    if (installmentsAware && !cardAuthorizationsAware) {
+      throw ArgumentError(
+        'Installment plans require card-authorization snapshots.',
+      );
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -220,6 +227,7 @@ final class SnapshotCodec {
   final bool creditCardsAware;
   final bool cardStatementsAware;
   final bool cardAuthorizationsAware;
+  final bool installmentsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -241,6 +249,7 @@ final class SnapshotCodec {
       'card_authorizations': cardAuthorizationColumns,
     if (cardAuthorizationsAware)
       'card_authorization_resolutions': cardAuthorizationResolutionColumns,
+    if (installmentsAware) 'card_installment_plans': cardInstallmentPlanColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -252,7 +261,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => cardAuthorizationsAware
+  int get _formatVersion => installmentsAware
+      ? 19
+      : cardAuthorizationsAware
       ? 18
       : cardStatementsAware
       ? 17
@@ -283,7 +294,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => cardAuthorizationsAware
+  int get _schemaVersion => installmentsAware
+      ? 20
+      : cardAuthorizationsAware
       ? 19
       : cardStatementsAware
       ? 18
@@ -335,6 +348,7 @@ final class SnapshotCodec {
     if (creditCardsAware) 'credit_cards': 1,
     if (cardStatementsAware) 'card_statements': 1,
     if (cardAuthorizationsAware) 'card_authorizations': 1,
+    if (installmentsAware) 'card_installments': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -489,6 +503,9 @@ final class SnapshotCodec {
               (cardAuthorizationsAware &&
                   root['version'] == 18 &&
                   root['schema'] == 19) ||
+              (installmentsAware &&
+                  root['version'] == 19 &&
+                  root['schema'] == 20) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -515,6 +532,7 @@ final class SnapshotCodec {
         if (root['version'] >= 16) 'credit_cards': 1,
         if (root['version'] >= 17) 'card_statements': 1,
         if (root['version'] >= 18) 'card_authorizations': 1,
+        if (root['version'] >= 19) 'card_installments': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -545,6 +563,8 @@ final class SnapshotCodec {
           'card_authorizations': cardAuthorizationColumns,
         if (root['version'] >= 18)
           'card_authorization_resolutions': cardAuthorizationResolutionColumns,
+        if (root['version'] >= 19)
+          'card_installment_plans': cardInstallmentPlanColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -676,6 +696,8 @@ final class SnapshotCodec {
       throw const InvalidSnapshot();
     if (cardAuthorizationsAware != db.cardAuthorizationsAware)
       throw const InvalidSnapshot();
+    if (installmentsAware != db.installmentsAware)
+      throw const InvalidSnapshot();
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
       try {
@@ -702,6 +724,13 @@ final class SnapshotCodec {
     if (cardStatementsAware) {
       try {
         await validateCardStatementFacts(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    }
+    if (installmentsAware) {
+      try {
+        await validateCardInstallmentPlans(db);
       } catch (_) {
         throw const InvalidSnapshot();
       }

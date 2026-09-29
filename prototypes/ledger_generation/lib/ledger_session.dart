@@ -130,6 +130,7 @@ final class LedgerSession {
         creditCardsAware: _db.creditCardsAware,
         cardStatementsAware: _db.cardStatementsAware,
         cardAuthorizationsAware: _db.cardAuthorizationsAware,
+        installmentsAware: _db.installmentsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -147,6 +148,7 @@ final class LedgerSession {
       creditCardsAware: _db.creditCardsAware,
       cardStatementsAware: _db.cardStatementsAware,
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
+      installmentsAware: _db.installmentsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -191,6 +193,67 @@ final class LedgerSession {
 
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
+
+  /// Plans project an already-posted card purchase; they create no new spend.
+  Future<card_installments.CardInstallmentFact> createCardInstallmentPlan(
+    CardInstallmentSchedule plan,
+    OperationId operation,
+  ) => _enqueue(
+    () => _write(() async {
+      if (!_db.installmentsAware) {
+        throw UnsupportedError('Card installments require schema 20');
+      }
+      final prior = await _db
+          .customSelect(
+            'SELECT 1 FROM card_installment_plans WHERE workspace=? '
+            'AND (purchase_event_id=? OR operation_id=?) LIMIT 1',
+            variables: [
+              Variable.withString(plan.workspace.id.value),
+              Variable.withString(plan.purchaseEventId.value),
+              Variable.withString(operation.id.value),
+            ],
+          )
+          .getSingleOrNull();
+      if (prior == null) {
+        await _admitCapacity();
+        if (await _count('card_installment_plans') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final fact = await card_installments.createCardInstallmentPlan(
+        _db,
+        plan,
+        operation,
+      );
+      if (prior == null) {
+        await _checkRows(
+          'card_installment_plans',
+          'workspace=? AND purchase_event_id=?',
+          [plan.workspace.id.value, plan.purchaseEventId.value],
+        );
+      }
+      return fact;
+    }),
+  );
+
+  Future<List<card_installments.CardInstallmentFact>> cardInstallmentPlans(
+    WorkspaceId workspace,
+    PublicId cardId,
+  ) => _enqueue(
+    () => card_installments.cardInstallmentPlans(_db, workspace, cardId),
+  );
+
+  Future<List<card_installments.CardInstallmentPurchase>>
+  availableCardInstallmentPurchases(
+    WorkspaceId workspace,
+    PublicId cardId,
+  ) => _enqueue(
+    () => card_installments.availableCardInstallmentPurchases(
+      _db,
+      workspace,
+      cardId,
+    ),
+  );
 
   /// A pending authorization is an estimate, not a posted expense. Retain
   /// both the charge ID and creation operation across retries.
@@ -1205,6 +1268,7 @@ final class LedgerSession {
       creditCardsAware: _db.creditCardsAware,
       cardStatementsAware: _db.cardStatementsAware,
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
+      installmentsAware: _db.installmentsAware,
     ).capture(_db),
   );
 

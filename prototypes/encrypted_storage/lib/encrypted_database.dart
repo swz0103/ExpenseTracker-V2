@@ -50,6 +50,7 @@ ProbeDatabase openEncrypted(
   bool creditCardsAware = false,
   bool cardStatementsAware = false,
   bool cardAuthorizationsAware = false,
+  bool installmentsAware = false,
   void Function(String)? migrationCheckpoint,
 }) => ProbeDatabase.withExecutor(
   NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
@@ -70,6 +71,7 @@ ProbeDatabase openEncrypted(
   creditCardsAware: creditCardsAware,
   cardStatementsAware: cardStatementsAware,
   cardAuthorizationsAware: cardAuthorizationsAware,
+  installmentsAware: installmentsAware,
   migrationCheckpoint: migrationCheckpoint,
 );
 
