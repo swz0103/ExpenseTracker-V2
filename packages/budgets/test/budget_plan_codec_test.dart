@@ -1,0 +1,85 @@
+import 'dart:convert';
+
+import 'package:budgets/budgets.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:reports/reports.dart';
+import 'package:test/test.dart';
+
+void main() {
+  final codec = BudgetPlanCodec();
+  final workspace = WorkspaceId(PublicId.generate());
+  final accountA = PublicId.generate();
+  final accountB = PublicId.generate();
+  final tag = PublicId.generate();
+  final plan = BudgetPlan(
+    id: PublicId.generate(),
+    workspace: workspace,
+    month: ReportMonth(2028, 2),
+    limit: Money.parse(Currency('TWD', 2), '1200.50'),
+    version: 3,
+    categoryId: PublicId.generate(),
+    accountIds: {accountB, accountA},
+    tagIds: {tag},
+    warningPercent: 75,
+  );
+
+  test('canonical round trip retains every budget authority field', () {
+    final encoded = codec.encode(plan);
+    final restored = codec.decode(encoded);
+    expect(restored.id, plan.id);
+    expect(restored.workspace, plan.workspace);
+    expect(restored.month.toString(), '2028-02');
+    expect(restored.limit.toJson(), plan.limit.toJson());
+    expect(restored.version, 3);
+    expect(restored.categoryId, plan.categoryId);
+    expect(restored.accountIds, {accountA, accountB});
+    expect(restored.tagIds, {tag});
+    expect(restored.warningPercent, 75);
+    expect(codec.encode(restored), encoded);
+  });
+
+  test('unknown or missing fields and future formats fail closed', () {
+    final original = jsonDecode(codec.encode(plan)) as Map<String, dynamic>;
+    for (final mutation in [
+      {...original, 'format': 2},
+      {...original, 'unrecognized': true},
+      {...original}..remove('warningPercent'),
+      {...original, 'month': 13},
+      {
+        ...original,
+        'limit': {...original['limit'] as Map, 'extra': 1},
+      },
+      {
+        ...original,
+        'accountIds': [accountA.value, accountA.value],
+      },
+      {
+        ...original,
+        'tagIds': [tag.value, 'invalid'],
+      },
+    ]) {
+      expect(() => codec.decode(jsonEncode(mutation)), throwsFormatException);
+    }
+    expect(() => codec.decode('{'), throwsFormatException);
+  });
+
+  test('size and selection bounds reject pathological plans', () {
+    final original = jsonDecode(codec.encode(plan)) as Map<String, dynamic>;
+    expect(
+      () => codec.decode(' ' * (BudgetPlanCodec.maxBytes + 1)),
+      throwsFormatException,
+    );
+    expect(
+      () => codec.decode(
+        jsonEncode({
+          ...original,
+          'accountIds': List.filled(
+            BudgetPlanCodec.maxSelections + 1,
+            accountA.value,
+          ),
+        }),
+      ),
+      throwsFormatException,
+    );
+  });
+}

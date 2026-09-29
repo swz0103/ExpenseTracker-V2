@@ -4,6 +4,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val syntheticValidation = providers.gradleProperty("v2SyntheticValidation").orNull == "true"
+
 android {
     namespace = "dev.expensetracker.preview"
     compileSdk = 36
@@ -16,6 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.expensetracker.preview"
+        manifestPlaceholders["v2AppLabel"] = "記帳 V2 試用版"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
@@ -26,6 +29,15 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (syntheticValidation) {
+                applicationIdSuffix = ".synthetic"
+                manifestPlaceholders["v2AppLabel"] = "記帳 V2 合成測試"
+            }
+        }
     }
 
 }

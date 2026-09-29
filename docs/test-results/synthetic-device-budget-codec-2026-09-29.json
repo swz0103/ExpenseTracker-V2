@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-29",
+  "sourceHeadBeforeChanges": "f7ffa65ffd27fdb679ca73206907305496b7c7dd",
+  "device": "Samsung SM-A5660, Android 16, Android user 0",
+  "isolation": {
+    "normalV2Package": "dev.expensetracker.preview",
+    "syntheticDebugPackage": "dev.expensetracker.preview.synthetic",
+    "legacyPackage": "com.wzet.app",
+    "syntheticApkSha256": "2EC35B235E2127E97267FEA61B48E51FE8C210D917AC2F48A5292A0A6B92FB68",
+    "aaptPackageAndLabelVerified": true,
+    "normalV2AndSyntheticBothStillInstalled": true,
+    "legacyAppAndOriginalV2DataUntouched": true
+  },
+  "deviceChecks": [
+    "首次設定在合成套件建立 profile.envelope 與加密 ledger；初次 UI 自動讀取打斷流程後重新連續確認成功",
+    "新增零期初 TWD 現金帳戶後餘額為 0.00",
+    "記錄一筆 TWD 123.45 支出後餘額為 -123.45",
+    "手動鎖定並用合成密碼重新解鎖，餘額仍為 -123.45",
+    "切到手機首頁再返回，帳本顯示解鎖畫面"
+  ],
+  "hostChecks": {
+    "syntheticDebugGradleBuild": "passed",
+    "budgetPlanCodecFormat": "passed",
+    "budgetPlanCodecAnalyze": "passed",
+    "budgetsPackageTests": "7 passed"
+  },
+  "notVerified": [
+    "M1-05 搜尋與報表實機操作",
+    "M1-06 Android 系統文件供應者匯入匯出與回讀",
+    "M1-07 雙憑證備份還原、原生裝置認證與安全模式實機 gate",
+    "M2-02 預算權威保存、UI、加密備份與升級",
+    "目前提交的 exact-head GitHub Actions"
+  ],
+  "secretsOrArtifactsUploaded": false
+}
