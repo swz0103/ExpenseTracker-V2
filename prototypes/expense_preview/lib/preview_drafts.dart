@@ -16,6 +16,32 @@ extension PreviewDrafts on PreviewEngine {
     return _draftStore ?? (throw PreviewInvalid());
   }
 
+  Future<void> _commitPreparedPosting(EntryDraft draft, int epoch) async {
+    final command = draft.submission!;
+    final accountId = draft.fields.accountId;
+    final isCard =
+        accountId != null &&
+        (await _session!.accounts(workspace)).any(
+          (row) =>
+              row.account.id == accountId &&
+              row.account.kind == AccountKind.creditCard,
+        );
+    _check(epoch);
+    if (isCard) {
+      await _session!.postCardPurchase(
+        command.posting,
+        tags: command.tags,
+        merchant: command.merchant,
+      );
+    } else {
+      await _session!.post(
+        command.posting,
+        tags: command.tags,
+        merchant: command.merchant,
+      );
+    }
+  }
+
   Future<EntryDraft?> entryDraft() => _draftExclusive((epoch) async {
     final store = _drafts;
     final session = _session!;
@@ -50,12 +76,7 @@ extension PreviewDrafts on PreviewEngine {
     if (draft?.submission != null &&
         await session.entry(workspace, draft!.id) != null) {
       // Receipt equality proves this event is exactly our frozen command.
-      final command = draft.submission!;
-      await session.post(
-        command.posting,
-        tags: command.tags,
-        merchant: command.merchant,
-      );
+      await _commitPreparedPosting(draft, epoch);
       await store.write(null);
       _check(epoch);
       return null;
@@ -354,12 +375,7 @@ extension PreviewDrafts on PreviewEngine {
         replacementMerchant: correction.merchant,
       );
     } else {
-      final command = draft.submission!;
-      await session.post(
-        command.posting,
-        tags: command.tags,
-        merchant: command.merchant,
-      );
+      await _commitPreparedPosting(draft, epoch);
     }
     draftCheckpoint?.call('draft-committed');
     await store.write(null);

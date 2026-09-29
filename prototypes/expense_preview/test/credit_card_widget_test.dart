@@ -5,6 +5,7 @@ import 'package:expense_preview/main.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ledger/ledger.dart';
 
 import 'support.dart';
 import 'widget_test.dart' show Documents, closeEngine, input, settle, tap;
@@ -50,6 +51,17 @@ void main() {
       expect(terms.single.dueDay, 12);
       expect(terms.single.limit?.majorText, '20000.00');
       expect(find.byKey(const ValueKey('asset-total-TWD')), findsNothing);
+      await tap(tester, '信用卡刷卡入帳');
+      await input(tester, '實際入帳金額', '123.45');
+      await tap(tester, '確認刷卡入帳');
+      final after = (await tester.runAsync(() => engine.accounts()))!;
+      expect(after.single.balance.minorUnits, BigInt.from(-12345));
+      final entries = (await tester.runAsync(() => engine.entries()))!;
+      final purchase = entries.singleWhere(
+        (entry) => entry.kind == PostingKind.expense,
+      );
+      expect(purchase.accountId, after.single.account.id);
+      expect(purchase.amount.minorUnits, BigInt.from(-12345));
     } finally {
       await closeEngine(tester, engine);
       await tester.pumpWidget(const SizedBox());

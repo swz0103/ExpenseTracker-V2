@@ -60,6 +60,9 @@ extension SimpleImportSession on LedgerSession {
         Account live;
         try {
           live = await accounts.read(workspace, target.id);
+          if (_db.creditCardsAware && live.kind == AccountKind.creditCard) {
+            throw ExchangeException('target_credit_card', row.number);
+          }
           live.requirePosting(
             workspace: workspace,
             currency: source.amount.currency,

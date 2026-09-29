@@ -228,10 +228,61 @@ final class LedgerSession {
     Posting posting, {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
+  }) => _post(posting, tags: tags, merchant: merchant);
+
+  /// Commits one settled, same-currency card purchase as a Ledger expense.
+  /// The event ID is also the charge identity; no authorization is stored.
+  /// The card balance becomes more negative, while report expense rises once.
+  Future<CommitResult> postCardPurchase(
+    Posting purchase, {
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+  }) => _post(purchase, tags: tags, merchant: merchant, cardPurchase: true);
+
+  Future<CommitResult> _post(
+    Posting posting, {
+    Iterable<TagSelection> tags = const [],
+    MerchantSelection? merchant,
+    bool cardPurchase = false,
   }) {
     final selections = canonicalTags(tags);
     return _enqueue(
       () => _write(() async {
+        if (cardPurchase) {
+          if (!_db.creditCardsAware) {
+            throw UnsupportedError('Credit cards require schema 17');
+          }
+          if (posting.kind != PostingKind.expense ||
+              posting.legs.length != 1 ||
+              posting.legs.single.role != LegRole.principal) {
+            throw ArgumentError('Card purchase requires one expense leg');
+          }
+          // A committed operation remains replayable after the card is
+          // disabled; FinancialWorkflows still checks its exact input.
+          if (!await _hasOperation(posting.operation)) {
+            final account = await AccountsAdapter(
+              _db,
+            ).read(posting.operation.workspace, posting.legs.single.account.id);
+            if (account.kind != AccountKind.creditCard) {
+              throw const CreditCardException(CreditCardError.cardMismatch);
+            }
+            final terms = await currentCardTerms(
+              _db,
+              posting.operation.workspace,
+            );
+            if (!terms.any(
+              (term) =>
+                  term.cardId == account.id &&
+                  term.currency == account.currency,
+            )) {
+              throw const FormatException('Card is disabled or unconfigured');
+            }
+            if (account.currency != posting.reportExpense.currency) {
+              throw const CreditCardException(CreditCardError.currencyMismatch);
+            }
+          }
+        }
+        if (!cardPurchase) await _rejectUntrackedCardPosting(_db, posting);
         if (posting.kind != PostingKind.income &&
             posting.kind != PostingKind.expense &&
             !(_db.transfersAware && posting.kind == PostingKind.transfer) &&
@@ -277,6 +328,8 @@ final class LedgerSession {
         if (!_db.correctionsAware) {
           throw UnsupportedError('Corrections require schema 13.');
         }
+        await _rejectUntrackedCardPosting(_db, correction.original);
+        await _rejectUntrackedCardPosting(_db, correction.replacement);
         if (correction.replacement.kind == PostingKind.transfer &&
             (selections.isNotEmpty || replacementMerchant != null)) {
           throw UnsupportedError('Transfer metadata is not yet supported');
@@ -325,6 +378,7 @@ final class LedgerSession {
       if (!_db.tombstonesAware) {
         throw UnsupportedError('Tombstones require schema 14.');
       }
+      await _rejectUntrackedCardPosting(_db, command.original);
       if (!await _hasOperation(command.operation)) {
         await _admitCapacity();
         if (await _count('event_tombstones') >= maxEvents) {
@@ -715,6 +769,26 @@ final class LedgerSession {
       rows.map((r) => WorkspaceId.parse(r.read<String>('workspace'))),
     );
   });
+}
+
+/// Prevent older generic entry points from posting card activity without a
+/// card workflow. A card purchase deliberately bypasses this guard only after
+/// its account and active settings have been checked in the same transaction.
+Future<void> _rejectUntrackedCardPosting(
+  ProbeDatabase db,
+  Posting posting,
+) async {
+  if (!db.creditCardsAware) return;
+  final accounts = AccountsAdapter(db);
+  for (final leg in posting.legs) {
+    final account = await accounts.read(
+      posting.operation.workspace,
+      leg.account.id,
+    );
+    if (account.kind == AccountKind.creditCard) {
+      throw UnsupportedError('Use a credit-card posting workflow');
+    }
+  }
 }
 
 LedgerEntry _entryFromRow(QueryRow r) => LedgerEntry(

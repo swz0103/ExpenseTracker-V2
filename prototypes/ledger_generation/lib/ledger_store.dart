@@ -558,10 +558,10 @@ final class LedgerStore {
   Future<CommitResult> post(
     Posting posting, {
     LockWaitCancellation? cancellation,
-  }) => _use(
-    (db) => FinancialWorkflows(db).post(posting),
-    cancellation: cancellation,
-  );
+  }) => _use((db) async {
+    await _rejectUntrackedCardPosting(db, posting);
+    return FinancialWorkflows(db).post(posting);
+  }, cancellation: cancellation);
   Future<Money> balance(
     PostingAccount account, {
     LockWaitCancellation? cancellation,

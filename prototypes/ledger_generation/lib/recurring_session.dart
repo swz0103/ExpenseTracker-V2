@@ -95,6 +95,9 @@ extension RecurringLedgerSession on LedgerSession {
       }
       final account = await AccountsAdapter(_db)
           .read(workspace, current.accountId);
+      if (_db.creditCardsAware && account.kind == AccountKind.creditCard) {
+        throw UnsupportedError('Use a credit-card posting workflow');
+      }
       if (account.state != AccountState.active ||
           account.currency != current.amount.currency) {
         throw const FormatException('Recurring account is unavailable');

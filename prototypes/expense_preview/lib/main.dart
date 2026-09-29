@@ -158,6 +158,7 @@ enum _Page {
   recurring,
   home,
   account,
+  cardPurchase,
   posting,
   restore,
   simpleImport,
@@ -269,7 +270,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Object? _draftSaveError;
   int _viewEpoch = 0, _draftWrites = 0;
   bool get _postingFrozen =>
-      _page == _Page.posting && _entryDraft?.isPrepared == true;
+      (_page == _Page.posting || _page == _Page.cardPurchase) &&
+      _entryDraft?.isPrepared == true;
 
   @override
   void initState() {
@@ -909,7 +911,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           .where(
             (a) =>
                 a.account.state == AccountState.active &&
-                a.account.kind != AccountKind.creditCard,
+                (page == _Page.cardPurchase
+                    ? a.account.kind == AccountKind.creditCard
+                    : a.account.kind != AccountKind.creditCard),
           )
           .firstOrNull
           ?.account
@@ -973,7 +977,10 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _changeSplit(VoidCallback change) => setState(change);
 
   void _queueDraft() {
-    if (_page != _Page.posting || _postingFrozen) return;
+    if ((_page != _Page.posting && _page != _Page.cardPurchase) ||
+        _postingFrozen) {
+      return;
+    }
     final epoch = _viewEpoch;
     final engine = _engine!;
     final fields = _noteTarget != null
@@ -994,7 +1001,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             reversalReason: _reversalReason.text,
           )
         : EntryFields(
-            income: _income,
+            income: _page == _Page.cardPurchase ? false : _income,
             correctionOf: _correction?.posting.id,
             correctionReason: _correction == null ? '' : _correctionReason.text,
             refundOf: _refund?.budget.originalId,
@@ -1069,7 +1076,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         : saved.correctionSubmission == null
         ? await _engine!.reversalSource(fields.correctionOf!)
         : EntrySubmission(saved.correctionSubmission!.pair.original);
-    _edit(_Page.posting, transfer: fields.transfer);
+    final cardDraft =
+        fields.accountId != null &&
+        _accounts.any(
+          (a) =>
+              a.account.id == fields.accountId &&
+              a.account.kind == AccountKind.creditCard,
+        );
+    _edit(
+      cardDraft ? _Page.cardPurchase : _Page.posting,
+      transfer: fields.transfer,
+    );
     var omitted = false;
     setState(() {
       _entryDraft = saved;
@@ -1086,7 +1103,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             (a) =>
                 a.account.id == fields.accountId &&
                 a.account.state == AccountState.active &&
-                a.account.kind != AccountKind.creditCard,
+                (cardDraft
+                    ? a.account.kind == AccountKind.creditCard
+                    : a.account.kind != AccountKind.creditCard),
           )
           ? fields.accountId
           : null;
@@ -1454,7 +1473,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       controller: controller,
       enabled: !_busy && !_postingFrozen,
       onChanged: (_) {
-        if (_page == _Page.posting) _queueDraft();
+        if (_page == _Page.posting || _page == _Page.cardPurchase) {
+          _queueDraft();
+        }
       },
       obscureText: secret,
       autocorrect: false,
@@ -1489,7 +1510,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           !_postingFrozen &&
           _engine!.isUnlocked,
       onChanged: () {
-        if (_page == _Page.posting) _queueDraft();
+        if (_page == _Page.posting || _page == _Page.cardPurchase) {
+          _queueDraft();
+        }
       },
     );
   }
@@ -1500,7 +1523,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     currency: currency,
     enabled: !_busy && !_postingFrozen,
     onChanged: () {
-      if (_page == _Page.posting) _queueDraft();
+      if (_page == _Page.posting || _page == _Page.cardPurchase) {
+        _queueDraft();
+      }
     },
   );
   Widget _button(String label, VoidCallback? onPressed) => Padding(
@@ -1514,7 +1539,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     onPressed: _busy
         ? null
         : () => _perform(() async {
-            if (_draftSaveError != null && _page == _Page.posting) {
+            if (_draftSaveError != null &&
+                (_page == _Page.posting || _page == _Page.cardPurchase)) {
               _queueDraft();
               await _draftSaveTail;
               if (_draftSaveError != null) throw _draftSaveError!;
@@ -1818,6 +1844,88 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ),
           _dateField(opening: true),
           _button('建立帳戶', _saveAccount),
+          _back(),
+        ];
+      case _Page.cardPurchase:
+        return [
+          Text('信用卡刷卡入帳', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          const Text('只記錄已正式入帳的本幣刷卡。待入帳授權、外幣與額外手續費尚未開放。'),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<PublicId>(
+            key: const ValueKey('card-purchase-account'),
+            initialValue: _accountId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '信用卡'),
+            items: [
+              for (final row in _accounts.where(
+                (row) =>
+                    row.account.state == AccountState.active &&
+                    row.account.kind == AccountKind.creditCard,
+              ))
+                DropdownMenuItem(
+                  value: row.account.id,
+                  child: Text(
+                    '${row.account.name} · ${row.account.currency.code}',
+                  ),
+                ),
+            ],
+            onChanged: (_busy || _postingFrozen)
+                ? null
+                : (value) => setState(() {
+                    _accountId = value;
+                    _categoryId = '';
+                    _queueDraft();
+                  }),
+          ),
+          const SizedBox(height: 14),
+          _amountField('實際入帳金額', _sourceCurrency),
+          _dateField(),
+          DropdownButtonFormField<String>(
+            key: const ValueKey('card-purchase-category'),
+            initialValue: _categoryId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '支出分類'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('未分類')),
+              for (final category in _catalog!.categories.where(
+                (category) =>
+                    !category.archived &&
+                    category.replacementId == null &&
+                    category.kind == CategoryKind.expense,
+              ))
+                DropdownMenuItem(
+                  value: category.id.value,
+                  child: Text(
+                    _categoryLabel(_catalog!, category),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: (_busy || _postingFrozen)
+                ? null
+                : (value) => setState(() {
+                    _categoryId = value ?? '';
+                    _queueDraft();
+                  }),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _draftSaveError != null
+                ? '草稿保存失敗，請重試；尚未刷卡入帳。'
+                : _draftWrites > 0
+                ? '正在加密保存草稿…'
+                : _postingFrozen
+                ? '刷卡資料已固定；再次確認會安全重試同一筆。'
+                : '草稿會先加密保存，確認後才入帳。',
+            key: const ValueKey('card-purchase-draft-status'),
+          ),
+          _button('確認刷卡入帳', _savePosting),
+          if (_entryDraft != null || _draftSaveError != null)
+            TextButton(
+              onPressed: _busy ? null : _discardDraft,
+              child: const Text('捨棄刷卡草稿'),
+            ),
           _back(),
         ];
       case _Page.posting:
@@ -2180,7 +2288,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             '記一筆',
             _entryDraft == null &&
                     !_draftUnreadable &&
-                    _accounts.any((s) => s.account.state == AccountState.active)
+                    _accounts.any(
+                      (s) =>
+                          s.account.state == AccountState.active &&
+                          s.account.kind != AccountKind.creditCard,
+                    )
                 ? () => _edit(_Page.posting)
                 : null,
           ),
@@ -2190,7 +2302,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _entryDraft == null &&
                       !_draftUnreadable &&
                       _accounts.any(
-                        (a) => a.account.state == AccountState.active,
+                        (a) =>
+                            a.account.state == AccountState.active &&
+                            a.account.kind != AccountKind.creditCard,
                       )
                   ? () => _edit(_Page.posting, transfer: true)
                   : null,
@@ -2199,6 +2313,18 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
           ),
+          if (_engine!.capabilities.creditCards &&
+              _accounts.any(
+                (row) =>
+                    row.account.state == AccountState.active &&
+                    row.account.kind == AccountKind.creditCard,
+              ))
+            OutlinedButton(
+              onPressed: _busy || _entryDraft != null || _draftUnreadable
+                  ? null
+                  : () => _edit(_Page.cardPurchase),
+              child: const Text('信用卡刷卡入帳'),
+            ),
           TextButton(
             onPressed: _busy
                 ? null
