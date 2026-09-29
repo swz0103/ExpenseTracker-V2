@@ -195,4 +195,43 @@ void main() {
     );
     await expectLater(validateCardInstallmentPlans(db), throwsFormatException);
   });
+
+  test(
+    'a later refund retains historical plan but blocks a new plan',
+    () async {
+      final purchase = await postedPurchase();
+      final request = plan(purchase);
+      final op = operation();
+      await createCardInstallmentPlan(db, request, op);
+      await flows.post(
+        Posting.refund(
+          id: PublicId.generate(),
+          operation: OperationKey(workspace, operation()),
+          date: BusinessDate(2028, 3, 5),
+          account: ref(card),
+          originalId: purchase,
+          amount: Money.parse(twd, '10'),
+        ),
+      );
+      await validateCardInstallmentPlans(db);
+      expect(await cardInstallmentPlans(db, workspace, card.id), hasLength(1));
+      await createCardInstallmentPlan(db, request, op);
+
+      final otherPurchase = await postedPurchase();
+      await flows.post(
+        Posting.refund(
+          id: PublicId.generate(),
+          operation: OperationKey(workspace, operation()),
+          date: BusinessDate(2028, 3, 5),
+          account: ref(card),
+          originalId: otherPurchase,
+          amount: Money.parse(twd, '10'),
+        ),
+      );
+      await expectLater(
+        createCardInstallmentPlan(db, plan(otherPurchase), operation()),
+        throwsFormatException,
+      );
+    },
+  );
 }
