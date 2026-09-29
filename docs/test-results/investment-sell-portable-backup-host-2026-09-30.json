@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-30",
+  "milestone": "M3-02 schema 22 可攜備份與雙憑證乾淨還原（LedgerStore 尚未接線）",
+  "scope": "版本化快照完整收錄賣出及批次分攤；驗證現金事件、收據、稽核與成本重播",
+  "host": {
+    "validated_restore": "完整 131/131 通過；含賣出快照 round-trip、竄改成本分攤拒絕、schema 21 空賣出權威升級、密碼及救援文字各自解密後乾淨還原",
+    "analysis": "validated_restore 的 lib/test 靜態分析通過",
+    "architecture": "Architecture boundaries passed",
+    "format_and_diff": "Dart format 通過；git diff --check 通過"
+  },
+  "device": "ADB 尚無裝置；未驗 schema 22 原生文件流程",
+  "cloud": "目前 head 尚無 exact-head Actions checks；剩餘額度未核實",
+  "release_gate": "未通過：LedgerStore 加密世代與 schema 21→22 安全升級、App 賣出確認畫面及實機 gate 尚未完成。正式 App 仍固定 schema 18"
+}
