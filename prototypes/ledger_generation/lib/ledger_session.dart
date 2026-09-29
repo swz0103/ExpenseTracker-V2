@@ -239,11 +239,17 @@ final class LedgerSession {
     MerchantSelection? merchant,
   }) => _post(purchase, tags: tags, merchant: merchant, cardPurchase: true);
 
+  /// Pays an outstanding card liability from a bank account. This account-
+  /// level transfer is not assigned to an issuer statement and adds no spend.
+  Future<CommitResult> postCardPayment(Posting payment) =>
+      _post(payment, cardPayment: true);
+
   Future<CommitResult> _post(
     Posting posting, {
     Iterable<TagSelection> tags = const [],
     MerchantSelection? merchant,
     bool cardPurchase = false,
+    bool cardPayment = false,
   }) {
     final selections = canonicalTags(tags);
     return _enqueue(
@@ -282,7 +288,64 @@ final class LedgerSession {
             }
           }
         }
-        if (!cardPurchase) await _rejectUntrackedCardPosting(_db, posting);
+        if (cardPayment) {
+          if (!_db.creditCardsAware) {
+            throw UnsupportedError('Credit cards require schema 17');
+          }
+          if (posting.kind != PostingKind.transfer ||
+              posting.legs.length != 2 ||
+              posting.legs.any((leg) => leg.role != LegRole.principal) ||
+              posting.reportIncome.minorUnits != BigInt.zero ||
+              posting.reportExpense.minorUnits != BigInt.zero) {
+            throw ArgumentError('Card payment requires a fee-free transfer');
+          }
+          if (posting.conversion != null ||
+              posting.legs.first.amount.currency !=
+                  posting.legs.last.amount.currency) {
+            throw const CreditCardException(CreditCardError.currencyMismatch);
+          }
+          // A successful payment must replay even though it has reduced the
+          // outstanding liability. The receipt still verifies exact input.
+          if (!await _hasOperation(posting.operation)) {
+            final accounts = AccountsAdapter(_db);
+            final source = await accounts.read(
+              posting.operation.workspace,
+              posting.legs.first.account.id,
+            );
+            final target = await accounts.read(
+              posting.operation.workspace,
+              posting.legs.last.account.id,
+            );
+            if (source.kind != AccountKind.bank ||
+                target.kind != AccountKind.creditCard) {
+              throw const CreditCardException(CreditCardError.cardMismatch);
+            }
+            if (source.currency != target.currency ||
+                posting.legs.last.amount.currency != target.currency) {
+              throw const CreditCardException(CreditCardError.currencyMismatch);
+            }
+            final revisions = await cardTermsHistory(
+              _db,
+              posting.operation.workspace,
+            );
+            if (!revisions.any(
+              (revision) =>
+                  revision.terms.cardId == target.id &&
+                  revision.terms.currency == target.currency,
+            )) {
+              throw const FormatException('Card is unconfigured');
+            }
+            final liability = await LedgerAdapter(_db)
+                .balance(posting.legs.last.account);
+            if (liability.minorUnits >= BigInt.zero ||
+                posting.legs.last.amount.minorUnits > -liability.minorUnits) {
+              throw const CreditCardException(CreditCardError.invalidInput);
+            }
+          }
+        }
+        if (!cardPurchase && !cardPayment) {
+          await _rejectUntrackedCardPosting(_db, posting);
+        }
         if (posting.kind != PostingKind.income &&
             posting.kind != PostingKind.expense &&
             !(_db.transfersAware && posting.kind == PostingKind.transfer) &&

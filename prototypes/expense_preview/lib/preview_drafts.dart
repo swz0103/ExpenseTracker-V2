@@ -19,11 +19,28 @@ extension PreviewDrafts on PreviewEngine {
   Future<void> _commitPreparedPosting(EntryDraft draft, int epoch) async {
     final command = draft.submission!;
     final accountId = draft.fields.accountId;
+    if (draft.fields.transfer &&
+        (accountId == null ||
+            command.posting.kind != PostingKind.transfer ||
+            command.posting.legs.length < 2 ||
+            command.posting.legs.first.account.id != accountId ||
+            command.posting.legs.last.account.id !=
+                draft.fields.destinationId)) {
+      throw PreviewInvalid();
+    }
     final isCard =
         accountId != null &&
         (await _session!.accounts(workspace)).any(
           (row) =>
               row.account.id == accountId &&
+              row.account.kind == AccountKind.creditCard,
+        );
+    final isCardPayment =
+        draft.fields.transfer &&
+        draft.fields.destinationId != null &&
+        (await _session!.accounts(workspace)).any(
+          (row) =>
+              row.account.id == draft.fields.destinationId &&
               row.account.kind == AccountKind.creditCard,
         );
     _check(epoch);
@@ -33,6 +50,8 @@ extension PreviewDrafts on PreviewEngine {
         tags: command.tags,
         merchant: command.merchant,
       );
+    } else if (isCardPayment) {
+      await _session!.postCardPayment(command.posting);
     } else {
       await _session!.post(
         command.posting,

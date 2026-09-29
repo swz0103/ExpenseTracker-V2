@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-29",
+  "scope": "M2-04 同幣別銀行至信用卡的帳戶層繳款與 App 草稿流程",
+  "baseCommit": "884cb3f022986123c1bad7dbcdbd7d8c9628c827",
+  "host": {
+    "ledgerAffectedRegression": "passed: 22 tests for payment, purchase, transfers, monthly reports and session; card-payment suite 11 passed after final replay case",
+    "appPaymentDraftAndRestore": "passed: 2 focused tests for bank selection, payment posting, crash/reopen replay and password/recovery clean restore",
+    "appCardRegression": "passed: 4 focused tests across payment, purchase draft and card widget",
+    "staticAnalysis": "passed: affected App source and test files; Ledger source and test analyzed by subtask",
+    "architectureBoundaries": "passed",
+    "androidArm64DebugBuild": "passed; debug artifact retained locally"
+  },
+  "device": "not run: adb devices -l found no attached device",
+  "cloud": "not run: Actions minutes unverified; no exact-head checks claimed",
+  "limitations": [
+    "Payment is a same-currency, fee-free bank-to-card transfer against current outstanding liability. It is not assigned to an issuer statement.",
+    "Schema 17 has no independent card payment, posted charge or confirmed statement fact tables; M2-04 is incomplete.",
+    "Pending authorization, confirmed statements, cross-cycle refunds, card-specific fees and FX payments remain unimplemented.",
+    "The complete App suite was not rerun in this batch; only affected tests passed."
+  ]
+}

@@ -159,6 +159,7 @@ enum _Page {
   home,
   account,
   cardPurchase,
+  cardPayment,
   posting,
   restore,
   simpleImport,
@@ -270,7 +271,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   Object? _draftSaveError;
   int _viewEpoch = 0, _draftWrites = 0;
   bool get _postingFrozen =>
-      (_page == _Page.posting || _page == _Page.cardPurchase) &&
+      (_page == _Page.posting ||
+          _page == _Page.cardPurchase ||
+          _page == _Page.cardPayment) &&
       _entryDraft?.isPrepared == true;
 
   @override
@@ -890,8 +893,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _reversalReason.clear();
       _correctionReason.clear();
       _page = page;
-      _transfer = transfer;
-      if (transfer) _income = false;
+      _transfer = transfer || page == _Page.cardPayment;
+      if (_transfer) _income = false;
       _destinationId = null;
       _fee.text = '0';
       _received.clear();
@@ -913,11 +916,23 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 a.account.state == AccountState.active &&
                 (page == _Page.cardPurchase
                     ? a.account.kind == AccountKind.creditCard
+                    : page == _Page.cardPayment
+                    ? a.account.kind == AccountKind.bank &&
+                          _accounts.any(
+                            (card) =>
+                                card.account.state == AccountState.active &&
+                                card.account.kind == AccountKind.creditCard &&
+                                card.balance.minorUnits < BigInt.zero &&
+                                card.account.currency == a.account.currency,
+                          )
                     : a.account.kind != AccountKind.creditCard),
           )
           .firstOrNull
           ?.account
           .id;
+      if (page == _Page.cardPayment) {
+        _destinationId = _cardPaymentDestinations.firstOrNull?.account.id;
+      }
     });
   }
 
@@ -934,6 +949,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         (a.account.currency == _sourceCurrency ||
             (_engine!.capabilities.crossCurrencyTransfers &&
                 a.account.currency.code != _sourceCurrency?.code)),
+  );
+  Iterable<AccountSummary> get _cardPaymentDestinations => _accounts.where(
+    (a) =>
+        a.account.kind == AccountKind.creditCard &&
+        ((a.account.state == AccountState.active &&
+                a.balance.minorUnits < BigInt.zero &&
+                a.account.currency == _sourceCurrency) ||
+            a.account.id == _destinationId),
   );
   Currency? get _destinationCurrency => _accounts
       .where((a) => a.account.id == _destinationId)
@@ -977,7 +1000,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _changeSplit(VoidCallback change) => setState(change);
 
   void _queueDraft() {
-    if ((_page != _Page.posting && _page != _Page.cardPurchase) ||
+    if ((_page != _Page.posting &&
+            _page != _Page.cardPurchase &&
+            _page != _Page.cardPayment) ||
         _postingFrozen) {
       return;
     }
@@ -1001,7 +1026,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             reversalReason: _reversalReason.text,
           )
         : EntryFields(
-            income: _page == _Page.cardPurchase ? false : _income,
+            income: (_page == _Page.cardPurchase || _page == _Page.cardPayment)
+                ? false
+                : _income,
             correctionOf: _correction?.posting.id,
             correctionReason: _correction == null ? '' : _correctionReason.text,
             refundOf: _refund?.budget.originalId,
@@ -1012,7 +1039,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             ],
             transfer: _transfer,
             destinationId: _destinationId,
-            fee: _transfer ? _fee.text : '0',
+            fee: _page == _Page.cardPayment
+                ? '0'
+                : _transfer
+                ? _fee.text
+                : '0',
             received: (_foreignTransfer || _foreignRefund)
                 ? _received.text
                 : null,
@@ -1083,8 +1114,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               a.account.id == fields.accountId &&
               a.account.kind == AccountKind.creditCard,
         );
+    final cardPaymentDraft =
+        fields.transfer &&
+        fields.destinationId != null &&
+        _accounts.any(
+          (a) =>
+              a.account.id == fields.destinationId &&
+              a.account.kind == AccountKind.creditCard,
+        );
     _edit(
-      cardDraft ? _Page.cardPurchase : _Page.posting,
+      cardDraft
+          ? _Page.cardPurchase
+          : cardPaymentDraft
+          ? _Page.cardPayment
+          : _Page.posting,
       transfer: fields.transfer,
     );
     var omitted = false;
@@ -1105,13 +1148,21 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 a.account.state == AccountState.active &&
                 (cardDraft
                     ? a.account.kind == AccountKind.creditCard
+                    : cardPaymentDraft
+                    ? a.account.kind == AccountKind.bank
                     : a.account.kind != AccountKind.creditCard),
           )
           ? fields.accountId
           : null;
       if (fields.accountId != null && _accountId == null) omitted = true;
       _destinationId =
-          _destinations.any((a) => a.account.id == fields.destinationId)
+          (cardPaymentDraft
+              ? _accounts.any(
+                  (a) =>
+                      a.account.id == fields.destinationId &&
+                      a.account.kind == AccountKind.creditCard,
+                )
+              : _destinations.any((a) => a.account.id == fields.destinationId))
           ? fields.destinationId
           : null;
       if (fields.destinationId != null && _destinationId == null) {
@@ -1473,7 +1524,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       controller: controller,
       enabled: !_busy && !_postingFrozen,
       onChanged: (_) {
-        if (_page == _Page.posting || _page == _Page.cardPurchase) {
+        if (_page == _Page.posting ||
+            _page == _Page.cardPurchase ||
+            _page == _Page.cardPayment) {
           _queueDraft();
         }
       },
@@ -1510,7 +1563,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           !_postingFrozen &&
           _engine!.isUnlocked,
       onChanged: () {
-        if (_page == _Page.posting || _page == _Page.cardPurchase) {
+        if (_page == _Page.posting ||
+            _page == _Page.cardPurchase ||
+            _page == _Page.cardPayment) {
           _queueDraft();
         }
       },
@@ -1523,7 +1578,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     currency: currency,
     enabled: !_busy && !_postingFrozen,
     onChanged: () {
-      if (_page == _Page.posting || _page == _Page.cardPurchase) {
+      if (_page == _Page.posting ||
+          _page == _Page.cardPurchase ||
+          _page == _Page.cardPayment) {
         _queueDraft();
       }
     },
@@ -1540,7 +1597,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ? null
         : () => _perform(() async {
             if (_draftSaveError != null &&
-                (_page == _Page.posting || _page == _Page.cardPurchase)) {
+                (_page == _Page.posting ||
+                    _page == _Page.cardPurchase ||
+                    _page == _Page.cardPayment)) {
               _queueDraft();
               await _draftSaveTail;
               if (_draftSaveError != null) throw _draftSaveError!;
@@ -1925,6 +1984,92 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             TextButton(
               onPressed: _busy ? null : _discardDraft,
               child: const Text('捨棄刷卡草稿'),
+            ),
+          _back(),
+        ];
+      case _Page.cardPayment:
+        return [
+          Text('信用卡繳款', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          const Text('從同幣別銀行帳戶繳款；銀行餘額減少、卡片負債減少，不會再計為支出。目前尚未指派至特定帳單。'),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<PublicId>(
+            key: const ValueKey('card-payment-bank'),
+            initialValue: _accountId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '付款銀行帳戶'),
+            items: [
+              for (final row in _accounts.where(
+                (row) =>
+                    row.account.state == AccountState.active &&
+                    row.account.kind == AccountKind.bank &&
+                    _accounts.any(
+                      (card) =>
+                          card.account.state == AccountState.active &&
+                          card.account.kind == AccountKind.creditCard &&
+                          card.balance.minorUnits < BigInt.zero &&
+                          card.account.currency == row.account.currency,
+                    ),
+              ))
+                DropdownMenuItem(
+                  value: row.account.id,
+                  child: Text(
+                    '${row.account.name} · ${row.account.currency.code}',
+                  ),
+                ),
+            ],
+            onChanged: (_busy || _postingFrozen)
+                ? null
+                : (value) => setState(() {
+                    _accountId = value;
+                    _destinationId = null;
+                    _destinationId =
+                        _cardPaymentDestinations.firstOrNull?.account.id;
+                    _queueDraft();
+                  }),
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<PublicId>(
+            key: ValueKey('card-payment-card-$_accountId-$_destinationId'),
+            initialValue: _destinationId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '繳款信用卡'),
+            items: [
+              for (final row in _cardPaymentDestinations)
+                DropdownMenuItem(
+                  value: row.account.id,
+                  child: Text(
+                    '${row.account.name} · ${row.account.currency.code}',
+                  ),
+                ),
+            ],
+            onChanged: (_busy || _postingFrozen)
+                ? null
+                : (value) => setState(() {
+                    _destinationId = value;
+                    _queueDraft();
+                  }),
+          ),
+          const SizedBox(height: 14),
+          _amountField('繳款金額', _sourceCurrency),
+          _dateField(),
+          const Text('繳款不得超過卡片目前未償負債；已儲存草稿可在重開後核對，不會重複扣款。'),
+          const SizedBox(height: 14),
+          Text(
+            _draftSaveError != null
+                ? '草稿保存失敗，請重試；尚未繳款。'
+                : _draftWrites > 0
+                ? '正在加密保存草稿…'
+                : _postingFrozen
+                ? '繳款資料已固定；再次確認只會核對同一筆。'
+                : '草稿會先加密保存，確認後才扣款。',
+            key: const ValueKey('card-payment-draft-status'),
+          ),
+          _button('確認信用卡繳款', _savePosting),
+          if (_entryDraft != null || _draftSaveError != null)
+            TextButton(
+              onPressed: _busy ? null : _discardDraft,
+              child: const Text('捨棄繳款草稿'),
             ),
           _back(),
         ];
@@ -2324,6 +2469,25 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : () => _edit(_Page.cardPurchase),
               child: const Text('信用卡刷卡入帳'),
+            ),
+          if (_engine!.capabilities.creditCards &&
+              _accounts.any(
+                (card) =>
+                    card.account.kind == AccountKind.creditCard &&
+                    card.account.state == AccountState.active &&
+                    card.balance.minorUnits < BigInt.zero &&
+                    _accounts.any(
+                      (bank) =>
+                          bank.account.kind == AccountKind.bank &&
+                          bank.account.state == AccountState.active &&
+                          bank.account.currency == card.account.currency,
+                    ),
+              ))
+            OutlinedButton(
+              onPressed: _busy || _entryDraft != null || _draftUnreadable
+                  ? null
+                  : () => _edit(_Page.cardPayment),
+              child: const Text('信用卡繳款'),
             ),
           TextButton(
             onPressed: _busy

@@ -18,7 +18,7 @@ void main() {
   late Directory work;
   late LedgerStore store;
   late WorkspaceId workspace;
-  late Account card, cash;
+  late Account card, cash, bank;
 
   OperationId operationId() => OperationId(PublicId.generate());
   OperationKey operation() => OperationKey(workspace, operationId());
@@ -50,6 +50,24 @@ void main() {
       participant?.currency ?? account?.currency ?? twd,
       amount,
     ),
+  );
+  Posting payment({
+    Account? source,
+    Account? target,
+    PostingAccount? destination,
+    OperationKey? key,
+    String amount = '5',
+    Money? received,
+    Money? fee,
+  }) => Posting.transfer(
+    id: PublicId.generate(),
+    operation: key ?? operation(),
+    date: BusinessDate(2026, 9, 30),
+    source: ref(source ?? bank),
+    destination: destination ?? ref(target ?? card),
+    principal: Money.parse((source ?? bank).currency, amount),
+    received: received,
+    fee: fee,
   );
   CreditCardTerms terms(int version) => CreditCardTerms(
     workspace: workspace,
@@ -91,6 +109,14 @@ void main() {
       currency: twd,
       openedOn: BusinessDate(2026, 1, 1),
     );
+    bank = Account.open(
+      id: PublicId.generate(),
+      workspace: workspace,
+      name: 'Synthetic bank',
+      kind: AccountKind.bank,
+      currency: twd,
+      openedOn: BusinessDate(2026, 1, 1),
+    );
     await store.withSession((session) async {
       await session.createAccount(
         card,
@@ -98,6 +124,7 @@ void main() {
         cardTerms: terms(1),
       );
       await session.createAccount(cash, opening(cash, '100'));
+      await session.createAccount(bank, opening(bank, '100'));
     });
   });
   tearDown(() {
@@ -321,6 +348,137 @@ void main() {
         (await session.entry(workspace, charge.id))!.tombstoneReason,
         isNull,
       );
+    });
+  });
+
+  test(
+    'bank payment lowers liability without another expense and replays',
+    () async {
+      late Posting transfer;
+      await store.withSession((session) async {
+        await session.postCardPurchase(purchase());
+        transfer = payment();
+        final receipts = await Future.wait(
+          List.generate(5, (_) => session.postCardPayment(transfer)),
+        );
+        expect(receipts.where((receipt) => !receipt.replayed), hasLength(1));
+        expect(receipts.map((receipt) => receipt.id).toSet(), {transfer.id});
+        await expectLater(
+          session.postCardPayment(
+            payment(key: transfer.operation, amount: '4'),
+          ),
+          throwsA(isA<OperationConflict>()),
+        );
+        final balances = {
+          for (final row in await session.accounts(workspace))
+            row.account.id: row.balance,
+        };
+        expect(balances[bank.id], Money.parse(twd, '95'));
+        expect(balances[card.id], Money.parse(twd, '-7.34'));
+        expect(balances[cash.id], Money.parse(twd, '100'));
+        final entry = (await session.entry(workspace, transfer.id))!;
+        expect(entry.kind, PostingKind.transfer);
+        expect(entry.accountId, bank.id);
+        expect(entry.destinationId, card.id);
+        expect(entry.fee, Money(twd, BigInt.zero));
+        final report = await session.monthlyReport(
+          workspace,
+          ReportMonth(2026, 9),
+        );
+        expect(report.currencies.single.expense, Money.parse(twd, '12.34'));
+      });
+      final before = await store.snapshot();
+      await store.withSession((session) async {
+        expect((await session.postCardPayment(transfer)).replayed, isTrue);
+        expect(await session.snapshot(), before);
+      });
+    },
+  );
+
+  test(
+    'payment rejects wrong owners, currency, fee and overpayment atomically',
+    () async {
+      await store.withSession((session) async {
+        final empty = await session.snapshot();
+        await expectLater(
+          session.postCardPayment(payment()),
+          throwsA(isA<CreditCardException>()),
+        );
+        expect(await session.snapshot(), empty);
+        await session.postCardPurchase(purchase());
+        final before = await session.snapshot();
+        await expectLater(
+          session.postCardPayment(payment(source: cash)),
+          throwsA(isA<CreditCardException>()),
+        );
+        await expectLater(
+          session.postCardPayment(payment(target: cash)),
+          throwsA(isA<CreditCardException>()),
+        );
+        await expectLater(
+          session.postCardPayment(
+            payment(
+              destination: PostingAccount(
+                id: card.id,
+                workspace: workspace,
+                currency: Currency('USD', 2),
+                expectedVersion: card.version,
+              ),
+              received: Money.parse(Currency('USD', 2), '5'),
+            ),
+          ),
+          throwsA(isA<CreditCardException>()),
+        );
+        await expectLater(
+          session.postCardPayment(payment(fee: Money.parse(twd, '1'))),
+          throwsA(isA<ArgumentError>()),
+        );
+        await expectLater(
+          session.postCardPayment(payment(amount: '13')),
+          throwsA(isA<CreditCardException>()),
+        );
+        expect(await session.snapshot(), before);
+      });
+    },
+  );
+
+  test('disabled card can still pay its outstanding liability', () async {
+    await store.withSession((session) async {
+      await session.postCardPurchase(purchase());
+      await session.reviseCreditCard(
+        terms(2),
+        operationId(),
+        DateTime.utc(2026, 9, 30),
+        disabled: true,
+      );
+      expect((await session.postCardPayment(payment())).replayed, isFalse);
+      final balances = {
+        for (final row in await session.accounts(workspace))
+          row.account.id: row.balance,
+      };
+      expect(balances[card.id], Money.parse(twd, '-7.34'));
+    });
+  });
+
+  test('full payment replays after liability reaches zero', () async {
+    await store.withSession((session) async {
+      await session.postCardPurchase(purchase());
+      final full = payment(amount: '12.34');
+      expect((await session.postCardPayment(full)).replayed, isFalse);
+      final before = await session.snapshot();
+      expect((await session.postCardPayment(full)).replayed, isTrue);
+      expect(await session.snapshot(), before);
+      final balances = {
+        for (final row in await session.accounts(workspace))
+          row.account.id: row.balance,
+      };
+      expect(balances[card.id], Money(twd, BigInt.zero));
+      expect(balances[bank.id], Money.parse(twd, '87.66'));
+      await expectLater(
+        session.postCardPayment(payment(amount: '1')),
+        throwsA(isA<CreditCardException>()),
+      );
+      expect(await session.snapshot(), before);
     });
   });
 }
