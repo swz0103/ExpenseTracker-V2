@@ -662,5 +662,6 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 
 - [x] 已接現金／銀行出資、股票／ETF 股數與價格二次確認、同交易扣款與持股；回報中斷可重啟後重試同一筆。
 - [x] 主機已通過編碼、持久層、Ledger、畫面、重啟重試、密碼與救援文字獨立還原的定向測試，以及 App 分析和架構邊界；證據見 test-results/investment-app-schema21-host-2026-09-30.json。
-- [ ] 全套 App 回歸仍受預設 30 秒測試時限影響，延長時限的全套驗證尚在執行；Drift 資料庫生命週期警告待回查。
+- [x] 固定程式提交 7c70695f7ccc5c0509453ac9894a252d9f4c55e3 以每項 2 分鐘時限、並行 2 完成 App 全套 240 項回歸；Flutter 分析無問題，Android ARM64 debug 建置通過。原 30 秒上限造成的日期／還原測試逾時不是功能失敗。
+- [ ] Drift 多資料庫警告來自類別層級同時實例計數；已回查 stage、inspect、withSession、use 都在 finally 關閉，且各自建立 NativeDatabase，但仍須在實機及獨立並行情境驗證生命週期。
 - [ ] ADB 未偵測到裝置，實機與當前提交的雲端 gate 未完成；正式 App 預設仍為 schema 18，M3 其他投資功能未完成。

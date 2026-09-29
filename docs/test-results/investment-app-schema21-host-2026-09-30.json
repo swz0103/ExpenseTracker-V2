@@ -10,8 +10,9 @@
     "app_engine": "1/1 通過；重啟重試、單次扣款、密碼與救援文字獨立還原",
     "app_analysis": "無問題",
     "architecture_boundaries": "通過",
-    "app_full_regression": "未通過；全套執行期間兩項逾時，另一次 fail-fast 於 business_date_engine_test 的預設 30 秒逾時。該項單獨以 2 分鐘上限執行約 34 秒通過，尚未取得同 SHA 全套通過證據。",
-    "database_lifecycle": "整合測試仍出現 Drift 多個 ProbeDatabase 使用同一 QueryExecutor 的警告；需回查生命週期，不視為已排除。"
+    "app_full_regression": "固定程式提交 7c70695f7ccc5c0509453ac9894a252d9f4c55e3：每項 2 分鐘、並行 2，240/240 通過；原預設 30 秒時限曾使 34 秒的日期／還原測試逾時。",
+    "app_android_arm64_debug": "同程式提交 Flutter analyze 無問題，Android ARM64 debug APK 建置通過；未安裝或實機執行。",
+    "database_lifecycle": "整合測試仍出現 Drift 多個 ProbeDatabase 的警告。回查目前路徑各自建立 NativeDatabase，stage、inspect、withSession 與 use 均在 finally 關閉；警告來自類別層級的同時實例計數，尚無同一 QueryExecutor 共用證據，實機與獨立並行生命週期仍需驗證。"
   },
   "device": "ADB devices -l 無裝置；schema 21 畫面與原生加密儲存尚未實機驗證",
   "cloud": "當前提交尚無 exact-head GitHub Actions 結果；剩餘額度未核實",
