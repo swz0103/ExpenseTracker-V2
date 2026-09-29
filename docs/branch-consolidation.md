@@ -2,9 +2,9 @@
 
 ## 2026-09-29：單一整合候選收斂批次
 
-使用者要求先啟動雲端驗證，再把積累的功能分支收斂為一支。現在仍只以 `integration/v2-core`／Draft PR #67 作後續功能候選，不合併 `main`。本次遠端核對：除 `main` 及候選外的 40 支遠端分支，全部都是候選的祖先（`integration/v2-core..origin/<branch>` 的獨有提交數均為 0）。PR #28–#66 無 review submission、一般留言或 inline review 留言；#28–#38 有成功雲端 checks，#39–#66 checks 空白。原始 PR 與提交紀錄保留在 GitHub，即使後續關閉 PR 與刪除來源分支也不以 squash／force push 重寫歷史。
+使用者要求先啟動雲端驗證，再把積累的功能分支收斂為一支。現在仍只以 `integration/v2-core`／Draft PR #67 作後續功能候選，不合併 `main`。精確遠端核對：原有 41 支 GitHub 分支包含 `main`、候選及 39 支舊分支；先前把 Git 的 `origin/HEAD` 指標誤計為第 40 支舊分支。39 支舊分支全部都是候選的祖先（`integration/v2-core..origin/<branch>` 的獨有提交數均為 0），且恰好對應 PR #28–#66。這些 PR 無 review submission、一般留言或 inline review 留言；#28–#38 有成功的歷史雲端 checks，#39–#66 歷史 checks 空白。
 
-新增限時整合驗證 workflow，涵蓋本機清單 22 個套件；確認其固定 SHA 的各 job 結果後，再從堆疊末端逐批關閉已由 #67 涵蓋的 PR，最後刪除沒有獨有提交的舊遠端分支。關閉只標「由 #67 取代審查入口」，不稱舊 PR 曾各自通過雲端或已合併 `main`。任何失敗、未執行、審查變更或分支出現獨有提交，都先停下該批並重新核對。架構發現與限制見[本次回查](architecture-review-2026-09-29.md)。
+新增限時整合驗證 workflow，涵蓋本機清單 22 個套件。首輪資料保存組因測試寫死 `.exe` 在 Linux 失敗；修正後固定提交 `41cb0f415f3fcc2a9052aecc207915f093e595b2` 的[四組雲端檢查](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36508480923)全部通過。接著從堆疊末端關閉 PR #66→#28，重新核對 39 支舊分支仍無獨有提交、全部 PR 已關閉，才分四批刪除舊遠端分支。已核對遠端目前只剩 `main`（`d0d39e1de32774aca319b8fed0cc9ee288cbb94a`）與 `integration/v2-core`；本機 66 支歷史分支亦均無獨有提交、未被其他 worktree 使用，已用安全刪除收斂到同兩支。原始 PR 與提交紀錄保留在 GitHub，不使用 squash／force push。關閉只表示由 #67 取代審查入口，不稱每張舊 PR 曾各自通過雲端或已合併 `main`。完整核對見[整合證據](test-results/integration-consolidation-2026-09-29.json)，架構問題見[本次回查](architecture-review-2026-09-29.md)。
 
 ## 2026-09-28：單一整合候選線
 

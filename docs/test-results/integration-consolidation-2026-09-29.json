@@ -1,0 +1,32 @@
+{
+  "repository": "private swz0103/ExpenseTracker-V2",
+  "cloudValidatedCodeSha": "41cb0f415f3fcc2a9052aecc207915f093e595b2",
+  "cloudRun": "https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36508480923",
+  "cloudJobs": {
+    "architecture": "success",
+    "domain": "success",
+    "storage": "success",
+    "flutter-host": "success"
+  },
+  "firstRun": {
+    "sha": "0a84b5416d4e3d9f79a8d9ee776eeff6f0b7c8f3",
+    "run": "https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36507329535",
+    "result": "failure: transaction-boundary test hardcoded a Windows .exe path on Linux",
+    "repair": "Use the executable suffix of the host platform; Windows worker build and 11 tests passed before cloud rerun"
+  },
+  "branchAudit": {
+    "initialGitHubBranches": 41,
+    "supersededBranches": 39,
+    "uniqueCommitsOutsideIntegration": 0,
+    "closedPullRequests": "#28-#66",
+    "remainingGitHubBranches": ["main", "integration/v2-core"],
+    "remainingOpenPullRequests": [67],
+    "mainShaUnchanged": "d0d39e1de32774aca319b8fed0cc9ee288cbb94a",
+    "localBranchesRemaining": ["main", "integration/v2-core"]
+  },
+  "notVerified": [
+    "Android physical device: adb did not detect a device",
+    "real-time GitHub Actions billing balance and charged minutes",
+    "M1/M2/M3 product acceptance and main merge"
+  ]
+}

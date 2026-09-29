@@ -1,5 +1,9 @@
 # 逐項實作進度
 
+## 2026-09-29 單一整合線與架構回查
+
+依使用者指示開啟有上限的 V2 整合 Actions；首輪在 Linux 發現交易測試寫死 Windows `.exe`，修正並於本機重驗後，固定提交 `41cb0f415f3fcc2a9052aecc207915f093e595b2` 的架構、業務、資料保存、Flutter App 四組雲端檢查全數通過。41 支 GitHub 分支中的 39 支舊功能分支無獨有提交，對應 PR #28～#66 無未處理審查／留言；已逐批關閉舊 PR、刪除舊遠端與 66 支本機歷史分支。遠端與本機均只保留 `main` 和 `integration/v2-core`，唯一開放 PR 為 Draft #67；`main` 未合併。結果見[收斂證據](test-results/integration-consolidation-2026-09-29.json)與[架構回查](architecture-review-2026-09-29.md)。這是主機／雲端整合檢查，不是實機或 M1～M3 產品 gate；ADB 目前無裝置。下一步接續 M2-02 預算版本化保存、UI、加密備份還原，並逐項處理帳本開啟效能風險。
+
 ## 2026-09-29 M2-02 月預算計算規則（進行中）
 
 因 M2-01 的真實雲端 provider 與 M1 外部 gate 尚待驗證，先推進不會更動 Ledger 提交語意的[預算業務套件](../packages/budgets/README.md)。以既有月報效果計算逐幣別淨支出：期初與轉帳本金為零、轉帳費計入、退款與反向事件扣回；雙層分類拆分、帳戶及標籤篩選採明確 AND／OR 規則。外幣不暗中換算，工作空間／月份／重複事件錯誤拒絕，金額溢位拒絕。4 項本機測試及格式、分析、架構邊界通過，見[初始證據](test-results/budget-domain-host-2026-09-29.json)。後續已把有效 Ledger 月報中的歷史標籤 ID 接入 App 的預算唯讀計算入口，驗證分類、標籤、退款及重新開啟加密帳本；Ledger 251 項與 App 受影響 28 項、架構、Android ARM64 debug 建置通過，見[讀取路徑證據](test-results/budget-ledger-read-host-2026-09-29.json)。版本化資料保存、簡潔 UI、加密備份還原與實機 gate 尚未完成；**M2-02 不稱驗收**。
