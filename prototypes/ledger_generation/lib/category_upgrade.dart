@@ -12,7 +12,8 @@ enum _LedgerUpgrade {
   reversals(10, 11, 'ledger-10-to-11-v1'),
   notes(11, 12, 'ledger-11-to-12-v1'),
   corrections(12, 13, 'ledger-12-to-13-v1'),
-  tombstones(13, 14, 'ledger-13-to-14-v1');
+  tombstones(13, 14, 'ledger-13-to-14-v1'),
+  budgets(14, 15, 'ledger-14-to-15-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -29,6 +30,7 @@ enum _LedgerUpgrade {
     notesAware: to >= 12,
     correctionsAware: to >= 13,
     tombstonesAware: to >= 14,
+    budgetsAware: to >= 15,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -47,6 +49,7 @@ enum _LedgerUpgrade {
       notesAware: from >= 12,
       correctionsAware: from >= 13,
       tombstonesAware: from >= 14,
+      budgetsAware: from >= 15,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -61,7 +64,8 @@ enum _LedgerUpgrade {
         store.reversalsAware != (to >= 11) ||
         store.notesAware != (to >= 12) ||
         store.correctionsAware != (to >= 13) ||
-        store.tombstonesAware != (to >= 14)) {
+        store.tombstonesAware != (to >= 14) ||
+        store.budgetsAware != (to >= 15)) {
       throw const InvalidSnapshot();
     }
   }
@@ -480,6 +484,38 @@ Future<UpgradeReceipt> upgradeTombstones(
   request,
   backupDirectory,
   _LedgerUpgrade.tombstones,
+  password: password,
+  recoveryKey: recoveryKey,
+  cancellation: cancellation,
+  checkpoint: checkpoint,
+);
+
+Future<UpgradeRequest> planBudgetUpgrade(
+  LedgerStore store,
+  OperationId operation,
+  PublicId backupId, {
+  LockWaitCancellation? cancellation,
+}) => _planUpgrade(
+  store,
+  operation,
+  backupId,
+  _LedgerUpgrade.budgets,
+  cancellation: cancellation,
+);
+
+Future<UpgradeReceipt> upgradeBudgets(
+  LedgerStore store,
+  UpgradeRequest request,
+  Directory backupDirectory, {
+  required String password,
+  required String recoveryKey,
+  LockWaitCancellation? cancellation,
+  void Function(String)? checkpoint,
+}) => _upgradeLedger(
+  store,
+  request,
+  backupDirectory,
+  _LedgerUpgrade.budgets,
   password: password,
   recoveryKey: recoveryKey,
   cancellation: cancellation,

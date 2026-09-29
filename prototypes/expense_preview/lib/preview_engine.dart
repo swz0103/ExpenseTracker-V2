@@ -34,6 +34,7 @@ part 'preview_privacy.dart';
 part 'preview_upgrade.dart';
 part 'preview_simple_import.dart';
 part 'preview_simple_export.dart';
+part 'preview_budgets.dart';
 
 abstract interface class PreviewVault {
   Future<String?> read(String name);
@@ -58,13 +59,13 @@ final class PreviewUpgradeRequired implements Exception {}
 
 /// Version opened by the V2 application; older local V2 ledgers require the
 /// explicit, safety-backed upgrade flow before a session becomes available.
-const currentPreviewSchemaVersion = 14;
+const currentPreviewSchemaVersion = 15;
 
 /// User-facing abilities of one V2 data generation. Keep schema numbers at
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 14) {
+    if (schemaVersion < 3 || schemaVersion > 15) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -82,6 +83,7 @@ final class PreviewCapabilities {
   bool get notes => schemaVersion >= 12;
   bool get corrections => schemaVersion >= 13;
   bool get tombstones => schemaVersion >= 14;
+  bool get budgets => schemaVersion >= 15;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -803,6 +805,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       notesAware: capabilities.notes,
       correctionsAware: capabilities.corrections,
       tombstonesAware: capabilities.tombstones,
+      budgetsAware: capabilities.budgets,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

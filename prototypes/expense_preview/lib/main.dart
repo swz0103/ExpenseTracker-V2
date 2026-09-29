@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:accounts/accounts.dart';
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:budgets/budgets.dart';
 import 'package:categories/categories.dart';
 import 'package:data_exchange/data_exchange.dart';
 import 'package:tags/tags.dart';
@@ -39,6 +40,7 @@ part 'tag_screen.dart';
 part 'merchant_screen.dart';
 part 'search_screen.dart';
 part 'monthly_report_screen.dart';
+part 'budget_screen.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -145,6 +147,7 @@ enum _Page {
   merchants,
   search,
   monthlyReport,
+  budgets,
   home,
   account,
   posting,
@@ -1456,6 +1459,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.home,
               _Page.search,
               _Page.monthlyReport,
+              _Page.budgets,
               _Page.simpleImport,
               _Page.simpleExport,
             }.contains(_page) &&
@@ -1567,6 +1571,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             merchants: _merchantCatalog,
             privacy: _privacy,
             onActivity: _showActivity,
+          ),
+          _back(),
+        ];
+      case _Page.budgets:
+        return [
+          _BudgetScreen(
+            engine: _engine!,
+            catalog: _catalog!,
+            tags: _tagCatalog,
+            accounts: _accounts,
+            privacy: _privacy,
           ),
           _back(),
         ];
@@ -2122,6 +2137,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   ? null
                   : () => setState(() => _page = _Page.monthlyReport),
               child: const Text('查看月收支明細'),
+            ),
+          if (_engine!.capabilities.budgets)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.budgets),
+              child: const Text('月預算'),
             ),
           const SizedBox(height: 12),
           if (_accounts.isNotEmpty) ...[

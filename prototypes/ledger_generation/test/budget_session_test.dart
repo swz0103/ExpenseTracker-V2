@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:budgets/budgets.dart';
+import 'package:backup_envelope_probe/envelope.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:ledger_generation_probe/safety_backup.dart';
 import 'package:reports/reports.dart';
 import 'package:storage_generation_probe/fixture_catalog_protection.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
@@ -125,6 +127,43 @@ void main() {
         expect(await session.budgetRevisions(workspace), isEmpty);
       });
       expect(await upgraded.snapshot(), isNotEmpty);
+    },
+  );
+
+  test(
+    'schema 15 safety copy includes budget revisions under both credentials',
+    () async {
+      final active = store('active', keys);
+      await active.initialize(operation());
+      await active.withSession(
+        (session) => session.saveBudget(
+          BudgetPlan(
+            id: PublicId.generate(),
+            workspace: workspace,
+            month: ReportMonth(2026, 9),
+            limit: Money.parse(Currency('TWD', 2), '150'),
+          ),
+          operation(),
+          DateTime.utc(2026, 9, 29),
+        ),
+      );
+      final before = await active.snapshot();
+      final safety = Directory('${work.path}/safety')..createSync();
+      final verified = await createSafetyBackup(
+        active,
+        safety,
+        PublicId.generate(),
+        password: password,
+      );
+      final envelope = await verified.file.readAsString();
+      expect(
+        await EnvelopeCodec().openWithPassword(envelope, password),
+        before,
+      );
+      expect(
+        await EnvelopeCodec().openWithRecovery(envelope, verified.recoveryKey),
+        before,
+      );
     },
   );
 }

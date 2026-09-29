@@ -64,6 +64,7 @@ PreviewEngine engineAt(
       notesAware: capabilities.notes,
       correctionsAware: capabilities.corrections,
       tombstonesAware: capabilities.tombstones,
+      budgetsAware: capabilities.budgets,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),
