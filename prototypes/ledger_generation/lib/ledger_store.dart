@@ -52,6 +52,8 @@ export 'package:modular_persistence_probe/card_authorizations_adapter.dart'
     show CardAuthorizationFact, CardAuthorizationState;
 export 'package:modular_persistence_probe/card_installments_adapter.dart'
     show CardInstallmentFact, CardInstallmentPurchase;
+export 'package:modular_persistence_probe/investment_adapter.dart'
+    show InvestmentBuyFact;
 
 part 'ledger_session.dart';
 part 'simple_import_session.dart';

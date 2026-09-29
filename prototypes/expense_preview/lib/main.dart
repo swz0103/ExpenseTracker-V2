@@ -7,6 +7,7 @@ import 'package:backup_envelope_probe/envelope.dart';
 import 'package:budgets/budgets.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:credit_cards/credit_cards.dart';
+import 'package:investments/investments.dart';
 import 'package:categories/categories.dart';
 import 'package:data_exchange/data_exchange.dart';
 import 'package:tags/tags.dart';
@@ -48,6 +49,7 @@ part 'card_statement_screen.dart';
 part 'card_settings_screen.dart';
 part 'card_authorization_screen.dart';
 part 'card_installment_screen.dart';
+part 'investment_screen.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -164,6 +166,7 @@ enum _Page {
   cardSettings,
   cardAuthorizations,
   cardInstallments,
+  investments,
   home,
   account,
   cardPurchase,
@@ -1656,6 +1659,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _Page.cardSettings,
               _Page.cardAuthorizations,
               _Page.cardInstallments,
+              _Page.investments,
               _Page.simpleImport,
               _Page.simpleExport,
             }.contains(_page) &&
@@ -1822,6 +1826,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       case _Page.cardInstallments:
         return [
           _CardInstallmentScreen(
+            engine: _engine!,
+            accounts: _accounts,
+            privacy: _privacy,
+          ),
+          _back(),
+        ];
+      case _Page.investments:
+        return [
+          _InvestmentScreen(
             engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
@@ -2513,6 +2526,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
           ),
+          if (_engine!.capabilities.investments)
+            TextButton(
+              key: const ValueKey('open-investments'),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.investments),
+              child: const Text('投資買入'),
+            ),
           if (_engine!.capabilities.installments &&
               _accounts.any(
                 (row) => row.account.kind == AccountKind.creditCard,

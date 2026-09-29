@@ -1,0 +1,19 @@
+{
+  "date": "2026-09-30",
+  "milestone": "M3-01 投資買入 opt-in App 流程",
+  "scope": "現金或銀行出資、股數與價格二次確認、同交易扣款及持股、重啟後同一筆重試、雙憑證加密還原",
+  "host": {
+    "investment_preview_codec": "4/4 通過",
+    "investment_persistence": "3/3 通過",
+    "investment_session": "3/3 通過",
+    "app_widget": "2/2 通過；二次確認、隱私切換、回報中斷重試",
+    "app_engine": "1/1 通過；重啟重試、單次扣款、密碼與救援文字獨立還原",
+    "app_analysis": "無問題",
+    "architecture_boundaries": "通過",
+    "app_full_regression": "未通過；全套執行期間兩項逾時，另一次 fail-fast 於 business_date_engine_test 的預設 30 秒逾時。該項單獨以 2 分鐘上限執行約 34 秒通過，尚未取得同 SHA 全套通過證據。",
+    "database_lifecycle": "整合測試仍出現 Drift 多個 ProbeDatabase 使用同一 QueryExecutor 的警告；需回查生命週期，不視為已排除。"
+  },
+  "device": "ADB devices -l 無裝置；schema 21 畫面與原生加密儲存尚未實機驗證",
+  "cloud": "當前提交尚無 exact-head GitHub Actions 結果；剩餘額度未核實",
+  "release_gate": "未通過；正式 App 預設仍為 schema 18，schema 21 僅 opt-in；M3 其他投資交易未完成"
+}

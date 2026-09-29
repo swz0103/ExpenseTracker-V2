@@ -70,6 +70,7 @@ PreviewEngine engineAt(
       cardStatementsAware: capabilities.cardStatements,
       cardAuthorizationsAware: capabilities.cardAuthorizations,
       installmentsAware: capabilities.installments,
+      investmentsAware: capabilities.investments,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

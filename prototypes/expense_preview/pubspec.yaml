@@ -33,6 +33,8 @@ dependencies:
     path: ../../packages/recurring_transactions
   credit_cards:
     path: ../../packages/credit_cards
+  investments:
+    path: ../../packages/investments
   foundation_values:
     path: ../../packages/foundation_values
   ledger:

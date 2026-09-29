@@ -196,6 +196,10 @@ final class LedgerSession {
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
 
+  Future<List<investment.InvestmentBuyFact>> investmentBuys(
+    WorkspaceId workspace,
+  ) => _enqueue(() => investment.investmentBuys(_db, workspace));
+
   /// A buy changes cash and the owned lot in one encrypted SQLite transaction.
   /// The event ID must be retained by the caller for an unambiguous retry.
   Future<CommitResult> postInvestmentBuy(

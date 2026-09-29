@@ -105,17 +105,18 @@ Future<CommitResult> commitInvestmentBuy(
 /// Reads only facts proven to have the matching cash event and receipt.
 Future<List<InvestmentBuyFact>> investmentBuys(
   ProbeDatabase db,
-  WorkspaceId workspace,
-  PublicId investmentAccountId,
-) async {
+  WorkspaceId workspace, [
+  PublicId? investmentAccountId,
+]) async {
   _requireSchema(db);
   final rows = await db
       .customSelect(
-        'SELECT * FROM investment_buys WHERE workspace=? AND investment_account_id=? '
-        'ORDER BY buy_id',
+        investmentAccountId == null
+            ? 'SELECT * FROM investment_buys WHERE workspace=? ORDER BY buy_id'
+            : 'SELECT * FROM investment_buys WHERE workspace=? AND investment_account_id=? ORDER BY buy_id',
         variables: [
           Variable(workspace.toString()),
-          Variable(investmentAccountId.value),
+          if (investmentAccountId != null) Variable(investmentAccountId.value),
         ],
       )
       .get();
