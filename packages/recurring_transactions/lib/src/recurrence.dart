@@ -8,13 +8,18 @@ final class RecurringTemplate {
     required this.id,
     required this.workspace,
     required this.accountId,
+    required this.label,
     required this.amount,
     required this.firstDate,
     required this.unit,
     required this.every,
     this.version = 1,
   }) {
-    if (every < 1 ||
+    if (label.trim().isEmpty ||
+        label != label.trim() ||
+        label.runes.length > 120 ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(label) ||
+        every < 1 ||
         every > 999 ||
         version < 1 ||
         amount.minorUnits == BigInt.zero) {
@@ -25,6 +30,7 @@ final class RecurringTemplate {
   final PublicId id;
   final WorkspaceId workspace;
   final PublicId accountId;
+  final String label;
   final Money amount;
   final BusinessDate firstDate;
   final RecurrenceUnit unit;
@@ -38,8 +44,9 @@ final class RecurringCandidate {
   final RecurringTemplate template;
   final BusinessDate dueDate;
 
-  /// Stable across offline retries. A changed template version has a new key.
-  String get key => '${template.id.value}:${template.version}:$dueDate';
+  /// A revision cannot turn a previously confirmed date into a second posting.
+  String get key =>
+      '${template.workspace.id.value}:${template.id.value}:$dueDate';
 }
 
 /// Finds due proposals after the last reviewed day, inclusive of [through].

@@ -14,6 +14,7 @@ RecurringTemplate template(
   id: _id,
   workspace: WorkspaceId(_id),
   accountId: _account,
+  label: '房租',
   amount: Money(Currency('TWD', 0), BigInt.from(-100)),
   firstDate: BusinessDate.parse(first),
   unit: unit,
@@ -91,7 +92,7 @@ void main() {
     expect(first.map((c) => c.key).toSet().length, first.length);
   });
 
-  test('changed template version has a distinct occurrence key', () {
+  test('changed template version retains the occurrence deduplication key', () {
     final old = dueCandidates(
       template('2025-01-01', RecurrenceUnit.month),
       after: BusinessDate.parse('2024-12-31'),
@@ -102,7 +103,27 @@ void main() {
       after: BusinessDate.parse('2024-12-31'),
       through: BusinessDate.parse('2025-01-01'),
     ).single;
-    expect(old.key, isNot(revised.key));
+    expect(old.key, revised.key);
+  });
+
+  test('same template ID in another workspace has another key', () {
+    final original = template('2025-01-01', RecurrenceUnit.month);
+    final other = RecurringTemplate(
+      id: original.id,
+      workspace: WorkspaceId(_account),
+      accountId: original.accountId,
+      label: original.label,
+      amount: original.amount,
+      firstDate: original.firstDate,
+      unit: original.unit,
+      every: original.every,
+    );
+    RecurringCandidate first(RecurringTemplate plan) => dueCandidates(
+      plan,
+      after: BusinessDate.parse('2024-12-31'),
+      through: BusinessDate.parse('2025-01-01'),
+    ).single;
+    expect(first(original).key, isNot(first(other).key));
   });
 
   test('candidate cap refuses to silently lose catch-up rows', () {
@@ -127,6 +148,7 @@ void main() {
         id: _id,
         workspace: WorkspaceId(_id),
         accountId: _account,
+        label: '房租',
         amount: Money(Currency('TWD', 0), BigInt.zero),
         firstDate: BusinessDate.parse('2025-01-01'),
         unit: RecurrenceUnit.day,
