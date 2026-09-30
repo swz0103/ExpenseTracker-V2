@@ -67,8 +67,8 @@ final class Documents implements BackupDocuments {
   Future<void> discardSimpleExport() async => selectedExportFormat = null;
 }
 
-Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 600; i++) {
+Future<void> settle(WidgetTester tester, {int maxPolls = 600}) async {
+  for (var i = 0; i < maxPolls; i++) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 25)),
     );
@@ -104,12 +104,12 @@ Future<void> waitForExportDialog(WidgetTester tester) async {
   throw StateError('Export confirmation did not open');
 }
 
-Future<void> tap(WidgetTester tester, String text) async {
+Future<void> tap(WidgetTester tester, String text, {int maxPolls = 600}) async {
   final target = find.text(text);
   await tester.ensureVisible(target);
   await tester.runAsync(() => tester.tap(target));
   await tester.pump();
-  await settle(tester);
+  await settle(tester, maxPolls: maxPolls);
 }
 
 Future<void> input(WidgetTester tester, String label, String value) async {
