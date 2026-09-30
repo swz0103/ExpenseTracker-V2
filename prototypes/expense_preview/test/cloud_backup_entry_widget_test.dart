@@ -114,6 +114,14 @@ final class _Gateway implements CloudBackupScreenGateway {
   ];
 
   @override
+  bool canReconnect(String providerId) => false;
+
+  @override
+  Future<void> reconnect(String providerId) async => throw UnsupportedError(
+    'Synthetic provider does not expose account linking',
+  );
+
+  @override
   Future<void> createBackup(String providerId) async {
     createCalls++;
     items.add(

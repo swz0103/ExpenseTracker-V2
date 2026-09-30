@@ -96,6 +96,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('雲端登入已失效，請重新連結後再試。'), findsOneWidget);
     expect(find.text('立即建立加密備份'), findsOneWidget);
+    expect(find.text('重新連結雲端帳號'), findsOneWidget);
+
+    await tester.tap(find.text('重新連結雲端帳號'));
+    await tester.pumpAndSettle();
+    expect(gateway.reconnectCalls, 1);
+    expect(find.text('雲端帳號已重新連結，備份歷史已更新。'), findsOneWidget);
+    expect(find.text('重新連結雲端帳號'), findsNothing);
   });
 
   testWidgets('automatic backup is opt-in and starts next period', (
@@ -137,6 +144,7 @@ final class _Gateway implements CloudBackupScreenGateway {
   var createCalls = 0;
   var applyCalls = 0;
   var createFailure = false;
+  var reconnectCalls = 0;
   CloudBackupCredentialKind? restoreKind;
   String? restoreCredential;
   var scheduleWrites = 0;
@@ -148,6 +156,15 @@ final class _Gateway implements CloudBackupScreenGateway {
   List<CloudBackupProviderChoice> get providers => const [
     CloudBackupProviderChoice(id: 'provider-a', label: '測試雲端'),
   ];
+
+  @override
+  bool canReconnect(String providerId) => providerId == 'provider-a';
+
+  @override
+  Future<void> reconnect(String providerId) async {
+    reconnectCalls++;
+    createFailure = false;
+  }
 
   @override
   Future<void> createBackup(String providerId) async {

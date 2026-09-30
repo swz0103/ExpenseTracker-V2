@@ -14,6 +14,10 @@ final class CloudBackupProviderChoice {
 abstract interface class CloudBackupScreenGateway {
   List<CloudBackupProviderChoice> get providers;
 
+  bool canReconnect(String providerId);
+
+  Future<void> reconnect(String providerId);
+
   Future<void> createBackup(String providerId);
 
   Future<List<RemoteBackupMetadata>> history(String providerId);
@@ -66,6 +70,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   String? _providerId;
   List<RemoteBackupMetadata> _history = const [];
   bool _busy = false;
+  bool _authenticationRequired = false;
   String? _message;
   int _keepLatest = 3;
   bool _automaticEnabled = false;
@@ -84,12 +89,18 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     if (_busy) return;
     setState(() {
       _busy = true;
+      _authenticationRequired = false;
       _message = null;
     });
     try {
       await action();
     } catch (error) {
-      if (mounted) setState(() => _message = _errorText(error));
+      if (mounted) {
+        setState(() {
+          _authenticationRequired = _isAuthenticationRequired(error);
+          _message = _errorText(error);
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -123,6 +134,24 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
       setState(() {
         _history = rows;
         _message = '加密備份已排入上傳；可安全離開此頁。';
+      });
+    }
+  });
+
+  Future<void> _reconnect() => _perform(() async {
+    final providerId = _providerId!;
+    await widget.gateway.reconnect(providerId);
+    final results = await Future.wait<Object?>([
+      widget.gateway.history(providerId),
+      widget.gateway.schedule(providerId),
+    ]);
+    if (mounted && _providerId == providerId) {
+      final schedule = results[1] as CloudBackupScheduleRecord?;
+      setState(() {
+        _history = results[0]! as List<RemoteBackupMetadata>;
+        _automaticEnabled = schedule?.enabled ?? false;
+        _automaticDays = _supportedDays(schedule?.interval) ?? 7;
+        _message = '雲端帳號已重新連結，備份歷史已更新。';
       });
     }
   });
@@ -224,6 +253,18 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
           padding: const EdgeInsets.only(top: 12),
           child: Text(_message!, key: const ValueKey('cloud-message')),
         ),
+      if (_authenticationRequired &&
+          _providerId != null &&
+          widget.gateway.canReconnect(_providerId!))
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: OutlinedButton.icon(
+            key: const ValueKey('cloud-reconnect'),
+            onPressed: _busy ? null : _reconnect,
+            icon: const Icon(Icons.link),
+            label: const Text('重新連結雲端帳號'),
+          ),
+        ),
       const SizedBox(height: 12),
       if (providers.isEmpty)
         const Text('尚未設定可用的雲端備份服務。')
@@ -242,6 +283,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
                   setState(() {
                     _providerId = value;
                     _history = const [];
+                    _authenticationRequired = false;
                   });
                   _reload();
                 },
@@ -429,3 +471,7 @@ String _errorText(Object error) => switch (error) {
   CloudBackupValidationException() => '備份完整性驗證失敗，已停止操作。',
   _ => '雲端備份目前無法完成；本機帳本未變更。',
 };
+
+bool _isAuthenticationRequired(Object error) =>
+    error is CloudBackupProviderException &&
+    error.failure == CloudBackupProviderFailure.authenticationRequired;

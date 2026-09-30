@@ -58,8 +58,8 @@
 | 待入帳授權、取消與正式入帳 | 功能線完成，停用前 pending 結算已閉環 | 與帳單、退款的最後組合回查 |
 | 原刷卡跨帳期退款 | 功能線完成，結帳後獨立呈現與活動查閱已開放 | 最後集中實機與整合 gate |
 | 固定本金／明列費用分期 | 功能線完成，退款後獨立呈現與活動查閱已開放 | 真實發卡行帳單、實機與最後整合 gate |
-| 持久工作佇列 | 雲端工作閉環與自動排程完成 | 正式登入失效 UI 與需要 Ledger 同交易的 outbox 接線 |
-| Provider-neutral 加密備份核心 | 正式導航與無憑證 engine handoff 接線完成 | OAuth、正式 transport／排程 runtime、實機與整合 gate |
+| 持久工作佇列 | 雲端工作閉環、自動排程與登入失效恢復入口完成 | 需要 Ledger 同交易的 outbox 接線 |
+| Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff 與重新連結入口完成 | OAuth、正式 transport／排程 runtime、實機與整合 gate |
 | 多 provider 備份歷史與保留策略 | 正式 App 入口接線完成 | 真實 provider 分頁、OAuth 與實機 |
 | Google Drive 加密備份 | Adapter、HTTPS、續傳、歷史與刪除契約完成 | OAuth、`drive.file` 授權、撤權、真實帳號與乾淨還原 |
 

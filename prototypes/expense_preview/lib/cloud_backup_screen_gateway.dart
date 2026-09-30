@@ -11,6 +11,7 @@ typedef CloudBackupRestoreHandoff = Future<void> Function(
   CloudBackupCredentialKind kind,
   String credential,
 );
+typedef CloudBackupReconnect = Future<void> Function(String providerId);
 
 /// Bridges the provider-neutral use cases to the standalone Flutter screen.
 /// The final app integration supplies an engine-backed source factory and the
@@ -22,6 +23,7 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
     required this.createSource,
     required this.restoreHandoff,
     required this.schedules,
+    this.reconnectProvider,
   });
 
   final CloudBackupManualFlow flow;
@@ -29,9 +31,25 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
   final CloudBackupSourceFactory createSource;
   final CloudBackupRestoreHandoff restoreHandoff;
   final CloudBackupScheduleStore schedules;
+  final CloudBackupReconnect? reconnectProvider;
 
   @override
   List<CloudBackupProviderChoice> get providers => providerChoices;
+
+  @override
+  bool canReconnect(String providerId) =>
+      reconnectProvider != null &&
+      providerChoices.any((provider) => provider.id == providerId);
+
+  @override
+  Future<void> reconnect(String providerId) async {
+    if (!canReconnect(providerId)) {
+      throw const CloudBackupProviderException(
+        CloudBackupProviderFailure.authenticationRequired,
+      );
+    }
+    await reconnectProvider!(providerId);
+  }
 
   @override
   Future<void> createBackup(String providerId) async {
