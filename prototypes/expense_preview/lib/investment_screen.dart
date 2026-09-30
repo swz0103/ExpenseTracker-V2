@@ -1092,6 +1092,15 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
               '實付 ${fact.preview.lot.acquisitionCashCost.majorText} ${fact.preview.cashDebit.currency.code}',
             ),
           ),
+        if (_loaded && widget.engine.capabilities.investmentSales) ...[
+          const SizedBox(height: 16),
+          InvestmentPortfolioSummaryPanel(
+            key: const ValueKey('investment-portfolio-summary-panel'),
+            engine: widget.engine,
+            privacy: widget.privacy,
+            revision: _request,
+          ),
+        ],
         if (widget.engine.capabilities.investmentSales &&
             _sellChoices.isNotEmpty) ...[
           const SizedBox(height: 12),
