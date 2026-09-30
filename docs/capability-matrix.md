@@ -61,7 +61,7 @@
 | 持久工作佇列 | 功能線基礎完成 | 手動／自動排程、登入失效 UI 與需要 Ledger 同交易的 outbox 接線 |
 | Provider-neutral 加密備份核心 | 手動 use case 與獨立 Flutter UI 完成 | 自動排程、正式 engine／導航接線、實機與整合 gate |
 | 多 provider 備份歷史與保留策略 | 主機流程與獨立 Flutter UI 完成 | 真實 provider 分頁、正式 App 接線與實機 |
-| Google Drive 加密備份 | Adapter、續傳、歷史與刪除契約完成 | HTTPS、OAuth、`drive.file`、撤權、真實帳號與乾淨還原 |
+| Google Drive 加密備份 | Adapter、HTTPS、續傳、歷史與刪除契約完成 | OAuth、`drive.file` 授權、撤權、真實帳號與乾淨還原 |
 
 ## M3｜投資與估值
 

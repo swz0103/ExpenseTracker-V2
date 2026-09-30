@@ -8,11 +8,12 @@
 - [x] Provider registry 可同時註冊多個來源且不設硬編碼預設；支援歷史能力的 provider 可提供固定排序清單。保留策略先預覽保留／刪除項目，至少保留一份且可保護近期備份；未明確套用前不刪除，套用前整批重查，Drive adapter 刪除每個檔案前再核對完整 metadata。
 - [x] App-facing 手動流程不分支判斷特定 provider：以穩定 backup ID、密碼與救援文字雙驗證後送入對應持久工作；歷史下載先核對遠端內容，再允許使用者以密碼或救援文字其中一種解鎖。錯誤憑證與內容損壞有不同結果，保留「忘記密碼靠救援文字」的用途。
 - [x] 獨立 Flutter 功能畫面可選 provider、立即建立備份、重整歷史、以密碼或救援文字下載還原，以及選擇保留份數；永久刪除先顯示保留／刪除數量並須再次確認。登入失效、quota、限流、錯誤憑證與完整性失敗各有不洩密提示。畫面透過 gateway 注入，未寫死 Google Drive。
-- [x] 核心、Drive adapter、持久工作、歷史／保留與手動流程共 23 項測試、靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存、同 backup ID 不同內容及遠端 metadata 變更均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
+- [x] Google Drive HTTPS transport 已接 bearer token 注入、`generateIds`、resumable upload、metadata、下載、完整分頁歷史與永久刪除。Resumable `Location` 僅接受 HTTPS 的 Google APIs 主機；token 換行注入與過大值在送出前拒絕。401、權限、quota、限流、5xx、409 與上傳結果不明維持不同語意，回應內容不外洩。
+- [x] 核心、Drive adapter／HTTPS、持久工作、歷史／保留與手動流程共 31 項測試、靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存、同 backup ID 不同內容、遠端 metadata 變更及非信任 upload URL 均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
 - [x] Flutter 畫面 4 項定向測試與受影響來源靜態分析通過：建立與歷史、救援文字還原 handoff、取消不刪除／確認才刪除、登入失效提示。
-- [ ] 尚未接 Google Drive HTTPS／OAuth／secure token storage、自動排程、主畫面導航、正式 engine 備份來源與既有乾淨還原入口；依功能優先策略留到集中整合。實機亦未驗。M2-01 不稱完成。
+- [ ] 尚未接 Google OAuth client／Android 帳號授權與 secure token storage、自動排程、主畫面導航、正式 engine 備份來源與既有乾淨還原入口；依功能優先策略，App 接線留到集中整合。實機亦未驗。M2-01 不稱完成。
 
-下一步接 Google Drive HTTPS transport、分頁清單與錯誤解析；OAuth client／真實帳號會需要使用者決定與授權，因此先完成不需帳號的 transport 契約測試。主畫面導航與正式 engine 接線留到集中整合。
+Google OAuth client／真實帳號是目前這條功能線第一個需要使用者授權的外部 gate；依持續製作指示，先不停止，轉去完成不需帳號的自動排程與登入失效狀態，再處理其他 M2／M3 功能，最後集中整合。
 
 ## 2026-09-29 M2-04 實際帳單與部分繳款分配（主機通過；整體未驗收）
 

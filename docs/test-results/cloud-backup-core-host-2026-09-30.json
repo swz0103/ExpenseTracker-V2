@@ -20,10 +20,13 @@
     "The app-facing manual flow routes by provider ID, double-verifies an upload before scheduling and exposes provider-neutral history/retention use cases",
     "A downloaded envelope is transport-verified and then unlocks with either its password or recovery key; rejected credentials remain distinct from corrupt remote bytes",
     "A standalone provider-neutral Flutter screen supports create, history, password/recovery restore handoff and retention with explicit permanent-deletion confirmation",
-    "The Flutter screen maps authentication, quota, throttling, credential and integrity failures without exposing secrets"
+    "The Flutter screen maps authentication, quota, throttling, credential and integrity failures without exposing secrets",
+    "The Google Drive REST transport implements generateIds, trusted resumable upload, metadata, download, complete paginated history and permanent deletion",
+    "Bearer token header injection, untrusted upload locations, repeated page tokens and oversized histories fail closed; post-byte network/308/408/5xx outcomes remain uncertain for same-ID inspection",
+    "HTTP 401, permission, quota, throttling, conflict, availability and uncertain-result failures retain distinct meanings"
   ],
   "hostChecks": {
-    "tests": "dart test --reporter expanded: 23 passed",
+    "tests": "dart test --reporter expanded: 31 passed",
     "analysis": "dart analyze: no issues",
     "appWidgetTests": "flutter test test/cloud_backup_screen_test.dart --reporter expanded: 4 passed",
     "appAffectedAnalysis": "dart analyze cloud backup screen, gateway and widget test: no issues",
@@ -31,10 +34,10 @@
     "architecture": "architecture boundary check passed"
   },
   "notVerified": [
-    "The Google Drive semantic adapter and durable work runner are implemented against tested boundaries; concrete HTTPS and OAuth transports are not implemented",
+    "The Google Drive semantic adapter, HTTPS transport and durable work runner are implemented against tested boundaries; OAuth account authorization and secure token storage are not implemented",
     "No cloud account, credential, financial backup, APK or device was used",
     "The standalone Flutter screen is not yet wired to main navigation, the production engine source or existing clean-restore lifecycle",
     "Automatic scheduling and final integration gates remain open"
   ],
-  "gate": "Provider-neutral cloud backup core, durable work, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
+  "gate": "Provider-neutral cloud backup core, Google Drive HTTPS, durable work, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
 }
