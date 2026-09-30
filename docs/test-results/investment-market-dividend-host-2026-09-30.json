@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-30",
+  "sourceSha": "ec457d1cc3d45064f87ce66cacb42ae8e5cf5c49",
+  "scope": "Opt-in schema 23 cash dividend, official reference market data, and exact open-position mark in the synthetic V2 App",
+  "hostChecks": {
+    "marketData": "dart test: 8 passed; dart analyze: no issues",
+    "investments": "dart test: 44 passed; dart analyze: no issues",
+    "appImpacted": "10 targeted buy, sell, dividend and quote widget/flow tests passed",
+    "appFull": "flutter test --no-pub --concurrency=2 --timeout=10m --reporter expanded: 250 passed, 0 failed, 38m39s",
+    "appStaticAnalysis": "flutter analyze --no-pub: no issues",
+    "architectureBoundary": "passed for market_data package and allowed network boundary",
+    "androidBuild": "Explicit Gradle assembleDebug -Pv2SyntheticValidation=true --offline passed; aapt package ID dev.expensetracker.preview.synthetic, version 0.17.0 (21)",
+    "syntheticApkSha256": "E8D8CAE67D19CD60683773191A2D9BBDCE031B60466D4D36B616A8CC5D82C05F"
+  },
+  "providerFormatSmoke": {
+    "twse": "Read-only HTTPS 200; latest STOCK_DAY_ALL JSON returned 1382 rows with Date, Code and ClosingPrice fields. This checks current format, not future availability.",
+    "ecb": "Read-only HTTPS 200; EXR daily EUR-base CSV returned the expected header. This checks current format, not a full FX product flow."
+  },
+  "notVerified": [
+    "The default App remains schema 22; cash dividend is opt-in and has not passed a new full schema 23 App gate",
+    "No phone operation after the user's request to defer device validation",
+    "The current PR head has no exact-SHA cloud checks",
+    "Stock split and full investment performance UI are separate unfinished flows",
+    "Ledger generation full suite remains incomplete after a long capacity case; Drift multi-database debug warnings remain under review"
+  ],
+  "secretsOrApkUploaded": false
+}
