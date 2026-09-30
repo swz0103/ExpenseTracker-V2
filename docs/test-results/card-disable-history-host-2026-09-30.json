@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Credit-card disable and historical settings flow",
+  "behavior": [
+    "The settings screen requires explicit confirmation before disabling a card",
+    "Disabling appends an immutable settings revision without changing prior settings or deleting history",
+    "A disabled card remains visible with its complete settings revision history and cannot be re-enabled in this version",
+    "The home screen and posted-purchase picker stop offering disabled cards for new purchases",
+    "Existing statement, payment, refund, authorization history and installment data remain available",
+    "Committed purchase replay, outstanding-liability payment and later-cycle refund rules remain valid after disable"
+  ],
+  "hostChecks": {
+    "persistence": "3 card revision tests passed",
+    "ledger": "16 purchase, payment, authorization, disable and refund tests passed",
+    "app": "11 tests passed across settings, purchase, payment, authorization, statement, refund and installment flows",
+    "ledgerAnalysis": "no issues",
+    "expensePreviewAnalysis": "no issues",
+    "architecture": "architecture boundaries passed",
+    "format": "affected files formatted and git diff --check passed"
+  },
+  "knownWarning": "Restore-heavy tests still print the pre-existing Drift multiple-database diagnostic; this change does not suppress or claim to resolve it",
+  "notVerified": [
+    "No Android device or exact-head cloud gate was used",
+    "Full-app regression remains reserved for the final integration pass"
+  ],
+  "gate": "Card disable and settings history passed host checks; device and final integration gates remain pending"
+}

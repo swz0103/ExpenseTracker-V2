@@ -110,6 +110,42 @@ void main() {
       await tester.pump();
       expect(find.byKey(const ValueKey('settings-limit')), findsNothing);
       expect(find.text('目前版本：2'), findsNothing);
+
+      await tester.tap(find.byTooltip('顯示金額'));
+      await tester.pump();
+      await waitForSettings(tester, '2');
+      await tester.tap(find.byKey(const ValueKey('disable-card')));
+      await tester.pumpAndSettle();
+      expect(find.text('停用這張信用卡？'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(
+        (await tester.runAsync(() => engine.savedCreditCardHistory()))!,
+        hasLength(2),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('disable-card')));
+      await tester.pumpAndSettle();
+      await tap(tester, '確認停用');
+      expect(find.text('目前版本：3 · 已停用'), findsOneWidget);
+      expect(find.textContaining('既有歷史'), findsOneWidget);
+      expect(find.textContaining('版本 1 · 啟用 ·'), findsOneWidget);
+      expect(find.textContaining('版本 2 · 啟用 ·'), findsOneWidget);
+      expect(find.textContaining('版本 3 · 停用 ·'), findsOneWidget);
+      final history = (await tester.runAsync(
+        () => engine.savedCreditCardHistory(),
+      ))!;
+      expect(history, hasLength(3));
+      expect(history.last.disabled, isTrue);
+      expect(
+        (await tester.runAsync(() => engine.savedCreditCards()))!,
+        isEmpty,
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, -1200));
+      await tester.pumpAndSettle();
+      await tap(tester, '返回帳本');
+      expect(find.text('信用卡刷卡入帳'), findsNothing);
     } finally {
       await closeEngine(tester, engine);
       await tester.pumpWidget(const SizedBox());

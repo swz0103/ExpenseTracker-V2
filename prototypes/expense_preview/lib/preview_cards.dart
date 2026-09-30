@@ -271,6 +271,15 @@ extension PreviewCards on PreviewEngine {
     return cards;
   });
 
+  Future<List<CardTermsRevision>> savedCreditCardHistory() =>
+      _exclusive((epoch) async {
+        _require();
+        if (!capabilities.creditCards) throw PreviewInvalid();
+        final revisions = await _session!.creditCardTermsHistory(_workspace!);
+        _check(epoch);
+        return revisions;
+      });
+
   Future<void> reviseCreditCard(
     CreditCardTerms terms,
     OperationId operation, {

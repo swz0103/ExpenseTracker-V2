@@ -285,6 +285,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   final _entryCategories = <PublicId, List<LedgerAllocation>>{};
   PublicId? _accountId;
   List<AccountSummary> _accounts = [];
+  Set<PublicId> _activeCreditCardIds = const {};
   List<LedgerEntry> _entries = [];
   List<LedgerEntry> _deletedEntries = [];
   MonthlyReport? _monthlyReport;
@@ -474,6 +475,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _draft = null;
     _saved = false;
     _accounts = [];
+    _activeCreditCardIds = const {};
     _entries = [];
     _deletedEntries = [];
     _monthlyReport = null;
@@ -666,9 +668,21 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _refreshActiveCreditCards() async {
+    final active = (await _engine!.savedCreditCards())
+        .map((card) => card.cardId)
+        .toSet();
+    if (mounted && _engine!.isUnlocked) {
+      setState(() => _activeCreditCardIds = active);
+    }
+  }
+
   Future<void> _refresh() async {
     final privacy = await _engine!.privacyMode();
     final accounts = await _engine!.accounts();
+    final activeCreditCardIds = _engine!.capabilities.creditCards
+        ? (await _engine!.savedCreditCards()).map((card) => card.cardId).toSet()
+        : <PublicId>{};
     AssetReport? assetReport;
     var assetOverflow = false;
     try {
@@ -721,6 +735,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     setState(() {
       _privacy = _forceHidden ? PrivacyMode.hidden : privacy;
       _accounts = accounts;
+      _activeCreditCardIds = activeCreditCardIds;
       _entries = entries;
       _deletedEntries = deletedEntries;
       _monthlyReport = monthlyReport;
@@ -961,7 +976,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             (a) =>
                 a.account.state == AccountState.active &&
                 (page == _Page.cardPurchase
-                    ? a.account.kind == AccountKind.creditCard
+                    ? a.account.kind == AccountKind.creditCard &&
+                          _activeCreditCardIds.contains(a.account.id)
                     : page == _Page.cardPayment
                     ? a.account.kind == AccountKind.bank &&
                           _accounts.any(
@@ -1845,6 +1861,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
+            onChanged: _refreshActiveCreditCards,
           ),
           _back(),
         ];
@@ -2010,7 +2027,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 14),
           if (_kind == AccountKind.creditCard) ...[
-            const Text('目前可建立卡片與保存帳期；刷卡、繳款及帳單仍在開發，暫不開放記錄。'),
+            const Text('建立後可記錄刷卡、繳款、待入帳、發卡行實際帳單、退款與分期預估。'),
             _field('結帳日（1–31）', _cardClosingDay, length: 2),
             _field('繳款日（1–31）', _cardDueDay, length: 2),
             _field('額度（可留空）', _cardLimit, length: 24),
@@ -2027,7 +2044,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         return [
           Text('信用卡刷卡入帳', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
-          const Text('只記錄已正式入帳的本幣刷卡。待入帳授權、外幣與額外手續費尚未開放。'),
+          const Text('此處記錄已正式入帳的本幣刷卡；尚未入帳的授權請使用「信用卡待入帳」。'),
           const SizedBox(height: 16),
           DropdownButtonFormField<PublicId>(
             key: const ValueKey('card-purchase-account'),
@@ -2038,7 +2055,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               for (final row in _accounts.where(
                 (row) =>
                     row.account.state == AccountState.active &&
-                    row.account.kind == AccountKind.creditCard,
+                    row.account.kind == AccountKind.creditCard &&
+                    _activeCreditCardIds.contains(row.account.id),
               ))
                 DropdownMenuItem(
                   value: row.account.id,
@@ -2109,7 +2127,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         return [
           Text('信用卡繳款', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
-          const Text('從同幣別銀行帳戶繳款；銀行餘額減少、卡片負債減少，不會再計為支出。目前尚未指派至特定帳單。'),
+          const Text('從同幣別銀行帳戶繳款；銀行餘額減少、卡片負債減少，不會再計為支出。儲存後可在「信用卡帳單」分配至特定帳單。'),
           const SizedBox(height: 16),
           DropdownButtonFormField<PublicId>(
             key: const ValueKey('card-payment-bank'),
@@ -2606,7 +2624,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               _accounts.any(
                 (row) =>
                     row.account.state == AccountState.active &&
-                    row.account.kind == AccountKind.creditCard,
+                    row.account.kind == AccountKind.creditCard &&
+                    _activeCreditCardIds.contains(row.account.id),
               ))
             OutlinedButton(
               onPressed: _busy || _entryDraft != null || _draftUnreadable

@@ -202,6 +202,10 @@ final class LedgerSession {
   Future<List<CreditCardTerms>> creditCardTerms(WorkspaceId workspace) =>
       _enqueue(() => currentCardTerms(_db, workspace));
 
+  Future<List<CardTermsRevision>> creditCardTermsHistory(
+    WorkspaceId workspace,
+  ) => _enqueue(() => cardTermsHistory(_db, workspace));
+
   Future<List<investment.InvestmentBuyFact>> investmentBuys(
     WorkspaceId workspace,
   ) => _enqueue(() => investment.investmentBuys(_db, workspace));
