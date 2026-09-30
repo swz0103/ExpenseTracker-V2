@@ -28,6 +28,12 @@
 
 工程限制：代號必須保留字串與前導零，以市場＋外部代號對應 Instrument；TPEx 集合包含其他商品，不能因有一列報價就開放權證或 ETN。民國日期轉換須嚴格驗證，無成交符號／空價是缺值，不是 0。價格保存十進位文字，記錄實際交易日、取得時間與調整類型；最新盤後集合不能冒充任意歷史日查詢、即時價格或 corporate-action 資料。
 
+### 1–5 分鐘行情增補（2026-09-30）
+
+使用者將股價更新目標改為 1–5 分鐘。官方 TWSE／TPEx 最新收盤仍是日終基準，不能滿足盤中需求。首個台股盤中 adapter 選 Fugle：官方文件提供即時 quote 及 `1`、`3`、`5` 分鐘等 intraday candles；基本會員方案目前標示 60 calls/minute 與 5 個 WebSocket 訂閱，需 API key。[日內 K 線契約](https://developer.fugle.tw/docs/data/http-api/intraday/candles/)；[驗證與端點](https://developer.fugle.tw/docs/data/http-api/getting-started/)；[方案與額度](https://developer.fugle.tw/docs/pricing/)。
+
+已完成 REST 1／5 分鐘核心與 provider registry 接入，但只使用 fixture。App 不內嵌 key；後續由安全儲存提供，並需使用者註冊後做真實帳號驗證。免費個人方案不自動等於可公開散布行情，若 App 對外發布仍須另核對顯示／再散布授權。美股候選 Twelve Data 的免費方案目前標示 800 requests/day、8 trial WebSocket credits 與即時美股，但台灣屬 global trial／更高方案範圍，因此不拿它取代 Fugle 台股來源。[Twelve Data 個人方案](https://twelvedata.com/pricing)。Alpha Vantage 1／5 分鐘即時/延遲 intraday 官方文件列為 premium，本輪不作首選。[Alpha Vantage intraday](https://www.alphavantage.co/documentation/)。
+
 ## FX：Frankfurter v2，明確指定資料來源
 
 候選路由：USD/TWD 先評估 RBA；EUR/USD、USD/JPY 先評估 ECB。傳 `providers` 並保存實際回覆日期。官方 v2 不需 API key，預設會混合多來源；本案選擇明確來源來維持可追溯性。[官方 v2 契約](https://frankfurter.dev/)。

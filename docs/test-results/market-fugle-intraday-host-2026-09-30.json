@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Provider-neutral one/five-minute stock bars and Fugle Taiwan intraday adapter",
+  "behavior": [
+    "One-minute and five-minute bars preserve exact decimal text, actual timestamp, volume and fetch time",
+    "Fugle API keys come from a caller-supplied source, are not persisted by the package and are sent only to the pinned HTTPS host",
+    "The adapter distinguishes authorization failure, missing data and throttling",
+    "Wrong market, symbol or interval, malformed OHLC or volume, invalid credentials, duplicate/future timestamps and oversized responses fail closed",
+    "The latest actual timestamp is selected without trusting provider response order",
+    "One-minute observations older than two minutes and five-minute observations older than six minutes are marked stale",
+    "Concurrent identical lookups share one in-flight request",
+    "Fugle registers as an authorized intraday provider and routes through the provider-neutral registry"
+  ],
+  "hostChecks": {
+    "tests": "dart test: 32 passed (8 intraday plus 24 daily/reference/routing)",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format applied to lib and test"
+  },
+  "notVerified": [
+    "No Fugle account or API key was created or used",
+    "No live network, real-device, background refresh or final App navigation integration was run",
+    "Commercial display or redistribution rights were not obtained",
+    "US-market intraday providers are not implemented"
+  ],
+  "gate": "Fugle intraday adapter core passed deterministic host checks; credential, refresh-controller and integration work remains active"
+}

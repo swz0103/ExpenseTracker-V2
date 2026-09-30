@@ -1,6 +1,7 @@
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 
+import 'intraday.dart';
 import 'market_data.dart';
 
 final class MarketProviderDescriptor {
@@ -36,6 +37,18 @@ abstract interface class StockCloseProvider implements MarketDataProvider {
   Future<MarketResult<StockClose>> stockClose(
     InvestmentInstrument instrument, {
     BusinessDate? requiredAsOf,
+  });
+}
+
+abstract interface class IntradayStockProvider implements MarketDataProvider {
+  bool supportsIntraday(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  );
+
+  Future<MarketResult<IntradayBar>> latestBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
   });
 }
 
@@ -107,6 +120,36 @@ final class TpexStockCloseProvider implements StockCloseProvider {
     InvestmentInstrument instrument, {
     BusinessDate? requiredAsOf,
   }) => gateway.tpexStockClose(instrument, requiredAsOf: requiredAsOf);
+}
+
+final class FugleIntradayStockProvider implements IntradayStockProvider {
+  FugleIntradayStockProvider(this.gateway);
+
+  static const providerId = 'fugle-tw-intraday';
+  final FugleIntradayGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: providerId,
+    label: 'Fugle 富果行情',
+    dataset: '台股日內 K 線（1／5 分鐘）',
+    attribution: 'Fugle MarketData API；實際使用受帳戶方案與資料授權約束',
+    requiresAuthorization: true,
+  );
+
+  @override
+  bool supportsIntraday(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  ) =>
+      (instrument.marketCode == 'TWSE' || instrument.marketCode == 'TPEX') &&
+      instrument.tradingCurrency == Currency('TWD', 2);
+
+  @override
+  Future<MarketResult<IntradayBar>> latestBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
+  }) => gateway.latestBar(instrument, interval: interval);
 }
 
 final class EcbReferenceFxProvider implements ReferenceFxProvider {
@@ -216,6 +259,14 @@ final class MarketProviderRegistry {
       .where((provider) => provider.supportsStockClose(instrument))
       .toList(growable: false);
 
+  List<IntradayStockProvider> intradayStockProviders(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  ) => _providers.values
+      .whereType<IntradayStockProvider>()
+      .where((provider) => provider.supportsIntraday(instrument, interval))
+      .toList(growable: false);
+
   List<ReferenceFxProvider> fxProviders(
     Currency base,
     Currency quote, {
@@ -322,6 +373,21 @@ final class MarketDataRouter {
     return _route<StockCloseProvider, StockClose>(
       providers,
       (provider) => provider.stockClose(instrument, requiredAsOf: requiredAsOf),
+    );
+  }
+
+  Future<RoutedMarketResult<IntradayBar>> intradayBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
+    MarketRoutingPolicy policy = const MarketRoutingPolicy.automatic(),
+  }) async {
+    final providers = _ordered(
+      registry.intradayStockProviders(instrument, interval),
+      policy,
+    );
+    return _route<IntradayStockProvider, IntradayBar>(
+      providers,
+      (provider) => provider.latestBar(instrument, interval: interval),
     );
   }
 

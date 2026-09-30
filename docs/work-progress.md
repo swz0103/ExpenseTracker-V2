@@ -6,10 +6,10 @@
 - [x] Registry／路由新增 8 項定向案例；與 TWSE／ECB provider 共 20 項套件測試及靜態分析通過。[證據](test-results/market-provider-routing-host-2026-09-30.json)
 - [x] 獨立 Flutter panel 可選自動或固定 provider，顯示真正採用的來源、dataset、attribution、觀測／取得資訊與每次 fallback 狀態；多源核對逐列顯示並在衝突時明示不選值、不平均。3 項畫面測試與受影響分析通過。
 - [x] 新增免金鑰的 TPEx 最新上櫃收盤與 CBC 銀行間 USD/TWD 日收盤 adapter；精確日期、七日內 last-known、反向匯率、缺值、重複／亂序／錯型別皆 fail closed。官方 TPEx 合法快照約 4.6 MB，受控傳輸上限由 2 MiB 調為 8 MiB。market_data 共 24 項測試通過。[證據](test-results/market-official-taiwan-providers-host-2026-09-30.json)
-- [ ] 使用者要求股價 1–5 分鐘更新。官方日終來源保留作收盤基準／備援；盤中首選評估結果為 Fugle（台股 1／3／5 分 K、即時 quote、需會員 API key；免費基本方案 60/min、WebSocket 5 訂閱），美股候選為 Twelve Data。分鐘行情契約與 adapter 正在製作。
-- [ ] 尚未把 panel 接入投資摘要；分鐘行情、美股 adapter、實機網路與最後整合 gate 未執行。
+- [x] 使用者要求股價 1–5 分鐘更新。官方日終來源保留作收盤基準；新增不綁日終型別的 `IntradayBar`／`IntradayInterval` 契約，以及可加入同一 registry/router 的 Fugle 1／5 分鐘 adapter。API key 由外部非同步注入，只送到釘選 HTTPS host；狀態碼、新鮮度、series identity、OHLC、成交量、重複／未來時間皆 fail closed，同標的一次只做一個在途請求。8 項分鐘案例加入後 market_data 共 32 項測試通過。[證據](test-results/market-fugle-intraday-host-2026-09-30.json)
+- [ ] 尚未把 panel 接入投資摘要；安全憑證儲存、1–5 分鐘更新控制器、美股 adapter、真實帳號／網路與最後整合 gate 未執行。
 
-下一步建立不綁供應商的分鐘行情契約與 Fugle REST adapter，先用 fixture 驗證，不保存或硬編 API key。需要註冊／付費時再由使用者決定；投資摘要接線留到功能線完成後的集中整合。
+下一步建立 1–5 分鐘更新控制器與 app-facing 狀態模型，再評估同一契約下的美股 Twelve Data adapter。Fugle 真實帳號／key 與任何付費方案等需要使用者決定時才停；投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 
