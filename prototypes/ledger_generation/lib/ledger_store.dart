@@ -53,7 +53,7 @@ export 'package:modular_persistence_probe/card_authorizations_adapter.dart'
 export 'package:modular_persistence_probe/card_installments_adapter.dart'
     show CardInstallmentFact, CardInstallmentPurchase;
 export 'package:modular_persistence_probe/investment_adapter.dart'
-    show InvestmentBuyFact, InvestmentSellFact;
+    show InvestmentBuyFact, InvestmentSellFact, InvestmentDividendFact;
 
 part 'ledger_session.dart';
 part 'simple_import_session.dart';
@@ -97,6 +97,7 @@ final class LedgerPayload implements GenerationPayload {
     this.installmentsAware = false,
     this.investmentsAware = false,
     this.investmentSalesAware = false,
+    this.investmentDividendsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -174,6 +175,7 @@ final class LedgerPayload implements GenerationPayload {
          installmentsAware: installmentsAware,
          investmentsAware: investmentsAware,
          investmentSalesAware: investmentSalesAware,
+         investmentDividendsAware: investmentDividendsAware,
        );
   final bool categoryAware;
   final bool categoryReferences;
@@ -194,12 +196,14 @@ final class LedgerPayload implements GenerationPayload {
   final bool installmentsAware;
   final bool investmentsAware;
   final bool investmentSalesAware;
+  final bool investmentDividendsAware;
   final SnapshotCodec codec;
   @override
   int get maxBytes => EnvelopeCodec.maxPayloadBytes;
   @override
   String canonicalize(String input) {
-    if (investmentSalesAware ||
+    if (investmentDividendsAware ||
+        investmentSalesAware ||
         investmentsAware ||
         installmentsAware ||
         cardAuthorizationsAware) {
@@ -211,7 +215,9 @@ final class LedgerPayload implements GenerationPayload {
       } catch (_) {
         throw const InvalidSnapshot();
       }
-      final expectedSchema = investmentSalesAware
+      final expectedSchema = investmentDividendsAware
+          ? 23
+          : investmentSalesAware
           ? 22
           : investmentsAware
           ? 21
@@ -262,6 +268,7 @@ final class LedgerPayload implements GenerationPayload {
       installmentsAware: installmentsAware,
       investmentsAware: investmentsAware,
       investmentSalesAware: investmentSalesAware,
+      investmentDividendsAware: investmentDividendsAware,
     ),
   );
 
@@ -296,7 +303,8 @@ final class LedgerPayload implements GenerationPayload {
               (cardAuthorizationsAware && version == 19) ||
               (installmentsAware && version == 20) ||
               (investmentsAware && version == 21) ||
-              (investmentSalesAware && version == 22)) ||
+              (investmentSalesAware && version == 22) ||
+              (investmentDividendsAware && version == 23)) ||
           raw.select('PRAGMA cipher_integrity_check').isNotEmpty ||
           raw
               .select(
@@ -329,6 +337,7 @@ final class LedgerPayload implements GenerationPayload {
       installmentsAware: version >= 20,
       investmentsAware: version >= 21,
       investmentSalesAware: version >= 22,
+      investmentDividendsAware: version >= 23,
     );
     final db = openEncrypted(
       file,
@@ -353,6 +362,7 @@ final class LedgerPayload implements GenerationPayload {
       installmentsAware: version >= 20,
       investmentsAware: version >= 21,
       investmentSalesAware: version >= 22,
+      investmentDividendsAware: version >= 23,
     );
     try {
       // Installation fingerprint authenticates the imported input, not the live
@@ -390,6 +400,7 @@ final class LedgerStore {
     this.installmentsAware = false,
     this.investmentsAware = false,
     this.investmentSalesAware = false,
+    this.investmentDividendsAware = false,
     Duration lockTimeout = const Duration(seconds: 10),
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
@@ -470,6 +481,7 @@ final class LedgerStore {
            installmentsAware: installmentsAware,
            investmentsAware: investmentsAware,
            investmentSalesAware: investmentSalesAware,
+           investmentDividendsAware: investmentDividendsAware,
          ),
          upgradeAware:
              categoryAware ||
@@ -490,7 +502,8 @@ final class LedgerStore {
              cardAuthorizationsAware ||
              installmentsAware ||
              investmentsAware ||
-             investmentSalesAware,
+             investmentSalesAware ||
+             investmentDividendsAware,
          catalogProtection: catalogProtection,
          lockTimeout: lockTimeout,
        );
@@ -514,6 +527,7 @@ final class LedgerStore {
   final bool installmentsAware;
   final bool investmentsAware;
   final bool investmentSalesAware;
+  final bool investmentDividendsAware;
 
   Future<GenerationReceipt> initialize(OperationId operation) =>
       generations.install(
@@ -543,6 +557,7 @@ final class LedgerStore {
             installmentsAware: installmentsAware,
             investmentsAware: investmentsAware,
             investmentSalesAware: investmentSalesAware,
+            investmentDividendsAware: investmentDividendsAware,
           ).empty(),
         ),
         operation,
@@ -580,6 +595,7 @@ final class LedgerStore {
         installmentsAware: installmentsAware,
         investmentsAware: investmentsAware,
         investmentSalesAware: investmentSalesAware,
+        investmentDividendsAware: investmentDividendsAware,
       );
       final session = LedgerSession._(db);
       try {
@@ -662,6 +678,7 @@ final class LedgerStore {
       installmentsAware: installmentsAware,
       investmentsAware: investmentsAware,
       investmentSalesAware: investmentSalesAware,
+      investmentDividendsAware: investmentDividendsAware,
     );
     try {
       return await work(db);
@@ -673,16 +690,20 @@ final class LedgerStore {
   Future<CommitResult> post(
     Posting posting, {
     LockWaitCancellation? cancellation,
-  }) => _use((db) async {
+  }) async {
     if (posting.kind == PostingKind.investmentBuy ||
-        posting.kind == PostingKind.investmentSell) {
+        posting.kind == PostingKind.investmentSell ||
+        posting.kind == PostingKind.investmentDividend) {
       throw StateError(
-        'Investment trades require the investment session route.',
+        'Investment activity requires the investment session route.',
       );
     }
-    await _rejectUntrackedCardPosting(db, posting);
-    return FinancialWorkflows(db).post(posting);
-  }, cancellation: cancellation);
+    return _use((db) async {
+      await _rejectUntrackedCardPosting(db, posting);
+      return FinancialWorkflows(db).post(posting);
+    }, cancellation: cancellation);
+  }
+
   Future<Money> balance(
     PostingAccount account, {
     LockWaitCancellation? cancellation,

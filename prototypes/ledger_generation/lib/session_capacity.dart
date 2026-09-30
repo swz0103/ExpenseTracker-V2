@@ -42,6 +42,7 @@ const _rowByteLimits = <String, int>{
   'investment_lots': 4096,
   'investment_sales': 1024 * 1024,
   'investment_sale_allocations': 512,
+  'investment_dividends': 8192,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -63,6 +64,7 @@ Map<String, int> _tableLimits(
   bool installments,
   bool investments,
   bool investmentSales,
+  bool investmentDividends,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -91,6 +93,7 @@ Map<String, int> _tableLimits(
   if (investments) 'investment_lots': LedgerSession.maxEvents,
   if (investmentSales) 'investment_sales': LedgerSession.maxEvents,
   if (investmentSales) 'investment_sale_allocations': SnapshotCodec.maxRows,
+  if (investmentDividends) 'investment_dividends': LedgerSession.maxEvents,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -166,9 +169,12 @@ void _checkRowBytes(String table, Map row) {
                   'merchant-post-v1',
                   'investment-buy-v1',
                   'investment-sell-v1',
+                  'investment-dividend-v1',
                 ].contains((jsonDecode(row['input'] as String) as List).first))
       ? input?.first == 'investment-sell-v1'
             ? 1024 * 1024
+            : input?.first == 'investment-dividend-v1'
+            ? 8192
             : 4096
       : _rowByteLimits[table];
   if (limit == null || utf8.encode(jsonEncode(row)).length > limit)
@@ -200,6 +206,7 @@ List<int> validateSessionCapacity(
   bool installmentsAware = false,
   bool investmentsAware = false,
   bool investmentSalesAware = false,
+  bool investmentDividendsAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -232,6 +239,7 @@ List<int> validateSessionCapacity(
     installmentsAware: installmentsAware,
     investmentsAware: investmentsAware,
     investmentSalesAware: investmentSalesAware,
+    investmentDividendsAware: investmentDividendsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -255,6 +263,7 @@ List<int> validateSessionCapacity(
     installmentsAware,
     investmentsAware,
     investmentSalesAware,
+    investmentDividendsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -284,6 +293,7 @@ List<int> validateSessionCapacity(
           if (reversalsAware) 'reversal',
           if (investmentsAware) 'investmentBuy',
           if (investmentSalesAware) 'investmentSell',
+          if (investmentDividendsAware) 'investmentDividend',
         ].contains(row['kind']),
       ) ||
       (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||

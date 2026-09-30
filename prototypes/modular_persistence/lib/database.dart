@@ -16,6 +16,7 @@ import 'card_schema.dart';
 import 'card_facts_schema.dart';
 import 'investment_schema.dart';
 import 'investment_sale_schema.dart';
+import 'investment_dividend_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -42,6 +43,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.installmentsAware = false,
     this.investmentsAware = false,
     this.investmentSalesAware = false,
+    this.investmentDividendsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -123,6 +125,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.installmentsAware = false,
     this.investmentsAware = false,
     this.investmentSalesAware = false,
+    this.investmentDividendsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -200,7 +203,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool installmentsAware;
   final bool investmentsAware;
   final bool investmentSalesAware;
+  final bool investmentDividendsAware;
   void _configuration() {
+    if (investmentDividendsAware && !investmentSalesAware) {
+      throw ArgumentError('Investment dividends require schema 22.');
+    }
     if (investmentSalesAware && !investmentsAware) {
       throw ArgumentError('Investment sales require investment schema 21.');
     }
@@ -238,7 +245,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => investmentSalesAware
+  int get schemaVersion => investmentDividendsAware
+      ? 23
+      : investmentSalesAware
       ? 22
       : investmentsAware
       ? 21
@@ -324,6 +333,9 @@ final class ProbeDatabase extends GeneratedDatabase {
         for (final sql in investmentSaleSchema) {
           await customStatement(sql);
         }
+      }
+      if (investmentDividendsAware) {
+        await customStatement(investmentDividendSchema);
       }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();

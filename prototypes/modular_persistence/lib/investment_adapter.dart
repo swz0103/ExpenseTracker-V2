@@ -11,6 +11,7 @@ import 'database.dart';
 import 'operations.dart';
 
 part 'investment_sale_adapter.dart';
+part 'investment_dividend_adapter.dart';
 
 /// An immutable buy and its one acquisition lot, backed by a committed Ledger
 /// cash debit. This does not provide sell, valuation, or tax-basis semantics.

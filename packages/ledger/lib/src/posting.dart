@@ -11,6 +11,7 @@ enum PostingKind {
   reversal,
   investmentBuy,
   investmentSell,
+  investmentDividend,
 }
 
 enum LegRole { principal, fee }
@@ -31,6 +32,7 @@ enum LedgerError {
   tombstoneDependency,
   investmentBuyMismatch,
   investmentSellMismatch,
+  investmentDividendMismatch,
 }
 
 final class LedgerException implements Exception {
@@ -117,6 +119,24 @@ final class InvestmentSellCashDetails {
   final Money cashCredit;
 }
 
+/// The broker-reported dividend is investment income, separate from ordinary
+/// income reports. Its investment fact must be saved with this cash credit.
+final class InvestmentDividendCashDetails {
+  const InvestmentDividendCashDetails._({
+    required this.dividendId,
+    required this.gross,
+    required this.withholdingTax,
+    required this.fee,
+    required this.cashCredit,
+  });
+
+  final PublicId dividendId;
+  final Money gross;
+  final Money withholdingTax;
+  final Money fee;
+  final Money cashCredit;
+}
+
 /// Validated immutable posting proposal. Has no financial effect until committed.
 final class Posting {
   Posting._({
@@ -133,6 +153,7 @@ final class Posting {
     this.reversalReason,
     this.investmentBuy,
     this.investmentSell,
+    this.investmentDividend,
     List<Allocation> allocations = const [],
   }) : legs = List.unmodifiable(legs),
        allocations = List.unmodifiable(allocations);
@@ -302,6 +323,56 @@ final class Posting {
     );
   }
 
+  /// Credits the actual settlement account without claiming ordinary income.
+  /// The application must atomically link a validated dividend fact.
+  factory Posting.investmentDividend({
+    required PublicId id,
+    required OperationKey operation,
+    required BusinessDate date,
+    required PostingAccount account,
+    required PublicId investmentDividendId,
+    required Money gross,
+    required Money withholdingTax,
+    required Money fee,
+    required Money cashCredit,
+  }) {
+    _participation(operation, account, gross);
+    _participation(operation, account, withholdingTax);
+    _participation(operation, account, fee);
+    _participation(operation, account, cashCredit);
+    _positive(gross);
+    if (withholdingTax.minorUnits < BigInt.zero ||
+        fee.minorUnits < BigInt.zero ||
+        cashCredit.minorUnits <= BigInt.zero) {
+      throw const LedgerException(LedgerError.invalidAmount);
+    }
+    if (id == investmentDividendId) {
+      throw const LedgerException(LedgerError.duplicateIdentity);
+    }
+    final expectedCredit =
+        gross.minorUnits - withholdingTax.minorUnits - fee.minorUnits;
+    if (expectedCredit <= BigInt.zero ||
+        expectedCredit != cashCredit.minorUnits) {
+      throw const LedgerException(LedgerError.investmentDividendMismatch);
+    }
+    return Posting._(
+      id: id,
+      operation: operation,
+      date: date,
+      kind: PostingKind.investmentDividend,
+      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      reportIncome: Money(account.currency, BigInt.zero),
+      reportExpense: Money(account.currency, BigInt.zero),
+      investmentDividend: InvestmentDividendCashDetails._(
+        dividendId: investmentDividendId,
+        gross: gross,
+        withholdingTax: withholdingTax,
+        fee: fee,
+        cashCredit: cashCredit,
+      ),
+    );
+  }
+
   factory Posting.refund({
     required PublicId id,
     required OperationKey operation,
@@ -438,6 +509,7 @@ final class Posting {
   final String? reversalReason;
   final InvestmentBuyCashDetails? investmentBuy;
   final InvestmentSellCashDetails? investmentSell;
+  final InvestmentDividendCashDetails? investmentDividend;
   PublicId? get reversalOf => reversedPosting?.id;
 }
 

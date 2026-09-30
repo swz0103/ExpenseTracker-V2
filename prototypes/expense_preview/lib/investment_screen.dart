@@ -1022,6 +1022,17 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
           const SizedBox(height: 8),
           _sellSection(context),
         ],
+        if (widget.engine.capabilities.investmentDividends) ...[
+          const SizedBox(height: 8),
+          _InvestmentDividendSection(
+            engine: widget.engine,
+            buys: _saved,
+            accounts: _currentAccounts,
+            privacy: widget.privacy,
+            otherPending: _hasPendingOperation,
+            onSaved: _load,
+          ),
+        ],
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

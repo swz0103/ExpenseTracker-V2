@@ -50,6 +50,7 @@ part 'card_settings_screen.dart';
 part 'card_authorization_screen.dart';
 part 'card_installment_screen.dart';
 part 'investment_screen.dart';
+part 'investment_dividend_section.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
@@ -2960,6 +2961,7 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.reversal => '撤銷',
   PostingKind.investmentBuy => '投資買入',
   PostingKind.investmentSell => '投資賣出',
+  PostingKind.investmentDividend => '投資股息',
 };
 String _error(Object error) => switch (error) {
   PreviewDataUnavailable() => '帳本密碼已通過，但本機帳本或安全設定完整性無法確認。已停止財務操作；請保留目前資料與加密備份。',

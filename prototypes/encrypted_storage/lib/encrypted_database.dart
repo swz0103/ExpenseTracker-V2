@@ -53,6 +53,7 @@ ProbeDatabase openEncrypted(
   bool installmentsAware = false,
   bool investmentsAware = false,
   bool investmentSalesAware = false,
+  bool investmentDividendsAware = false,
   void Function(String)? migrationCheckpoint,
 }) => ProbeDatabase.withExecutor(
   NativeDatabase(file, setup: (raw) => configureEncryption(raw, key)),
@@ -76,6 +77,7 @@ ProbeDatabase openEncrypted(
   installmentsAware: installmentsAware,
   investmentsAware: investmentsAware,
   investmentSalesAware: investmentSalesAware,
+  investmentDividendsAware: investmentDividendsAware,
   migrationCheckpoint: migrationCheckpoint,
 );
 

@@ -133,6 +133,7 @@ final class LedgerSession {
         installmentsAware: _db.installmentsAware,
         investmentsAware: _db.investmentsAware,
         investmentSalesAware: _db.investmentSalesAware,
+        investmentDividendsAware: _db.investmentDividendsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -153,6 +154,7 @@ final class LedgerSession {
       installmentsAware: _db.installmentsAware,
       investmentsAware: _db.investmentsAware,
       investmentSalesAware: _db.investmentSalesAware,
+      investmentDividendsAware: _db.investmentDividendsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -326,6 +328,63 @@ final class LedgerSession {
         await _checkRows(
           'investment_sale_allocations',
           'workspace=? AND sell_id=?',
+          [preview.operation.workspace.toString(), preview.id.value],
+        );
+      }
+      return result;
+    }),
+  );
+
+  Future<List<investment.InvestmentDividendFact>> investmentDividends(
+    WorkspaceId workspace, [
+    PublicId? accountId,
+  ]) =>
+      _enqueue(() => investment.investmentDividends(_db, workspace, accountId));
+
+  /// The dividend fact and positive cash credit share one encrypted write.
+  Future<CommitResult> postInvestmentDividend(
+    InvestmentDividendPreview preview,
+    PublicId eventId, {
+    void Function(String)? checkpoint,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.investmentDividendsAware) {
+        throw UnsupportedError('Investment dividends require schema 23');
+      }
+      final posting = Posting.investmentDividend(
+        id: eventId,
+        operation: preview.operation,
+        date: preview.paidOn,
+        account: PostingAccount(
+          id: preview.funding.id,
+          workspace: preview.funding.workspace,
+          currency: preview.funding.currency,
+          expectedVersion: preview.funding.expectedVersion,
+        ),
+        investmentDividendId: preview.id,
+        gross: preview.gross,
+        withholdingTax: preview.withholdingTax,
+        fee: preview.fee,
+        cashCredit: preview.netCashCredit,
+      );
+      if (!await _hasOperation(preview.operation)) {
+        await _admitCapacity();
+        if (await _count('events') >= maxEvents ||
+            await _count('investment_dividends') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final result = await investment.commitInvestmentDividend(
+        _db,
+        preview,
+        posting,
+        checkpoint: checkpoint,
+      );
+      if (!result.replayed) {
+        await _checkFinancialRows(posting);
+        await _checkRows(
+          'investment_dividends',
+          'workspace=? AND dividend_id=?',
           [preview.operation.workspace.toString(), preview.id.value],
         );
       }
@@ -1408,6 +1467,7 @@ final class LedgerSession {
       installmentsAware: _db.installmentsAware,
       investmentsAware: _db.investmentsAware,
       investmentSalesAware: _db.investmentSalesAware,
+      investmentDividendsAware: _db.investmentDividendsAware,
     ).capture(_db),
   );
 

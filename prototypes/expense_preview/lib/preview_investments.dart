@@ -98,7 +98,141 @@ final class _InvestmentSellIntent {
   }
 }
 
+/// Vault-owned retry identity survives an ambiguous dividend commit.
+final class _InvestmentDividendIntent {
+  const _InvestmentDividendIntent(this.preview, this.eventId, this.committed);
+
+  final InvestmentDividendPreview preview;
+  final PublicId eventId;
+  final bool committed;
+
+  String get signature =>
+      const InvestmentDividendPreviewCodec().encode(preview);
+
+  _InvestmentDividendIntent complete() =>
+      _InvestmentDividendIntent(preview, eventId, true);
+
+  String encode() => jsonEncode([
+    'investment-dividend-intent-v1',
+    committed ? 'committed' : 'pending',
+    signature,
+    eventId.value,
+  ]);
+
+  static _InvestmentDividendIntent decode(String raw, WorkspaceId workspace) {
+    try {
+      final fields = jsonDecode(raw);
+      if (fields is! List ||
+          fields.length != 4 ||
+          fields[0] != 'investment-dividend-intent-v1' ||
+          (fields[1] != 'pending' && fields[1] != 'committed') ||
+          fields[2] is! String ||
+          fields[3] is! String) {
+        throw const FormatException('Invalid dividend intent');
+      }
+      final intent = _InvestmentDividendIntent(
+        const InvestmentDividendPreviewCodec().decode(fields[2] as String),
+        PublicId.parse(fields[3] as String),
+        fields[1] == 'committed',
+      );
+      if (intent.preview.operation.workspace != workspace ||
+          intent.encode() != raw) {
+        throw const FormatException('Noncanonical dividend intent');
+      }
+      return intent;
+    } catch (_) {
+      throw DraftUnavailable();
+    }
+  }
+}
+
 extension PreviewInvestments on PreviewEngine {
+  String get _investmentDividendIntentSlot =>
+      'investment_dividend_intent_${_identity!.value}';
+
+  Future<_InvestmentDividendIntent?> _readInvestmentDividendIntent() async {
+    final raw = await vault.read(_investmentDividendIntentSlot);
+    if (raw == null) return null;
+    return _InvestmentDividendIntent.decode(raw, _workspace!);
+  }
+
+  Future<void> _writeInvestmentDividendIntent(
+    _InvestmentDividendIntent intent,
+  ) async {
+    final encoded = intent.encode();
+    await vault.write(_investmentDividendIntentSlot, encoded);
+    if (await vault.read(_investmentDividendIntentSlot) != encoded) {
+      throw DraftUnavailable();
+    }
+  }
+
+  Future<List<InvestmentDividendFact>> investmentDividends([
+    PublicId? accountId,
+  ]) => _exclusive((epoch) async {
+    _require();
+    if (!capabilities.investmentDividends) throw PreviewInvalid();
+    final facts = await _session!.investmentDividends(_workspace!, accountId);
+    _check(epoch);
+    return facts;
+  });
+
+  Future<bool> hasPendingInvestmentDividend() => _exclusive((epoch) async {
+    _require();
+    if (!capabilities.investmentDividends) throw PreviewInvalid();
+    final intent = await _readInvestmentDividendIntent();
+    _check(epoch);
+    return intent != null && !intent.committed;
+  });
+
+  Future<void> _replayInvestmentDividend(
+    _InvestmentDividendIntent intent,
+    int epoch,
+  ) async {
+    _check(epoch);
+    await _session!.postInvestmentDividend(intent.preview, intent.eventId);
+    draftCheckpoint?.call('investment-dividend-committed');
+    _check(epoch);
+    await _writeInvestmentDividendIntent(intent.complete());
+  }
+
+  Future<void> retryPendingInvestmentDividend() =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentDividends) throw PreviewInvalid();
+        final intent = await _readInvestmentDividendIntent();
+        if (intent == null || intent.committed) throw PreviewInvalid();
+        await _replayInvestmentDividend(intent, epoch);
+      });
+
+  Future<void> submitInvestmentDividend(InvestmentDividendPreview preview) =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentDividends ||
+            preview.operation.workspace != _workspace) {
+          throw PreviewInvalid();
+        }
+        final pendingBuy = await _readInvestmentIntent();
+        final pendingSell = await _readInvestmentSellIntent();
+        if ((pendingBuy != null && !pendingBuy.committed) ||
+            (pendingSell != null && !pendingSell.committed)) {
+          throw DraftNeedsResolution();
+        }
+        final prior = await _readInvestmentDividendIntent();
+        final signature = const InvestmentDividendPreviewCodec().encode(
+          preview,
+        );
+        if (prior != null && !prior.committed && prior.signature != signature) {
+          throw DraftNeedsResolution();
+        }
+        final intent = prior?.signature == signature
+            ? prior!
+            : _InvestmentDividendIntent(preview, PublicId.generate(), false);
+        if (!identical(intent, prior)) {
+          await _writeInvestmentDividendIntent(intent);
+        }
+        await _replayInvestmentDividend(intent, epoch);
+      });
+
   String get _investmentIntentSlot =>
       'investment_buy_intent_${_identity!.value}';
 
@@ -161,6 +295,12 @@ extension PreviewInvestments on PreviewEngine {
         if (capabilities.investmentSales) {
           final pendingSale = await _readInvestmentSellIntent();
           if (pendingSale != null && !pendingSale.committed) {
+            throw DraftNeedsResolution();
+          }
+        }
+        if (capabilities.investmentDividends) {
+          final pendingDividend = await _readInvestmentDividendIntent();
+          if (pendingDividend != null && !pendingDividend.committed) {
             throw DraftNeedsResolution();
           }
         }
@@ -260,6 +400,12 @@ extension PreviewInvestments on PreviewEngine {
         final pendingBuy = await _readInvestmentIntent();
         if (pendingBuy != null && !pendingBuy.committed) {
           throw DraftNeedsResolution();
+        }
+        if (capabilities.investmentDividends) {
+          final pendingDividend = await _readInvestmentDividendIntent();
+          if (pendingDividend != null && !pendingDividend.committed) {
+            throw DraftNeedsResolution();
+          }
         }
         final prior = await _readInvestmentSellIntent();
         final signature = const InvestmentSellPreviewCodec().encode(preview);

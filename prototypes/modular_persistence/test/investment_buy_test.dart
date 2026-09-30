@@ -166,6 +166,40 @@ void main() {
   );
 
   test(
+    'generic workflow cannot credit a dividend without its investment fact',
+    () async {
+      final dividend = Posting.investmentDividend(
+        id: PublicId.generate(),
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        date: BusinessDate(2028, 1, 2),
+        account: PostingAccount(
+          id: cash.id,
+          workspace: workspace,
+          currency: usd,
+          expectedVersion: 1,
+        ),
+        investmentDividendId: PublicId.generate(),
+        gross: Money.parse(usd, '10'),
+        withholdingTax: Money.parse(usd, '1'),
+        fee: Money.parse(usd, '0'),
+        cashCredit: Money.parse(usd, '9'),
+      );
+      expect(
+        () => FinancialWorkflows(db).post(dividend),
+        throwsUnsupportedError,
+      );
+      expect(
+        await db
+            .customSelect(
+              "SELECT id FROM events WHERE kind='investmentDividend'",
+            )
+            .get(),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'schema21 commits exactly one cash debit, buy, lot and receipt',
     () async {
       final buy = preview();

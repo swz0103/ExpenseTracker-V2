@@ -200,6 +200,75 @@ void main() {
     expect(sale.investmentSell?.cashCredit, money('49'));
     expect(rebuildBalance(a, [opening(a, '100'), sale]), money('149'));
   });
+  test('dividend credits net cash without ordinary income or expense', () {
+    final a = account();
+    final dividendId = PublicId.generate();
+    final payment = Posting.investmentDividend(
+      id: PublicId.generate(),
+      operation: operation(),
+      date: date,
+      account: a,
+      investmentDividendId: dividendId,
+      gross: money('10'),
+      withholdingTax: money('1.50'),
+      fee: money('0.25'),
+      cashCredit: money('8.25'),
+    );
+    expect(payment.kind, PostingKind.investmentDividend);
+    expect(payment.legs.single.amount, money('8.25'));
+    expect(payment.reportIncome, money('0'));
+    expect(payment.reportExpense, money('0'));
+    expect(payment.investmentDividend?.dividendId, dividendId);
+    expect(rebuildBalance(a, [opening(a, '100'), payment]), money('108.25'));
+  });
+  test('dividend rejects incorrect settlement and unrelated identities', () {
+    final a = account();
+    final id = PublicId.generate();
+    Posting payment({
+      PostingAccount? cashAccount,
+      PublicId? dividendId,
+      Money? gross,
+      Money? withholding,
+      Money? fee,
+      Money? credit,
+    }) => Posting.investmentDividend(
+      id: id,
+      operation: operation(),
+      date: date,
+      account: cashAccount ?? a,
+      investmentDividendId: dividendId ?? PublicId.generate(),
+      gross: gross ?? money('10'),
+      withholdingTax: withholding ?? money('1.50'),
+      fee: fee ?? money('0.25'),
+      cashCredit: credit ?? money('8.25'),
+    );
+    expect(() => payment(dividendId: id), error(LedgerError.duplicateIdentity));
+    expect(() => payment(gross: money('0')), error(LedgerError.invalidAmount));
+    expect(
+      () => payment(withholding: money('-1')),
+      error(LedgerError.invalidAmount),
+    );
+    expect(() => payment(fee: money('-1')), error(LedgerError.invalidAmount));
+    expect(() => payment(credit: money('0')), error(LedgerError.invalidAmount));
+    expect(
+      () => payment(credit: money('8.24')),
+      error(LedgerError.investmentDividendMismatch),
+    );
+    expect(
+      () => payment(withholding: money('10')),
+      error(LedgerError.investmentDividendMismatch),
+    );
+    expect(
+      () => payment(
+        cashAccount: account(owner: WorkspaceId(PublicId.generate())),
+      ),
+      error(LedgerError.workspaceMismatch),
+    );
+    expect(
+      () => payment(fee: Money.parse(Currency('EUR', 2), '0.25')),
+      error(LedgerError.currencyMismatch),
+    );
+  });
   test('investment sale rejects invalid settlement and participation', () {
     final a = account();
     final id = PublicId.generate();

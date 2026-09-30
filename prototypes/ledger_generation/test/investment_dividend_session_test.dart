@@ -13,10 +13,10 @@ import 'package:storage_generation_probe/generation_store.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final root = Directory('.dart_tool/investment-sell-session-tests')
+  final root = Directory('.dart_tool/investment-dividend-session-tests')
     ..createSync(recursive: true);
   final usd = Currency('USD', 2);
-  const password = 'synthetic-sale-ledger-password';
+  const password = 'synthetic-dividend-ledger-password';
   late Directory work, backups;
   late FixtureKeySlots keys;
   late LedgerStore source, target;
@@ -35,7 +35,7 @@ void main() {
   LedgerStore ledger(
     String name,
     FixtureKeySlots slots, {
-    required bool sales,
+    required bool dividends,
   }) => LedgerStore(
     Directory('${work.path}/$name'),
     slots,
@@ -49,7 +49,8 @@ void main() {
     cardAuthorizationsAware: true,
     installmentsAware: true,
     investmentsAware: true,
-    investmentSalesAware: sales,
+    investmentSalesAware: true,
+    investmentDividendsAware: dividends,
   );
 
   setUp(() async {
@@ -57,7 +58,7 @@ void main() {
     backups = Directory('${work.path}/backups')..createSync();
     keys = FixtureKeySlots(Directory('${work.path}/keys'));
     workspace = WorkspaceId(PublicId.generate());
-    source = ledger('store', keys, sales: false);
+    source = ledger('store', keys, dividends: false);
     await source.initialize(operationId());
     bank = Account.open(
       id: PublicId.generate(),
@@ -123,7 +124,7 @@ void main() {
     await source.withSession(
       (session) => session.postInvestmentBuy(buy, PublicId.generate()),
     );
-    target = ledger('store', keys, sales: true);
+    target = ledger('store', keys, dividends: true);
   });
 
   tearDown(() {
@@ -135,158 +136,126 @@ void main() {
     work.deleteSync(recursive: true);
   });
 
-  Future<UpgradeRequest> request(String recoveryKey) async {
-    final planned = await planInvestmentSaleUpgrade(
+  Future<void> upgrade(String recoveryKey) async {
+    final planned = await planInvestmentDividendUpgrade(
       target,
       operationId(),
       PublicId.generate(),
     );
-    await upgradeInvestmentSales(
+    await upgradeInvestmentDividends(
       target,
       planned,
       backups,
       password: password,
       recoveryKey: recoveryKey,
     );
-    return planned;
   }
 
+  InvestmentDividendPreview dividend() => InvestmentDividendPreview.create(
+    id: PublicId.generate(),
+    operation: operation(),
+    paidOn: BusinessDate(2028, 3, 15),
+    broker: buy.broker,
+    account: buy.account,
+    instrument: buy.instrument,
+    funding: buy.funding,
+    gross: Money.parse(usd, '10'),
+    withholdingTax: Money.parse(usd, '1'),
+    fee: Money.parse(usd, '0.25'),
+    reportedNet: Money.parse(usd, '8.75'),
+  );
+
   test(
-    'generic LedgerStore path rejects an unpaired dividend cash credit',
+    '22 to 23 preserves all earlier rows and adds empty dividend table',
     () async {
-      final before = await source.balance(bankRef());
-      final posting = Posting.investmentDividend(
-        id: PublicId.generate(),
-        operation: operation(),
-        date: BusinessDate(2028, 1, 2),
-        account: bankRef(),
-        investmentDividendId: PublicId.generate(),
-        gross: Money.parse(usd, '10'),
-        withholdingTax: Money.parse(usd, '1'),
-        fee: Money.parse(usd, '0'),
-        cashCredit: Money.parse(usd, '9'),
-      );
-      await expectLater(source.post(posting), throwsStateError);
-      expect(await source.balance(bankRef()), before);
+      final before = jsonDecode(utf8.decode(await source.snapshot())) as Map;
+      final recovery = (await source.backup(password)).recoveryKey;
+      await upgrade(recovery);
+      final after = jsonDecode(utf8.decode(await target.snapshot())) as Map;
+      expect(after['schema'], 23);
+      for (final entry in (before['tables'] as Map).entries) {
+        expect((after['tables'] as Map)[entry.key], entry.value);
+      }
+      expect((after['tables'] as Map)['investment_dividends'], isEmpty);
     },
   );
 
-  test('21 to 22 keeps buy and starts with no sale facts', () async {
-    final before = jsonDecode(utf8.decode(await source.snapshot())) as Map;
+  test('interrupted upgrade retains schema22 source and safety copy', () async {
+    final before = await source.snapshot();
     final recovery = (await source.backup(password)).recoveryKey;
-    await request(recovery);
-    final after = jsonDecode(utf8.decode(await target.snapshot())) as Map;
-    expect(after['schema'], 22);
-    for (final entry in (before['tables'] as Map).entries) {
-      expect((after['tables'] as Map)[entry.key], entry.value);
-    }
-    expect((after['tables'] as Map)['investment_sales'], isEmpty);
-    expect((after['tables'] as Map)['investment_sale_allocations'], isEmpty);
+    final planned = await planInvestmentDividendUpgrade(
+      target,
+      operationId(),
+      PublicId.generate(),
+    );
+    Future<UpgradeReceipt> attempt({void Function(String)? checkpoint}) =>
+        upgradeInvestmentDividends(
+          target,
+          planned,
+          backups,
+          password: password,
+          recoveryKey: recovery,
+          checkpoint: checkpoint,
+        );
+    await expectLater(
+      attempt(
+        checkpoint: (point) {
+          if (point.contains('table:investment_dividends')) {
+            throw StateError('synthetic staged interruption');
+          }
+        },
+      ),
+      throwsA(isA<GenerationUnavailable>()),
+    );
+    expect(await source.snapshot(), before);
+    final safety = File('${backups.path}/${planned.backupId.value}.envelope');
+    expect(safety.existsSync(), isTrue);
+    final safetyBytes = safety.readAsBytesSync();
+    await attempt();
+    expect(safety.readAsBytesSync(), safetyBytes);
+    expect(
+      (jsonDecode(utf8.decode(await target.snapshot())) as Map)['schema'],
+      23,
+    );
   });
 
   test(
-    'interrupted 21 to 22 upgrade keeps source and reuses safety copy',
-    () async {
-      final before = await source.snapshot();
-      final recovery = (await source.backup(password)).recoveryKey;
-      final planned = await planInvestmentSaleUpgrade(
-        target,
-        operationId(),
-        PublicId.generate(),
-      );
-      Future<UpgradeReceipt> upgrade({void Function(String)? checkpoint}) =>
-          upgradeInvestmentSales(
-            target,
-            planned,
-            backups,
-            password: password,
-            recoveryKey: recovery,
-            checkpoint: checkpoint,
-          );
-      await expectLater(
-        upgrade(
-          checkpoint: (point) {
-            if (point.contains('table:investment_sales')) {
-              throw StateError('synthetic staged interruption');
-            }
-          },
-        ),
-        throwsA(isA<GenerationUnavailable>()),
-      );
-      expect(await source.snapshot(), before);
-      final safety = File('${backups.path}/${planned.backupId.value}.envelope');
-      expect(safety.existsSync(), isTrue);
-      final safetyBytes = safety.readAsBytesSync();
-      await upgrade();
-      expect(safety.readAsBytesSync(), safetyBytes);
-      expect(
-        (jsonDecode(utf8.decode(await target.snapshot())) as Map)['schema'],
-        22,
-      );
-    },
-  );
-
-  test(
-    'sale rolls back, retries once, then both credentials restore',
+    'dividend rollback, same-ID retry and both credential restores',
     () async {
       final recovery = (await source.backup(password)).recoveryKey;
-      await request(recovery);
-      final sale = await target.withSession((session) async {
-        final lots = await session.investmentHoldingLots(
-          workspace,
-          buy.account.id,
-          buy.instrument.id,
-        );
-        return InvestmentSellPreview.create(
-          id: PublicId.generate(),
-          operation: operation(),
-          tradedOn: BusinessDate(2028, 2, 21),
-          broker: buy.broker,
-          account: buy.account,
-          instrument: buy.instrument,
-          funding: buy.funding,
-          costMethod: InvestmentCostMethod.fifo,
-          quantity: ShareQuantity.parse('1'),
-          unitPrice: ShareUnitPrice.parse(usd, '30'),
-          executedGross: Money.parse(usd, '30'),
-          fee: Money.parse(usd, '1'),
-          tax: Money.parse(usd, '0'),
-          lots: lots,
-        );
-      });
+      await upgrade(recovery);
+      final preview = dividend();
       final eventId = PublicId.generate();
-      final beforeSale = await target.snapshot();
+      final before = await target.snapshot();
       await target.withSession((session) async {
         await expectLater(
-          session.postInvestmentSell(
-            sale,
+          session.postInvestmentDividend(
+            preview,
             eventId,
             checkpoint: (point) {
-              if (point == 'investmentSellAllocation') {
+              if (point == 'investmentDividend') {
                 throw StateError('synthetic interruption');
               }
             },
           ),
           throwsStateError,
         );
-        expect(await session.snapshot(), beforeSale);
-        final first = await session.postInvestmentSell(sale, eventId);
-        expect(first.replayed, isFalse);
+        expect(await session.snapshot(), before);
         expect(
-          (await session.postInvestmentSell(sale, eventId)).replayed,
+          (await session.postInvestmentDividend(preview, eventId)).replayed,
+          isFalse,
+        );
+        expect(
+          (await session.postInvestmentDividend(preview, eventId)).replayed,
           isTrue,
         );
         expect(
-          (await session.investmentHoldingLots(
-            workspace,
-            buy.account.id,
-            buy.instrument.id,
-          )).single.remainingQuantity,
-          ShareQuantity.parse('1'),
+          (await session.investmentDividends(workspace)).single.eventId,
+          eventId,
         );
         expect(
           (await session.accounts(workspace)).single.balance,
-          Money.parse(usd, '108'),
+          Money.parse(usd, '87.75'),
         );
       });
       final current = await target.snapshot();
@@ -298,7 +267,7 @@ void main() {
         final restored = ledger(
           'restored-$useRecovery',
           restoredKeys,
-          sales: true,
+          dividends: true,
         );
         await restored.restore(
           backup.envelope,
@@ -309,7 +278,7 @@ void main() {
         expect(await restored.snapshot(), current);
         await restored.withSession((session) async {
           expect(
-            (await session.postInvestmentSell(sale, eventId)).replayed,
+            (await session.postInvestmentDividend(preview, eventId)).replayed,
             isTrue,
           );
         });

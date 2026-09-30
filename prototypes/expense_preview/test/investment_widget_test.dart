@@ -182,6 +182,29 @@ Future<void> _prepareSyntheticSell(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('save-investment-sell')), findsOneWidget);
 }
 
+Future<void> _selectSyntheticDividend(WidgetTester tester) async {
+  await _tapKey(tester, 'investment-dividend-position');
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byType(DropdownMenuItem<PublicId>).last,
+    warnIfMissed: false,
+  );
+  await _waitForKey(tester, 'investment-dividend-gross');
+}
+
+Future<void> _prepareSyntheticDividend(WidgetTester tester) async {
+  for (final (key, value) in [
+    ('investment-dividend-date', '2026-09-30'),
+    ('investment-dividend-gross', '10'),
+    ('investment-dividend-tax', '1'),
+    ('investment-dividend-fee', '0.25'),
+    ('investment-dividend-net', '8.75'),
+  ]) {
+    await _enterKey(tester, key, value);
+  }
+  await _tapKey(tester, 'review-investment-dividend');
+}
+
 void main() {
   testWidgets('buy needs second confirmation and hides uncommitted review', (
     tester,
@@ -400,6 +423,70 @@ void main() {
       expect(
         (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
         BigInt.from(9350),
+      );
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
+
+  testWidgets('dividend previews net cash before saving one investment fact', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('dividend-confirm-');
+    final engine = engineAt(work, MemoryVault(), schemaVersion: 23);
+    try {
+      await tester.runAsync(() async {
+        await setup(engine);
+        await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine);
+      await _tapKey(tester, 'investment-dividend-section');
+      await _selectSyntheticDividend(tester);
+      await _prepareSyntheticDividend(tester);
+      expect(
+        find.byKey(const ValueKey('investment-dividend-cash-preview')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('8.75 TWD'), findsOneWidget);
+      expect((await tester.runAsync(engine.investmentDividends))!, isEmpty);
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(7900),
+      );
+
+      await tester.tap(find.byIcon(Icons.visibility_outlined));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('save-investment-dividend')),
+        findsNothing,
+      );
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+      await _waitForKey(tester, 'investment-dividend-section');
+      await _tapKey(tester, 'investment-dividend-section');
+      expect(
+        find.byKey(const ValueKey('save-investment-dividend')),
+        findsNothing,
+      );
+
+      await _selectSyntheticDividend(tester);
+      await _prepareSyntheticDividend(tester);
+      await _tapKey(tester, 'save-investment-dividend');
+      await _waitForEnabledButton(tester, 'review-investment-dividend');
+      final facts = (await tester.runAsync(engine.investmentDividends))!;
+      expect(facts, hasLength(1));
+      expect(facts.single.preview.netCashCredit.majorText, '8.75');
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(8775),
+      );
+      await _waitForKey(
+        tester,
+        'investment-dividend-${facts.single.preview.id.value}',
       );
     } finally {
       await closeEngine(tester, engine);
