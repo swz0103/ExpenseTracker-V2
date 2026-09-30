@@ -31,6 +31,7 @@ import 'money_view.dart';
 import 'privacy_presentation.dart';
 import 'market_quote_panel.dart';
 import 'investment_portfolio_summary_panel.dart';
+import 'historical_fx_panel.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';

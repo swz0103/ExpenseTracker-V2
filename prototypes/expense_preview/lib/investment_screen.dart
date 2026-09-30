@@ -1101,6 +1101,10 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             revision: _request,
           ),
         ],
+        if (_loaded) ...[
+          const SizedBox(height: 16),
+          HistoricalFxPanel(showAmounts: widget.privacy == PrivacyMode.visible),
+        ],
         if (widget.engine.capabilities.investmentSales &&
             _sellChoices.isNotEmpty) ...[
           const SizedBox(height: 12),
