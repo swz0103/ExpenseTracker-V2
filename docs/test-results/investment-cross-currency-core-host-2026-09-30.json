@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Read-only cross-currency investment portfolio reporting core",
+  "behavior": [
+    "Original per-currency summaries remain authoritative and unchanged",
+    "Reporting-currency rows use identity while other rows require an explicit direct or inverse FxObservation",
+    "Every conversion retains provider source, actual observation date, retrieval time and inversion derivation",
+    "Earlier observations require explicit opt-in and remain labelled earlier",
+    "Any missing FX hides all cross-currency grand totals instead of publishing a partial total or 1:1 fallback",
+    "Missing position prices preserve converted committed cost, realized result and dividends but hide valuation totals",
+    "Duplicate applicable rates are rejected rather than selected silently",
+    "An empty portfolio does not fabricate a zero grand total"
+  ],
+  "hostChecks": {
+    "tests": "dart test in packages/investments: 65 passed (7 cross-currency plus 58 existing)",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format applied to affected investments files"
+  },
+  "notVerified": [
+    "No provider orchestration or Flutter cross-currency panel is included in this unit",
+    "No live FX provider or final investment-summary integration was run"
+  ],
+  "gate": "Cross-currency reporting core passed package checks; provider/UI work remains active"
+}

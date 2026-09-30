@@ -14,7 +14,13 @@
 - [x] 新增 Twelve Data 專用 secure-storage slot、設定／更換／撤銷 panel；不回顯 key，Android 備份與移轉排除。當分鐘行情真正選到 Twelve Data 時，顯示免費方案 8 credits/minute、800/day 的容量警告；Fugle 也顯示其基本方案限制。相關 manager／widget 共 7 項測試及受影響分析通過。[證據](test-results/market-twelve-data-credential-ui-host-2026-09-30.json)
 - [ ] 尚未把 panel 接入投資摘要；真實帳號／網路與最後整合 gate 未執行。
 
-下一步盤點尚未完成的 M1／M2／M3 功能線並選下一個不需外部帳號的功能。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；投資摘要接線留到功能線完成後的集中整合。
+## 2026-09-30 M3 跨幣別投資摘要（進行中）
+
+- [x] 新增 read-only 跨幣報表 Domain：原始逐幣別摘要永遠保留；同報表幣別採 identity，其他幣別只能使用明確 direct／inverse `FxObservation`。精確日、明示允許的較早日、反向衍生、provider source 與實際觀測日都保留。
+- [x] 任一幣別缺 FX 時，所有跨幣 grand total 都不可用，不顯示部分加總或 1:1；任一原幣開放持倉缺價格時，已提交成本／已實現／股息仍可換算，但市值／未實現／總報酬保持不可用。重複可用匯率拒絕而非靜默挑選；空組合不製造零總額。7 項案例加入後 investments 共 65 項測試通過。[證據](test-results/investment-cross-currency-core-host-2026-09-30.json)
+- [ ] Provider 協調、獨立 UI 與來源／缺值呈現待下一單元；正式投資摘要接線仍留到集中整合。
+
+下一步建立跨幣摘要 provider 協調與獨立 Flutter UI。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；正式投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 
