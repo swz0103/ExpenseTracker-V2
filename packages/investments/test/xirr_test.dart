@@ -81,4 +81,13 @@ void main() {
     expect(result.annualRate!, greaterThan(0));
     expect(result.annualRate!, lessThan(0.001));
   });
+
+  test('bounded solver does not mislabel extreme return as impossible', () {
+    final result = calculateInvestmentXirr(
+      currency: usd,
+      flows: [flow(2025, '-0.01'), flow(2026, '10000000000.00')],
+    );
+    expect(result.status, InvestmentXirrStatus.outsideSearchRange);
+    expect(result.annualRate, isNull);
+  });
 }

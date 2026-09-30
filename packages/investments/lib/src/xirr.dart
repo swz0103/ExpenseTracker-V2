@@ -15,6 +15,7 @@ enum InvestmentXirrStatus {
   available,
   noSolution,
   multipleRoots,
+  outsideSearchRange,
   nonConvergent,
 }
 
@@ -132,6 +133,24 @@ InvestmentXirrResult calculateInvestmentXirr({
     );
   }
   if (brackets.isEmpty) {
+    var lastFlowSign = 0;
+    var changes = 0;
+    for (final date in dates) {
+      final value = byDate[date]!;
+      final flowSign = value.isNegative
+          ? -1
+          : value > BigInt.zero
+          ? 1
+          : 0;
+      if (flowSign == 0) continue;
+      if (lastFlowSign != 0 && flowSign != lastFlowSign) changes++;
+      lastFlowSign = flowSign;
+    }
+    if (changes == 1) {
+      return const InvestmentXirrResult(
+        InvestmentXirrStatus.outsideSearchRange,
+      );
+    }
     return const InvestmentXirrResult(InvestmentXirrStatus.noSolution);
   }
   var low = brackets.single.$1;
