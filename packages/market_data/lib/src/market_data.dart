@@ -105,6 +105,12 @@ final class _Fetch {
   final String? reason;
 }
 
+final class _EcbRow {
+  const _EcbRow(this.asOf, this.decimal);
+  final BusinessDate asOf;
+  final String? decimal;
+}
+
 /// A single official source per route. Shared snapshot cache prevents one HTTP
 /// request per holding, and cooldown prevents repeated requests on failures.
 final class MarketDataGateway {
@@ -237,48 +243,17 @@ final class MarketDataGateway {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final rows = _csvRows(fetched.snapshot!.body);
-      if (rows.length < 2)
+      final rows = _ecbRows(fetched.snapshot!.body, currency);
+      if (rows.isEmpty)
         return const MarketResult(
           MarketState.missing,
           reason: 'ECB returned no observation',
         );
-      final headers = rows.first;
-      final indexes = <String, int>{};
-      for (var i = 0; i < headers.length; i++) {
-        indexes[headers[i]] = i;
-      }
-      for (final key in [
-        'FREQ',
-        'CURRENCY',
-        'CURRENCY_DENOM',
-        'EXR_TYPE',
-        'EXR_SUFFIX',
-        'TIME_PERIOD',
-        'OBS_VALUE',
-      ]) {
-        if (!indexes.containsKey(key))
-          throw const FormatException('ECB column missing');
-      }
-      BusinessDate? asOf;
-      String? decimal;
-      for (final row in rows.skip(1)) {
-        if (row.length != headers.length ||
-            row[indexes['FREQ']!] != 'D' ||
-            row[indexes['CURRENCY']!] != currency ||
-            row[indexes['CURRENCY_DENOM']!] != 'EUR' ||
-            row[indexes['EXR_TYPE']!] != 'SP00' ||
-            row[indexes['EXR_SUFFIX']!] != 'A') {
-          throw const FormatException('Wrong ECB series');
-        }
-        final date = BusinessDate.parse(row[indexes['TIME_PERIOD']!]);
-        if (asOf != null && asOf != date) {
-          throw const FormatException('Multiple ECB observations');
-        }
-        asOf = date;
-        decimal = _positiveDecimal(row[indexes['OBS_VALUE']!]);
-      }
-      if (asOf == null || decimal == null)
+      if (rows.length != 1)
+        throw const FormatException('Multiple ECB observations');
+      final asOf = rows.single.asOf;
+      final decimal = rows.single.decimal;
+      if (decimal == null)
         return const MarketResult(
           MarketState.missing,
           reason: 'ECB has no numeric reference rate',
@@ -391,6 +366,97 @@ final class MarketDataGateway {
       );
     }
   }
+
+  /// Historical ECB reference rate for [date]. A prior observation within a
+  /// bounded window is returned as stale, never as the requested day's rate.
+  /// This supports weekends/holidays without fabricating a published quote.
+  Future<MarketResult<ReferenceRate>> historicalFxRate(
+    Currency base,
+    Currency quote, {
+    required BusinessDate date,
+    int lookbackDays = 7,
+  }) async {
+    if (lookbackDays < 0 || lookbackDays > 7) {
+      throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
+    }
+    const supported = {'USD', 'JPY', 'GBP', 'CHF'};
+    final direct = base.code == 'EUR' && supported.contains(quote.code);
+    final inverse = quote.code == 'EUR' && supported.contains(base.code);
+    if ((!direct && !inverse) ||
+        !_validCurrency(base) ||
+        !_validCurrency(quote)) {
+      return const MarketResult(
+        MarketState.unsupported,
+        reason: 'ECB route supports EUR against USD, JPY, GBP or CHF',
+      );
+    }
+    final currency = direct ? quote.code : base.code;
+    final requested = DateTime.utc(date.year, date.month, date.day);
+    final first = requested.subtract(Duration(days: lookbackDays));
+    if (first.year < 1) {
+      throw RangeError('Historical lookup precedes supported calendar');
+    }
+    final start = BusinessDate(first.year, first.month, first.day);
+    final uri = Uri.https(
+      'data-api.ecb.europa.eu',
+      '/service/data/EXR/D.$currency.EUR.SP00.A',
+      {
+        'format': 'csvdata',
+        'detail': 'dataonly',
+        'startPeriod': start.toString(),
+        'endPeriod': date.toString(),
+      },
+    );
+    final fetched = await _fetch(uri);
+    if (fetched.snapshot == null) {
+      return MarketResult(fetched.state, reason: fetched.reason);
+    }
+    try {
+      final rows = _ecbRows(fetched.snapshot!.body, currency);
+      _EcbRow? chosen;
+      for (final row in rows) {
+        if (row.asOf.compareTo(start) < 0 || row.asOf.compareTo(date) > 0) {
+          throw const FormatException(
+            'ECB observation outside requested range',
+          );
+        }
+        if (row.decimal != null &&
+            (chosen == null || row.asOf.compareTo(chosen.asOf) > 0)) {
+          chosen = row;
+        }
+      }
+      if (chosen == null) {
+        return const MarketResult(
+          MarketState.missing,
+          reason: 'ECB has no rate within the historical window',
+        );
+      }
+      final eur = Currency('EUR', 2);
+      final foreign = Currency(currency, currency == 'JPY' ? 0 : 2);
+      final published = FxRate.parse(eur, foreign, chosen.decimal!);
+      final observation = FxObservation(
+        rate: inverse ? published.inverse() : published,
+        source: ReferenceRate.provider,
+        asOf: chosen.asOf,
+        retrievedAt: fetched.snapshot!.fetchedAt,
+      );
+      final stale = fetched.state == MarketState.stale || chosen.asOf != date;
+      return MarketResult(
+        stale ? MarketState.stale : MarketState.available,
+        value: ReferenceRate(observation: observation, derivedInverse: inverse),
+        reason: stale
+            ? fetched.reason ?? 'ECB observation predates requested date'
+            : null,
+      );
+    } on FormatException {
+      return const MarketResult(
+        MarketState.failed,
+        reason: 'Invalid ECB response',
+      );
+    } on FxException {
+      return const MarketResult(MarketState.failed, reason: 'Invalid ECB rate');
+    }
+  }
 }
 
 bool _twseSymbolSupported(InvestmentInstrument instrument) {
@@ -428,6 +494,50 @@ String? _positiveDecimal(Object? value) {
   final parts = clean.split('.');
   if (BigInt.parse(parts.join()) <= BigInt.zero) return null;
   return clean;
+}
+
+List<_EcbRow> _ecbRows(String body, String currency) {
+  final rows = _csvRows(body);
+  if (rows.isEmpty) return const [];
+  final headers = rows.first;
+  final indexes = <String, int>{};
+  for (var i = 0; i < headers.length; i++) {
+    if (indexes.containsKey(headers[i])) {
+      throw const FormatException('Duplicate ECB column');
+    }
+    indexes[headers[i]] = i;
+  }
+  for (final key in [
+    'FREQ',
+    'CURRENCY',
+    'CURRENCY_DENOM',
+    'EXR_TYPE',
+    'EXR_SUFFIX',
+    'TIME_PERIOD',
+    'OBS_VALUE',
+  ]) {
+    if (!indexes.containsKey(key)) {
+      throw const FormatException('ECB column missing');
+    }
+  }
+  final observations = <_EcbRow>[];
+  final dates = <BusinessDate>{};
+  for (final row in rows.skip(1)) {
+    if (row.length != headers.length ||
+        row[indexes['FREQ']!] != 'D' ||
+        row[indexes['CURRENCY']!] != currency ||
+        row[indexes['CURRENCY_DENOM']!] != 'EUR' ||
+        row[indexes['EXR_TYPE']!] != 'SP00' ||
+        row[indexes['EXR_SUFFIX']!] != 'A') {
+      throw const FormatException('Wrong ECB series');
+    }
+    final date = BusinessDate.parse(row[indexes['TIME_PERIOD']!]);
+    if (!dates.add(date)) throw const FormatException('Duplicate ECB date');
+    observations.add(
+      _EcbRow(date, _positiveDecimal(row[indexes['OBS_VALUE']!])),
+    );
+  }
+  return observations;
 }
 
 List<List<String>> _csvRows(String input) {

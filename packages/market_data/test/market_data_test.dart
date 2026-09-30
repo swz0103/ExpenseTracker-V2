@@ -15,6 +15,12 @@ const ecbCsv = '''KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERI
 EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-29,1.12345
 ''';
 
+const historicalEcbCsv = '''KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE
+EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-03,1.12345
+EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-01,
+EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-02,1.00001
+''';
+
 final class FakeTransport implements MarketTransport {
   FakeTransport(this.handle);
   final Future<MarketResponse> Function(Uri) handle;
@@ -258,6 +264,145 @@ void main() {
         MarketState.throttled,
       );
       expect(transport.requests.length, 1);
+    },
+  );
+
+  test(
+    'historical ECB selects latest published observation and marks gap stale',
+    () async {
+      final transport = FakeTransport(
+        (_) async => const MarketResponse(200, historicalEcbCsv),
+      );
+      final gateway = MarketDataGateway(transport: transport, clock: () => now);
+      final result = await gateway.historicalFxRate(
+        Currency('USD', 2),
+        Currency('EUR', 2),
+        date: BusinessDate(2020, 1, 5),
+      );
+      expect(result.state, MarketState.stale);
+      expect(result.reason, contains('predates'));
+      expect(result.value!.observation.asOf, BusinessDate(2020, 1, 3));
+      expect(result.value!.observation.retrievedAt.value, now);
+      expect(result.value!.observation.source, ReferenceRate.provider);
+      expect(result.value!.derivedInverse, isTrue);
+      expect(result.value!.observation.rate.numerator, BigInt.from(20000));
+      expect(result.value!.observation.rate.denominator, BigInt.from(22469));
+      final uri = transport.requests.single;
+      expect(uri.path, '/service/data/EXR/D.USD.EUR.SP00.A');
+      expect(uri.queryParameters['startPeriod'], '2019-12-29');
+      expect(uri.queryParameters['endPeriod'], '2020-01-05');
+      expect(uri.queryParameters, isNot(contains('lastNObservations')));
+    },
+  );
+
+  test('historical exact date is available even when years old', () async {
+    final gateway = MarketDataGateway(
+      transport: FakeTransport(
+        (_) async => const MarketResponse(200, historicalEcbCsv),
+      ),
+      clock: () => now,
+    );
+    final result = await gateway.historicalFxRate(
+      Currency('EUR', 2),
+      Currency('USD', 2),
+      date: BusinessDate(2020, 1, 3),
+    );
+    expect(result.state, MarketState.available);
+    expect(result.value!.observation.asOf, BusinessDate(2020, 1, 3));
+    expect(result.value!.derivedInverse, isFalse);
+  });
+
+  test(
+    'historical gap, outside-range and unsupported pair fail honestly',
+    () async {
+      final empty = MarketDataGateway(
+        transport: FakeTransport((_) async => const MarketResponse(404, '')),
+        clock: () => now,
+      );
+      expect(
+        (await empty.historicalFxRate(
+          Currency('EUR', 2),
+          Currency('USD', 2),
+          date: BusinessDate(2020, 1, 5),
+        )).state,
+        MarketState.missing,
+      );
+      final wrong = MarketDataGateway(
+        transport: FakeTransport(
+          (_) async => const MarketResponse(200, historicalEcbCsv),
+        ),
+        clock: () => now,
+      );
+      expect(
+        (await wrong.historicalFxRate(
+          Currency('EUR', 2),
+          Currency('USD', 2),
+          date: BusinessDate(2020, 1, 5),
+          lookbackDays: 1,
+        )).state,
+        MarketState.failed,
+      );
+      expect(
+        (await wrong.historicalFxRate(
+          Currency('USD', 2),
+          Currency('TWD', 2),
+          date: BusinessDate(2020, 1, 5),
+        )).state,
+        MarketState.unsupported,
+      );
+      expect(
+        () => wrong.historicalFxRate(
+          Currency('EUR', 2),
+          Currency('USD', 2),
+          date: BusinessDate(2020, 1, 5),
+          lookbackDays: 8,
+        ),
+        throwsRangeError,
+      );
+    },
+  );
+
+  test(
+    'historical provider failure preserves dated cache only as stale',
+    () async {
+      var fails = false;
+      final transport = FakeTransport(
+        (_) async => fails
+            ? const MarketResponse(503, '')
+            : const MarketResponse(200, historicalEcbCsv),
+      );
+      final gateway = MarketDataGateway(
+        transport: transport,
+        clock: () => now,
+        cacheTtl: const Duration(minutes: 1),
+        requestCooldown: Duration.zero,
+      );
+      final eur = Currency('EUR', 2);
+      final usd = Currency('USD', 2);
+      final date = BusinessDate(2020, 1, 3);
+      expect(
+        (await gateway.historicalFxRate(eur, usd, date: date)).state,
+        MarketState.available,
+      );
+      now = now.add(const Duration(minutes: 2));
+      fails = true;
+      final stale = await gateway.historicalFxRate(eur, usd, date: date);
+      expect(stale.state, MarketState.stale);
+      expect(stale.value!.observation.asOf, date);
+      expect(
+        stale.value!.observation.retrievedAt.value,
+        DateTime.utc(2026, 9, 30, 4),
+      );
+      expect(transport.requests.length, 2);
+
+      final noCache = MarketDataGateway(
+        transport: FakeTransport((_) async => const MarketResponse(503, '')),
+        clock: () => now,
+      );
+      expect(
+        (await noCache.historicalFxRate(eur, usd, date: date)).state,
+        MarketState.failed,
+      );
     },
   );
 }
