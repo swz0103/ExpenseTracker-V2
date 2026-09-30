@@ -3,6 +3,7 @@ import 'package:investments/investments.dart';
 
 import 'intraday.dart';
 import 'market_data.dart';
+import 'twelve_data.dart';
 
 final class MarketProviderDescriptor {
   MarketProviderDescriptor({
@@ -144,6 +145,34 @@ final class FugleIntradayStockProvider implements IntradayStockProvider {
   ) =>
       (instrument.marketCode == 'TWSE' || instrument.marketCode == 'TPEX') &&
       instrument.tradingCurrency == Currency('TWD', 2);
+
+  @override
+  Future<MarketResult<IntradayBar>> latestBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
+  }) => gateway.latestBar(instrument, interval: interval);
+}
+
+final class TwelveDataIntradayStockProvider implements IntradayStockProvider {
+  TwelveDataIntradayStockProvider(this.gateway);
+
+  static const providerId = 'twelve-data-us-intraday';
+  final TwelveDataIntradayGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: providerId,
+    label: 'Twelve Data',
+    dataset: 'US equities intraday time series (1／5 minute)',
+    attribution: 'Twelve Data；實際使用受帳戶方案與資料顯示授權約束',
+    requiresAuthorization: true,
+  );
+
+  @override
+  bool supportsIntraday(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  ) => supportsTwelveDataInstrument(instrument);
 
   @override
   Future<MarketResult<IntradayBar>> latestBar(

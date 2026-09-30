@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Twelve Data one/five-minute US-stock provider adapter",
+  "behavior": [
+    "Selected USD instruments on XNAS, XNYS and ARCX support one- and five-minute bars",
+    "The API key is caller-supplied and sent in an Authorization header, never in the request URI",
+    "Symbol, MIC, USD currency, interval and timezone-requested UTC timestamps are verified",
+    "Exact decimal OHLC, range invariants, integral volume, unique timestamps and future-time rejection fail closed",
+    "HTTP and provider-payload authorization, missing-data and rate-limit failures remain distinct",
+    "Identical concurrent lookups share one credential read and network request",
+    "The adapter registers independently in the same provider-neutral intraday registry"
+  ],
+  "hostChecks": {
+    "tests": "dart test: 45 passed (7 Twelve Data plus 38 existing market-data cases)",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format applied to lib and test"
+  },
+  "notVerified": [
+    "No Twelve Data account or API key was created or used",
+    "No live network, real-device or exchange-session smoke test was run",
+    "Display or redistribution rights for a published App were not obtained",
+    "The free plan cannot sustain one-minute polling for an arbitrary large portfolio"
+  ],
+  "gate": "Twelve Data adapter core passed deterministic host checks; credential, quota-UI and real-account gates remain"
+}
