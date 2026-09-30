@@ -96,6 +96,38 @@ final class VerifiedBackupArtifact {
       createdAt: createdAt.toUtc(),
     );
   }
+
+  /// Rehydrates an artifact that was already double-verified before it was
+  /// staged in private storage. The immutable envelope is authenticated by its
+  /// saved digest; unlock credentials are deliberately not persisted.
+  static Future<VerifiedBackupArtifact> fromStaged({
+    required String backupId,
+    required String envelope,
+    required String sha256,
+    required int byteLength,
+    required DateTime createdAt,
+  }) async {
+    _validateIdentifier(backupId, 'backupId');
+    if (!_isSha256(sha256) || byteLength < 1) {
+      throw const CloudBackupValidationException(
+        CloudBackupValidationFailure.invalidArtifact,
+      );
+    }
+    final bytes = utf8.encode(envelope);
+    final digest = _hex((await Sha256().hash(bytes)).bytes);
+    if (bytes.length != byteLength || digest != sha256) {
+      throw const CloudBackupValidationException(
+        CloudBackupValidationFailure.invalidArtifact,
+      );
+    }
+    return VerifiedBackupArtifact._(
+      backupId: backupId,
+      envelope: envelope,
+      sha256: sha256,
+      byteLength: byteLength,
+      createdAt: createdAt.toUtc(),
+    );
+  }
 }
 
 /// A stable remote identity obtained before bytes are uploaded. Retrying the

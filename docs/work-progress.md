@@ -4,10 +4,11 @@
 - [x] 上傳前取得穩定遠端物件 ID；同一 backup ID 重試不建立第二份。provider 已提交但回覆遺失時，會讀回 metadata 並核對 SHA-256、長度、內容類型、身分與建立時間。
 - [x] 下載先核對雜湊與長度，再以兩條憑證路徑解密到相同 payload；遠端衝突與損壞拒絕。登入、權限、quota、限流、暫時不可用與結果不明保留不同錯誤語意。
 - [x] Google Drive 語意 adapter 以預產 file ID、private app properties、建立／查詢／下載及 `409` 後讀回核對接入；OAuth 與 HTTP 由後續 Android transport 持有，不交給 Domain。
-- [x] 新核心與 Drive adapter 共 11 項測試、靜態分析及架構邊界檢查於主機通過。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
-- [ ] 尚未接加密持久工作佇列、immutable envelope 暫存、Google Drive HTTPS／OAuth／secure token storage、歷史／保留策略、App 下載還原與實機。M2-01 不稱完成。
+- [x] 加密 envelope 先寫入 immutable 暫存，再把不含憑證與財務內容的路由工作送入 SQLCipher 持久佇列；暫存、Drive 物件保留及工作狀態可跨重啟恢復。若在暫存後、入列前中斷，reconciliation 會補入同一工作；若遠端提交後回覆遺失，重試仍使用同一 Drive file ID。
+- [x] 核心、Drive adapter 與持久工作接線共 15 項測試、靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存及同 backup ID 不同內容均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
+- [ ] 尚未接 Google Drive HTTPS／OAuth／secure token storage、歷史／保留策略、手動與自動排程、App 下載還原與實機。M2-01 不稱完成。
 
-下一步先建立 Google Drive provider adapter 的可測契約及持久 reservation／job 接線；不需要帳號的部分先完成，到真正建立 OAuth client 時再向使用者取得決定與授權。
+下一步先完成備份歷史／保留策略與手動排程的 provider-neutral 使用流程，再接 Google Drive HTTPS transport；到真正建立 OAuth client 時才向使用者取得決定與授權。
 
 ## 2026-09-29 M2-04 實際帳單與部分繳款分配（主機通過；整體未驗收）
 

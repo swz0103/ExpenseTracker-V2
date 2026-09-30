@@ -1,0 +1,368 @@
+import 'dart:io';
+
+import 'package:encrypted_storage_probe/encrypted_database.dart';
+import 'package:persistent_jobs_probe/persistent_jobs.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+import 'cloud_backup.dart';
+import 'google_drive_adapter.dart';
+
+const cloudBackupUploadJobKind = 'backup.upload.v1';
+const _jobPrefix = 'cloud-backup:';
+
+enum CloudBackupWorkState { staged, uploaded }
+
+final class CloudBackupWorkRecord {
+  const CloudBackupWorkRecord({
+    required this.backupId,
+    required this.providerId,
+    required this.sha256,
+    required this.byteLength,
+    required this.createdAt,
+    required this.fileName,
+    required this.state,
+    this.remoteObjectId,
+  });
+
+  final String backupId;
+  final String providerId;
+  final String sha256;
+  final int byteLength;
+  final DateTime createdAt;
+  final String fileName;
+  final CloudBackupWorkState state;
+  final String? remoteObjectId;
+}
+
+/// SQLCipher metadata plus an immutable, already-encrypted envelope file.
+/// Tokens and unlock credentials are never stored here.
+final class CloudBackupWorkStore implements DriveReservationStore {
+  CloudBackupWorkStore._(this._db, this.artifactDirectory);
+
+  final Database _db;
+  final Directory artifactDirectory;
+
+  static CloudBackupWorkStore open({
+    required File databaseFile,
+    required Directory artifactDirectory,
+    required StorageKey key,
+  }) {
+    final parent = databaseFile.parent;
+    if (FileSystemEntity.typeSync(parent.path, followLinks: false) !=
+        FileSystemEntityType.directory) {
+      throw StateError('Cloud backup database parent must be a directory');
+    }
+    final artifactType = FileSystemEntity.typeSync(
+      artifactDirectory.path,
+      followLinks: false,
+    );
+    if (artifactType == FileSystemEntityType.notFound) {
+      artifactDirectory.createSync(recursive: true);
+    } else if (artifactType != FileSystemEntityType.directory) {
+      throw StateError('Cloud backup artifact path must be a directory');
+    }
+    final db = sqlite3.open(databaseFile.path);
+    try {
+      configureEncryption(db, key);
+      db.execute('PRAGMA journal_mode=DELETE');
+      db.execute('PRAGMA synchronous=FULL');
+      db.execute('PRAGMA busy_timeout=10000');
+      if (db.userVersion == 0) {
+        final existing = db.select(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        );
+        if (existing.isNotEmpty)
+          throw StateError('Unknown cloud backup schema');
+        db.execute('BEGIN IMMEDIATE');
+        try {
+          db.execute('''
+            CREATE TABLE backup_work (
+              backup_id TEXT PRIMARY KEY,
+              provider_id TEXT NOT NULL,
+              sha256 TEXT NOT NULL,
+              byte_length INTEGER NOT NULL CHECK(byte_length > 0),
+              created_at INTEGER NOT NULL,
+              file_name TEXT NOT NULL UNIQUE,
+              state TEXT NOT NULL CHECK(state IN ('staged','uploaded')),
+              remote_object_id TEXT UNIQUE,
+              updated_at INTEGER NOT NULL
+            ) STRICT
+          ''');
+          db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
+          db.execute('PRAGMA user_version=1');
+          db.execute('COMMIT');
+        } catch (_) {
+          db.execute('ROLLBACK');
+          rethrow;
+        }
+      } else if (db.userVersion != 1) {
+        throw StateError('Unsupported cloud backup schema');
+      }
+      return CloudBackupWorkStore._(db, artifactDirectory);
+    } catch (_) {
+      db.close();
+      rethrow;
+    }
+  }
+
+  void close() => _db.close();
+
+  Future<CloudBackupWorkRecord> stage(
+    VerifiedBackupArtifact artifact, {
+    required String providerId,
+    required DateTime now,
+  }) async {
+    _validateRoute(providerId);
+    final existing = byId(artifact.backupId);
+    if (existing != null) {
+      _requireSame(existing, artifact, providerId);
+      await _verifyFile(existing);
+      return existing;
+    }
+    final fileName = '${artifact.backupId}.envelope';
+    final target = File(
+      '${artifactDirectory.path}${Platform.pathSeparator}$fileName',
+    );
+    await _writeImmutable(target, artifact);
+    final timestamp = now.toUtc().millisecondsSinceEpoch;
+    try {
+      _db.execute(
+        '''
+        INSERT INTO backup_work(
+          backup_id,provider_id,sha256,byte_length,created_at,file_name,state,updated_at
+        ) VALUES(?,?,?,?,?,?,'staged',?)
+        ''',
+        [
+          artifact.backupId,
+          providerId,
+          artifact.sha256,
+          artifact.byteLength,
+          artifact.createdAt.millisecondsSinceEpoch,
+          fileName,
+          timestamp,
+        ],
+      );
+    } catch (_) {
+      final raced = byId(artifact.backupId);
+      if (raced == null) rethrow;
+      _requireSame(raced, artifact, providerId);
+    }
+    return byId(artifact.backupId)!;
+  }
+
+  CloudBackupWorkRecord? byId(String backupId) {
+    final rows = _db.select('SELECT * FROM backup_work WHERE backup_id=?', [
+      backupId,
+    ]);
+    return rows.isEmpty ? null : _record(rows.single);
+  }
+
+  List<String> pendingBackupIds() => _db
+      .select(
+        "SELECT backup_id FROM backup_work WHERE state='staged' ORDER BY created_at,backup_id",
+      )
+      .map((row) => row['backup_id'] as String)
+      .toList(growable: false);
+
+  Future<VerifiedBackupArtifact> load(String backupId) async {
+    final record = byId(backupId);
+    if (record == null) throw StateError('Unknown cloud backup work item');
+    final file = _file(record.fileName);
+    final envelope = await file.readAsString();
+    return VerifiedBackupArtifact.fromStaged(
+      backupId: record.backupId,
+      envelope: envelope,
+      sha256: record.sha256,
+      byteLength: record.byteLength,
+      createdAt: record.createdAt,
+    );
+  }
+
+  void markUploaded({
+    required String backupId,
+    required RemoteBackupMetadata metadata,
+    required DateTime now,
+  }) {
+    final record = byId(backupId);
+    if (record == null ||
+        record.providerId != metadata.providerId ||
+        record.remoteObjectId != metadata.objectId ||
+        record.sha256 != metadata.sha256 ||
+        record.byteLength != metadata.byteLength ||
+        record.createdAt != metadata.createdAt.toUtc()) {
+      throw StateError('Cloud backup completion does not match staged work');
+    }
+    _db.execute(
+      "UPDATE backup_work SET state='uploaded',updated_at=? WHERE backup_id=?",
+      [now.toUtc().millisecondsSinceEpoch, backupId],
+    );
+  }
+
+  @override
+  Future<String?> objectIdFor(String backupId) async =>
+      byId(backupId)?.remoteObjectId;
+
+  @override
+  Future<void> save({
+    required String backupId,
+    required String objectId,
+  }) async {
+    _validateRoute(objectId);
+    final record = byId(backupId);
+    if (record == null) throw StateError('Reserve only staged backup work');
+    if (record.remoteObjectId != null && record.remoteObjectId != objectId) {
+      throw StateError('Cloud backup reservation conflict');
+    }
+    _db.execute(
+      'UPDATE backup_work SET remote_object_id=? WHERE backup_id=? AND remote_object_id IS NULL',
+      [objectId, backupId],
+    );
+  }
+
+  CloudBackupWorkRecord _record(Row row) => CloudBackupWorkRecord(
+    backupId: row['backup_id'] as String,
+    providerId: row['provider_id'] as String,
+    sha256: row['sha256'] as String,
+    byteLength: row['byte_length'] as int,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      row['created_at'] as int,
+      isUtc: true,
+    ),
+    fileName: row['file_name'] as String,
+    state: CloudBackupWorkState.values.byName(row['state'] as String),
+    remoteObjectId: row['remote_object_id'] as String?,
+  );
+
+  File _file(String fileName) {
+    if (!RegExp(r'^[a-zA-Z0-9._:-]+\.envelope$').hasMatch(fileName)) {
+      throw StateError('Invalid cloud backup artifact name');
+    }
+    return File('${artifactDirectory.path}${Platform.pathSeparator}$fileName');
+  }
+
+  Future<void> _verifyFile(CloudBackupWorkRecord record) async {
+    await load(record.backupId);
+  }
+}
+
+final class CloudBackupJobRunner {
+  const CloudBackupJobRunner({
+    required this.jobs,
+    required this.work,
+    required this.provider,
+    this.checkpoint,
+  });
+
+  final PersistentJobStore jobs;
+  final CloudBackupWorkStore work;
+  final CloudBackupProvider provider;
+  final void Function(String point)? checkpoint;
+
+  Future<void> schedule(
+    VerifiedBackupArtifact artifact, {
+    required DateTime now,
+  }) async {
+    await work.stage(artifact, providerId: provider.providerId, now: now);
+    jobs.enqueue(
+      idempotencyKey: '$_jobPrefix${artifact.backupId}',
+      kind: cloudBackupUploadJobKind,
+      now: now,
+    );
+  }
+
+  void reconcile(DateTime now) {
+    for (final backupId in work.pendingBackupIds()) {
+      jobs.enqueue(
+        idempotencyKey: '$_jobPrefix$backupId',
+        kind: cloudBackupUploadJobKind,
+        now: now,
+      );
+    }
+  }
+
+  Future<bool> runNext(DateTime now) async {
+    final lease = jobs.claim(
+      kind: cloudBackupUploadJobKind,
+      now: now,
+      lease: const Duration(minutes: 5),
+    );
+    if (lease == null) return false;
+    try {
+      final backupId = _backupId(lease.job.idempotencyKey);
+      final artifact = await work.load(backupId);
+      final metadata = await CloudBackupCoordinator(provider).upload(artifact);
+      checkpoint?.call('after-upload');
+      work.markUploaded(backupId: backupId, metadata: metadata, now: now);
+      checkpoint?.call('after-record');
+      if (!jobs.succeed(lease, now)) {
+        throw StateError('Cloud backup lease was lost');
+      }
+      return true;
+    } catch (_) {
+      jobs.fail(lease, now);
+      rethrow;
+    }
+  }
+}
+
+String _backupId(String key) {
+  if (!key.startsWith(_jobPrefix) || key.length == _jobPrefix.length) {
+    throw StateError('Invalid cloud backup job reference');
+  }
+  return key.substring(_jobPrefix.length);
+}
+
+void _validateRoute(String value) {
+  if (value.isEmpty ||
+      value.length > 200 ||
+      !RegExp(r'^[a-zA-Z0-9._:-]+$').hasMatch(value)) {
+    throw ArgumentError.value(value, 'value');
+  }
+}
+
+void _requireSame(
+  CloudBackupWorkRecord record,
+  VerifiedBackupArtifact artifact,
+  String providerId,
+) {
+  if (record.providerId != providerId ||
+      record.sha256 != artifact.sha256 ||
+      record.byteLength != artifact.byteLength ||
+      record.createdAt != artifact.createdAt) {
+    throw StateError('Backup ID belongs to different cloud backup work');
+  }
+}
+
+Future<void> _writeImmutable(
+  File target,
+  VerifiedBackupArtifact artifact,
+) async {
+  if (await target.exists()) {
+    final existing = await target.readAsString();
+    await VerifiedBackupArtifact.fromStaged(
+      backupId: artifact.backupId,
+      envelope: existing,
+      sha256: artifact.sha256,
+      byteLength: artifact.byteLength,
+      createdAt: artifact.createdAt,
+    );
+    if (existing != artifact.envelope) {
+      throw StateError('Immutable backup file conflict');
+    }
+    return;
+  }
+  final temporary = File(
+    '${target.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+  );
+  try {
+    await temporary.writeAsString(artifact.envelope, flush: true);
+    await temporary.rename(target.path);
+  } on FileSystemException {
+    if (!await target.exists() ||
+        await target.readAsString() != artifact.envelope) {
+      rethrow;
+    }
+  } finally {
+    if (await temporary.exists()) await temporary.delete();
+  }
+}
