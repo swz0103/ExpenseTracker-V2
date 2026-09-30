@@ -1,6 +1,7 @@
 import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
+import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
 import 'package:flutter/material.dart';
 
 final class CloudBackupProviderChoice {
@@ -31,6 +32,16 @@ abstract interface class CloudBackupScreenGateway {
   });
 
   Future<void> applyRetention(CloudBackupRetentionPlan plan);
+
+  Future<CloudBackupScheduleRecord?> schedule(String providerId);
+
+  Future<void> configureSchedule({
+    required String providerId,
+    required bool enabled,
+    required Duration interval,
+    required DateTime firstDueAt,
+    required DateTime now,
+  });
 }
 
 final class CloudBackupScreen extends StatefulWidget {
@@ -53,6 +64,8 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   bool _busy = false;
   String? _message;
   int _keepLatest = 3;
+  bool _automaticEnabled = false;
+  int _automaticDays = 7;
 
   @override
   void initState() {
@@ -82,9 +95,18 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     final providerId = _providerId;
     if (providerId == null) return;
     await _perform(() async {
-      final rows = await widget.gateway.history(providerId);
+      final results = await Future.wait<Object?>([
+        widget.gateway.history(providerId),
+        widget.gateway.schedule(providerId),
+      ]);
+      final rows = results[0]! as List<RemoteBackupMetadata>;
+      final schedule = results[1] as CloudBackupScheduleRecord?;
       if (mounted && _providerId == providerId) {
-        setState(() => _history = rows);
+        setState(() {
+          _history = rows;
+          _automaticEnabled = schedule?.enabled ?? false;
+          _automaticDays = _supportedDays(schedule?.interval) ?? 7;
+        });
       }
     });
   }
@@ -162,6 +184,27 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     }
   });
 
+  Future<void> _configureAutomatic(bool enabled, {int? days}) =>
+      _perform(() async {
+        final selectedDays = days ?? _automaticDays;
+        final interval = Duration(days: selectedDays);
+        final now = widget.now().toUtc();
+        await widget.gateway.configureSchedule(
+          providerId: _providerId!,
+          enabled: enabled,
+          interval: interval,
+          firstDueAt: now.add(interval),
+          now: now,
+        );
+        if (mounted) {
+          setState(() {
+            _automaticEnabled = enabled;
+            _automaticDays = selectedDays;
+            _message = enabled ? '自動備份已啟用，會從下一個週期開始。' : '自動備份已停用；已排入的工作不會被刪除。';
+          });
+        }
+      });
+
   @override
   Widget build(BuildContext context) {
     final providers = widget.gateway.providers;
@@ -171,6 +214,11 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const Text('備份內容已加密；雲端服務不會取得帳本密碼或救援文字。'),
+          if (_message != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(_message!, key: const ValueKey('cloud-message')),
+            ),
           const SizedBox(height: 12),
           if (providers.isEmpty)
             const Text('尚未設定可用的雲端備份服務。')
@@ -221,6 +269,35 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
                 ),
               ),
             const Divider(height: 32),
+            SwitchListTile(
+              key: const ValueKey('automatic-backup'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('自動加密備份'),
+              subtitle: const Text('預設關閉；啟用後從下一個週期開始。'),
+              value: _automaticEnabled,
+              onChanged: _busy ? null : _configureAutomatic,
+            ),
+            DropdownButtonFormField<int>(
+              key: const ValueKey('automatic-days'),
+              initialValue: _automaticDays,
+              decoration: const InputDecoration(labelText: '自動備份週期'),
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('每天')),
+                DropdownMenuItem(value: 7, child: Text('每週')),
+                DropdownMenuItem(value: 30, child: Text('每 30 天')),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (value) {
+                      final days = value ?? 7;
+                      if (_automaticEnabled) {
+                        _configureAutomatic(true, days: days);
+                      } else {
+                        setState(() => _automaticDays = days);
+                      }
+                    },
+            ),
+            const Divider(height: 32),
             DropdownButtonFormField<int>(
               key: const ValueKey('retention-count'),
               initialValue: _keepLatest,
@@ -241,11 +318,6 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
             ),
           ],
           if (_busy) const LinearProgressIndicator(),
-          if (_message != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(_message!, key: const ValueKey('cloud-message')),
-            ),
         ],
       ),
     );
@@ -328,6 +400,12 @@ String _dateText(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${local.year}-${two(local.month)}-${two(local.day)} '
       '${two(local.hour)}:${two(local.minute)}';
+}
+
+int? _supportedDays(Duration? interval) {
+  if (interval == null || interval.inHours % 24 != 0) return null;
+  final days = interval.inDays;
+  return const {1, 7, 30}.contains(days) ? days : null;
 }
 
 String _errorText(Object error) => switch (error) {

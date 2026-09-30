@@ -193,12 +193,20 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     return rows.isEmpty ? null : _record(rows.single);
   }
 
-  List<String> pendingBackupIds() => _db
+  List<String> pendingBackupIds({String? providerId}) => _db
       .select(
-        "SELECT backup_id FROM backup_work WHERE state='staged' ORDER BY created_at,backup_id",
+        providerId == null
+            ? "SELECT backup_id FROM backup_work WHERE state='staged' ORDER BY created_at,backup_id"
+            : "SELECT backup_id FROM backup_work WHERE state='staged' AND provider_id=? ORDER BY created_at,backup_id",
+        providerId == null ? const [] : [providerId],
       )
       .map((row) => row['backup_id'] as String)
       .toList(growable: false);
+
+  bool hasPending(String providerId) => _db.select(
+    "SELECT 1 FROM backup_work WHERE state='staged' AND provider_id=? LIMIT 1",
+    [providerId],
+  ).isNotEmpty;
 
   Future<VerifiedBackupArtifact> load(String backupId) async {
     final record = byId(backupId);
@@ -333,7 +341,9 @@ final class CloudBackupJobRunner {
   }
 
   void reconcile(DateTime now) {
-    for (final backupId in work.pendingBackupIds()) {
+    for (final backupId in work.pendingBackupIds(
+      providerId: provider.providerId,
+    )) {
       jobs.enqueue(
         idempotencyKey: '$_jobPrefix$backupId',
         kind: cloudBackupUploadJobKind,

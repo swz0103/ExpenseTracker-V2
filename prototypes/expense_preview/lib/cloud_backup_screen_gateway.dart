@@ -1,6 +1,7 @@
 import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
+import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
 
 import 'cloud_backup_screen.dart';
 
@@ -36,12 +37,14 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
     required this.providerChoices,
     required this.createSource,
     required this.restoreHandoff,
+    required this.schedules,
   });
 
   final CloudBackupManualFlow flow;
   final List<CloudBackupProviderChoice> providerChoices;
   final CloudBackupSourceFactory createSource;
   final CloudBackupRestoreHandoff restoreHandoff;
+  final CloudBackupScheduleStore schedules;
 
   @override
   List<CloudBackupProviderChoice> get providers => providerChoices;
@@ -94,4 +97,23 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
   @override
   Future<void> applyRetention(CloudBackupRetentionPlan plan) =>
       flow.applyRetention(plan);
+
+  @override
+  Future<CloudBackupScheduleRecord?> schedule(String providerId) async =>
+      schedules.byProvider(providerId);
+
+  @override
+  Future<void> configureSchedule({
+    required String providerId,
+    required bool enabled,
+    required Duration interval,
+    required DateTime firstDueAt,
+    required DateTime now,
+  }) async => schedules.configure(
+    providerId: providerId,
+    enabled: enabled,
+    interval: interval,
+    firstDueAt: firstDueAt,
+    now: now,
+  );
 }

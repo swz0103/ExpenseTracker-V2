@@ -25,13 +25,15 @@
     "Bearer token header injection, untrusted upload locations, repeated page tokens and oversized histories fail closed; post-byte network/308/408/5xx outcomes remain uncertain for same-ID inspection",
     "HTTP 401, permission, quota, throttling, conflict, availability and uncertain-result failures retain distinct meanings",
     "Authentication, permission, quota and integrity failures stop automatic retries; throttling, availability, uncertain result and temporary local failures retain bounded backoff",
-    "A user-action retry keeps the same backup ID and reservation, while encrypted work schema 1 upgrades to schema 2 without losing staged work"
+    "A user-action retry keeps the same backup ID and reservation, while encrypted work schema 1 upgrades to schema 2 without losing staged work",
+    "Encrypted automatic schedules are opt-in, start at the next selected period and derive a stable occurrence backup ID",
+    "A crash after staging reuses the same automatic occurrence, missed periods coalesce to one backup and unresolved uploads block pile-up"
   ],
   "hostChecks": {
-    "tests": "dart test --reporter expanded: 34 passed",
+    "tests": "dart test --reporter expanded: 37 passed",
     "persistentJobTests": "dart test --reporter expanded: 5 passed",
     "analysis": "dart analyze: no issues",
-    "appWidgetTests": "flutter test test/cloud_backup_screen_test.dart --reporter expanded: 4 passed",
+    "appWidgetTests": "flutter test test/cloud_backup_screen_test.dart --reporter expanded: 5 passed",
     "appAffectedAnalysis": "dart analyze cloud backup screen, gateway and widget test: no issues",
     "format": "dart format applied to lib and test",
     "architecture": "architecture boundary check passed"
@@ -40,7 +42,7 @@
     "The Google Drive semantic adapter, HTTPS transport and durable work runner are implemented against tested boundaries; OAuth account authorization and secure token storage are not implemented",
     "No cloud account, credential, financial backup, APK or device was used",
     "The standalone Flutter screen is not yet wired to main navigation, the production engine source or existing clean-restore lifecycle",
-    "Automatic scheduling and final integration gates remain open"
+    "Android background trigger wiring and final integration gates remain open"
   ],
-  "gate": "Provider-neutral cloud backup core, Google Drive HTTPS, durable failure/retry work, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
+  "gate": "Provider-neutral cloud backup core, Google Drive HTTPS, durable failure/retry work, automatic scheduling, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
 }

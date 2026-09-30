@@ -1,6 +1,7 @@
 import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
+import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
 import 'package:expense_preview/cloud_backup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +59,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('retention-count')),
+      250,
+    );
     await tester.tap(find.byKey(const ValueKey('retention-count')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('1 份').last);
@@ -74,6 +79,8 @@ void main() {
     await tester.tap(find.text('確認永久刪除'));
     await tester.pumpAndSettle();
     expect(gateway.applyCalls, 1);
+    await tester.drag(find.byType(ListView), const Offset(0, 1000));
+    await tester.pumpAndSettle();
     expect(find.text('舊備份已依預覽結果刪除。'), findsOneWidget);
   });
 
@@ -89,6 +96,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('雲端登入已失效，請重新連結後再試。'), findsOneWidget);
     expect(find.text('立即建立加密備份'), findsOneWidget);
+  });
+
+  testWidgets('automatic backup is opt-in and starts next period', (
+    tester,
+  ) async {
+    final gateway = _Gateway();
+    final now = DateTime.utc(2026, 10, 1, 9);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CloudBackupScreen(gateway: gateway, now: () => now),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(gateway.scheduleWrites, 0);
+    await tester.tap(find.byKey(const ValueKey('automatic-backup')));
+    await tester.pumpAndSettle();
+    expect(gateway.scheduleWrites, 1);
+    expect(gateway.scheduleEnabled, isTrue);
+    expect(gateway.scheduleInterval, const Duration(days: 7));
+    expect(gateway.firstDueAt, now.add(const Duration(days: 7)));
+    expect(find.text('自動備份已啟用，會從下一個週期開始。'), findsOneWidget);
   });
 }
 
@@ -111,6 +139,10 @@ final class _Gateway implements CloudBackupScreenGateway {
   var createFailure = false;
   CloudBackupCredentialKind? restoreKind;
   String? restoreCredential;
+  var scheduleWrites = 0;
+  bool? scheduleEnabled;
+  Duration? scheduleInterval;
+  DateTime? firstDueAt;
 
   @override
   List<CloudBackupProviderChoice> get providers => const [
@@ -159,5 +191,22 @@ final class _Gateway implements CloudBackupScreenGateway {
     applyCalls++;
     final ids = plan.delete.map((item) => item.objectId).toSet();
     items.removeWhere((item) => ids.contains(item.objectId));
+  }
+
+  @override
+  Future<CloudBackupScheduleRecord?> schedule(String providerId) async => null;
+
+  @override
+  Future<void> configureSchedule({
+    required String providerId,
+    required bool enabled,
+    required Duration interval,
+    required DateTime firstDueAt,
+    required DateTime now,
+  }) async {
+    scheduleWrites++;
+    scheduleEnabled = enabled;
+    scheduleInterval = interval;
+    this.firstDueAt = firstDueAt;
   }
 }
