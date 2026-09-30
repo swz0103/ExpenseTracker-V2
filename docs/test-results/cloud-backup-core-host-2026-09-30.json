@@ -16,10 +16,12 @@
     "A crash after remote commit retries the same reserved Drive object, while tampered staging and same-ID different-content attempts fail closed",
     "A registry supports multiple provider adapters without a hard-coded default and exposes history only for providers that implement the catalog capability",
     "Retention produces a deterministic keep/delete preview, keeps at least one backup, can protect recent backups and performs no deletion until explicitly applied",
-    "Retention refreshes all candidate metadata before applying; the Drive adapter inspects each file again immediately before permanent deletion"
+    "Retention refreshes all candidate metadata before applying; the Drive adapter inspects each file again immediately before permanent deletion",
+    "The app-facing manual flow routes by provider ID, double-verifies an upload before scheduling and exposes provider-neutral history/retention use cases",
+    "A downloaded envelope is transport-verified and then unlocks with either its password or recovery key; rejected credentials remain distinct from corrupt remote bytes"
   ],
   "hostChecks": {
-    "tests": "dart test --reporter expanded: 21 passed",
+    "tests": "dart test --reporter expanded: 23 passed",
     "analysis": "dart analyze: no issues",
     "format": "dart format applied to lib and test",
     "architecture": "architecture boundary check passed"
@@ -27,7 +29,7 @@
   "notVerified": [
     "The Google Drive semantic adapter and durable work runner are implemented against tested boundaries; concrete HTTPS and OAuth transports are not implemented",
     "No cloud account, credential, financial backup, APK or device was used",
-    "App history/retention confirmation, scheduling, download restore UI and final integration gates remain open"
+    "Flutter history/retention confirmation, scheduling, existing clean-restore integration and final gates remain open"
   ],
-  "gate": "Provider-neutral cloud backup core, encrypted durable work orchestration and history/retention passed host checks; M2-01 remains in progress"
+  "gate": "Provider-neutral cloud backup core, durable work, history/retention and manual use cases passed host checks; M2-01 remains in progress"
 }

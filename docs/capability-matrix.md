@@ -59,7 +59,7 @@
 | 原刷卡跨帳期退款 | 功能線完成 | 帳單已確認後的呈現與完整活動查閱 |
 | 固定本金／明列費用分期 | 功能線完成 | 退款後計畫呈現與發卡行實際帳單對照 |
 | 持久工作佇列 | 功能線基礎完成 | 手動／自動排程、登入失效 UI 與需要 Ledger 同交易的 outbox 接線 |
-| Provider-neutral 加密備份核心 | 主機流程完成 | 手動／自動排程、下載還原 UI、實機與整合 gate |
+| Provider-neutral 加密備份核心 | 手動 use case 主機完成 | Flutter UI、自動排程、既有乾淨還原接線、實機與整合 gate |
 | 多 provider 備份歷史與保留策略 | 主機流程完成 | App 預覽／確認 UI、真實 provider 分頁與錯誤呈現 |
 | Google Drive 加密備份 | Adapter、續傳、歷史與刪除契約完成 | HTTPS、OAuth、`drive.file`、撤權、真實帳號與乾淨還原 |
 

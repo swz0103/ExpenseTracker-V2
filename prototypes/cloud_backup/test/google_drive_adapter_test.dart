@@ -63,11 +63,7 @@ void main() {
         'createdAt': artifact.createdAt.toIso8601String(),
       });
       expect(
-        await coordinator.downloadAndVerify(
-          uploaded,
-          password: password,
-          recoveryKey: recoveryKey,
-        ),
+        await coordinator.downloadAndVerify(uploaded, password: password),
         artifact.envelope,
       );
     },

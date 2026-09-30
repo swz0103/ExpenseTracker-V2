@@ -28,6 +28,7 @@ enum CloudBackupValidationFailure {
   reservationConflict,
   remoteMetadataMismatch,
   corruptDownload,
+  credentialRejected,
 }
 
 final class CloudBackupValidationException implements Exception {
@@ -211,9 +212,12 @@ final class CloudBackupCoordinator {
 
   Future<String> downloadAndVerify(
     RemoteBackupMetadata metadata, {
-    required String password,
-    required String recoveryKey,
+    String? password,
+    String? recoveryKey,
   }) async {
+    if ((password == null) == (recoveryKey == null)) {
+      throw ArgumentError('Provide exactly one backup credential');
+    }
     _validateIdentifier(metadata.objectId, 'objectId');
     if (metadata.providerId != provider.providerId ||
         metadata.contentType != cloudBackupContentType ||
@@ -234,15 +238,10 @@ final class CloudBackupCoordinator {
     try {
       envelope = utf8.decode(bytes);
       final codec = EnvelopeCodec();
-      final passwordPayload = await codec.openWithPassword(envelope, password);
-      final recoveryPayload = await codec.openWithRecovery(
-        envelope,
-        recoveryKey,
-      );
-      if (!_sameBytes(passwordPayload, recoveryPayload)) {
-        throw const CloudBackupValidationException(
-          CloudBackupValidationFailure.corruptDownload,
-        );
+      if (password != null) {
+        await codec.openWithPassword(envelope, password);
+      } else {
+        await codec.openWithRecovery(envelope, recoveryKey!);
       }
     } on FormatException {
       throw const CloudBackupValidationException(
@@ -250,7 +249,7 @@ final class CloudBackupCoordinator {
       );
     } on BackupException {
       throw const CloudBackupValidationException(
-        CloudBackupValidationFailure.corruptDownload,
+        CloudBackupValidationFailure.credentialRejected,
       );
     }
     return envelope;

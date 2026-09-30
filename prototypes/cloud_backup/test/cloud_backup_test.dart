@@ -95,25 +95,43 @@ void main() {
     expect(provider.uploadCalls, 0);
   });
 
-  test('download verifies digest and both unlock paths', () async {
+  test('download verifies digest and accepts either unlock path', () async {
     final provider = _MemoryProvider();
     final coordinator = CloudBackupCoordinator(provider);
     final metadata = await coordinator.upload(artifact);
     expect(
-      await coordinator.downloadAndVerify(
-        metadata,
-        password: password,
-        recoveryKey: recoveryKey,
-      ),
+      await coordinator.downloadAndVerify(metadata, password: password),
       artifact.envelope,
     );
-    provider.corrupt(metadata.objectId);
+    expect(
+      await coordinator.downloadAndVerify(metadata, recoveryKey: recoveryKey),
+      artifact.envelope,
+    );
+    await expectLater(
+      coordinator.downloadAndVerify(metadata, password: 'wrong-password'),
+      throwsA(
+        isA<CloudBackupValidationException>().having(
+          (error) => error.failure,
+          'failure',
+          CloudBackupValidationFailure.credentialRejected,
+        ),
+      ),
+    );
+    await expectLater(
+      coordinator.downloadAndVerify(metadata),
+      throwsArgumentError,
+    );
     await expectLater(
       coordinator.downloadAndVerify(
         metadata,
         password: password,
         recoveryKey: recoveryKey,
       ),
+      throwsArgumentError,
+    );
+    provider.corrupt(metadata.objectId);
+    await expectLater(
+      coordinator.downloadAndVerify(metadata, password: password),
       throwsA(
         isA<CloudBackupValidationException>().having(
           (error) => error.failure,
