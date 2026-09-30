@@ -11,8 +11,12 @@ import 'package:ledger/ledger.dart';
 import 'support.dart';
 import 'widget_test.dart' show Documents, closeEngine, settle;
 
-Future<void> _waitForKey(WidgetTester tester, String key) async {
-  for (var i = 0; i < 160; i++) {
+Future<void> _waitForKey(
+  WidgetTester tester,
+  String key, {
+  int maxPolls = 160,
+}) async {
+  for (var i = 0; i < maxPolls; i++) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 25)),
     );
@@ -42,6 +46,7 @@ Future<void> _waitForEnabledButton(WidgetTester tester, String key) async {
 Future<void> _tapKey(WidgetTester tester, String key) async {
   final finder = find.byKey(ValueKey(key));
   await tester.ensureVisible(finder);
+  await settle(tester, maxPolls: 1200);
   await tester.pumpAndSettle();
   final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
   for (var i = 0; i < 12; i++) {
@@ -51,6 +56,7 @@ Future<void> _tapKey(WidgetTester tester, String key) async {
       find.byType(ListView).first,
       Offset(0, y > height ? -350 : 350),
     );
+    await settle(tester, maxPolls: 1200);
     await tester.pumpAndSettle();
   }
   await tester.tap(finder);
@@ -236,9 +242,11 @@ void main() {
       await tester.pump();
       expect(find.byKey(const ValueKey('save-investment-buy')), findsNothing);
 
+      await _waitForKey(tester, 'review-investment-buy', maxPolls: 1200);
       await _tapKey(tester, 'review-investment-buy');
       await _tapKey(tester, 'save-investment-buy');
-      await _waitForEnabledButton(tester, 'review-investment-buy');
+      await _waitForKey(tester, 'investment-message', maxPolls: 1200);
+      expect(find.textContaining('已記錄買入與銀行／現金扣款'), findsOneWidget);
       final facts = (await tester.runAsync(engine.investmentBuys))!;
       expect(facts, hasLength(1));
       expect(facts.single.preview.lot.quantity.toString(), '2');

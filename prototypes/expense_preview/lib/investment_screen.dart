@@ -151,6 +151,10 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _savedDividends = const [];
       _savedSplits = const [];
       _sellLotsReady = false;
+      if (widget.privacy == PrivacyMode.hidden) {
+        _saved = const [];
+        _loaded = false;
+      }
     } else if (oldWidget.privacy == PrivacyMode.hidden) {
       unawaited(_load());
     }
@@ -1067,7 +1071,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             const Text('確認後一次記錄扣款與持股批次；買入不列為日常消費。'),
             FilledButton(
               key: const ValueKey('save-investment-buy'),
-              onPressed: _busy ? null : _save,
+              onPressed: _busy || _hasPendingOperation ? null : _save,
               child: const Text('確認買入並扣款'),
             ),
           ],
