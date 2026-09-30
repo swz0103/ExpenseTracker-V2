@@ -16,7 +16,7 @@ Provider registry 可同時註冊多個來源，不硬編碼唯一 provider。�
 
 App-facing 手動流程以 provider ID 路由到注入的 upload target，不包含 Google Drive 分支。建立備份時仍要求密碼及救援文字雙驗證；下載時先核對遠端 SHA-256、長度與內容類型，之後允許以密碼或救援文字其中一條路徑解鎖，錯誤憑證不混同為傳輸損壞。解鎖後的 envelope 仍須交給既有乾淨還原流程驗證帳本並建立還原前安全副本。
 
-`expense_preview` 另有獨立、可注入 gateway 的 Flutter 功能畫面，涵蓋 provider 選擇、立即備份、歷史、下載還原與保留策略二次確認。這個畫面已定向測試，但按功能優先規劃尚未接入主導航或正式 engine 生命週期。
+`expense_preview` 的主導航已有雲端備份入口。未注入 gateway 時只說明尚未連結雲端帳號，本機加密備份仍可用。注入 gateway 後，畫面涵蓋 provider 選擇、立即備份、歷史、下載還原、保留策略二次確認、自動備份週期與重新連結。Engine handoff 可由 `EngineCloudBackupBridge` 建立已雙重驗證的 artifact，並把解封結果交給既有乾淨還原。預設 `main()` 沒有注入 gateway。
 
 契約依據：[Drive `files.generateIds`](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/generateIds)、[預產 ID 與 resumable upload](https://developers.google.com/workspace/drive/api/guides/manage-uploads)、[下載 blob](https://developers.google.com/workspace/drive/api/guides/manage-downloads)、[歷史清單](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)、[永久刪除](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/delete)。
 
@@ -25,7 +25,9 @@ App-facing 手動流程以 provider ID 路由到注入的 upload target，不包
 尚未完成：
 
 - Google OAuth client、`drive.file` 帳號授權、撤權與 secure token storage。
-- 正式 App 導航、engine 備份來源、乾淨還原 handoff 與登入失效 UI 接線。
-- App 下載後的乾淨還原、實機與最後整合 gate。
+- App 生命週期呼叫 `CloudBackupJobRunner.runNext` 與 `CloudBackupAutomaticScheduler.tick`。目前「立即備份」只會暫存並入列，「自動加密備份」只寫入排程；兩者都不會自己上傳。
+- 重新連結只執行注入的帳號 callback，並未呼叫 `retryAfterUserAction`。登入、權限或 quota 造成的終止上傳不會因重新連結而恢復。
+- 上傳失敗、待處理與重試耗盡沒有畫面狀態。
+- 實機與最後整合 gate。
 
 這是 M2-01 的離線安全與續傳子項，不代表真實雲端備份已可使用。

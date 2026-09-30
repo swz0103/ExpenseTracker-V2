@@ -1,5 +1,11 @@
 # 持續開發與分支收斂
 
+## 2026-09-30：兩支非 main 分支收成一條線
+
+遠端除 `main` 外只剩 `integration/v2-core`（`9ecffbc`）與 `work/m2-cloud-backup`（`ad39c29`）。`git merge-base` 就是 `9ecffbc`，`v2-core..m2` 有 31 個提交，`m2..v2-core` 的獨有提交數是 0。因此整合是快轉關係，不是兩邊各有獨有程式需要人工合併。`main` 仍停在 `d0d39e1`，這次沒有合併 main。
+
+上市角度的審查與主機清單見[上市審查](shipping-review-2026-09-30.md)。雲端備份函式庫不能當成已可對真實帳號出貨；預設安裝沒有注入雲端 gateway。資產摘要 widget 測試在懶載入清單修正捲動範圍時會被 `scrollUntilVisible` 跳過下一列，已補一個 frame，帳務數字沒有改。
+
 ## 2026-09-29：單一整合候選收斂批次
 
 使用者要求先啟動雲端驗證，再把積累的功能分支收斂為一支。現在仍只以 `integration/v2-core`／Draft PR #67 作後續功能候選，不合併 `main`。精確遠端核對：原有 41 支 GitHub 分支包含 `main`、候選及 39 支舊分支；先前把 Git 的 `origin/HEAD` 指標誤計為第 40 支舊分支。39 支舊分支全部都是候選的祖先（`integration/v2-core..origin/<branch>` 的獨有提交數均為 0），且恰好對應 PR #28–#66。這些 PR 無 review submission、一般留言或 inline review 留言；#28–#38 有成功的歷史雲端 checks，#39–#66 歷史 checks 空白。

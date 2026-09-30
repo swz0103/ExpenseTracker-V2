@@ -94,6 +94,10 @@ void main() {
         );
         expect(find.byKey(const Key('asset-total-TWD')), findsOneWidget);
         expect(find.text('TWD 78.00'), findsWidgets);
+        // The home ListView corrects its scroll extent after the first currency
+        // row is laid out. One more frame builds the next currency before a
+        // large drag can skip past it.
+        await tester.pump();
         await tester.scrollUntilVisible(
           find.byKey(const Key('asset-total-USD')),
           100,

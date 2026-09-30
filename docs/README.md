@@ -9,6 +9,7 @@
 - [工作進度](work-progress.md)：最新功能狀態、未完成事項與驗證限制。
 - [Full Vision Baseline](full-vision-baseline.md)：完整願景與延後能力的來源。
 - [架構回查](architecture-review-2026-09-29.md)：目前已知風險與改善方向。
+- [2026-09-30 上市審查](shipping-review-2026-09-30.md)：兩支非 main 分支的整合與上市 gate。
 
 ## 開發與交付規則
 
