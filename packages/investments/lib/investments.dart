@@ -7,3 +7,4 @@ export 'src/stock_split_preview_codec.dart';
 export 'src/dividend.dart';
 export 'src/dividend_preview_codec.dart';
 export 'src/performance.dart';
+export 'src/xirr.dart';
