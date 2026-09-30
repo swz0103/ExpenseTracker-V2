@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Default App schema 24 and operational forward stock-split flow",
+  "behavior": [
+    "Existing V2 ledgers require an explicit safety-backed upgrade before schema 24 opens",
+    "Schema 12 through 23 backup generations remain independently recoverable during the upgrade",
+    "Only no-cash forward splits are accepted and every affected open lot is previewed before confirmation",
+    "Lot quantities change by the exact ratio while total cost and cash remain unchanged",
+    "A split cannot backdate over an existing sale or prior split",
+    "The split fact and every lot change commit atomically and fixed-content retry does not duplicate them",
+    "Committed splits remain visible in the investment activity section and feed later position reads"
+  ],
+  "hostChecks": {
+    "targetedFlutter": "11 tests passed across current-schema upgrade, split recovery and investment widgets",
+    "analysis": "full expense_preview dart analyze: no issues",
+    "architecture": "architecture boundaries passed",
+    "format": "dart format applied to affected files"
+  },
+  "knownWarning": "Existing Drift multiple-database-instance warnings remain visible in restore-heavy tests and are not claimed resolved",
+  "notVerified": [
+    "No full App regression was run in this feature-first unit",
+    "No Android device or exact-head cloud gate was run"
+  ],
+  "gate": "Forward stock split is open in the default App schema; concentrated integration remains pending"
+}

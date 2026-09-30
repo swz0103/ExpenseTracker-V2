@@ -537,7 +537,11 @@ void main() {
     final root = Directory('.dart_tool/investment-widget-tests')
       ..createSync(recursive: true);
     final work = root.createTempSync('split-confirm-');
-    final engine = engineAt(work, MemoryVault(), schemaVersion: 24);
+    final engine = engineAt(
+      work,
+      MemoryVault(),
+      schemaVersion: currentPreviewSchemaVersion,
+    );
     try {
       late InvestmentBuyPreview buy;
       await tester.runAsync(() async {
@@ -598,7 +602,7 @@ void main() {
     final engine = engineAt(
       work,
       MemoryVault(),
-      schemaVersion: 24,
+      schemaVersion: currentPreviewSchemaVersion,
       draftCheckpoint: (stage) {
         if (stage == 'investment-split-committed' && interruptOnce) {
           interruptOnce = false;
