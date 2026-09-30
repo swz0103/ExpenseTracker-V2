@@ -15,6 +15,7 @@ class MarketQuotePanel extends StatefulWidget {
     this.realizedResults = const [],
     this.netDividends = const [],
     this.historicalCashFlows = const [],
+    this.latestPositionDate,
     this.gateway,
   });
 
@@ -29,6 +30,9 @@ class MarketQuotePanel extends StatefulWidget {
   final List<Money> realizedResults;
   final List<Money> netDividends;
   final List<InvestmentCashFlow> historicalCashFlows;
+
+  /// A split has no cash flow but a pre-split close cannot mark post-split shares.
+  final BusinessDate? latestPositionDate;
   final MarketDataGateway? gateway;
 
   @override
@@ -88,9 +92,10 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
             : null;
         quotePredatesTrade =
             quote != null &&
-            widget.historicalCashFlows.any(
-              (flow) => flow.date.compareTo(quote.asOf) > 0,
-            );
+            ((widget.latestPositionDate?.compareTo(quote.asOf) ?? 0) > 0 ||
+                widget.historicalCashFlows.any(
+                  (flow) => flow.date.compareTo(quote.asOf) > 0,
+                ));
         valuation = InvestmentPerformance.calculate(
           investmentAccountId: widget.investmentAccountId!,
           instrumentId: widget.instrument.id,
@@ -137,6 +142,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         if (valuation != null && widget.showAmounts) ...[
           Text(
             '已實現損益 ${valuation.realizedResult.majorText} ${widget.instrument.tradingCurrency.code} · 現金股息淨額 ${valuation.netDividends.majorText}',
+            key: const ValueKey('investment-factual-return'),
           ),
           if (valuation.totalReturn != null)
             Text(

@@ -50,6 +50,7 @@ void main() {
     InvestmentInstrument? selected,
     bool holdings = false,
     bool history = false,
+    BusinessDate? latestPositionDate,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -80,6 +81,7 @@ void main() {
                   ),
                 ]
               : const [],
+          latestPositionDate: latestPositionDate,
           gateway: gateway,
         ),
       ),
@@ -169,6 +171,26 @@ void main() {
     expect(transport.calls, 1);
     expect(find.byKey(const ValueKey('market-close-source')), findsOneWidget);
     expect(find.byKey(const ValueKey('market-total-return')), findsOneWidget);
+  });
+
+  testWidgets('a pre-split close cannot value post-split shares', (
+    tester,
+  ) async {
+    final gateway = MarketDataGateway(
+      transport: _Transport(rows),
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    await show(
+      tester,
+      gateway,
+      holdings: true,
+      latestPositionDate: BusinessDate(2026, 9, 30),
+    );
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('market-close-source')), findsOneWidget);
+    expect(find.byKey(const ValueKey('market-holding-value')), findsNothing);
+    expect(find.textContaining('早於最新交易'), findsOneWidget);
   });
 
   testWidgets('unsupported market does not request a provider', (tester) async {

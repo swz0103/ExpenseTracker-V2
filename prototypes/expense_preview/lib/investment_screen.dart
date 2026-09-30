@@ -38,6 +38,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
 
   List<InvestmentBuyFact> _saved = const [];
   List<InvestmentSellFact> _savedSales = const [];
+  List<InvestmentDividendFact> _savedDividends = const [];
+  List<InvestmentSplitFact> _savedSplits = const [];
   List<InvestmentHoldingLot> _sellLots = const [];
   List<AccountSummary> _currentAccounts = const [];
   PublicId? _existingBuyId;
@@ -121,6 +123,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _request++;
       _saved = const [];
       _savedSales = const [];
+      _savedDividends = const [];
+      _savedSplits = const [];
       _sellLots = const [];
       _currentAccounts = widget.accounts;
       _existingBuyId = null;
@@ -142,6 +146,13 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _sellRequest++;
       _review = null;
       _sellReview = null;
+      _sellLots = const [];
+      _savedSales = const [];
+      _savedDividends = const [];
+      _savedSplits = const [];
+      _sellLotsReady = false;
+    } else if (oldWidget.privacy == PrivacyMode.hidden) {
+      unawaited(_load());
     }
     if (!_fundingAccounts.any((row) => row.account.id == _fundingId)) {
       _fundingId = _fundingAccounts.firstOrNull?.account.id;
@@ -220,6 +231,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
           _sellBuyId = null;
           _sellLots = const [];
           _savedSales = const [];
+          _savedDividends = const [];
+          _savedSplits = const [];
           _sellLotsReady = false;
           _sellReview = null;
         }
@@ -255,6 +268,22 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         selected.account.id,
         selected.instrument.id,
       );
+      final dividends = widget.engine.capabilities.investmentDividends
+          ? (await widget.engine.investmentDividends(selected.account.id))
+                .where(
+                  (fact) =>
+                      fact.preview.instrument.id == selected.instrument.id,
+                )
+                .toList(growable: false)
+          : <InvestmentDividendFact>[];
+      final splits = widget.engine.capabilities.investmentSplits
+          ? (await widget.engine.investmentSplits(selected.account.id))
+                .where(
+                  (fact) =>
+                      fact.preview.instrument.id == selected.instrument.id,
+                )
+                .toList(growable: false)
+          : <InvestmentSplitFact>[];
       if (!mounted ||
           request != _sellRequest ||
           _sellBuyId != selected.id ||
@@ -265,6 +294,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       setState(() {
         _sellLots = lots;
         _savedSales = sales;
+        _savedDividends = dividends;
+        _savedSplits = splits;
         if (sales.isNotEmpty) {
           _sellMethod = sales.first.preview.costMethod;
         }
@@ -279,6 +310,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         setState(() {
           _sellLots = const [];
           _savedSales = const [];
+          _savedDividends = const [];
+          _savedSplits = const [];
           _sellLotsReady = false;
           _sellReview = null;
           _sellMessage = '無法核對可賣持股；請保留資料並重新讀取。';
@@ -293,6 +326,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _sellReview = null;
       _sellLots = const [];
       _savedSales = const [];
+      _savedDividends = const [];
+      _savedSplits = const [];
       _sellLotsReady = false;
       _sellMethod = InvestmentCostMethod.fifo;
       _sellMessage = null;
@@ -690,24 +725,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         ],
         if (_sellChoices.isEmpty)
           const Text('請先記錄買入，才能選擇賣出的投資帳戶與商品。')
-        else
-          DropdownButtonFormField<PublicId>(
-            key: const ValueKey('investment-sell-position'),
-            initialValue: _sellBuyId,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: '賣出哪個投資帳戶與商品'),
-            items: [
-              for (final fact in _sellChoices)
-                DropdownMenuItem(
-                  value: fact.preview.id,
-                  child: Text(
-                    '${fact.preview.account.name} · ${fact.preview.instrument.marketCode}:${fact.preview.instrument.symbol}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-            onChanged: _busy || _hasPendingOperation ? null : _selectSellBuy,
-          ),
+        else if (selected == null)
+          const Text('請先在上方選擇要查看的持倉。'),
         if (selected != null) ...[
           const SizedBox(height: 8),
           if (!_sellLotsReady)
@@ -855,7 +874,44 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       return const Text('目前已隱藏投資資料；顯示資料後才能操作。');
     }
     final existing = _existing?.preview;
-    final quoted = _selectedSellBuy?.preview ?? existing;
+    final quoted = _selectedSellBuy?.preview;
+    final verifiedPosition = _sellLotsReady && quoted != null;
+    final positionBuys = verifiedPosition
+        ? _saved
+              .where(
+                (fact) =>
+                    fact.preview.account.id == quoted.account.id &&
+                    fact.preview.instrument.id == quoted.instrument.id,
+              )
+              .toList(growable: false)
+        : <InvestmentBuyFact>[];
+    final positionDates = <BusinessDate>[
+      for (final fact in positionBuys) fact.preview.tradedOn,
+      if (verifiedPosition) ...[
+        for (final fact in _savedSales) fact.preview.tradedOn,
+        for (final fact in _savedDividends) fact.preview.paidOn,
+        for (final fact in _savedSplits) fact.preview.effectiveOn,
+      ],
+    ];
+    final latestPositionDate = positionDates.isEmpty
+        ? null
+        : positionDates.reduce((a, b) => a.compareTo(b) >= 0 ? a : b);
+    final historicalCashFlows = <InvestmentCashFlow>[
+      for (final fact in positionBuys)
+        InvestmentCashFlow(
+          fact.preview.tradedOn,
+          Money(
+            fact.preview.cashDebit.currency,
+            -fact.preview.cashDebit.minorUnits,
+          ),
+        ),
+      if (verifiedPosition) ...[
+        for (final fact in _savedSales)
+          InvestmentCashFlow(fact.preview.tradedOn, fact.preview.netCashCredit),
+        for (final fact in _savedDividends)
+          InvestmentCashFlow(fact.preview.paidOn, fact.preview.netCashCredit),
+      ],
+    ];
     final funding = _funding?.account;
     final review = _review;
     final saved = [..._saved]
@@ -1032,24 +1088,46 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
               '實付 ${fact.preview.lot.acquisitionCashCost.majorText} ${fact.preview.cashDebit.currency.code}',
             ),
           ),
+        if (widget.engine.capabilities.investmentSales &&
+            _sellChoices.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<PublicId>(
+            key: const ValueKey('investment-sell-position'),
+            initialValue: _sellBuyId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '查看持倉、績效與賣出商品'),
+            items: [
+              for (final fact in _sellChoices)
+                DropdownMenuItem(
+                  value: fact.preview.id,
+                  child: Text(
+                    '${fact.preview.account.name} · ${fact.preview.instrument.marketCode}:${fact.preview.instrument.symbol}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: _busy || _hasPendingOperation ? null : _selectSellBuy,
+          ),
+        ],
         if (quoted != null) ...[
           const SizedBox(height: 12),
           MarketQuotePanel(
             key: ValueKey('market-close-${quoted.instrument.id.value}'),
             instrument: quoted.instrument,
             showAmounts: widget.privacy == PrivacyMode.visible,
-            investmentAccountId:
-                _sellLotsReady &&
-                    _selectedSellBuy?.preview.instrument.id ==
-                        quoted.instrument.id
-                ? quoted.account.id
-                : null,
-            openLots:
-                _sellLotsReady &&
-                    _selectedSellBuy?.preview.instrument.id ==
-                        quoted.instrument.id
-                ? _sellLots
-                : null,
+            investmentAccountId: verifiedPosition ? quoted.account.id : null,
+            openLots: verifiedPosition ? _sellLots : null,
+            realizedResults: verifiedPosition
+                ? [for (final fact in _savedSales) fact.preview.realizedResult]
+                : const [],
+            netDividends: verifiedPosition
+                ? [
+                    for (final fact in _savedDividends)
+                      fact.preview.netCashCredit,
+                  ]
+                : const [],
+            historicalCashFlows: historicalCashFlows,
+            latestPositionDate: latestPositionDate,
           ),
         ],
         if (widget.engine.capabilities.investmentSales) ...[

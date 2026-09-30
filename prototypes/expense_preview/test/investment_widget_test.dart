@@ -364,6 +364,15 @@ void main() {
         ))!,
         hasLength(1),
       );
+      await _waitForKey(tester, 'investment-factual-return');
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('investment-factual-return')),
+            )
+            .data,
+        contains('已實現損益 4.00 TWD'),
+      );
     } finally {
       await closeEngine(tester, engine);
       await tester.pumpWidget(const SizedBox());
@@ -487,6 +496,16 @@ void main() {
       await _waitForKey(
         tester,
         'investment-dividend-${facts.single.preview.id.value}',
+      );
+      await _selectSyntheticHolding(tester);
+      await _waitForKey(tester, 'investment-factual-return');
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('investment-factual-return')),
+            )
+            .data,
+        contains('現金股息淨額 8.75'),
       );
     } finally {
       await closeEngine(tester, engine);
