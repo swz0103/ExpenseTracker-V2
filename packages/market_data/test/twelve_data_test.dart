@@ -155,7 +155,7 @@ void main() {
       for (final instrument in [
         stock(market: 'TWSE', symbol: '2330', currency: 'TWD'),
         stock(currency: 'TWD'),
-      stock(symbol: 'ABCDEFGHIJK'),
+        stock(symbol: 'ABCDEFGHIJK'),
       ]) {
         expect(
           (await gateway.latestBar(

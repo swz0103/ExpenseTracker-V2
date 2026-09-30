@@ -200,10 +200,10 @@ void main() {
             }
           },
         ),
-      throwsA(isA<GenerationUnavailable>()),
-    );
-    expect(await source.snapshot(), before);
-    target = ledger('store', keys, buys: true);
+        throwsA(isA<GenerationUnavailable>()),
+      );
+      expect(await source.snapshot(), before);
+      target = ledger('store', keys, buys: true);
       await upgradeInvestments(
         target,
         request,

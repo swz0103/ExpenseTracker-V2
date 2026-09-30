@@ -10,7 +10,7 @@ import 'snapshot.dart';
 /// Owned fixture directory only. Caller must close every DB handle before switching.
 final class RestoreStore {
   RestoreStore(this.directory, {this.openDatabase, SnapshotCodec? snapshot})
-      : _snapshot = snapshot ?? SnapshotCodec();
+    : _snapshot = snapshot ?? SnapshotCodec();
   final Directory directory;
   final ProbeDatabase Function(File)? openDatabase;
   static final _busy = <String>{};

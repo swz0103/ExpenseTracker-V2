@@ -62,16 +62,19 @@ void main() {
     return jsonEncode(data);
   }
 
-  test('canonical round trip preserves fixed ID, lot version and exact cost', () {
-    final encoded = codec.encode(preview());
-    final restored = codec.decode(encoded);
-    expect(codec.encode(restored), encoded);
-    expect(restored.id, splitId);
-    expect(restored.operation, OperationKey(workspace, operationId));
-    expect(restored.lots.single.before.expectedVersion, 2);
-    expect(restored.lots.single.before.remainingCost.majorText, '21.00');
-    expect(restored.lots.single.afterQuantity.toString(), '2.25');
-  });
+  test(
+    'canonical round trip preserves fixed ID, lot version and exact cost',
+    () {
+      final encoded = codec.encode(preview());
+      final restored = codec.decode(encoded);
+      expect(codec.encode(restored), encoded);
+      expect(restored.id, splitId);
+      expect(restored.operation, OperationKey(workspace, operationId));
+      expect(restored.lots.single.before.expectedVersion, 2);
+      expect(restored.lots.single.before.remainingCost.majorText, '21.00');
+      expect(restored.lots.single.afterQuantity.toString(), '2.25');
+    },
+  );
 
   test('rejects version, identity, ratio, lot and canonical tampering', () {
     final encoded = codec.encode(preview());
@@ -82,8 +85,11 @@ void main() {
       ('splitId', splitId.value.toUpperCase()),
       ('extra', 1),
     ]) {
-      expect(() => codec.decode(changed(encoded, key, value)),
-          throwsFormatException, reason: key);
+      expect(
+        () => codec.decode(changed(encoded, key, value)),
+        throwsFormatException,
+        reason: key,
+      );
     }
     final data = jsonDecode(encoded) as Map<String, dynamic>;
     final lots = data['lots'] as List;

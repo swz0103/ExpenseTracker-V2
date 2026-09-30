@@ -52,9 +52,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: FugleCredentialPanel(
-            manager: FugleCredentialManager(vault),
-          ),
+          body: FugleCredentialPanel(manager: FugleCredentialManager(vault)),
         ),
       ),
     );
@@ -89,9 +87,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: FugleCredentialPanel(
-            manager: FugleCredentialManager(vault),
-          ),
+          body: FugleCredentialPanel(manager: FugleCredentialManager(vault)),
         ),
       ),
     );

@@ -22,8 +22,7 @@ final class AndroidTwelveDataCredentialVault
   Future<String?> read() => _storage.read(key: _key);
 
   @override
-  Future<void> write(String apiKey) =>
-      _storage.write(key: _key, value: apiKey);
+  Future<void> write(String apiKey) => _storage.write(key: _key, value: apiKey);
 
   @override
   Future<void> delete() => _storage.delete(key: _key);
