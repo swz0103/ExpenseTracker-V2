@@ -9,9 +9,10 @@
 - [x] 使用者要求股價 1–5 分鐘更新。官方日終來源保留作收盤基準；新增不綁日終型別的 `IntradayBar`／`IntradayInterval` 契約，以及可加入同一 registry/router 的 Fugle 1／5 分鐘 adapter。API key 由外部非同步注入，只送到釘選 HTTPS host；狀態碼、新鮮度、series identity、OHLC、成交量、重複／未來時間皆 fail closed，同標的一次只做一個在途請求。8 項分鐘案例加入後 market_data 共 32 項測試通過。[證據](test-results/market-fugle-intraday-host-2026-09-30.json)
 - [x] 新增 lifecycle-owned 更新控制器：頻率硬限 1–5 分鐘、啟動立即抓取、排程／手動刷新不重疊、停止取消 timer 並忽略晚到結果、快速 stop/start 不遺失後續排程。失敗／限流採有上限指數退避，成功後回復選定頻率；6 項控制器案例加入後 market_data 共 38 項測試通過。[證據](test-results/market-intraday-refresh-host-2026-09-30.json)
 - [x] 獨立 Flutter 分鐘行情 panel 可分別選擇 1／5 分 K 與 1–5 分鐘刷新，開始／停止／立即更新；顯示最新價、實際觀測時間、成交量、真正採用的 provider／dataset／attribution、備援嘗試、下次更新與退避。畫面銷毀會停止 controller，不把行情寫入帳本。3 項 widget 測試與受影響分析通過。[證據](test-results/market-intraday-panel-host-2026-09-30.json)
-- [ ] 尚未把 panel 接入投資摘要；安全憑證儲存、美股 adapter、真實帳號／網路與最後整合 gate 未執行。
+- [x] 新增 Fugle key 專用 Android secure-storage namespace 與設定 panel；只公開 configured 狀態，不回顯已存 key，儲存後清空輸入，可更換及撤銷。Key 不進 SQLCipher 帳本、匯出或 app 雲端備份；Android backup/data-transfer 規則已排除 shared preferences。manager／widget 共 4 項測試及受影響分析通過。[證據](test-results/market-fugle-credential-host-2026-09-30.json)
+- [ ] 尚未把 panel 接入投資摘要；美股 adapter、真實帳號／網路與最後整合 gate 未執行。
 
-下一步建立 Fugle key 的安全儲存與撤銷邊界（不放入資料庫、備份、log 或畫面），再評估同一契約下的美股 Twelve Data adapter。建立真實 Fugle 帳號／key 與任何付費方案時才需要使用者決定；投資摘要接線留到功能線完成後的集中整合。
+下一步在同一分鐘行情契約下實作美股 Twelve Data adapter 與額度語意。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 
