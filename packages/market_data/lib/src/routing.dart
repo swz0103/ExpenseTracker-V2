@@ -82,6 +82,33 @@ final class TwseStockCloseProvider implements StockCloseProvider {
   }) => gateway.stockClose(instrument, requiredAsOf: requiredAsOf);
 }
 
+final class TpexStockCloseProvider implements StockCloseProvider {
+  TpexStockCloseProvider(this.gateway);
+
+  static const providerId = 'tpex-mainboard-daily-close-quotes';
+  final MarketDataGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: providerId,
+    label: '證券櫃檯買賣中心',
+    dataset: 'tpex_mainboard_daily_close_quotes',
+    attribution: '證券櫃檯買賣中心 OpenAPI／政府資料開放授權條款第 1 版',
+    requiresAuthorization: false,
+  );
+
+  @override
+  bool supportsStockClose(InvestmentInstrument instrument) =>
+      instrument.marketCode == 'TPEX' &&
+      instrument.tradingCurrency == Currency('TWD', 2);
+
+  @override
+  Future<MarketResult<StockClose>> stockClose(
+    InvestmentInstrument instrument, {
+    BusinessDate? requiredAsOf,
+  }) => gateway.tpexStockClose(instrument, requiredAsOf: requiredAsOf);
+}
+
 final class EcbReferenceFxProvider implements ReferenceFxProvider {
   EcbReferenceFxProvider(this.gateway);
 
@@ -118,6 +145,47 @@ final class EcbReferenceFxProvider implements ReferenceFxProvider {
     required BusinessDate date,
     int lookbackDays = 7,
   }) => gateway.historicalFxRate(
+    base,
+    quote,
+    date: date,
+    lookbackDays: lookbackDays,
+  );
+}
+
+final class CbcUsdTwdReferenceFxProvider implements ReferenceFxProvider {
+  CbcUsdTwdReferenceFxProvider(this.gateway);
+
+  static const providerId = 'cbc-usd-twd-daily-close';
+  final MarketDataGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: providerId,
+    label: '中華民國中央銀行',
+    dataset: '銀行間市場新臺幣對美元收盤匯率（日）',
+    attribution: '中央銀行；資料來源：台北外匯經紀股份有限公司／政府資料開放授權條款第 1 版',
+    requiresAuthorization: false,
+  );
+
+  @override
+  bool supportsFx(Currency base, Currency quote, {required bool historical}) =>
+      (base == Currency('USD', 2) && quote == Currency('TWD', 2)) ||
+      (base == Currency('TWD', 2) && quote == Currency('USD', 2));
+
+  @override
+  Future<MarketResult<ReferenceRate>> fxRate(
+    Currency base,
+    Currency quote, {
+    BusinessDate? requiredAsOf,
+  }) => gateway.cbcUsdTwdRate(base, quote, requiredAsOf: requiredAsOf);
+
+  @override
+  Future<MarketResult<ReferenceRate>> historicalFxRate(
+    Currency base,
+    Currency quote, {
+    required BusinessDate date,
+    int lookbackDays = 7,
+  }) => gateway.historicalCbcUsdTwdRate(
     base,
     quote,
     date: date,

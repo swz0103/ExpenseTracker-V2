@@ -75,7 +75,8 @@
 | 逐幣別投資組合摘要 | 功能線完成 | 多來源估值與跨幣摘要 |
 | TWSE 最新收盤 | Adapter、多來源路由與獨立來源 UI 完成 | 實機網路與投資摘要接線 |
 | ECB EUR 幣對歷史匯率 | Adapter、多來源路由與獨立來源 UI 完成 | 完整幣對與投資摘要接線 |
-| TPEx、USD/TWD、美股與其他來源 | 待做 | Provider adapters、授權、額度、fixture、UI |
+| TPEx 最新收盤、CBC USD/TWD | Adapter 完成 | 來源 UI 接線、實機網路與分鐘行情協作 |
+| 1／5 分鐘股價、美股與其他來源 | 進行中 | Fugle/Twelve Data adapters、憑證、額度、fixture、UI |
 | 跨幣別投資摘要 | 待做 | 明確觀測日匯率、來源追溯與缺值策略 |
 
 ## 多來源市場資料契約

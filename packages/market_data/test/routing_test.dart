@@ -160,13 +160,32 @@ void main() {
     );
     final registry = MarketProviderRegistry([
       TwseStockCloseProvider(gateway),
+      TpexStockCloseProvider(gateway),
       EcbReferenceFxProvider(gateway),
+      CbcUsdTwdReferenceFxProvider(gateway),
     ]);
     expect(registry.stockCloseProviders(instrument), hasLength(1));
+    final tpex = InvestmentInstrument(
+      id: PublicId.generate(),
+      kind: InstrumentKind.stock,
+      marketCode: 'TPEX',
+      symbol: '6488',
+      name: 'GlobalWafers',
+      tradingCurrency: Currency('TWD', 2),
+    );
+    expect(registry.stockCloseProviders(tpex), hasLength(1));
     expect(
       registry.fxProviders(
         Currency('EUR', 2),
         Currency('USD', 2),
+        historical: true,
+      ),
+      hasLength(1),
+    );
+    expect(
+      registry.fxProviders(
+        Currency('USD', 2),
+        Currency('TWD', 2),
         historical: true,
       ),
       hasLength(1),

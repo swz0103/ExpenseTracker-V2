@@ -1,13 +1,15 @@
-## 2026-09-30 M3 多來源市場資料 registry 與路由（功能核心完成，UI／新來源待續）
+## 2026-09-30 M3 多來源市場資料 registry、官方日終來源與分鐘行情（進行中）
 
 - [x] 新增 provider descriptor／registry；同一 App 可註冊任意股票收盤與參考 FX adapter，每個來源明列 provider ID、dataset、attribution 與是否需要授權。既有 TWSE 與 ECB 已包成彼此獨立的能力 adapter，不再要求 router 綁定單一 gateway。
 - [x] 自動路由可套用明確優先序；新鮮可用結果停止 fallback。失敗、限流、缺值或過期可依序嘗試下一來源；若沒有新鮮值才保留第一個過期 observation。固定來源模式只呼叫指定 provider，不靜默換源。每次嘗試的來源、狀態與原因完整保留，選中結果可讀 dataset 與 attribution。
 - [x] 多源核對並列所有結果，不平均；股票觀測日／價格不同、FX 觀測日／幣對精確匯率／反向衍生不同都標記衝突。等值但小數尾零不同的股票價格視為相同。
-- [x] Registry／路由新增 8 項定向案例；與既有 TWSE／ECB／歷史 FX 共 20 項套件測試及靜態分析通過。[證據](test-results/market-provider-routing-host-2026-09-30.json)
+- [x] Registry／路由新增 8 項定向案例；與 TWSE／ECB provider 共 20 項套件測試及靜態分析通過。[證據](test-results/market-provider-routing-host-2026-09-30.json)
 - [x] 獨立 Flutter panel 可選自動或固定 provider，顯示真正採用的來源、dataset、attribution、觀測／取得資訊與每次 fallback 狀態；多源核對逐列顯示並在衝突時明示不選值、不平均。3 項畫面測試與受影響分析通過。
-- [ ] 尚未把 panel 接入投資摘要；TPEx、USD/TWD 與美股 adapter 仍待逐一新增。實機網路與最後整合 gate 未執行。
+- [x] 新增免金鑰的 TPEx 最新上櫃收盤與 CBC 銀行間 USD/TWD 日收盤 adapter；精確日期、七日內 last-known、反向匯率、缺值、重複／亂序／錯型別皆 fail closed。官方 TPEx 合法快照約 4.6 MB，受控傳輸上限由 2 MiB 調為 8 MiB。market_data 共 24 項測試通過。[證據](test-results/market-official-taiwan-providers-host-2026-09-30.json)
+- [ ] 使用者要求股價 1–5 分鐘更新。官方日終來源保留作收盤基準／備援；盤中首選評估結果為 Fugle（台股 1／3／5 分 K、即時 quote、需會員 API key；免費基本方案 60/min、WebSocket 5 訂閱），美股候選為 Twelve Data。分鐘行情契約與 adapter 正在製作。
+- [ ] 尚未把 panel 接入投資摘要；分鐘行情、美股 adapter、實機網路與最後整合 gate 未執行。
 
-下一步新增不需付費帳號的 TPEx 與官方 USD/TWD adapter；需要 API key 或付費授權的來源延後到使用者決定。投資摘要接線留到功能線完成後的集中整合。
+下一步建立不綁供應商的分鐘行情契約與 Fugle REST adapter，先用 fixture 驗證，不保存或硬編 API key。需要註冊／付費時再由使用者決定；投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 

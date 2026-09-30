@@ -58,6 +58,8 @@ abstract interface class MarketTransport {
 final class IoMarketTransport implements MarketTransport {
   const IoMarketTransport();
 
+  static const maximumResponseBytes = 8 * 1024 * 1024;
+
   @override
   Future<MarketResponse> get(Uri uri) async {
     final client = HttpClient()
@@ -81,7 +83,7 @@ final class IoMarketTransport implements MarketTransport {
       final bytes = <int>[];
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
         bytes.addAll(chunk);
-        if (bytes.length > 2 * 1024 * 1024) {
+        if (bytes.length > maximumResponseBytes) {
           throw const FormatException('Market response too large');
         }
       }
@@ -132,6 +134,14 @@ final class MarketDataGateway {
   static final twseUri = Uri.https(
     'openapi.twse.com.tw',
     '/v1/exchangeReport/STOCK_DAY_ALL',
+  );
+  static final tpexUri = Uri.https(
+    'www.tpex.org.tw',
+    '/openapi/v1/tpex_mainboard_daily_close_quotes',
+  );
+  static final cbcUsdTwdUri = Uri.https(
+    'cpx.cbc.gov.tw',
+    '/api/OpenData/FTDOpenData_Day',
   );
   final MarketTransport _transport;
   final DateTime Function() _clock;
@@ -204,6 +214,187 @@ final class MarketDataGateway {
         MarketState.failed,
         reason: 'Invalid TWSE response',
       );
+    }
+  }
+
+  Future<MarketResult<StockClose>> tpexStockClose(
+    InvestmentInstrument instrument, {
+    BusinessDate? requiredAsOf,
+  }) async {
+    if (instrument.marketCode != 'TPEX' ||
+        instrument.tradingCurrency != Currency('TWD', 2) ||
+        !_tpexSymbolSupported(instrument)) {
+      return const MarketResult(
+        MarketState.unsupported,
+        reason: 'Only TPEx TWD listed stocks and ETFs are supported',
+      );
+    }
+    final fetched = await _fetch(tpexUri);
+    if (fetched.snapshot == null) {
+      return MarketResult(fetched.state, reason: fetched.reason);
+    }
+    try {
+      final decoded = jsonDecode(fetched.snapshot!.body);
+      if (decoded is! List) throw const FormatException('Expected TPEx rows');
+      Map<String, dynamic>? match;
+      for (final row in decoded) {
+        if (row is! Map<String, dynamic>) {
+          throw const FormatException('Invalid TPEx row');
+        }
+        if (row['SecuritiesCompanyCode'] == instrument.symbol) {
+          if (match != null)
+            throw const FormatException('Duplicate TPEx symbol');
+          match = row;
+        }
+      }
+      if (match == null) {
+        return const MarketResult(
+          MarketState.missing,
+          reason: 'Symbol absent from latest TPEx snapshot',
+        );
+      }
+      final asOf = _rocDate(match['Date']);
+      final price = _positiveDecimal(match['Close']);
+      if (price == null) {
+        return const MarketResult(
+          MarketState.missing,
+          reason: 'TPEx has no closing trade price for this symbol',
+        );
+      }
+      final quote = StockClose(
+        symbol: instrument.symbol,
+        decimalPrice: price,
+        asOf: asOf,
+        fetchedAt: fetched.snapshot!.fetchedAt,
+      );
+      final stale =
+          fetched.state == MarketState.stale || _isStale(asOf, requiredAsOf);
+      return MarketResult(
+        stale ? MarketState.stale : MarketState.available,
+        value: quote,
+        reason: stale
+            ? fetched.reason ?? 'Observation is older than requested'
+            : null,
+      );
+    } on FormatException {
+      return const MarketResult(
+        MarketState.failed,
+        reason: 'Invalid TPEx response',
+      );
+    }
+  }
+
+  Future<MarketResult<ReferenceRate>> cbcUsdTwdRate(
+    Currency base,
+    Currency quote, {
+    BusinessDate? requiredAsOf,
+  }) => _cbcUsdTwdRate(
+    base,
+    quote,
+    requestedDate: requiredAsOf,
+    lookbackDays: 0,
+    exactWhenDated: true,
+  );
+
+  Future<MarketResult<ReferenceRate>> historicalCbcUsdTwdRate(
+    Currency base,
+    Currency quote, {
+    required BusinessDate date,
+    int lookbackDays = 7,
+  }) {
+    if (lookbackDays < 0 || lookbackDays > 7) {
+      throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
+    }
+    return _cbcUsdTwdRate(
+      base,
+      quote,
+      requestedDate: date,
+      lookbackDays: lookbackDays,
+      exactWhenDated: false,
+    );
+  }
+
+  Future<MarketResult<ReferenceRate>> _cbcUsdTwdRate(
+    Currency base,
+    Currency quote, {
+    required BusinessDate? requestedDate,
+    required int lookbackDays,
+    required bool exactWhenDated,
+  }) async {
+    final direct = base == Currency('USD', 2) && quote == Currency('TWD', 2);
+    final inverse = base == Currency('TWD', 2) && quote == Currency('USD', 2);
+    if (!direct && !inverse) {
+      return const MarketResult(
+        MarketState.unsupported,
+        reason: 'CBC route supports USD/TWD and its exact inverse',
+      );
+    }
+    final fetched = await _fetch(cbcUsdTwdUri);
+    if (fetched.snapshot == null) {
+      return MarketResult(fetched.state, reason: fetched.reason);
+    }
+    try {
+      final rows = _cbcRows(fetched.snapshot!.body);
+      _CbcRow? chosen;
+      if (requestedDate == null) {
+        if (rows.isNotEmpty) chosen = rows.last;
+      } else {
+        final requested = DateTime.utc(
+          requestedDate.year,
+          requestedDate.month,
+          requestedDate.day,
+        );
+        final earliest = requested.subtract(Duration(days: lookbackDays));
+        for (final row in rows) {
+          final value = DateTime.utc(
+            row.asOf.year,
+            row.asOf.month,
+            row.asOf.day,
+          );
+          if (!value.isAfter(requested) && !value.isBefore(earliest)) {
+            chosen = row;
+          }
+        }
+        if (exactWhenDated && chosen?.asOf != requestedDate) chosen = null;
+      }
+      if (chosen == null) {
+        return MarketResult(
+          MarketState.missing,
+          reason: exactWhenDated
+              ? 'CBC has no rate on the requested date'
+              : 'CBC has no rate within the historical window',
+        );
+      }
+      final published = FxRate.parse(
+        Currency('USD', 2),
+        Currency('TWD', 2),
+        chosen.decimal,
+      );
+      final observation = FxObservation(
+        rate: inverse ? published.inverse() : published,
+        source: 'cbc-usd-twd-daily-close',
+        asOf: chosen.asOf,
+        retrievedAt: fetched.snapshot!.fetchedAt,
+      );
+      final stale =
+          fetched.state == MarketState.stale ||
+          (requestedDate == null
+              ? _isStale(chosen.asOf, null)
+              : chosen.asOf != requestedDate);
+      return MarketResult(
+        stale ? MarketState.stale : MarketState.available,
+        value: ReferenceRate(observation: observation, derivedInverse: inverse),
+        reason: stale
+            ? fetched.reason ?? 'CBC observation predates requested date'
+            : null,
+      );
+    } on FormatException {
+      return const MarketResult(
+        MarketState.failed,
+        reason: 'Invalid CBC response',
+      );
+    } on FxException {
+      return const MarketResult(MarketState.failed, reason: 'Invalid CBC rate');
     }
   }
 
@@ -347,7 +538,7 @@ final class MarketDataGateway {
         );
       }
       if (response.statusCode != 200 ||
-          response.body.length > 2 * 1024 * 1024) {
+          response.body.length > IoMarketTransport.maximumResponseBytes) {
         return _Fetch(
           prior,
           prior == null ? MarketState.failed : MarketState.stale,
@@ -465,6 +656,48 @@ bool _twseSymbolSupported(InvestmentInstrument instrument) {
     InstrumentKind.stock => RegExp(r'^[1-9][0-9]{3}$').hasMatch(symbol),
     InstrumentKind.etf => RegExp(r'^00[0-9]{2,4}$').hasMatch(symbol),
   };
+}
+
+bool _tpexSymbolSupported(InvestmentInstrument instrument) =>
+    _twseSymbolSupported(instrument);
+
+final class _CbcRow {
+  const _CbcRow(this.asOf, this.decimal);
+
+  final BusinessDate asOf;
+  final String decimal;
+}
+
+List<_CbcRow> _cbcRows(String body) {
+  final decoded = jsonDecode(body);
+  if (decoded is! List) throw const FormatException('Expected CBC rows');
+  final result = <_CbcRow>[];
+  BusinessDate? prior;
+  for (final raw in decoded) {
+    if (raw is! Map<String, dynamic> || raw.length != 2) {
+      throw const FormatException('Invalid CBC row');
+    }
+    final asOf = _calendarDate(raw['日期']);
+    final decimal = _positiveDecimal(raw['NTD_USD']);
+    if (decimal == null) throw const FormatException('Missing CBC rate');
+    if (prior != null && asOf.compareTo(prior) <= 0) {
+      throw const FormatException('CBC dates must be unique and ascending');
+    }
+    result.add(_CbcRow(asOf, decimal));
+    prior = asOf;
+  }
+  return result;
+}
+
+BusinessDate _calendarDate(Object? value) {
+  if (value is! String || !RegExp(r'^[0-9]{8}$').hasMatch(value)) {
+    throw const FormatException('Invalid calendar date');
+  }
+  return BusinessDate(
+    int.parse(value.substring(0, 4)),
+    int.parse(value.substring(4, 6)),
+    int.parse(value.substring(6, 8)),
+  );
 }
 
 bool _validCurrency(Currency c) => c.scale == (c.code == 'JPY' ? 0 : 2);

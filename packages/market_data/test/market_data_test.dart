@@ -21,6 +21,18 @@ EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-01,
 EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-02,1.00001
 ''';
 
+const tpexRows = '''[
+  {"Date":"1150929","SecuritiesCompanyCode":"6488","CompanyName":"環球晶","Close":"410.50"},
+  {"Date":"1150929","SecuritiesCompanyCode":"006201","CompanyName":"元大富櫃50","Close":"46.00"},
+  {"Date":"1150929","SecuritiesCompanyCode":"5351","CompanyName":"鈺創","Close":"--"}
+]''';
+
+const cbcRows = '''[
+  {"日期":"20260925","NTD_USD":"31.750"},
+  {"日期":"20260929","NTD_USD":"31.876"},
+  {"日期":"20260930","NTD_USD":"31.852"}
+]''';
+
 final class FakeTransport implements MarketTransport {
   FakeTransport(this.handle);
   final Future<MarketResponse> Function(Uri) handle;
@@ -69,6 +81,144 @@ void main() {
       expect(StockClose.provider, 'twse-stock-day-all');
       expect(etf.value!.decimalPrice, '62.75');
       expect(transport.requests, [MarketDataGateway.twseUri]);
+    },
+  );
+
+  test('TPEx stock and ETF parse exact latest closing snapshot', () async {
+    final transport = FakeTransport(
+      (_) async => const MarketResponse(200, tpexRows),
+    );
+    final gateway = MarketDataGateway(transport: transport, clock: () => now);
+    final stock = await gateway.tpexStockClose(
+      instrument('6488', InstrumentKind.stock, market: 'TPEX'),
+    );
+    final etf = await gateway.tpexStockClose(
+      instrument('006201', InstrumentKind.etf, market: 'TPEX'),
+    );
+    expect(stock.state, MarketState.available);
+    expect(stock.value!.decimalPrice, '410.50');
+    expect(stock.value!.asOf, BusinessDate(2026, 9, 29));
+    expect(etf.value!.decimalPrice, '46.00');
+    expect(transport.requests, [MarketDataGateway.tpexUri]);
+  });
+
+  test(
+    'TPEx fails closed for missing, unsupported and malformed data',
+    () async {
+      final gateway = MarketDataGateway(
+        transport: FakeTransport(
+          (_) async => const MarketResponse(200, tpexRows),
+        ),
+        clock: () => now,
+      );
+      expect(
+        (await gateway.tpexStockClose(
+          instrument('5351', InstrumentKind.stock, market: 'TPEX'),
+        )).state,
+        MarketState.missing,
+      );
+      expect(
+        (await gateway.tpexStockClose(instrument('6488', InstrumentKind.stock)))
+            .state,
+        MarketState.unsupported,
+      );
+      for (final body in [
+        '[{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":410.5}]',
+        '[{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"1"},'
+            '{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"2"}]',
+      ]) {
+        final malformed = MarketDataGateway(
+          transport: FakeTransport((_) async => MarketResponse(200, body)),
+          clock: () => now,
+        );
+        expect(
+          (await malformed.tpexStockClose(
+            instrument('6488', InstrumentKind.stock, market: 'TPEX'),
+          )).state,
+          MarketState.failed,
+        );
+      }
+    },
+  );
+
+  test(
+    'CBC USD/TWD direct and inverse preserve exact observed ratio',
+    () async {
+      final transport = FakeTransport(
+        (_) async => const MarketResponse(200, cbcRows),
+      );
+      final gateway = MarketDataGateway(transport: transport, clock: () => now);
+      final usd = Currency('USD', 2);
+      final twd = Currency('TWD', 2);
+      final direct = await gateway.cbcUsdTwdRate(usd, twd);
+      final inverse = await gateway.cbcUsdTwdRate(twd, usd);
+      expect(direct.state, MarketState.available);
+      expect(direct.value!.observation.asOf, BusinessDate(2026, 9, 30));
+      expect(direct.value!.observation.rate.numerator, BigInt.from(7963));
+      expect(direct.value!.observation.rate.denominator, BigInt.from(250));
+      expect(direct.value!.observation.source, 'cbc-usd-twd-daily-close');
+      expect(direct.value!.derivedInverse, isFalse);
+      expect(inverse.value!.observation.rate.numerator, BigInt.from(250));
+      expect(inverse.value!.observation.rate.denominator, BigInt.from(7963));
+      expect(inverse.value!.derivedInverse, isTrue);
+      expect(transport.requests, [MarketDataGateway.cbcUsdTwdUri]);
+    },
+  );
+
+  test(
+    'CBC exact date, historical lookback and validation stay distinct',
+    () async {
+      final usd = Currency('USD', 2);
+      final twd = Currency('TWD', 2);
+      final gateway = MarketDataGateway(
+        transport: FakeTransport(
+          (_) async => const MarketResponse(200, cbcRows),
+        ),
+        clock: () => now,
+      );
+      expect(
+        (await gateway.cbcUsdTwdRate(
+          usd,
+          twd,
+          requiredAsOf: BusinessDate(2026, 9, 28),
+        )).state,
+        MarketState.missing,
+      );
+      final historical = await gateway.historicalCbcUsdTwdRate(
+        usd,
+        twd,
+        date: BusinessDate(2026, 9, 28),
+      );
+      expect(historical.state, MarketState.stale);
+      expect(historical.value!.observation.asOf, BusinessDate(2026, 9, 25));
+      expect(
+        (await gateway.cbcUsdTwdRate(Currency('EUR', 2), twd)).state,
+        MarketState.unsupported,
+      );
+      expect(
+        () => gateway.historicalCbcUsdTwdRate(
+          usd,
+          twd,
+          date: BusinessDate(2026, 9, 30),
+          lookbackDays: 8,
+        ),
+        throwsRangeError,
+      );
+
+      final malformed = MarketDataGateway(
+        transport: FakeTransport(
+          (_) async => const MarketResponse(
+            200,
+            '[{"日期":"20260930","NTD_USD":"31.8"},'
+            '{"日期":"20260929","NTD_USD":"31.9"}]',
+          ),
+        ),
+        clock: () => now,
+      );
+      expect(
+        (await malformed.cbcUsdTwdRate(usd, twd)).state,
+        MarketState.failed,
+      );
     },
   );
 
