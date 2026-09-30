@@ -9,7 +9,7 @@
     "Stop cancels waiting timers and ignores results from an older in-flight generation",
     "A rapid stop/start while the old request is in flight resumes automatically after that request settles",
     "Failed and throttled results use bounded exponential backoff; success resets the selected cadence",
-    "Snapshots expose sequence, provider result, next attempt time and consecutive failure count",
+    "Snapshots expose sequence, complete routed result and selected provider, next attempt time and consecutive failure count",
     "Dispose prevents future starts and closes the result stream"
   ],
   "hostChecks": {

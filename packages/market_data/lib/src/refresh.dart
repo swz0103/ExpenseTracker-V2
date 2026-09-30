@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'intraday.dart';
 import 'market_data.dart';
+import 'routing.dart';
 
 final class IntradayRefreshPolicy {
   IntradayRefreshPolicy({
@@ -40,13 +41,14 @@ final class IntradayRefreshPolicy {
 final class IntradayRefreshSnapshot {
   const IntradayRefreshSnapshot({
     required this.sequence,
-    required this.result,
+    required this.routed,
     required this.nextAttemptAt,
     required this.consecutiveFailures,
   });
 
   final int sequence;
-  final MarketResult<IntradayBar> result;
+  final RoutedMarketResult<IntradayBar> routed;
+  MarketResult<IntradayBar> get result => routed.result;
   final DateTime nextAttemptAt;
   final int consecutiveFailures;
 }
@@ -60,7 +62,7 @@ typedef IntradayRefreshScheduler = IntradayRefreshTimer Function(
   void Function() callback,
 );
 
-typedef IntradayBarFetch = Future<MarketResult<IntradayBar>> Function();
+typedef IntradayBarFetch = Future<RoutedMarketResult<IntradayBar>> Function();
 
 final class IntradayRefreshController {
   IntradayRefreshController({
@@ -127,13 +129,17 @@ final class IntradayRefreshController {
   Future<void> _run(int generation) async {
     if (!_active || _fetching || generation != _generation) return;
     _fetching = true;
-    late final MarketResult<IntradayBar> result;
+    late final RoutedMarketResult<IntradayBar> routed;
     try {
-      result = await _fetch();
+      routed = await _fetch();
     } catch (_) {
-      result = const MarketResult(
-        MarketState.failed,
-        reason: 'Intraday refresh failed',
+      routed = const RoutedMarketResult(
+        result: MarketResult(
+          MarketState.failed,
+          reason: 'Intraday refresh failed',
+        ),
+        selectedProvider: null,
+        attempts: [],
       );
     } finally {
       _fetching = false;
@@ -143,18 +149,18 @@ final class IntradayRefreshController {
       return;
     }
     if (!_active || _disposed || generation != _generation) return;
-    if (result.state == MarketState.failed ||
-        result.state == MarketState.throttled) {
+    if (routed.result.state == MarketState.failed ||
+        routed.result.state == MarketState.throttled) {
       _consecutiveFailures++;
     } else {
       _consecutiveFailures = 0;
     }
-    final delay = _policy.delayAfter(result.state, _consecutiveFailures);
+    final delay = _policy.delayAfter(routed.result.state, _consecutiveFailures);
     final next = _clock().toUtc().add(delay);
     _snapshots.add(
       IntradayRefreshSnapshot(
         sequence: ++_sequence,
-        result: result,
+        routed: routed,
         nextAttemptAt: next,
         consecutiveFailures: _consecutiveFailures,
       ),

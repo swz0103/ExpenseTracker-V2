@@ -42,6 +42,13 @@ IntradayBar bar() => IntradayBar(
   fetchedAt: UtcInstant(DateTime.utc(2026, 9, 30, 1, 1)),
 );
 
+RoutedMarketResult<IntradayBar> routed(MarketResult<IntradayBar> result) =>
+    RoutedMarketResult(
+      result: result,
+      selectedProvider: null,
+      attempts: const [],
+    );
+
 Future<void> pump() async {
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(Duration.zero);
@@ -75,7 +82,7 @@ void main() {
     final controller = IntradayRefreshController(
       fetch: () async {
         calls++;
-        return MarketResult(MarketState.available, value: bar());
+        return routed(MarketResult(MarketState.available, value: bar()));
       },
       policy: IntradayRefreshPolicy(refreshEvery: const Duration(minutes: 1)),
       clock: () => DateTime.utc(2026, 9, 30, 1, 1),
@@ -101,10 +108,10 @@ void main() {
 
   test('throttling backs off and success resets failure count', () async {
     final scheduler = FakeScheduler();
-    final results = Queue<MarketResult<IntradayBar>>.of([
-      const MarketResult(MarketState.throttled, reason: 'limit'),
-      const MarketResult(MarketState.failed, reason: 'offline'),
-      MarketResult(MarketState.available, value: bar()),
+    final results = Queue<RoutedMarketResult<IntradayBar>>.of([
+      routed(const MarketResult(MarketState.throttled, reason: 'limit')),
+      routed(const MarketResult(MarketState.failed, reason: 'offline')),
+      routed(MarketResult(MarketState.available, value: bar())),
     ]);
     final controller = IntradayRefreshController(
       fetch: () async => results.removeFirst(),
@@ -136,7 +143,7 @@ void main() {
 
   test('stop ignores an in-flight result and schedules nothing', () async {
     final scheduler = FakeScheduler();
-    final pending = Completer<MarketResult<IntradayBar>>();
+    final pending = Completer<RoutedMarketResult<IntradayBar>>();
     final controller = IntradayRefreshController(
       fetch: () => pending.future,
       policy: IntradayRefreshPolicy(refreshEvery: const Duration(minutes: 1)),
@@ -148,7 +155,7 @@ void main() {
     await pump();
     expect(controller.isFetching, isTrue);
     controller.stop();
-    pending.complete(MarketResult(MarketState.available, value: bar()));
+    pending.complete(routed(MarketResult(MarketState.available, value: bar())));
     await pump();
     expect(snapshots, isEmpty);
     expect(scheduler.timers, isEmpty);
@@ -161,14 +168,14 @@ void main() {
     'restart during an old in-flight request resumes after it settles',
     () async {
       final scheduler = FakeScheduler();
-      final first = Completer<MarketResult<IntradayBar>>();
+      final first = Completer<RoutedMarketResult<IntradayBar>>();
       var calls = 0;
       final controller = IntradayRefreshController(
         fetch: () {
           calls++;
           if (calls == 1) return first.future;
           return Future.value(
-            MarketResult(MarketState.available, value: bar()),
+            routed(MarketResult(MarketState.available, value: bar())),
           );
         },
         policy: IntradayRefreshPolicy(refreshEvery: const Duration(minutes: 1)),
@@ -181,7 +188,7 @@ void main() {
       controller.stop();
       controller.start();
       expect(calls, 1);
-      first.complete(MarketResult(MarketState.available, value: bar()));
+      first.complete(routed(MarketResult(MarketState.available, value: bar())));
       await pump();
       expect(calls, 2);
       expect(snapshots, hasLength(1));
@@ -197,7 +204,7 @@ void main() {
     final controller = IntradayRefreshController(
       fetch: () async {
         calls++;
-        return MarketResult(MarketState.available, value: bar());
+        return routed(MarketResult(MarketState.available, value: bar()));
       },
       policy: IntradayRefreshPolicy(refreshEvery: const Duration(minutes: 5)),
       scheduler: scheduler.schedule,
