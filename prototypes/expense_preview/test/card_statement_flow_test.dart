@@ -434,6 +434,28 @@ void main() {
       expect(rows.single.remainingDue.majorText, '13.00');
       expect(rows.single.localCharges.majorText, '12.34');
       expect(find.textContaining('金額不符請核對'), findsOneWidget);
+      final revise = find.byKey(ValueKey('revise-statement-${rows.single.id}'));
+      await tester.ensureVisible(revise);
+      await tester.tap(revise);
+      await tester.pump();
+      expect(find.text('確認並保存帳單修訂'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('statement-due')),
+        '2026-10-16',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('statement-billed')),
+        '14',
+      );
+      await tester.tap(find.byKey(const ValueKey('confirm-statement')));
+      await settle(tester);
+      final revised = (await tester.runAsync(
+        () => engine.confirmedCardStatements(card.id),
+      ))!.single;
+      expect(revised.id, rows.single.id);
+      expect(revised.revision, 2);
+      expect(revised.cycle.dueOn, BusinessDate(2026, 10, 16));
+      expect(revised.billed.majorText, '14.00');
       final statementPicker = find.byKey(
         const ValueKey('allocation-statement'),
       );
@@ -458,7 +480,8 @@ void main() {
       final allocated = (await tester.runAsync(
         () => engine.confirmedCardStatements(card.id),
       ))!;
-      expect(allocated.single.remainingDue.majorText, '11.00');
+      expect(allocated.single.remainingDue.majorText, '12.00');
+      expect(find.text('已分配，不可修訂'), findsOneWidget);
       final payments = (await tester.runAsync(
         () => engine.unallocatedCardPayments(card.id),
       ))!;

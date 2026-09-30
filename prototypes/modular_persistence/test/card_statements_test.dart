@@ -157,6 +157,27 @@ void main() {
       expect(bills.single.billed.majorText, '100.00');
       expect(bills.single.paid.majorText, '20.00');
       expect(bills.single.remainingDue.majorText, '80.00');
+      await expectLater(
+        appendCardStatementRevision(
+          db,
+          workspace: workspace,
+          statementId: statementId,
+          cardId: card.id,
+          revision: 2,
+          cycle: CardCycle(
+            startsAfter: cycle.startsAfter,
+            closesOn: cycle.closesOn,
+            dueOn: BusinessDate(2026, 3, 16),
+          ),
+          billed: Money.parse(twd, '101'),
+          operation: OperationId(PublicId.generate()),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        (await confirmedCardStatements(db, workspace, card.id)).single.revision,
+        1,
+      );
       expect(
         (await unallocatedCardPayments(
           db,

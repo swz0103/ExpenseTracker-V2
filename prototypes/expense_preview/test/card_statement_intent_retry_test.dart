@@ -131,13 +131,40 @@ void main() {
         expect((await engine.confirmedCardStatements(card.id)), hasLength(1));
         await engine.retryPendingCardStatementIntent('confirmation');
         await confirm(Money.parse(currency, '101'));
-        final statement = (await engine.confirmedCardStatements(card.id))
-            .single;
+        var statement = (await engine.confirmedCardStatements(card.id)).single;
         expect(statement.billed.majorText, '101.00');
         expect(
           (await engine.pendingCardStatementIntents()).confirmation,
           isFalse,
         );
+
+        final revisedCycle = CardCycle(
+          startsAfter: cycle.startsAfter,
+          closesOn: cycle.closesOn,
+          dueOn: BusinessDate(2026, 10, 16),
+        );
+        Future<void> revise() => engine.submitCardStatementRevision(
+          statementId: statement.id,
+          cardId: card.id,
+          revision: 2,
+          cycle: revisedCycle,
+          billed: Money.parse(currency, '102'),
+        );
+        failConfirmation = true;
+        await expectLater(revise(), throwsA(isA<StateError>()));
+        expect(
+          (await engine.pendingCardStatementIntents()).confirmation,
+          isTrue,
+        );
+        await engine.lock();
+        engine = open();
+        await engine.unlock(password);
+        await engine.retryPendingCardStatementIntent('confirmation');
+        await revise();
+        statement = (await engine.confirmedCardStatements(card.id)).single;
+        expect(statement.revision, 2);
+        expect(statement.cycle.dueOn, BusinessDate(2026, 10, 16));
+        expect(statement.billed, Money.parse(currency, '102'));
 
         final payment = (await engine.unallocatedCardPayments(card.id)).single;
         Future<void> allocate(Money amount) =>

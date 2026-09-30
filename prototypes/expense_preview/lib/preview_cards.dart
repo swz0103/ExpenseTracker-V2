@@ -43,7 +43,9 @@ final class _CardStatementIntent {
       kind == other.kind &&
       workspace == other.workspace &&
       cardId == other.cardId &&
-      (kind == 'confirmation' || statementId == other.statementId) &&
+      (kind != 'confirmation' ||
+          (revision == 1 && other.revision == 1) ||
+          statementId == other.statementId) &&
       revision == other.revision &&
       paymentId == other.paymentId &&
       cycle?.startsAfter == other.cycle?.startsAfter &&
@@ -93,7 +95,7 @@ final class _CardStatementIntent {
                 fields[8] is! String ||
                 fields[9] is! String ||
                 fields[10] is! String ||
-                fields[6] != 1
+                (fields[6] as int) < 1
           : fields[7] is! String ||
                 fields[8] != null ||
                 fields[9] != null ||
@@ -219,6 +221,38 @@ extension PreviewCards on PreviewEngine {
       cardId: cardId,
       statementId: PublicId.generate(),
       revision: 1,
+      paymentId: null,
+      cycle: cycle,
+      amount: billed,
+      operation: OperationId(PublicId.generate()),
+      committed: false,
+    );
+    final prior = await _readCardIntent('confirmation');
+    if (prior != null && !prior.sameRequest(requested) && !prior.committed) {
+      throw DraftNeedsResolution();
+    }
+    final intent = prior?.sameRequest(requested) == true ? prior! : requested;
+    if (identical(intent, requested)) await _writeCardIntent(intent);
+    await _replayCardIntent(intent, epoch);
+  });
+
+  Future<void> submitCardStatementRevision({
+    required PublicId statementId,
+    required PublicId cardId,
+    required int revision,
+    required CardCycle cycle,
+    required Money billed,
+  }) => _draftExclusive((epoch) async {
+    _require();
+    if (!capabilities.cardStatements || revision < 2) {
+      throw PreviewInvalid();
+    }
+    final requested = _CardStatementIntent(
+      kind: 'confirmation',
+      workspace: _workspace!,
+      cardId: cardId,
+      statementId: statementId,
+      revision: revision,
       paymentId: null,
       cycle: cycle,
       amount: billed,

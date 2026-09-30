@@ -26,6 +26,8 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
   List<ConfirmedCardStatement> _statements = const [];
   List<CardUnallocatedPayment> _payments = const [];
   String? _cardId, _statementId, _paymentId, _message;
+  PublicId? _revisingStatementId;
+  int? _revisingFromRevision;
   bool _pendingConfirmation = false, _pendingAllocation = false;
   bool _busy = false;
   int _request = 0;
@@ -124,19 +126,58 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
     );
     final card = _cards.singleWhere((row) => row.account.id == cardId);
     final billed = Money.parse(card.account.currency, _billed.text.trim());
-    await widget.engine.submitCardStatementConfirmation(
-      cardId: cardId,
-      cycle: cycle,
-      billed: billed,
-    );
+    final revisingId = _revisingStatementId;
+    if (revisingId == null) {
+      await widget.engine.submitCardStatementConfirmation(
+        cardId: cardId,
+        cycle: cycle,
+        billed: billed,
+      );
+    } else {
+      await widget.engine.submitCardStatementRevision(
+        statementId: revisingId,
+        cardId: cardId,
+        revision: _revisingFromRevision! + 1,
+        cycle: cycle,
+        billed: billed,
+      );
+    }
     if (mounted) {
       _startsAfter.clear();
       _closesOn.clear();
       _dueOn.clear();
       _billed.clear();
-      setState(() => _message = '已保存實際帳單。');
+      setState(() {
+        _message = revisingId == null ? '已保存實際帳單。' : '已保存帳單修訂。';
+        _revisingStatementId = null;
+        _revisingFromRevision = null;
+      });
     }
   }, '帳單未保存；請檢查實際日期、重疊帳期與卡片設定後重試。');
+
+  void _startRevision(ConfirmedCardStatement statement) {
+    _startsAfter.text = statement.cycle.startsAfter.toString();
+    _closesOn.text = statement.cycle.closesOn.toString();
+    _dueOn.text = statement.cycle.dueOn.toString();
+    _billed.text = statement.billed.majorText;
+    setState(() {
+      _revisingStatementId = statement.id;
+      _revisingFromRevision = statement.revision;
+      _message = '正在修訂結帳 ${statement.cycle.closesOn} 的帳單。';
+    });
+  }
+
+  void _cancelRevision() {
+    _startsAfter.clear();
+    _closesOn.clear();
+    _dueOn.clear();
+    _billed.clear();
+    setState(() {
+      _revisingStatementId = null;
+      _revisingFromRevision = null;
+      _message = null;
+    });
+  }
 
   Future<void> _allocate() => _run(() async {
     final statement = _statements
@@ -242,8 +283,14 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
           onPressed: _busy || widget.privacy == PrivacyMode.hidden
               ? null
               : _confirm,
-          child: const Text('確認並保存帳單'),
+          child: Text(_revisingStatementId == null ? '確認並保存帳單' : '確認並保存帳單修訂'),
         ),
+        if (_revisingStatementId != null)
+          TextButton(
+            key: const ValueKey('cancel-statement-revision'),
+            onPressed: _busy ? null : _cancelRevision,
+            child: const Text('取消修訂'),
+          ),
         const SizedBox(height: 16),
         if (_pendingConfirmation) ...[
           const Text('前次帳單確認尚待核對，請先重試；系統會沿用原操作。'),
@@ -262,6 +309,15 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
               '發卡行帳單 ${presentMoney(row.billed, widget.privacy, MoneyKind.balance).text} · 已分配 ${presentMoney(row.paid, widget.privacy, MoneyKind.balance).text} · 未繳 ${presentMoney(row.remainingDue, widget.privacy, MoneyKind.balance).text}'
               '${row.billed != row.localCharges ? ' · 本機刷卡合計 ${presentMoney(row.localCharges, widget.privacy, MoneyKind.balance).text}，金額不符請核對' : ''}',
             ),
+            trailing: row.paid.minorUnits == BigInt.zero
+                ? TextButton(
+                    key: ValueKey('revise-statement-${row.id}'),
+                    onPressed: _busy || widget.privacy == PrivacyMode.hidden
+                        ? null
+                        : () => _startRevision(row),
+                    child: const Text('修訂'),
+                  )
+                : const Text('已分配，不可修訂'),
           ),
           for (final refund in row.refundsAfterClose)
             ListTile(
