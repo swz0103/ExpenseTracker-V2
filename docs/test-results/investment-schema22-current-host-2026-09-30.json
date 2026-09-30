@@ -13,7 +13,7 @@
   },
   "buildSafety": "A generic flutter build apk completed but produced the normal dev.expensetracker.preview package ID. It was not installed; the explicit synthetic Gradle variant was built and its package ID verified separately.",
   "notVerified": [
-    "No phone operation this batch, per user request to defer real-device verification",
+    "No phone installation or interactive validation this batch; read-only availability/package inspection preceded the user request to defer device verification",
     "Ledger generation full suite remains incomplete; previous run stopped after 245 passes on a long capacity case",
     "Drift multiple-database debug warnings remain under architecture review",
     "Current pull-request head exact-SHA cloud checks were not run",
