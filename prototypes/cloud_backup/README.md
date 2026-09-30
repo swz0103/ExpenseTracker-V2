@@ -10,6 +10,8 @@ Provider registry 可同時註冊多個來源，不硬編碼唯一 provider。�
 
 App-facing 手動流程以 provider ID 路由到注入的 upload target，不包含 Google Drive 分支。建立備份時仍要求密碼及救援文字雙驗證；下載時先核對遠端 SHA-256、長度與內容類型，之後允許以密碼或救援文字其中一條路徑解鎖，錯誤憑證不混同為傳輸損壞。解鎖後的 envelope 仍須交給既有乾淨還原流程驗證帳本並建立還原前安全副本。
 
+`expense_preview` 另有獨立、可注入 gateway 的 Flutter 功能畫面，涵蓋 provider 選擇、立即備份、歷史、下載還原與保留策略二次確認。這個畫面已定向測試，但按功能優先規劃尚未接入主導航或正式 engine 生命週期。
+
 契約依據：[Drive `files.generateIds`](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/generateIds)、[預產 ID 與 resumable upload](https://developers.google.com/workspace/drive/api/guides/manage-uploads)、[下載 blob](https://developers.google.com/workspace/drive/api/guides/manage-downloads)、[歷史清單](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list)、[永久刪除](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/delete)。
 
 目前完成 provider-neutral 契約、provider registry、手動 App use case、歷史與保留預覽／套用、Google Drive adapter 契約、SQLCipher 持久工作接線與合成 provider 測試。加密 envelope 會先寫入 immutable 暫存；Drive 物件保留與佇列工作跨重啟保存，暫存後入列前中斷可 reconciliation，遠端提交後回覆遺失會以同一 file ID 重試。

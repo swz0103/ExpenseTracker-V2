@@ -71,11 +71,12 @@ final class CloudBackupRetentionPolicy {
 }
 
 final class CloudBackupRetentionPlan {
-  CloudBackupRetentionPlan._({
+  CloudBackupRetentionPlan({
     required this.providerId,
-    required this.keep,
-    required this.delete,
-  });
+    required Iterable<RemoteBackupMetadata> keep,
+    required Iterable<RemoteBackupMetadata> delete,
+  }) : keep = List.unmodifiable(keep),
+       delete = List.unmodifiable(delete);
 
   final String providerId;
   final List<RemoteBackupMetadata> keep;
@@ -127,10 +128,10 @@ final class CloudBackupRetentionService {
         remove.add(item);
       }
     }
-    return CloudBackupRetentionPlan._(
+    return CloudBackupRetentionPlan(
       providerId: provider.providerId,
-      keep: List.unmodifiable(keep),
-      delete: List.unmodifiable(remove),
+      keep: keep,
+      delete: remove,
     );
   }
 

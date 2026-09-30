@@ -51,6 +51,8 @@ dependencies:
     path: ../storage_generation
   backup_envelope_probe:
     path: ../backup_envelope
+  cloud_backup_probe:
+    path: ../cloud_backup
   validated_restore_probe:
     path: ../validated_restore
 dev_dependencies:
