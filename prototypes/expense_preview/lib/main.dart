@@ -1871,6 +1871,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           _CardAuthorizationScreen(
             engine: _engine!,
             accounts: _accounts,
+            activeCardIds: _activeCreditCardIds,
             privacy: _privacy,
             onChanged: _refresh,
           ),

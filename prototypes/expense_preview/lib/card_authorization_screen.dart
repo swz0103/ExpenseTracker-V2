@@ -6,12 +6,14 @@ class _CardAuthorizationScreen extends StatefulWidget {
   const _CardAuthorizationScreen({
     required this.engine,
     required this.accounts,
+    required this.activeCardIds,
     required this.privacy,
     required this.onChanged,
   });
 
   final PreviewEngine engine;
   final List<AccountSummary> accounts;
+  final Set<PublicId> activeCardIds;
   final PrivacyMode privacy;
   final Future<void> Function() onChanged;
 
@@ -39,6 +41,9 @@ class _CardAuthorizationScreenState extends State<_CardAuthorizationScreen> {
   List<AccountSummary> get _cards => widget.accounts
       .where((row) => row.account.kind == AccountKind.creditCard)
       .toList();
+
+  bool get _selectedCardActive =>
+      _cardId != null && widget.activeCardIds.contains(_cardId);
 
   List<CardAuthorizationFact> get _pending => _facts
       .where(
@@ -199,7 +204,8 @@ class _CardAuthorizationScreenState extends State<_CardAuthorizationScreen> {
                 DropdownMenuItem(
                   value: row.account.id,
                   child: Text(
-                    '${row.account.name} · ${row.account.currency.code}',
+                    '${row.account.name} · ${row.account.currency.code}'
+                    '${widget.activeCardIds.contains(row.account.id) ? '' : ' · 已停用'}',
                   ),
                 ),
             ],
@@ -212,23 +218,25 @@ class _CardAuthorizationScreenState extends State<_CardAuthorizationScreen> {
                   }),
           ),
           const SizedBox(height: 8),
+          if (!_selectedCardActive)
+            const Text('此卡已停用，不可新增授權；停用前的待入帳仍可取消或依發卡行結果正式入帳。'),
           TextField(
             key: const ValueKey('authorization-date'),
             controller: _authorizedOn,
-            enabled: !_busy,
+            enabled: !_busy && _selectedCardActive,
             decoration: const InputDecoration(labelText: '授權日期（YYYY-MM-DD）'),
           ),
           TextField(
             key: const ValueKey('authorization-amount'),
             controller: _authorizedAmount,
-            enabled: !_busy,
+            enabled: !_busy && _selectedCardActive,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: '授權估計金額'),
           ),
           CheckboxListTile(
             key: const ValueKey('authorization-new-separate'),
             value: _newSeparateAuthorization,
-            onChanged: _busy
+            onChanged: _busy || !_selectedCardActive
                 ? null
                 : (value) => setState(
                     () => _newSeparateAuthorization = value ?? false,
@@ -237,7 +245,9 @@ class _CardAuthorizationScreenState extends State<_CardAuthorizationScreen> {
           ),
           FilledButton(
             key: const ValueKey('create-authorization'),
-            onPressed: _busy || !_loaded ? null : _authorize,
+            onPressed: _busy || !_loaded || !_selectedCardActive
+                ? null
+                : _authorize,
             child: const Text('記錄待入帳'),
           ),
           const SizedBox(height: 16),

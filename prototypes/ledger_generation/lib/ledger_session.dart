@@ -810,12 +810,16 @@ final class LedgerSession {
               account.currency != settledAmount.currency) {
             throw const CreditCardException(CreditCardError.currencyMismatch);
           }
-          final terms = await currentCardTerms(_db, ws);
-          if (!terms.any(
-            (term) =>
-                term.cardId == account.id && term.currency == account.currency,
+          // Disabling prevents a new authorization, but an authorization that
+          // the issuer accepted earlier may still settle afterwards. Require
+          // historical configuration instead of an active current revision.
+          final revisions = await cardTermsHistory(_db, ws);
+          if (!revisions.any(
+            (revision) =>
+                revision.terms.cardId == account.id &&
+                revision.terms.currency == account.currency,
           )) {
-            throw const FormatException('Card is disabled or unconfigured');
+            throw const FormatException('Card is unconfigured');
           }
         }
         await _capacity(purchase);

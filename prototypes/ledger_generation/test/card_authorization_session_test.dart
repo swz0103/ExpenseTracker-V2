@@ -202,6 +202,43 @@ void main() {
     expect(tables['events'], hasLength(2));
   });
 
+  test('disabled card rejects new authorization but resolves an existing pending one', () async {
+    final existing = pending();
+    await store.withSession((session) async {
+      await session.authorizeCardPurchase(existing, op());
+      await session.reviseCreditCard(
+        CreditCardTerms(
+          workspace: workspace,
+          cardId: card.id,
+          currency: twd,
+          closingDay: 28,
+          dueDay: 15,
+          version: 2,
+        ),
+        op(),
+        DateTime.utc(2026, 9, 30),
+        disabled: true,
+      );
+      await expectLater(
+        session.authorizeCardPurchase(pending(), op()),
+        throwsFormatException,
+      );
+      final posted = purchase(Money.parse(twd, '9'));
+      await session.postAuthorizedCardPurchase(
+        chargeId: existing.id,
+        purchase: posted,
+        settledAmount: Money.parse(twd, '9'),
+        fee: Money(twd, BigInt.zero),
+      );
+      final fact = (await session.cardAuthorizations(workspace)).single;
+      expect(fact.state, CardAuthorizationState.posted);
+      expect(
+        (await session.accounts(workspace)).single.balance,
+        Money.parse(twd, '-9'),
+      );
+    });
+  });
+
   test(
     'reusing authorization operation cannot leave a Ledger purchase',
     () async {

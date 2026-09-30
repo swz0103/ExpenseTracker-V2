@@ -399,12 +399,12 @@ extension PreviewAuthorizations on PreviewEngine {
       intent,
       epoch,
       validateNew: () async {
-        final terms = await _session!.creditCardTerms(_workspace!);
+        final history = await _session!.creditCardTermsHistory(_workspace!);
         if (fact.state != CardAuthorizationState.pending ||
             account.kind != AccountKind.creditCard ||
             account.state != AccountState.active ||
             account.currency != settledAmount.currency ||
-            !terms.any((term) => term.cardId == account.id) ||
+            !history.any((revision) => revision.terms.cardId == account.id) ||
             settledAmount.minorUnits <= BigInt.zero ||
             settledAmount.minorUnits > BigInt.from(9223372036854775807) ||
             postedOn.compareTo(fact.charge.authorizedOn) < 0) {
