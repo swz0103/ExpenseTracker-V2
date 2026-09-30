@@ -142,6 +142,38 @@ void main() {
       throwsA(isA<CloudBackupValidationException>()),
     );
   });
+
+  test('Drive history and permanent deletion recheck metadata', () async {
+    final api = _DriveApi();
+    final provider = GoogleDriveBackupProvider(
+      api: api,
+      reservations: _Reservations(),
+    );
+    final uploaded = await CloudBackupCoordinator(provider).upload(artifact);
+    expect(await provider.listBackups(), [
+      isA<RemoteBackupMetadata>().having(
+        (item) => item.objectId,
+        'objectId',
+        uploaded.objectId,
+      ),
+    ]);
+
+    api.tamperSha(uploaded.objectId);
+    await expectLater(
+      provider.deleteBackup(uploaded),
+      throwsA(isA<CloudBackupValidationException>()),
+    );
+    expect(api.contains(uploaded.objectId), isTrue);
+
+    final cleanApi = _DriveApi();
+    final cleanProvider = GoogleDriveBackupProvider(
+      api: cleanApi,
+      reservations: _Reservations(),
+    );
+    final clean = await CloudBackupCoordinator(cleanProvider).upload(artifact);
+    await cleanProvider.deleteBackup(clean);
+    expect(await cleanProvider.listBackups(), isEmpty);
+  });
 }
 
 final class _Reservations implements DriveReservationStore {
@@ -183,6 +215,19 @@ final class _DriveApi implements DriveBackupApi {
   String? lastCreateId;
   String? lastCreateName;
   Map<String, String>? lastCreateProperties;
+
+  bool contains(String fileId) => _files.containsKey(fileId);
+
+  void tamperSha(String fileId) {
+    final current = _files[fileId]!;
+    _files[fileId] = DriveFileRecord(
+      id: current.id,
+      mimeType: current.mimeType,
+      byteLength: current.byteLength,
+      appProperties: {...current.appProperties, 'sha256': '0' * 64},
+      trashed: current.trashed,
+    );
+  }
 
   @override
   Future<String> generateFileId() async {
@@ -229,4 +274,14 @@ final class _DriveApi implements DriveBackupApi {
   @override
   Future<List<int>> downloadFile(String fileId) async =>
       List<int>.from(_bytes[fileId]!);
+
+  @override
+  Future<List<DriveFileRecord>> listBackupFiles() async =>
+      _files.values.toList(growable: false);
+
+  @override
+  Future<void> deleteFile(String fileId) async {
+    _files.remove(fileId);
+    _bytes.remove(fileId);
+  }
 }

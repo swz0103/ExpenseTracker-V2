@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'cloud_backup.dart';
+import 'cloud_backup_history.dart';
 
 const googleDriveBackupProviderId = 'google-drive-v3';
 
@@ -55,6 +56,12 @@ abstract interface class DriveBackupApi {
   });
 
   Future<List<int>> downloadFile(String fileId);
+
+  /// Must paginate to completion and filter to non-trashed files carrying the
+  /// ExpenseTracker backup app property.
+  Future<List<DriveFileRecord>> listBackupFiles();
+
+  Future<void> deleteFile(String fileId);
 }
 
 /// A generated Drive file ID must be durable before upload starts. The store
@@ -65,7 +72,8 @@ abstract interface class DriveReservationStore {
   Future<void> save({required String backupId, required String objectId});
 }
 
-final class GoogleDriveBackupProvider implements CloudBackupProvider {
+final class GoogleDriveBackupProvider
+    implements CloudBackupProvider, CloudBackupCatalogProvider {
   const GoogleDriveBackupProvider({
     required this.api,
     required this.reservations,
@@ -147,7 +155,51 @@ final class GoogleDriveBackupProvider implements CloudBackupProvider {
       throw _providerError(error.failure);
     }
   }
+
+  @override
+  Future<List<RemoteBackupMetadata>> listBackups() async {
+    try {
+      final files = await api.listBackupFiles();
+      return files
+          .where((file) => !file.trashed)
+          .map(_metadata)
+          .toList(growable: false);
+    } on DriveApiException catch (error) {
+      throw _providerError(error.failure);
+    }
+  }
+
+  @override
+  Future<void> deleteBackup(RemoteBackupMetadata expected) async {
+    if (expected.providerId != providerId) {
+      throw const CloudBackupValidationException(
+        CloudBackupValidationFailure.remoteMetadataMismatch,
+      );
+    }
+    try {
+      final file = await api.getFile(expected.objectId);
+      if (file == null ||
+          file.trashed ||
+          !_sameRemote(_metadata(file), expected)) {
+        throw const CloudBackupValidationException(
+          CloudBackupValidationFailure.remoteMetadataMismatch,
+        );
+      }
+      await api.deleteFile(expected.objectId);
+    } on DriveApiException catch (error) {
+      throw _providerError(error.failure);
+    }
+  }
 }
+
+bool _sameRemote(RemoteBackupMetadata a, RemoteBackupMetadata b) =>
+    a.providerId == b.providerId &&
+    a.objectId == b.objectId &&
+    a.backupId == b.backupId &&
+    a.sha256 == b.sha256 &&
+    a.byteLength == b.byteLength &&
+    a.createdAt.toUtc() == b.createdAt.toUtc() &&
+    a.contentType == b.contentType;
 
 Map<String, String> _properties(VerifiedBackupArtifact artifact) => {
   'format': 'ExpenseTracker-V2-backup',

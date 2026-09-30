@@ -221,4 +221,14 @@ final class _DriveApi implements DriveBackupApi {
   @override
   Future<List<int>> downloadFile(String fileId) async =>
       List<int>.from(_bytes[fileId]!);
+
+  @override
+  Future<List<DriveFileRecord>> listBackupFiles() async =>
+      _files.values.toList(growable: false);
+
+  @override
+  Future<void> deleteFile(String fileId) async {
+    _files.remove(fileId);
+    _bytes.remove(fileId);
+  }
 }
