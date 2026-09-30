@@ -7,6 +7,7 @@ import 'package:expense_preview/preview_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 
 import 'support.dart';
@@ -142,4 +143,193 @@ void main() {
       }
     },
   );
+
+  test('schema22 investments survive an explicit opt-in upgrade to schema24 and both restores', () async {
+    final root = Directory('.dart_tool/current-schema-investment-upgrade')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('source-');
+    final vault = MemoryVault();
+    var engine = engineAt(work, vault, schemaVersion: 22);
+    try {
+      final recoveryKey = await setup(engine);
+      final cash = account(engine, name: 'Synthetic investment cash');
+      await engine.createAccount(cash, opening(cash));
+      final workspace = engine.workspace;
+      final currency = cash.currency;
+      final broker = BrokerIdentity(
+        id: PublicId.generate(),
+        workspace: workspace,
+        name: 'Synthetic broker',
+      );
+      final portfolio = InvestmentAccount(
+        id: PublicId.generate(),
+        workspace: workspace,
+        brokerId: broker.id,
+        fundingCashAccountId: cash.id,
+        name: 'Synthetic portfolio',
+        expectedVersion: 1,
+      );
+      final instrument = InvestmentInstrument(
+        id: PublicId.generate(),
+        kind: InstrumentKind.etf,
+        marketCode: 'XNAS',
+        symbol: 'TEST',
+        name: 'Synthetic ETF',
+        tradingCurrency: currency,
+      );
+      final funding = FundingCashAccount(
+        id: cash.id,
+        workspace: workspace,
+        currency: currency,
+        expectedVersion: 1,
+      );
+      final buy = InvestmentBuyPreview.create(
+        id: PublicId.generate(),
+        lotId: PublicId.generate(),
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        tradedOn: BusinessDate(2028, 2, 20),
+        broker: broker,
+        account: portfolio,
+        instrument: instrument,
+        funding: funding,
+        quantity: ShareQuantity.parse('2'),
+        unitPrice: ShareUnitPrice.parse(currency, '10'),
+        executedGross: Money.parse(currency, '20'),
+        fee: Money.parse(currency, '1'),
+        tax: Money.parse(currency, '0'),
+      );
+      await engine.submitInvestmentBuy(buy);
+      final sale = InvestmentSellPreview.create(
+        id: PublicId.generate(),
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        tradedOn: BusinessDate(2028, 2, 21),
+        broker: broker,
+        account: portfolio,
+        instrument: instrument,
+        funding: funding,
+        costMethod: InvestmentCostMethod.fifo,
+        quantity: ShareQuantity.parse('1'),
+        unitPrice: ShareUnitPrice.parse(currency, '30'),
+        executedGross: Money.parse(currency, '30'),
+        fee: Money.parse(currency, '1'),
+        tax: Money.parse(currency, '0'),
+        lots: await engine.investmentHoldingLots(portfolio.id, instrument.id),
+      );
+      await engine.submitInvestmentSell(sale);
+      expect((await engine.accounts()).single.balance.majorText, '108.00');
+      await engine.lock();
+
+      engine = engineAt(work, vault, schemaVersion: 24);
+      await expectLater(
+        engine.unlock(password),
+        throwsA(isA<PreviewUpgradeRequired>()),
+      );
+      await engine.upgrade(password);
+      expect(engine.capabilities.investmentDividends, isTrue);
+      expect(engine.capabilities.investmentSplits, isTrue);
+      expect((await engine.investmentBuys()).single.preview.id, buy.id);
+      expect(
+        (await engine.investmentSales(
+          portfolio.id,
+          instrument.id,
+        )).single.preview.id,
+        sale.id,
+      );
+      final held = (await engine.investmentHoldingLots(
+        portfolio.id,
+        instrument.id,
+      )).single;
+      expect(held.remainingQuantity.toString(), '1');
+      expect(held.remainingCost.majorText, '10.50');
+      expect((await engine.accounts()).single.balance.majorText, '108.00');
+      final copies = Directory('${work.path}/upgrade-backups')
+          .listSync()
+          .whereType<File>()
+          .toList();
+      expect(copies, hasLength(2));
+      final schemas = <int>{};
+      for (final copy in copies) {
+        final encrypted = copy.readAsStringSync();
+        final byPassword = await EnvelopeCodec().openWithPassword(
+          encrypted,
+          password,
+        );
+        final byRecovery = await EnvelopeCodec().openWithRecovery(
+          encrypted,
+          recoveryKey,
+        );
+        expect(byRecovery, byPassword);
+        schemas.add(
+          (jsonDecode(utf8.decode(byPassword)) as Map)['schema'] as int,
+        );
+      }
+      expect(schemas, {22, 23});
+
+      final split = StockSplitPreview.create(
+        id: PublicId.generate(),
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        effectiveOn: BusinessDate(2028, 3, 15),
+        broker: broker,
+        account: portfolio,
+        instrument: instrument,
+        newShares: 2,
+        oldShares: 1,
+        lots: [held],
+      );
+      await engine.submitInvestmentSplit(split);
+      expect(
+        (await engine.investmentHoldingLots(
+          portfolio.id,
+          instrument.id,
+        )).single.remainingQuantity.toString(),
+        '2',
+      );
+      expect((await engine.accounts()).single.balance.majorText, '108.00');
+      final backup = await engine.exportBackup();
+      for (final useRecovery in [false, true]) {
+        final restoredWork = root.createTempSync('restored-');
+        final restored = engineAt(
+          restoredWork,
+          MemoryVault(),
+          schemaVersion: 24,
+        );
+        try {
+          await setup(restored);
+          await restored.importBackup(
+            backup,
+            useRecovery ? recoveryKey : password,
+            recovery: useRecovery,
+          );
+          expect((await restored.investmentBuys()).single.preview.id, buy.id);
+          expect(
+            (await restored.investmentSales(
+              portfolio.id,
+              instrument.id,
+            )).single.preview.id,
+            sale.id,
+          );
+          expect(
+            (await restored.investmentSplits()).single.preview.id,
+            split.id,
+          );
+          final lot = (await restored.investmentHoldingLots(
+            portfolio.id,
+            instrument.id,
+          )).single;
+          expect(lot.remainingQuantity.toString(), '2');
+          expect(lot.remainingCost.majorText, '10.50');
+          expect(
+            (await restored.accounts()).single.balance.majorText,
+            '108.00',
+          );
+        } finally {
+          await restored.lock();
+          deleteSynthetic(restoredWork, root);
+        }
+      }
+    } finally {
+      await engine.lock();
+      deleteSynthetic(work, root);
+    }
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }
