@@ -12,6 +12,9 @@ class MarketQuotePanel extends StatefulWidget {
     required this.showAmounts,
     this.investmentAccountId,
     this.openLots,
+    this.realizedResults = const [],
+    this.netDividends = const [],
+    this.historicalCashFlows = const [],
     this.gateway,
   });
 
@@ -21,6 +24,11 @@ class MarketQuotePanel extends StatefulWidget {
   /// Null means authoritative holdings have not been loaded, not zero shares.
   final PublicId? investmentAccountId;
   final List<InvestmentHoldingLot>? openLots;
+
+  /// Committed financial facts for this account and instrument only.
+  final List<Money> realizedResults;
+  final List<Money> netDividends;
+  final List<InvestmentCashFlow> historicalCashFlows;
   final MarketDataGateway? gateway;
 
   @override
@@ -42,6 +50,9 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         oldWidget.showAmounts != widget.showAmounts ||
         oldWidget.openLots != widget.openLots ||
         oldWidget.investmentAccountId != widget.investmentAccountId ||
+        oldWidget.realizedResults != widget.realizedResults ||
+        oldWidget.netDividends != widget.netDividends ||
+        oldWidget.historicalCashFlows != widget.historicalCashFlows ||
         !identical(oldWidget.gateway, widget.gateway)) {
       _request++;
       _result = null;
@@ -68,25 +79,47 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
   Widget build(BuildContext context) {
     final result = _result;
     InvestmentPerformance? valuation;
+    InvestmentXirrResult? xirr;
     var invalidHoldings = false;
+    var quotePredatesTrade = false;
     if (widget.showAmounts &&
-        result?.state == MarketState.available &&
-        result?.value != null &&
         widget.openLots != null &&
         widget.investmentAccountId != null) {
       try {
+        final quote = result?.state == MarketState.available
+            ? result?.value
+            : null;
+        quotePredatesTrade =
+            quote != null &&
+            widget.historicalCashFlows.any(
+              (flow) => flow.date.compareTo(quote.asOf) > 0,
+            );
         valuation = InvestmentPerformance.calculate(
           investmentAccountId: widget.investmentAccountId!,
           instrumentId: widget.instrument.id,
           currency: widget.instrument.tradingCurrency,
           openLots: widget.openLots!,
-          realizedResults: const [],
-          netDividends: const [],
-          usablePrice: ShareUnitPrice.parse(
-            widget.instrument.tradingCurrency,
-            result!.value!.decimalPrice,
-          ),
+          realizedResults: widget.realizedResults,
+          netDividends: widget.netDividends,
+          usablePrice: quote == null || quotePredatesTrade
+              ? null
+              : ShareUnitPrice.parse(
+                  widget.instrument.tradingCurrency,
+                  quote.decimalPrice,
+                ),
         );
+        if (widget.historicalCashFlows.isNotEmpty &&
+            (valuation.quantityUnits == BigInt.zero ||
+                (valuation.marketValue != null && quote != null))) {
+          xirr = calculateInvestmentXirr(
+            currency: widget.instrument.tradingCurrency,
+            flows: [
+              ...widget.historicalCashFlows,
+              if (valuation.quantityUnits > BigInt.zero)
+                InvestmentCashFlow(quote!.asOf, valuation.marketValue!),
+            ],
+          );
+        }
       } on InvestmentPerformanceException {
         invalidHoldings = true;
       } on MoneyException {
@@ -104,6 +137,29 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
           child: Text(_loading ? '查詢中…' : '查詢最新收盤價'),
         ),
         if (!widget.showAmounts) const Text('隱私模式已遮蔽行情金額。'),
+        if (valuation != null && widget.showAmounts) ...[
+          Text(
+            '已實現損益 ${valuation.realizedResult.majorText} ${widget.instrument.tradingCurrency.code} · 現金股息淨額 ${valuation.netDividends.majorText}',
+          ),
+          if (valuation.totalReturn != null)
+            Text(
+              '總報酬 ${valuation.totalReturn!.majorText} ${widget.instrument.tradingCurrency.code}（含已實現與股息）',
+              key: const ValueKey('market-total-return'),
+            ),
+          if (xirr case final result?)
+            Text(switch (result.status) {
+              InvestmentXirrStatus.available =>
+                '年化報酬率約 ${(result.annualRate! * 100).toStringAsFixed(2)}%（XIRR，依實際現金流與參考收盤價）',
+              InvestmentXirrStatus.multipleRoots => '年化報酬率有多個解，暫不顯示。',
+              InvestmentXirrStatus.outsideSearchRange => '年化報酬率超出安全計算範圍。',
+              InvestmentXirrStatus.nonConvergent => '年化報酬率未收斂。',
+              InvestmentXirrStatus.noSolution => '現金流不足，無法計算年化報酬率。',
+            }, key: const ValueKey('market-xirr')),
+          if (valuation.quantityUnits > BigInt.zero &&
+              valuation.marketValue == null)
+            const Text('缺少可用的最新行情，暫不計算未實現損益、總報酬與年化報酬率。'),
+          if (quotePredatesTrade) const Text('參考行情早於最新交易，暫不作為目前持股估值。'),
+        ],
         if (widget.showAmounts && result != null) ...[
           if (result.value case final quote?) ...[
             Text(
@@ -120,9 +176,9 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
                 '資料已過期：${quote.decimalPrice} ${widget.instrument.tradingCurrency.code}；不可用於目前估值。',
                 key: const ValueKey('market-close-stale'),
               ),
-            if (valuation != null) ...[
+            if (valuation?.marketValue != null) ...[
               Text(
-                '目前持股估值 ${valuation.marketValue!.majorText} ${widget.instrument.tradingCurrency.code} · 剩餘成本 ${valuation.remainingCost.majorText}',
+                '目前持股估值 ${valuation!.marketValue!.majorText} ${widget.instrument.tradingCurrency.code} · 剩餘成本 ${valuation.remainingCost.majorText}',
                 key: const ValueKey('market-holding-value'),
               ),
               Text(

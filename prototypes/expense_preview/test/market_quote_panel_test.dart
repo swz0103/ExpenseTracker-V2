@@ -49,6 +49,7 @@ void main() {
     bool visible = true,
     InvestmentInstrument? selected,
     bool holdings = false,
+    bool history = false,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -57,6 +58,28 @@ void main() {
           showAmounts: visible,
           investmentAccountId: holdings ? accountId : null,
           openLots: holdings ? lots : null,
+          realizedResults: history
+              ? [Money.parse(instrument.tradingCurrency, '100.00')]
+              : const [],
+          netDividends: history
+              ? [Money.parse(instrument.tradingCurrency, '20.00')]
+              : const [],
+          historicalCashFlows: history
+              ? [
+                  InvestmentCashFlow(
+                    BusinessDate(2026, 1, 1),
+                    Money.parse(instrument.tradingCurrency, '-2500.00'),
+                  ),
+                  InvestmentCashFlow(
+                    BusinessDate(2026, 3, 1),
+                    Money.parse(instrument.tradingCurrency, '600.00'),
+                  ),
+                  InvestmentCashFlow(
+                    BusinessDate(2026, 6, 1),
+                    Money.parse(instrument.tradingCurrency, '20.00'),
+                  ),
+                ]
+              : const [],
           gateway: gateway,
         ),
       ),
@@ -107,6 +130,27 @@ void main() {
     expect(find.textContaining('隱私模式'), findsOneWidget);
     await show(tester, gateway);
     expect(find.textContaining('1234.50'), findsNothing);
+  });
+
+  testWidgets('committed gain and dividend join current mark and XIRR', (
+    tester,
+  ) async {
+    final gateway = MarketDataGateway(
+      transport: _Transport(rows),
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    await show(tester, gateway, holdings: true, history: true);
+    expect(find.byKey(const ValueKey('market-total-return')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('market-total-return')))
+          .data,
+      contains('589.00 TWD'),
+    );
+    expect(find.byKey(const ValueKey('market-xirr')), findsOneWidget);
+    expect(find.textContaining('年化報酬率約'), findsOneWidget);
   });
 
   testWidgets('unsupported market does not request a provider', (tester) async {
