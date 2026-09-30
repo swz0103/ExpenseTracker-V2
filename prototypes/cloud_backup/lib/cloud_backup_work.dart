@@ -12,6 +12,17 @@ const _jobPrefix = 'cloud-backup:';
 
 enum CloudBackupWorkState { staged, uploaded }
 
+enum CloudBackupWorkFailure {
+  authenticationRequired,
+  permissionDenied,
+  quotaExceeded,
+  throttled,
+  unavailable,
+  uncertainResult,
+  integrityRejected,
+  temporaryLocalFailure,
+}
+
 final class CloudBackupWorkRecord {
   const CloudBackupWorkRecord({
     required this.backupId,
@@ -22,6 +33,7 @@ final class CloudBackupWorkRecord {
     required this.fileName,
     required this.state,
     this.remoteObjectId,
+    this.lastFailure,
   });
 
   final String backupId;
@@ -32,6 +44,7 @@ final class CloudBackupWorkRecord {
   final String fileName;
   final CloudBackupWorkState state;
   final String? remoteObjectId;
+  final CloudBackupWorkFailure? lastFailure;
 }
 
 /// SQLCipher metadata plus an immutable, already-encrypted envelope file.
@@ -85,17 +98,40 @@ final class CloudBackupWorkStore implements DriveReservationStore {
               file_name TEXT NOT NULL UNIQUE,
               state TEXT NOT NULL CHECK(state IN ('staged','uploaded')),
               remote_object_id TEXT UNIQUE,
+              last_failure TEXT CHECK(last_failure IN (
+                'authenticationRequired','permissionDenied','quotaExceeded',
+                'throttled','unavailable','uncertainResult',
+                'integrityRejected','temporaryLocalFailure'
+              )),
               updated_at INTEGER NOT NULL
             ) STRICT
           ''');
           db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
-          db.execute('PRAGMA user_version=1');
+          db.execute('PRAGMA user_version=2');
           db.execute('COMMIT');
         } catch (_) {
           db.execute('ROLLBACK');
           rethrow;
         }
-      } else if (db.userVersion != 1) {
+      } else if (db.userVersion == 1) {
+        db.execute('BEGIN IMMEDIATE');
+        try {
+          db.execute('''
+            ALTER TABLE backup_work ADD COLUMN last_failure TEXT CHECK(
+              last_failure IN (
+                'authenticationRequired','permissionDenied','quotaExceeded',
+                'throttled','unavailable','uncertainResult',
+                'integrityRejected','temporaryLocalFailure'
+              )
+            )
+          ''');
+          db.execute('PRAGMA user_version=2');
+          db.execute('COMMIT');
+        } catch (_) {
+          db.execute('ROLLBACK');
+          rethrow;
+        }
+      } else if (db.userVersion != 2) {
         throw StateError('Unsupported cloud backup schema');
       }
       return CloudBackupWorkStore._(db, artifactDirectory);
@@ -193,7 +229,29 @@ final class CloudBackupWorkStore implements DriveReservationStore {
       throw StateError('Cloud backup completion does not match staged work');
     }
     _db.execute(
-      "UPDATE backup_work SET state='uploaded',updated_at=? WHERE backup_id=?",
+      "UPDATE backup_work SET state='uploaded',last_failure=NULL,updated_at=? WHERE backup_id=?",
+      [now.toUtc().millisecondsSinceEpoch, backupId],
+    );
+  }
+
+  void recordFailure({
+    required String backupId,
+    required CloudBackupWorkFailure failure,
+    required DateTime now,
+  }) {
+    if (byId(backupId) == null)
+      throw StateError('Unknown cloud backup work item');
+    _db.execute(
+      'UPDATE backup_work SET last_failure=?,updated_at=? WHERE backup_id=?',
+      [failure.name, now.toUtc().millisecondsSinceEpoch, backupId],
+    );
+  }
+
+  void clearFailure(String backupId, DateTime now) {
+    if (byId(backupId) == null)
+      throw StateError('Unknown cloud backup work item');
+    _db.execute(
+      'UPDATE backup_work SET last_failure=NULL,updated_at=? WHERE backup_id=?',
       [now.toUtc().millisecondsSinceEpoch, backupId],
     );
   }
@@ -231,6 +289,10 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     fileName: row['file_name'] as String,
     state: CloudBackupWorkState.values.byName(row['state'] as String),
     remoteObjectId: row['remote_object_id'] as String?,
+    lastFailure: switch (row['last_failure']) {
+      final String value => CloudBackupWorkFailure.values.byName(value),
+      _ => null,
+    },
   );
 
   File _file(String fileName) {
@@ -298,12 +360,57 @@ final class CloudBackupJobRunner {
         throw StateError('Cloud backup lease was lost');
       }
       return true;
+    } on CloudBackupProviderException catch (error) {
+      final backupId = _backupId(lease.job.idempotencyKey);
+      final failure = CloudBackupWorkFailure.values.byName(error.failure.name);
+      work.recordFailure(backupId: backupId, failure: failure, now: now);
+      if (_requiresUserAction(error.failure)) {
+        jobs.failTerminal(lease, now);
+      } else {
+        jobs.fail(lease, now);
+      }
+      rethrow;
+    } on CloudBackupValidationException {
+      final backupId = _backupId(lease.job.idempotencyKey);
+      work.recordFailure(
+        backupId: backupId,
+        failure: CloudBackupWorkFailure.integrityRejected,
+        now: now,
+      );
+      jobs.failTerminal(lease, now);
+      rethrow;
     } catch (_) {
+      final backupId = _backupId(lease.job.idempotencyKey);
+      work.recordFailure(
+        backupId: backupId,
+        failure: CloudBackupWorkFailure.temporaryLocalFailure,
+        now: now,
+      );
       jobs.fail(lease, now);
       rethrow;
     }
   }
+
+  bool retryAfterUserAction(String backupId, DateTime now) {
+    final record = work.byId(backupId);
+    if (record == null || record.state != CloudBackupWorkState.staged) {
+      return false;
+    }
+    final retried = jobs.retryTerminal('$_jobPrefix$backupId', now);
+    if (retried) work.clearFailure(backupId, now);
+    return retried;
+  }
 }
+
+bool _requiresUserAction(CloudBackupProviderFailure failure) =>
+    switch (failure) {
+      CloudBackupProviderFailure.authenticationRequired ||
+      CloudBackupProviderFailure.permissionDenied ||
+      CloudBackupProviderFailure.quotaExceeded => true,
+      CloudBackupProviderFailure.throttled ||
+      CloudBackupProviderFailure.unavailable ||
+      CloudBackupProviderFailure.uncertainResult => false,
+    };
 
 String _backupId(String key) {
   if (!key.startsWith(_jobPrefix) || key.length == _jobPrefix.length) {

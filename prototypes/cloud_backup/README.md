@@ -8,6 +8,8 @@ Google Drive adapter 以獨立 REST boundary 接入 `files.generateIds`、預先
 
 Google Drive REST transport 已實作 bearer token 注入、resumable upload、分頁 `files.list`、metadata、下載及刪除。Upload session URL 只接受 HTTPS Google APIs 主機；不跟隨重新導向，token 換行注入、過大回應、重複 page token 與超過 10,000 筆的異常清單均拒絕。上傳 bytes 後遺失回覆或收到可能已提交的 308／408／5xx 會回報結果不明，交由既有同 file ID inspect 流程收斂。
 
+持久工作 schema 2 只保存可公開分類的最後失敗原因。登入、權限、quota 與完整性錯誤不自動重試；使用者處理後可用同一 backup ID 手動續跑。限流、暫時不可用、結果不明與暫時本機錯誤使用原有退避。schema 1 工作可無損升級，token 與 provider 回應內容不寫入資料庫。
+
 Provider registry 可同時註冊多個來源，不硬編碼唯一 provider。支援 catalog 的 provider 可列出歷史；保留策略先產生固定的保留／刪除預覽，至少保留一份並可保護近期備份。只有明確套用後才刪除，且套用前整批重查、Drive adapter 刪除前再核對完整 metadata。Drive `files.delete` 是永久刪除，因此 App UI 必須有明確確認。
 
 App-facing 手動流程以 provider ID 路由到注入的 upload target，不包含 Google Drive 分支。建立備份時仍要求密碼及救援文字雙驗證；下載時先核對遠端 SHA-256、長度與內容類型，之後允許以密碼或救援文字其中一條路徑解鎖，錯誤憑證不混同為傳輸損壞。解鎖後的 envelope 仍須交給既有乾淨還原流程驗證帳本並建立還原前安全副本。

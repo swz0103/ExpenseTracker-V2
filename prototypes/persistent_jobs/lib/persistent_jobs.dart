@@ -237,6 +237,21 @@ final class PersistentJobStore {
     });
   }
 
+  /// Stops retrying immediately for failures that require user action or can
+  /// never succeed with the same immutable input.
+  bool failTerminal(JobLease lease, DateTime now) => _finish(
+    lease,
+    now,
+    (timestamp) => _db.execute(
+      '''
+      UPDATE jobs SET state='terminalFailure', available_at=?,
+        lease_until=NULL, lease_token=NULL, updated_at=?
+      WHERE id=? AND state='running' AND lease_token=?
+    ''',
+      [timestamp, timestamp, lease.job.id, lease.token],
+    ),
+  );
+
   /// Explicit manual retry retains the same id for remote deduplication.
   bool retryTerminal(String idempotencyKey, DateTime now) {
     _validateKey(idempotencyKey);

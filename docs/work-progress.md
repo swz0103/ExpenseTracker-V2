@@ -9,7 +9,8 @@
 - [x] App-facing 手動流程不分支判斷特定 provider：以穩定 backup ID、密碼與救援文字雙驗證後送入對應持久工作；歷史下載先核對遠端內容，再允許使用者以密碼或救援文字其中一種解鎖。錯誤憑證與內容損壞有不同結果，保留「忘記密碼靠救援文字」的用途。
 - [x] 獨立 Flutter 功能畫面可選 provider、立即建立備份、重整歷史、以密碼或救援文字下載還原，以及選擇保留份數；永久刪除先顯示保留／刪除數量並須再次確認。登入失效、quota、限流、錯誤憑證與完整性失敗各有不洩密提示。畫面透過 gateway 注入，未寫死 Google Drive。
 - [x] Google Drive HTTPS transport 已接 bearer token 注入、`generateIds`、resumable upload、metadata、下載、完整分頁歷史與永久刪除。Resumable `Location` 僅接受 HTTPS 的 Google APIs 主機；token 換行注入與過大值在送出前拒絕。401、權限、quota、限流、5xx、409 與上傳結果不明維持不同語意，回應內容不外洩。
-- [x] 核心、Drive adapter／HTTPS、持久工作、歷史／保留與手動流程共 31 項測試、靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存、同 backup ID 不同內容、遠端 metadata 變更及非信任 upload URL 均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
+- [x] 持久工作 schema 2 保存最後失敗原因；schema 1 原工作無損升級。登入、權限、quota 與完整性拒絕立即停止自動重試，待使用者處理後以同 backup ID 手動續跑；限流、暫時不可用、結果不明及本機暫時失敗才退避重試。最後錯誤不保存 token 或 provider 回應內容。
+- [x] 核心、Drive adapter／HTTPS、持久工作、歷史／保留與手動流程共 34 項測試；通用持久佇列 5 項測試、相關靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存、同 backup ID 不同內容、遠端 metadata 變更及非信任 upload URL 均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
 - [x] Flutter 畫面 4 項定向測試與受影響來源靜態分析通過：建立與歷史、救援文字還原 handoff、取消不刪除／確認才刪除、登入失效提示。
 - [ ] 尚未接 Google OAuth client／Android 帳號授權與 secure token storage、自動排程、主畫面導航、正式 engine 備份來源與既有乾淨還原入口；依功能優先策略，App 接線留到集中整合。實機亦未驗。M2-01 不稱完成。
 

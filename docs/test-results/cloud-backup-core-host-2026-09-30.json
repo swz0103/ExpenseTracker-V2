@@ -23,10 +23,13 @@
     "The Flutter screen maps authentication, quota, throttling, credential and integrity failures without exposing secrets",
     "The Google Drive REST transport implements generateIds, trusted resumable upload, metadata, download, complete paginated history and permanent deletion",
     "Bearer token header injection, untrusted upload locations, repeated page tokens and oversized histories fail closed; post-byte network/308/408/5xx outcomes remain uncertain for same-ID inspection",
-    "HTTP 401, permission, quota, throttling, conflict, availability and uncertain-result failures retain distinct meanings"
+    "HTTP 401, permission, quota, throttling, conflict, availability and uncertain-result failures retain distinct meanings",
+    "Authentication, permission, quota and integrity failures stop automatic retries; throttling, availability, uncertain result and temporary local failures retain bounded backoff",
+    "A user-action retry keeps the same backup ID and reservation, while encrypted work schema 1 upgrades to schema 2 without losing staged work"
   ],
   "hostChecks": {
-    "tests": "dart test --reporter expanded: 31 passed",
+    "tests": "dart test --reporter expanded: 34 passed",
+    "persistentJobTests": "dart test --reporter expanded: 5 passed",
     "analysis": "dart analyze: no issues",
     "appWidgetTests": "flutter test test/cloud_backup_screen_test.dart --reporter expanded: 4 passed",
     "appAffectedAnalysis": "dart analyze cloud backup screen, gateway and widget test: no issues",
@@ -39,5 +42,5 @@
     "The standalone Flutter screen is not yet wired to main navigation, the production engine source or existing clean-restore lifecycle",
     "Automatic scheduling and final integration gates remain open"
   ],
-  "gate": "Provider-neutral cloud backup core, Google Drive HTTPS, durable work, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
+  "gate": "Provider-neutral cloud backup core, Google Drive HTTPS, durable failure/retry work, history/retention, manual use cases and standalone Flutter UI passed targeted host checks; M2-01 remains in progress"
 }

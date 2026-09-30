@@ -209,4 +209,28 @@ void main() {
     expect(store.retryTerminal('backup:snapshot-4', thirdTime), isTrue);
     expect(store.retryTerminal('backup:snapshot-4', thirdTime), isFalse);
   });
+
+  test(
+    'non-retryable failure stops immediately and can be manually retried',
+    () {
+      store.enqueue(
+        idempotencyKey: 'backup:snapshot-terminal',
+        kind: 'backup.upload.v1',
+        now: start,
+      );
+      final lease = store.claim(
+        kind: 'backup.upload.v1',
+        now: start,
+        lease: const Duration(minutes: 1),
+      )!;
+      expect(store.failTerminal(lease, start), isTrue);
+      expect(store.failTerminal(lease, start), isFalse);
+      expect(
+        store.byKey('backup:snapshot-terminal')!.state,
+        JobState.terminalFailure,
+      );
+      expect(store.retryTerminal('backup:snapshot-terminal', start), isTrue);
+      expect(store.byKey('backup:snapshot-terminal')!.state, JobState.queued);
+    },
+  );
 }

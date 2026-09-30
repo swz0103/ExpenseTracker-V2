@@ -7,6 +7,7 @@ import 'package:cloud_backup_probe/cloud_backup_work.dart';
 import 'package:cloud_backup_probe/google_drive_adapter.dart';
 import 'package:encrypted_storage_probe/encrypted_database.dart';
 import 'package:persistent_jobs_probe/persistent_jobs.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -109,6 +110,10 @@ void main() {
       jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
       JobState.retryableFailure,
     );
+    expect(
+      work.byId(artifact.backupId)!.lastFailure,
+      CloudBackupWorkFailure.temporaryLocalFailure,
+    );
 
     final retryAt = start.add(const Duration(seconds: 30));
     expect(
@@ -131,7 +136,11 @@ void main() {
     expect(api.createCalls, 0);
     expect(
       jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
-      JobState.retryableFailure,
+      JobState.terminalFailure,
+    );
+    expect(
+      work.byId(artifact.backupId)!.lastFailure,
+      CloudBackupWorkFailure.integrityRejected,
     );
   });
 
@@ -160,6 +169,100 @@ void main() {
       ),
       throwsStateError,
     );
+  });
+
+  test(
+    'auth failure waits for user action and retries the same work',
+    () async {
+      api.createFailure = DriveApiFailure.authenticationRequired;
+      final runner = _runner(jobs: jobs, work: work, api: api);
+      await runner.schedule(artifact, now: start);
+      await expectLater(
+        runner.runNext(start),
+        throwsA(isA<CloudBackupProviderException>()),
+      );
+      expect(
+        jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
+        JobState.terminalFailure,
+      );
+      expect(
+        work.byId(artifact.backupId)!.lastFailure,
+        CloudBackupWorkFailure.authenticationRequired,
+      );
+      api.createFailure = null;
+      expect(runner.retryAfterUserAction(artifact.backupId, start), isTrue);
+      expect(work.byId(artifact.backupId)!.lastFailure, isNull);
+      expect(await runner.runNext(start), isTrue);
+    },
+  );
+
+  test('throttling remains retryable with a visible failure state', () async {
+    api.createFailure = DriveApiFailure.throttled;
+    final runner = _runner(jobs: jobs, work: work, api: api);
+    await runner.schedule(artifact, now: start);
+    await expectLater(
+      runner.runNext(start),
+      throwsA(isA<CloudBackupProviderException>()),
+    );
+    expect(
+      jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
+      JobState.retryableFailure,
+    );
+    expect(
+      work.byId(artifact.backupId)!.lastFailure,
+      CloudBackupWorkFailure.throttled,
+    );
+  });
+
+  test('schema 1 work store upgrades without losing staged work', () async {
+    final legacyRoot = Directory('${root.path}/legacy')..createSync();
+    final legacyKey = StorageKey.random();
+    final databaseFile = File('${legacyRoot.path}/work.db');
+    final db = sqlite3.open(databaseFile.path);
+    configureEncryption(db, legacyKey);
+    db.execute('''
+      CREATE TABLE backup_work (
+        backup_id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        byte_length INTEGER NOT NULL CHECK(byte_length > 0),
+        created_at INTEGER NOT NULL,
+        file_name TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL CHECK(state IN ('staged','uploaded')),
+        remote_object_id TEXT UNIQUE,
+        updated_at INTEGER NOT NULL
+      ) STRICT
+    ''');
+    db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
+    db.execute('PRAGMA user_version=1');
+    db.close();
+
+    var legacy = CloudBackupWorkStore.open(
+      databaseFile: databaseFile,
+      artifactDirectory: Directory('${legacyRoot.path}/artifacts'),
+      key: legacyKey,
+    );
+    await legacy.stage(
+      artifact,
+      providerId: googleDriveBackupProviderId,
+      now: start,
+    );
+    legacy.recordFailure(
+      backupId: artifact.backupId,
+      failure: CloudBackupWorkFailure.authenticationRequired,
+      now: start,
+    );
+    legacy.close();
+    legacy = CloudBackupWorkStore.open(
+      databaseFile: databaseFile,
+      artifactDirectory: Directory('${legacyRoot.path}/artifacts'),
+      key: legacyKey,
+    );
+    expect(
+      legacy.byId(artifact.backupId)!.lastFailure,
+      CloudBackupWorkFailure.authenticationRequired,
+    );
+    legacy.close();
   });
 }
 
@@ -190,6 +293,7 @@ final class _DriveApi implements DriveBackupApi {
   final _bytes = <String, List<int>>{};
   var generated = 0;
   var createCalls = 0;
+  DriveApiFailure? createFailure;
 
   @override
   Future<String> generateFileId() async => 'drive_${++generated}';
@@ -206,6 +310,7 @@ final class _DriveApi implements DriveBackupApi {
     required Map<String, String> appProperties,
   }) async {
     createCalls++;
+    if (createFailure != null) throw DriveApiException(createFailure!);
     final record = DriveFileRecord(
       id: fileId,
       mimeType: mimeType,
