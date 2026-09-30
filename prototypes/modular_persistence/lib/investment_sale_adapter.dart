@@ -80,6 +80,10 @@ Future<CommitResult> commitInvestmentSell(
           position.lastDate!.compareTo(preview.tradedOn) > 0) {
         throw const FormatException('Investment sale date precedes prior sale');
       }
+      if (position.lastSplitDate != null &&
+          position.lastSplitDate!.compareTo(preview.tradedOn) > 0) {
+        throw const FormatException('Investment sale date precedes split');
+      }
       await LedgerAdapter(
         db,
         sourceContext: 'investment-sell-v1',
@@ -291,15 +295,20 @@ final class _InvestmentPosition {
     this.identity,
     this.lots,
     this.sales,
+    this.splits,
     this.lastMethod,
     this.lastDate,
+    this.lastSplitDate,
   );
   final InvestmentBuyPreview? identity;
   final Map<PublicId, InvestmentHoldingLot> lots;
   final List<InvestmentSellFact> sales;
+  final List<InvestmentSplitFact> splits;
   final InvestmentCostMethod? lastMethod;
   final BusinessDate? lastDate;
+  final BusinessDate? lastSplitDate;
   int get saleCount => sales.length;
+  int get splitCount => splits.length;
 }
 
 Future<_InvestmentPosition> _loadPosition(
@@ -341,10 +350,50 @@ Future<_InvestmentPosition> _loadPosition(
         ],
       )
       .get();
+  final splitRows = db.investmentSplitsAware
+      ? await db
+            .customSelect(
+              'SELECT * FROM investment_splits WHERE workspace=? '
+              'AND investment_account_id=? AND instrument_id=? ORDER BY sequence',
+              variables: [
+                Variable(workspace.toString()),
+                Variable(investmentAccountId.value),
+                Variable(instrumentId.value),
+              ],
+            )
+            .get()
+      : <QueryRow>[];
+  final actions =
+      <({QueryRow row, BusinessDate date, bool split, int order})>[
+        for (final row in rows)
+          (
+            row: row,
+            date: BusinessDate.parse(
+              _map(jsonDecode(row.read<String>('payload')))['tradedOn']
+                  as String,
+            ),
+            split: false,
+            order: row.read<int>('sequence'),
+          ),
+        for (final row in splitRows)
+          (
+            row: row,
+            date: BusinessDate.parse(row.read<String>('effective_on')),
+            split: true,
+            order: row.read<int>('sequence'),
+          ),
+      ]..sort((a, b) {
+        final date = a.date.compareTo(b.date);
+        if (date != 0) return date;
+        if (a.split != b.split) return a.split ? -1 : 1;
+        return a.order.compareTo(b.order);
+      });
   final lots = <PublicId, InvestmentHoldingLot>{};
   final sales = <InvestmentSellFact>[];
+  final splits = <InvestmentSplitFact>[];
   InvestmentCostMethod? method;
   BusinessDate? lastDate;
+  BusinessDate? lastSplitDate;
   var purchaseIndex = 0;
   void addPurchase(InvestmentBuyFact buy) {
     final preview = buy.preview;
@@ -362,20 +411,35 @@ Future<_InvestmentPosition> _loadPosition(
     );
   }
 
-  for (var index = 0; index < rows.length; index++) {
-    final row = rows[index];
-    if (identity == null || row.read<int>('sequence') != index + 1) {
+  for (final action in actions) {
+    final row = action.row;
+    while (purchaseIndex < purchases.length &&
+        purchases[purchaseIndex].preview.tradedOn.compareTo(action.date) <= 0) {
+      addPurchase(purchases[purchaseIndex++]);
+    }
+    if (action.split) {
+      if (identity == null ||
+          row.read<int>('sequence') != splits.length + 1 ||
+          (lastDate != null && lastDate.compareTo(action.date) >= 0) ||
+          (lastSplitDate != null &&
+              lastSplitDate.compareTo(action.date) >= 0)) {
+        throw const FormatException('Invalid investment split chronology');
+      }
+      splits.add(await _applySplitRow(db, row, identity, lots));
+      lastSplitDate = action.date;
+      continue;
+    }
+    if (identity == null || row.read<int>('sequence') != sales.length + 1) {
       throw const FormatException('Invalid investment sale sequence');
     }
     final payload = row.read<String>('payload');
     final data = _map(jsonDecode(payload));
-    final tradedOn = BusinessDate.parse(data['tradedOn'] as String);
+    final tradedOn = action.date;
     if (lastDate != null && lastDate.compareTo(tradedOn) > 0) {
       throw const FormatException('Investment sale chronology mismatch');
     }
-    while (purchaseIndex < purchases.length &&
-        purchases[purchaseIndex].preview.tradedOn.compareTo(tradedOn) <= 0) {
-      addPurchase(purchases[purchaseIndex++]);
+    if (lastSplitDate != null && lastSplitDate.compareTo(tradedOn) > 0) {
+      throw const FormatException('Investment sale precedes split');
     }
     final preview = _decodeSellPreview(data, identity, lots.values.toList());
     if (jsonEncode(_sellMap(preview)) != payload ||
@@ -412,14 +476,22 @@ Future<_InvestmentPosition> _loadPosition(
       }
     }
     final eventId = PublicId.parse(row.read<String>('event_id'));
-    sales.add(InvestmentSellFact(preview, eventId, index + 1));
+    sales.add(InvestmentSellFact(preview, eventId, sales.length + 1));
     method = preview.costMethod;
     lastDate = tradedOn;
   }
   while (purchaseIndex < purchases.length) {
     addPurchase(purchases[purchaseIndex++]);
   }
-  return _InvestmentPosition(identity, lots, sales, method, lastDate);
+  return _InvestmentPosition(
+    identity,
+    lots,
+    sales,
+    splits,
+    method,
+    lastDate,
+    lastSplitDate,
+  );
 }
 
 InvestmentSellPreview _decodeSellPreview(

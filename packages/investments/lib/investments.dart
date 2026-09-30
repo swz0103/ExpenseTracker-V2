@@ -3,6 +3,7 @@ export 'src/preview_codec.dart';
 export 'src/sell.dart';
 export 'src/sell_preview_codec.dart';
 export 'src/stock_split.dart';
+export 'src/stock_split_preview_codec.dart';
 export 'src/dividend.dart';
 export 'src/dividend_preview_codec.dart';
 export 'src/performance.dart';

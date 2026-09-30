@@ -134,6 +134,7 @@ final class LedgerSession {
         investmentsAware: _db.investmentsAware,
         investmentSalesAware: _db.investmentSalesAware,
         investmentDividendsAware: _db.investmentDividendsAware,
+        investmentSplitsAware: _db.investmentSplitsAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -155,6 +156,7 @@ final class LedgerSession {
       investmentsAware: _db.investmentsAware,
       investmentSalesAware: _db.investmentSalesAware,
       investmentDividendsAware: _db.investmentDividendsAware,
+      investmentSplitsAware: _db.investmentSplitsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -385,6 +387,49 @@ final class LedgerSession {
         await _checkRows(
           'investment_dividends',
           'workspace=? AND dividend_id=?',
+          [preview.operation.workspace.toString(), preview.id.value],
+        );
+      }
+      return result;
+    }),
+  );
+
+  Future<List<investment.InvestmentSplitFact>> investmentSplits(
+    WorkspaceId workspace, [
+    PublicId? accountId,
+  ]) => _enqueue(() => investment.investmentSplits(_db, workspace, accountId));
+
+  /// A split adds one immutable corporate-action fact and exact lot deltas.
+  Future<CommitResult> postInvestmentSplit(
+    StockSplitPreview preview, {
+    void Function(String)? checkpoint,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.investmentSplitsAware) {
+        throw UnsupportedError('Investment splits require schema 24');
+      }
+      if (!await _hasOperation(preview.operation)) {
+        await _admitCapacity();
+        if (await _count('investment_splits') >= maxEvents ||
+            await _count('investment_split_lots') + preview.lots.length >
+                SnapshotCodec.maxRows) {
+          throw PreviewCapacity();
+        }
+      }
+      final result = await investment.commitInvestmentSplit(
+        _db,
+        preview,
+        checkpoint: checkpoint,
+      );
+      if (!result.replayed) {
+        await _checkOperationRows(preview.operation);
+        await _checkRows('investment_splits', 'workspace=? AND split_id=?', [
+          preview.operation.workspace.toString(),
+          preview.id.value,
+        ]);
+        await _checkRows(
+          'investment_split_lots',
+          'workspace=? AND split_id=?',
           [preview.operation.workspace.toString(), preview.id.value],
         );
       }
@@ -1468,6 +1513,7 @@ final class LedgerSession {
       investmentsAware: _db.investmentsAware,
       investmentSalesAware: _db.investmentSalesAware,
       investmentDividendsAware: _db.investmentDividendsAware,
+      investmentSplitsAware: _db.investmentSplitsAware,
     ).capture(_db),
   );
 

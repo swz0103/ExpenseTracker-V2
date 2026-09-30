@@ -43,6 +43,8 @@ const _rowByteLimits = <String, int>{
   'investment_sales': 1024 * 1024,
   'investment_sale_allocations': 512,
   'investment_dividends': 8192,
+  'investment_splits': 1024 * 1024,
+  'investment_split_lots': 512,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -65,6 +67,7 @@ Map<String, int> _tableLimits(
   bool investments,
   bool investmentSales,
   bool investmentDividends,
+  bool investmentSplits,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -94,6 +97,8 @@ Map<String, int> _tableLimits(
   if (investmentSales) 'investment_sales': LedgerSession.maxEvents,
   if (investmentSales) 'investment_sale_allocations': SnapshotCodec.maxRows,
   if (investmentDividends) 'investment_dividends': LedgerSession.maxEvents,
+  if (investmentSplits) 'investment_splits': LedgerSession.maxEvents,
+  if (investmentSplits) 'investment_split_lots': SnapshotCodec.maxRows,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -103,14 +108,16 @@ Map<String, int> _tableLimits(
       (tags ? LedgerSession.maxTagChanges : 0) +
       (merchants ? LedgerSession.maxMerchantChanges : 0) +
       (notes ? LedgerSession.maxNoteChanges : 0) +
-      (tombstones ? LedgerSession.maxEvents : 0),
+      (tombstones ? LedgerSession.maxEvents : 0) +
+      (investmentSplits ? LedgerSession.maxEvents : 0),
   'audit':
       LedgerSession.maxEvents +
       (categories ? LedgerSession.maxCategoryChanges : 0) +
       (tags ? LedgerSession.maxTagChanges : 0) +
       (merchants ? LedgerSession.maxMerchantChanges : 0) +
       (notes ? LedgerSession.maxNoteChanges : 0) +
-      (tombstones ? LedgerSession.maxEvents : 0),
+      (tombstones ? LedgerSession.maxEvents : 0) +
+      (investmentSplits ? LedgerSession.maxEvents : 0),
   if (merchants) 'merchants': LedgerSession.maxMerchants,
   if (merchants) 'merchant_changes': LedgerSession.maxMerchantChanges,
   if (merchants) 'event_merchants': LedgerSession.maxEvents,
@@ -170,8 +177,11 @@ void _checkRowBytes(String table, Map row) {
                   'investment-buy-v1',
                   'investment-sell-v1',
                   'investment-dividend-v1',
+                  'investment-split-v1',
                 ].contains((jsonDecode(row['input'] as String) as List).first))
       ? input?.first == 'investment-sell-v1'
+            ? 1024 * 1024
+            : input?.first == 'investment-split-v1'
             ? 1024 * 1024
             : input?.first == 'investment-dividend-v1'
             ? 8192
@@ -207,6 +217,7 @@ List<int> validateSessionCapacity(
   bool investmentsAware = false,
   bool investmentSalesAware = false,
   bool investmentDividendsAware = false,
+  bool investmentSplitsAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -240,6 +251,7 @@ List<int> validateSessionCapacity(
     investmentsAware: investmentsAware,
     investmentSalesAware: investmentSalesAware,
     investmentDividendsAware: investmentDividendsAware,
+    investmentSplitsAware: investmentSplitsAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -264,6 +276,7 @@ List<int> validateSessionCapacity(
     investmentsAware,
     investmentSalesAware,
     investmentDividendsAware,
+    investmentSplitsAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -297,7 +310,12 @@ List<int> validateSessionCapacity(
         ].contains(row['kind']),
       ) ||
       (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||
-      receipts.length != events.length + changes ||
+      receipts.length !=
+          events.length +
+              changes +
+              (investmentSplitsAware
+                  ? (tables['investment_splits'] as List).length
+                  : 0) ||
       (tables['audit'] as List).length != receipts.length ||
       receipts.where((row) => _accountReceipt(row as Map)).length >
           LedgerSession.maxAccounts) {

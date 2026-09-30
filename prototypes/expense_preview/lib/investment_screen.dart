@@ -52,12 +52,15 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
   bool _busy = false;
   bool _pending = false;
   bool _sellPending = false;
+  bool _dividendPending = false;
+  bool _splitPending = false;
   bool _sellLotsReady = false;
   bool _loaded = false;
   int _request = 0;
   int _sellRequest = 0;
 
-  bool get _hasPendingOperation => _pending || _sellPending;
+  bool get _hasPendingOperation =>
+      _pending || _sellPending || _dividendPending || _splitPending;
 
   List<AccountSummary> get _fundingAccounts => _currentAccounts
       .where(
@@ -126,6 +129,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _sellReview = null;
       _pending = false;
       _sellPending = false;
+      _dividendPending = false;
+      _splitPending = false;
       _sellLotsReady = false;
       _loaded = false;
       _fundingId = _fundingAccounts.firstOrNull?.account.id;
@@ -184,6 +189,12 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       final sellPending = widget.engine.capabilities.investmentSales
           ? await widget.engine.hasPendingInvestmentSell()
           : false;
+      final dividendPending = widget.engine.capabilities.investmentDividends
+          ? await widget.engine.hasPendingInvestmentDividend()
+          : false;
+      final splitPending = widget.engine.capabilities.investmentSplits
+          ? await widget.engine.hasPendingInvestmentSplit()
+          : false;
       if (!mounted ||
           request != _request ||
           !widget.engine.isUnlocked ||
@@ -195,6 +206,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         _saved = saved;
         _pending = pending;
         _sellPending = sellPending;
+        _dividendPending = dividendPending;
+        _splitPending = splitPending;
         _loaded = true;
         if (!_fundingAccounts.any((row) => row.account.id == _fundingId)) {
           _fundingId = _fundingAccounts.firstOrNull?.account.id;
@@ -1049,6 +1062,16 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             engine: widget.engine,
             buys: _saved,
             accounts: _currentAccounts,
+            privacy: widget.privacy,
+            otherPending: _hasPendingOperation,
+            onSaved: _load,
+          ),
+        ],
+        if (widget.engine.capabilities.investmentSplits) ...[
+          const SizedBox(height: 8),
+          _InvestmentSplitSection(
+            engine: widget.engine,
+            buys: _saved,
             privacy: widget.privacy,
             otherPending: _hasPendingOperation,
             onSaved: _load,

@@ -494,4 +494,119 @@ void main() {
       deleteSynthetic(work, root);
     }
   });
+
+  testWidgets('split previews unchanged cost and needs explicit confirmation', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('split-confirm-');
+    final engine = engineAt(work, MemoryVault(), schemaVersion: 24);
+    try {
+      late InvestmentBuyPreview buy;
+      await tester.runAsync(() async {
+        await setup(engine);
+        buy = await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine);
+      await _tapKey(tester, 'investment-split-section');
+      await _tapKey(tester, 'investment-split-position');
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byType(DropdownMenuItem<PublicId>).last,
+        warnIfMissed: false,
+      );
+      await _waitForKey(tester, 'investment-split-new');
+      await _enterKey(tester, 'investment-split-date', '2026-10-01');
+      await _enterKey(tester, 'investment-split-new', '2');
+      await _enterKey(tester, 'investment-split-old', '1');
+      await _tapKey(tester, 'review-investment-split');
+      expect(
+        find.byKey(const ValueKey('save-investment-split')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('21.00 TWD'), findsWidgets);
+      expect((await tester.runAsync(engine.investmentSplits))!, isEmpty);
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(7900),
+      );
+      await _tapKey(tester, 'save-investment-split');
+      await _waitForEnabledButton(tester, 'review-investment-split');
+      expect((await tester.runAsync(engine.investmentSplits))!, hasLength(1));
+      expect(
+        (await tester.runAsync(
+          () => engine.investmentHoldingLots(buy.account.id, buy.instrument.id),
+        ))!.single.remainingQuantity.toString(),
+        '4',
+      );
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(7900),
+      );
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
+
+  testWidgets('ambiguous split result offers same-action retry', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('split-retry-');
+    var interruptOnce = true;
+    final engine = engineAt(
+      work,
+      MemoryVault(),
+      schemaVersion: 24,
+      draftCheckpoint: (stage) {
+        if (stage == 'investment-split-committed' && interruptOnce) {
+          interruptOnce = false;
+          throw StateError('synthetic acknowledgement loss');
+        }
+      },
+    );
+    try {
+      await tester.runAsync(() async {
+        await setup(engine);
+        await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine);
+      await _tapKey(tester, 'investment-split-section');
+      await _tapKey(tester, 'investment-split-position');
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byType(DropdownMenuItem<PublicId>).last,
+        warnIfMissed: false,
+      );
+      await _waitForKey(tester, 'investment-split-new');
+      await _enterKey(tester, 'investment-split-date', '2026-10-01');
+      await _enterKey(tester, 'investment-split-new', '2');
+      await _enterKey(tester, 'investment-split-old', '1');
+      await _tapKey(tester, 'review-investment-split');
+      await _tapKey(tester, 'save-investment-split');
+      await _waitForEnabledButton(tester, 'retry-investment-split');
+      expect(
+        (await tester.runAsync(engine.hasPendingInvestmentSplit))!,
+        isTrue,
+      );
+      expect((await tester.runAsync(engine.investmentSplits))!, hasLength(1));
+      await _tapKey(tester, 'retry-investment-split');
+      await _waitForEnabledButton(tester, 'review-investment-split');
+      expect(
+        (await tester.runAsync(engine.hasPendingInvestmentSplit))!,
+        isFalse,
+      );
+      expect((await tester.runAsync(engine.investmentSplits))!, hasLength(1));
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
 }

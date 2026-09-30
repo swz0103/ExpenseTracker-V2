@@ -146,7 +146,132 @@ final class _InvestmentDividendIntent {
   }
 }
 
+/// A split has no cash event; its own immutable ID is the receipt result.
+final class _InvestmentSplitIntent {
+  const _InvestmentSplitIntent(this.preview, this.committed);
+
+  final StockSplitPreview preview;
+  final bool committed;
+  String get signature => const StockSplitPreviewCodec().encode(preview);
+
+  _InvestmentSplitIntent complete() => _InvestmentSplitIntent(preview, true);
+
+  String encode() => jsonEncode([
+    'investment-split-intent-v1',
+    committed ? 'committed' : 'pending',
+    signature,
+  ]);
+
+  static _InvestmentSplitIntent decode(String raw, WorkspaceId workspace) {
+    try {
+      final fields = jsonDecode(raw);
+      if (fields is! List ||
+          fields.length != 3 ||
+          fields[0] != 'investment-split-intent-v1' ||
+          (fields[1] != 'pending' && fields[1] != 'committed') ||
+          fields[2] is! String) {
+        throw const FormatException('Invalid split intent');
+      }
+      final intent = _InvestmentSplitIntent(
+        const StockSplitPreviewCodec().decode(fields[2] as String),
+        fields[1] == 'committed',
+      );
+      if (intent.preview.operation.workspace != workspace ||
+          intent.encode() != raw) {
+        throw const FormatException('Noncanonical split intent');
+      }
+      return intent;
+    } catch (_) {
+      throw DraftUnavailable();
+    }
+  }
+}
+
 extension PreviewInvestments on PreviewEngine {
+  String get _investmentSplitIntentSlot =>
+      'investment_split_intent_${_identity!.value}';
+
+  Future<_InvestmentSplitIntent?> _readInvestmentSplitIntent() async {
+    final raw = await vault.read(_investmentSplitIntentSlot);
+    if (raw == null) return null;
+    return _InvestmentSplitIntent.decode(raw, _workspace!);
+  }
+
+  Future<void> _writeInvestmentSplitIntent(
+    _InvestmentSplitIntent intent,
+  ) async {
+    final encoded = intent.encode();
+    await vault.write(_investmentSplitIntentSlot, encoded);
+    if (await vault.read(_investmentSplitIntentSlot) != encoded) {
+      throw DraftUnavailable();
+    }
+  }
+
+  Future<List<InvestmentSplitFact>> investmentSplits([PublicId? accountId]) =>
+      _exclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentSplits) throw PreviewInvalid();
+        final facts = await _session!.investmentSplits(_workspace!, accountId);
+        _check(epoch);
+        return facts;
+      });
+
+  Future<bool> hasPendingInvestmentSplit() => _exclusive((epoch) async {
+    _require();
+    if (!capabilities.investmentSplits) throw PreviewInvalid();
+    final intent = await _readInvestmentSplitIntent();
+    _check(epoch);
+    return intent != null && !intent.committed;
+  });
+
+  Future<void> _replayInvestmentSplit(
+    _InvestmentSplitIntent intent,
+    int epoch,
+  ) async {
+    _check(epoch);
+    await _session!.postInvestmentSplit(intent.preview);
+    draftCheckpoint?.call('investment-split-committed');
+    _check(epoch);
+    await _writeInvestmentSplitIntent(intent.complete());
+  }
+
+  Future<void> retryPendingInvestmentSplit() => _draftExclusive((epoch) async {
+    _require();
+    if (!capabilities.investmentSplits) throw PreviewInvalid();
+    final intent = await _readInvestmentSplitIntent();
+    if (intent == null || intent.committed) throw PreviewInvalid();
+    await _replayInvestmentSplit(intent, epoch);
+  });
+
+  Future<void> submitInvestmentSplit(StockSplitPreview preview) =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentSplits ||
+            preview.operation.workspace != _workspace) {
+          throw PreviewInvalid();
+        }
+        final pendingBuy = await _readInvestmentIntent();
+        final pendingSell = await _readInvestmentSellIntent();
+        final pendingDividend = await _readInvestmentDividendIntent();
+        if ((pendingBuy != null && !pendingBuy.committed) ||
+            (pendingSell != null && !pendingSell.committed) ||
+            (pendingDividend != null && !pendingDividend.committed)) {
+          throw DraftNeedsResolution();
+        }
+        final prior = await _readInvestmentSplitIntent();
+        final signature = const StockSplitPreviewCodec().encode(preview);
+        if (prior != null && !prior.committed && prior.signature != signature) {
+          throw DraftNeedsResolution();
+        }
+        final intent = prior?.signature == signature
+            ? prior!
+            : _InvestmentSplitIntent(preview, false);
+        if (!identical(intent, prior)) {
+          await _writeInvestmentSplitIntent(intent);
+        }
+        await _replayInvestmentSplit(intent, epoch);
+      });
+
   String get _investmentDividendIntentSlot =>
       'investment_dividend_intent_${_identity!.value}';
 
@@ -216,6 +341,12 @@ extension PreviewInvestments on PreviewEngine {
         if ((pendingBuy != null && !pendingBuy.committed) ||
             (pendingSell != null && !pendingSell.committed)) {
           throw DraftNeedsResolution();
+        }
+        if (capabilities.investmentSplits) {
+          final pendingSplit = await _readInvestmentSplitIntent();
+          if (pendingSplit != null && !pendingSplit.committed) {
+            throw DraftNeedsResolution();
+          }
         }
         final prior = await _readInvestmentDividendIntent();
         final signature = const InvestmentDividendPreviewCodec().encode(
@@ -301,6 +432,12 @@ extension PreviewInvestments on PreviewEngine {
         if (capabilities.investmentDividends) {
           final pendingDividend = await _readInvestmentDividendIntent();
           if (pendingDividend != null && !pendingDividend.committed) {
+            throw DraftNeedsResolution();
+          }
+        }
+        if (capabilities.investmentSplits) {
+          final pendingSplit = await _readInvestmentSplitIntent();
+          if (pendingSplit != null && !pendingSplit.committed) {
             throw DraftNeedsResolution();
           }
         }
@@ -404,6 +541,12 @@ extension PreviewInvestments on PreviewEngine {
         if (capabilities.investmentDividends) {
           final pendingDividend = await _readInvestmentDividendIntent();
           if (pendingDividend != null && !pendingDividend.committed) {
+            throw DraftNeedsResolution();
+          }
+        }
+        if (capabilities.investmentSplits) {
+          final pendingSplit = await _readInvestmentSplitIntent();
+          if (pendingSplit != null && !pendingSplit.committed) {
             throw DraftNeedsResolution();
           }
         }

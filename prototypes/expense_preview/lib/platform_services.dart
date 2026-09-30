@@ -139,6 +139,7 @@ Future<PreviewEngine> createEngine() async {
       investmentsAware: capabilities.investments,
       investmentSalesAware: capabilities.investmentSales,
       investmentDividendsAware: capabilities.investmentDividends,
+      investmentSplitsAware: capabilities.investmentSplits,
       catalogProtection: CatalogProtection(
         identity,
         (exists) => access.load(databaseExists: () async => exists),

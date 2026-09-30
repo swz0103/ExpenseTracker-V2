@@ -17,6 +17,7 @@ import 'card_facts_schema.dart';
 import 'investment_schema.dart';
 import 'investment_sale_schema.dart';
 import 'investment_dividend_schema.dart';
+import 'investment_split_schema.dart';
 
 /// Host integration fixture. Handwritten SQL, no reactive streams.
 final class ProbeDatabase extends GeneratedDatabase {
@@ -44,6 +45,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.investmentsAware = false,
     this.investmentSalesAware = false,
     this.investmentDividendsAware = false,
+    this.investmentSplitsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -126,6 +128,7 @@ final class ProbeDatabase extends GeneratedDatabase {
     this.investmentsAware = false,
     this.investmentSalesAware = false,
     this.investmentDividendsAware = false,
+    this.investmentSplitsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -204,7 +207,11 @@ final class ProbeDatabase extends GeneratedDatabase {
   final bool investmentsAware;
   final bool investmentSalesAware;
   final bool investmentDividendsAware;
+  final bool investmentSplitsAware;
   void _configuration() {
+    if (investmentSplitsAware && !investmentDividendsAware) {
+      throw ArgumentError('Investment splits require schema 23.');
+    }
     if (investmentDividendsAware && !investmentSalesAware) {
       throw ArgumentError('Investment dividends require schema 22.');
     }
@@ -245,7 +252,9 @@ final class ProbeDatabase extends GeneratedDatabase {
   final void Function(String)? migrationCheckpoint;
   final StorageBinding? storageBinding;
   @override
-  int get schemaVersion => investmentDividendsAware
+  int get schemaVersion => investmentSplitsAware
+      ? 24
+      : investmentDividendsAware
       ? 23
       : investmentSalesAware
       ? 22
@@ -336,6 +345,11 @@ final class ProbeDatabase extends GeneratedDatabase {
       }
       if (investmentDividendsAware) {
         await customStatement(investmentDividendSchema);
+      }
+      if (investmentSplitsAware) {
+        for (final sql in investmentSplitSchema) {
+          await customStatement(sql);
+        }
       }
       await _upgradeV2();
       if (storageBinding != null) await _upgradeV3();

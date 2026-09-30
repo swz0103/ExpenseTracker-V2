@@ -17,6 +17,7 @@ part 'card_installment_upgrade.dart';
 part 'investment_upgrade.dart';
 part 'investment_sale_upgrade.dart';
 part 'investment_dividend_upgrade.dart';
+part 'investment_split_upgrade.dart';
 
 enum SafetyBackupProblem { destination, verification, storage }
 
@@ -80,6 +81,7 @@ Future<VerifiedSafetyBackup> createSafetyBackup(
         investmentsAware: store.investmentsAware,
         investmentSalesAware: store.investmentSalesAware,
         investmentDividendsAware: store.investmentDividendsAware,
+        investmentSplitsAware: store.investmentSplitsAware,
       ).inspect(file, key, receipt);
       result = await _persistSafetyBackup(
         store,

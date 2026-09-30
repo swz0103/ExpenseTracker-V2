@@ -12,6 +12,7 @@ import 'operations.dart';
 
 part 'investment_sale_adapter.dart';
 part 'investment_dividend_adapter.dart';
+part 'investment_split_adapter.dart';
 
 /// An immutable buy and its one acquisition lot, backed by a committed Ledger
 /// cash debit. This does not provide sell, valuation, or tax-basis semantics.
@@ -65,6 +66,13 @@ Future<CommitResult> commitInvestmentBuy(
             preview.tradedOn.compareTo(position.lastDate!) <= 0) {
           throw const FormatException(
             'Investment buy must follow the last sale date',
+          );
+        }
+        if (db.investmentSplitsAware &&
+            position.lastSplitDate != null &&
+            preview.tradedOn.compareTo(position.lastSplitDate!) <= 0) {
+          throw const FormatException(
+            'Investment buy must follow the last split date',
           );
         }
       }

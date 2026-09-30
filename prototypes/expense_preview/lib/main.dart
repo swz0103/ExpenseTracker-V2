@@ -52,6 +52,7 @@ part 'card_authorization_screen.dart';
 part 'card_installment_screen.dart';
 part 'investment_screen.dart';
 part 'investment_dividend_section.dart';
+part 'investment_split_section.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 

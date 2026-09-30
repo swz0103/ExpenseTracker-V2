@@ -73,6 +73,7 @@ PreviewEngine engineAt(
       investmentsAware: capabilities.investments,
       investmentSalesAware: capabilities.investmentSales,
       investmentDividendsAware: capabilities.investmentDividends,
+      investmentSplitsAware: capabilities.investmentSplits,
       catalogProtection: CatalogProtection(
         id,
         (exists) => access.load(databaseExists: () async => exists),

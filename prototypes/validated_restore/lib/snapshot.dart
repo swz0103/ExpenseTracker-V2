@@ -27,6 +27,7 @@ import 'package:modular_persistence_probe/card_installments_adapter.dart';
 import 'package:modular_persistence_probe/investment_schema.dart';
 import 'package:modular_persistence_probe/investment_sale_schema.dart';
 import 'package:modular_persistence_probe/investment_dividend_schema.dart';
+import 'package:modular_persistence_probe/investment_split_schema.dart';
 import 'package:modular_persistence_probe/investment_adapter.dart';
 import 'package:modular_persistence_probe/card_revisions_adapter.dart';
 import 'package:modular_persistence_probe/card_statements_adapter.dart';
@@ -126,6 +127,7 @@ final class SnapshotCodec {
     this.investmentsAware = false,
     this.investmentSalesAware = false,
     this.investmentDividendsAware = false,
+    this.investmentSplitsAware = false,
   }) : notesAware = notesAware || correctionsAware,
        reversalsAware = reversalsAware || notesAware || correctionsAware,
        refundsAware =
@@ -229,6 +231,9 @@ final class SnapshotCodec {
     if (investmentDividendsAware && !investmentSalesAware) {
       throw ArgumentError('Investment dividends require sale snapshots.');
     }
+    if (investmentSplitsAware && !investmentDividendsAware) {
+      throw ArgumentError('Investment splits require dividend snapshots.');
+    }
   }
   final bool generationAware;
   final bool categoryAware;
@@ -251,6 +256,7 @@ final class SnapshotCodec {
   final bool investmentsAware;
   final bool investmentSalesAware;
   final bool investmentDividendsAware;
+  final bool investmentSplitsAware;
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
@@ -283,6 +289,9 @@ final class SnapshotCodec {
       'investment_sale_allocations': investmentSaleAllocationColumns,
     if (investmentDividendsAware)
       'investment_dividends': investmentDividendColumns,
+    if (investmentSplitsAware) 'investment_splits': investmentSplitColumns,
+    if (investmentSplitsAware)
+      'investment_split_lots': investmentSplitLotColumns,
     if (categoryAware) ...categoryColumns,
     if (tagsAware) ...tagColumns,
     if (merchantsAware) ...merchantColumns,
@@ -294,7 +303,9 @@ final class SnapshotCodec {
   /// Empty authority tables, validated by the same staged import path.
   List<int> empty() =>
       _encode({for (final name in _columns.keys) name: <Object>[]});
-  int get _formatVersion => investmentDividendsAware
+  int get _formatVersion => investmentSplitsAware
+      ? 23
+      : investmentDividendsAware
       ? 22
       : investmentSalesAware
       ? 21
@@ -333,7 +344,9 @@ final class SnapshotCodec {
       : categoryReferences
       ? 4
       : (categoryAware ? 3 : (generationAware ? 2 : 1));
-  int get _schemaVersion => investmentDividendsAware
+  int get _schemaVersion => investmentSplitsAware
+      ? 24
+      : investmentDividendsAware
       ? 23
       : investmentSalesAware
       ? 22
@@ -397,6 +410,7 @@ final class SnapshotCodec {
     if (investmentsAware) 'investments': 1,
     if (investmentSalesAware) 'investment_sales': 1,
     if (investmentDividendsAware) 'investment_dividends': 1,
+    if (investmentSplitsAware) 'investment_splits': 1,
   };
 
   /// Upgrades the portable manifest only; target local identity is always regenerated.
@@ -563,6 +577,9 @@ final class SnapshotCodec {
               (investmentDividendsAware &&
                   root['version'] == 22 &&
                   root['schema'] == 23) ||
+              (investmentSplitsAware &&
+                  root['version'] == 23 &&
+                  root['schema'] == 24) ||
               (tombstonesAware &&
                   root['version'] == 13 &&
                   root['schema'] == 14)))
@@ -593,6 +610,7 @@ final class SnapshotCodec {
         if (root['version'] >= 20) 'investments': 1,
         if (root['version'] >= 21) 'investment_sales': 1,
         if (root['version'] >= 22) 'investment_dividends': 1,
+        if (root['version'] >= 23) 'investment_splits': 1,
       };
       if (modules is! Map ||
           modules.length != expectedModules.length ||
@@ -638,6 +656,9 @@ final class SnapshotCodec {
           'investment_sale_allocations': investmentSaleAllocationColumns,
         if (root['version'] >= 22)
           'investment_dividends': investmentDividendColumns,
+        if (root['version'] >= 23) 'investment_splits': investmentSplitColumns,
+        if (root['version'] >= 23)
+          'investment_split_lots': investmentSplitLotColumns,
         if (root['version'] >= 3) ...categoryColumns,
         if (root['version'] >= 5) ...tagColumns,
         if (root['version'] >= 6) ...merchantColumns,
@@ -778,6 +799,9 @@ final class SnapshotCodec {
     if (investmentDividendsAware != db.investmentDividendsAware) {
       throw const InvalidSnapshot();
     }
+    if (investmentSplitsAware != db.investmentSplitsAware) {
+      throw const InvalidSnapshot();
+    }
     if (generationAware) await db.verifyStorageBinding();
     if (budgetsAware) {
       try {
@@ -815,7 +839,13 @@ final class SnapshotCodec {
         throw const InvalidSnapshot();
       }
     }
-    if (investmentDividendsAware) {
+    if (investmentSplitsAware) {
+      try {
+        await validateInvestmentSplitFacts(db);
+      } catch (_) {
+        throw const InvalidSnapshot();
+      }
+    } else if (investmentDividendsAware) {
       try {
         await validateInvestmentDividendFacts(db);
       } catch (_) {
@@ -1222,6 +1252,7 @@ final class SnapshotCodec {
             if (investmentsAware) 'investment-buy-v1',
             if (investmentSalesAware) 'investment-sell-v1',
             if (investmentDividendsAware) 'investment-dividend-v1',
+            if (investmentSplitsAware) 'investment-split-v1',
           ].contains(input.first))
         throw const InvalidSnapshot();
       final ws = row.read<String>('workspace');
@@ -1267,6 +1298,32 @@ final class SnapshotCodec {
         }
         // validateInvestmentDividendFacts verifies the payload, cash event,
         // linked receipt, audit, and existing investment identity.
+        continue;
+      }
+      if (input.first == 'investment-split-v1') {
+        final splitRow = investmentSplitsAware
+            ? await db
+                  .customSelect(
+                    'SELECT split_id FROM investment_splits WHERE workspace=? AND split_id=? AND operation_id=?',
+                    variables: [
+                      Variable(ws),
+                      Variable(resultId),
+                      Variable(row.read<String>('operation_id')),
+                    ],
+                  )
+                  .getSingleOrNull()
+            : null;
+        if (!investmentSplitsAware ||
+            input.length != 3 ||
+            input[1] != resultId ||
+            input[2] is! String ||
+            auditKind != 'investment.split-v1' ||
+            splitRow == null ||
+            eventsById.containsKey((ws, resultId))) {
+          throw const InvalidSnapshot();
+        }
+        // validateInvestmentSplitFacts checks the receipt, each lot delta,
+        // and a full chronological replay without creating a cash event.
         continue;
       }
       if (input.first == 'tombstone-v1') {
