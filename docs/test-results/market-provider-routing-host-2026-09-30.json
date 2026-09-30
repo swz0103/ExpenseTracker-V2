@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "M3 provider-neutral market data registry, routing, fallback and cross-check",
+  "behavior": [
+    "Any number of independently identified stock-close or reference-FX adapters can register with provider ID, dataset, attribution and authorization requirements",
+    "Existing TWSE and ECB capabilities are independent adapters over the current official-source gateway",
+    "Automatic routing honors explicit priority and records every failed, throttled, missing or stale fallback attempt",
+    "Fixed-provider routing never silently switches to another source",
+    "A stale observation is selected only when no fresh provider succeeds",
+    "Cross-check returns provider results side by side and flags observation-date, exact-value or derivation conflicts without averaging"
+  ],
+  "hostChecks": {
+    "tests": "dart test --reporter expanded: 20 passed (8 routing/registry plus 12 existing provider cases)",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format applied to lib and test"
+  },
+  "notVerified": [
+    "Provider-selection, fallback-trace, attribution and cross-check Flutter UI are not connected",
+    "TPEx, USD/TWD, US-market and authorized commercial adapters are not implemented",
+    "No live provider, device, API key, paid account or final integration gate was used"
+  ],
+  "gate": "Provider registry and routing core passed package host checks; the M3 market-data feature line remains in progress"
+}

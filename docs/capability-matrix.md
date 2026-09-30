@@ -73,8 +73,8 @@
 | 正向拆股 | Opt-in schema 24 | 預設開放、活動查閱、完整 App 定向回歸 |
 | 單一持倉績效與有界 XIRR | 功能線完成 | schema 23／24 預設後的完整事實回查 |
 | 逐幣別投資組合摘要 | 功能線完成 | 多來源估值與跨幣摘要 |
-| TWSE 最新收盤 | 部分完成 | 多來源路由、實機網路與 attribution UI |
-| ECB EUR 幣對歷史匯率 | 部分完成 | 多來源路由、完整幣對與投資摘要接線 |
+| TWSE 最新收盤 | Adapter 與多來源路由完成 | 實機網路、來源選擇／attribution UI 與投資摘要接線 |
+| ECB EUR 幣對歷史匯率 | Adapter 與多來源路由完成 | 完整幣對、來源選擇／attribution UI 與投資摘要接線 |
 | TPEx、USD/TWD、美股與其他來源 | 待做 | Provider adapters、授權、額度、fixture、UI |
 | 跨幣別投資摘要 | 待做 | 明確觀測日匯率、來源追溯與缺值策略 |
 
