@@ -1,0 +1,16 @@
+{
+  "date": "2026-09-30",
+  "milestone": "M3-02 investment sale App workflow, schema 22 opt-in",
+  "scope": "Canonical sale retry intent, user reviewed sale UI, ledger posting, schema 21 to 22 upgrade and portable restore",
+  "host": {
+    "investment_codec": "7/7 tests passed",
+    "app_combined": "6/6 investment widget and sale flow tests passed, including buy regression, sale confirmation, ambiguous retry, failed upgrade, password restore and recovery-text restore",
+    "analysis": "Flutter analyze of App lib and two affected tests: no issues found",
+    "architecture": "Architecture boundaries passed",
+    "format": "Dart format completed; one ledger session file was formatted",
+    "warning": "Drift emitted repeated ProbeDatabase multiple-instance warnings during restore tests; database lifecycle investigation remains open"
+  },
+  "device": "ADB did not detect a device; sale UI has not passed native device validation",
+  "cloud": "No exact-head GitHub Actions run; remaining Actions minutes are unverified",
+  "release_gate": "Not passed: default App remains schema 18, schema 22 sale is opt-in; full ledger suite and device/cloud checks remain incomplete"
+}

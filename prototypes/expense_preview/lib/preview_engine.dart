@@ -73,7 +73,7 @@ const currentPreviewSchemaVersion = 18;
 /// the application boundary so widgets do not encode migration history.
 final class PreviewCapabilities {
   PreviewCapabilities(this.schemaVersion) {
-    if (schemaVersion < 3 || schemaVersion > 21) {
+    if (schemaVersion < 3 || schemaVersion > 22) {
       throw ArgumentError.value(schemaVersion, 'schemaVersion');
     }
   }
@@ -98,6 +98,7 @@ final class PreviewCapabilities {
   bool get cardAuthorizations => schemaVersion >= 19;
   bool get installments => schemaVersion >= 20;
   bool get investments => schemaVersion >= 21;
+  bool get investmentSales => schemaVersion >= 22;
 }
 
 typedef StoreFactory = LedgerStore Function(Directory, PublicId, int);
@@ -833,6 +834,7 @@ List<int> validatePreviewSnapshot(List<int> bytes, {int schemaVersion = 5}) {
       cardAuthorizationsAware: capabilities.cardAuthorizations,
       installmentsAware: capabilities.installments,
       investmentsAware: capabilities.investments,
+      investmentSalesAware: capabilities.investmentSales,
     );
   } on PreviewCapacity {
     throw PreviewInvalid();

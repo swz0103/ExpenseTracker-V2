@@ -4,6 +4,8 @@ import 'package:expense_preview/main.dart';
 import 'package:expense_preview/preview_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 
 import 'support.dart';
@@ -41,6 +43,16 @@ Future<void> _tapKey(WidgetTester tester, String key) async {
   final finder = find.byKey(ValueKey(key));
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
+  final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+  for (var i = 0; i < 12; i++) {
+    final y = tester.getCenter(finder, warnIfMissed: false).dy;
+    if (y >= 90 && y <= height - 20) break;
+    await tester.drag(
+      find.byType(ListView).first,
+      Offset(0, y > height ? -350 : 350),
+    );
+    await tester.pumpAndSettle();
+  }
   await tester.tap(finder);
   await tester.pump();
 }
@@ -56,10 +68,7 @@ Future<void> _openInvestmentScreen(
   PreviewEngine engine,
 ) async {
   await tester.pumpWidget(
-    PreviewApp(
-      engine: Future.value(engine),
-      documents: Documents(),
-    ),
+    PreviewApp(engine: Future.value(engine), documents: Documents()),
   );
   await settle(tester);
   await tester.enterText(find.byType(TextField).first, password);
@@ -89,6 +98,88 @@ Future<void> _prepareSyntheticBuy(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('investment-cash-preview')), findsOneWidget);
   expect(find.textContaining('21.00 TWD'), findsOneWidget);
   expect(find.byKey(const ValueKey('save-investment-buy')), findsOneWidget);
+}
+
+Future<InvestmentBuyPreview> _seedSyntheticBuy(PreviewEngine engine) async {
+  final cash = account(engine, name: '合成現金');
+  await engine.createAccount(cash, opening(cash));
+  final broker = BrokerIdentity(
+    id: PublicId.generate(),
+    workspace: engine.workspace,
+    name: '合成券商',
+  );
+  final investmentAccount = InvestmentAccount(
+    id: PublicId.generate(),
+    workspace: engine.workspace,
+    brokerId: broker.id,
+    fundingCashAccountId: cash.id,
+    name: '合成投資帳戶',
+    expectedVersion: 1,
+  );
+  final preview = InvestmentBuyPreview.create(
+    id: PublicId.generate(),
+    lotId: PublicId.generate(),
+    operation: OperationKey(engine.workspace, OperationId(PublicId.generate())),
+    tradedOn: BusinessDate(2026, 9, 29),
+    broker: broker,
+    account: investmentAccount,
+    instrument: InvestmentInstrument(
+      id: PublicId.generate(),
+      kind: InstrumentKind.stock,
+      marketCode: 'XNAS',
+      symbol: 'TEST',
+      name: '合成股票',
+      tradingCurrency: cash.currency,
+    ),
+    funding: FundingCashAccount(
+      id: cash.id,
+      workspace: engine.workspace,
+      currency: cash.currency,
+      expectedVersion: cash.version,
+    ),
+    quantity: ShareQuantity.parse('2'),
+    unitPrice: ShareUnitPrice.parse(cash.currency, '10.25'),
+    executedGross: Money.parse(cash.currency, '20.50'),
+    fee: Money.parse(cash.currency, '0.50'),
+    tax: Money.parse(cash.currency, '0'),
+  );
+  await engine.submitInvestmentBuy(preview);
+  return preview;
+}
+
+Future<void> _selectSyntheticHolding(WidgetTester tester) async {
+  await _tapKey(tester, 'investment-sell-section');
+  final dropdown = find.byKey(const ValueKey('investment-sell-position'));
+  await tester.ensureVisible(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(find.textContaining('XNAS:TEST').last);
+  await _waitForKey(tester, 'investment-sell-holding');
+}
+
+Future<void> _prepareSyntheticSell(WidgetTester tester) async {
+  for (final (key, value) in [
+    ('investment-sell-date', '2026-09-30'),
+    ('investment-sell-quantity', '1'),
+    ('investment-sell-price', '15'),
+    ('investment-sell-gross', '15'),
+    ('investment-sell-fee', '0.50'),
+    ('investment-sell-tax', '0'),
+  ]) {
+    await _enterKey(tester, key, value);
+  }
+  await _tapKey(tester, 'review-investment-sell');
+  expect(
+    find.byKey(const ValueKey('investment-sell-cash-preview')),
+    findsOneWidget,
+  );
+  expect(find.textContaining('14.50 TWD'), findsOneWidget);
+  expect(
+    find.byKey(const ValueKey('investment-sell-result-preview')),
+    findsOneWidget,
+  );
+  expect(find.byKey(const ValueKey('save-investment-sell')), findsOneWidget);
 }
 
 void main() {
@@ -185,6 +276,130 @@ void main() {
       expect(
         (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
         BigInt.from(7900),
+      );
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
+
+  testWidgets('sell previews lot cost and cash before explicit confirmation', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('sell-confirm-');
+    final engine = engineAt(work, MemoryVault(), schemaVersion: 22);
+    try {
+      late InvestmentBuyPreview buy;
+      await tester.runAsync(() async {
+        await setup(engine);
+        buy = await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine);
+      await _selectSyntheticHolding(tester);
+      await _prepareSyntheticSell(tester);
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(7900),
+      );
+      expect(
+        (await tester.runAsync(
+          () => engine.investmentHoldingLots(buy.account.id, buy.instrument.id),
+        ))!.single.remainingQuantity.toString(),
+        '2',
+      );
+
+      // Hiding the screen invalidates the reviewed lot snapshot.
+      await tester.tap(find.byIcon(Icons.visibility_outlined));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('save-investment-sell')), findsNothing);
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+      await _waitForKey(tester, 'investment-sell-section');
+      await _tapKey(tester, 'investment-sell-section');
+      await _waitForKey(tester, 'investment-sell-holding');
+      expect(find.byKey(const ValueKey('save-investment-sell')), findsNothing);
+
+      await _tapKey(tester, 'review-investment-sell');
+      await _tapKey(tester, 'save-investment-sell');
+      await _waitForEnabledButton(tester, 'review-investment-sell');
+      final lots = (await tester.runAsync(
+        () => engine.investmentHoldingLots(buy.account.id, buy.instrument.id),
+      ))!;
+      expect(lots, hasLength(1));
+      expect(lots.single.remainingQuantity.toString(), '1');
+      expect(lots.single.remainingCost.majorText, '10.50');
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(9350),
+      );
+      expect(
+        (await tester.runAsync(
+          () => engine.investmentSales(buy.account.id, buy.instrument.id),
+        ))!,
+        hasLength(1),
+      );
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
+
+  testWidgets('ambiguous sell retries the same lot and one cash credit', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('sell-retry-');
+    var interruptOnce = true;
+    final engine = engineAt(
+      work,
+      MemoryVault(),
+      schemaVersion: 22,
+      draftCheckpoint: (stage) {
+        if (stage == 'investment-sell-committed' && interruptOnce) {
+          interruptOnce = false;
+          throw StateError('synthetic interruption after sale commit');
+        }
+      },
+    );
+    try {
+      late InvestmentBuyPreview buy;
+      await tester.runAsync(() async {
+        await setup(engine);
+        buy = await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine);
+      await _selectSyntheticHolding(tester);
+      await _prepareSyntheticSell(tester);
+      await _tapKey(tester, 'save-investment-sell');
+      await _waitForEnabledButton(tester, 'retry-investment-sell');
+      expect((await tester.runAsync(engine.hasPendingInvestmentSell))!, isTrue);
+      expect(
+        (await tester.runAsync(
+          () => engine.investmentSales(buy.account.id, buy.instrument.id),
+        ))!,
+        hasLength(1),
+      );
+      await _tapKey(tester, 'retry-investment-sell');
+      await _waitForEnabledButton(tester, 'review-investment-sell');
+      expect(
+        (await tester.runAsync(engine.hasPendingInvestmentSell))!,
+        isFalse,
+      );
+      expect(
+        (await tester.runAsync(
+          () => engine.investmentSales(buy.account.id, buy.instrument.id),
+        ))!,
+        hasLength(1),
+      );
+      expect(
+        (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
+        BigInt.from(9350),
       );
     } finally {
       await closeEngine(tester, engine);
