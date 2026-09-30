@@ -158,6 +158,16 @@ final class _IntradayMarketPanelState extends State<IntradayMarketPanel> {
             Text('實際來源：${provider.label}'),
             Text('資料集：${provider.dataset}'),
             Text('來源註記：${provider.attribution}'),
+            if (provider.id == TwelveDataIntradayStockProvider.providerId)
+              const Text(
+                '免費方案目前約 8 credits/分鐘、800 次/日；持倉較多時請改用 5 分鐘或較高方案。',
+                key: ValueKey('twelve-data-quota-note'),
+              ),
+            if (provider.id == FugleIntradayStockProvider.providerId)
+              const Text(
+                '基本方案目前為 60 次/分鐘；WebSocket 同時訂閱數另有限制。',
+                key: ValueKey('fugle-quota-note'),
+              ),
           ],
           if (result.reason != null) Text('說明：${result.reason}'),
           Text('下次嘗試：${snapshot.nextAttemptAt.toLocal().toIso8601String()}'),

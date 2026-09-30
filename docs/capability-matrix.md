@@ -77,7 +77,7 @@
 | ECB EUR 幣對歷史匯率 | Adapter、多來源路由與獨立來源 UI 完成 | 完整幣對與投資摘要接線 |
 | TPEx 最新收盤、CBC USD/TWD | Adapter 完成 | 來源 UI 接線、實機網路與分鐘行情協作 |
 | 台股 1／5 分鐘股價 | Fugle adapter、更新控制器、獨立 UI 與安全 key 管理完成 | 正式投資摘要接線、真實帳號驗證 |
-| 美股 1／5 分鐘股價 | Twelve Data adapter 核心完成 | 安全 key 管理、額度 UI、真實帳號驗證 |
+| 美股 1／5 分鐘股價 | Twelve Data adapter、安全 key 管理與額度 UI 完成 | 正式投資摘要接線、真實帳號驗證 |
 | 其他分鐘來源 | 待做 | Provider adapters、授權、額度、fixture、UI |
 | 跨幣別投資摘要 | 待做 | 明確觀測日匯率、來源追溯與缺值策略 |
 

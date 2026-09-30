@@ -33,6 +33,7 @@ final class _Factory implements IntradayRefreshControllerFactory {
   IntradayInterval? interval;
   Duration? refreshEvery;
   MarketState state = MarketState.available;
+  MarketProviderDescriptor selectedProvider = provider;
 
   @override
   IntradayRefreshController create({
@@ -46,7 +47,9 @@ final class _Factory implements IntradayRefreshControllerFactory {
         result: state == MarketState.available
             ? MarketResult(MarketState.available, value: _bar(interval))
             : MarketResult(state, reason: '供應商暫時受限'),
-        selectedProvider: state == MarketState.available ? provider : null,
+        selectedProvider: state == MarketState.available
+            ? selectedProvider
+            : null,
         attempts: [
           MarketProviderAttempt(
             provider: provider,
@@ -128,5 +131,30 @@ void main() {
     await tester.tap(find.text('停止更新'));
     await tester.pumpAndSettle();
     expect(find.text('開始更新'), findsOneWidget);
+  });
+
+  testWidgets('Twelve Data selection shows the free quota warning', (
+    tester,
+  ) async {
+    final factory = _Factory()
+      ..selectedProvider = MarketProviderDescriptor(
+        id: TwelveDataIntradayStockProvider.providerId,
+        label: 'Twelve Data',
+        dataset: 'US intraday',
+        attribution: 'Twelve Data',
+        requiresAuthorization: true,
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IntradayMarketPanel(factory: factory)),
+      ),
+    );
+    await tester.tap(find.text('開始更新'));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('twelve-data-quota-note')),
+      findsOneWidget,
+    );
   });
 }

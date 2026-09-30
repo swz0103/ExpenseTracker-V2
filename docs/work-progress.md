@@ -11,9 +11,10 @@
 - [x] 獨立 Flutter 分鐘行情 panel 可分別選擇 1／5 分 K 與 1–5 分鐘刷新，開始／停止／立即更新；顯示最新價、實際觀測時間、成交量、真正採用的 provider／dataset／attribution、備援嘗試、下次更新與退避。畫面銷毀會停止 controller，不把行情寫入帳本。3 項 widget 測試與受影響分析通過。[證據](test-results/market-intraday-panel-host-2026-09-30.json)
 - [x] 新增 Fugle key 專用 Android secure-storage namespace 與設定 panel；只公開 configured 狀態，不回顯已存 key，儲存後清空輸入，可更換及撤銷。Key 不進 SQLCipher 帳本、匯出或 app 雲端備份；Android backup/data-transfer 規則已排除 shared preferences。manager／widget 共 4 項測試及受影響分析通過。[證據](test-results/market-fugle-credential-host-2026-09-30.json)
 - [x] 新增 Twelve Data 美股 1／5 分鐘 adapter，支援 XNAS／XNYS／ARCX 的 USD 標的。API key 只放 Authorization header、不進 URL；symbol／MIC／currency／interval／UTC 時間與 OHLCV 全部核對，HTTP 與 payload 內的授權／缺值／429 保留不同語意，同查詢合併。7 項案例加入後 market_data 共 45 項測試通過。[證據](test-results/market-twelve-data-intraday-host-2026-09-30.json)
-- [ ] 尚未把 panel 接入投資摘要；Twelve Data 安全 key 管理／額度 UI、真實帳號／網路與最後整合 gate 未執行。
+- [x] 新增 Twelve Data 專用 secure-storage slot、設定／更換／撤銷 panel；不回顯 key，Android 備份與移轉排除。當分鐘行情真正選到 Twelve Data 時，顯示免費方案 8 credits/minute、800/day 的容量警告；Fugle 也顯示其基本方案限制。相關 manager／widget 共 7 項測試及受影響分析通過。[證據](test-results/market-twelve-data-credential-ui-host-2026-09-30.json)
+- [ ] 尚未把 panel 接入投資摘要；真實帳號／網路與最後整合 gate 未執行。
 
-下一步補 Twelve Data 的安全 key 管理與免費額度可見性，再盤點尚未完成的 M1／M2／M3 功能線。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；投資摘要接線留到功能線完成後的集中整合。
+下一步盤點尚未完成的 M1／M2／M3 功能線並選下一個不需外部帳號的功能。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 
