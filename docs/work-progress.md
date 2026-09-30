@@ -1,3 +1,12 @@
+## 2026-09-30 schema 23 現金股息預設開放
+
+- [x] App 預設 schema 由 22 升至 23；舊 V2 帳本仍先要求使用者明確確認，並逐版產生可由密碼與救援文字開啟的安全副本，再開放股息資料表。schema 12→23 的定向 UI 升級案例核對 11 份舊版副本與原帳本內容。
+- [x] 正式投資畫面現可登記券商實際通知的股息總額、預扣稅、費用及淨入帳；確認後股息事實與正向現金事件同交易保存。隱私切換會清除未提交預覽，中斷後以固定內容重試不重複入帳；已提交事件可由活動讀取，逐幣別摘要與單一持倉績效會納入淨股息。
+- [x] 目前 schema 升級、股息流程與投資畫面共 11 項定向案例通過，包含 staged-upgrade 中斷、重啟 acknowledgement loss、密碼／救援文字乾淨還原、預覽二次確認、活動讀取與績效回查；App 完整靜態分析及架構邊界通過。[證據](test-results/investment-dividend-schema23-current-host-2026-09-30.json)
+- [ ] 依功能優先策略，本單元未跑全 App、Android 實機或 exact-head 雲端 gate；執行還原案例時仍可見既有 Drift 多實例警告，保留到集中整合處理。
+
+下一步把已完成權威流程的 schema 24 正向拆股設為預設，補齊目前 App 的安全升級與定向回歸。
+
 ## 2026-09-30 M3 多來源市場資料 registry、官方日終來源與分鐘行情（進行中）
 
 - [x] 新增 provider descriptor／registry；同一 App 可註冊任意股票收盤與參考 FX adapter，每個來源明列 provider ID、dataset、attribution 與是否需要授權。既有 TWSE 與 ECB 已包成彼此獨立的能力 adapter，不再要求 router 綁定單一 gateway。

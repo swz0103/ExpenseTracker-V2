@@ -67,7 +67,7 @@ final class PreviewUpgradeRequired implements Exception {}
 
 /// Version opened by the V2 application; older local V2 ledgers require the
 /// explicit, safety-backed upgrade flow before a session becomes available.
-const currentPreviewSchemaVersion = 22;
+const currentPreviewSchemaVersion = 23;
 
 /// User-facing abilities of one V2 data generation. Keep schema numbers at
 /// the application boundary so widgets do not encode migration history.

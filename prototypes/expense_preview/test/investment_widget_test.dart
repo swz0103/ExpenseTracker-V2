@@ -454,7 +454,11 @@ void main() {
     final root = Directory('.dart_tool/investment-widget-tests')
       ..createSync(recursive: true);
     final work = root.createTempSync('dividend-confirm-');
-    final engine = engineAt(work, MemoryVault(), schemaVersion: 23);
+    final engine = engineAt(
+      work,
+      MemoryVault(),
+      schemaVersion: currentPreviewSchemaVersion,
+    );
     try {
       await tester.runAsync(() async {
         await setup(engine);
@@ -497,6 +501,11 @@ void main() {
       final facts = (await tester.runAsync(engine.investmentDividends))!;
       expect(facts, hasLength(1));
       expect(facts.single.preview.netCashCredit.majorText, '8.75');
+      final activity = (await tester.runAsync(
+        () => engine.activity(facts.single.eventId),
+      ))!;
+      expect(activity, hasLength(1));
+      expect(activity.single.entry.kind, PostingKind.investmentDividend);
       expect(
         (await tester.runAsync(engine.accounts))!.single.balance.minorUnits,
         BigInt.from(8775),
