@@ -50,6 +50,9 @@ FxObservation rate(
   retrievedAt: UtcInstant(DateTime.utc(2026, 9, 30, 8)),
 );
 
+PortfolioFxInput input(FxObservation observation, {bool inverse = false}) =>
+    PortfolioFxInput(observation: observation, derivedInverse: inverse);
+
 void main() {
   final usd = Currency('USD', 2);
   final twd = Currency('TWD', 2);
@@ -73,8 +76,8 @@ void main() {
       reportingCurrency: twd,
       valuationDate: date,
       observations: [
-        rate(usd, twd, '32', date, source: 'cbc-usd-twd'),
-        rate(eur, twd, '35', date, source: 'eur-twd'),
+        input(rate(usd, twd, '32', date, source: 'cbc-usd-twd')),
+        input(rate(eur, twd, '35', date, source: 'eur-twd')),
       ],
     );
     expect(result.hasCompleteFx, isTrue);
@@ -99,7 +102,7 @@ void main() {
       original: original,
       reportingCurrency: twd,
       valuationDate: date,
-      observations: [rate(twd, usd, '0.03125', date)],
+      observations: [input(rate(twd, usd, '0.03125', date))],
     );
     expect(result.marketValue, Money.parse(twd, '384'));
     expect(result.rows[usd]!.derivedInverse, isTrue);
@@ -138,7 +141,7 @@ void main() {
       original: original,
       reportingCurrency: twd,
       valuationDate: date,
-      observations: [older],
+      observations: [input(older)],
     );
     expect(rejected.rows[usd]!.state, PortfolioFxState.missing);
     expect(rejected.marketValue, isNull);
@@ -147,7 +150,7 @@ void main() {
       original: original,
       reportingCurrency: twd,
       valuationDate: date,
-      observations: [older],
+      observations: [input(older)],
       allowEarlier: true,
     );
     expect(accepted.rows[usd]!.state, PortfolioFxState.earlier);
@@ -163,7 +166,7 @@ void main() {
       original: original,
       reportingCurrency: twd,
       valuationDate: date,
-      observations: [rate(usd, twd, '32', date)],
+      observations: [input(rate(usd, twd, '32', date))],
     );
     expect(result.hasCompleteFx, isTrue);
     expect(result.remainingCost, Money.parse(twd, '320'));
@@ -186,8 +189,8 @@ void main() {
           reportingCurrency: twd,
           valuationDate: date,
           observations: [
-            rate(usd, twd, '32', date, source: 'a'),
-            rate(twd, usd, '0.03125', date, source: 'b'),
+            input(rate(usd, twd, '32', date, source: 'a')),
+            input(rate(twd, usd, '0.03125', date, source: 'b')),
           ],
         ),
         throwsA(

@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Provider-routed cross-currency investment portfolio panel",
+  "behavior": [
+    "Each non-reporting currency is resolved independently through the provider-neutral market router",
+    "Exact-date mode and explicit seven-day earlier-observation mode remain distinct",
+    "Selected provider, provider source ID, actual observation date, fallback reason and inverse derivation remain visible",
+    "Provider-side inverse derivation is preserved through the reporting-domain input instead of being lost",
+    "Any missing FX keeps every cross-currency grand total unavailable",
+    "Privacy-hidden rendering performs no provider read",
+    "The panel is read-only and never mutates original-currency ledger, trades or cash"
+  ],
+  "hostChecks": {
+    "investments": "dart analyze passed; dart test: 65 passed",
+    "flutterPanel": "targeted analysis passed; 5 widget/controller tests passed",
+    "architecture": "architecture boundaries passed",
+    "format": "dart format applied to affected files"
+  },
+  "notVerified": [
+    "The standalone panel is intentionally not wired into the formal investment screen before concentrated integration",
+    "No live FX network, Android device or exact-head cloud gate was run"
+  ],
+  "gate": "Cross-currency investment summary feature line is complete for concentrated integration"
+}

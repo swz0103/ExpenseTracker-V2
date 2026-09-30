@@ -11,6 +11,16 @@ final class CrossCurrencyPortfolioException implements Exception {
 
 enum PortfolioFxState { identity, exact, earlier, missing }
 
+final class PortfolioFxInput {
+  const PortfolioFxInput({
+    required this.observation,
+    required this.derivedInverse,
+  });
+
+  final FxObservation observation;
+  final bool derivedInverse;
+}
+
 final class ConvertedInvestmentCurrencySummary {
   const ConvertedInvestmentCurrencySummary({
     required this.original,
@@ -59,11 +69,12 @@ final class CrossCurrencyInvestmentSummary {
     required InvestmentPortfolioSummary original,
     required Currency reportingCurrency,
     required BusinessDate valuationDate,
-    required Iterable<FxObservation> observations,
+    required Iterable<PortfolioFxInput> observations,
     bool allowEarlier = false,
   }) {
-    final candidates = <Currency, (FxObservation, bool)>{};
-    for (final observation in observations) {
+    final candidates = <Currency, (PortfolioFxInput, bool)>{};
+    for (final input in observations) {
+      final observation = input.observation;
       final rate = observation.rate;
       Currency? source;
       var inverse = false;
@@ -81,7 +92,7 @@ final class CrossCurrencyInvestmentSummary {
           CrossCurrencyPortfolioError.duplicateRate,
         );
       }
-      candidates[source] = (observation, inverse);
+      candidates[source] = (input, inverse);
     }
 
     final rows = <Currency, ConvertedInvestmentCurrencySummary>{};
@@ -107,7 +118,7 @@ final class CrossCurrencyInvestmentSummary {
       FxRate? usable;
       PortfolioFxState state = PortfolioFxState.missing;
       if (candidate != null) {
-        final observation = candidate.$1;
+        final observation = candidate.$1.observation;
         try {
           final published = observation.rateFor(
             valuationDate,
@@ -129,8 +140,9 @@ final class CrossCurrencyInvestmentSummary {
       rows[currency] = ConvertedInvestmentCurrencySummary(
         original: row,
         state: state,
-        observation: candidate?.$1,
-        derivedInverse: candidate?.$2 ?? false,
+        observation: candidate?.$1.observation,
+        derivedInverse:
+            (candidate?.$1.derivedInverse ?? false) || (candidate?.$2 ?? false),
         remainingCost: usable?.convert(row.remainingCost),
         realizedResult: usable?.convert(row.realizedResult),
         netDividends: usable?.convert(row.netDividends),
