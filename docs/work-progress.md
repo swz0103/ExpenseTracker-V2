@@ -3,8 +3,9 @@
 - [x] 只有同時以帳本密碼及救援文字驗證成功的加密 envelope 可以進入上傳流程；憑證不保存，也不交給 provider。
 - [x] 上傳前取得穩定遠端物件 ID；同一 backup ID 重試不建立第二份。provider 已提交但回覆遺失時，會讀回 metadata 並核對 SHA-256、長度、內容類型、身分與建立時間。
 - [x] 下載先核對雜湊與長度，再以兩條憑證路徑解密到相同 payload；遠端衝突與損壞拒絕。登入、權限、quota、限流、暫時不可用與結果不明保留不同錯誤語意。
-- [x] 新核心 6 項測試、靜態分析及架構邊界檢查於主機通過。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
-- [ ] 尚未接加密持久工作佇列、immutable envelope 暫存、Google Drive `drive.file` adapter、OAuth／secure token storage、歷史／保留策略、App 下載還原與實機。M2-01 不稱完成。
+- [x] Google Drive 語意 adapter 以預產 file ID、private app properties、建立／查詢／下載及 `409` 後讀回核對接入；OAuth 與 HTTP 由後續 Android transport 持有，不交給 Domain。
+- [x] 新核心與 Drive adapter 共 11 項測試、靜態分析及架構邊界檢查於主機通過。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
+- [ ] 尚未接加密持久工作佇列、immutable envelope 暫存、Google Drive HTTPS／OAuth／secure token storage、歷史／保留策略、App 下載還原與實機。M2-01 不稱完成。
 
 下一步先建立 Google Drive provider adapter 的可測契約及持久 reservation／job 接線；不需要帳號的部分先完成，到真正建立 OAuth client 時再向使用者取得決定與授權。
 

@@ -72,7 +72,10 @@ final class VerifiedBackupArtifact {
     final codec = EnvelopeCodec();
     try {
       final passwordPayload = await codec.openWithPassword(envelope, password);
-      final recoveryPayload = await codec.openWithRecovery(envelope, recoveryKey);
+      final recoveryPayload = await codec.openWithRecovery(
+        envelope,
+        recoveryKey,
+      );
       if (!_sameBytes(passwordPayload, recoveryPayload)) {
         throw const CloudBackupValidationException(
           CloudBackupValidationFailure.invalidArtifact,
@@ -200,7 +203,10 @@ final class CloudBackupCoordinator {
       envelope = utf8.decode(bytes);
       final codec = EnvelopeCodec();
       final passwordPayload = await codec.openWithPassword(envelope, password);
-      final recoveryPayload = await codec.openWithRecovery(envelope, recoveryKey);
+      final recoveryPayload = await codec.openWithRecovery(
+        envelope,
+        recoveryKey,
+      );
       if (!_sameBytes(passwordPayload, recoveryPayload)) {
         throw const CloudBackupValidationException(
           CloudBackupValidationFailure.corruptDownload,
@@ -279,4 +285,3 @@ bool _sameBytes(List<int> a, List<int> b) {
 
 String _hex(List<int> bytes) =>
     bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-

@@ -4,7 +4,11 @@
 
 下載後先核對 byte length 與 SHA-256，再分別以密碼及救援文字解密，兩條路徑必須得到相同 payload。遠端 metadata 不符、內容損壞、登入失效、權限、quota、限流與暫時不可用有不同錯誤語意。
 
-目前完成 provider-neutral 契約與合成 provider 測試；尚未完成：
+Google Drive adapter 以獨立 REST boundary 接入 `files.generateIds`、預先保存的 file ID、private `appProperties`、建立／查詢與下載。Drive 的 `409` 或結果不明會回到相同 file ID 讀取核對，不另建第二份。Adapter 保留登入、權限、quota、限流與暫時不可用的不同狀態；OAuth token 仍由未來的 Android transport 及 secure storage 持有。
+
+契約依據：[Drive `files.generateIds`](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/generateIds)、[預產 ID 與 resumable upload](https://developers.google.com/workspace/drive/api/guides/manage-uploads)、[下載 blob](https://developers.google.com/workspace/drive/api/guides/manage-downloads)。
+
+目前完成 provider-neutral 契約、Google Drive adapter 契約與合成 provider 測試；尚未完成：
 
 - 加密持久工作佇列與 immutable envelope 暫存的接線。
 - Google Drive `drive.file` adapter、OAuth 與 secure token storage。
@@ -12,4 +16,3 @@
 - App 下載後的乾淨還原、實機與最後整合 gate。
 
 這是 M2-01 的第一個垂直子項，不代表真實雲端備份已可使用。
-

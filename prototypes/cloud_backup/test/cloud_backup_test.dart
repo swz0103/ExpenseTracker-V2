@@ -55,13 +55,16 @@ void main() {
     expect(provider.objectCount, 1);
   });
 
-  test('commit without response is recovered by inspecting reservation', () async {
-    final provider = _MemoryProvider(loseFirstUploadResponse: true);
-    final uploaded = await CloudBackupCoordinator(provider).upload(artifact);
-    expect(uploaded.backupId, artifact.backupId);
-    expect(provider.uploadCalls, 1);
-    expect(provider.inspectCalls, 2);
-  });
+  test(
+    'commit without response is recovered by inspecting reservation',
+    () async {
+      final provider = _MemoryProvider(loseFirstUploadResponse: true);
+      final uploaded = await CloudBackupCoordinator(provider).upload(artifact);
+      expect(uploaded.backupId, artifact.backupId);
+      expect(provider.uploadCalls, 1);
+      expect(provider.inspectCalls, 2);
+    },
+  );
 
   test('existing remote object with different content is rejected', () async {
     final provider = _MemoryProvider();
@@ -225,4 +228,3 @@ final class _MemoryProvider implements CloudBackupProvider {
   Future<List<int>> download(String objectId) async =>
       List<int>.from(_objects[objectId]!);
 }
-

@@ -133,7 +133,7 @@
   "runtimeModules": {
     "cloud_backup_probe": {
       "directory": "prototypes/cloud_backup",
-      "publicEntrypoints": ["cloud_backup.dart"],
+      "publicEntrypoints": ["cloud_backup.dart", "google_drive_adapter.dart"],
       "dependencies": ["backup_envelope_probe"]
     },
     "persistent_jobs_probe": {
