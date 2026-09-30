@@ -48,11 +48,15 @@ final class CloudBackupScreen extends StatefulWidget {
   const CloudBackupScreen({
     required this.gateway,
     this.now = DateTime.now,
+    this.embedded = false,
+    this.onRestored,
     super.key,
   });
 
   final CloudBackupScreenGateway gateway;
   final DateTime Function() now;
+  final bool embedded;
+  final Future<void> Function()? onRestored;
 
   @override
   State<CloudBackupScreen> createState() => _CloudBackupScreenState();
@@ -136,6 +140,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         credentialKind: result.kind,
         credential: result.credential,
       );
+      await widget.onRestored?.call();
       if (mounted) {
         setState(() => _message = '備份已驗證，並交給安全還原流程。');
       }
@@ -208,118 +213,116 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   @override
   Widget build(BuildContext context) {
     final providers = widget.gateway.providers;
+    final content = <Widget>[
+      if (widget.embedded) ...[
+        Text('雲端備份', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+      ],
+      const Text('備份內容已加密；雲端服務不會取得帳本密碼或救援文字。'),
+      if (_message != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(_message!, key: const ValueKey('cloud-message')),
+        ),
+      const SizedBox(height: 12),
+      if (providers.isEmpty)
+        const Text('尚未設定可用的雲端備份服務。')
+      else ...[
+        DropdownButtonFormField<String>(
+          key: const ValueKey('cloud-provider'),
+          initialValue: _providerId,
+          decoration: const InputDecoration(labelText: '備份服務'),
+          items: [
+            for (final provider in providers)
+              DropdownMenuItem(value: provider.id, child: Text(provider.label)),
+          ],
+          onChanged: _busy
+              ? null
+              : (value) {
+                  setState(() {
+                    _providerId = value;
+                    _history = const [];
+                  });
+                  _reload();
+                },
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _busy ? null : _create,
+          child: const Text('立即建立加密備份'),
+        ),
+        OutlinedButton(
+          onPressed: _busy ? null : _reload,
+          child: const Text('重新整理歷史'),
+        ),
+        const Divider(height: 32),
+        Text('備份歷史', style: Theme.of(context).textTheme.titleLarge),
+        if (_history.isEmpty && !_busy) const Text('目前沒有雲端備份。'),
+        for (final backup in _history)
+          ListTile(
+            key: ValueKey('cloud-backup-${backup.objectId}'),
+            title: Text(_dateText(backup.createdAt)),
+            subtitle: Text('${backup.byteLength} bytes · ${backup.providerId}'),
+            trailing: TextButton(
+              onPressed: _busy ? null : () => _restore(backup),
+              child: const Text('下載並還原'),
+            ),
+          ),
+        const Divider(height: 32),
+        SwitchListTile(
+          key: const ValueKey('automatic-backup'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('自動加密備份'),
+          subtitle: const Text('預設關閉；啟用後從下一個週期開始。'),
+          value: _automaticEnabled,
+          onChanged: _busy ? null : _configureAutomatic,
+        ),
+        DropdownButtonFormField<int>(
+          key: const ValueKey('automatic-days'),
+          initialValue: _automaticDays,
+          decoration: const InputDecoration(labelText: '自動備份週期'),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text('每天')),
+            DropdownMenuItem(value: 7, child: Text('每週')),
+            DropdownMenuItem(value: 30, child: Text('每 30 天')),
+          ],
+          onChanged: _busy
+              ? null
+              : (value) {
+                  final days = value ?? 7;
+                  if (_automaticEnabled) {
+                    _configureAutomatic(true, days: days);
+                  } else {
+                    setState(() => _automaticDays = days);
+                  }
+                },
+        ),
+        const Divider(height: 32),
+        DropdownButtonFormField<int>(
+          key: const ValueKey('retention-count'),
+          initialValue: _keepLatest,
+          decoration: const InputDecoration(labelText: '保留最新份數'),
+          items: const [
+            DropdownMenuItem(value: 1, child: Text('1 份')),
+            DropdownMenuItem(value: 3, child: Text('3 份')),
+            DropdownMenuItem(value: 5, child: Text('5 份')),
+            DropdownMenuItem(value: 10, child: Text('10 份')),
+          ],
+          onChanged: _busy || _history.isEmpty
+              ? null
+              : (value) => setState(() => _keepLatest = value ?? 3),
+        ),
+        OutlinedButton(
+          onPressed: _busy || _history.isEmpty ? null : _retention,
+          child: const Text('預覽並清理舊備份'),
+        ),
+      ],
+      if (_busy) const LinearProgressIndicator(),
+    ];
+    if (widget.embedded) return Column(children: content);
     return Scaffold(
       appBar: AppBar(title: const Text('雲端備份')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('備份內容已加密；雲端服務不會取得帳本密碼或救援文字。'),
-          if (_message != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(_message!, key: const ValueKey('cloud-message')),
-            ),
-          const SizedBox(height: 12),
-          if (providers.isEmpty)
-            const Text('尚未設定可用的雲端備份服務。')
-          else ...[
-            DropdownButtonFormField<String>(
-              key: const ValueKey('cloud-provider'),
-              initialValue: _providerId,
-              decoration: const InputDecoration(labelText: '備份服務'),
-              items: [
-                for (final provider in providers)
-                  DropdownMenuItem(
-                    value: provider.id,
-                    child: Text(provider.label),
-                  ),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _providerId = value;
-                        _history = const [];
-                      });
-                      _reload();
-                    },
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _busy ? null : _create,
-              child: const Text('立即建立加密備份'),
-            ),
-            OutlinedButton(
-              onPressed: _busy ? null : _reload,
-              child: const Text('重新整理歷史'),
-            ),
-            const Divider(height: 32),
-            Text('備份歷史', style: Theme.of(context).textTheme.titleLarge),
-            if (_history.isEmpty && !_busy) const Text('目前沒有雲端備份。'),
-            for (final backup in _history)
-              ListTile(
-                key: ValueKey('cloud-backup-${backup.objectId}'),
-                title: Text(_dateText(backup.createdAt)),
-                subtitle: Text(
-                  '${backup.byteLength} bytes · ${backup.providerId}',
-                ),
-                trailing: TextButton(
-                  onPressed: _busy ? null : () => _restore(backup),
-                  child: const Text('下載並還原'),
-                ),
-              ),
-            const Divider(height: 32),
-            SwitchListTile(
-              key: const ValueKey('automatic-backup'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text('自動加密備份'),
-              subtitle: const Text('預設關閉；啟用後從下一個週期開始。'),
-              value: _automaticEnabled,
-              onChanged: _busy ? null : _configureAutomatic,
-            ),
-            DropdownButtonFormField<int>(
-              key: const ValueKey('automatic-days'),
-              initialValue: _automaticDays,
-              decoration: const InputDecoration(labelText: '自動備份週期'),
-              items: const [
-                DropdownMenuItem(value: 1, child: Text('每天')),
-                DropdownMenuItem(value: 7, child: Text('每週')),
-                DropdownMenuItem(value: 30, child: Text('每 30 天')),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (value) {
-                      final days = value ?? 7;
-                      if (_automaticEnabled) {
-                        _configureAutomatic(true, days: days);
-                      } else {
-                        setState(() => _automaticDays = days);
-                      }
-                    },
-            ),
-            const Divider(height: 32),
-            DropdownButtonFormField<int>(
-              key: const ValueKey('retention-count'),
-              initialValue: _keepLatest,
-              decoration: const InputDecoration(labelText: '保留最新份數'),
-              items: const [
-                DropdownMenuItem(value: 1, child: Text('1 份')),
-                DropdownMenuItem(value: 3, child: Text('3 份')),
-                DropdownMenuItem(value: 5, child: Text('5 份')),
-                DropdownMenuItem(value: 10, child: Text('10 份')),
-              ],
-              onChanged: _busy || _history.isEmpty
-                  ? null
-                  : (value) => setState(() => _keepLatest = value ?? 3),
-            ),
-            OutlinedButton(
-              onPressed: _busy || _history.isEmpty ? null : _retention,
-              child: const Text('預覽並清理舊備份'),
-            ),
-          ],
-          if (_busy) const LinearProgressIndicator(),
-        ],
-      ),
+      body: ListView(padding: const EdgeInsets.all(16), children: content),
     );
   }
 }

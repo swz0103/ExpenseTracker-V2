@@ -18,6 +18,7 @@ import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:investments/investments.dart';
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:categories/categories.dart';
 import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
@@ -525,7 +526,7 @@ final class PreviewEngine {
     _check(epoch);
   });
 
-  Future<String> exportBackup() => _exclusive((epoch) async {
+  Future<CreatedBackup> _createBackup(int epoch) async {
     _require();
     await _requireNoDraft();
     _check(epoch);
@@ -549,7 +550,29 @@ final class PreviewEngine {
       throw PreviewInvalid();
     }
     _check(epoch);
-    return backup.envelope;
+    return backup;
+  }
+
+  Future<String> exportBackup() =>
+      _exclusive((epoch) async => (await _createBackup(epoch)).envelope);
+
+  /// Creates the provider handoff while credentials are still confined to the
+  /// unlocked engine. Callers receive only an encrypted, double-verified
+  /// artifact suitable for immutable staging and retry.
+  Future<VerifiedBackupArtifact> exportVerifiedCloudBackup({
+    required String backupId,
+    required DateTime createdAt,
+  }) => _exclusive((epoch) async {
+    final backup = await _createBackup(epoch);
+    final artifact = await VerifiedBackupArtifact.verify(
+      backupId: backupId,
+      envelope: backup.envelope,
+      password: _password!,
+      recoveryKey: _recovery!,
+      createdAt: createdAt,
+    );
+    _check(epoch);
+    return artifact;
   });
 
   Future<List<File>> _safetyCopies() async {

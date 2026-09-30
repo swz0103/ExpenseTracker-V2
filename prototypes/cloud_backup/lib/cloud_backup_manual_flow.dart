@@ -56,10 +56,6 @@ final class CloudBackupManualFlow {
     required DateTime createdAt,
     required DateTime now,
   }) async {
-    final target = _targets[providerId];
-    if (target == null) {
-      throw StateError('Provider is not configured for upload');
-    }
     final artifact = await VerifiedBackupArtifact.verify(
       backupId: backupId,
       envelope: envelope,
@@ -67,11 +63,29 @@ final class CloudBackupManualFlow {
       recoveryKey: recoveryKey,
       createdAt: createdAt,
     );
+    return scheduleVerifiedBackup(
+      providerId: providerId,
+      artifact: artifact,
+      now: now,
+    );
+  }
+
+  /// Schedules an artifact already double-verified inside the unlocked app
+  /// boundary. This keeps the password and recovery key out of UI gateways.
+  Future<ManualCloudBackupReceipt> scheduleVerifiedBackup({
+    required String providerId,
+    required VerifiedBackupArtifact artifact,
+    required DateTime now,
+  }) async {
+    final target = _targets[providerId];
+    if (target == null) {
+      throw StateError('Provider is not configured for upload');
+    }
     await target.schedule(artifact, now.toUtc());
     return ManualCloudBackupReceipt(
       providerId: providerId,
-      backupId: backupId,
-      createdAt: createdAt.toUtc(),
+      backupId: artifact.backupId,
+      createdAt: artifact.createdAt,
       state: ManualCloudBackupState.queued,
     );
   }

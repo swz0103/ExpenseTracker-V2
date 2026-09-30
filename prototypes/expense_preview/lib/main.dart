@@ -38,6 +38,7 @@ import 'twelve_data_credentials.dart';
 import 'cross_currency_portfolio_panel.dart';
 import 'investment_market_services.dart';
 import 'market_source_panel.dart';
+import 'cloud_backup_screen.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
@@ -78,6 +79,10 @@ void main() {
   );
 }
 
+typedef CloudBackupGatewayFactory = CloudBackupScreenGateway Function(
+  PreviewEngine engine,
+);
+
 class PreviewApp extends StatefulWidget {
   const PreviewApp({
     super.key,
@@ -87,6 +92,7 @@ class PreviewApp extends StatefulWidget {
     this.appPin,
     this.recurringReminder,
     this.investmentMarketServices,
+    this.cloudBackupGatewayFactory,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
@@ -94,6 +100,7 @@ class PreviewApp extends StatefulWidget {
   final AppPinStore? appPin;
   final RecurringReminderService? recurringReminder;
   final InvestmentMarketServices? investmentMarketServices;
+  final CloudBackupGatewayFactory? cloudBackupGatewayFactory;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -122,6 +129,7 @@ class _PreviewAppState extends State<PreviewApp> {
       appPin: widget.appPin,
       recurringReminder: widget.recurringReminder,
       investmentMarketServices: widget.investmentMarketServices,
+      cloudBackupGatewayFactory: widget.cloudBackupGatewayFactory,
       onLock: _routes.cancel,
     ),
   );
@@ -182,6 +190,7 @@ enum _Page {
   cardAuthorizations,
   cardInstallments,
   investments,
+  cloudBackup,
   home,
   account,
   cardPurchase,
@@ -202,6 +211,7 @@ class PreviewHome extends StatefulWidget {
     this.appPin,
     this.recurringReminder,
     this.investmentMarketServices,
+    this.cloudBackupGatewayFactory,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
@@ -210,6 +220,7 @@ class PreviewHome extends StatefulWidget {
   final AppPinStore? appPin;
   final RecurringReminderService? recurringReminder;
   final InvestmentMarketServices? investmentMarketServices;
+  final CloudBackupGatewayFactory? cloudBackupGatewayFactory;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -219,6 +230,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _updateSimpleImport(VoidCallback change) => setState(change);
   void _updateSimpleExport(VoidCallback change) => setState(change);
   PreviewEngine? _engine;
+  CloudBackupScreenGateway? _cloudBackupGateway;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
   bool _rememberDevice = false, _deviceUnlockEnabled = false;
@@ -315,6 +327,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     try {
       final engine = await widget.engine;
       _engine = engine;
+      try {
+        _cloudBackupGateway = widget.cloudBackupGatewayFactory?.call(engine);
+      } catch (_) {
+        // Cloud setup is optional and must never prevent local ledger access.
+        _cloudBackupGateway = null;
+      }
       final exists = await engine.hasProfile();
       final safety = await _availableLockedSafetyCopy(engine);
       final upgradeSafety = await _availableLockedUpgradeCopy(engine);
@@ -1859,6 +1877,20 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           _back(),
         ];
+      case _Page.cloudBackup:
+        return [
+          if (_cloudBackupGateway == null) ...[
+            Text('雲端備份', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            const Text('安全備份流程已就緒，但這個安裝尚未連結雲端帳號。連結完成前，仍可使用下方的本機加密備份。'),
+          ] else
+            CloudBackupScreen(
+              gateway: _cloudBackupGateway!,
+              embedded: true,
+              onRestored: _refresh,
+            ),
+          _back(),
+        ];
       case _Page.loading:
         return [const Center(child: CircularProgressIndicator())];
       case _Page.blocked:
@@ -2552,6 +2584,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   : () => setState(() => _page = _Page.investments),
               child: const Text('投資與行情'),
             ),
+          TextButton(
+            key: const ValueKey('open-cloud-backup'),
+            onPressed: _busy
+                ? null
+                : () => setState(() => _page = _Page.cloudBackup),
+            child: const Text('雲端備份'),
+          ),
           if (_engine!.capabilities.installments &&
               _accounts.any(
                 (row) => row.account.kind == AccountKind.creditCard,

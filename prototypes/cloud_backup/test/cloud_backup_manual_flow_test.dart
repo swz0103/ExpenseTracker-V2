@@ -68,6 +68,28 @@ void main() {
   });
 
   test(
+    'preverified app artifact schedules without forwarding credentials',
+    () async {
+      final artifact = await VerifiedBackupArtifact.verify(
+        backupId: 'manual-app-1',
+        envelope: created.envelope,
+        password: password,
+        recoveryKey: created.recoveryKey,
+        createdAt: createdAt,
+      );
+
+      final receipt = await flow.scheduleVerifiedBackup(
+        providerId: provider.providerId,
+        artifact: artifact,
+        now: createdAt,
+      );
+
+      expect(receipt.backupId, 'manual-app-1');
+      expect(scheduled.single, same(artifact));
+    },
+  );
+
+  test(
     'download for restore accepts password or recovery independently',
     () async {
       await flow.scheduleBackup(

@@ -5,23 +5,7 @@ import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
 
 import 'cloud_backup_screen.dart';
 
-final class CloudBackupSource {
-  const CloudBackupSource({
-    required this.backupId,
-    required this.envelope,
-    required this.password,
-    required this.recoveryKey,
-    required this.createdAt,
-  });
-
-  final String backupId;
-  final String envelope;
-  final String password;
-  final String recoveryKey;
-  final DateTime createdAt;
-}
-
-typedef CloudBackupSourceFactory = Future<CloudBackupSource> Function();
+typedef CloudBackupSourceFactory = Future<VerifiedBackupArtifact> Function();
 typedef CloudBackupRestoreHandoff = Future<void> Function(
   String envelope,
   CloudBackupCredentialKind kind,
@@ -52,13 +36,9 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
   @override
   Future<void> createBackup(String providerId) async {
     final source = await createSource();
-    await flow.scheduleBackup(
+    await flow.scheduleVerifiedBackup(
       providerId: providerId,
-      backupId: source.backupId,
-      envelope: source.envelope,
-      password: source.password,
-      recoveryKey: source.recoveryKey,
-      createdAt: source.createdAt,
+      artifact: source,
       now: DateTime.now().toUtc(),
     );
   }

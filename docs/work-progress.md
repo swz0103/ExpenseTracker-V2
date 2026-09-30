@@ -1,3 +1,13 @@
+## 2026-09-30 雲端備份正式入口與安全 engine handoff
+
+- [x] 正式首頁新增「雲端備份」入口；未連結帳號時明確說明尚不可用，仍保留本機加密備份，不顯示假成功。注入任意 provider-neutral gateway 後，同一入口可操作建立、歷史、還原、保留策略與排程設定，不在主畫面寫死 Google Drive。
+- [x] 引擎新增雲端專用輸出：在已解鎖安全邊界內建立 envelope，使用帳本密碼與救援文字雙重驗證後，只把 `VerifiedBackupArtifact` 交給 gateway。密碼與救援文字不進畫面、provider、工作資料庫或新介面；手動與自動流程可共用相同已驗證成品。
+- [x] 雲端下載仍交回既有乾淨還原入口；先核對遠端 metadata／內容與使用者提供的其中一種憑證，再由 engine 保存及驗證目前帳本的本機安全副本，最後才取代資料。還原完成會重新載入正式首頁。
+- [x] 雲端核心 38 項，以及 engine handoff、正式入口、獨立雲端畫面與既有檔案還原共 10 項 App 測試通過；兩個套件完整靜態分析與架構邊界通過。[證據](test-results/cloud-backup-formal-engine-integration-host-2026-09-30.json)
+- [ ] Google OAuth client、`drive.file` 同意／撤權、token 生命週期、正式 transport 與背景排程 runtime 尚需外部帳號／Android 授權；本批未用真實帳號、網路或實機，不宣稱 M2-01 完成。
+
+下一步處理不需外部帳號的剩餘 CORE 邊角與組合回查；真正連結 Google Drive 時才停下請使用者提供 OAuth／帳號授權。
+
 ## 2026-09-30 正式投資畫面接入多來源市場資料
 
 - [x] App 啟動時建立單一 provider registry，正式註冊 TWSE、TPEx、ECB、CBC、Fugle 與 Twelve Data adapters；投資畫面沿同一 router 使用支援範圍過濾、fallback 與實際來源 provenance，不再另外綁死單一行情 gateway。
@@ -67,7 +77,8 @@ schema 24 已把目前規劃的投資權威事實全部設為 App 預設。下�
 - [x] 自動排程設定以獨立 SQLCipher store 保存，預設關閉；使用者可選每日／每週／每 30 天，啟用後從下一週期開始。到期 occurrence 有穩定 backup ID，暫存後中斷可重用；離線跨多期合併一份，未解決上傳阻擋新工作堆疊。獨立 Flutter 畫面已有開關與週期選擇。
 - [x] 核心、Drive adapter／HTTPS、持久工作、排程、歷史／保留與手動流程共 37 項測試；通用持久佇列 5 項、Flutter 畫面 5 項測試、相關靜態分析及架構邊界檢查於主機通過。錯誤資料庫金鑰、遭竄改暫存、同 backup ID 不同內容、遠端 metadata 變更及非信任 upload URL 均拒絕。[證據](test-results/cloud-backup-core-host-2026-09-30.json)
 - [x] Flutter 畫面 5 項定向測試與受影響來源靜態分析通過：建立與歷史、救援文字還原 handoff、取消不刪除／確認才刪除、登入失效提示、自動排程預設關閉及下一週期起算。
-- [ ] 尚未接 Google OAuth client／Android 帳號授權與 secure token storage、自動排程、主畫面導航、正式 engine 備份來源與既有乾淨還原入口；依功能優先策略，App 接線留到集中整合。實機亦未驗。M2-01 不稱完成。
+- [x] 正式主畫面導航、無憑證 engine 備份來源及既有乾淨還原入口已接線；建立失敗不阻擋本機帳本，未配置 gateway 時明確顯示尚未連結。
+- [ ] 尚未接 Google OAuth client／Android 帳號授權與 secure token storage、正式 transport 及背景自動排程 runtime；實機亦未驗。M2-01 不稱完成。
 
 Google OAuth client／真實帳號是目前這條功能線第一個需要使用者授權的外部 gate；依持續製作指示，先不停止，轉去處理 capability matrix 中其他不需外部帳號的 M2／M3 缺口，最後集中整合。
 
