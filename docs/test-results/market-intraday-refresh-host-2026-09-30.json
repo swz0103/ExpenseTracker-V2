@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Lifecycle-owned one-to-five-minute intraday refresh controller",
+  "behavior": [
+    "Refresh cadence is restricted to one through five minutes",
+    "Start fetches immediately and repeated start calls are idempotent",
+    "Scheduled and manual requests never overlap",
+    "Stop cancels waiting timers and ignores results from an older in-flight generation",
+    "A rapid stop/start while the old request is in flight resumes automatically after that request settles",
+    "Failed and throttled results use bounded exponential backoff; success resets the selected cadence",
+    "Snapshots expose sequence, provider result, next attempt time and consecutive failure count",
+    "Dispose prevents future starts and closes the result stream"
+  ],
+  "hostChecks": {
+    "tests": "dart test: 38 passed (6 refresh-controller plus 32 provider/routing cases)",
+    "analysis": "dart analyze: no issues",
+    "format": "dart format applied to lib and test"
+  },
+  "notVerified": [
+    "No Android background scheduler or screen lifecycle integration was run",
+    "No live Fugle account, API key or network was used",
+    "The controller intentionally stops when its owner stops; it is not an always-on background service"
+  ],
+  "gate": "Intraday refresh control passed deterministic host checks; UI, secure credential and real-account gates remain"
+}
