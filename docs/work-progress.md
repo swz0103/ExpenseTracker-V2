@@ -4,9 +4,10 @@
 - [x] 自動路由可套用明確優先序；新鮮可用結果停止 fallback。失敗、限流、缺值或過期可依序嘗試下一來源；若沒有新鮮值才保留第一個過期 observation。固定來源模式只呼叫指定 provider，不靜默換源。每次嘗試的來源、狀態與原因完整保留，選中結果可讀 dataset 與 attribution。
 - [x] 多源核對並列所有結果，不平均；股票觀測日／價格不同、FX 觀測日／幣對精確匯率／反向衍生不同都標記衝突。等值但小數尾零不同的股票價格視為相同。
 - [x] Registry／路由新增 8 項定向案例；與既有 TWSE／ECB／歷史 FX 共 20 項套件測試及靜態分析通過。[證據](test-results/market-provider-routing-host-2026-09-30.json)
-- [ ] 尚未接 provider 選擇／fallback 軌跡／多源核對 Flutter UI、投資摘要路由；TPEx、USD/TWD 與美股 adapter 仍待逐一新增。實機網路與最後整合 gate 未執行。
+- [x] 獨立 Flutter panel 可選自動或固定 provider，顯示真正採用的來源、dataset、attribution、觀測／取得資訊與每次 fallback 狀態；多源核對逐列顯示並在衝突時明示不選值、不平均。3 項畫面測試與受影響分析通過。
+- [ ] 尚未把 panel 接入投資摘要；TPEx、USD/TWD 與美股 adapter 仍待逐一新增。實機網路與最後整合 gate 未執行。
 
-下一步建立不綁來源的市場資料 UI model／獨立畫面，再新增不需付費帳號的 TPEx 與官方 USD/TWD adapter；需要 API key 或付費授權的來源延後到使用者決定。
+下一步新增不需付費帳號的 TPEx 與官方 USD/TWD adapter；需要 API key 或付費授權的來源延後到使用者決定。投資摘要接線留到功能線完成後的集中整合。
 
 ## 2026-09-30 M2-01 Provider-neutral 雲端備份核心（進行中）
 
