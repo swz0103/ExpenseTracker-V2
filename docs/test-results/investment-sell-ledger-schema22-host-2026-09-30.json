@@ -1,0 +1,15 @@
+{
+  "date": "2026-09-30",
+  "milestone": "M3-02 schema 22 加密 Ledger 接線（opt-in，尚未開放 App）",
+  "scope": "schema 21→22 安全升級、投資賣出與 lot 處分同交易、加密快照容量、兩憑證還原",
+  "host": {
+    "targeted": "investment_sell_session_test.dart 3/3 通過：舊買入事實保留、升級中斷回滾且安全副本可重用、賣出中斷回滾／重試防重、密碼與救援文字各自在乾淨帳本還原",
+    "analysis": "ledger_generation lib 與新增測試 No issues found",
+    "architecture": "Architecture boundaries passed",
+    "format_and_diff": "Dart format 與 git diff --check 通過",
+    "full_ledger_generation": "完整回歸執行至 245 個案例、未見失敗；分類歷史容量上限案例超過 11 分鐘仍未結束，本輪主動停止。全套結果不得記為通過"
+  },
+  "device": "本批未測試 schema 22 實機賣出；正式 App 仍使用 schema 18",
+  "cloud": "本批未觸發 Actions；目前 PR head 的 exact-head checks 尚未通過，剩餘額度未核實",
+  "release_gate": "未通過：仍缺 App 投資賣出確認流程、完整主機回歸、實機與適用雲端驗證"
+}

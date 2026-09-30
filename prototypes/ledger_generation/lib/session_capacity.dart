@@ -40,6 +40,8 @@ const _rowByteLimits = <String, int>{
   'investment_instruments': 4096,
   'investment_buys': 8192,
   'investment_lots': 4096,
+  'investment_sales': 1024 * 1024,
+  'investment_sale_allocations': 512,
 };
 Map<String, int> _tableLimits(
   bool categories,
@@ -60,6 +62,7 @@ Map<String, int> _tableLimits(
   bool cardAuthorizations,
   bool installments,
   bool investments,
+  bool investmentSales,
 ) => {
   'accounts': LedgerSession.maxAccounts,
   'events': LedgerSession.maxEvents,
@@ -86,6 +89,8 @@ Map<String, int> _tableLimits(
   if (investments) 'investment_instruments': LedgerSession.maxEvents,
   if (investments) 'investment_buys': LedgerSession.maxEvents,
   if (investments) 'investment_lots': LedgerSession.maxEvents,
+  if (investmentSales) 'investment_sales': LedgerSession.maxEvents,
+  if (investmentSales) 'investment_sale_allocations': SnapshotCodec.maxRows,
   'legs': LedgerSession.maxEvents * (transfers ? 3 : 1),
   'openings': LedgerSession.maxAccounts,
   'allocations': references ? SnapshotCodec.maxRows : 0,
@@ -160,8 +165,11 @@ void _checkRowBytes(String table, Map row) {
                   'reversal-posting-v1',
                   'merchant-post-v1',
                   'investment-buy-v1',
+                  'investment-sell-v1',
                 ].contains((jsonDecode(row['input'] as String) as List).first))
-      ? 4096
+      ? input?.first == 'investment-sell-v1'
+            ? 1024 * 1024
+            : 4096
       : _rowByteLimits[table];
   if (limit == null || utf8.encode(jsonEncode(row)).length > limit)
     throw PreviewCapacity();
@@ -191,6 +199,7 @@ List<int> validateSessionCapacity(
   bool cardAuthorizationsAware = false,
   bool installmentsAware = false,
   bool investmentsAware = false,
+  bool investmentSalesAware = false,
 }) {
   correctionsAware = correctionsAware || tombstonesAware;
   notesAware = notesAware || correctionsAware;
@@ -222,6 +231,7 @@ List<int> validateSessionCapacity(
     cardAuthorizationsAware: cardAuthorizationsAware,
     installmentsAware: installmentsAware,
     investmentsAware: investmentsAware,
+    investmentSalesAware: investmentSalesAware,
   );
   final canonical = codec.canonicalize(bytes);
   final tables = (jsonDecode(utf8.decode(canonical)) as Map)['tables'] as Map;
@@ -244,6 +254,7 @@ List<int> validateSessionCapacity(
     cardAuthorizationsAware,
     installmentsAware,
     investmentsAware,
+    investmentSalesAware,
   );
   _requirePortableUsage(_snapshotUsage(canonical));
   if (tables.length != limits.length) throw PreviewCapacity();
@@ -272,6 +283,7 @@ List<int> validateSessionCapacity(
           if (refundsAware) 'refund',
           if (reversalsAware) 'reversal',
           if (investmentsAware) 'investmentBuy',
+          if (investmentSalesAware) 'investmentSell',
         ].contains(row['kind']),
       ) ||
       (!_validLegCounts(events, tables['legs'] as List, transfersAware)) ||

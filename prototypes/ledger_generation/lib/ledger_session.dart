@@ -132,6 +132,7 @@ final class LedgerSession {
         cardAuthorizationsAware: _db.cardAuthorizationsAware,
         installmentsAware: _db.installmentsAware,
         investmentsAware: _db.investmentsAware,
+        investmentSalesAware: _db.investmentSalesAware,
       ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
@@ -151,6 +152,7 @@ final class LedgerSession {
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
       installmentsAware: _db.installmentsAware,
       investmentsAware: _db.investmentsAware,
+      investmentSalesAware: _db.investmentSalesAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
   }
@@ -199,6 +201,19 @@ final class LedgerSession {
   Future<List<investment.InvestmentBuyFact>> investmentBuys(
     WorkspaceId workspace,
   ) => _enqueue(() => investment.investmentBuys(_db, workspace));
+
+  Future<List<InvestmentHoldingLot>> investmentHoldingLots(
+    WorkspaceId workspace,
+    PublicId accountId,
+    PublicId instrumentId,
+  ) => _enqueue(
+    () => investment.investmentHoldingLots(
+      _db,
+      workspace,
+      accountId,
+      instrumentId,
+    ),
+  );
 
   /// A buy changes cash and the owned lot in one encrypted SQLite transaction.
   /// The event ID must be retained by the caller for an unambiguous retry.
@@ -250,6 +265,61 @@ final class LedgerSession {
           preview.operation.workspace.id.value,
           preview.lot.id.value,
         ]);
+      }
+      return result;
+    }),
+  );
+
+  /// Sale and lot disposition use the same encrypted SQLite write unit.
+  Future<CommitResult> postInvestmentSell(
+    InvestmentSellPreview preview,
+    PublicId eventId, {
+    void Function(String)? checkpoint,
+  }) => _enqueue(
+    () => _write(() async {
+      if (!_db.investmentSalesAware) {
+        throw UnsupportedError('Investment sales require schema 22');
+      }
+      final posting = Posting.investmentSell(
+        id: eventId,
+        operation: preview.operation,
+        date: preview.tradedOn,
+        account: PostingAccount(
+          id: preview.funding.id,
+          workspace: preview.funding.workspace,
+          currency: preview.funding.currency,
+          expectedVersion: preview.funding.expectedVersion,
+        ),
+        investmentSellId: preview.id,
+        gross: preview.gross,
+        fee: preview.fee,
+        tax: preview.tax,
+        cashCredit: preview.cashCredit,
+      );
+      if (!await _hasOperation(preview.operation)) {
+        await _admitCapacity();
+        if (await _count('events') >= maxEvents ||
+            await _count('investment_sales') >= maxEvents) {
+          throw PreviewCapacity();
+        }
+      }
+      final result = await investment.commitInvestmentSell(
+        _db,
+        preview,
+        posting,
+        checkpoint: checkpoint,
+      );
+      if (!result.replayed) {
+        await _checkFinancialRows(posting);
+        await _checkRows('investment_sales', 'workspace=? AND sell_id=?', [
+          preview.operation.workspace.toString(),
+          preview.id.value,
+        ]);
+        await _checkRows(
+          'investment_sale_allocations',
+          'workspace=? AND sell_id=?',
+          [preview.operation.workspace.toString(), preview.id.value],
+        );
       }
       return result;
     }),
@@ -1329,6 +1399,7 @@ final class LedgerSession {
       cardAuthorizationsAware: _db.cardAuthorizationsAware,
       installmentsAware: _db.installmentsAware,
       investmentsAware: _db.investmentsAware,
+      investmentSalesAware: _db.investmentSalesAware,
     ).capture(_db),
   );
 

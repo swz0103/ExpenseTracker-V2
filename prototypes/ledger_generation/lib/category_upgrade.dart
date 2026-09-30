@@ -19,7 +19,8 @@ enum _LedgerUpgrade {
   cardStatements(17, 18, 'ledger-17-to-18-v1'),
   cardAuthorizations(18, 19, 'ledger-18-to-19-v1'),
   cardInstallments(19, 20, 'ledger-19-to-20-v1'),
-  investments(20, 21, 'ledger-20-to-21-v1');
+  investments(20, 21, 'ledger-20-to-21-v1'),
+  investmentSales(21, 22, 'ledger-21-to-22-v1');
 
   const _LedgerUpgrade(this.from, this.to, this.route);
   final int from, to;
@@ -43,6 +44,7 @@ enum _LedgerUpgrade {
     cardAuthorizationsAware: to >= 19,
     installmentsAware: to >= 20,
     investmentsAware: to >= 21,
+    investmentSalesAware: to >= 22,
   );
   void requireSource(String source) {
     final parsed = jsonDecode(source) as Map;
@@ -68,6 +70,7 @@ enum _LedgerUpgrade {
       cardAuthorizationsAware: from >= 19,
       installmentsAware: from >= 20,
       investmentsAware: from >= 21,
+      investmentSalesAware: from >= 22,
     ).canonicalize(utf8.encode(source));
   }
 
@@ -89,7 +92,8 @@ enum _LedgerUpgrade {
         store.cardStatementsAware != (to >= 18) ||
         store.cardAuthorizationsAware != (to >= 19) ||
         store.installmentsAware != (to >= 20) ||
-        store.investmentsAware != (to >= 21)) {
+        store.investmentsAware != (to >= 21) ||
+        store.investmentSalesAware != (to >= 22)) {
       throw const InvalidSnapshot();
     }
   }
