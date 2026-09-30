@@ -107,6 +107,11 @@ void main() {
               .majorText,
           '100.00',
         );
+        final statement = (await engine.confirmedCardStatements(card.id))
+            .single;
+        expect(statement.refundsAfterClose, hasLength(1));
+        expect(statement.refundsAfterClose.single.originalEventId, purchase.id);
+        expect(statement.refundsAfterClose.single.amount.majorText, '25.00');
         final backup = await engine.exportBackup();
         for (final useRecovery in [false, true]) {
           final targetDir = root.createTempSync('restore-');
@@ -131,6 +136,15 @@ void main() {
                   .remainingDue
                   .majorText,
               '100.00',
+            );
+            expect(
+              (await target.confirmedCardStatements(card.id))
+                  .single
+                  .refundsAfterClose
+                  .single
+                  .amount
+                  .majorText,
+              '25.00',
             );
           } finally {
             await target.lock();
@@ -206,6 +220,28 @@ void main() {
         purchaseId = (await engine.entries())
             .singleWhere((entry) => entry.kind == PostingKind.expense)
             .id;
+        await engine.confirmCardStatement(
+          statementId: PublicId.generate(),
+          cardId: card.id,
+          revision: 1,
+          cycle: CardCycle(
+            startsAfter: BusinessDate(2026, 8, 28),
+            closesOn: BusinessDate(2026, 9, 28),
+            dueOn: BusinessDate(2026, 10, 15),
+          ),
+          billed: Money.parse(currency, '20'),
+          operation: OperationId(PublicId.generate()),
+        );
+        await engine.saveEntryDraft(
+          EntryFields(
+            income: false,
+            refundOf: purchaseId,
+            accountId: card.id,
+            amount: '5',
+            date: '2026-10-02',
+          ),
+        );
+        await engine.submitEntryDraft();
         await engine.lock();
       });
       await tester.pumpWidget(
@@ -214,6 +250,36 @@ void main() {
       await settle(tester);
       await input(tester, '密碼', password);
       await tap(tester, '解鎖');
+      await tap(tester, '信用卡帳單');
+      expect(find.textContaining('結帳後退款'), findsOneWidget);
+      expect(find.textContaining('不回寫此帳單'), findsOneWidget);
+      final activity = find.byKey(
+        ValueKey(
+          'statement-refund-activity-${(await tester.runAsync(() async {
+            final statement = (await engine.confirmedCardStatements(card.id)).single;
+            return statement.refundsAfterClose.single.eventId;
+          }))!}',
+        ),
+      );
+      await tester.ensureVisible(activity);
+      await tester.tap(activity);
+      for (var i = 0; i < 100; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 25)),
+        );
+        await tester.pump();
+        if (find
+            .byKey(ValueKey('activity-row-$purchaseId'))
+            .evaluate()
+            .isNotEmpty) {
+          break;
+        }
+      }
+      expect(find.text('交易活動'), findsOneWidget);
+      expect(find.byKey(ValueKey('activity-row-$purchaseId')), findsOneWidget);
+      await tester.tap(find.byTooltip('關閉活動'));
+      await settle(tester);
+      await tap(tester, '返回帳本');
       final menu = find.byKey(ValueKey('entry-actions-$purchaseId'));
       if (menu.evaluate().isEmpty) {
         await tester.scrollUntilVisible(

@@ -5,11 +5,13 @@ class _CardStatementScreen extends StatefulWidget {
     required this.engine,
     required this.accounts,
     required this.privacy,
+    required this.onActivity,
   });
 
   final PreviewEngine engine;
   final List<AccountSummary> accounts;
   final PrivacyMode privacy;
+  final Future<void> Function(PublicId eventId) onActivity;
 
   @override
   State<_CardStatementScreen> createState() => _CardStatementScreenState();
@@ -253,7 +255,7 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
             child: const Text('重試前次帳單確認'),
           ),
         ],
-        for (final row in _statements)
+        for (final row in _statements) ...[
           ListTile(
             title: Text('結帳 ${row.cycle.closesOn} · 繳款 ${row.cycle.dueOn}'),
             subtitle: Text(
@@ -261,6 +263,23 @@ class _CardStatementScreenState extends State<_CardStatementScreen> {
               '${row.billed != row.localCharges ? ' · 本機刷卡合計 ${presentMoney(row.localCharges, widget.privacy, MoneyKind.balance).text}，金額不符請核對' : ''}',
             ),
           ),
+          for (final refund in row.refundsAfterClose)
+            ListTile(
+              key: ValueKey('statement-refund-${refund.eventId}'),
+              contentPadding: const EdgeInsets.only(left: 32, right: 16),
+              title: Text(
+                '結帳後退款 ${presentMoney(refund.amount, widget.privacy, MoneyKind.transaction).text}',
+              ),
+              subtitle: Text('${refund.postedOn} 獨立入帳，不回寫此帳單；請依發卡行後續帳單核對。'),
+              trailing: TextButton(
+                key: ValueKey('statement-refund-activity-${refund.eventId}'),
+                onPressed: _busy
+                    ? null
+                    : () => widget.onActivity(refund.originalEventId),
+                child: const Text('查看活動'),
+              ),
+            ),
+        ],
         const SizedBox(height: 8),
         Text('繳款歸屬', style: Theme.of(context).textTheme.titleMedium),
         const Text('帳戶層繳款不會自動算入任何帳單；可將未分配金額的一部分指定給已確認帳單。'),

@@ -47,7 +47,10 @@ import 'package:storage_generation_probe/catalog_protection.dart';
 import 'package:validated_restore_probe/snapshot.dart';
 
 export 'package:modular_persistence_probe/card_statements_adapter.dart'
-    show ConfirmedCardStatement, CardUnallocatedPayment;
+    show
+        ConfirmedCardStatement,
+        CardStatementRefundCredit,
+        CardUnallocatedPayment;
 export 'package:modular_persistence_probe/card_authorizations_adapter.dart'
     show CardAuthorizationFact, CardAuthorizationState;
 export 'package:modular_persistence_probe/card_installments_adapter.dart'

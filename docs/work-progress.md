@@ -1,3 +1,12 @@
+## 2026-09-30 已確認帳單的結帳後退款呈現
+
+- [x] 帳單讀取模型現在會找出「原刷卡屬於該帳期，但退款在結帳日後才入帳」的獨立退款事件。退款不會回寫發卡行帳單原額、已分配繳款或未繳額，也不把 App 自行推測當成發卡行後續抵扣。
+- [x] 正式信用卡帳單畫面會在原帳單下方獨立顯示結帳後退款日期與金額，並明示「不回寫此帳單，請依發卡行後續帳單核對」。每筆可開啟原刷卡、退款及後續事件的完整活動鏈。
+- [x] 跨帳期退款在原帳本、重開、密碼還原與救援文字還原中皆保留；帳單未繳額持續保持發卡行確認值。帳單核心 2 項、App 退款 2 項及帳單回歸 3 項通過，受影響分析與架構邊界通過。[證據](test-results/card-post-close-refund-presentation-host-2026-09-30.json)
+- [ ] 還原密集測試仍會輸出既有 Drift 多實例診斷；本批沒有隱藏或宣稱修復。Android 實機與最後全 App 整合 gate 保留。
+
+下一步回查退款發生後的分期計畫呈現，保持「App 預估計畫」與「發卡行實際帳單」兩個事實不互相篡改。
+
 ## 2026-09-30 信用卡停用與歷史設定閉環
 
 - [x] 正式信用卡設定畫面新增停用二次確認；停用只追加一筆不可變設定修訂，不修改或刪除既有版本。畫面會保留已停用卡及完整版本歷史，並明示此版本不能重新啟用。
@@ -60,7 +69,7 @@ schema 24 已把目前規劃的投資權威事實全部設為 App 預設。下�
 - [x] 新增 Fugle key 專用 Android secure-storage namespace 與設定 panel；只公開 configured 狀態，不回顯已存 key，儲存後清空輸入，可更換及撤銷。Key 不進 SQLCipher 帳本、匯出或 app 雲端備份；Android backup/data-transfer 規則已排除 shared preferences。manager／widget 共 4 項測試及受影響分析通過。[證據](test-results/market-fugle-credential-host-2026-09-30.json)
 - [x] 新增 Twelve Data 美股 1／5 分鐘 adapter，支援 XNAS／XNYS／ARCX 的 USD 標的。API key 只放 Authorization header、不進 URL；symbol／MIC／currency／interval／UTC 時間與 OHLCV 全部核對，HTTP 與 payload 內的授權／缺值／429 保留不同語意，同查詢合併。7 項案例加入後 market_data 共 45 項測試通過。[證據](test-results/market-twelve-data-intraday-host-2026-09-30.json)
 - [x] 新增 Twelve Data 專用 secure-storage slot、設定／更換／撤銷 panel；不回顯 key，Android 備份與移轉排除。當分鐘行情真正選到 Twelve Data 時，顯示免費方案 8 credits/minute、800/day 的容量警告；Fugle 也顯示其基本方案限制。相關 manager／widget 共 7 項測試及受影響分析通過。[證據](test-results/market-twelve-data-credential-ui-host-2026-09-30.json)
-- [ ] 尚未把 panel 接入正式投資摘要；真實帳號／網路與最後整合 gate 未執行。Provider registry 已允許繼續加來源；「其他分鐘來源」是可擴充能力，不以無限新增 adapter 作為功能完成條件。
+- [x] 後續批次已把 panel 接入正式投資摘要；真實帳號／網路與最後整合 gate 仍未執行。Provider registry 允許繼續加來源；「其他分鐘來源」是可擴充能力，不以無限新增 adapter 作為功能完成條件。
 
 ## 2026-09-30 M3 跨幣別投資摘要（進行中）
 
@@ -68,7 +77,7 @@ schema 24 已把目前規劃的投資權威事實全部設為 App 預設。下�
 - [x] 任一幣別缺 FX 時，所有跨幣 grand total 都不可用，不顯示部分加總或 1:1；任一原幣開放持倉缺價格時，已提交成本／已實現／股息仍可換算，但市值／未實現／總報酬保持不可用。重複可用匯率拒絕而非靜默挑選；空組合不製造零總額。7 項案例加入後 investments 共 65 項測試通過。[證據](test-results/investment-cross-currency-core-host-2026-09-30.json)
 - [x] 新增 provider-neutral 協調器與獨立 Flutter panel：逐一透過 market router 取得每個原幣別的精確日或明示允許的七日內較早匯率；實際採用 provider、provider source、觀測日、fallback 原因及反向衍生方式皆可見。任一缺值維持所有跨幣總額不可用，隱私遮罩時不發出讀取，且不改寫原幣帳本。上游 provider 已反向衍生的 provenance 現在可一路保留至報表列。
 - [x] investments 65 項、跨幣 panel 5 項、受影響靜態分析及架構邊界檢查通過。[證據](test-results/investment-cross-currency-panel-host-2026-09-30.json)
-- [ ] 正式投資摘要接線仍依使用者要求留到功能線完成後的集中整合；真實 FX 網路、實機與全量 gate 未執行。
+- [x] 後續批次已完成正式投資摘要接線；真實 FX 網路、實機與全量 gate 仍未執行。
 
 下一步開放 schema 23 現金股息及 schema 24 正向拆股，補齊活動查閱與 App 定向回歸。建立真實 Fugle／Twelve Data 帳號或任何付費方案時才需要使用者決定；正式投資摘要接線留到功能線完成後的集中整合。
 

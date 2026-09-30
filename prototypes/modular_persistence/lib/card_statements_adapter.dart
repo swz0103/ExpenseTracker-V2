@@ -287,11 +287,29 @@ final class ConfirmedCardStatement {
     required this.localCharges,
     required this.paid,
     required this.remainingDue,
+    required this.refundsAfterClose,
   });
   final PublicId id, cardId;
   final int revision;
   final CardCycle cycle;
   final Money billed, localCharges, paid, remainingDue;
+  final List<CardStatementRefundCredit> refundsAfterClose;
+}
+
+/// A refund for a purchase in this statement cycle that was posted only after
+/// the issuer closed the statement. It remains an independent Ledger event:
+/// the confirmed issuer amount and its remaining due are never rewritten.
+final class CardStatementRefundCredit {
+  const CardStatementRefundCredit({
+    required this.eventId,
+    required this.originalEventId,
+    required this.postedOn,
+    required this.amount,
+  });
+
+  final PublicId eventId, originalEventId;
+  final BusinessDate postedOn;
+  final Money amount;
 }
 
 final class CardUnallocatedPayment {
@@ -346,6 +364,18 @@ Future<List<ConfirmedCardStatement>> confirmedCardStatements(
         variables: [Variable.withString(ws), Variable.withString(cardId.value)],
       )
       .get();
+  final refunds = await db
+      .customSelect(
+        'SELECT r.event_id,r.original_id,e.business_date,e.expense,'
+        'c.posted_on FROM event_refunds r '
+        'JOIN events e ON e.workspace=r.workspace AND e.id=r.event_id '
+        'JOIN card_posted_charges c ON c.workspace=r.workspace '
+        'AND c.event_id=r.original_id '
+        'WHERE r.workspace=? AND c.card_id=? '
+        'ORDER BY e.business_date,r.event_id',
+        variables: [Variable.withString(ws), Variable.withString(cardId.value)],
+      )
+      .get();
   return List.unmodifiable([
     for (final row in statements)
       () {
@@ -386,6 +416,24 @@ Future<List<ConfirmedCardStatement>> confirmedCardStatements(
             card.currency,
             BigInt.from(row.read<int>('billed_minor')) - paidMinor,
           ),
+          refundsAfterClose: List.unmodifiable([
+            for (final refund in refunds)
+              if (cycle.includes(_date(refund.read<String>('posted_on'))) &&
+                  _date(refund.read<String>('business_date'))
+                          .compareTo(cycle.closesOn) >
+                      0)
+                CardStatementRefundCredit(
+                  eventId: PublicId.parse(refund.read<String>('event_id')),
+                  originalEventId: PublicId.parse(
+                    refund.read<String>('original_id'),
+                  ),
+                  postedOn: _date(refund.read<String>('business_date')),
+                  amount: Money(
+                    card.currency,
+                    -BigInt.from(refund.read<int>('expense')),
+                  ),
+                ),
+          ]),
         );
       }(),
   ]);
