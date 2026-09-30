@@ -1,0 +1,129 @@
+import 'package:expense_preview/market_quote_panel.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
+import 'package:market_data/market_data.dart';
+
+const rows = '''[
+  {"Date":"1150929","Code":"2330","Name":"測試上市股","ClosingPrice":"1,234.50"}
+]''';
+
+final class _Transport implements MarketTransport {
+  _Transport(this.body);
+  final String body;
+  int calls = 0;
+
+  @override
+  Future<MarketResponse> get(Uri uri) async {
+    calls++;
+    return MarketResponse(200, body);
+  }
+}
+
+void main() {
+  final instrument = InvestmentInstrument(
+    id: PublicId.generate(),
+    kind: InstrumentKind.stock,
+    marketCode: 'TWSE',
+    symbol: '2330',
+    name: '合成上市股',
+    tradingCurrency: Currency('TWD', 2),
+  );
+  final accountId = PublicId.generate();
+  final lots = [
+    InvestmentHoldingLot(
+      id: PublicId.generate(),
+      investmentAccountId: accountId,
+      instrumentId: instrument.id,
+      acquiredOn: BusinessDate(2026, 1, 1),
+      remainingQuantity: ShareQuantity.parse('2'),
+      remainingCost: Money.parse(Currency('TWD', 2), '2000.00'),
+      expectedVersion: 1,
+    ),
+  ];
+
+  Future<void> show(
+    WidgetTester tester,
+    MarketDataGateway gateway, {
+    bool visible = true,
+    InvestmentInstrument? selected,
+    bool holdings = false,
+  }) => tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: MarketQuotePanel(
+          instrument: selected ?? instrument,
+          showAmounts: visible,
+          investmentAccountId: holdings ? accountId : null,
+          openLots: holdings ? lots : null,
+          gateway: gateway,
+        ),
+      ),
+    ),
+  );
+
+  testWidgets('reference quote requires an explicit tap and shows provenance', (
+    tester,
+  ) async {
+    final transport = _Transport(rows);
+    final gateway = MarketDataGateway(
+      transport: transport,
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    await show(tester, gateway, holdings: true);
+    expect(transport.calls, 0);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(transport.calls, 1);
+    expect(find.textContaining('1234.50 TWD'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('market-holding-value')))
+          .data,
+      contains('2469.00 TWD'),
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('market-unrealized'))).data,
+      contains('469.00 TWD'),
+    );
+    expect(find.textContaining('交易日 2026-09-29'), findsOneWidget);
+    expect(find.textContaining('台灣證交所'), findsWidgets);
+  });
+
+  testWidgets('stale quote is labeled and privacy clears it', (tester) async {
+    final gateway = MarketDataGateway(
+      transport: _Transport(rows),
+      clock: () => DateTime.utc(2026, 10, 10),
+    );
+    await show(tester, gateway, holdings: true);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('market-close-stale')), findsOneWidget);
+    expect(find.byKey(const ValueKey('market-close-value')), findsNothing);
+    expect(find.byKey(const ValueKey('market-holding-value')), findsNothing);
+    await show(tester, gateway, visible: false);
+    expect(find.textContaining('1234.50'), findsNothing);
+    expect(find.textContaining('隱私模式'), findsOneWidget);
+    await show(tester, gateway);
+    expect(find.textContaining('1234.50'), findsNothing);
+  });
+
+  testWidgets('unsupported market does not request a provider', (tester) async {
+    final transport = _Transport(rows);
+    final gateway = MarketDataGateway(transport: transport);
+    final unsupported = InvestmentInstrument(
+      id: PublicId.generate(),
+      kind: InstrumentKind.stock,
+      marketCode: 'XNAS',
+      symbol: 'TEST',
+      name: '合成股票',
+      tradingCurrency: Currency('USD', 2),
+    );
+    await show(tester, gateway, selected: unsupported);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(transport.calls, 0);
+    expect(find.textContaining('尚無行情來源'), findsOneWidget);
+  });
+}

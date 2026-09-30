@@ -35,6 +35,8 @@ dependencies:
     path: ../../packages/credit_cards
   investments:
     path: ../../packages/investments
+  market_data:
+    path: ../../packages/market_data
   foundation_values:
     path: ../../packages/foundation_values
   ledger:

@@ -29,6 +29,7 @@ import 'l10n/app_localizations.dart';
 import 'preview_engine.dart';
 import 'money_view.dart';
 import 'privacy_presentation.dart';
+import 'market_quote_panel.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';

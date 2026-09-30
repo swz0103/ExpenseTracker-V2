@@ -45,6 +45,7 @@ jobs:
             'packages/entry_drafts', 'packages/amount_input',
             'packages/ledger', 'packages/reports', 'packages/budgets',
             'packages/credit_cards', 'packages/investments',
+            'packages/market_data',
             'packages/recurring_transactions',
             'packages/data_exchange'
           )

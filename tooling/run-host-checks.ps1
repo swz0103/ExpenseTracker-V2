@@ -25,6 +25,7 @@ $checks = @(
     @{ Path = 'packages/budgets'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/credit_cards'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/investments'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/market_data'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/recurring_transactions'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/persistent_jobs'; Dirs = @('lib', 'test') },

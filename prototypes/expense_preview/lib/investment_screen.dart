@@ -842,6 +842,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       return const Text('目前已隱藏投資資料；顯示資料後才能操作。');
     }
     final existing = _existing?.preview;
+    final quoted = _selectedSellBuy?.preview ?? existing;
     final funding = _funding?.account;
     final review = _review;
     final saved = [..._saved]
@@ -853,7 +854,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         const SizedBox(height: 8),
         Text(
           widget.engine.capabilities.investmentSales
-              ? '手動記錄股票或 ETF 的實際成交，只用同幣別現金／銀行帳戶；不提供即時報價或未實現損益估值。'
+              ? '手動記錄股票或 ETF 的實際成交，只用同幣別現金／銀行帳戶；可按需查詢部分市場的每日收盤參考價，不提供即時報價或完整績效。'
               : '手動記錄股票或 ETF 的實際買入。只扣同幣別現金／銀行帳戶；不提供報價、賣出或損益估值。',
         ),
         const SizedBox(height: 12),
@@ -1018,6 +1019,26 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
               '實付 ${fact.preview.lot.acquisitionCashCost.majorText} ${fact.preview.cashDebit.currency.code}',
             ),
           ),
+        if (quoted != null) ...[
+          const SizedBox(height: 12),
+          MarketQuotePanel(
+            key: ValueKey('market-close-${quoted.instrument.id.value}'),
+            instrument: quoted.instrument,
+            showAmounts: widget.privacy == PrivacyMode.visible,
+            investmentAccountId:
+                _sellLotsReady &&
+                    _selectedSellBuy?.preview.instrument.id ==
+                        quoted.instrument.id
+                ? quoted.account.id
+                : null,
+            openLots:
+                _sellLotsReady &&
+                    _selectedSellBuy?.preview.instrument.id ==
+                        quoted.instrument.id
+                ? _sellLots
+                : null,
+          ),
+        ],
         if (widget.engine.capabilities.investmentSales) ...[
           const SizedBox(height: 8),
           _sellSection(context),

@@ -5,6 +5,7 @@
     "dart:collection",
     "dart:convert",
     "dart:core",
+    "dart:io",
     "dart:math",
     "dart:typed_data"
   ],
@@ -70,6 +71,11 @@
       "publicEntrypoints": ["investments.dart"],
       "dependencies": ["foundation_values"]
     },
+    "market_data": {
+      "directory": "packages/market_data",
+      "publicEntrypoints": ["market_data.dart"],
+      "dependencies": ["foundation_values", "investments"]
+    },
     "recurring_transactions": {
       "directory": "packages/recurring_transactions",
       "publicEntrypoints": ["recurring_transactions.dart"],
@@ -132,7 +138,7 @@
     },
     "expense_preview": {
       "directory": "prototypes/expense_preview",
-        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
+        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "validated_restore_probe"]
     },
     "android_foundation": {
       "directory": "prototypes/android_foundation",
