@@ -29,6 +29,7 @@ $checks = @(
     @{ Path = 'packages/recurring_transactions'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/persistent_jobs'; Dirs = @('lib', 'test') },
+    @{ Path = 'prototypes/cloud_backup'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/validated_restore'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },

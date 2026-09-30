@@ -65,7 +65,8 @@ jobs:
       - shell: pwsh
         run: |
           $packages = @(
-            'prototypes/persistent_jobs', 'prototypes/modular_persistence',
+            'prototypes/persistent_jobs', 'prototypes/cloud_backup',
+            'prototypes/modular_persistence',
             'prototypes/backup_envelope', 'prototypes/validated_restore',
             'prototypes/encrypted_storage', 'prototypes/storage_generation',
             'prototypes/ledger_generation', 'prototypes/transaction_boundary'

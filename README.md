@@ -6,6 +6,8 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 
 ## 專案文件
 
+- [功能完成矩陣與多來源市場資料契約](docs/capability-matrix.md)
+
 - [交易純文字備註、修訂與衝突處理](docs/transaction-notes.md)
 
 - [完整交易撤銷與安全升級](docs/financial-reversals.md)

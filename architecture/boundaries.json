@@ -131,6 +131,11 @@
     }
   },
   "runtimeModules": {
+    "cloud_backup_probe": {
+      "directory": "prototypes/cloud_backup",
+      "publicEntrypoints": ["cloud_backup.dart"],
+      "dependencies": ["backup_envelope_probe"]
+    },
     "persistent_jobs_probe": {
       "directory": "prototypes/persistent_jobs",
       "publicEntrypoints": ["persistent_jobs.dart"],

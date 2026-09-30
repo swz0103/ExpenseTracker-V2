@@ -1,0 +1,12 @@
+name: cloud_backup_probe
+description: Provider-neutral verified encrypted cloud backup workflow for ExpenseTracker V2.
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  backup_envelope_probe:
+    path: ../backup_envelope
+  cryptography: 2.9.0
+dev_dependencies:
+  test: 1.32.0
+
