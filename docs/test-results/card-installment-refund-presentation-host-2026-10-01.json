@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-01",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Credit-card installment presentation after a later refund",
+  "behavior": [
+    "A saved installment forecast retains its original count, principal, included fee and projected close dates after a refund",
+    "Later refunds are returned as independently identified Ledger events with exact dates and amounts",
+    "The formal installment screen displays the refunded total without recalculating the historical forecast or claiming an issuer adjustment",
+    "The refund notice links to the complete purchase and refund activity family",
+    "A refunded purchase remains in its existing plan but cannot be used to create a new plan"
+  ],
+  "hostChecks": {
+    "persistence": "8 installment authority and refund tests passed",
+    "appFlow": "1 acknowledgement-loss, restart, replay and later-refund flow passed",
+    "appWidget": "2 original and post-refund installment screen tests passed",
+    "modularPersistenceAnalysis": "no issues",
+    "ledgerGenerationAnalysis": "no issues",
+    "expensePreviewAnalysis": "no issues",
+    "architecture": "architecture boundaries passed",
+    "format": "affected files formatted and git diff --check passed"
+  },
+  "notVerified": [
+    "No Android device or exact-head cloud gate was used",
+    "No issuer account or real issuer installment statement was available",
+    "Full-app regression remains reserved for the final integration pass"
+  ],
+  "gate": "Post-refund installment presentation passed affected host checks; issuer, device and final integration gates remain pending"
+}

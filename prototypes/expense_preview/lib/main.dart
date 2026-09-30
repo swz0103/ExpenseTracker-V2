@@ -1882,6 +1882,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
+            onActivity: _showActivity,
           ),
           _back(),
         ];

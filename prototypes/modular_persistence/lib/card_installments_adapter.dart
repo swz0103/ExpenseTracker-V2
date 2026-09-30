@@ -5,11 +5,34 @@ import 'package:foundation_values/foundation_values.dart';
 
 import 'adapters.dart';
 import 'database.dart';
+import 'card_statements_adapter.dart' show validateCardStatementFacts;
 
 final class CardInstallmentFact {
-  const CardInstallmentFact(this.plan, this.operation);
+  const CardInstallmentFact(
+    this.plan,
+    this.operation, {
+    this.refunds = const [],
+  });
   final CardInstallmentSchedule plan;
   final OperationId operation;
+  final List<CardInstallmentRefundCredit> refunds;
+
+  Money get refunded => refunds.fold(
+    Money(plan.principal.currency, BigInt.zero),
+    (sum, refund) => sum + refund.amount,
+  );
+}
+
+final class CardInstallmentRefundCredit {
+  const CardInstallmentRefundCredit({
+    required this.eventId,
+    required this.postedOn,
+    required this.amount,
+  });
+
+  final PublicId eventId;
+  final BusinessDate postedOn;
+  final Money amount;
 }
 
 /// A committed, still-active card purchase that can be assigned a plan.
@@ -138,6 +161,7 @@ Future<List<CardInstallmentFact>> cardInstallmentPlans(
   PublicId cardId,
 ) async {
   _requireSchema(db);
+  await validateCardStatementFacts(db);
   final rows = await db
       .customSelect(
         'SELECT * FROM card_installment_plans WHERE workspace=? AND card_id=? '
@@ -145,11 +169,44 @@ Future<List<CardInstallmentFact>> cardInstallmentPlans(
         variables: [Variable(workspace.id.value), Variable(cardId.value)],
       )
       .get();
+  final card = await AccountsAdapter(db).read(workspace, cardId);
+  final refundRows = await db
+      .customSelect(
+        'SELECT r.original_id,r.event_id,e.business_date,e.expense '
+        'FROM event_refunds r '
+        'JOIN events e ON e.workspace=r.workspace AND e.id=r.event_id '
+        'JOIN card_posted_charges c ON c.workspace=r.workspace '
+        'AND c.event_id=r.original_id '
+        'WHERE r.workspace=? AND c.card_id=? '
+        'ORDER BY e.business_date,r.event_id',
+        variables: [Variable(workspace.id.value), Variable(cardId.value)],
+      )
+      .get();
   final facts = <CardInstallmentFact>[];
   for (final row in rows) {
     final fact = _decode(row);
     await _validateLink(db, fact.plan);
-    facts.add(fact);
+    facts.add(
+      CardInstallmentFact(
+        fact.plan,
+        fact.operation,
+        refunds: List.unmodifiable([
+          for (final refund in refundRows)
+            if (refund.read<String>('original_id') ==
+                fact.plan.purchaseEventId.value)
+              CardInstallmentRefundCredit(
+                eventId: PublicId.parse(refund.read<String>('event_id')),
+                postedOn: BusinessDate.parse(
+                  refund.read<String>('business_date'),
+                ),
+                amount: Money(
+                  card.currency,
+                  -BigInt.from(refund.read<int>('expense')),
+                ),
+              ),
+        ]),
+      ),
+    );
   }
   return List.unmodifiable(facts);
 }

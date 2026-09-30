@@ -5,11 +5,13 @@ class _CardInstallmentScreen extends StatefulWidget {
     required this.engine,
     required this.accounts,
     required this.privacy,
+    required this.onActivity,
   });
 
   final PreviewEngine engine;
   final List<AccountSummary> accounts;
   final PrivacyMode privacy;
+  final Future<void> Function(PublicId eventId) onActivity;
 
   @override
   State<_CardInstallmentScreen> createState() => _CardInstallmentScreenState();
@@ -294,7 +296,7 @@ class _CardInstallmentScreenState extends State<_CardInstallmentScreen> {
           const SizedBox(height: 16),
           Text('已保存計畫', style: Theme.of(context).textTheme.titleMedium),
           if (_saved.isEmpty) const Text('尚無分期計畫。'),
-          for (final fact in _saved)
+          for (final fact in _saved) ...[
             ListTile(
               title: Text(
                 '${fact.plan.count} 期 · 首期 ${fact.plan.firstScheduledClose}',
@@ -304,6 +306,27 @@ class _CardInstallmentScreenState extends State<_CardInstallmentScreen> {
                 (fact.plan.principal + fact.plan.fixedFee).majorText,
               ),
             ),
+            if (fact.refunds.isNotEmpty)
+              ListTile(
+                key: ValueKey(
+                  'installment-refund-${fact.plan.purchaseEventId}',
+                ),
+                contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                title: Text(
+                  '退款後計畫需核對 · 已退 ${fact.refunded.majorText} ${fact.refunded.currency.code}',
+                ),
+                subtitle: const Text('原分期預估作為歷史保留，不自動重算或冒充發卡行後續帳單。'),
+                trailing: TextButton(
+                  key: ValueKey(
+                    'installment-refund-activity-${fact.plan.purchaseEventId}',
+                  ),
+                  onPressed: _busy
+                      ? null
+                      : () => widget.onActivity(fact.plan.purchaseEventId),
+                  child: const Text('查看活動'),
+                ),
+              ),
+          ],
         ],
         if (_message != null)
           Padding(

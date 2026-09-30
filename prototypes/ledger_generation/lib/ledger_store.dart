@@ -54,7 +54,10 @@ export 'package:modular_persistence_probe/card_statements_adapter.dart'
 export 'package:modular_persistence_probe/card_authorizations_adapter.dart'
     show CardAuthorizationFact, CardAuthorizationState;
 export 'package:modular_persistence_probe/card_installments_adapter.dart'
-    show CardInstallmentFact, CardInstallmentPurchase;
+    show
+        CardInstallmentFact,
+        CardInstallmentPurchase,
+        CardInstallmentRefundCredit;
 export 'package:modular_persistence_probe/card_revisions_adapter.dart'
     show CardTermsRevision;
 export 'package:modular_persistence_probe/investment_adapter.dart'

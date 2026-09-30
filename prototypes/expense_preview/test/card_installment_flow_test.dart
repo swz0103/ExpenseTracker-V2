@@ -101,6 +101,31 @@ void main() {
         expect(await engine.availableInstallmentPurchases(card.id), isEmpty);
         expect((await engine.entries()).length, before.length);
         expect((await engine.accounts()).single.balance.majorText, '-101.02');
+        await engine.saveEntryDraft(
+          EntryFields(
+            income: false,
+            refundOf: purchase.purchaseEventId,
+            accountId: card.id,
+            amount: '10',
+            date: '2028-03-05',
+          ),
+        );
+        await engine.submitEntryDraft();
+        final refunded = (await engine.savedCardInstallmentPlans(card.id))
+            .single;
+        expect(
+          refunded.plan.principal + refunded.plan.fixedFee,
+          plan.principal + plan.fixedFee,
+        );
+        expect(refunded.refunds, hasLength(1));
+        expect(refunded.refunded, Money.parse(twd, '10'));
+        await engine.lock();
+        engine = open();
+        await engine.unlock(password);
+        expect(
+          (await engine.savedCardInstallmentPlans(card.id)).single.refunded,
+          Money.parse(twd, '10'),
+        );
       } finally {
         await engine.lock();
         deleteSynthetic(work, root);

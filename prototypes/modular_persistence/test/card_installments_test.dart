@@ -265,7 +265,14 @@ void main() {
         ),
       );
       await validateCardInstallmentPlans(db);
-      expect(await cardInstallmentPlans(db, workspace, card.id), hasLength(1));
+      final saved = (await cardInstallmentPlans(db, workspace, card.id)).single;
+      expect(
+        saved.plan.principal + saved.plan.fixedFee,
+        Money.parse(twd, '101.02'),
+      );
+      expect(saved.refunds, hasLength(1));
+      expect(saved.refunded, Money.parse(twd, '10'));
+      expect(saved.refunds.single.postedOn, BusinessDate(2028, 3, 5));
       await createCardInstallmentPlan(db, request, op);
 
       final otherPurchase = await postedPurchase();
