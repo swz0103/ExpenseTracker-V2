@@ -50,9 +50,6 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         oldWidget.showAmounts != widget.showAmounts ||
         oldWidget.openLots != widget.openLots ||
         oldWidget.investmentAccountId != widget.investmentAccountId ||
-        oldWidget.realizedResults != widget.realizedResults ||
-        oldWidget.netDividends != widget.netDividends ||
-        oldWidget.historicalCashFlows != widget.historicalCashFlows ||
         !identical(oldWidget.gateway, widget.gateway)) {
       _request++;
       _result = null;

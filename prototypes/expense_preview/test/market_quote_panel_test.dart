@@ -153,6 +153,24 @@ void main() {
     expect(find.textContaining('年化報酬率約'), findsOneWidget);
   });
 
+  testWidgets('newly loaded history reuses an unchanged sourced close', (
+    tester,
+  ) async {
+    final transport = _Transport(rows);
+    final gateway = MarketDataGateway(
+      transport: transport,
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    await show(tester, gateway, holdings: true);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(transport.calls, 1);
+    await show(tester, gateway, holdings: true, history: true);
+    expect(transport.calls, 1);
+    expect(find.byKey(const ValueKey('market-close-source')), findsOneWidget);
+    expect(find.byKey(const ValueKey('market-total-return')), findsOneWidget);
+  });
+
   testWidgets('unsupported market does not request a provider', (tester) async {
     final transport = _Transport(rows);
     final gateway = MarketDataGateway(transport: transport);
