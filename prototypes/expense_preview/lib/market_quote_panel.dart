@@ -17,6 +17,7 @@ class MarketQuotePanel extends StatefulWidget {
     this.historicalCashFlows = const [],
     this.latestPositionDate,
     this.gateway,
+    this.router,
   });
 
   final InvestmentInstrument instrument;
@@ -34,6 +35,7 @@ class MarketQuotePanel extends StatefulWidget {
   /// A split has no cash flow but a pre-split close cannot mark post-split shares.
   final BusinessDate? latestPositionDate;
   final MarketDataGateway? gateway;
+  final MarketDataRouter? router;
 
   @override
   State<MarketQuotePanel> createState() => _MarketQuotePanelState();
@@ -42,6 +44,7 @@ class MarketQuotePanel extends StatefulWidget {
 class _MarketQuotePanelState extends State<MarketQuotePanel> {
   late final MarketDataGateway _ownedGateway = MarketDataGateway();
   MarketResult<StockClose>? _result;
+  MarketProviderDescriptor? _provider;
   bool _loading = false;
   int _request = 0;
 
@@ -54,9 +57,11 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         oldWidget.showAmounts != widget.showAmounts ||
         oldWidget.openLots != widget.openLots ||
         oldWidget.investmentAccountId != widget.investmentAccountId ||
-        !identical(oldWidget.gateway, widget.gateway)) {
+        !identical(oldWidget.gateway, widget.gateway) ||
+        !identical(oldWidget.router, widget.router)) {
       _request++;
       _result = null;
+      _provider = null;
       _loading = false;
     }
   }
@@ -67,12 +72,18 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
     setState(() {
       _loading = true;
       _result = null;
+      _provider = null;
     });
-    final result = await _gateway.stockClose(widget.instrument);
+    final routed = widget.router == null
+        ? null
+        : await widget.router!.stockClose(widget.instrument);
+    final result =
+        routed?.result ?? await _gateway.stockClose(widget.instrument);
     if (!mounted || request != _request || !widget.showAmounts) return;
     setState(() {
       _loading = false;
       _result = result;
+      _provider = routed?.selectedProvider;
     });
   }
 
@@ -132,7 +143,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('參考行情', style: Theme.of(context).textTheme.titleMedium),
-        const Text('僅台灣證交所上市股票／ETF 每日收盤價；成交價仍以實際交易為準。'),
+        const Text('依已註冊來源查詢每日收盤價；成交價仍以實際交易為準。'),
         OutlinedButton(
           key: const ValueKey('request-market-close'),
           onPressed: widget.showAmounts && !_loading ? _refresh : null,
@@ -166,7 +177,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         if (widget.showAmounts && result != null) ...[
           if (result.value case final quote?) ...[
             Text(
-              '來源：台灣證交所 · 交易日 ${quote.asOf} · 取得 ${quote.fetchedAt.value.toLocal().toIso8601String()}',
+              '來源：${_provider?.label ?? '台灣證交所'} · 交易日 ${quote.asOf} · 取得 ${quote.fetchedAt.value.toLocal().toIso8601String()}',
               key: const ValueKey('market-close-source'),
             ),
             if (result.state == MarketState.available)
@@ -192,7 +203,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
             if (invalidHoldings) const Text('持股資料未能核對，暫不顯示估值。'),
           ] else
             Text(switch (result.state) {
-              MarketState.missing => '證交所目前沒有此標的收盤價。',
+              MarketState.missing => '目前來源沒有此標的收盤價。',
               MarketState.unsupported => '此市場、幣別或標的尚無行情來源。',
               MarketState.throttled => '行情查詢稍後再試。',
               MarketState.failed => '行情來源無法使用，請稍後重試。',

@@ -90,11 +90,15 @@ class InvestmentPortfolioSummaryPanel extends StatefulWidget {
     this.engine,
     this.source,
     this.gateway,
+    this.router,
+    this.onSummary,
   }) : assert(engine != null || source != null);
 
   final PreviewEngine? engine;
   final InvestmentPortfolioSource? source;
   final MarketDataGateway? gateway;
+  final MarketDataRouter? router;
+  final ValueChanged<InvestmentPortfolioSummary?>? onSummary;
   final PrivacyMode privacy;
 
   /// Increment after any committed buy, sale, dividend or split is reloaded.
@@ -134,6 +138,7 @@ class _InvestmentPortfolioSummaryPanelState
         !identical(oldWidget.engine, widget.engine) ||
         !identical(oldWidget.source, widget.source) ||
         !identical(oldWidget.gateway, widget.gateway) ||
+        !identical(oldWidget.router, widget.router) ||
         !_source.isUnlocked) {
       _request++;
       _reading = null;
@@ -168,6 +173,7 @@ class _InvestmentPortfolioSummaryPanelState
         _reading = reading;
         _loading = false;
       });
+      widget.onSummary?.call(reading.summary);
     } on _PortfolioLimit {
       if (!_current(request)) return;
       setState(() {
@@ -175,6 +181,7 @@ class _InvestmentPortfolioSummaryPanelState
         _loading = false;
         _problem = '資料量超過暫時安全上限（20 個持倉或單類紀錄 1,000 筆）；摘要不可用，不顯示部分總數。';
       });
+      widget.onSummary?.call(null);
     } on _PositionReadFailure catch (error) {
       if (!_current(request)) return;
       setState(() {
@@ -182,6 +189,7 @@ class _InvestmentPortfolioSummaryPanelState
         _loading = false;
         _problem = '${error.instrument} 的已提交紀錄或權威持倉讀取失敗；摘要不可用，不顯示部分總數。';
       });
+      widget.onSummary?.call(null);
     } catch (_) {
       if (!_current(request)) return;
       setState(() {
@@ -189,6 +197,7 @@ class _InvestmentPortfolioSummaryPanelState
         _loading = false;
         _problem = '無法完整核對投資紀錄；摘要不可用，請稍後重試。';
       });
+      widget.onSummary?.call(null);
     }
   }
 
@@ -291,7 +300,11 @@ class _InvestmentPortfolioSummaryPanelState
       ShareUnitPrice? usablePrice;
       if (lots.isNotEmpty) {
         try {
-          final result = await _gateway.stockClose(instrument);
+          final routed = widget.router == null
+              ? null
+              : await widget.router!.stockClose(instrument);
+          final result =
+              routed?.result ?? await _gateway.stockClose(instrument);
           if (!_current(request)) throw StateError('Read cancelled');
           final quote = result.value;
           if (result.state == MarketState.available &&
@@ -302,7 +315,7 @@ class _InvestmentPortfolioSummaryPanelState
               quote.decimalPrice,
             );
             quoteNotes.add(
-              '${instrument.marketCode}:${instrument.symbol}：台灣證交所收盤價 '
+              '${instrument.marketCode}:${instrument.symbol}：${routed?.selectedProvider?.label ?? '預設來源'}收盤價 '
               '${quote.decimalPrice} ${instrument.tradingCurrency.code} · '
               '交易日 ${quote.asOf} · 取得 '
               '${quote.fetchedAt.value.toLocal().toIso8601String()}',

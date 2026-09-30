@@ -32,6 +32,12 @@ import 'privacy_presentation.dart';
 import 'market_quote_panel.dart';
 import 'investment_portfolio_summary_panel.dart';
 import 'historical_fx_panel.dart';
+import 'intraday_market_panel.dart';
+import 'market_credentials.dart';
+import 'twelve_data_credentials.dart';
+import 'cross_currency_portfolio_panel.dart';
+import 'investment_market_services.dart';
+import 'market_source_panel.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
@@ -67,6 +73,7 @@ void main() {
       deviceUnlock: AndroidDeviceUnlockStore(),
       appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
       recurringReminder: AndroidRecurringReminderService(),
+      investmentMarketServices: createInvestmentMarketServices(),
     ),
   );
 }
@@ -79,12 +86,14 @@ class PreviewApp extends StatefulWidget {
     this.deviceUnlock,
     this.appPin,
     this.recurringReminder,
+    this.investmentMarketServices,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
   final DeviceUnlockStore? deviceUnlock;
   final AppPinStore? appPin;
   final RecurringReminderService? recurringReminder;
+  final InvestmentMarketServices? investmentMarketServices;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -112,6 +121,7 @@ class _PreviewAppState extends State<PreviewApp> {
       deviceUnlock: widget.deviceUnlock,
       appPin: widget.appPin,
       recurringReminder: widget.recurringReminder,
+      investmentMarketServices: widget.investmentMarketServices,
       onLock: _routes.cancel,
     ),
   );
@@ -191,6 +201,7 @@ class PreviewHome extends StatefulWidget {
     this.deviceUnlock,
     this.appPin,
     this.recurringReminder,
+    this.investmentMarketServices,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
@@ -198,6 +209,7 @@ class PreviewHome extends StatefulWidget {
   final DeviceUnlockStore? deviceUnlock;
   final AppPinStore? appPin;
   final RecurringReminderService? recurringReminder;
+  final InvestmentMarketServices? investmentMarketServices;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -1843,6 +1855,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             engine: _engine!,
             accounts: _accounts,
             privacy: _privacy,
+            marketServices: widget.investmentMarketServices,
           ),
           _back(),
         ];
@@ -2537,7 +2550,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               onPressed: _busy
                   ? null
                   : () => setState(() => _page = _Page.investments),
-              child: const Text('投資買入'),
+              child: const Text('投資與行情'),
             ),
           if (_engine!.capabilities.installments &&
               _accounts.any(

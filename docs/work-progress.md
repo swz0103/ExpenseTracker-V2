@@ -1,3 +1,13 @@
+## 2026-09-30 正式投資畫面接入多來源市場資料
+
+- [x] App 啟動時建立單一 provider registry，正式註冊 TWSE、TPEx、ECB、CBC、Fugle 與 Twelve Data adapters；投資畫面沿同一 router 使用支援範圍過濾、fallback 與實際來源 provenance，不再另外綁死單一行情 gateway。
+- [x] 逐幣別投資摘要改走 router；選定持倉可展開來源選擇／多源核對與 1／5 分 K、1–5 分鐘更新。Fugle／Twelve Data 金鑰設定已進正式投資畫面，仍只存 Android secure storage、不回顯、不進帳本或備份。畫面建立與展開不自動呼叫 provider，使用者必須按下核對、查詢或開始更新。
+- [x] 完整逐幣摘要回傳後才建立跨幣 panel；任一持倉讀取、價格或 FX 缺值仍遵守既有 fail-closed 規則。報表幣別先限於實際持倉幣別，避免無來源的任意幣別或靜默 cross-rate。
+- [x] 既有投資／行情／摘要 19 項回歸與新增 1 項正式畫面整合案例通過；新增案例確認初始零網路呼叫、按需多來源收盤查詢、跨幣入口及分鐘行情在展開後仍不自動啟動。App 完整靜態分析與架構邊界通過。[證據](test-results/investment-market-formal-integration-host-2026-09-30.json)
+- [ ] Fugle／Twelve Data 真實帳號、正式 API key、Android secure storage、真實網路、限流及背景／前景生命週期仍需實機；建立帳號或付費方案時才需要使用者決定。
+
+下一個集中接線單元處理 provider-neutral 雲端備份正式入口與 engine handoff；Google OAuth client、`drive.file` 同意畫面與真實帳號是外部 gate，不會自行建立或授權。
+
 ## 2026-09-30 schema 24 正向拆股預設開放
 
 - [x] App 預設 schema 由 23 升至 24；舊 V2 帳本仍走明確確認與逐版雙憑證安全備份。schema 12→24 定向 UI 升級核對 12 份舊版副本，買入、賣出、股息與既有日常帳務皆保留。

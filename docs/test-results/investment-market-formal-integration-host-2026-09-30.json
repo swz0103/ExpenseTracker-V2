@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-30",
+  "branch": "work/m2-cloud-backup",
+  "scope": "Formal investment-screen integration of provider-neutral market data",
+  "behavior": [
+    "One runtime registry contains independent TWSE, TPEx, ECB, CBC, Fugle and Twelve Data providers",
+    "Portfolio close lookup uses the router and reports the actually selected provider",
+    "Supported close providers are the only fixed-source choices shown for an instrument",
+    "A selected holding exposes source comparison and bounded one-to-five-minute intraday refresh",
+    "Fugle and Twelve Data credential controls use dedicated Android secure-storage keys and never reveal saved values",
+    "No provider call occurs merely by opening the investment screen or expanding intraday controls",
+    "Cross-currency reporting becomes available only after a complete authoritative portfolio read",
+    "Market data remains read-only and cannot mutate trades, lots, cash or FX executions"
+  ],
+  "hostChecks": {
+    "existingRegression": "19 tests passed across investment widget, portfolio summary and market quote panels",
+    "formalIntegration": "1 focused widget test passed with synthetic routed close/intraday provider and in-memory credential vaults",
+    "analysis": "full expense_preview dart analyze: no issues",
+    "architecture": "architecture boundaries passed",
+    "format": "dart format applied to affected files"
+  },
+  "notVerified": [
+    "No real Fugle or Twelve Data account or API key was used",
+    "No Android secure-storage, live network, device lifecycle or exact-head cloud gate was run"
+  ],
+  "gate": "Formal investment market-data integration passed host checks; live account and device gates remain pending"
+}

@@ -1,12 +1,16 @@
 import 'dart:io';
 
 import 'package:expense_preview/main.dart';
+import 'package:expense_preview/investment_market_services.dart';
+import 'package:expense_preview/market_credentials.dart';
 import 'package:expense_preview/preview_engine.dart';
+import 'package:expense_preview/twelve_data_credentials.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
+import 'package:market_data/market_data.dart';
 
 import 'support.dart';
 import 'widget_test.dart' show Documents, closeEngine, settle;
@@ -71,10 +75,15 @@ Future<void> _enterKey(WidgetTester tester, String key, String value) async {
 
 Future<void> _openInvestmentScreen(
   WidgetTester tester,
-  PreviewEngine engine,
-) async {
+  PreviewEngine engine, {
+  InvestmentMarketServices? marketServices,
+}) async {
   await tester.pumpWidget(
-    PreviewApp(engine: Future.value(engine), documents: Documents()),
+    PreviewApp(
+      engine: Future.value(engine),
+      documents: Documents(),
+      investmentMarketServices: marketServices,
+    ),
   );
   await settle(tester);
   await tester.enterText(find.byType(TextField).first, password);
@@ -82,6 +91,89 @@ Future<void> _openInvestmentScreen(
   await settle(tester);
   await _tapKey(tester, 'open-investments');
   await _waitForKey(tester, 'investment-broker');
+}
+
+final class _FugleVault implements FugleCredentialVault {
+  String? value;
+  @override
+  Future<void> delete() async => value = null;
+  @override
+  Future<String?> read() async => value;
+  @override
+  Future<void> write(String apiKey) async => value = apiKey;
+}
+
+final class _TwelveVault implements TwelveDataCredentialVault {
+  String? value;
+  @override
+  Future<void> delete() async => value = null;
+  @override
+  Future<String?> read() async => value;
+  @override
+  Future<void> write(String apiKey) async => value = apiKey;
+}
+
+final class _MarketProvider
+    implements StockCloseProvider, IntradayStockProvider {
+  var closeCalls = 0;
+  var intradayCalls = 0;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: 'investment-screen-test-market',
+    label: '整合測試行情',
+    dataset: '整合測試資料集',
+    attribution: '整合測試來源註記',
+    requiresAuthorization: false,
+  );
+
+  @override
+  bool supportsStockClose(InvestmentInstrument instrument) => true;
+
+  @override
+  Future<MarketResult<StockClose>> stockClose(
+    InvestmentInstrument instrument, {
+    BusinessDate? requiredAsOf,
+  }) async {
+    closeCalls++;
+    return MarketResult(
+      MarketState.available,
+      value: StockClose(
+        symbol: instrument.symbol,
+        decimalPrice: '12',
+        asOf: BusinessDate(2026, 9, 30),
+        fetchedAt: UtcInstant(DateTime.utc(2026, 9, 30, 8)),
+      ),
+    );
+  }
+
+  @override
+  bool supportsIntraday(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  ) => true;
+
+  @override
+  Future<MarketResult<IntradayBar>> latestBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
+  }) async {
+    intradayCalls++;
+    return MarketResult(
+      MarketState.available,
+      value: IntradayBar(
+        symbol: instrument.symbol,
+        interval: interval,
+        startsAt: UtcInstant(DateTime.utc(2026, 9, 30, 8)),
+        open: '11',
+        high: '12',
+        low: '10',
+        close: '12',
+        volume: BigInt.from(10),
+        fetchedAt: UtcInstant(DateTime.utc(2026, 9, 30, 8, 1)),
+      ),
+    );
+  }
 }
 
 Future<void> _prepareSyntheticBuy(WidgetTester tester) async {
@@ -212,6 +304,56 @@ Future<void> _prepareSyntheticDividend(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('formal investment screen wires routed market tools on demand', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/investment-widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('market-integration-');
+    final engine = engineAt(
+      work,
+      MemoryVault(),
+      schemaVersion: currentPreviewSchemaVersion,
+    );
+    final provider = _MarketProvider();
+    final services = InvestmentMarketServices(
+      gateway: MarketDataGateway(),
+      router: MarketDataRouter(MarketProviderRegistry([provider])),
+      fugleCredentials: FugleCredentialManager(_FugleVault()),
+      twelveDataCredentials: TwelveDataCredentialManager(_TwelveVault()),
+    );
+    try {
+      await tester.runAsync(() async {
+        await setup(engine);
+        await _seedSyntheticBuy(engine);
+        await engine.lock();
+      });
+      await _openInvestmentScreen(tester, engine, marketServices: services);
+      expect(
+        find.byKey(const ValueKey('investment-market-credentials-section')),
+        findsOneWidget,
+      );
+      expect(provider.closeCalls, 0);
+      expect(provider.intradayCalls, 0);
+
+      await _tapKey(tester, 'refresh-investment-portfolio');
+      await _waitForKey(tester, 'cross-currency-reporting-currency');
+      expect(provider.closeCalls, 1);
+      expect(find.textContaining('整合測試行情收盤價'), findsOneWidget);
+
+      await _selectSyntheticHolding(tester);
+      await _waitForKey(tester, 'investment-market-source-section');
+      expect(provider.intradayCalls, 0);
+      await _tapKey(tester, 'investment-market-source-section');
+      expect(find.byKey(const ValueKey('intraday-toggle')), findsOneWidget);
+      expect(provider.intradayCalls, 0);
+    } finally {
+      await closeEngine(tester, engine);
+      await tester.pumpWidget(const SizedBox());
+      deleteSynthetic(work, root);
+    }
+  });
+
   testWidgets('buy needs second confirmation and hides uncommitted review', (
     tester,
   ) async {

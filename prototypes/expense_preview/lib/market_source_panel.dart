@@ -65,7 +65,10 @@ final class StockCloseSourceController implements MarketSourcePanelController {
   final BusinessDate? requiredAsOf;
 
   @override
-  List<MarketProviderDescriptor> get providers => router.registry.providers;
+  List<MarketProviderDescriptor> get providers => router.registry
+      .stockCloseProviders(instrument)
+      .map((provider) => provider.descriptor)
+      .toList(growable: false);
 
   @override
   Future<MarketSourceResultView> fetch({String? fixedProviderId}) async {

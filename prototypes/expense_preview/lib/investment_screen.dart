@@ -7,11 +7,13 @@ class _InvestmentScreen extends StatefulWidget {
     required this.engine,
     required this.accounts,
     required this.privacy,
+    this.marketServices,
   });
 
   final PreviewEngine engine;
   final List<AccountSummary> accounts;
   final PrivacyMode privacy;
+  final InvestmentMarketServices? marketServices;
 
   @override
   State<_InvestmentScreen> createState() => _InvestmentScreenState();
@@ -49,6 +51,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
   InvestmentCostMethod _sellMethod = InvestmentCostMethod.fifo;
   InvestmentBuyPreview? _review;
   InvestmentSellPreview? _sellReview;
+  InvestmentPortfolioSummary? _portfolioSummary;
   String? _message;
   String? _sellMessage;
   bool _busy = false;
@@ -131,6 +134,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _sellBuyId = null;
       _review = null;
       _sellReview = null;
+      _portfolioSummary = null;
       _pending = false;
       _sellPending = false;
       _dividendPending = false;
@@ -146,6 +150,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       _sellRequest++;
       _review = null;
       _sellReview = null;
+      _portfolioSummary = null;
       _sellLots = const [];
       _savedSales = const [];
       _savedDividends = const [];
@@ -194,6 +199,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
 
   Future<void> _load() async {
     final request = ++_request;
+    _portfolioSummary = null;
     if (!widget.engine.isUnlocked || widget.privacy == PrivacyMode.hidden) {
       return;
     }
@@ -1099,6 +1105,24 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             engine: widget.engine,
             privacy: widget.privacy,
             revision: _request,
+            router: widget.marketServices?.router,
+            onSummary: (summary) {
+              if (mounted && !identical(_portfolioSummary, summary)) {
+                setState(() => _portfolioSummary = summary);
+              }
+            },
+          ),
+        ],
+        if (_portfolioSummary != null && widget.marketServices != null) ...[
+          const SizedBox(height: 16),
+          CrossCurrencyPortfolioPanel(
+            controller: RoutedCrossCurrencyPortfolioController(
+              original: _portfolioSummary!,
+              router: widget.marketServices!.router,
+              valuationDate: _todayBusinessDate(),
+              reportingCurrencies: _portfolioSummary!.byCurrency.keys,
+            ),
+            privacy: widget.privacy,
           ),
         ],
         if (_loaded) ...[
@@ -1145,6 +1169,47 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                 : const [],
             historicalCashFlows: historicalCashFlows,
             latestPositionDate: latestPositionDate,
+            router: widget.marketServices?.router,
+          ),
+          if (widget.marketServices case final services?) ...[
+            const SizedBox(height: 12),
+            ExpansionTile(
+              key: const ValueKey('investment-market-source-section'),
+              title: const Text('盤中行情與資料來源'),
+              subtitle: const Text('1–5 分鐘按需更新；只供估值參考。'),
+              children: [
+                if (services.router.registry
+                    .stockCloseProviders(quoted.instrument)
+                    .isNotEmpty)
+                  MarketSourcePanel(
+                    controller: StockCloseSourceController(
+                      router: services.router,
+                      instrument: quoted.instrument,
+                    ),
+                  ),
+                IntradayMarketPanel(
+                  factory: RoutedIntradayRefreshControllerFactory(
+                    router: services.router,
+                    instrument: quoted.instrument,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+        if (widget.marketServices case final services?) ...[
+          const SizedBox(height: 8),
+          ExpansionTile(
+            key: const ValueKey('investment-market-credentials-section'),
+            title: const Text('市場資料 API 設定'),
+            subtitle: const Text('金鑰只存於系統安全儲存空間。'),
+            children: [
+              FugleCredentialPanel(manager: services.fugleCredentials),
+              const Divider(),
+              TwelveDataCredentialPanel(
+                manager: services.twelveDataCredentials,
+              ),
+            ],
           ),
         ],
         if (widget.engine.capabilities.investmentSales) ...[
@@ -1179,5 +1244,10 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
           ),
       ],
     );
+  }
+
+  BusinessDate _todayBusinessDate() {
+    final now = DateTime.now();
+    return BusinessDate(now.year, now.month, now.day);
   }
 }
