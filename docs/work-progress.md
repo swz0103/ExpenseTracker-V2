@@ -4,6 +4,7 @@
 - [x] Frankfurter v2 已作為跨幣別免 key fallback；HTTPS host 與回傳欄位固定核對，十進位匯率不經浮點數，當日／歷史日期、快取、同請求合併、過期、限流、缺值與錯誤資料皆保留不同結果。`market_data` 完整 55 項檢查於接入批次通過。
 - [x] 到價提醒可在正式持倉行情區設定漲到／跌到門檻、移除並以 Android secure storage 保存。只有新鮮 observation 跨越門檻才提示；重複資料、過期／失敗資料、冷卻期間及損壞 checkpoint 不會重複通知。Android 系統通知已通過 Kotlin debug 編譯，鎖定畫面採 secret visibility。
 - [x] 提醒 checkpoint 升級為可辨識每一根 1／5 分鐘 K 線，同一交易日內可先建立基準再偵測跨越；舊版日收盤 checkpoint 仍可讀。盤中行情切換隱私模式會立即停止 controller、取消後續排程並清除已顯示金額。市場資料完整 57 項及相關 App 10 項測試通過。
+- [x] 隱私模式進一步覆蓋多來源核對與提醒競態：來源面板切換隱私後清除參考值並拒絕晚到結果；日終或分鐘提醒若在查詢途中切換隱私，不會再發出含價格的系統通知。相關來源面板 4 項、行情／提醒面板 10 項測試通過。
 - [x] 雲端備份畫面已從只排入工作改為有 runtime 時立即執行、重開補跑、登入恢復後以同 backup ID 重試，並顯示持久失敗原因與待處理數量；未配置 provider 時仍不假裝成功。
 - [x] `integration/v2` 已建立並推送 GitHub；`V2 integration validation` 對該分支的核心套件、prototypes、tooling 與 workflow 變更執行有 timeout 與同 ref 取消保護的整合 CI。
 - [ ] 官方資料重新核對後，TWSE／TPEx 免帳號 OpenAPI 只適合作日終基準；盤中即時或延遲資訊需依交易所資訊契約取得。尚未找到同時滿足「免帳號、1–5 分鐘、可穩定 API 介接、授權可供 App 使用」的正式台股來源，因此不接未承諾的網頁內部端點，也不把日終輪詢冒充即時。

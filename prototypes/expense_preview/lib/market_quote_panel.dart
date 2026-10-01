@@ -359,7 +359,9 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
                     ),
                 ],
               ),
-              const Text('App 取得新鮮行情並跨越門檻時提示；Android 會同時嘗試發出系統通知。'),
+              const Text(
+                'App 取得新鮮行情並跨越門檻時提示；Android 會同時嘗試發出系統通知。提醒只保存在此裝置，不進帳本或備份。',
+              ),
               if (_alertMessage != null)
                 Text(
                   _alertMessage!,

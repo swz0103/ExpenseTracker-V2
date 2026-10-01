@@ -2,6 +2,8 @@
 
 獨立 Android App ID：`dev.expensetracker.preview`，不覆蓋地基原型。只建置 debug ARM64 APK，正式 release variant 關閉。這是持續開發中的 M1 入口，完整 M1／M2／M3 尚未完成；可安裝不作為停止點。
 
+> 2026-10-01 狀態提示：下方「已接入」保留早期逐批開發紀錄，其中 schema 15 與「信用卡／投資保留後續」等句子已不是目前狀態。正式 App 現為 schema 24，信用卡、投資、provider-neutral 雲端備份 runtime、免帳號日終／參考匯率及到價提醒均已形成可操作垂直切片。請以[功能完成矩陣](../../docs/capability-matrix.md)與[最新工作進度](../../docs/work-progress.md)為目前事實；真實雲端 OAuth、合規分鐘行情來源、OS 背景輪詢及實機仍未完成。
+
 ## 已接入
 
 - 簡易收入／支出 JSON／CSV 匯入：從 Android 系統選取檔案，必要時重新解鎖，逐一對應帳戶、審閱逐幣別金額及確認後整批寫入；相同來源重試不重複入帳。同一本帳的匯出檔不可再匯入自身。主機 4,999 筆新增與第 5,000 筆超額原子拒絕已驗；實機仍待測。[範圍](../../docs/features/simple-import-ledger.md)。
