@@ -1,10 +1,9 @@
 name: V2 integration validation
 
-# Keep integration checks on the branch where complete capabilities are joined
-# before they are proposed for the default branch.
+# Keep the complete validation set on the single default delivery branch.
 on:
   push:
-    branches: [integration/v2]
+    branches: [main]
     paths:
       - '.github/workflows/**'
       - 'packages/**'

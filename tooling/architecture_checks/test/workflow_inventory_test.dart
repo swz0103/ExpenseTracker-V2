@@ -26,7 +26,7 @@ void main() {
     final push = triggers['push'] as YamlMap;
     final branches = push['branches'] as YamlList;
     expect(branches, hasLength(1));
-    expect(branches.first, 'integration/v2');
+    expect(branches.first, 'main');
     expect(
       push['paths'],
       containsAll([
