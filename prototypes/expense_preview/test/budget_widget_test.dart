@@ -55,6 +55,16 @@ void main() {
         await tap(tester, '保存預算');
         expect(find.text('TWD 3.00'), findsWidgets);
         expect(find.text('TWD 17.00'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('返回帳本'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tap(tester, '返回帳本');
+        expect(find.text('全部支出'), findsOneWidget);
+        expect(find.text('TWD 3.00 / TWD 20.00'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('月預算'), 300);
+        await tap(tester, '月預算');
         await tap(tester, '修改');
         await tester.ensureVisible(find.text('取消修改'));
         await tester.tap(find.text('取消修改'));

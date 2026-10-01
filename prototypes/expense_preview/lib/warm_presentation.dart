@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budgets/budgets.dart';
 import 'package:reports/reports.dart';
 
 import 'privacy_presentation.dart';
@@ -225,4 +226,133 @@ class WarmTimelineItem extends StatelessWidget {
       ],
     ),
   );
+}
+
+class WarmBudgetOverview extends StatelessWidget {
+  const WarmBudgetOverview({
+    super.key,
+    required this.results,
+    required this.readError,
+    required this.privacy,
+    required this.onOpen,
+  });
+
+  final List<BudgetResult> results;
+  final bool readError;
+  final PrivacyMode privacy;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Text('本月預算', style: Theme.of(context).textTheme.titleLarge),
+          ),
+          IconButton(
+            onPressed: onOpen,
+            tooltip: '管理月預算',
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ),
+      if (readError)
+        const Text('預算暫時無法讀取；帳本與交易沒有受到影響。')
+      else if (results.isEmpty)
+        InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(16),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('尚未建立本月預算。設定提醒線後，可在接近上限時提早看見。'),
+          ),
+        )
+      else
+        for (var index = 0; index < results.length; index++)
+          _BudgetProgress(
+            index: index,
+            result: results[index],
+            privacy: privacy,
+          ),
+    ],
+  );
+}
+
+class _BudgetProgress extends StatelessWidget {
+  const _BudgetProgress({
+    required this.index,
+    required this.result,
+    required this.privacy,
+  });
+
+  final int index;
+  final BudgetResult result;
+  final PrivacyMode privacy;
+
+  @override
+  Widget build(BuildContext context) {
+    final limit = result.plan.limit.minorUnits;
+    final spent = result.spent.minorUnits;
+    final ratio = limit == BigInt.zero
+        ? 0.0
+        : (spent.toDouble() / limit.toDouble()).clamp(0.0, 1.0);
+    final spentText = presentMoney(
+      result.spent,
+      privacy,
+      MoneyKind.transaction,
+    ).text;
+    final limitText = presentMoney(
+      result.plan.limit,
+      privacy,
+      MoneyKind.transaction,
+    ).text;
+    final color = result.overLimit
+        ? const Color(0xFFB65F4A)
+        : result.atWarning
+        ? warmAccent
+        : const Color(0xFF527C68);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  result.plan.categoryId == null ? '全部支出' : '分類預算 ${index + 1}',
+                ),
+              ),
+              Text('$spentText / $limitText'),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              height: 7,
+              color: const Color(0xFFF0E1D2),
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: ratio,
+                child: ColoredBox(color: color),
+              ),
+            ),
+          ),
+          if (result.overLimit)
+            const Padding(
+              padding: EdgeInsets.only(top: 5),
+              child: Text('已超過預算上限'),
+            )
+          else if (result.atWarning)
+            const Padding(
+              padding: EdgeInsets.only(top: 5),
+              child: Text('已接近預算提醒線'),
+            ),
+        ],
+      ),
+    );
+  }
 }

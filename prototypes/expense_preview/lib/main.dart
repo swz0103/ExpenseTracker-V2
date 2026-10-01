@@ -370,6 +370,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   List<LedgerEntry> _deletedEntries = [];
   MonthlyReport? _monthlyReport;
   bool _monthlyOverflow = false;
+  List<BudgetResult> _budgetResults = const [];
+  bool _budgetReadError = false;
   int? _recurringDueCount;
   bool _recurringReminderError = false;
   int _recurringReminderRequest = 0;
@@ -561,6 +563,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     _deletedEntries = [];
     _monthlyReport = null;
     _monthlyOverflow = false;
+    _budgetResults = const [];
+    _budgetReadError = false;
     _recurringReminderRequest++;
     _recurringDueCount = null;
     _recurringReminderError = false;
@@ -803,6 +807,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     } on MoneyException {
       monthlyOverflow = true;
     }
+    var budgetResults = <BudgetResult>[];
+    var budgetReadError = false;
+    if (_engine!.capabilities.budgets) {
+      try {
+        final currentMonth = ReportMonth(now.year, now.month);
+        final plans = (await _engine!.savedBudgets()).where(
+          (plan) =>
+              plan.month.year == currentMonth.year &&
+              plan.month.month == currentMonth.month,
+        );
+        for (final plan in plans) {
+          budgetResults.add(await _engine!.evaluateMonthlyBudget(plan));
+        }
+      } catch (_) {
+        budgetResults = [];
+        budgetReadError = true;
+      }
+    }
     final safety = await _engine!.hasSafetyCopy();
     final upgradeSafety = await _engine!.hasLockedUpgradeCopy();
     EntryDraft? entryDraft;
@@ -821,6 +843,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       _deletedEntries = deletedEntries;
       _monthlyReport = monthlyReport;
       _monthlyOverflow = monthlyOverflow;
+      _budgetResults = List.unmodifiable(budgetResults);
+      _budgetReadError = budgetReadError;
       _recurringDueCount = null;
       _recurringReminderError = false;
       _assetReport = assetReport;
@@ -3106,6 +3130,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 20),
           _homeTools(),
+          if (_engine!.capabilities.budgets) ...[
+            const SizedBox(height: 24),
+            WarmBudgetOverview(
+              results: _budgetResults,
+              readError: _budgetReadError,
+              privacy: _privacy,
+              onOpen: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.budgets),
+            ),
+          ],
           const SizedBox(height: 24),
           if (widget.appPin != null && _deviceUnlockEnabled)
             TextButton(
