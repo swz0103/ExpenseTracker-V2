@@ -1129,6 +1129,17 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
           const SizedBox(height: 16),
           HistoricalFxPanel(showAmounts: widget.privacy == PrivacyMode.visible),
         ],
+        if (widget.marketServices?.fugleCredentials case final manager?) ...[
+          const SizedBox(height: 12),
+          ExpansionTile(
+            key: const ValueKey('fugle-market-service-section'),
+            leading: const Icon(Icons.query_stats_outlined),
+            title: const Text('台股盤中行情'),
+            subtitle: const Text('Fugle 金鑰只需設定一次；未設定仍可使用免金鑰收盤資料。'),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [FugleCredentialPanel(manager: manager)],
+          ),
+        ],
         if (widget.engine.capabilities.investmentSales &&
             _sellChoices.isNotEmpty) ...[
           const SizedBox(height: 12),

@@ -39,6 +39,7 @@ import 'investment_market_services.dart';
 import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
 import 'price_alert_service.dart';
+import 'market_credentials.dart';
 import 'warm_presentation.dart';
 export 'privacy_presentation.dart' show moneyText;
 
@@ -68,6 +69,9 @@ part 'simple_export_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  final fugleCredentials = FugleCredentialManager(
+    AndroidFugleCredentialVault(),
+  );
   runApp(
     PreviewApp(
       engine: createEngine(),
@@ -76,6 +80,7 @@ void main() {
       appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
       recurringReminder: AndroidRecurringReminderService(),
       investmentMarketServices: createInvestmentMarketServices(
+        fugleCredentials: fugleCredentials,
         priceAlerts: PriceAlertService(AndroidPriceAlertRecordStore()),
         priceAlertNotifications: AndroidPriceAlertNotificationPresenter(),
       ),
