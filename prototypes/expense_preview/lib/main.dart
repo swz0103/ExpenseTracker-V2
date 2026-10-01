@@ -2050,6 +2050,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           children: [
             if (_entryDraft != null && !_draftUnreadable)
               tool('繼續草稿', _resumeDraft, icon: Icons.edit_note_rounded),
+            if (_entryDraft != null && !_draftUnreadable)
+              tool('捨棄草稿', _discardDraft, icon: Icons.delete_outline_rounded),
             tool(
               '記一筆',
               canPost ? () => _edit(_Page.posting) : null,
@@ -3199,10 +3201,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             Text(_draftUnreadable ? '本機草稿無法驗證，已保留檔案；請先處理。' : '有一份尚未完成的本機草稿。'),
             if (!_draftUnreadable && _showLegacyHomeTools)
               _button('繼續草稿', _resumeDraft),
-            TextButton(
-              onPressed: _busy ? null : _discardDraft,
-              child: const Text('捨棄草稿'),
-            ),
+            if (_draftUnreadable || _showLegacyHomeTools)
+              TextButton(
+                onPressed: _busy ? null : _discardDraft,
+                child: const Text('捨棄草稿'),
+              ),
           ],
           if (_showLegacyHomeTools) ...[
             _button(

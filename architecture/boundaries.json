@@ -143,7 +143,7 @@
     },
     "expense_preview": {
       "directory": "prototypes/expense_preview",
-        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "cloud_backup_probe", "validated_restore_probe"]
+        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "cloud_backup_probe", "validated_restore_probe", "encrypted_storage_probe", "persistent_jobs_probe"]
     },
     "android_foundation": {
       "directory": "prototypes/android_foundation",

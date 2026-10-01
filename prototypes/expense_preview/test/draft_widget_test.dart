@@ -120,7 +120,7 @@ void main() {
         );
 
         expect(find.text('繼續草稿'), findsOneWidget);
-        await tester.tap(find.text('捨棄草稿'));
+        await tester.tap(find.text('捨棄草稿').hitTestable().first);
         await tester.pump(const Duration(milliseconds: 300));
         await tap(tester, '確認捨棄');
         expect(find.text('繼續草稿'), findsNothing);

@@ -146,6 +146,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('儲存收支').hitTestable(), findsOneWidget);
         await tap(tester, '儲存收支');
+        await tester.scrollUntilVisible(
+          find.text('TWD 233.45'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('TWD 233.45'), findsOneWidget);
         await tester.runAsync(() async {
           final rows = await engine.entries();

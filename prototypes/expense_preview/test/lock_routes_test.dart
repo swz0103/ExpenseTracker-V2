@@ -100,12 +100,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('保密現金 · TWD'), findsWidgets);
         } else {
-          final manageTags = find.widgetWithText(TextButton, '管理標籤');
-          await tester.scrollUntilVisible(
-            manageTags,
-            240,
-            scrollable: find.byType(Scrollable).first,
-          );
+          final manageTags = find.text('管理標籤');
           await tester.ensureVisible(manageTags);
           await tester.pumpAndSettle();
           await tester.tap(manageTags);
