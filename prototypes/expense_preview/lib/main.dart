@@ -1872,6 +1872,158 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     );
   }
 
+  Widget _homeTools() {
+    final hasCard = _accounts.any(
+      (row) => row.account.kind == AccountKind.creditCard,
+    );
+    final canPurchase =
+        _engine!.capabilities.creditCards &&
+        _accounts.any(
+          (row) =>
+              row.account.state == AccountState.active &&
+              row.account.kind == AccountKind.creditCard &&
+              _activeCreditCardIds.contains(row.account.id),
+        );
+    final canPayCard =
+        _engine!.capabilities.creditCards &&
+        _accounts.any(
+          (card) =>
+              card.account.kind == AccountKind.creditCard &&
+              card.account.state == AccountState.active &&
+              card.balance.minorUnits < BigInt.zero &&
+              _accounts.any(
+                (bank) =>
+                    bank.account.kind == AccountKind.bank &&
+                    bank.account.state == AccountState.active &&
+                    bank.account.currency == card.account.currency,
+              ),
+        );
+    ActionChip tool(
+      String label,
+      VoidCallback? onPressed, {
+      Key? key,
+      IconData? icon,
+    }) => ActionChip(
+      key: key,
+      avatar: icon == null ? null : Icon(icon, size: 18),
+      label: Text(label),
+      onPressed: _busy ? null : onPressed,
+      side: const BorderSide(color: Color(0xFFE8D8C8)),
+      backgroundColor: Colors.white.withValues(alpha: 0.55),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('快捷工具', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            tool(
+              '搜尋交易',
+              () => setState(() => _page = _Page.search),
+              icon: Icons.search_rounded,
+            ),
+            if (_monthlyReport != null)
+              tool(
+                '查看月收支明細',
+                () => setState(() => _page = _Page.monthlyReport),
+                icon: Icons.calendar_month_outlined,
+              ),
+            tool(
+              '管理分類',
+              () => setState(() => _page = _Page.categories),
+              icon: Icons.category_outlined,
+            ),
+            if (_tagCatalog != null)
+              tool(
+                '管理標籤',
+                () => setState(() => _page = _Page.tags),
+                icon: Icons.sell_outlined,
+              ),
+            if (_merchantCatalog != null)
+              tool(
+                '管理商家',
+                () => setState(() => _page = _Page.merchants),
+                icon: Icons.storefront_outlined,
+              ),
+            if (_engine!.capabilities.investments)
+              tool(
+                '投資與行情',
+                () => setState(() => _page = _Page.investments),
+                key: const ValueKey('open-investments'),
+                icon: Icons.show_chart_rounded,
+              ),
+            tool(
+              '雲端備份',
+              () => setState(() => _page = _Page.cloudBackup),
+              key: const ValueKey('open-cloud-backup'),
+              icon: Icons.cloud_outlined,
+            ),
+            if (_engine!.capabilities.budgets)
+              tool(
+                '月預算',
+                () => setState(() => _page = _Page.budgets),
+                icon: Icons.donut_large_outlined,
+              ),
+            if (_engine!.capabilities.recurring)
+              tool(
+                '定期交易',
+                () => setState(() => _page = _Page.recurring),
+                icon: Icons.event_repeat_outlined,
+              ),
+            if (_engine!.capabilities.installments && hasCard)
+              tool(
+                '信用卡分期',
+                () => setState(() => _page = _Page.cardInstallments),
+                key: const ValueKey('open-card-installments'),
+                icon: Icons.calendar_view_month_outlined,
+              ),
+            if (canPurchase)
+              tool(
+                '信用卡刷卡入帳',
+                _entryDraft == null && !_draftUnreadable
+                    ? () => _edit(_Page.cardPurchase)
+                    : null,
+                icon: Icons.credit_card_outlined,
+              ),
+            if (canPayCard)
+              tool(
+                '信用卡繳款',
+                _entryDraft == null && !_draftUnreadable
+                    ? () => _edit(_Page.cardPayment)
+                    : null,
+                icon: Icons.payments_outlined,
+              ),
+            if (_engine!.capabilities.cardAuthorizations && hasCard)
+              tool(
+                '信用卡待入帳',
+                () => setState(() => _page = _Page.cardAuthorizations),
+                key: const ValueKey('open-card-authorizations'),
+                icon: Icons.pending_actions_outlined,
+              ),
+            if (_engine!.capabilities.cardStatements && hasCard)
+              tool(
+                '信用卡帳單',
+                () => setState(() => _page = _Page.cardStatements),
+                icon: Icons.receipt_long_outlined,
+              ),
+            if (_engine!.capabilities.creditCards && hasCard)
+              tool(
+                '信用卡設定',
+                () => setState(() => _page = _Page.cardSettings),
+                icon: Icons.tune_rounded,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  bool get _showLegacyHomeTools => false;
+
   void _showSettings() {
     void open(BuildContext sheetContext, _Page page) {
       Navigator.pop(sheetContext);
@@ -1997,6 +2149,9 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     ),
     bottomNavigationBar: _page == _Page.home && (_engine?.isUnlocked ?? false)
         ? NavigationBar(
+            // Keep the five primary destinations compact so the last fully
+            // visible control in the page body is not covered on short phones.
+            height: 44,
             selectedIndex: _homeDestination,
             onDestinationSelected: _busy ? null : _selectHomeDestination,
             destinations: const [
@@ -2821,6 +2976,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 ? null
                 : () => setState(() => _page = _Page.monthlyReport),
           ),
+          const SizedBox(height: 20),
+          _homeTools(),
           const SizedBox(height: 24),
           if (widget.appPin != null && _deviceUnlockEnabled)
             TextButton(
@@ -2901,122 +3058,124 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             onPressed: _busy ? null : () => _edit(_Page.account),
             child: const Text('新增帳戶'),
           ),
-          if (_engine!.capabilities.investments)
+          if (_showLegacyHomeTools) ...[
+            if (_engine!.capabilities.investments)
+              TextButton(
+                key: const ValueKey('open-investments'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.investments),
+                child: const Text('投資與行情'),
+              ),
             TextButton(
-              key: const ValueKey('open-investments'),
+              key: const ValueKey('open-cloud-backup'),
               onPressed: _busy
                   ? null
-                  : () => setState(() => _page = _Page.investments),
-              child: const Text('投資與行情'),
+                  : () => setState(() => _page = _Page.cloudBackup),
+              child: const Text('雲端備份'),
             ),
-          TextButton(
-            key: const ValueKey('open-cloud-backup'),
-            onPressed: _busy
-                ? null
-                : () => setState(() => _page = _Page.cloudBackup),
-            child: const Text('雲端備份'),
-          ),
-          if (_engine!.capabilities.installments &&
-              _accounts.any(
-                (row) => row.account.kind == AccountKind.creditCard,
-              ))
+            if (_engine!.capabilities.installments &&
+                _accounts.any(
+                  (row) => row.account.kind == AccountKind.creditCard,
+                ))
+              TextButton(
+                key: const ValueKey('open-card-installments'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.cardInstallments),
+                child: const Text('信用卡分期'),
+              ),
+            if (_engine!.capabilities.creditCards &&
+                _accounts.any(
+                  (row) =>
+                      row.account.state == AccountState.active &&
+                      row.account.kind == AccountKind.creditCard &&
+                      _activeCreditCardIds.contains(row.account.id),
+                ))
+              OutlinedButton(
+                onPressed: _busy || _entryDraft != null || _draftUnreadable
+                    ? null
+                    : () => _edit(_Page.cardPurchase),
+                child: const Text('信用卡刷卡入帳'),
+              ),
+            if (_engine!.capabilities.creditCards &&
+                _accounts.any(
+                  (card) =>
+                      card.account.kind == AccountKind.creditCard &&
+                      card.account.state == AccountState.active &&
+                      card.balance.minorUnits < BigInt.zero &&
+                      _accounts.any(
+                        (bank) =>
+                            bank.account.kind == AccountKind.bank &&
+                            bank.account.state == AccountState.active &&
+                            bank.account.currency == card.account.currency,
+                      ),
+                ))
+              OutlinedButton(
+                onPressed: _busy || _entryDraft != null || _draftUnreadable
+                    ? null
+                    : () => _edit(_Page.cardPayment),
+                child: const Text('信用卡繳款'),
+              ),
+            if (_engine!.capabilities.cardAuthorizations &&
+                _accounts.any(
+                  (row) => row.account.kind == AccountKind.creditCard,
+                ))
+              TextButton(
+                key: const ValueKey('open-card-authorizations'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.cardAuthorizations),
+                child: const Text('信用卡待入帳'),
+              ),
+            if (_engine!.capabilities.cardStatements &&
+                _accounts.any(
+                  (row) => row.account.kind == AccountKind.creditCard,
+                ))
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.cardStatements),
+                child: const Text('信用卡帳單'),
+              ),
+            if (_engine!.capabilities.creditCards &&
+                _accounts.any(
+                  (row) => row.account.kind == AccountKind.creditCard,
+                ))
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.cardSettings),
+                child: const Text('信用卡設定'),
+              ),
             TextButton(
-              key: const ValueKey('open-card-installments'),
               onPressed: _busy
                   ? null
-                  : () => setState(() => _page = _Page.cardInstallments),
-              child: const Text('信用卡分期'),
+                  : () => setState(() => _page = _Page.categories),
+              child: const Text('管理分類'),
             ),
-          if (_engine!.capabilities.creditCards &&
-              _accounts.any(
-                (row) =>
-                    row.account.state == AccountState.active &&
-                    row.account.kind == AccountKind.creditCard &&
-                    _activeCreditCardIds.contains(row.account.id),
-              ))
+            if (_tagCatalog != null)
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.tags),
+                child: const Text('管理標籤'),
+              ),
+            if (_merchantCatalog != null)
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.merchants),
+                child: const Text('管理商家'),
+              ),
+            const SizedBox(height: 24),
             OutlinedButton(
-              onPressed: _busy || _entryDraft != null || _draftUnreadable
-                  ? null
-                  : () => _edit(_Page.cardPurchase),
-              child: const Text('信用卡刷卡入帳'),
-            ),
-          if (_engine!.capabilities.creditCards &&
-              _accounts.any(
-                (card) =>
-                    card.account.kind == AccountKind.creditCard &&
-                    card.account.state == AccountState.active &&
-                    card.balance.minorUnits < BigInt.zero &&
-                    _accounts.any(
-                      (bank) =>
-                          bank.account.kind == AccountKind.bank &&
-                          bank.account.state == AccountState.active &&
-                          bank.account.currency == card.account.currency,
-                    ),
-              ))
-            OutlinedButton(
-              onPressed: _busy || _entryDraft != null || _draftUnreadable
-                  ? null
-                  : () => _edit(_Page.cardPayment),
-              child: const Text('信用卡繳款'),
-            ),
-          if (_engine!.capabilities.cardAuthorizations &&
-              _accounts.any(
-                (row) => row.account.kind == AccountKind.creditCard,
-              ))
-            TextButton(
-              key: const ValueKey('open-card-authorizations'),
               onPressed: _busy
                   ? null
-                  : () => setState(() => _page = _Page.cardAuthorizations),
-              child: const Text('信用卡待入帳'),
+                  : () => setState(() => _page = _Page.search),
+              child: const Text('搜尋交易'),
             ),
-          if (_engine!.capabilities.cardStatements &&
-              _accounts.any(
-                (row) => row.account.kind == AccountKind.creditCard,
-              ))
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.cardStatements),
-              child: const Text('信用卡帳單'),
-            ),
-          if (_engine!.capabilities.creditCards &&
-              _accounts.any(
-                (row) => row.account.kind == AccountKind.creditCard,
-              ))
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.cardSettings),
-              child: const Text('信用卡設定'),
-            ),
-          TextButton(
-            onPressed: _busy
-                ? null
-                : () => setState(() => _page = _Page.categories),
-            child: const Text('管理分類'),
-          ),
-          if (_tagCatalog != null)
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.tags),
-              child: const Text('管理標籤'),
-            ),
-          if (_merchantCatalog != null)
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.merchants),
-              child: const Text('管理商家'),
-            ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: _busy
-                ? null
-                : () => setState(() => _page = _Page.search),
-            child: const Text('搜尋交易'),
-          ),
+          ],
           const SizedBox(height: 12),
           Text('本月收支', style: Theme.of(context).textTheme.titleLarge),
           if (_monthlyOverflow)
@@ -3051,20 +3210,22 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   : () => setState(() => _page = _Page.monthlyReport),
               child: const Text('查看月收支明細'),
             ),
-          if (_engine!.capabilities.budgets)
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.budgets),
-              child: const Text('月預算'),
-            ),
-          if (_engine!.capabilities.recurring)
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _page = _Page.recurring),
-              child: const Text('定期交易'),
-            ),
+          if (_showLegacyHomeTools) ...[
+            if (_engine!.capabilities.budgets)
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.budgets),
+                child: const Text('月預算'),
+              ),
+            if (_engine!.capabilities.recurring)
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _page = _Page.recurring),
+                child: const Text('定期交易'),
+              ),
+          ],
           if (_engine!.capabilities.recurring && _recurringReminderError)
             const Text('定期交易提醒無法更新，請開啟定期交易檢查。'),
           if (_engine!.capabilities.recurring && (_recurringDueCount ?? 0) > 0)
