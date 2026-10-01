@@ -122,6 +122,7 @@ void main() {
     final checkpoint = PriceAlertCheckpoint(
       lastRelation: PriceRelation.above,
       lastObservationDate: BusinessDate(2026, 10, 1),
+      lastObservationAt: UtcInstant(DateTime.utc(2026, 10, 1, 4, 55)),
       lastPrice: '1500.00',
       lastProviderId: StockClose.provider,
       lastNotifiedAt: now,
@@ -130,10 +131,64 @@ void main() {
     final restored = codec.decode(codec.encode(checkpoint));
     expect(restored.lastRelation, checkpoint.lastRelation);
     expect(restored.lastObservationDate, checkpoint.lastObservationDate);
+    expect(restored.lastObservationAt, checkpoint.lastObservationAt);
     expect(restored.lastPrice, checkpoint.lastPrice);
     expect(restored.lastProviderId, checkpoint.lastProviderId);
     expect(restored.lastNotifiedAt, checkpoint.lastNotifiedAt);
-    expect(() => codec.decode('{"version":2}'), throwsFormatException);
+    expect(() => codec.decode('{"version":3}'), throwsFormatException);
+  });
+
+  test('version one checkpoint remains readable after intraday migration', () {
+    const source =
+        '{"version":1,"lastRelation":"below","lastObservationDate":"2026-10-01","lastPrice":"1499","lastProviderId":"daily","lastNotifiedAt":null}';
+    final restored = const PriceAlertCheckpointCodec().decode(source);
+    expect(restored.lastRelation, PriceRelation.below);
+    expect(restored.lastObservationAt, isNull);
+  });
+
+  test('distinct intraday bars can arm and cross on the same day', () {
+    MarketResult<IntradayBar> bar(String price, int minute) => MarketResult(
+      MarketState.available,
+      value: IntradayBar(
+        symbol: '2330',
+        interval: IntradayInterval.oneMinute,
+        startsAt: UtcInstant(DateTime.utc(2026, 10, 1, 1, minute)),
+        open: price,
+        high: price,
+        low: price,
+        close: price,
+        volume: BigInt.one,
+        fetchedAt: UtcInstant(DateTime.utc(2026, 10, 1, 1, minute, 30)),
+      ),
+    );
+    final armed = evaluateIntradayPriceAlert(
+      alert: alert,
+      checkpoint: const PriceAlertCheckpoint(),
+      result: bar('1499', 1),
+      providerId: 'intraday-test',
+      now: now,
+    );
+    final crossed = evaluateIntradayPriceAlert(
+      alert: alert,
+      checkpoint: armed.checkpoint,
+      result: bar('1501', 2),
+      providerId: 'intraday-test',
+      now: UtcInstant(now.value.add(const Duration(minutes: 1))),
+    );
+    expect(crossed.notification!.price, '1501');
+    expect(
+      crossed.notification!.observedAt,
+      UtcInstant(DateTime.utc(2026, 10, 1, 1, 2)),
+    );
+    final duplicate = evaluateIntradayPriceAlert(
+      alert: alert,
+      checkpoint: crossed.checkpoint,
+      result: bar('1501', 2),
+      providerId: 'intraday-test',
+      now: UtcInstant(now.value.add(const Duration(minutes: 2))),
+    );
+    expect(duplicate.notification, isNull);
+    expect(duplicate.reason, 'Observation already evaluated');
   });
 }
 

@@ -157,4 +157,30 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('privacy mode stops refresh and removes observed amounts', (
+    tester,
+  ) async {
+    final factory = _Factory();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: IntradayMarketPanel(factory: factory)),
+      ),
+    );
+    await tester.tap(find.text('開始更新'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('最新價：1322.5'), findsOneWidget);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: IntradayMarketPanel(factory: factory, showAmounts: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1322.5'), findsNothing);
+    expect(find.textContaining('隱私模式'), findsOneWidget);
+    expect(find.text('開始更新'), findsNothing);
+  });
 }

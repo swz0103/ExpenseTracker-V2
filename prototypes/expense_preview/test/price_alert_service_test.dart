@@ -128,4 +128,43 @@ void main() {
     store.values[instrument.id] = '{}';
     expect(() => service.load(instrument), throwsFormatException);
   });
+
+  test('intraday observations persist minute-level crossing state', () async {
+    await service.save(
+      instrument: instrument,
+      target: ShareUnitPrice.parse(currency, '1500'),
+      direction: PriceAlertDirection.atOrAbove,
+    );
+    MarketResult<IntradayBar> result(String price, int minute) => MarketResult(
+      MarketState.available,
+      value: IntradayBar(
+        symbol: instrument.symbol,
+        interval: IntradayInterval.oneMinute,
+        startsAt: UtcInstant(DateTime.utc(2026, 10, 1, 1, minute)),
+        open: price,
+        high: price,
+        low: price,
+        close: price,
+        volume: BigInt.one,
+        fetchedAt: UtcInstant(DateTime.utc(2026, 10, 1, 1, minute, 30)),
+      ),
+    );
+    await service.evaluateIntraday(
+      instrument: instrument,
+      result: result('1499', 1),
+      providerId: 'intraday-test',
+      now: UtcInstant(DateTime.utc(2026, 10, 1, 1, 2)),
+    );
+    final crossed = await service.evaluateIntraday(
+      instrument: instrument,
+      result: result('1501', 2),
+      providerId: 'intraday-test',
+      now: UtcInstant(DateTime.utc(2026, 10, 1, 1, 3)),
+    );
+    expect(crossed!.notification!.price, '1501');
+    expect(
+      (await service.load(instrument))!.checkpoint.lastObservationAt,
+      UtcInstant(DateTime.utc(2026, 10, 1, 1, 2)),
+    );
+  });
 }

@@ -40,9 +40,16 @@ final class RoutedIntradayRefreshControllerFactory
 }
 
 final class IntradayMarketPanel extends StatefulWidget {
-  const IntradayMarketPanel({required this.factory, super.key});
+  const IntradayMarketPanel({
+    required this.factory,
+    this.showAmounts = true,
+    this.onSnapshot,
+    super.key,
+  });
 
   final IntradayRefreshControllerFactory factory;
+  final bool showAmounts;
+  final Future<void> Function(IntradayRefreshSnapshot snapshot)? onSnapshot;
 
   @override
   State<IntradayMarketPanel> createState() => _IntradayMarketPanelState();
@@ -56,8 +63,17 @@ final class _IntradayMarketPanelState extends State<IntradayMarketPanel> {
   IntradayRefreshSnapshot? _snapshot;
   bool _running = false;
 
+  @override
+  void didUpdateWidget(covariant IntradayMarketPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showAmounts && !widget.showAmounts) {
+      _snapshot = null;
+      unawaited(_stop());
+    }
+  }
+
   void _start() {
-    if (_running) return;
+    if (_running || !widget.showAmounts) return;
     final controller = widget.factory.create(
       interval: _interval,
       refreshEvery: Duration(minutes: _refreshMinutes),
@@ -65,6 +81,10 @@ final class _IntradayMarketPanelState extends State<IntradayMarketPanel> {
     _controller = controller;
     _subscription = controller.snapshots.listen((snapshot) {
       if (mounted) setState(() => _snapshot = snapshot);
+      final onSnapshot = widget.onSnapshot;
+      if (onSnapshot != null) {
+        unawaited(onSnapshot(snapshot).catchError((_) {}));
+      }
     });
     setState(() => _running = true);
     controller.start();
@@ -93,6 +113,9 @@ final class _IntradayMarketPanelState extends State<IntradayMarketPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.showAmounts) {
+      return const Text('隱私模式已停止更新並遮蔽盤中行情。');
+    }
     final snapshot = _snapshot;
     final result = snapshot?.result;
     final bar = result?.value;

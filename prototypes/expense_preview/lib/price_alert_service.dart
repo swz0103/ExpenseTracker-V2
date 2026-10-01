@@ -99,6 +99,35 @@ final class PriceAlertService {
     }
     return evaluation;
   }
+
+  Future<PriceAlertEvaluation?> evaluateIntraday({
+    required InvestmentInstrument instrument,
+    required MarketResult<IntradayBar> result,
+    required String providerId,
+    required UtcInstant now,
+  }) async {
+    final saved = await load(instrument);
+    if (saved == null) return null;
+    final evaluation = evaluateIntradayPriceAlert(
+      alert: saved.alert,
+      checkpoint: saved.checkpoint,
+      result: result,
+      providerId: providerId,
+      now: now,
+    );
+    if (!identical(evaluation.checkpoint, saved.checkpoint)) {
+      await _store.write(
+        instrument.id,
+        _encode(
+          SavedPriceAlert(
+            alert: saved.alert,
+            checkpoint: evaluation.checkpoint,
+          ),
+        ),
+      );
+    }
+    return evaluation;
+  }
 }
 
 String _encode(SavedPriceAlert saved) => jsonEncode({

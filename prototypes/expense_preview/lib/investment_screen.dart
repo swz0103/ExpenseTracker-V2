@@ -1201,6 +1201,24 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                       router: services.router,
                       instrument: quoted.instrument,
                     ),
+                    showAmounts: widget.privacy == PrivacyMode.visible,
+                    onSnapshot: (snapshot) async {
+                      final alerts = services.priceAlerts;
+                      final provider = snapshot.routed.selectedProvider;
+                      if (alerts == null || provider == null) return;
+                      final evaluation = await alerts.evaluateIntraday(
+                        instrument: quoted.instrument,
+                        result: snapshot.result,
+                        providerId: provider.id,
+                        now: UtcInstant(DateTime.now().toUtc()),
+                      );
+                      final notification = evaluation?.notification;
+                      if (notification != null) {
+                        await services.priceAlertNotifications?.show(
+                          notification,
+                        );
+                      }
+                    },
                   ),
               ],
             ),

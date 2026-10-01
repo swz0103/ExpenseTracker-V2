@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 
+import 'intraday.dart';
 import 'market_data.dart';
 
 enum PriceAlertDirection { atOrAbove, atOrBelow }
@@ -40,6 +41,7 @@ final class PriceAlertCheckpoint {
   const PriceAlertCheckpoint({
     this.lastRelation,
     this.lastObservationDate,
+    this.lastObservationAt,
     this.lastPrice,
     this.lastProviderId,
     this.lastNotifiedAt,
@@ -47,6 +49,7 @@ final class PriceAlertCheckpoint {
 
   final PriceRelation? lastRelation;
   final BusinessDate? lastObservationDate;
+  final UtcInstant? lastObservationAt;
   final String? lastPrice;
   final String? lastProviderId;
   final UtcInstant? lastNotifiedAt;
@@ -60,6 +63,7 @@ final class PriceAlertNotification {
     required this.price,
     required this.currency,
     required this.observedOn,
+    this.observedAt,
     required this.providerId,
     required this.evaluatedAt,
   });
@@ -70,6 +74,7 @@ final class PriceAlertNotification {
   final String price;
   final Currency currency;
   final BusinessDate observedOn;
+  final UtcInstant? observedAt;
   final String providerId;
   final UtcInstant evaluatedAt;
 }
@@ -93,6 +98,61 @@ PriceAlertEvaluation evaluatePriceAlert({
   required String providerId,
   required UtcInstant now,
 }) {
+  if (result.state != MarketState.available || result.value == null) {
+    return PriceAlertEvaluation(
+      checkpoint: checkpoint,
+      reason: 'Only fresh available observations may trigger alerts',
+    );
+  }
+  final observation = result.value!;
+  return _evaluateObservation(
+    alert: alert,
+    checkpoint: checkpoint,
+    symbol: observation.symbol,
+    decimalPrice: observation.decimalPrice,
+    observedOn: observation.asOf,
+    providerId: providerId,
+    now: now,
+  );
+}
+
+PriceAlertEvaluation evaluateIntradayPriceAlert({
+  required PriceAlert alert,
+  required PriceAlertCheckpoint checkpoint,
+  required MarketResult<IntradayBar> result,
+  required String providerId,
+  required UtcInstant now,
+}) {
+  if (result.state != MarketState.available || result.value == null) {
+    return PriceAlertEvaluation(
+      checkpoint: checkpoint,
+      reason: 'Only fresh available observations may trigger alerts',
+    );
+  }
+  final observation = result.value!;
+  final instant = observation.startsAt.value;
+  return _evaluateObservation(
+    alert: alert,
+    checkpoint: checkpoint,
+    symbol: observation.symbol,
+    decimalPrice: observation.close,
+    observedOn: BusinessDate(instant.year, instant.month, instant.day),
+    observedAt: observation.startsAt,
+    providerId: providerId,
+    now: now,
+  );
+}
+
+PriceAlertEvaluation _evaluateObservation({
+  required PriceAlert alert,
+  required PriceAlertCheckpoint checkpoint,
+  required String symbol,
+  required String decimalPrice,
+  required BusinessDate observedOn,
+  required String providerId,
+  required UtcInstant now,
+  UtcInstant? observedAt,
+}) {
   if (!alert.enabled) {
     return PriceAlertEvaluation(
       checkpoint: checkpoint,
@@ -102,14 +162,7 @@ PriceAlertEvaluation evaluatePriceAlert({
   if (providerId.isEmpty) {
     throw ArgumentError.value(providerId, 'providerId');
   }
-  if (result.state != MarketState.available || result.value == null) {
-    return PriceAlertEvaluation(
-      checkpoint: checkpoint,
-      reason: 'Only fresh available observations may trigger alerts',
-    );
-  }
-  final observation = result.value!;
-  if (observation.symbol != alert.symbol) {
+  if (symbol != alert.symbol) {
     return PriceAlertEvaluation(
       checkpoint: checkpoint,
       reason: 'Observation symbol does not match alert',
@@ -117,11 +170,12 @@ PriceAlertEvaluation evaluatePriceAlert({
   }
   final observedPrice = ShareUnitPrice.parse(
     alert.target.currency,
-    observation.decimalPrice,
+    decimalPrice,
   );
   final relation = _compare(observedPrice, alert.target);
-  if (checkpoint.lastObservationDate == observation.asOf &&
-      checkpoint.lastPrice == observation.decimalPrice &&
+  if (checkpoint.lastObservationDate == observedOn &&
+      checkpoint.lastObservationAt == observedAt &&
+      checkpoint.lastPrice == decimalPrice &&
       checkpoint.lastProviderId == providerId) {
     return PriceAlertEvaluation(
       checkpoint: checkpoint,
@@ -130,8 +184,9 @@ PriceAlertEvaluation evaluatePriceAlert({
   }
   final next = PriceAlertCheckpoint(
     lastRelation: relation,
-    lastObservationDate: observation.asOf,
-    lastPrice: observation.decimalPrice,
+    lastObservationDate: observedOn,
+    lastObservationAt: observedAt,
+    lastPrice: decimalPrice,
     lastProviderId: providerId,
     lastNotifiedAt: checkpoint.lastNotifiedAt,
   );
@@ -159,8 +214,9 @@ PriceAlertEvaluation evaluatePriceAlert({
   }
   final notifiedCheckpoint = PriceAlertCheckpoint(
     lastRelation: relation,
-    lastObservationDate: observation.asOf,
-    lastPrice: observation.decimalPrice,
+    lastObservationDate: observedOn,
+    lastObservationAt: observedAt,
+    lastPrice: decimalPrice,
     lastProviderId: providerId,
     lastNotifiedAt: now,
   );
@@ -170,9 +226,10 @@ PriceAlertEvaluation evaluatePriceAlert({
       alertId: alert.id,
       instrumentId: alert.instrumentId,
       symbol: alert.symbol,
-      price: observation.decimalPrice,
+      price: decimalPrice,
       currency: alert.target.currency,
-      observedOn: observation.asOf,
+      observedOn: observedOn,
+      observedAt: observedAt,
       providerId: providerId,
       evaluatedAt: now,
     ),
@@ -183,9 +240,10 @@ final class PriceAlertCheckpointCodec {
   const PriceAlertCheckpointCodec();
 
   String encode(PriceAlertCheckpoint checkpoint) => jsonEncode({
-    'version': 1,
+    'version': 2,
     'lastRelation': checkpoint.lastRelation?.name,
     'lastObservationDate': checkpoint.lastObservationDate?.toString(),
+    'lastObservationAt': checkpoint.lastObservationAt?.toString(),
     'lastPrice': checkpoint.lastPrice,
     'lastProviderId': checkpoint.lastProviderId,
     'lastNotifiedAt': checkpoint.lastNotifiedAt?.toString(),
@@ -193,16 +251,19 @@ final class PriceAlertCheckpointCodec {
 
   PriceAlertCheckpoint decode(String source) {
     final raw = jsonDecode(source);
-    if (raw is! Map<String, dynamic> || raw['version'] != 1) {
+    if (raw is! Map<String, dynamic> ||
+        raw['version'] != 1 && raw['version'] != 2) {
       throw const FormatException('Unsupported price alert checkpoint');
     }
     final relation = raw['lastRelation'];
     final date = raw['lastObservationDate'];
+    final instant = raw['lastObservationAt'];
     final price = raw['lastPrice'];
     final provider = raw['lastProviderId'];
     final notified = raw['lastNotifiedAt'];
     if (relation != null && relation is! String ||
         date != null && date is! String ||
+        instant != null && instant is! String ||
         price != null && price is! String ||
         provider != null && provider is! String ||
         notified != null && notified is! String) {
@@ -216,6 +277,7 @@ final class PriceAlertCheckpointCodec {
               orElse: () => throw const FormatException('Invalid relation'),
             ),
       lastObservationDate: date == null ? null : BusinessDate.parse(date),
+      lastObservationAt: instant == null ? null : UtcInstant.parse(instant),
       lastPrice: price,
       lastProviderId: provider,
       lastNotifiedAt: notified == null ? null : UtcInstant.parse(notified),
