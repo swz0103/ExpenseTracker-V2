@@ -1,13 +1,22 @@
 name: V2 integration validation
 
-# The default branch does not yet contain workflows. A tightly scoped push
-# verifies the single non-main line. Do not add another long-lived branch here.
+# Keep integration checks on the branch where complete capabilities are joined
+# before they are proposed for the default branch.
 on:
   push:
-    branches: [work/m2-cloud-backup]
+    branches: [integration/v2]
     paths:
-      - .github/workflows/integration-validation.yml
-      - prototypes/transaction_boundary/test/transaction_probe_test.dart
+      - '.github/workflows/**'
+      - 'packages/**'
+      - 'prototypes/**'
+      - 'tooling/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'packages/**'
+      - 'prototypes/**'
+      - 'tooling/**'
   workflow_dispatch:
 
 permissions:
