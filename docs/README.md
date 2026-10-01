@@ -10,6 +10,7 @@
 - [Full Vision Baseline](architecture/full-vision-baseline.md)：完整願景與延後能力的來源。
 - [架構回查](architecture/architecture-review-2026-09-29.md)：目前已知風險與改善方向。
 - [2026-09-30 上市審查](architecture/shipping-review-2026-09-30.md)：兩支非 main 分支的整合與上市 gate。
+- [2026-10-01 功能缺陷與建議](architecture/functional-review-2026-10-01.md)：既有功能缺陷與建議補上的能力。
 
 ## 開發與交付規則
 
