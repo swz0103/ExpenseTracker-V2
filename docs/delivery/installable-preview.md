@@ -1,5 +1,18 @@
 # 開發安裝包與歷史驗收紀錄
 
+## 0.17.0 GitHub 可下載預發版
+
+**2026-10-02 最新預發版**：`0.17.0+21` 已由 `main` 的提交
+`c663ad21657fe9e4e87fa69afb2e12183087b3e0` 在 GitHub Actions 建置並發布。
+
+- [Release 與安裝說明](https://github.com/swz0103/ExpenseTracker-V2/releases/tag/preview-v0.17.0-build21)
+- [Android ARM64 APK](https://github.com/swz0103/ExpenseTracker-V2/releases/download/preview-v0.17.0-build21/ExpenseTracker-V2-preview-v0.17.0-build21-arm64.apk)：98,079,570 bytes。
+- [SHA-256 校驗檔](https://github.com/swz0103/ExpenseTracker-V2/releases/download/preview-v0.17.0-build21/ExpenseTracker-V2-preview-v0.17.0-build21-arm64.apk.sha256)；APK SHA-256 為 `8c60b7ce0fc4256721bf3ebd7defea12d2408e933fde4614114b9dd5f73a8bf9`。
+- [主分支完整整合驗證](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36890242609)與[可下載 Android 發版](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36890292313)均通過。發版工作會重新執行格式、靜態分析與完整 App 測試，再安裝固定 CMake 3.22.1 建置 ARM64 APK。
+- App ID `dev.expensetracker.preview`；以 CI 隔離的開發簽章簽署，不覆蓋舊版 `com.wzet.app`。這是可側載測試的 prerelease，不是 Google Play 正式簽章或商店版本。
+- 本版包含暖色首頁與日常記帳呈現、免金鑰 Yahoo 1／5 分鐘盤中資料、官方日終／匯率來源、到價提醒、Google Drive OAuth runtime 接線及既有完整帳本功能。Yahoo 盤中端點仍屬非官方、非保證來源。
+- 發版時未設定 `GOOGLE_SERVER_CLIENT_ID`，因此下載版的 Google Drive 維持未連結，不顯示假成功。Android 背景行情、正式 OAuth 帳號實測、長期 release signing、Google Play AAB、100k+ 容量及實機 gate 仍未完成。
+
 ## 0.16.0 備註修訂
 
 **2026-09-28 最新開發包**：0.16.0+20 接入[備註修訂](../features/transaction-notes.md)、可恢復加密草稿、活動及 V2 schema 11→12 安全升級／snapshot 11。
