@@ -1816,6 +1816,90 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     }
   }
 
+  void _showAccountDetails(AccountSummary row) {
+    final related = _entries
+        .where(
+          (entry) =>
+              entry.accountId == row.account.id ||
+              entry.destinationId == row.account.id,
+        )
+        .toList(growable: false);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
+        maxChildSize: 0.94,
+        builder: (_, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+          children: [
+            Row(
+              children: [
+                Icon(switch (row.account.kind) {
+                  AccountKind.cash => Icons.payments_outlined,
+                  AccountKind.bank => Icons.account_balance_outlined,
+                  AccountKind.creditCard => Icons.credit_card_outlined,
+                }),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    row.account.name,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${row.account.currency.code} · ${row.account.includeInNetWorth ? '納入資產摘要' : '不納入資產摘要'}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 18),
+            FinancialSummary(
+              title: row.account.kind == AccountKind.creditCard
+                  ? '目前負債餘額'
+                  : '目前餘額',
+              subtitle: '含期初餘額與所有有效交易',
+              money: row.balance,
+              privacy: _privacy,
+              kind: MoneyKind.balance,
+              moneyKey: ValueKey(
+                'account-detail-money-${row.account.id.value}',
+              ),
+            ),
+            const SizedBox(height: 22),
+            Text('最近活動', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            if (related.isEmpty) const Text('這個帳戶還沒有交易。'),
+            for (final entry in related)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(_timelineIcon(entry.kind), color: warmAccent),
+                title: Text('${_kindLabel(entry.kind)} · ${entry.date}'),
+                subtitle: _entryCategories[entry.id] == null
+                    ? null
+                    : Text(_allocationLabel(entry.id)),
+                trailing: MoneyView(
+                  money:
+                      entry.destinationId == row.account.id &&
+                          entry.received != null
+                      ? entry.received!
+                      : entry.amount,
+                  privacy: _privacy,
+                  kind: MoneyKind.transaction,
+                ),
+                onTap: () => _showActivity(entry.id),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAccounts() {
     showModalBottomSheet<void>(
       context: context,
@@ -1857,6 +1941,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                           privacy: _privacy,
                           kind: MoneyKind.balance,
                         ),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) _showAccountDetails(row);
+                          });
+                        },
                       );
                     },
                   ),

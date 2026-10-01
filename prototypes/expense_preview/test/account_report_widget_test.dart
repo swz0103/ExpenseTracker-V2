@@ -10,6 +10,52 @@ import 'support.dart';
 import 'widget_test.dart' show Documents, closeEngine, input, settle, tap;
 
 void main() {
+  testWidgets('account destination opens balance and recent activity detail', (
+    tester,
+  ) async {
+    final root = Directory('.dart_tool/widget-tests')
+      ..createSync(recursive: true);
+    final work = root.createTempSync('account-detail-');
+    final engine = engineAt(work, MemoryVault(), schemaVersion: 12);
+    try {
+      await tester.runAsync(() async {
+        await setup(engine);
+        final cash = account(engine);
+        await engine.createAccount(cash, opening(cash));
+        await engine.post(
+          Posting.expense(
+            id: PublicId.generate(),
+            operation: OperationKey(
+              engine.workspace,
+              OperationId(PublicId.generate()),
+            ),
+            date: BusinessDate(2026, 9, 30),
+            account: ref(cash),
+            amount: Money.parse(cash.currency, '12'),
+          ),
+        );
+        await engine.lock();
+      });
+      await tester.pumpWidget(
+        PreviewApp(engine: Future.value(engine), documents: Documents()),
+      );
+      await settle(tester);
+      await input(tester, '密碼', password);
+      await tap(tester, '解鎖');
+      await tester.tap(find.text('帳戶').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('日常現金').last);
+      await tester.pumpAndSettle();
+      expect(find.text('目前餘額'), findsOneWidget);
+      expect(find.text('最近活動'), findsOneWidget);
+      expect(find.text('支出 · 2026-09-30'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      await closeEngine(tester, engine);
+      deleteSynthetic(work, root);
+    }
+  });
+
   testWidgets('account report remains usable at 320px and double text size', (
     tester,
   ) async {
