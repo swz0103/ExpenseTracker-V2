@@ -16,7 +16,7 @@
 
 ## 上市結論
 
-**現在不能當正式上架版本。** 日常記帳、信用卡與投資的本機垂直切片在主機測試裡沒有發現錯帳級缺陷，但發版 gate 仍缺：Android 實機、真實雲端帳號、100k 容量、全量 GitHub Actions，以及雲端備份的實際上傳 runtime。預設安裝的「雲端備份」只說明尚未連結帳號，不會上傳。
+**現在不能當正式上架版本。** 日常記帳、信用卡與投資的本機垂直切片在主機測試裡沒有發現錯帳級缺陷，但發版 gate 仍缺：Android 實機、真實雲端帳號、單帳本 100k、以及雲端備份的實際上傳 runtime。有上限的 `V2 integration validation` 已在留下的分支通過；Foundation probe 與 Android foundation 仍是手動觸發，沒有重新打開。預設安裝的「雲端備份」只說明尚未連結帳號，不會上傳。
 
 若有人注入 `cloudBackupGatewayFactory` 卻沒有另外跑上傳 worker，使用者會看到已排入上傳或已開啟自動備份，實際沒有上傳。這是出貨阻擋，不是文件裡已經寫明的 OAuth 缺口而已。
 
@@ -61,7 +61,9 @@
 
 大數據使用既有 `prototypes/expense_preview/tool/large_scale.dart`。它透過 `engineAt` 固定 schema 5，不是目前 App 預設 schema 24。10 組各 5,000 筆新增交易、每筆立刻重送，密碼與救援文字各還原五組。Linux、Flutter 3.47.5／Dart 3.13.4，總時間 332,843 ms（5 分 33 秒），狀態 `passed`：50,000 筆不同交易、50,010 次重送。還原約 3.1–3.3 秒，重新開啟約 0.73–0.79 秒。原始紀錄是[本機大數據](../test-results/2026-09-30/preview-scale-linux-2026-09-30.json)。這仍是單帳本 5,000 筆上限的重複驗證，不是 100k 單帳本。
 
-GitHub Actions 只使用既有的 `V2 integration validation`（四個 Ubuntu job，timeout 合計上限 68 分鐘）。觸發分支改為留下的 `work/m2-cloud-backup`，不再指向已刪除的分支。舊的 Foundation probe 與 Android foundation workflow 沒有重新打開。
+GitHub Actions 只使用既有的 `V2 integration validation`（四個 Ubuntu job：architecture、domain、storage、flutter-host，timeout 合計上限 68 分鐘）。觸發分支改為留下的 `work/m2-cloud-backup`，不再指向已刪除的分支。舊的 Foundation probe 與 Android foundation workflow 沒有重新打開。
+
+兩次有上限的整合檢查都通過。第一次在已刪除的暫時分支、提交 `b0594ea`：[run 36793180545](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36793180545)。快轉到 `work/m2-cloud-backup` 的 `58bc5e7` 後，同一 workflow 再跑一次，四個 job 於 2026-10-01 00:25 UTC 全部成功：[run 36794592878](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36794592878)。這是 Linux 主機整合，不是 Android 實機，也不是停用中的另外兩條 workflow。
 
 ## 尚未執行
 
