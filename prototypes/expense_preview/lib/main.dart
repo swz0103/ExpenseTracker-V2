@@ -1766,6 +1766,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             _pin.clear();
             _pinConfirm.clear();
             await _refresh();
+            if (mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scroll.hasClients) _scroll.jumpTo(0);
+              });
+            }
           }),
     child: const Text('返回帳本'),
   );
@@ -1873,6 +1878,14 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   Widget _homeTools() {
+    final canPost =
+        _entryDraft == null &&
+        !_draftUnreadable &&
+        _accounts.any(
+          (row) =>
+              row.account.state == AccountState.active &&
+              row.account.kind != AccountKind.creditCard,
+        );
     final hasCard = _accounts.any(
       (row) => row.account.kind == AccountKind.creditCard,
     );
@@ -1921,6 +1934,24 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           spacing: 8,
           runSpacing: 8,
           children: [
+            if (_entryDraft != null && !_draftUnreadable)
+              tool('繼續草稿', _resumeDraft, icon: Icons.edit_note_rounded),
+            tool(
+              '記一筆',
+              canPost ? () => _edit(_Page.posting) : null,
+              icon: Icons.add_rounded,
+            ),
+            if (_engine!.capabilities.transfers)
+              tool(
+                _engine!.capabilities.crossCurrencyTransfers ? '轉帳' : '同幣轉帳',
+                canPost ? () => _edit(_Page.posting, transfer: true) : null,
+                icon: Icons.swap_horiz_rounded,
+              ),
+            tool(
+              '新增帳戶',
+              () => _edit(_Page.account),
+              icon: Icons.account_balance_wallet_outlined,
+            ),
             tool(
               '搜尋交易',
               () => setState(() => _page = _Page.search),
@@ -2704,6 +2735,44 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                       }),
               ),
             const SizedBox(height: 16),
+            if (!_transfer && !_split) ...[
+              Text(
+                _income ? '這筆收入屬於哪一類？' : '這筆支出花在哪裡？',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                key: ValueKey('posting-category-$_income'),
+                initialValue: _categoryId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: '先選分類'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('未分類')),
+                  for (final c in _catalog!.categories.where(
+                    (c) =>
+                        !c.archived &&
+                        c.kind ==
+                            (_income
+                                ? CategoryKind.income
+                                : CategoryKind.expense),
+                  ))
+                    DropdownMenuItem(
+                      value: c.id.value,
+                      child: Text(
+                        _categoryLabel(_catalog!, c),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (_busy || _postingFrozen)
+                    ? null
+                    : (value) => setState(() {
+                        _categoryId = value ?? '';
+                        _queueDraft();
+                      }),
+              ),
+              const SizedBox(height: 14),
+            ],
             DropdownButtonFormField<PublicId>(
               initialValue: _accountId,
               decoration: InputDecoration(labelText: _transfer ? '轉出帳戶' : '帳戶'),
@@ -2822,37 +2891,6 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                       }),
               ),
             if (!_transfer && _split) ..._splitInputs(),
-            if (!_transfer && !_split)
-              DropdownButtonFormField<String>(
-                key: ValueKey('posting-category-$_income'),
-                initialValue: _categoryId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: '分類'),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('未分類')),
-                  for (final c in _catalog!.categories.where(
-                    (c) =>
-                        !c.archived &&
-                        c.kind ==
-                            (_income
-                                ? CategoryKind.income
-                                : CategoryKind.expense),
-                  ))
-                    DropdownMenuItem(
-                      value: c.id.value,
-                      child: Text(
-                        _categoryLabel(_catalog!, c),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (_busy || _postingFrozen)
-                    ? null
-                    : (value) => setState(() {
-                        _categoryId = value ?? '';
-                        _queueDraft();
-                      }),
-              ),
             const SizedBox(height: 14),
             if (!_transfer && _merchantCatalog != null)
               _MerchantPicker(

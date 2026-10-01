@@ -106,8 +106,14 @@ Future<void> waitForExportDialog(WidgetTester tester) async {
 
 Future<void> tap(WidgetTester tester, String text, {int maxPolls = 600}) async {
   final target = find.text(text);
-  await tester.ensureVisible(target);
-  await tester.runAsync(() => tester.tap(target));
+  if (target.hitTestable().evaluate().isEmpty) {
+    await tester.ensureVisible(target);
+    await tester.pump();
+  }
+  final hittable = target.hitTestable();
+  await tester.runAsync(
+    () => tester.tap(hittable.evaluate().isEmpty ? target : hittable),
+  );
   await tester.pump();
   await settle(tester, maxPolls: maxPolls);
 }
