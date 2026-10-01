@@ -212,6 +212,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
           result: result,
           providerId: routed?.selectedProvider?.id ?? StockClose.provider,
           now: UtcInstant(DateTime.now().toUtc()),
+          isActive: () => mounted && request == _request && widget.showAmounts,
         );
         notification = evaluation?.notification;
         if (notification != null &&

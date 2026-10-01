@@ -393,5 +393,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(presenter.shown, isEmpty);
     expect(find.textContaining('1234.50'), findsNothing);
+    expect(
+      (await alerts.load(instrument))!.checkpoint.lastRelation,
+      PriceRelation.below,
+    );
   });
 }

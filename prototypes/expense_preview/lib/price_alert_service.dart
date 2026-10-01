@@ -76,9 +76,10 @@ final class PriceAlertService {
     required MarketResult<StockClose> result,
     required String providerId,
     required UtcInstant now,
+    bool Function()? isActive,
   }) async {
     final saved = await load(instrument);
-    if (saved == null) return null;
+    if (saved == null || isActive != null && !isActive()) return null;
     final evaluation = evaluatePriceAlert(
       alert: saved.alert,
       checkpoint: saved.checkpoint,
@@ -86,6 +87,7 @@ final class PriceAlertService {
       providerId: providerId,
       now: now,
     );
+    if (isActive != null && !isActive()) return null;
     if (!identical(evaluation.checkpoint, saved.checkpoint)) {
       await _store.write(
         instrument.id,
@@ -105,9 +107,10 @@ final class PriceAlertService {
     required MarketResult<IntradayBar> result,
     required String providerId,
     required UtcInstant now,
+    bool Function()? isActive,
   }) async {
     final saved = await load(instrument);
-    if (saved == null) return null;
+    if (saved == null || isActive != null && !isActive()) return null;
     final evaluation = evaluateIntradayPriceAlert(
       alert: saved.alert,
       checkpoint: saved.checkpoint,
@@ -115,6 +118,7 @@ final class PriceAlertService {
       providerId: providerId,
       now: now,
     );
+    if (isActive != null && !isActive()) return null;
     if (!identical(evaluation.checkpoint, saved.checkpoint)) {
       await _store.write(
         instrument.id,

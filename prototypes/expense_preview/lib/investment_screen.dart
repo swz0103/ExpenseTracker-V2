@@ -1215,6 +1215,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                         result: snapshot.result,
                         providerId: provider.id,
                         now: UtcInstant(DateTime.now().toUtc()),
+                        isActive: () =>
+                            mounted && widget.privacy == PrivacyMode.visible,
                       );
                       final notification = evaluation?.notification;
                       if (notification != null &&
