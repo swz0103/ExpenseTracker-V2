@@ -55,7 +55,7 @@ void main() {
         180,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('本月尚無收入或支出。'), findsOneWidget);
+      expect(find.text('這個月還沒有收支，從下方的「＋」記下第一筆。'), findsOneWidget);
       await tap(tester, '查看月收支明細');
       expect(find.text('這個月沒有影響收入或支出的交易。'), findsOneWidget);
       await tester.tap(find.byTooltip('上個月'));

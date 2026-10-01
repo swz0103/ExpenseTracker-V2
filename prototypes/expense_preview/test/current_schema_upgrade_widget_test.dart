@@ -79,7 +79,7 @@ void main() {
         await input(tester, '密碼', password);
         await tap(tester, '解鎖');
         await tap(tester, '備份並更新', maxPolls: 12000);
-        expect(find.text('我的帳本'), findsOneWidget);
+        expect(find.text('快捷工具'), findsOneWidget);
         expect(engine.capabilities.corrections, isTrue);
         expect(engine.capabilities.tombstones, isTrue);
         expect(engine.capabilities.budgets, isTrue);
