@@ -1,6 +1,8 @@
 ## 2026-10-01 免帳號市場來源、到價提醒與單一主分支
 
 - [x] 正式 App 市場 registry 以免帳號的 TWSE、TPEx、ECB、CBC 與 Frankfurter 為日終／參考基線；另將 Fugle 以選配盤中 provider 正式接線。使用者需要 1／5 分鐘台股時只輸入一次 key，之後由 Android secure storage 供應；未設定或撤銷 key 不影響免帳號資料來源。
+- [x] Google Drive 正式 factory 已接上 Google Sign-In 與 `drive.file` 最小權限、既有 Drive REST adapter、SQLCipher 工作佇列、歷史／保留、下載驗證及乾淨還原 handoff。OAuth token 不進 Ledger、備份或工作佇列；runtime 資料庫 key 使用獨立 Android secure storage。建置若沒有 `GOOGLE_SERVER_CLIENT_ID` 就維持未連結狀態，不顯示假成功。
+- [ ] Google Cloud 專案、Android package／簽章 SHA、Web OAuth client ID 與實際測試帳號仍是外部設定；需完成登入、撤權、token 到期、離線／限流、上傳下載與乾淨安裝雙憑證還原實測後，才能宣稱 Google Drive 實機完成。
 - [x] Frankfurter v2 已作為跨幣別免 key fallback；HTTPS host 與回傳欄位固定核對，十進位匯率不經浮點數，當日／歷史日期、快取、同請求合併、過期、限流、缺值與錯誤資料皆保留不同結果。`market_data` 完整 55 項檢查於接入批次通過。
 - [x] 到價提醒可在正式持倉行情區設定漲到／跌到門檻、移除並以 Android secure storage 保存。只有新鮮 observation 跨越門檻才提示；重複資料、過期／失敗資料、冷卻期間及損壞 checkpoint 不會重複通知。Android 系統通知已通過 Kotlin debug 編譯，鎖定畫面採 secret visibility。
 - [x] 提醒 checkpoint 升級為可辨識每一根 1／5 分鐘 K 線，同一交易日內可先建立基準再偵測跨越；舊版日收盤 checkpoint 仍可讀。盤中行情切換隱私模式會立即停止 controller、取消後續排程並清除已顯示金額。市場資料完整 57 項及相關 App 10 項測試通過。

@@ -22,6 +22,7 @@ dependencies:
     sdk: flutter
   intl: 0.20.3
   flutter_secure_storage: 11.2.0
+  google_sign_in: 7.2.0
   path_provider: 2.1.6
   accounts:
     path: ../../packages/accounts
@@ -53,6 +54,10 @@ dependencies:
     path: ../backup_envelope
   cloud_backup_probe:
     path: ../cloud_backup
+  encrypted_storage_probe:
+    path: ../encrypted_storage
+  persistent_jobs_probe:
+    path: ../persistent_jobs
   validated_restore_probe:
     path: ../validated_restore
 dev_dependencies:

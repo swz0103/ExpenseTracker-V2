@@ -38,7 +38,16 @@ jobs:
           flutter analyze --no-pub
           flutter test --no-pub --reporter expanded
       - name: Build installable ARM64 preview
-        run: flutter build apk --debug --target-platform android-arm64 --no-pub
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--debug --target-platform android-arm64 --no-pub)
+          if [[ -n "${GOOGLE_SERVER_CLIENT_ID:-}" ]]; then
+            args+=(--dart-define="GOOGLE_SERVER_CLIENT_ID=${GOOGLE_SERVER_CLIENT_ID}")
+          fi
+          flutter build apk "${args[@]}"
       - name: Prepare release assets
         id: release
         shell: bash
@@ -84,4 +93,3 @@ jobs:
             --title "ExpenseTracker V2 ${RELEASE_TAG}" \
             --notes-file release-notes.md \
             --prerelease
-

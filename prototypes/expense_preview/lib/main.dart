@@ -40,6 +40,7 @@ import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
 import 'price_alert_service.dart';
 import 'market_credentials.dart';
+import 'google_drive_cloud_backup.dart';
 import 'warm_presentation.dart';
 export 'privacy_presentation.dart' show moneyText;
 
@@ -72,6 +73,7 @@ void main() {
   final fugleCredentials = FugleCredentialManager(
     AndroidFugleCredentialVault(),
   );
+  final googleDriveAuthorization = GoogleDriveSignInTokenSource();
   runApp(
     PreviewApp(
       engine: createEngine(),
@@ -79,6 +81,12 @@ void main() {
       deviceUnlock: AndroidDeviceUnlockStore(),
       appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
       recurringReminder: AndroidRecurringReminderService(),
+      cloudBackupGatewayFactory: googleDriveAuthorization.isConfigured
+          ? (engine) => createGoogleDriveCloudBackupGateway(
+              engine: engine,
+              authorization: googleDriveAuthorization,
+            )
+          : null,
       investmentMarketServices: createInvestmentMarketServices(
         fugleCredentials: fugleCredentials,
         priceAlerts: PriceAlertService(AndroidPriceAlertRecordStore()),
@@ -88,7 +96,7 @@ void main() {
   );
 }
 
-typedef CloudBackupGatewayFactory = CloudBackupScreenGateway Function(
+typedef CloudBackupGatewayFactory = FutureOr<CloudBackupScreenGateway> Function(
   PreviewEngine engine,
 );
 
@@ -401,7 +409,8 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       final engine = await widget.engine;
       _engine = engine;
       try {
-        _cloudBackupGateway = widget.cloudBackupGatewayFactory?.call(engine);
+        final gateway = widget.cloudBackupGatewayFactory?.call(engine);
+        _cloudBackupGateway = gateway == null ? null : await gateway;
       } catch (_) {
         // Cloud setup is optional and must never prevent local ledger access.
         _cloudBackupGateway = null;
