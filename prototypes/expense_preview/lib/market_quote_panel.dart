@@ -23,6 +23,7 @@ class MarketQuotePanel extends StatefulWidget {
     this.gateway,
     this.router,
     this.priceAlerts,
+    this.priceAlertNotifications,
   });
 
   final InvestmentInstrument instrument;
@@ -42,6 +43,7 @@ class MarketQuotePanel extends StatefulWidget {
   final MarketDataGateway? gateway;
   final MarketDataRouter? router;
   final PriceAlertService? priceAlerts;
+  final PriceAlertNotificationPresenter? priceAlertNotifications;
 
   @override
   State<MarketQuotePanel> createState() => _MarketQuotePanelState();
@@ -212,6 +214,9 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
           now: UtcInstant(DateTime.now().toUtc()),
         );
         notification = evaluation?.notification;
+        if (notification != null) {
+          await widget.priceAlertNotifications?.show(notification);
+        }
       } catch (_) {
         // A failed optional reminder must never hide a successfully read quote.
       }
@@ -351,7 +356,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
                     ),
                 ],
               ),
-              const Text('目前在 App 取得新鮮行情時提示；背景系統通知尚未啟用。'),
+              const Text('App 取得新鮮行情並跨越門檻時提示；Android 會同時嘗試發出系統通知。'),
               if (_alertMessage != null)
                 Text(
                   _alertMessage!,

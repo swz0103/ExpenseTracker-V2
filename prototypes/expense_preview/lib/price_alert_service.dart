@@ -10,6 +10,10 @@ abstract interface class PriceAlertRecordStore {
   Future<void> delete(PublicId instrumentId);
 }
 
+abstract interface class PriceAlertNotificationPresenter {
+  Future<bool> show(PriceAlertNotification notification);
+}
+
 final class SavedPriceAlert {
   const SavedPriceAlert({required this.alert, required this.checkpoint});
 

@@ -76,6 +76,7 @@ void main() {
       recurringReminder: AndroidRecurringReminderService(),
       investmentMarketServices: createInvestmentMarketServices(
         priceAlerts: PriceAlertService(AndroidPriceAlertRecordStore()),
+        priceAlertNotifications: AndroidPriceAlertNotificationPresenter(),
       ),
     ),
   );

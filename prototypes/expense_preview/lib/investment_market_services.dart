@@ -7,15 +7,18 @@ final class InvestmentMarketServices {
     required this.gateway,
     required this.router,
     this.priceAlerts,
+    this.priceAlertNotifications,
   });
 
   final MarketDataGateway gateway;
   final MarketDataRouter router;
   final PriceAlertService? priceAlerts;
+  final PriceAlertNotificationPresenter? priceAlertNotifications;
 }
 
 InvestmentMarketServices createInvestmentMarketServices({
   PriceAlertService? priceAlerts,
+  PriceAlertNotificationPresenter? priceAlertNotifications,
 }) {
   final gateway = MarketDataGateway();
   final frankfurter = FrankfurterReferenceFxGateway();
@@ -30,5 +33,6 @@ InvestmentMarketServices createInvestmentMarketServices({
     gateway: gateway,
     router: MarketDataRouter(registry),
     priceAlerts: priceAlerts,
+    priceAlertNotifications: priceAlertNotifications,
   );
 }

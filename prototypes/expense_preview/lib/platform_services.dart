@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:market_data/market_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:storage_generation_probe/catalog_protection.dart';
 
@@ -118,6 +119,21 @@ final class AndroidPriceAlertRecordStore implements PriceAlertRecordStore {
   @override
   Future<void> delete(PublicId instrumentId) =>
       _storage.delete(key: _key(instrumentId));
+}
+
+final class AndroidPriceAlertNotificationPresenter
+    implements PriceAlertNotificationPresenter {
+  static const _channel = MethodChannel('expense_preview/price_alerts');
+
+  @override
+  Future<bool> show(PriceAlertNotification notification) async =>
+      await _channel.invokeMethod<bool>('show', {
+        'alertId': notification.alertId.value,
+        'symbol': notification.symbol,
+        'price': notification.price,
+        'currency': notification.currency.code,
+      }) ??
+      false;
 }
 
 final class _CatalogVault implements KeyVault {

@@ -22,6 +22,16 @@ final class _Transport implements MarketTransport {
   }
 }
 
+final class _SequenceTransport implements MarketTransport {
+  _SequenceTransport(this.bodies);
+  final List<String> bodies;
+  int calls = 0;
+
+  @override
+  Future<MarketResponse> get(Uri uri) async =>
+      MarketResponse(200, bodies[calls++]);
+}
+
 final class _AlertStore implements PriceAlertRecordStore {
   final values = <PublicId, String>{};
 
@@ -36,6 +46,16 @@ final class _AlertStore implements PriceAlertRecordStore {
   @override
   Future<void> delete(PublicId instrumentId) async {
     values.remove(instrumentId);
+  }
+}
+
+final class _AlertPresenter implements PriceAlertNotificationPresenter {
+  final shown = <PriceAlertNotification>[];
+
+  @override
+  Future<bool> show(PriceAlertNotification notification) async {
+    shown.add(notification);
+    return true;
   }
 }
 
@@ -70,6 +90,7 @@ void main() {
     bool history = false,
     BusinessDate? latestPositionDate,
     PriceAlertService? priceAlerts,
+    PriceAlertNotificationPresenter? priceAlertNotifications,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -103,6 +124,7 @@ void main() {
           latestPositionDate: latestPositionDate,
           gateway: gateway,
           priceAlerts: priceAlerts,
+          priceAlertNotifications: priceAlertNotifications,
         ),
       ),
     ),
@@ -275,5 +297,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('price-alert-section')), findsNothing);
     expect(find.textContaining('1500.25'), findsNothing);
+  });
+
+  testWidgets('crossing a saved threshold emits a system notification', (
+    tester,
+  ) async {
+    final alerts = PriceAlertService(_AlertStore());
+    final presenter = _AlertPresenter();
+    await alerts.save(
+      instrument: instrument,
+      target: ShareUnitPrice.parse(instrument.tradingCurrency, '1500'),
+      direction: PriceAlertDirection.atOrAbove,
+    );
+    var now = DateTime.utc(2026, 9, 30, 4);
+    final transport = _SequenceTransport([
+      '[{"Date":"1150929","Code":"2330","Name":"測試上市股","ClosingPrice":"1400"}]',
+      '[{"Date":"1150930","Code":"2330","Name":"測試上市股","ClosingPrice":"1600"}]',
+    ]);
+    final gateway = MarketDataGateway(
+      transport: transport,
+      clock: () => now,
+      cacheTtl: const Duration(microseconds: 1),
+    );
+    await show(
+      tester,
+      gateway,
+      priceAlerts: alerts,
+      priceAlertNotifications: presenter,
+    );
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(presenter.shown, isEmpty);
+    now = DateTime.utc(2026, 10, 1, 4);
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pumpAndSettle();
+    expect(presenter.shown.single.price, '1600');
+    await tester.tap(find.byKey(const ValueKey('price-alert-section')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('到價提醒：2330 現在是 1600 TWD'), findsOneWidget);
   });
 }

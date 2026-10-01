@@ -18,6 +18,7 @@ import java.nio.charset.CodingErrorAction
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
     private var reminderPermissionPending: MethodChannel.Result? = null
+    private var priceAlertPermissionPending: Pair<Map<*, *>, MethodChannel.Result>? = null
     private var encrypted: ByteArray? = null
     private var selectedSimple: Uri? = null
     private var selectedSimpleExport: Uri? = null
@@ -36,7 +37,9 @@ class MainActivity : FlutterActivity() {
                     "isEnabled" -> result.success(RecurringReminderScheduler.isEnabled(this))
                     "setEnabled" -> {
                         val enabled = call.arguments as? Boolean
-                        if (enabled == null || reminderPermissionPending != null) {
+                        if (enabled == null || reminderPermissionPending != null ||
+                            priceAlertPermissionPending != null
+                        ) {
                             result.error("reminder", "無法更新提醒設定", null)
                         } else if (enabled && Build.VERSION.SDK_INT >= 33 &&
                             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -52,6 +55,26 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     else -> result.notImplemented()
+                }
+            }
+        MethodChannel(engine.dartExecutor.binaryMessenger, "expense_preview/price_alerts")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "show") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val arguments = call.arguments as? Map<*, *>
+                if (arguments == null || priceAlertPermissionPending != null ||
+                    reminderPermissionPending != null
+                ) {
+                    result.error("price_alert", "無法顯示到價提醒", null)
+                } else if (Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    priceAlertPermissionPending = Pair(arguments, result)
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 503)
+                } else {
+                    deliverPriceAlert(arguments, result)
                 }
             }
         MethodChannel(engine.dartExecutor.binaryMessenger, "expense_preview/documents")
@@ -139,6 +162,16 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 503) {
+            val pendingAlert = priceAlertPermissionPending ?: return
+            priceAlertPermissionPending = null
+            if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) {
+                pendingAlert.second.success(false)
+            } else {
+                deliverPriceAlert(pendingAlert.first, pendingAlert.second)
+            }
+            return
+        }
         if (requestCode != 502) return
         val result = reminderPermissionPending ?: return
         reminderPermissionPending = null
@@ -149,6 +182,18 @@ class MainActivity : FlutterActivity() {
             )
         } catch (_: Exception) {
             result.error("reminder", "無法啟用提醒", null)
+        }
+    }
+
+    private fun deliverPriceAlert(arguments: Map<*, *>, result: MethodChannel.Result) {
+        try {
+            val alertId = arguments["alertId"] as? String ?: throw IllegalArgumentException()
+            val symbol = arguments["symbol"] as? String ?: throw IllegalArgumentException()
+            val price = arguments["price"] as? String ?: throw IllegalArgumentException()
+            val currency = arguments["currency"] as? String ?: throw IllegalArgumentException()
+            result.success(PriceAlertNotifier.deliver(this, alertId, symbol, price, currency))
+        } catch (_: Exception) {
+            result.error("price_alert", "無法顯示到價提醒", null)
         }
     }
 

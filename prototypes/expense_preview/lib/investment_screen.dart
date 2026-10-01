@@ -1171,6 +1171,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             latestPositionDate: latestPositionDate,
             router: widget.marketServices?.router,
             priceAlerts: widget.marketServices?.priceAlerts,
+            priceAlertNotifications:
+                widget.marketServices?.priceAlertNotifications,
           ),
           if (widget.marketServices case final services?) ...[
             const SizedBox(height: 12),
