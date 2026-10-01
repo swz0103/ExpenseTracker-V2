@@ -5,6 +5,15 @@ plugins {
 }
 
 val syntheticValidation = providers.gradleProperty("v2SyntheticValidation").orNull == "true"
+val releaseSigningEnabled =
+    providers.gradleProperty("v2EnableReleaseSigning").orNull == "true"
+
+fun requiredReleaseEnvironment(name: String): String =
+    providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+        ?: error("$name is required when v2EnableReleaseSigning=true")
+
+val releaseApplicationId =
+    if (releaseSigningEnabled) requiredReleaseEnvironment("V2_RELEASE_APPLICATION_ID") else null
 
 android {
     namespace = "dev.expensetracker.preview"
@@ -17,8 +26,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.expensetracker.preview"
-        manifestPlaceholders["v2AppLabel"] = "記帳 V2 試用版"
+        applicationId = releaseApplicationId ?: "dev.expensetracker.preview"
+        manifestPlaceholders["v2AppLabel"] =
+            if (releaseSigningEnabled) "記帳 V2" else "記帳 V2 試用版"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
@@ -31,6 +41,19 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (releaseSigningEnabled) {
+            create("v2Release") {
+                storeFile = file(requiredReleaseEnvironment("V2_RELEASE_STORE_FILE"))
+                storePassword = requiredReleaseEnvironment("V2_RELEASE_STORE_PASSWORD")
+                keyAlias = requiredReleaseEnvironment("V2_RELEASE_KEY_ALIAS")
+                keyPassword = requiredReleaseEnvironment("V2_RELEASE_KEY_PASSWORD")
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         getByName("debug") {
             if (syntheticValidation) {
@@ -38,13 +61,21 @@ android {
                 manifestPlaceholders["v2AppLabel"] = "記帳 V2 合成測試"
             }
         }
+        getByName("release") {
+            if (releaseSigningEnabled) {
+                signingConfig = signingConfigs.getByName("v2Release")
+            }
+        }
     }
 
 }
 
-// This fixture application must never be used as a production release.
+// Release stays absent unless CI or the key owner explicitly opts in and
+// provides every long-term signing value. Debug builds never inherit it.
 androidComponents {
-    beforeVariants(selector().withBuildType("release")) { it.enable = false }
+    beforeVariants(selector().withBuildType("release")) {
+        it.enable = releaseSigningEnabled
+    }
 }
 
 kotlin {
