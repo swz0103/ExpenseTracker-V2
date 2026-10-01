@@ -1,3 +1,16 @@
+## 2026-10-01 免帳號市場來源、到價提醒與整合分支
+
+- [x] 正式 App 預設市場 registry 改為免帳號來源：TWSE、TPEx、ECB、CBC 與 Frankfurter。Fugle／Twelve Data adapter 仍保留在套件供未來選配，但正式畫面不再要求使用者建立帳號或輸入 API key。
+- [x] Frankfurter v2 已作為跨幣別免 key fallback；HTTPS host 與回傳欄位固定核對，十進位匯率不經浮點數，當日／歷史日期、快取、同請求合併、過期、限流、缺值與錯誤資料皆保留不同結果。`market_data` 完整 55 項檢查於接入批次通過。
+- [x] 到價提醒可在正式持倉行情區設定漲到／跌到門檻、移除並以 Android secure storage 保存。只有新鮮 observation 跨越門檻才提示；重複資料、過期／失敗資料、冷卻期間及損壞 checkpoint 不會重複通知。Android 系統通知已通過 Kotlin debug 編譯，鎖定畫面採 secret visibility。
+- [x] 提醒 checkpoint 升級為可辨識每一根 1／5 分鐘 K 線，同一交易日內可先建立基準再偵測跨越；舊版日收盤 checkpoint 仍可讀。盤中行情切換隱私模式會立即停止 controller、取消後續排程並清除已顯示金額。市場資料完整 57 項及相關 App 10 項測試通過。
+- [x] 雲端備份畫面已從只排入工作改為有 runtime 時立即執行、重開補跑、登入恢復後以同 backup ID 重試，並顯示持久失敗原因與待處理數量；未配置 provider 時仍不假裝成功。
+- [x] `integration/v2` 已建立並推送 GitHub；`V2 integration validation` 對該分支的核心套件、prototypes、tooling 與 workflow 變更執行有 timeout 與同 ref 取消保護的整合 CI。
+- [ ] 官方資料重新核對後，TWSE／TPEx 免帳號 OpenAPI 只適合作日終基準；盤中即時或延遲資訊需依交易所資訊契約取得。尚未找到同時滿足「免帳號、1–5 分鐘、可穩定 API 介接、授權可供 App 使用」的正式台股來源，因此不接未承諾的網頁內部端點，也不把日終輪詢冒充即時。
+- [ ] 系統通知目前由 App 前景取得新行情時發出；Android 背景不保證 1–5 分鐘執行。真正背景行情需要合規 provider、作業系統背景策略與實機耗電／斷網驗證後才能開放。
+
+下一步先收斂 `integration/v2` CI；不需外部帳號的程式缺口持續完成。需要簽交易所資訊契約、建立第三方行情帳號或啟用付費方案時才停下請使用者決定。
+
 ## 2026-10-01 雲端登入失效的重新連結入口
 
 - [x] Provider-neutral 雲端備份 gateway 新增可選重新連結能力；畫面不接觸、保存或轉送 OAuth token，只呼叫目前 provider 注入的授權流程。

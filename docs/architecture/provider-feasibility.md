@@ -34,6 +34,12 @@
 
 已完成 REST 1／5 分鐘核心與 provider registry 接入，但只使用 fixture。App 不內嵌 key；後續由安全儲存提供，並需使用者註冊後做真實帳號驗證。免費個人方案不自動等於可公開散布行情，若 App 對外發布仍須另核對顯示／再散布授權。美股候選 Twelve Data 的免費方案目前標示 800 requests/day、8 trial WebSocket credits 與即時美股，但台灣屬 global trial／更高方案範圍，因此不拿它取代 Fugle 台股來源。[Twelve Data 個人方案](https://twelvedata.com/pricing)。Alpha Vantage 1／5 分鐘即時/延遲 intraday 官方文件列為 premium，本輪不作首選。[Alpha Vantage intraday](https://www.alphavantage.co/documentation/)。
 
+### 免帳號來源重新決策（2026-10-01）
+
+正式 App 預設不再註冊 Fugle／Twelve Data，也不顯示 API key 設定；兩個 adapter 只留作日後經使用者選擇的可選能力。TWSE 官方說明即時交易資訊需直接申請或透過已簽約資訊廠商取得，並列有授權與資訊費；延遲交易資訊的申請使用者同樣須簽訂使用契約，畫面還必須明示至少延遲二十分鐘。[TWSE 即時交易資訊](https://wwwc.twse.com.tw/zh/products/information/real-time.html)、[交易資訊使用規範](https://wwwc.twse.com.tw/zh/products/information/use.html)。TPEx 也將即時交易資訊列為需申請並簽約的資訊產品。[TPEx 資訊購買](https://www.tpex.org.tw/web/service/info_service/info_service.php?l=zh-tw)。
+
+因此目前沒有選定同時符合免帳號、1–5 分鐘、正式穩定 API 與可供 App 使用授權的台股來源。官方 TWSE／TPEx OpenAPI 繼續只作日終基準；不使用未文件化的網站內部 JSON、HTML 抓取或把重複日終輪詢標成即時。1–5 分鐘 controller、路由、退避與提醒仍保留 provider-neutral，待未來確認合規來源即可接入。
+
 ## FX：Frankfurter v2，明確指定資料來源
 
 候選路由：USD/TWD 先評估 RBA；EUR/USD、USD/JPY 先評估 ECB。傳 `providers` 並保存實際回覆日期。官方 v2 不需 API key，預設會混合多來源；本案選擇明確來源來維持可追溯性。[官方 v2 契約](https://frankfurter.dev/)。
@@ -43,6 +49,8 @@
 接入時區分 exact-date、last-known 與 missing。使用者確認的實際成交兩邊金額優先，provider 更新不能改寫已入帳 FX。來源不足或無當日值就回報缺值／有日期的舊估值；本輪沒有宣稱跨 provider 自動 fallback 已完成。
 
 Frankfurter 的軟體 MIT 不等於所有來源資料同一授權；官方也明示資料可能延遲、缺漏或修正。[資料權利邊界](https://frankfurter.dev/license/)。RBA 金融資料另有條款與第三方資料例外；ECB 要求來源標示，衍生計算應說明。本案保存 provider／原始日期／衍生方式，不將換算結果冒稱銀行成交報價。[RBA](https://www.rba.gov.au/copyright/)、[ECB](https://www.ecb.europa.eu/services/disclaimer/html/index.en.html)。正式 adapter 前仍需逐項確認所用 dataset 的上游來源與接入方式。
+
+2026-10-01 實作狀態：正式 registry 已加入免 key 的 Frankfurter v2 direct-pair adapter，作為 ECB／CBC 之外的跨幣 fallback。回傳日期、base、quote、rate 與欄位數均核對；價格從原始十進位文字精確解析，未來日期、過期、缺值、限流及錯誤 payload fail closed。這是中央銀行參考匯率，不是交易即時匯率，也不改寫任何已入帳換匯。
 
 ## 美股：Alpha Vantage 日終候選，尚未開通
 

@@ -1,5 +1,7 @@
 # GitHub Actions 額度與本機驗證
 
+**2026-10-01 整合分支更新**：使用者要求以 GitHub 版本在本機持續製作，並在 GitHub 整合分支執行 CI。現行分支為 `integration/v2`；`V2 integration validation` 在該分支的 `.github/workflows/**`、`packages/**`、`prototypes/**` 或 `tooling/**` 變更時執行，也在提向 `main` 的 PR 執行。同一 ref 採 `cancel-in-progress`，每個 job 仍有 timeout。這取代下文 2026-09-29 的臨時窄路徑政策；未取得 GitHub billing 即時數字，不啟用付費或超額設定。
+
 **2026-09-29 整合驗證例外**：使用者明確要求現在以 Actions 驗證並收斂過多分支。原兩個高成本 workflow 仍停用；新增 `V2 integration validation` 僅在 `integration/v2-core` 的 workflow 或本次發現的跨平台子程序測試檔變更時自動啟動，四個 Ubuntu job 的 timeout 合計最多 68 runner 分鐘，涵蓋本機清單全部 22 個套件。後續一般程式／文件推送不重跑。GitHub 帳單 API 因目前權限不足、瀏覽器未登入，尚無即時剩餘額度；本次採使用者 2026-09-27 回報的約 190 分鐘作上界參考，不能將它視為目前已核實額度，不啟用付費。首輪固定 SHA `0a84b5416d4e3d9f79a8d9ee776eeff6f0b7c8f3` 的架構、業務、Flutter 三組通過；資料保存組只因交易測試寫死 Windows `.exe` 在 Linux 失敗。四個 job 實際時間合計約 23 分鐘；已修正並完成本機重驗，故只針對修正後的固定 SHA 再作一次有上限的完整驗證，不盲目反覆重跑。若 GitHub 拒絕執行或任一 job 失敗，明列為未通過。舊 workflow 不恢復自動觸發，`main` 不合併。
 
 **驗證結果補記**：修正後 SHA `41cb0f415f3fcc2a9052aecc207915f093e595b2` 的[第二輪執行](https://github.com/swz0103/ExpenseTracker-V2/actions/runs/36508480923)四個 job 全部成功。兩輪按 job 啟迄時間相加約 48 分鐘；GitHub 的即時帳單與實際入帳分鐘仍不可讀，不把這個估值當作剩餘額度。分支收斂後不再為文件更新觸發雲端測試；下一次需要雲端驗證時重新核對額度與固定程式提交。
