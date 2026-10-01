@@ -356,3 +356,78 @@ class _BudgetProgress extends StatelessWidget {
     );
   }
 }
+
+class WarmRecurringOverview extends StatelessWidget {
+  const WarmRecurringOverview({
+    super.key,
+    required this.dueCount,
+    required this.readError,
+    required this.privacy,
+    required this.onOpen,
+  });
+
+  final int? dueCount;
+  final bool readError;
+  final PrivacyMode privacy;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = dueCount ?? 0;
+    final title = readError
+        ? '定期交易提醒無法更新'
+        : count > 0
+        ? privacy == PrivacyMode.hidden
+              ? '有定期交易待確認。'
+              : '有 $count 筆定期交易待確認。'
+        : dueCount == null
+        ? '正在檢查定期交易'
+        : '固定收支都已處理';
+    final subtitle = readError
+        ? '開啟定期交易頁重新檢查，不會影響已保存的帳目。'
+        : count > 0
+        ? '確認後才會正式入帳，避免自動重複記帳。'
+        : dueCount == null
+        ? '完成後會在這裡顯示待確認項目。'
+        : '目前沒有到期且尚未確認的項目。';
+    final accent = readError || count > 0
+        ? warmAccent
+        : const Color(0xFF527C68);
+    return Material(
+      color: const Color(0xFFFFF8F0),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.13),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.event_repeat_rounded, color: accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 3),
+                    Text(subtitle),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

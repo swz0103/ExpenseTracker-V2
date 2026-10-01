@@ -3141,6 +3141,17 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                   : () => setState(() => _page = _Page.budgets),
             ),
           ],
+          if (_engine!.capabilities.recurring) ...[
+            const SizedBox(height: 18),
+            WarmRecurringOverview(
+              dueCount: _recurringDueCount,
+              readError: _recurringReminderError,
+              privacy: _privacy,
+              onOpen: _busy
+                  ? null
+                  : () => setState(() => _page = _Page.recurring),
+            ),
+          ],
           const SizedBox(height: 24),
           if (widget.appPin != null && _deviceUnlockEnabled)
             TextButton(
@@ -3392,9 +3403,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
                 child: const Text('定期交易'),
               ),
           ],
-          if (_engine!.capabilities.recurring && _recurringReminderError)
+          if (_showLegacyHomeTools &&
+              _engine!.capabilities.recurring &&
+              _recurringReminderError)
             const Text('定期交易提醒無法更新，請開啟定期交易檢查。'),
-          if (_engine!.capabilities.recurring && (_recurringDueCount ?? 0) > 0)
+          if (_showLegacyHomeTools &&
+              _engine!.capabilities.recurring &&
+              (_recurringDueCount ?? 0) > 0)
             Text(
               _privacy == PrivacyMode.hidden
                   ? '有定期交易待確認。'
