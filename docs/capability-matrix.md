@@ -61,6 +61,7 @@
 | 持久工作佇列 | App 已接 bounded `runNext`、重開 reconciliation／排程 tick、持久失敗顯示與使用者後續重試 | OS 背景喚醒、Ledger 同交易 outbox、真實 provider 與實機 |
 | Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff、立即執行、補跑與重新連結後同 ID 重試完成 | OAuth、正式 transport、OS 背景排程、實機與整合 gate |
 | 多 provider 備份歷史與保留策略 | 正式 App 入口接線完成 | 真實 provider 分頁、OAuth 與實機 |
+| GitHub 可下載 Android 預發版 | `main` 人工確認 workflow 已完成：全 Flutter host gate、ARM64 APK、SHA-256 與 GitHub prerelease | 第一次 exact-head workflow 實跑；Google Play 長期 signing key 與商店發行 |
 | Google Drive 加密備份 | Adapter、HTTPS、續傳、歷史與刪除契約完成 | OAuth、`drive.file` 授權、撤權、真實帳號與乾淨還原 |
 
 ## M3｜投資與估值

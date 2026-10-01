@@ -1,0 +1,87 @@
+name: Downloadable Android preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_preview:
+        description: 'Create an installable GitHub prerelease from main'
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-preview-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    if: github.ref_name == 'main' && inputs.confirm_preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: prototypes/expense_preview
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Verify presentation and host behavior
+        run: |
+          dart format --output=none --set-exit-if-changed lib test tool
+          flutter analyze --no-pub
+          flutter test --no-pub --reporter expanded
+      - name: Build installable ARM64 preview
+        run: flutter build apk --debug --target-platform android-arm64 --no-pub
+      - name: Prepare release assets
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          safe_version="${app_version/+/-build}"
+          tag="preview-v${safe_version}"
+          asset="ExpenseTracker-V2-${tag}-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$asset"
+          sha256sum "$asset" > "${asset}.sha256"
+          {
+            echo "tag=$tag"
+            echo "asset=$asset"
+          } >> "$GITHUB_OUTPUT"
+          cat > release-notes.md <<EOF
+          這是 Android ARM64 可安裝預發版，來源提交：${GITHUB_SHA}。
+
+          - App ID：dev.expensetracker.preview
+          - 以 CI 隔離的開發簽章簽署，可直接側載測試
+          - 不會覆蓋舊版 com.wzet.app
+          - 正式商店發行仍需使用者持有的長期 release signing key
+
+          請同時下載 SHA-256 檔案核對完整性。安裝前先備份既有測試帳本。
+          EOF
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_ASSET: ${{ steps.release.outputs.asset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; bump pubspec version first." >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            "$RELEASE_ASSET#Android ARM64 APK" \
+            "${RELEASE_ASSET}.sha256#SHA-256 checksum" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ExpenseTracker V2 ${RELEASE_TAG}" \
+            --notes-file release-notes.md \
+            --prerelease
+
