@@ -1,14 +1,10 @@
 name: V2 integration validation
 
 # The default branch does not yet contain workflows. A tightly scoped push
-# verifies one integration commit. integration/v2-core stays in the list so
-# the inventory test still recognizes the historical gate; the live line is
-# cursor/integrate-m2-v2-review-c0b6.
+# verifies the single non-main line. Do not add another long-lived branch here.
 on:
   push:
-    branches:
-      - integration/v2-core
-      - cursor/integrate-m2-v2-review-c0b6
+    branches: [work/m2-cloud-backup]
     paths:
       - .github/workflows/integration-validation.yml
       - prototypes/transaction_boundary/test/transaction_probe_test.dart

@@ -53,9 +53,19 @@
 
 `expense_preview` 修正後重新執行 format、analyze 與全部測試，298 項通過。連同第一輪已通過的 1,104 項，主機清單合計 1,402 項。詳細套件數見[測試清單](test-results/shipping-review-host-2026-09-30.json)。
 
+## 2026-09-30 後續：刪除舊分支、大數據與 Actions
+
+使用者要求刪除另一支分支，並補大數據與 GitHub Actions。
+
+刪除前 `integration/v2-core` 沒有 `work/m2-cloud-backup` 之外的提交。審查內容改以快轉放上既有的 `work/m2-cloud-backup`，不把暫時分支留成第二條線。遠端非 `main` 只留 `work/m2-cloud-backup`。`main` 沒有合併。
+
+大數據使用既有 `prototypes/expense_preview/tool/large_scale.dart`。它透過 `engineAt` 固定 schema 5，不是目前 App 預設 schema 24。10 組各 5,000 筆新增交易、每筆立刻重送，密碼與救援文字各還原五組。Linux、Flutter 3.47.5／Dart 3.13.4，總時間 332,843 ms（5 分 33 秒），狀態 `passed`：50,000 筆不同交易、50,010 次重送。還原約 3.1–3.3 秒，重新開啟約 0.73–0.79 秒。原始紀錄是[本機大數據](test-results/preview-scale-linux-2026-09-30.json)。這仍是單帳本 5,000 筆上限的重複驗證，不是 100k 單帳本。
+
+GitHub Actions 只使用既有的 `V2 integration validation`（四個 Ubuntu job，timeout 合計上限 68 分鐘）。觸發分支改為留下的 `work/m2-cloud-backup`，不再指向已刪除的分支。舊的 Foundation probe 與 Android foundation workflow 沒有重新打開。
+
 ## 尚未執行
 
-- GitHub Actions。額度政策仍不因文件或這次審查自動開跑；先前通過的雲端 SHA 是 `41cb0f4`，不是 `ad39c29`。
 - Android 實機、OAuth、真實 Fugle／Twelve Data／Google Drive 帳號。
-- 5,000 筆以上與 100k 容量。單帳本上限仍是 5,000 個 Ledger 事件。
+- 單帳本 100k。這次大數據是 10 個各自 5,000 筆的帳本。
+- schema 24 的滿容量加密還原。上面的大數據工具仍是 schema 5。
 - 通知權限、背景備份與還原的實機流程。

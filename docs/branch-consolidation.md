@@ -2,7 +2,7 @@
 
 ## 2026-09-30：兩支非 main 分支收成一條線
 
-遠端除 `main` 外只剩 `integration/v2-core`（`9ecffbc`）與 `work/m2-cloud-backup`（`ad39c29`）。`git merge-base` 就是 `9ecffbc`，`v2-core..m2` 有 31 個提交，`m2..v2-core` 的獨有提交數是 0。因此整合是快轉關係，不是兩邊各有獨有程式需要人工合併。`main` 仍停在 `d0d39e1`，這次沒有合併 main。
+遠端當時除 `main` 外是 `integration/v2-core`（`9ecffbc`）與 `work/m2-cloud-backup`（`ad39c29`）。`git merge-base` 就是 `9ecffbc`，後者多 31 個提交，前者沒有獨有提交。使用者要求最後只留一支加上 `main`，不要另開或覆蓋出第二條長壽分支。因此審查、大數據紀錄與有上限的 Actions 觸發都快轉進既有的 `work/m2-cloud-backup`，並刪除 `integration/v2-core` 與暫時的審查分支。`main` 仍是 `d0d39e1`，沒有合併。
 
 上市角度的審查與主機清單見[上市審查](shipping-review-2026-09-30.md)。雲端備份函式庫不能當成已可對真實帳號出貨；預設安裝沒有注入雲端 gateway。資產摘要 widget 測試在懶載入清單修正捲動範圍時會被 `scrollUntilVisible` 跳過下一列，已補一個 frame，帳務數字沒有改。
 

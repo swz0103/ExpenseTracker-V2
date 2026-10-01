@@ -24,7 +24,9 @@ void main() {
     final yaml = loadYaml(workflow) as YamlMap;
     final triggers = yaml['on'] as YamlMap;
     final push = triggers['push'] as YamlMap;
-    expect(push['branches'], contains('integration/v2-core'));
+    final branches = push['branches'] as YamlList;
+    expect(branches, hasLength(1));
+    expect(branches.first, 'work/m2-cloud-backup');
     expect(
       push['paths'],
       contains('.github/workflows/integration-validation.yml'),
