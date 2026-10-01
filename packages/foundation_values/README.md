@@ -6,7 +6,7 @@ Money 使用 BigInt 做運算並檢查 signed 64-bit 保存範圍；JSON 的 min
 
 Currency 的三位大寫代碼只是 denomination 格式，不代表已核實 ISO 清單或支援市場。scale 工程上限 18，輸入文字上限 128 字元，單次分攤上限 10,000 份；超出拒絕，不靜默調整。正式資料入口需由版本化 reference data 提供幣別與 scale。股數／成本的通用 Decimal 尚待另一批實作。
 
-FxRate 用正 BigInt ratio 保存精確匯率，十進位解析／反向／交叉換算不先取捨；最後 convert 才沿 Money 的政策量化與檢查溢位。FxObservation 保存實際報價日期與取得時間，預設拒絕以舊值冒充當日值。JSON v1 只用字串保存分子分母，未知必要格式拒絕。詳見[精確 FX 契約](../../docs/exact-fx-values.md)，不是行情供應商或 Ledger 跨幣入帳實作。
+FxRate 用正 BigInt ratio 保存精確匯率，十進位解析／反向／交叉換算不先取捨；最後 convert 才沿 Money 的政策量化與檢查溢位。FxObservation 保存實際報價日期與取得時間，預設拒絕以舊值冒充當日值。JSON v1 只用字串保存分子分母，未知必要格式拒絕。詳見[精確 FX 契約](../../docs/architecture/exact-fx-values.md)，不是行情供應商或 Ledger 跨幣入帳實作。
 
 ```sh
 dart pub get --enforce-lockfile
@@ -14,7 +14,7 @@ dart analyze
 dart test --reporter expanded
 ```
 
-對應 [VAL-01～05](../../docs/foundation-acceptance.md)，涵蓋精確加總、幣別／scale 不相容、正負分攤、量化、溢位及 JSON round trip。此套件通過不等於 Ledger、Android 或備份 gate 通過。
+對應 [VAL-01～05](../../docs/foundation/foundation-acceptance.md)，涵蓋精確加總、幣別／scale 不相容、正負分攤、量化、溢位及 JSON round trip。此套件通過不等於 Ledger、Android 或備份 gate 通過。
 
 運算依據：[Dart BigInt](https://api.dart.dev/dart-core/BigInt-class.html)。
 

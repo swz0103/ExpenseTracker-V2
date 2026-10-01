@@ -1,6 +1,6 @@
 # 雙解鎖備份 Envelope 原型
 
-依據使用者 [2A 決策](../../docs/full-vision-baseline.md#decision-product-delivery) 與 [BACKUP 驗收案例](../../docs/foundation-acceptance.md)。本原型驗證加密封裝，不是完整資料庫備份產品。
+依據使用者 [2A 決策](../../docs/architecture/full-vision-baseline.md#decision-product-delivery) 與 [BACKUP 驗收案例](../../docs/foundation/foundation-acceptance.md)。本原型驗證加密封裝，不是完整資料庫備份產品。
 
 ## 封裝設計
 
@@ -12,7 +12,7 @@ Header 固定順序重新編碼並作為 AAD，額外綁定 password／recovery�
 
 ## 驗證
 
-封裝現可明確提供已保存的 `recoveryKey` 供後續備份沿用；未提供時仍每份生成新 key。資料 key／salt／nonce 每次重新產生，格式不變；錯誤已保存憑證不自動替換。實作範圍與尚未完成的正式設定檔見[BackupProfile 契約](../../docs/backup-profile-contract.md)。
+封裝現可明確提供已保存的 `recoveryKey` 供後續備份沿用；未提供時仍每份生成新 key。資料 key／salt／nonce 每次重新產生，格式不變；錯誤已保存憑證不自動替換。實作範圍與尚未完成的正式設定檔見[BackupProfile 契約](../../docs/foundation/backup-profile-contract.md)。
 
 ```sh
 dart pub get --enforce-lockfile

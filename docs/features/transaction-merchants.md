@@ -1,0 +1,43 @@
+# 商家與基本別名
+
+**狀態：全流程、完整本機回歸與大量資料驗證通過；雲端與實機尚未驗收。**
+
+[商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）。Domain、保存、Ledger 引用、升級與畫面集中在同一功能單位。來源：[M1-02](../delivery/implementation-plan.md)、[RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-012](../architecture/full-vision-baseline.md#fv-012)、[Q062](../architecture/full-vision-baseline.md#q062)。
+
+## 身份與別名
+
+`packages/merchants` 只依賴基礎值型別。相同名稱不代表相同身份；別名只回傳候選 canonical 身份，由使用者明確選擇。新金融事件必須選當前可用的 ID／版本，不能透過已合併來源悄悄改變選擇。
+
+建立、改名、封存／啟用、明確合併、別名增刪、候選查找、版本衝突與 workspace 隔離共用 Domain。合併保留來源及其名稱／別名；歷史查詢可解析目前 canonical 身份。不同商家可以共用別名，因此可以出現多個候選。封存 canonical 目標後，所有指向它的名稱／別名停止成為可用候選，歷史仍可讀。
+
+比對僅裁切首尾空白並做 Dart 無語系小寫轉換，保留標點及內部空白；不做模糊比對、分店／位置推測或 Unicode 正規化。改名不擅自把舊名稱存為別名；需要時明確新增。來源合併後不可直接改寫，沒有隱式解除合併。每身份最多 16 個別名、每個 100 個 UTF-16 code units。
+
+## 保存與財務引用
+
+`merchants` 保存目前狀態，`merchant_changes` 保存有順序的異動；每個變更與 receipt／Audit 在同一資料庫交易提交。Ledger 擁有 `event_merchants`，每筆收入／支出可不指定或指定一個商家，保存原 ID、版本及入帳時 metadata 序號，與金額、分類、Tag 引用一起成功或回滾。改名、合併、封存均不重寫原交易或金額。
+
+有商家時，以版本化 `merchant-post-v1` 包住原財務或 Tag receipt；沒有商家時，既有 receipt bytes 保持原樣。相同操作重送沿原輸入與結果回傳，商家後續異動或容量已滿不會讓已完成的操作重複入帳；改變原操作輸入則拒絕。
+
+備份嚴格核對 manifest、目前狀態、異動重播、receipt／Audit、商家在原 metadata 序號的有效性與交易引用。來源表失去唯一限制時也檢查重複身份；缺少、重複、跨 workspace、錯誤版本或失去財務 receipt 的引用均拒絕。
+
+## 格式、升級與容量
+
+新帳本採 schema 7／snapshot 6，新增 `merchants:1` 與 `ledger_merchants:1` 模組版本。底層明確 `merchantsAware` 才開啟，並包含既有分類與 Tag；舊模式繼續使用原格式。App 可從 V2 schema 3／4／5／6 明確確認後，沿 3 → 4 → 5 → 6 → 7 逐步升級。
+
+6 → 7 沿既有同鎖安全備份與世代發布流程：核對來源指紋及雙憑證備份、獨立 stage、完整驗證後原子發布。來源 DB 與 key 保留；中斷依已提交狀態接續。V2 內部升級不讀取或搬入舊版 App 的帳本與金鑰。
+
+目前工作階段上限 32 帳戶、5,000 金融事件、256 分類／1,024 次分類異動、256 Tag／1,024 次 Tag 異動、256 商家／1,024 次商家異動。所有 metadata、引用、receipt／Audit 一起計入 50,000 列／16 MiB，全域上限可能早於各項個別上限到達。商家狀態與歷史每列另限 8,192 UTF-8 bytes，商家／Tag 財務 receipt 每列限 4,096 bytes；以實際編碼增量預檢並隨原交易回滾，不放寬原總量 gate。
+
+## App 操作
+
+商家管理提供新增、改名、封存／啟用、明確選擇目標合併，以及別名增刪。錄入可查名稱／別名並查看候選；即使只有一個候選也不自動選擇。新記錄清空商家選取，歷史顯示來源商家及目前合併去向。畫面僅供已解鎖工作階段使用；命令保留 workspace、版本及非同步鎖定檢查。
+
+## 驗證與剩餘範圍
+
+先行 Domain [證據](../test-results/2026-09-27/merchant-domain-host-2026-09-27.json)為獨立歷史紀錄，不代表當時已有完整流程。此次新增保存／快照、來源損壞、程序中斷、App 升級與乾淨還原、候選確認和合併畫面等回歸；完整 16 套件 626 項獨有本機案例通過；其中一項原有 Tag 還原先在並行時逾時，固定版本單獨重驗通過，未改 timeout 或斷言。[本批清單](../test-results/2026-09-27/transaction-merchants-host-2026-09-27.json)保留完整範圍及重驗原因。
+
+兩組各自 5,000 筆事件均通過：[新帳本](../test-results/2026-09-27/transaction-merchants-scale-2026-09-27.json)含 4,999 個商家引用及 4,999 個 Tag 引用；[已滿舊帳本升級](../test-results/2026-09-27/transaction-merchants-upgrade-scale-2026-09-27.json)逐表保留原 5,000 筆事件及既有分類／Tag。舊帳本事件容量已滿，升級後新增商家 metadata，但沒有假造原交易的商家引用。
+
+各案保留 256 商家／1,024 次異動／256 別名、256 Tag／1,024 次異動、256 分類／768 次異動、5,004 次重送；容量拒絕、獨立餘額及全部分頁皆核對。移除合成來源 DB／vault key 後，以密碼和救援分別乾淨還原、完整 bytes 比對、歷史版本及重開核對。新／舊快照分別 11,887,606／10,512,900 bytes，約 321.897／366.430 秒；這是兩組獨立主機案例，不能相加當成單帳本容量或宣稱 Android 效能。
+
+分店、位置、規則記憶與進階 Entity Resolution 繼續沿 rc1 保留。搜尋／報表應用、M1-02 其餘日常錄入、M1 其他功能、M2／M3 與平台 gate 尚未完成；不以本批商家流程代替整體 CORE 驗收。兩個 Actions workflow 維持停用，手機不操作，main 不合併。

@@ -4,8 +4,8 @@
 
 ## 已接入
 
-- 簡易收入／支出 JSON／CSV 匯入：從 Android 系統選取檔案，必要時重新解鎖，逐一對應帳戶、審閱逐幣別金額及確認後整批寫入；相同來源重試不重複入帳。同一本帳的匯出檔不可再匯入自身。主機 4,999 筆新增與第 5,000 筆超額原子拒絕已驗；實機仍待測。[範圍](../../docs/simple-import-ledger.md)。
-- 簡易收入／支出 JSON／CSV 匯出：Android 選儲存位置後需重新解鎖、檢查納入及略過筆數，並再次確認。檔案未加密，只包含普通收支的日期、金額、帳戶識別及最新備註；分類、標籤、商家、期初及複雜交易等不包含。它不能取代完整加密備份，實機保存仍待測。[範圍](../../docs/simple-import-ledger.md)。
+- 簡易收入／支出 JSON／CSV 匯入：從 Android 系統選取檔案，必要時重新解鎖，逐一對應帳戶、審閱逐幣別金額及確認後整批寫入；相同來源重試不重複入帳。同一本帳的匯出檔不可再匯入自身。主機 4,999 筆新增與第 5,000 筆超額原子拒絕已驗；實機仍待測。[範圍](../../docs/features/simple-import-ledger.md)。
+- 簡易收入／支出 JSON／CSV 匯出：Android 選儲存位置後需重新解鎖、檢查納入及略過筆數，並再次確認。檔案未加密，只包含普通收支的日期、金額、帳戶識別及最新備註；分類、標籤、商家、期初及複雜交易等不包含。它不能取代完整加密備份，實機保存仍待測。[範圍](../../docs/features/simple-import-ledger.md)。
 - 月預算：以 schema 15 加密保存版本歷史，依已生效帳本計算同幣別已用／剩餘與提醒；簡潔畫面可新增、修改及確認刪除。舊 V2 帳本需要明確「備份並更新」，不能自動改寫；主機回歸已通過，實機及本批雲端 gate 待驗。[進度](../../docs/work-progress.md)。
 
 - 首次設定至少 12 字元密碼、另存救援文字確認、空帳本；重新啟動與背景鎖定。操作層拒絕未解鎖命令，已接受的交易可完成，重新解鎖核對結果；重試沿用 operation ID。
@@ -23,14 +23,14 @@
 - 期初／收支共用繁體中文月曆與手動日期欄位：確認才套用，部分文字可保存草稿，背景鎖定取消；範圍與 BusinessDate 相同。操作錯誤回到可見提示，保留已填欄位。
 - 日期及金額計算器的文案使用 Flutter gen-l10n／ARB；目前固定繁體中文，其他畫面文字尚未全部集中，不宣稱多語系完成。修改 lib/l10n/*.arb 後執行 flutter gen-l10n。
 
-- [同幣轉帳](../../docs/same-currency-transfers.md)：明確選擇雙方帳戶、來源手續費、可恢復加密草稿與凍結送出；列表分開本金／費用／來源合計，沿用隱私遮罩。
-- [跨幣轉帳](../../docs/cross-currency-transfers.md)：保存兩邊實際本金與來源費用，以精確比例標記實際金額依據；專用草稿格式與 schema 9／snapshot 8／8 → 9 安全升級防止舊 reader 誤讀。主機驗證狀態見工作進度，實機未驗證。
+- [同幣轉帳](../../docs/features/same-currency-transfers.md)：明確選擇雙方帳戶、來源手續費、可恢復加密草稿與凍結送出；列表分開本金／費用／來源合計，沿用隱私遮罩。
+- [跨幣轉帳](../../docs/features/cross-currency-transfers.md)：保存兩邊實際本金與來源費用，以精確比例標記實際金額依據；專用草稿格式與 schema 9／snapshot 8／8 → 9 安全升級防止舊 reader 誤讀。主機驗證狀態見工作進度，實機未驗證。
 
-- [多分類拆分](../../docs/split-entry-drafts.md)：每筆收支 2～16 項正額分類、精確合計、可恢復草稿、凍結重試及遮罩明細；複製時重新填寫所有金額。沿用 schema 9／snapshot 8。
+- [多分類拆分](../../docs/features/split-entry-drafts.md)：每筆收支 2～16 項正額分類、精確合計、可恢復草稿、凍結重試及遮罩明細；複製時重新填寫所有金額。沿用 schema 9／snapshot 8。
 
-- [部分／全額退款](../../docs/refunds.md)：追溯原支出／分類、原幣退款上限與實收金額，保存草稿、凍結重試及歷史歸屬；schema 10／snapshot 9 開始支援。
-- [完整撤銷](../../docs/financial-reversals.md)：收入、支出及轉帳逐項反向，含原手續費；保留原交易與唯一關聯、原因、確認及可恢復草稿。已有退款或撤銷的來源互斥拒絕。schema 11／snapshot 10 與 10 → 11 安全升級已接入。
-- [活動查閱](../../docs/transaction-activity.md)：原交易、退款及撤銷的同一家族、記錄時間分頁與隱私遮罩；一般 revision 歷史待後續。
+- [部分／全額退款](../../docs/features/refunds.md)：追溯原支出／分類、原幣退款上限與實收金額，保存草稿、凍結重試及歷史歸屬；schema 10／snapshot 9 開始支援。
+- [完整撤銷](../../docs/features/financial-reversals.md)：收入、支出及轉帳逐項反向，含原手續費；保留原交易與唯一關聯、原因、確認及可恢復草稿。已有退款或撤銷的來源互斥拒絕。schema 11／snapshot 10 與 10 → 11 安全升級已接入。
+- [活動查閱](../../docs/features/transaction-activity.md)：原交易、退款及撤銷的同一家族、記錄時間分頁與隱私遮罩；一般 revision 歷史待後續。
 
 ## 備份憑證與本機設定
 
@@ -52,4 +52,4 @@ Host 整合使用真實 SQLCipher 和測試用記憶體 vault；widget 測試使
 
 ## 驗證紀錄
 
-依各批實際結果查閱[工作進度](../../docs/work-progress.md)、[分類流程](../../docs/app-categories.md)、[Tag 流程](../../docs/transaction-tags.md)與[商家流程](../../docs/transaction-merchants.md)，APK 封裝版本見[安裝包紀錄](../../docs/installable-preview.md)。原 0.2.0 的[大量資料報告](../../docs/preview-validation-report.md)保留為歷史證據，不代表後續功能已跑相同雲端或實機驗收。
+依各批實際結果查閱[工作進度](../../docs/work-progress.md)、[分類流程](../../docs/features/app-categories.md)、[Tag 流程](../../docs/features/transaction-tags.md)與[商家流程](../../docs/features/transaction-merchants.md)，APK 封裝版本見[安裝包紀錄](../../docs/delivery/installable-preview.md)。原 0.2.0 的[大量資料報告](../../docs/delivery/preview-validation-report.md)保留為歷史證據，不代表後續功能已跑相同雲端或實機驗收。

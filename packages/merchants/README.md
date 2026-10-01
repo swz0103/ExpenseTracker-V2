@@ -6,4 +6,4 @@
 
 每商家最多 16 個別名，名稱／別名至多 100 個 UTF-16 code units；控制字元及同一商家重複正規化別名拒絕。這是目前具體 Domain 邊界，不是整個 M3 的資料容量承諾。
 
-15 項 Domain 回歸與 15 項架構規則測試通過。完整交易流程已接入保存、備份、升級及 UI，驗證範圍與尚未通過的 gate 見[商家接入進度](../../docs/transaction-merchants.md)。
+15 項 Domain 回歸與 15 項架構規則測試通過。完整交易流程已接入保存、備份、升級及 UI，驗證範圍與尚未通過的 gate 見[商家接入進度](../../docs/features/transaction-merchants.md)。

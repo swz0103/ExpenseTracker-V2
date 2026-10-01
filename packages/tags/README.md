@@ -4,4 +4,4 @@
 
 交易持有公開 ID／預期版本，資料保存由組合層在同一 transaction 驗證與提交。歷史引用與重新選用有不同語意：封存或合併不抹去歷史，新交易不能選用已停用的來源。
 
-完整接入與驗證見 [交易標籤文件](../../docs/transaction-tags.md)。
+完整接入與驗證見 [交易標籤文件](../../docs/features/transaction-tags.md)。

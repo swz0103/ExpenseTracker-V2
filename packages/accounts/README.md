@@ -1,6 +1,6 @@
 # Accounts — 日常帳戶 Domain
 
-依據 [RC-05](../../docs/architecture-baseline-v1.0-rc1.md#rc-05) 與 [Q054](../../docs/full-vision-baseline.md#q054)。目前僅 cash／bank；信用卡與投資專用能力另批完成，不先放通用入口。
+依據 [RC-05](../../docs/architecture/architecture-baseline-v1.0-rc1.md#rc-05) 與 [Q054](../../docs/architecture/full-vision-baseline.md#q054)。目前僅 cash／bank；信用卡與投資專用能力另批完成，不先放通用入口。
 
 此套件只依賴 foundation_values，擁有帳戶身份、幣別、開戶日期、名稱、淨資產納入設定、生命週期與版本。沒有 currentBalance 欄位，餘額由 Ledger 提供。
 

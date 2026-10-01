@@ -1,7 +1,7 @@
 name: Foundation probe
 
 on:
-  # Budget mode: local checks are the default. See docs/ci-budget-policy.md.
+  # Budget mode: local checks are the default. See docs/delivery/ci-budget-policy.md.
   workflow_dispatch:
 
 concurrency:
