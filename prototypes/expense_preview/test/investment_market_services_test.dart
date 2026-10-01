@@ -19,32 +19,35 @@ final class _MemoryFugleVault implements FugleCredentialVault {
 }
 
 void main() {
-  test('production market services register Fugle without replacing no-key sources', () {
-    final credentials = FugleCredentialManager(_MemoryFugleVault());
-    final services = createInvestmentMarketServices(
-      fugleCredentials: credentials,
-    );
-    final instrument = InvestmentInstrument(
-      id: PublicId.generate(),
-      kind: InstrumentKind.stock,
-      marketCode: 'TWSE',
-      symbol: '2330',
-      name: '台積電',
-      tradingCurrency: Currency('TWD', 2),
-    );
+  test(
+    'production market services prefer no-key intraday and retain Fugle',
+    () {
+      final credentials = FugleCredentialManager(_MemoryFugleVault());
+      final services = createInvestmentMarketServices(
+        fugleCredentials: credentials,
+      );
+      final instrument = InvestmentInstrument(
+        id: PublicId.generate(),
+        kind: InstrumentKind.stock,
+        marketCode: 'TWSE',
+        symbol: '2330',
+        name: '台積電',
+        tradingCurrency: Currency('TWD', 2),
+      );
 
-    expect(services.fugleCredentials, same(credentials));
-    expect(
-      services.router.registry
+      expect(services.fugleCredentials, same(credentials));
+      final intraday = services.router.registry
           .intradayStockProviders(instrument, IntradayInterval.oneMinute)
-          .map((provider) => provider.descriptor.id),
-      contains(FugleIntradayStockProvider.providerId),
-    );
-    expect(
-      services.router.registry
-          .stockCloseProviders(instrument)
-          .map((provider) => provider.descriptor.id),
-      contains(StockClose.provider),
-    );
-  });
+          .map((provider) => provider.descriptor.id)
+          .toList();
+      expect(intraday.first, YahooChartIntradayStockProvider.providerId);
+      expect(intraday, contains(FugleIntradayStockProvider.providerId));
+      expect(
+        services.router.registry
+            .stockCloseProviders(instrument)
+            .map((provider) => provider.descriptor.id),
+        contains(StockClose.provider),
+      );
+    },
+  );
 }

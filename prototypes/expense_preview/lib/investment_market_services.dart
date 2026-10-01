@@ -27,6 +27,7 @@ InvestmentMarketServices createInvestmentMarketServices({
   final gateway = MarketDataGateway();
   final frankfurter = FrankfurterReferenceFxGateway();
   final registry = MarketProviderRegistry([
+    YahooChartIntradayStockProvider(YahooChartIntradayGateway()),
     if (fugleCredentials != null)
       FugleIntradayStockProvider(
         FugleIntradayGateway(apiKeySource: fugleCredentials.requireApiKey),

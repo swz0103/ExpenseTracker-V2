@@ -5,6 +5,7 @@ import 'intraday.dart';
 import 'frankfurter.dart';
 import 'market_data.dart';
 import 'twelve_data.dart';
+import 'yahoo_chart.dart';
 
 final class MarketProviderDescriptor {
   MarketProviderDescriptor({
@@ -174,6 +175,34 @@ final class TwelveDataIntradayStockProvider implements IntradayStockProvider {
     InvestmentInstrument instrument,
     IntradayInterval interval,
   ) => supportsTwelveDataInstrument(instrument);
+
+  @override
+  Future<MarketResult<IntradayBar>> latestBar(
+    InvestmentInstrument instrument, {
+    required IntradayInterval interval,
+  }) => gateway.latestBar(instrument, interval: interval);
+}
+
+final class YahooChartIntradayStockProvider implements IntradayStockProvider {
+  YahooChartIntradayStockProvider(this.gateway);
+
+  static const providerId = 'yahoo-chart-best-effort-intraday';
+  final YahooChartIntradayGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: providerId,
+    label: 'Yahoo Finance（免金鑰／非保證）',
+    dataset: 'Undocumented public chart endpoint (1／5 minute)',
+    attribution: 'Yahoo Finance；非正式公開 API，可能延遲、限流、變更或停止',
+    requiresAuthorization: false,
+  );
+
+  @override
+  bool supportsIntraday(
+    InvestmentInstrument instrument,
+    IntradayInterval interval,
+  ) => gateway.supports(instrument);
 
   @override
   Future<MarketResult<IntradayBar>> latestBar(

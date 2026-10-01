@@ -2,7 +2,7 @@
 
 獨立 Android App ID：`dev.expensetracker.preview`，不覆蓋地基原型。只建置 debug ARM64 APK，正式 release variant 關閉。這是持續開發中的 M1 入口，完整 M1／M2／M3 尚未完成；可安裝不作為停止點。
 
-> 2026-10-01 狀態提示：下方「已接入」保留早期逐批開發紀錄，其中 schema 15 與「信用卡／投資保留後續」等句子已不是目前狀態。正式 App 現為 schema 24，信用卡、投資、provider-neutral 雲端備份 runtime、免帳號日終／參考匯率及到價提醒均已形成可操作垂直切片；Fugle 官方盤中 adapter 已用一次性安全金鑰設定接入正式 registry，Google Drive 的 `drive.file` OAuth／REST／加密佇列也已接入正式 factory。請以[功能完成矩陣](../../docs/capability-matrix.md)與[最新工作進度](../../docs/work-progress.md)為目前事實；Google Cloud client／真實帳號、Fugle 真實帳號／網路、OS 背景輪詢及實機仍未完成。
+> 2026-10-01 狀態提示：下方「已接入」保留早期逐批開發紀錄，其中 schema 15 與「信用卡／投資保留後續」等句子已不是目前狀態。正式 App 現為 schema 24，信用卡、投資、provider-neutral 雲端備份 runtime、免帳號日終／參考匯率及到價提醒均已形成可操作垂直切片；Yahoo Chart 免金鑰盡力來源已提供台／美股 1／5 分鐘資料，畫面明示它不是正式公開 API，Fugle 官方 adapter 則保留為可選安全金鑰備援。Google Drive 的 `drive.file` OAuth／REST／加密佇列也已接入正式 factory。請以[功能完成矩陣](../../docs/capability-matrix.md)與[最新工作進度](../../docs/work-progress.md)為目前事實；Google Cloud client／真實帳號、OS 背景輪詢及實機仍未完成。
 
 ## 已接入
 

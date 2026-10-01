@@ -77,11 +77,11 @@
 | 逐幣別投資組合摘要 | 正式多來源估值接線完成 | 最後集中實機與整合 gate |
 | TWSE／TPEx 最新收盤 | 免帳號正式投資畫面與多來源路由接線完成 | 實機網路驗證；不得標成盤中即時 |
 | ECB、CBC 與 Frankfurter 參考匯率 | 免帳號歷史／跨幣路由與 fallback 接線完成 | 實機網路、市場覆蓋與上游資料權利持續核對 |
-| 台股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Fugle 已以選配方式接入正式 registry，金鑰一次輸入後只存 Android secure storage；未設定時仍保留免金鑰 TWSE／TPEx 收盤資料 | 真實 Fugle 帳號／金鑰、網路限流、授權條款與 Android 實機仍需驗證；Fugle 不是免帳號來源 |
-| 美股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Twelve Data adapter 保留但不在正式預設 registry | 尚無選定免帳號正式 provider；需要帳號／方案時由使用者決定 |
+| 台股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；正式 registry 優先使用 Yahoo Chart 免金鑰盡力來源，再以 Fugle 作選配備援；未設定金鑰仍可查詢分鐘資料與官方 TWSE／TPEx 收盤 | Yahoo 端點非正式公開 API，可能延遲、限流或停止；Fugle 真實帳號／金鑰、網路限流、授權條款與 Android 實機仍需驗證 |
+| 美股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Yahoo Chart 免金鑰盡力來源已接正式 registry，Twelve Data adapter 仍可作後續選配來源 | Yahoo 端點穩定性、延遲、顯示權利與 Android 實機需持續驗證；正式商用來源仍需使用者決定 |
 | 其他分鐘來源 | 可擴充，不作無限完成條件 | 依市場覆蓋、授權與額度需求增補 provider adapter |
 | 跨幣別投資摘要 | 正式投資畫面接線完成 | 真實 FX、實機與集中整合 gate |
-| 到價提醒 | secure storage、日終／分鐘 crossing、冷卻、去重、App 內與前景 Android 系統通知完成 | 合規分鐘 provider、OS 背景策略、通知權限與實機驗證 |
+| 到價提醒 | secure storage、日終／分鐘 crossing、冷卻、去重、App 內與前景 Android 系統通知完成；前景分鐘查詢可免金鑰使用 Yahoo 盡力來源 | OS 背景策略、Yahoo 非保證端點風險、通知權限與實機驗證 |
 
 ## 多來源市場資料契約
 

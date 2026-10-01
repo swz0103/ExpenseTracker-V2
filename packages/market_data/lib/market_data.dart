@@ -5,3 +5,4 @@ export 'src/intraday.dart';
 export 'src/refresh.dart';
 export 'src/routing.dart';
 export 'src/twelve_data.dart';
+export 'src/yahoo_chart.dart';

@@ -1,5 +1,6 @@
 ## 2026-10-01 免帳號市場來源、到價提醒與單一主分支
 
+- [x] 正式市場 registry 新增 Yahoo Finance Chart 免金鑰 1／5 分鐘 adapter，支援 TWSE、TPEx、NASDAQ、NYSE 與 NYSE Arca 代碼映射，並優先於需金鑰來源。端點、回傳序列、幣別、週期、時間、OHLCV、未來值、缺值、限流與同請求合併均 fail closed；畫面來源明示「非保證」，保留官方日終資料與 Fugle fallback，不將其描述為官方 API。合成 adapter／路由 19 項及正式投資畫面 9 項測試通過，另完成 2330.TW 真實唯讀回傳格式抽查。
 - [x] 正式 App 市場 registry 以免帳號的 TWSE、TPEx、ECB、CBC 與 Frankfurter 為日終／參考基線；另將 Fugle 以選配盤中 provider 正式接線。使用者需要 1／5 分鐘台股時只輸入一次 key，之後由 Android secure storage 供應；未設定或撤銷 key 不影響免帳號資料來源。
 - [x] Google Drive 正式 factory 已接上 Google Sign-In 與 `drive.file` 最小權限、既有 Drive REST adapter、SQLCipher 工作佇列、歷史／保留、下載驗證及乾淨還原 handoff。OAuth token 不進 Ledger、備份或工作佇列；runtime 資料庫 key 使用獨立 Android secure storage。建置若沒有 `GOOGLE_SERVER_CLIENT_ID` 就維持未連結狀態，不顯示假成功。
 - [ ] Google Cloud 專案、Android package／簽章 SHA、Web OAuth client ID 與實際測試帳號仍是外部設定；需完成登入、撤權、token 到期、離線／限流、上傳下載與乾淨安裝雙憑證還原實測後，才能宣稱 Google Drive 實機完成。
