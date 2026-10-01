@@ -2,6 +2,7 @@ import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
 import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
+import 'package:cloud_backup_probe/cloud_backup_work.dart';
 
 import 'cloud_backup_screen.dart';
 
@@ -16,21 +17,32 @@ typedef CloudBackupReconnect = Future<void> Function(String providerId);
 /// Bridges the provider-neutral use cases to the standalone Flutter screen.
 /// The final app integration supplies an engine-backed source factory and the
 /// existing clean-restore handoff without changing screen behavior.
-final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
-  const FlowCloudBackupScreenGateway({
+final class FlowCloudBackupScreenGateway
+    implements CloudBackupScreenGateway, CloudBackupRuntimeGateway {
+  FlowCloudBackupScreenGateway({
     required this.flow,
     required this.providerChoices,
     required this.createSource,
     required this.restoreHandoff,
     required this.schedules,
+    this.runners = const {},
+    this.automaticScheduler,
+    this.maximumJobsPerPump = 4,
     this.reconnectProvider,
-  });
+  }) {
+    if (maximumJobsPerPump < 1 || maximumJobsPerPump > 20) {
+      throw ArgumentError.value(maximumJobsPerPump, 'maximumJobsPerPump');
+    }
+  }
 
   final CloudBackupManualFlow flow;
   final List<CloudBackupProviderChoice> providerChoices;
   final CloudBackupSourceFactory createSource;
   final CloudBackupRestoreHandoff restoreHandoff;
   final CloudBackupScheduleStore schedules;
+  final Map<String, CloudBackupJobRunner> runners;
+  final CloudBackupAutomaticScheduler? automaticScheduler;
+  final int maximumJobsPerPump;
   final CloudBackupReconnect? reconnectProvider;
 
   @override
@@ -49,15 +61,55 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
       );
     }
     await reconnectProvider!(providerId);
+    final runner = runners[providerId];
+    if (runner != null) {
+      final now = DateTime.now().toUtc();
+      for (final backupId in runner.work.pendingBackupIds(
+        providerId: providerId,
+      )) {
+        runner.retryAfterUserAction(backupId, now);
+      }
+      runner.reconcile(now);
+      await _runProvider(providerId, now, throwFailures: true);
+    }
   }
 
   @override
   Future<void> createBackup(String providerId) async {
     final source = await createSource();
+    final now = DateTime.now().toUtc();
     await flow.scheduleVerifiedBackup(
       providerId: providerId,
       artifact: source,
-      now: DateTime.now().toUtc(),
+      now: now,
+    );
+    await _runProvider(providerId, now, throwFailures: true);
+  }
+
+  @override
+  Future<CloudBackupRuntimeReport> maintainRuntime(
+    String providerId,
+    DateTime now,
+  ) async {
+    await automaticScheduler?.tick(now.toUtc());
+    final runner = runners[providerId];
+    runner?.reconcile(now.toUtc());
+    await _runProvider(providerId, now.toUtc(), throwFailures: false);
+    if (runner == null) {
+      return const CloudBackupRuntimeReport(pendingJobs: 0);
+    }
+    final pending = runner.work.pendingBackupIds(providerId: providerId);
+    CloudBackupWorkFailure? lastFailure;
+    for (final backupId in pending.reversed) {
+      final failure = runner.work.byId(backupId)?.lastFailure;
+      if (failure != null) {
+        lastFailure = failure;
+        break;
+      }
+    }
+    return CloudBackupRuntimeReport(
+      pendingJobs: pending.length,
+      lastFailure: lastFailure,
     );
   }
 
@@ -114,4 +166,21 @@ final class FlowCloudBackupScreenGateway implements CloudBackupScreenGateway {
     firstDueAt: firstDueAt,
     now: now,
   );
+
+  Future<void> _runProvider(
+    String providerId,
+    DateTime now, {
+    required bool throwFailures,
+  }) async {
+    final runner = runners[providerId];
+    if (runner == null) return;
+    for (var i = 0; i < maximumJobsPerPump; i++) {
+      try {
+        if (!await runner.runNext(now)) return;
+      } catch (_) {
+        if (throwFailures) rethrow;
+        return;
+      }
+    }
+  }
 }

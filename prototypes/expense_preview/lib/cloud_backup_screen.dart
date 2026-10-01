@@ -2,6 +2,7 @@ import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
 import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
+import 'package:cloud_backup_probe/cloud_backup_work.dart';
 import 'package:flutter/material.dart';
 
 final class CloudBackupProviderChoice {
@@ -9,6 +10,20 @@ final class CloudBackupProviderChoice {
 
   final String id;
   final String label;
+}
+
+final class CloudBackupRuntimeReport {
+  const CloudBackupRuntimeReport({required this.pendingJobs, this.lastFailure});
+
+  final int pendingJobs;
+  final CloudBackupWorkFailure? lastFailure;
+}
+
+abstract interface class CloudBackupRuntimeGateway {
+  Future<CloudBackupRuntimeReport> maintainRuntime(
+    String providerId,
+    DateTime now,
+  );
 }
 
 abstract interface class CloudBackupScreenGateway {
@@ -75,6 +90,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   int _keepLatest = 3;
   bool _automaticEnabled = false;
   int _automaticDays = 7;
+  CloudBackupRuntimeReport? _runtime;
 
   @override
   void initState() {
@@ -110,6 +126,12 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     final providerId = _providerId;
     if (providerId == null) return;
     await _perform(() async {
+      final runtime = widget.gateway is CloudBackupRuntimeGateway
+          ? await (widget.gateway as CloudBackupRuntimeGateway).maintainRuntime(
+              providerId,
+              widget.now().toUtc(),
+            )
+          : null;
       final results = await Future.wait<Object?>([
         widget.gateway.history(providerId),
         widget.gateway.schedule(providerId),
@@ -121,6 +143,11 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
           _history = rows;
           _automaticEnabled = schedule?.enabled ?? false;
           _automaticDays = _supportedDays(schedule?.interval) ?? 7;
+          _runtime = runtime;
+          if (runtime?.lastFailure case final failure?) {
+            _authenticationRequired = _requiresReconnect(failure);
+            _message = _runtimeFailureText(failure);
+          }
         });
       }
     });
@@ -129,11 +156,20 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   Future<void> _create() => _perform(() async {
     final providerId = _providerId!;
     await widget.gateway.createBackup(providerId);
+    final runtime = widget.gateway is CloudBackupRuntimeGateway
+        ? await (widget.gateway as CloudBackupRuntimeGateway).maintainRuntime(
+            providerId,
+            widget.now().toUtc(),
+          )
+        : null;
     final rows = await widget.gateway.history(providerId);
     if (mounted && _providerId == providerId) {
       setState(() {
         _history = rows;
-        _message = '加密備份已排入上傳；可安全離開此頁。';
+        _runtime = runtime;
+        _message = runtime != null && runtime.pendingJobs == 0
+            ? '加密備份已完成上傳。'
+            : '加密備份已排入上傳；可安全離開此頁。';
       });
     }
   });
@@ -141,6 +177,12 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   Future<void> _reconnect() => _perform(() async {
     final providerId = _providerId!;
     await widget.gateway.reconnect(providerId);
+    final runtime = widget.gateway is CloudBackupRuntimeGateway
+        ? await (widget.gateway as CloudBackupRuntimeGateway).maintainRuntime(
+            providerId,
+            widget.now().toUtc(),
+          )
+        : null;
     final results = await Future.wait<Object?>([
       widget.gateway.history(providerId),
       widget.gateway.schedule(providerId),
@@ -151,7 +193,10 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         _history = results[0]! as List<RemoteBackupMetadata>;
         _automaticEnabled = schedule?.enabled ?? false;
         _automaticDays = _supportedDays(schedule?.interval) ?? 7;
-        _message = '雲端帳號已重新連結，備份歷史已更新。';
+        _runtime = runtime;
+        _message = runtime != null && runtime.pendingJobs == 0
+            ? '雲端帳號已重新連結，待處理備份已完成。'
+            : '雲端帳號已重新連結，備份工作已恢復。';
       });
     }
   });
@@ -252,6 +297,16 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Text(_message!, key: const ValueKey('cloud-message')),
+        ),
+      if (_runtime case final runtime?)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            runtime.pendingJobs == 0
+                ? '上傳佇列目前沒有待處理工作。'
+                : '尚有 ${runtime.pendingJobs} 份加密備份等待上傳。',
+            key: const ValueKey('cloud-runtime-status'),
+          ),
         ),
       if (_authenticationRequired &&
           _providerId != null &&
@@ -368,6 +423,24 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     );
   }
 }
+
+bool _requiresReconnect(CloudBackupWorkFailure failure) => switch (failure) {
+  CloudBackupWorkFailure.authenticationRequired ||
+  CloudBackupWorkFailure.permissionDenied ||
+  CloudBackupWorkFailure.quotaExceeded => true,
+  _ => false,
+};
+
+String _runtimeFailureText(CloudBackupWorkFailure failure) => switch (failure) {
+  CloudBackupWorkFailure.authenticationRequired => '雲端登入已失效，請重新連結後續傳。',
+  CloudBackupWorkFailure.permissionDenied => '雲端權限不足，請重新連結並確認授權。',
+  CloudBackupWorkFailure.quotaExceeded => '雲端空間或額度不足；處理後可重新連結續傳。',
+  CloudBackupWorkFailure.throttled => '雲端服務暫時限制請求，工作會保留並稍後重試。',
+  CloudBackupWorkFailure.unavailable => '雲端服務暫時無法使用，工作會保留並稍後重試。',
+  CloudBackupWorkFailure.uncertainResult => '上次上傳結果不明，將以相同備份識別重試。',
+  CloudBackupWorkFailure.integrityRejected => '備份完整性驗證失敗，已停止自動重試。',
+  CloudBackupWorkFailure.temporaryLocalFailure => '本機暫時無法處理備份，工作仍保留。',
+};
 
 final class _RestoreCredential {
   const _RestoreCredential(this.kind, this.credential);
