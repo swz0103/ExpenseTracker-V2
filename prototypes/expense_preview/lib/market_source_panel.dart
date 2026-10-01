@@ -114,9 +114,14 @@ final class StockCloseSourceController implements MarketSourcePanelController {
 }
 
 final class MarketSourcePanel extends StatefulWidget {
-  const MarketSourcePanel({required this.controller, super.key});
+  const MarketSourcePanel({
+    required this.controller,
+    this.showAmounts = true,
+    super.key,
+  });
 
   final MarketSourcePanelController controller;
+  final bool showAmounts;
 
   @override
   State<MarketSourcePanel> createState() => _MarketSourcePanelState();
@@ -128,27 +133,43 @@ final class _MarketSourcePanelState extends State<MarketSourcePanel> {
   MarketCrossCheckView? _crossCheck;
   bool _busy = false;
   String? _error;
+  int _request = 0;
 
-  Future<void> _run(Future<void> Function() operation) async {
-    if (_busy) return;
+  @override
+  void didUpdateWidget(covariant MarketSourcePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showAmounts && !widget.showAmounts) {
+      _request++;
+      _result = null;
+      _crossCheck = null;
+      _error = null;
+      _busy = false;
+    }
+  }
+
+  Future<void> _run(Future<void> Function(int request) operation) async {
+    if (_busy || !widget.showAmounts) return;
+    final request = ++_request;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await operation();
+      await operation(request);
     } catch (_) {
-      if (mounted) setState(() => _error = '市場資料目前無法取得，帳本內容未變更。');
+      if (mounted && request == _request && widget.showAmounts) {
+        setState(() => _error = '市場資料目前無法取得，帳本內容未變更。');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && request == _request) setState(() => _busy = false);
     }
   }
 
-  Future<void> _fetch() => _run(() async {
+  Future<void> _fetch() => _run((request) async {
     final result = await widget.controller.fetch(
       fixedProviderId: _fixedProviderId,
     );
-    if (mounted) {
+    if (mounted && request == _request && widget.showAmounts) {
       setState(() {
         _result = result;
         _crossCheck = null;
@@ -156,13 +177,18 @@ final class _MarketSourcePanelState extends State<MarketSourcePanel> {
     }
   });
 
-  Future<void> _compare() => _run(() async {
+  Future<void> _compare() => _run((request) async {
     final result = await widget.controller.crossCheck();
-    if (mounted) setState(() => _crossCheck = result);
+    if (mounted && request == _request && widget.showAmounts) {
+      setState(() => _crossCheck = result);
+    }
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.showAmounts) {
+      return const Text('隱私模式已遮蔽市場資料來源與參考值。');
+    }
     final providers = widget.controller.providers;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -62,6 +62,31 @@ void main() {
       expect(find.text('市場資料只供估值參考，不會改寫成交、成本、換匯或現金。'), findsOneWidget);
     },
   );
+
+  testWidgets('privacy mode clears and blocks reference values', (
+    tester,
+  ) async {
+    final controller = _Controller();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: MarketSourcePanel(controller: controller)),
+      ),
+    );
+    await tester.tap(find.text('查詢參考資料'));
+    await tester.pumpAndSettle();
+    expect(find.text('參考值：101.00'), findsOneWidget);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarketSourcePanel(controller: controller, showAmounts: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('101.00'), findsNothing);
+    expect(find.textContaining('隱私模式'), findsOneWidget);
+    expect(find.text('查詢參考資料'), findsNothing);
+  });
 }
 
 MarketProviderDescriptor _provider(String id, String label) =>

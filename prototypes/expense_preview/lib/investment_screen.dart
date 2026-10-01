@@ -1189,6 +1189,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                       router: services.router,
                       instrument: quoted.instrument,
                     ),
+                    showAmounts: widget.privacy == PrivacyMode.visible,
                   ),
                 if (services.router.registry
                     .intradayStockProviders(
