@@ -39,6 +39,7 @@ import 'investment_market_services.dart';
 import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
 import 'price_alert_service.dart';
+import 'warm_presentation.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
@@ -120,9 +121,71 @@ class _PreviewAppState extends State<PreviewApp> {
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
-      colorSchemeSeed: const Color(0xff25675c),
-      inputDecorationTheme: const InputDecorationTheme(
-        border: OutlineInputBorder(),
+      scaffoldBackgroundColor: warmPaper,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: warmAccent,
+        brightness: Brightness.light,
+        surface: warmPaper,
+        onSurface: warmInk,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: warmPaper,
+        foregroundColor: warmInk,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFFFFF8EF),
+        indicatorColor: const Color(0xFFF5DDC8),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            color: states.contains(WidgetState.selected) ? warmInk : warmMuted,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+          ),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: const Color(0xFFFFF7ED),
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFF0E4D8)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.72),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFE6D8CB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFE6D8CB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: warmAccent, width: 1.5),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: warmAccent,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFFE9DED3),
+        thickness: 1,
+        space: 28,
       ),
     ),
     home: PreviewHome(
@@ -236,6 +299,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   CloudBackupScreenGateway? _cloudBackupGateway;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
+  int _homeDestination = 0;
   bool _rememberDevice = false, _deviceUnlockEnabled = false;
   bool _pinEnabled = false;
   bool _devicePromptActive = false;
@@ -1691,10 +1755,186 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           }),
     child: const Text('返回帳本'),
   );
+
+  void _selectHomeDestination(int index) {
+    if (index == 0) {
+      setState(() => _homeDestination = 0);
+      return;
+    }
+    if (index == 1) {
+      setState(() {
+        _homeDestination = 0;
+        _page = _Page.search;
+      });
+      return;
+    }
+    if (index == 2) {
+      final canPost =
+          _entryDraft == null &&
+          !_draftUnreadable &&
+          _accounts.any(
+            (row) =>
+                row.account.state == AccountState.active &&
+                row.account.kind != AccountKind.creditCard,
+          );
+      if (canPost) {
+        _edit(_Page.posting);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('請先建立可用帳戶，或完成目前草稿。')));
+      }
+      return;
+    }
+    if (index == 3) {
+      _showAccounts();
+      return;
+    }
+    if (_engine?.capabilities.investments ?? false) {
+      setState(() {
+        _homeDestination = 0;
+        _page = _Page.investments;
+      });
+    }
+  }
+
+  void _showAccounts() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('帳戶', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              if (_accounts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('還沒有帳戶。建立第一個帳戶後即可開始記帳。'),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _accounts.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, index) {
+                      final row = _accounts[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(switch (row.account.kind) {
+                          AccountKind.cash => Icons.payments_outlined,
+                          AccountKind.bank => Icons.account_balance_outlined,
+                          AccountKind.creditCard => Icons.credit_card_outlined,
+                        }),
+                        title: Text(row.account.name),
+                        subtitle: Text(row.account.currency.code),
+                        trailing: MoneyView(
+                          money: row.balance,
+                          privacy: _privacy,
+                          kind: MoneyKind.balance,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  _edit(_Page.account);
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('新增帳戶'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSettings() {
+    void open(BuildContext sheetContext, _Page page) {
+      Navigator.pop(sheetContext);
+      setState(() => _page = page);
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  '設定',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const _SettingsLabel('個人化'),
+              ListTile(
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('分類管理'),
+                onTap: () => open(sheetContext, _Page.categories),
+              ),
+              if (_tagCatalog != null || _merchantCatalog != null)
+                ListTile(
+                  leading: const Icon(Icons.sell_outlined),
+                  title: Text(_tagCatalog != null ? '標籤管理' : '商家管理'),
+                  onTap: () => open(
+                    sheetContext,
+                    _tagCatalog != null ? _Page.tags : _Page.merchants,
+                  ),
+                ),
+              const _SettingsLabel('財務工具'),
+              if (_engine?.capabilities.budgets ?? false)
+                ListTile(
+                  leading: const Icon(Icons.donut_large_outlined),
+                  title: const Text('預算'),
+                  onTap: () => open(sheetContext, _Page.budgets),
+                ),
+              if (_engine?.capabilities.recurring ?? false)
+                ListTile(
+                  leading: const Icon(Icons.event_repeat_outlined),
+                  title: const Text('定期交易'),
+                  onTap: () => open(sheetContext, _Page.recurring),
+                ),
+              const _SettingsLabel('資料與安全'),
+              ListTile(
+                leading: const Icon(Icons.cloud_outlined),
+                title: const Text('雲端備份'),
+                onTap: () => open(sheetContext, _Page.cloudBackup),
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_outline_rounded),
+                title: const Text('立即鎖定'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _lock();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('記帳 V2'),
+      title: Text(_page == _Page.home ? '這個月' : '記帳 V2'),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(3),
         child: SizedBox(
@@ -1703,6 +1943,12 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ),
       ),
       actions: [
+        if (_page == _Page.home && (_engine?.isUnlocked ?? false))
+          IconButton(
+            onPressed: _busy ? null : _showSettings,
+            tooltip: '設定',
+            icon: const Icon(Icons.settings_outlined),
+          ),
         if ({
               _Page.home,
               _Page.search,
@@ -1735,6 +1981,38 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           ),
       ],
     ),
+    bottomNavigationBar: _page == _Page.home && (_engine?.isUnlocked ?? false)
+        ? NavigationBar(
+            selectedIndex: _homeDestination,
+            onDestinationSelected: _busy ? null : _selectHomeDestination,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: '首頁',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long_rounded),
+                label: '紀錄',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.add_circle_outline_rounded),
+                selectedIcon: Icon(Icons.add_circle_rounded),
+                label: '新增',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.account_balance_wallet_outlined),
+                selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                label: '帳戶',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.show_chart_rounded),
+                label: '投資',
+              ),
+            ],
+          )
+        : null,
     body: SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
@@ -2521,6 +2799,15 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         return _simpleExportContent();
       case _Page.home:
         return [
+          WarmMonthOverview(
+            report: _monthlyReport,
+            overflow: _monthlyOverflow,
+            privacy: _privacy,
+            onDetails: _monthlyReport == null || _busy
+                ? null
+                : () => setState(() => _page = _Page.monthlyReport),
+          ),
+          const SizedBox(height: 24),
           if (widget.appPin != null && _deviceUnlockEnabled)
             TextButton(
               onPressed: _busy
@@ -3031,6 +3318,22 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         ];
     }
   }
+}
+
+class _SettingsLabel extends StatelessWidget {
+  const _SettingsLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 16, 12, 4),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(color: warmAccent, fontWeight: FontWeight.w700),
+    ),
+  );
 }
 
 String _kindLabel(PostingKind kind) => switch (kind) {
