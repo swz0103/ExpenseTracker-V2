@@ -171,3 +171,58 @@ class _MonthMetric extends StatelessWidget {
     ],
   );
 }
+
+class WarmTimelineItem extends StatelessWidget {
+  const WarmTimelineItem({
+    super.key,
+    required this.icon,
+    required this.child,
+    required this.onTap,
+    required this.isLast,
+  });
+
+  final IconData icon;
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: onTap != null,
+    label: '查看交易詳情與活動',
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 34,
+          child: Column(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF5DDC8),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 17, color: warmAccent),
+              ),
+              if (!isLast)
+                Container(width: 1, height: 72, color: const Color(0xFFE8D8C8)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: child,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}

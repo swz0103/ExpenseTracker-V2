@@ -3061,41 +3061,44 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
           const SizedBox(height: 16),
           if (_entryDraft != null || _draftUnreadable) ...[
             Text(_draftUnreadable ? '本機草稿無法驗證，已保留檔案；請先處理。' : '有一份尚未完成的本機草稿。'),
-            if (!_draftUnreadable) _button('繼續草稿', _resumeDraft),
+            if (!_draftUnreadable && _showLegacyHomeTools)
+              _button('繼續草稿', _resumeDraft),
             TextButton(
               onPressed: _busy ? null : _discardDraft,
               child: const Text('捨棄草稿'),
             ),
           ],
-          _button(
-            '記一筆',
-            _entryDraft == null &&
-                    !_draftUnreadable &&
-                    _accounts.any(
-                      (s) =>
-                          s.account.state == AccountState.active &&
-                          s.account.kind != AccountKind.creditCard,
-                    )
-                ? () => _edit(_Page.posting)
-                : null,
-          ),
-          if (_engine!.capabilities.transfers)
+          if (_showLegacyHomeTools) ...[
             _button(
-              _engine!.capabilities.crossCurrencyTransfers ? '轉帳' : '同幣轉帳',
+              '記一筆',
               _entryDraft == null &&
                       !_draftUnreadable &&
                       _accounts.any(
-                        (a) =>
-                            a.account.state == AccountState.active &&
-                            a.account.kind != AccountKind.creditCard,
+                        (s) =>
+                            s.account.state == AccountState.active &&
+                            s.account.kind != AccountKind.creditCard,
                       )
-                  ? () => _edit(_Page.posting, transfer: true)
+                  ? () => _edit(_Page.posting)
                   : null,
             ),
-          OutlinedButton(
-            onPressed: _busy ? null : () => _edit(_Page.account),
-            child: const Text('新增帳戶'),
-          ),
+            if (_engine!.capabilities.transfers)
+              _button(
+                _engine!.capabilities.crossCurrencyTransfers ? '轉帳' : '同幣轉帳',
+                _entryDraft == null &&
+                        !_draftUnreadable &&
+                        _accounts.any(
+                          (a) =>
+                              a.account.state == AccountState.active &&
+                              a.account.kind != AccountKind.creditCard,
+                        )
+                    ? () => _edit(_Page.posting, transfer: true)
+                    : null,
+              ),
+            OutlinedButton(
+              onPressed: _busy ? null : () => _edit(_Page.account),
+              child: const Text('新增帳戶'),
+            ),
+          ],
           if (_showLegacyHomeTools) ...[
             if (_engine!.capabilities.investments)
               TextButton(
@@ -3295,11 +3298,18 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             const SizedBox(height: 12),
           ],
           Text('最近交易', style: Theme.of(context).textTheme.titleLarge),
+          if (_entries.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 4, bottom: 14),
+              child: Text('依日期排列；點一下可查看活動與完整變更紀錄。'),
+            ),
           if (_entries.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('尚無交易')),
           for (final e in _entries)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+            WarmTimelineItem(
+              icon: _timelineIcon(e.kind),
+              onTap: _busy ? null : () => _showActivity(e.id),
+              isLast: e == _entries.last,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -3559,6 +3569,18 @@ String _kindLabel(PostingKind kind) => switch (kind) {
   PostingKind.investmentBuy => '投資買入',
   PostingKind.investmentSell => '投資賣出',
   PostingKind.investmentDividend => '投資股息',
+};
+
+IconData _timelineIcon(PostingKind kind) => switch (kind) {
+  PostingKind.opening => Icons.account_balance_wallet_outlined,
+  PostingKind.income => Icons.south_west_rounded,
+  PostingKind.expense => Icons.north_east_rounded,
+  PostingKind.transfer => Icons.swap_horiz_rounded,
+  PostingKind.refund => Icons.replay_rounded,
+  PostingKind.reversal => Icons.undo_rounded,
+  PostingKind.investmentBuy => Icons.add_chart_rounded,
+  PostingKind.investmentSell => Icons.trending_up_rounded,
+  PostingKind.investmentDividend => Icons.savings_outlined,
 };
 String _error(Object error) => switch (error) {
   PreviewDataUnavailable() => '帳本密碼已通過，但本機帳本或安全設定完整性無法確認。已停止財務操作；請保留目前資料與加密備份。',
