@@ -1,4 +1,5 @@
 import 'package:expense_preview/market_quote_panel.dart';
+import 'package:expense_preview/price_alert_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -18,6 +19,23 @@ final class _Transport implements MarketTransport {
   Future<MarketResponse> get(Uri uri) async {
     calls++;
     return MarketResponse(200, body);
+  }
+}
+
+final class _AlertStore implements PriceAlertRecordStore {
+  final values = <PublicId, String>{};
+
+  @override
+  Future<String?> read(PublicId instrumentId) async => values[instrumentId];
+
+  @override
+  Future<void> write(PublicId instrumentId, String value) async {
+    values[instrumentId] = value;
+  }
+
+  @override
+  Future<void> delete(PublicId instrumentId) async {
+    values.remove(instrumentId);
   }
 }
 
@@ -51,6 +69,7 @@ void main() {
     bool holdings = false,
     bool history = false,
     BusinessDate? latestPositionDate,
+    PriceAlertService? priceAlerts,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -83,6 +102,7 @@ void main() {
               : const [],
           latestPositionDate: latestPositionDate,
           gateway: gateway,
+          priceAlerts: priceAlerts,
         ),
       ),
     ),
@@ -209,5 +229,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.calls, 0);
     expect(find.textContaining('尚無行情來源'), findsOneWidget);
+  });
+
+  testWidgets('price alert can be saved and removed from quote panel', (
+    tester,
+  ) async {
+    final store = _AlertStore();
+    final alerts = PriceAlertService(store);
+    await show(
+      tester,
+      MarketDataGateway(transport: _Transport(rows)),
+      priceAlerts: alerts,
+    );
+    await tester.tap(find.byKey(const ValueKey('price-alert-section')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('price-alert-target')),
+      '1500.25',
+    );
+    await tester.tap(find.byKey(const ValueKey('save-price-alert')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('提醒已儲存'), findsOneWidget);
+    expect((await alerts.load(instrument))!.alert.target.toString(), '1500.25');
+    await tester.tap(find.byKey(const ValueKey('delete-price-alert')));
+    await tester.pumpAndSettle();
+    expect(find.text('提醒已移除。'), findsOneWidget);
+    expect(await alerts.load(instrument), isNull);
+  });
+
+  testWidgets('privacy mode does not expose saved price alert amount', (
+    tester,
+  ) async {
+    final alerts = PriceAlertService(_AlertStore());
+    await alerts.save(
+      instrument: instrument,
+      target: ShareUnitPrice.parse(instrument.tradingCurrency, '1500.25'),
+      direction: PriceAlertDirection.atOrAbove,
+    );
+    await show(
+      tester,
+      MarketDataGateway(transport: _Transport(rows)),
+      visible: false,
+      priceAlerts: alerts,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('price-alert-section')), findsNothing);
+    expect(find.textContaining('1500.25'), findsNothing);
   });
 }

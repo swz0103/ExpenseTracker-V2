@@ -11,6 +11,7 @@ import 'package:storage_generation_probe/catalog_protection.dart';
 
 import 'preview_engine.dart';
 import 'app_pin.dart';
+import 'price_alert_service.dart';
 
 final class AndroidPreviewVault implements PreviewVault, SlotVault {
   static const storage = FlutterSecureStorage(
@@ -93,6 +94,30 @@ final class AndroidPinRecordStore implements PinRecordStore {
   Future<void> write(String value) => _storage.write(key: _key, value: value);
   @override
   Future<void> delete() => _storage.delete(key: _key);
+}
+
+final class AndroidPriceAlertRecordStore implements PriceAlertRecordStore {
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      storageNamespace: 'expense_v2_price_alerts_v1',
+      resetOnError: false,
+      migrateOnAlgorithmChange: false,
+    ),
+  );
+
+  String _key(PublicId instrumentId) => 'instrument_${instrumentId.value}';
+
+  @override
+  Future<String?> read(PublicId instrumentId) =>
+      _storage.read(key: _key(instrumentId));
+
+  @override
+  Future<void> write(PublicId instrumentId, String value) =>
+      _storage.write(key: _key(instrumentId), value: value);
+
+  @override
+  Future<void> delete(PublicId instrumentId) =>
+      _storage.delete(key: _key(instrumentId));
 }
 
 final class _CatalogVault implements KeyVault {

@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:market_data/market_data.dart';
+
+import 'price_alert_service.dart';
 
 /// User-requested reference price. It never changes an executed trade,
 /// account balance, or lot cost. The provider and observation date stay visible.
@@ -18,6 +22,7 @@ class MarketQuotePanel extends StatefulWidget {
     this.latestPositionDate,
     this.gateway,
     this.router,
+    this.priceAlerts,
   });
 
   final InvestmentInstrument instrument;
@@ -36,6 +41,7 @@ class MarketQuotePanel extends StatefulWidget {
   final BusinessDate? latestPositionDate;
   final MarketDataGateway? gateway;
   final MarketDataRouter? router;
+  final PriceAlertService? priceAlerts;
 
   @override
   State<MarketQuotePanel> createState() => _MarketQuotePanelState();
@@ -43,12 +49,24 @@ class MarketQuotePanel extends StatefulWidget {
 
 class _MarketQuotePanelState extends State<MarketQuotePanel> {
   late final MarketDataGateway _ownedGateway = MarketDataGateway();
+  final _alertTarget = TextEditingController();
   MarketResult<StockClose>? _result;
   MarketProviderDescriptor? _provider;
+  SavedPriceAlert? _savedAlert;
+  PriceAlertDirection _alertDirection = PriceAlertDirection.atOrAbove;
+  String? _alertMessage;
   bool _loading = false;
+  bool _alertBusy = false;
   int _request = 0;
+  int _alertRequest = 0;
 
   MarketDataGateway get _gateway => widget.gateway ?? _ownedGateway;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadAlert());
+  }
 
   @override
   void didUpdateWidget(covariant MarketQuotePanel oldWidget) {
@@ -63,6 +81,109 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
       _result = null;
       _provider = null;
       _loading = false;
+    }
+    if (oldWidget.instrument.id != widget.instrument.id ||
+        !identical(oldWidget.priceAlerts, widget.priceAlerts)) {
+      _alertRequest++;
+      _savedAlert = null;
+      _alertTarget.clear();
+      _alertDirection = PriceAlertDirection.atOrAbove;
+      _alertMessage = null;
+      _alertBusy = false;
+      unawaited(_loadAlert());
+    }
+  }
+
+  @override
+  void dispose() {
+    _request++;
+    _alertRequest++;
+    _alertTarget.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAlert() async {
+    final service = widget.priceAlerts;
+    if (service == null) return;
+    final request = ++_alertRequest;
+    try {
+      final saved = await service.load(widget.instrument);
+      if (!mounted || request != _alertRequest) return;
+      setState(() {
+        _savedAlert = saved;
+        if (saved != null) {
+          _alertTarget.text = saved.alert.target.toString();
+          _alertDirection = saved.alert.direction;
+        }
+      });
+    } catch (_) {
+      if (!mounted || request != _alertRequest) return;
+      setState(() => _alertMessage = '提醒設定無法讀取，請重新設定。');
+    }
+  }
+
+  Future<void> _saveAlert() async {
+    final service = widget.priceAlerts;
+    if (service == null || _alertBusy) return;
+    ShareUnitPrice target;
+    try {
+      target = ShareUnitPrice.parse(
+        widget.instrument.tradingCurrency,
+        _alertTarget.text,
+      );
+    } catch (_) {
+      setState(() => _alertMessage = '請輸入大於 0 的有效價格。');
+      return;
+    }
+    final request = ++_alertRequest;
+    setState(() {
+      _alertBusy = true;
+      _alertMessage = null;
+    });
+    try {
+      final saved = await service.save(
+        instrument: widget.instrument,
+        target: target,
+        direction: _alertDirection,
+      );
+      if (!mounted || request != _alertRequest) return;
+      setState(() {
+        _savedAlert = saved;
+        _alertBusy = false;
+        _alertMessage = '提醒已儲存；下次取得新行情時開始判斷。';
+      });
+    } catch (_) {
+      if (!mounted || request != _alertRequest) return;
+      setState(() {
+        _alertBusy = false;
+        _alertMessage = '提醒設定無法儲存，請稍後重試。';
+      });
+    }
+  }
+
+  Future<void> _deleteAlert() async {
+    final service = widget.priceAlerts;
+    if (service == null || _alertBusy) return;
+    final request = ++_alertRequest;
+    setState(() {
+      _alertBusy = true;
+      _alertMessage = null;
+    });
+    try {
+      await service.delete(widget.instrument);
+      if (!mounted || request != _alertRequest) return;
+      setState(() {
+        _savedAlert = null;
+        _alertTarget.clear();
+        _alertBusy = false;
+        _alertMessage = '提醒已移除。';
+      });
+    } catch (_) {
+      if (!mounted || request != _alertRequest) return;
+      setState(() {
+        _alertBusy = false;
+        _alertMessage = '提醒無法移除，請稍後重試。';
+      });
     }
   }
 
@@ -80,10 +201,30 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
     final result =
         routed?.result ?? await _gateway.stockClose(widget.instrument);
     if (!mounted || request != _request || !widget.showAmounts) return;
+    PriceAlertNotification? notification;
+    final alerts = widget.priceAlerts;
+    if (alerts != null) {
+      try {
+        final evaluation = await alerts.evaluate(
+          instrument: widget.instrument,
+          result: result,
+          providerId: routed?.selectedProvider?.id ?? StockClose.provider,
+          now: UtcInstant(DateTime.now().toUtc()),
+        );
+        notification = evaluation?.notification;
+      } catch (_) {
+        // A failed optional reminder must never hide a successfully read quote.
+      }
+    }
+    if (!mounted || request != _request || !widget.showAmounts) return;
     setState(() {
       _loading = false;
       _result = result;
       _provider = routed?.selectedProvider;
+      if (notification != null) {
+        _alertMessage =
+            '到價提醒：${notification.symbol} 現在是 ${notification.price} ${notification.currency.code}。';
+      }
     });
   }
 
@@ -149,6 +290,75 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
           onPressed: widget.showAmounts && !_loading ? _refresh : null,
           child: Text(_loading ? '查詢中…' : '查詢最新收盤價'),
         ),
+        if (widget.showAmounts && widget.priceAlerts != null)
+          ExpansionTile(
+            key: const ValueKey('price-alert-section'),
+            title: const Text('到價提醒'),
+            subtitle: Text(
+              _savedAlert == null
+                  ? '尚未設定；取得新行情時檢查'
+                  : '${_savedAlert!.alert.direction == PriceAlertDirection.atOrAbove ? '漲到' : '跌到'} ${_savedAlert!.alert.target} ${widget.instrument.tradingCurrency.code}',
+            ),
+            childrenPadding: const EdgeInsets.only(bottom: 12),
+            children: [
+              TextField(
+                key: const ValueKey('price-alert-target'),
+                controller: _alertTarget,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: '目標價格（${widget.instrument.tradingCurrency.code}）',
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<PriceAlertDirection>(
+                key: const ValueKey('price-alert-direction'),
+                initialValue: _alertDirection,
+                decoration: const InputDecoration(labelText: '提醒條件'),
+                items: const [
+                  DropdownMenuItem(
+                    value: PriceAlertDirection.atOrAbove,
+                    child: Text('價格漲到或超過目標'),
+                  ),
+                  DropdownMenuItem(
+                    value: PriceAlertDirection.atOrBelow,
+                    child: Text('價格跌到或低於目標'),
+                  ),
+                ],
+                onChanged: _alertBusy
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _alertDirection = value);
+                        }
+                      },
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton(
+                    key: const ValueKey('save-price-alert'),
+                    onPressed: _alertBusy ? null : _saveAlert,
+                    child: Text(_alertBusy ? '處理中…' : '儲存提醒'),
+                  ),
+                  if (_savedAlert != null)
+                    TextButton(
+                      key: const ValueKey('delete-price-alert'),
+                      onPressed: _alertBusy ? null : _deleteAlert,
+                      child: const Text('移除提醒'),
+                    ),
+                ],
+              ),
+              const Text('目前在 App 取得新鮮行情時提示；背景系統通知尚未啟用。'),
+              if (_alertMessage != null)
+                Text(
+                  _alertMessage!,
+                  key: const ValueKey('price-alert-message'),
+                ),
+            ],
+          ),
         if (!widget.showAmounts) const Text('隱私模式已遮蔽行情金額。'),
         if (valuation != null && widget.showAmounts) ...[
           Text(

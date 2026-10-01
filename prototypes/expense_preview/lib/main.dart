@@ -38,6 +38,7 @@ import 'cross_currency_portfolio_panel.dart';
 import 'investment_market_services.dart';
 import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
+import 'price_alert_service.dart';
 export 'privacy_presentation.dart' show moneyText;
 
 part 'category_screen.dart';
@@ -73,7 +74,9 @@ void main() {
       deviceUnlock: AndroidDeviceUnlockStore(),
       appPin: VerifiedAppPinStore(AndroidPinRecordStore()),
       recurringReminder: AndroidRecurringReminderService(),
-      investmentMarketServices: createInvestmentMarketServices(),
+      investmentMarketServices: createInvestmentMarketServices(
+        priceAlerts: PriceAlertService(AndroidPriceAlertRecordStore()),
+      ),
     ),
   );
 }
