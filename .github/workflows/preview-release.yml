@@ -32,7 +32,12 @@ jobs:
           cache: false
       - name: Install pinned Android native toolchain
         shell: bash
-        run: sdkmanager "cmake;3.22.1"
+        run: |
+          set -euo pipefail
+          android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkmanager_path="${android_sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager_path"
+          "$sdkmanager_path" "cmake;3.22.1"
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
       - name: Verify presentation and host behavior
