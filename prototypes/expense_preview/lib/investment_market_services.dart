@@ -9,11 +9,13 @@ final class InvestmentMarketServices {
 
 InvestmentMarketServices createInvestmentMarketServices() {
   final gateway = MarketDataGateway();
+  final frankfurter = FrankfurterReferenceFxGateway();
   final registry = MarketProviderRegistry([
     TwseStockCloseProvider(gateway),
     TpexStockCloseProvider(gateway),
     EcbReferenceFxProvider(gateway),
     CbcUsdTwdReferenceFxProvider(gateway),
+    FrankfurterReferenceFxProvider(frankfurter),
   ]);
   return InvestmentMarketServices(
     gateway: gateway,

@@ -2,6 +2,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 
 import 'intraday.dart';
+import 'frankfurter.dart';
 import 'market_data.dart';
 import 'twelve_data.dart';
 
@@ -263,6 +264,45 @@ final class CbcUsdTwdReferenceFxProvider implements ReferenceFxProvider {
     date: date,
     lookbackDays: lookbackDays,
   );
+}
+
+final class FrankfurterReferenceFxProvider implements ReferenceFxProvider {
+  FrankfurterReferenceFxProvider(this.gateway);
+
+  final FrankfurterReferenceFxGateway gateway;
+
+  @override
+  MarketProviderDescriptor get descriptor => MarketProviderDescriptor(
+    id: FrankfurterReferenceFxGateway.providerId,
+    label: 'Frankfurter 公開匯率',
+    dataset: 'v2 central-bank reference rates',
+    attribution: 'Frankfurter；各匯率仍受原始央行或官方來源條款約束',
+    requiresAuthorization: false,
+  );
+
+  @override
+  bool supportsFx(Currency base, Currency quote, {required bool historical}) =>
+      base != quote;
+
+  @override
+  Future<MarketResult<ReferenceRate>> fxRate(
+    Currency base,
+    Currency quote, {
+    BusinessDate? requiredAsOf,
+  }) => gateway.rate(base, quote, requiredAsOf: requiredAsOf);
+
+  @override
+  Future<MarketResult<ReferenceRate>> historicalFxRate(
+    Currency base,
+    Currency quote, {
+    required BusinessDate date,
+    int lookbackDays = 7,
+  }) {
+    if (lookbackDays < 0 || lookbackDays > 7) {
+      throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
+    }
+    return gateway.rate(base, quote, requiredAsOf: date);
+  }
 }
 
 final class MarketProviderRegistry {
