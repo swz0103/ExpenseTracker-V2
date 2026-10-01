@@ -1175,8 +1175,8 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             const SizedBox(height: 12),
             ExpansionTile(
               key: const ValueKey('investment-market-source-section'),
-              title: const Text('盤中行情與資料來源'),
-              subtitle: const Text('1–5 分鐘按需更新；只供估值參考。'),
+              title: const Text('公開行情與資料來源'),
+              subtitle: const Text('免帳號來源；依來源標示觀測日期與延遲。'),
               children: [
                 if (services.router.registry
                     .stockCloseProviders(quoted.instrument)
@@ -1187,30 +1187,21 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                       instrument: quoted.instrument,
                     ),
                   ),
-                IntradayMarketPanel(
-                  factory: RoutedIntradayRefreshControllerFactory(
-                    router: services.router,
-                    instrument: quoted.instrument,
+                if (services.router.registry
+                    .intradayStockProviders(
+                      quoted.instrument,
+                      IntradayInterval.oneMinute,
+                    )
+                    .isNotEmpty)
+                  IntradayMarketPanel(
+                    factory: RoutedIntradayRefreshControllerFactory(
+                      router: services.router,
+                      instrument: quoted.instrument,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
-        ],
-        if (widget.marketServices case final services?) ...[
-          const SizedBox(height: 8),
-          ExpansionTile(
-            key: const ValueKey('investment-market-credentials-section'),
-            title: const Text('市場資料 API 設定'),
-            subtitle: const Text('金鑰只存於系統安全儲存空間。'),
-            children: [
-              FugleCredentialPanel(manager: services.fugleCredentials),
-              const Divider(),
-              TwelveDataCredentialPanel(
-                manager: services.twelveDataCredentials,
-              ),
-            ],
-          ),
         ],
         if (widget.engine.capabilities.investmentSales) ...[
           const SizedBox(height: 8),

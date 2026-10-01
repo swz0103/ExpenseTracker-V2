@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:expense_preview/main.dart';
 import 'package:expense_preview/investment_market_services.dart';
-import 'package:expense_preview/market_credentials.dart';
 import 'package:expense_preview/preview_engine.dart';
-import 'package:expense_preview/twelve_data_credentials.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -91,26 +89,6 @@ Future<void> _openInvestmentScreen(
   await settle(tester);
   await _tapKey(tester, 'open-investments');
   await _waitForKey(tester, 'investment-broker');
-}
-
-final class _FugleVault implements FugleCredentialVault {
-  String? value;
-  @override
-  Future<void> delete() async => value = null;
-  @override
-  Future<String?> read() async => value;
-  @override
-  Future<void> write(String apiKey) async => value = apiKey;
-}
-
-final class _TwelveVault implements TwelveDataCredentialVault {
-  String? value;
-  @override
-  Future<void> delete() async => value = null;
-  @override
-  Future<String?> read() async => value;
-  @override
-  Future<void> write(String apiKey) async => value = apiKey;
 }
 
 final class _MarketProvider
@@ -319,8 +297,6 @@ void main() {
     final services = InvestmentMarketServices(
       gateway: MarketDataGateway(),
       router: MarketDataRouter(MarketProviderRegistry([provider])),
-      fugleCredentials: FugleCredentialManager(_FugleVault()),
-      twelveDataCredentials: TwelveDataCredentialManager(_TwelveVault()),
     );
     try {
       await tester.runAsync(() async {
@@ -331,7 +307,7 @@ void main() {
       await _openInvestmentScreen(tester, engine, marketServices: services);
       expect(
         find.byKey(const ValueKey('investment-market-credentials-section')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(provider.closeCalls, 0);
       expect(provider.intradayCalls, 0);

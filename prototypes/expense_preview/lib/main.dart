@@ -17,6 +17,7 @@ import 'package:flutter/services.dart'
     show TextInputFormatter, FilteringTextInputFormatter, PlatformException;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:market_data/market_data.dart';
 import 'package:reports/reports.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 
@@ -33,8 +34,6 @@ import 'market_quote_panel.dart';
 import 'investment_portfolio_summary_panel.dart';
 import 'historical_fx_panel.dart';
 import 'intraday_market_panel.dart';
-import 'market_credentials.dart';
-import 'twelve_data_credentials.dart';
 import 'cross_currency_portfolio_panel.dart';
 import 'investment_market_services.dart';
 import 'market_source_panel.dart';
