@@ -1,6 +1,6 @@
 # ExpenseTracker V2 功能完成矩陣
 
-更新基線：`work/m2-cloud-backup`／`ad39c29`（2026-10-01）。`integration/v2-core`／`9ecffbc` 是這支的祖先，沒有反向獨有提交；兩支已收成同一條線。  
+更新基線：`integration/v2`／`f13de55`（2026-10-01）。此分支從 `work/m2-cloud-backup` 最新 GitHub 版本建立，取代舊的 `integration/v2-core` 與功能工作分支作為目前整合線。  
 交付策略：先完成所有 M1／M2／M3 CORE 功能，再集中整合、效能、實機、CI 與發版。本次基線更新不代表正式發版。
 
 本文件是功能狀態的唯一總表。個別功能文件保存規格與證據，但不得用較舊段落覆蓋本表的目前狀態。
@@ -58,8 +58,8 @@
 | 待入帳授權、取消與正式入帳 | 功能線完成，停用前 pending 結算已閉環 | 與帳單、退款的最後組合回查 |
 | 原刷卡跨帳期退款 | 功能線完成，結帳後獨立呈現與活動查閱已開放 | 最後集中實機與整合 gate |
 | 固定本金／明列費用分期 | 功能線完成，退款後獨立呈現與活動查閱已開放 | 真實發卡行帳單、實機與最後整合 gate |
-| 持久工作佇列 | 函式庫具備上傳閉環、退避、終止與使用者後續重試 | App 未呼叫 `runNext` 或排程 tick；重新連結未恢復已終止工作；Ledger 同交易 outbox 仍未接 |
-| Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff 與重新連結畫面完成 | 重新連結未重排終止上傳；OAuth、正式 transport、排程 runtime、實機與整合 gate |
+| 持久工作佇列 | App 已接 bounded `runNext`、重開 reconciliation／排程 tick、持久失敗顯示與使用者後續重試 | OS 背景喚醒、Ledger 同交易 outbox、真實 provider 與實機 |
+| Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff、立即執行、補跑與重新連結後同 ID 重試完成 | OAuth、正式 transport、OS 背景排程、實機與整合 gate |
 | 多 provider 備份歷史與保留策略 | 正式 App 入口接線完成 | 真實 provider 分頁、OAuth 與實機 |
 | Google Drive 加密備份 | Adapter、HTTPS、續傳、歷史與刪除契約完成 | OAuth、`drive.file` 授權、撤權、真實帳號與乾淨還原 |
 
@@ -73,13 +73,13 @@
 | 正向拆股 | 已開放 | 最後集中實機與整合 gate |
 | 單一持倉績效與有界 XIRR | 功能線完成 | 最後集中實機與整合 gate |
 | 逐幣別投資組合摘要 | 正式多來源估值接線完成 | 最後集中實機與整合 gate |
-| TWSE 最新收盤 | 正式投資畫面與多來源路由接線完成 | 實機網路驗證 |
-| ECB EUR 幣對歷史匯率 | 歷史查詢與跨幣路由接線完成 | 實機網路與市場覆蓋驗證 |
-| TPEx 最新收盤、CBC USD/TWD | 正式投資畫面與跨幣路由接線完成 | 實機網路驗證 |
-| 台股 1／5 分鐘股價 | 正式投資畫面、安全 key 與按需更新接線完成 | 真實帳號與實機驗證 |
-| 美股 1／5 分鐘股價 | 正式投資畫面、安全 key 與按需更新接線完成 | 真實帳號與實機驗證 |
+| TWSE／TPEx 最新收盤 | 免帳號正式投資畫面與多來源路由接線完成 | 實機網路驗證；不得標成盤中即時 |
+| ECB、CBC 與 Frankfurter 參考匯率 | 免帳號歷史／跨幣路由與 fallback 接線完成 | 實機網路、市場覆蓋與上游資料權利持續核對 |
+| 台股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Fugle adapter 保留但不在正式預設 registry | 尚無符合免帳號與授權要求的正式 provider；需要帳號／合約時由使用者決定 |
+| 美股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Twelve Data adapter 保留但不在正式預設 registry | 尚無選定免帳號正式 provider；需要帳號／方案時由使用者決定 |
 | 其他分鐘來源 | 可擴充，不作無限完成條件 | 依市場覆蓋、授權與額度需求增補 provider adapter |
 | 跨幣別投資摘要 | 正式投資畫面接線完成 | 真實 FX、實機與集中整合 gate |
+| 到價提醒 | secure storage、日終／分鐘 crossing、冷卻、去重、App 內與前景 Android 系統通知完成 | 合規分鐘 provider、OS 背景策略、通知權限與實機驗證 |
 
 ## 多來源市場資料契約
 

@@ -26,11 +26,18 @@ void main() {
     final push = triggers['push'] as YamlMap;
     final branches = push['branches'] as YamlList;
     expect(branches, hasLength(1));
-    expect(branches.first, 'work/m2-cloud-backup');
+    expect(branches.first, 'integration/v2');
     expect(
       push['paths'],
-      contains('.github/workflows/integration-validation.yml'),
+      containsAll([
+        '.github/workflows/**',
+        'packages/**',
+        'prototypes/**',
+        'tooling/**',
+      ]),
     );
+    final pullRequest = triggers['pull_request'] as YamlMap;
+    expect(pullRequest['branches'], contains('main'));
     final jobs = yaml['jobs'] as YamlMap;
     expect(jobs.length, 4);
     final maxMinutes = jobs.values.fold<int>(

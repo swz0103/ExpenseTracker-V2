@@ -37,6 +37,12 @@
 4. **失敗狀態沒有畫面。** `lastFailure` 已寫入工作儲存，`CloudBackupScreen` 不讀它。
 5. **Widget 測試的登入失效是同步丟出。** 正式 `createBackup` 不會在當下因 Drive 授權失敗而失敗，授權發生在之後的 `runNext`。這組測試不能拿來證明第 3 點已接上。
 
+## 2026-10-01 阻擋修正狀態
+
+上述第 1–5 點已在 `integration/v2` 修正：正式 gateway 在排入工作後執行有上限的 worker pump；畫面載入時會執行 scheduler tick、reconciliation 與既有工作；重新連結會重排需要使用者處理的終止工作並沿用相同 backup ID；畫面會顯示 pending 數量與持久 `lastFailure`。Widget 測試改以真正 runtime gateway 覆蓋建立、補跑、登入失效與重新連結，不再用同步丟出冒充 worker 授權失敗。
+
+這些修正關閉 App runtime 阻擋，但不等於 Google Drive 已可用：OAuth client、正式 token transport、OS 背景喚醒、真實帳號與實機仍是外部 gate。市場資料也已改為免帳號日終／參考匯率來源；Fugle／Twelve Data 不再是正式預設。
+
 ## 契約與文件落差
 
 - 自動路由目前依 registry 順序與 `preferredProviderIds`。功能矩陣原先寫依新鮮度、額度與使用者設定選擇；程式沒有這樣做，偏好也不會保存到下次啟動。矩陣已改成與 `packages/market_data/lib/src/routing.dart` 一致。
