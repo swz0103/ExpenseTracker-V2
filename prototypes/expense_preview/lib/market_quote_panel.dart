@@ -214,7 +214,10 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
           now: UtcInstant(DateTime.now().toUtc()),
         );
         notification = evaluation?.notification;
-        if (notification != null) {
+        if (notification != null &&
+            mounted &&
+            request == _request &&
+            widget.showAmounts) {
           await widget.priceAlertNotifications?.show(notification);
         }
       } catch (_) {

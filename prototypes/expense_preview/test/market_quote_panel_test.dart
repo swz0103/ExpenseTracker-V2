@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:expense_preview/market_quote_panel.dart';
 import 'package:expense_preview/price_alert_service.dart';
 import 'package:flutter/material.dart';
@@ -34,9 +36,13 @@ final class _SequenceTransport implements MarketTransport {
 
 final class _AlertStore implements PriceAlertRecordStore {
   final values = <PublicId, String>{};
+  Completer<void>? readGate;
 
   @override
-  Future<String?> read(PublicId instrumentId) async => values[instrumentId];
+  Future<String?> read(PublicId instrumentId) async {
+    await readGate?.future;
+    return values[instrumentId];
+  }
 
   @override
   Future<void> write(PublicId instrumentId, String value) async {
@@ -335,5 +341,57 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('price-alert-section')));
     await tester.pumpAndSettle();
     expect(find.textContaining('到價提醒：2330 現在是 1600 TWD'), findsOneWidget);
+  });
+
+  testWidgets('privacy switch suppresses a late price notification', (
+    tester,
+  ) async {
+    final store = _AlertStore();
+    final alerts = PriceAlertService(store);
+    final presenter = _AlertPresenter();
+    await alerts.save(
+      instrument: instrument,
+      target: ShareUnitPrice.parse(instrument.tradingCurrency, '1200'),
+      direction: PriceAlertDirection.atOrAbove,
+    );
+    await alerts.evaluate(
+      instrument: instrument,
+      result: MarketResult(
+        MarketState.available,
+        value: StockClose(
+          symbol: instrument.symbol,
+          decimalPrice: '1100',
+          asOf: BusinessDate(2026, 9, 28),
+          fetchedAt: UtcInstant(DateTime.utc(2026, 9, 28)),
+        ),
+      ),
+      providerId: StockClose.provider,
+      now: UtcInstant(DateTime.utc(2026, 9, 28)),
+    );
+    final gateway = MarketDataGateway(
+      transport: _Transport(rows),
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    await show(
+      tester,
+      gateway,
+      priceAlerts: alerts,
+      priceAlertNotifications: presenter,
+    );
+    await tester.pumpAndSettle();
+    store.readGate = Completer<void>();
+    await tester.tap(find.byKey(const ValueKey('request-market-close')));
+    await tester.pump();
+    await show(
+      tester,
+      gateway,
+      visible: false,
+      priceAlerts: alerts,
+      priceAlertNotifications: presenter,
+    );
+    store.readGate!.complete();
+    await tester.pumpAndSettle();
+    expect(presenter.shown, isEmpty);
+    expect(find.textContaining('1234.50'), findsNothing);
   });
 }

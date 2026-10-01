@@ -1204,6 +1204,9 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                     ),
                     showAmounts: widget.privacy == PrivacyMode.visible,
                     onSnapshot: (snapshot) async {
+                      if (!mounted || widget.privacy != PrivacyMode.visible) {
+                        return;
+                      }
                       final alerts = services.priceAlerts;
                       final provider = snapshot.routed.selectedProvider;
                       if (alerts == null || provider == null) return;
@@ -1214,7 +1217,9 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
                         now: UtcInstant(DateTime.now().toUtc()),
                       );
                       final notification = evaluation?.notification;
-                      if (notification != null) {
+                      if (notification != null &&
+                          mounted &&
+                          widget.privacy == PrivacyMode.visible) {
                         await services.priceAlertNotifications?.show(
                           notification,
                         );
