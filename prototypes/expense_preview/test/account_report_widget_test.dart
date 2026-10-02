@@ -22,18 +22,21 @@ void main() {
         await setup(engine);
         final cash = account(engine);
         await engine.createAccount(cash, opening(cash));
-        await engine.post(
-          Posting.expense(
-            id: PublicId.generate(),
-            operation: OperationKey(
-              engine.workspace,
-              OperationId(PublicId.generate()),
+        for (var day = 1; day <= 31; day++) {
+          final current = (await engine.accounts()).single.account;
+          await engine.post(
+            Posting.expense(
+              id: PublicId.generate(),
+              operation: OperationKey(
+                engine.workspace,
+                OperationId(PublicId.generate()),
+              ),
+              date: BusinessDate(2026, 1, day),
+              account: ref(current),
+              amount: Money.parse(cash.currency, '1'),
             ),
-            date: BusinessDate(2026, 9, 30),
-            account: ref(cash),
-            amount: Money.parse(cash.currency, '12'),
-          ),
-        );
+          );
+        }
         await engine.lock();
       });
       await tester.pumpWidget(
@@ -45,10 +48,12 @@ void main() {
       await tester.tap(find.text('帳戶').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('日常現金').last);
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('目前餘額'), findsOneWidget);
-      expect(find.text('最近活動'), findsOneWidget);
-      expect(find.text('支出 · 2026-09-30'), findsOneWidget);
+      expect(find.text('帳戶活動'), findsOneWidget);
+      await tester.ensureVisible(find.text('載入較早活動'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('載入較早活動').hitTestable(), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox());
       await closeEngine(tester, engine);

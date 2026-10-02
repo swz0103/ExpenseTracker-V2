@@ -931,4 +931,11 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] App 冷啟動不必進入備份頁，即會 reconcile 並續傳已加密的持久 artifact；這條鎖定路徑不建立新快照、不讀帳本密碼。密碼、裝置或 PIN 成功解鎖後，獨立 runner 才檢查到期排程、建立快照並執行有界上傳。
 - [x] 冷啟動與解鎖工作序列化，逐 provider 隔離失敗。工作庫 schema 3 保存原定排程、實際擷取與更新時間，runtime 回報最後成功上傳；舊 schema 1 可逐步升級且保留 staged work。
 - [x] UI 顯示下次預定／逾期、最近排程、實際擷取、最後成功上傳，並明示 App 關閉時不會建立新快照、需下次開啟並解鎖補做。雲端核心 41/41、App 相關 12/12、架構 22/22與靜態分析通過。[主機證據](test-results/2026-10-02/cloud-backup-application-runner-host-2026-10-02.md)
-- [ ] 尚未接 Android OS 背景喚醒，也不承諾 App 關閉時準時備份；未來 worker 僅能續傳已加密 artifact。Google 真實帳號、OAuth、換帳號 principal 綁定與實機仍是獨立 gate。下一批依稽核順序進入 R03 帳戶活動獨立分頁。
+- [ ] 尚未接 Android OS 背景喚醒，也不承諾 App 關閉時準時備份；未來 worker 僅能續傳已加密 artifact。Google 真實帳號、OAuth、換帳號 principal 綁定與實機仍是獨立 gate。R03 已由下方批次接續。
+
+## 2026-10-02 外部稽核 R03：帳戶活動獨立分頁
+
+- [x] 帳戶明細不再從首頁 30 筆快取篩選；改以 account ID 直接查詢 Ledger 權威資料，使用 keyset 載入較早活動。來源與 transfer destination 都會命中，轉入列顯示實際 received 金額。
+- [x] 帳戶 sheet 有獨立首次／後續 loading、真正 empty、error／retry 與 hasMore 狀態。request epoch、mounted 與解鎖檢查會丟棄關閉或鎖定後的晚到結果；無關帳戶與重複分頁 row fail closed，既有分類摘要不退步。
+- [x] 獨立引擎與畫面 3/3、活動／搜尋關聯回歸合計 7/7、架構 22/22及靜態分析通過。[主機證據](test-results/2026-10-02/account-activity-pagination-host-2026-10-02.md)
+- [ ] Android 真機的系統返回與 process death 仍留在 R05／R08；下一批依稽核順序進入 R05 共用安全離頁。

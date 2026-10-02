@@ -447,6 +447,19 @@ final class PreviewEngine {
         _check(epoch);
         return result;
       });
+  Future<List<LedgerEntry>> accountEntries(
+    PublicId accountId, {
+    LedgerEntry? before,
+  }) => _exclusive((epoch) async {
+    _require();
+    final result = await _session!.searchEntries(
+      _workspace!,
+      LedgerSearchQuery(accountId: accountId),
+      before: before,
+    );
+    _check(epoch);
+    return result;
+  });
   Future<List<LedgerEntry>> searchEntries(
     LedgerSearchQuery query, {
     LedgerEntry? before,

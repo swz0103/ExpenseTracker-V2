@@ -57,9 +57,11 @@ host CI、ARM64 debug build 與手動簽署 workflow 都是正面證據，但不
 
 限制是刻意 fail-closed，而不是隱藏漏洞；但正式長期記帳不能只靠備份封存舊帳。必須先完成分階段量測、追加寫入與分塊／串流備份設計，才可提高上限。不能只修改常數。
 
-### R03 P2：帳戶活動從首頁已載入 30 筆篩選 — 成立
+### R03 P2：帳戶活動從首頁已載入 30 筆篩選 — 已完成第一批修正
 
-帳戶頁應改以 account ID 獨立查詢及 keyset 分頁，並包含 transfer destination。需要分離 loading、error、真正 empty 與 hasMore，且以 request epoch 防止跨帳戶切換或鎖定後的晚到結果混頁。
+帳戶明細現在直接以 account ID 查詢 Ledger 權威資料，不再重用首頁的 30 筆快取。查詢使用穩定 keyset 游標；來源帳戶及 transfer destination 的腿都會納入，轉入列顯示實際 received 金額。
+
+獨立 sheet 已分開首次 loading、後續 loading、error／retry、真正 empty 與 hasMore；request epoch、mounted 與帳本解鎖狀態會阻止關閉或鎖定後的晚到結果寫回。結果若含無關帳戶或重複 keyset row 會 fail closed，既有分類摘要也保持顯示。主機已通過獨立 30+3 分頁、無重疊、轉入腿與畫面 31 筆分頁入口，另有活動／搜尋關聯回歸，共 7/7；架構 22/22 與靜態分析通過。詳見 [R03 主機驗證](../test-results/2026-10-02/account-activity-pagination-host-2026-10-02.md)。
 
 ### R05 P2：系統返回未共用安全離頁流程 — 成立
 
@@ -106,7 +108,7 @@ domain 已有 rename、archive、close、reactivate 與摘要設定規則，但 
 
 ### 第二階段：使用者可直接碰到的缺口
 
-1. R03 帳戶活動獨立查詢與分頁。
+1. R03 帳戶活動獨立查詢與分頁（已完成第一批修正）。
 2. R05 Android Back 共用安全離頁。
 3. R11 帳戶 rename/archive/close/reactivate/summary 設定。
 
