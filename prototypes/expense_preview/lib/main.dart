@@ -14,7 +14,11 @@ import 'package:tags/tags.dart';
 import 'package:merchants/merchants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show TextInputFormatter, FilteringTextInputFormatter, PlatformException;
+    show
+        TextInputFormatter,
+        FilteringTextInputFormatter,
+        PlatformException,
+        SystemNavigator;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:market_data/market_data.dart';
@@ -119,6 +123,7 @@ class PreviewApp extends StatefulWidget {
     this.recurringReminder,
     this.investmentMarketServices,
     this.cloudBackupGatewayFactory,
+    this.exitApp,
   });
   final Future<PreviewEngine> engine;
   final BackupDocuments documents;
@@ -127,6 +132,7 @@ class PreviewApp extends StatefulWidget {
   final RecurringReminderService? recurringReminder;
   final InvestmentMarketServices? investmentMarketServices;
   final CloudBackupGatewayFactory? cloudBackupGatewayFactory;
+  final Future<void> Function()? exitApp;
   @override
   State<PreviewApp> createState() => _PreviewAppState();
 }
@@ -218,6 +224,7 @@ class _PreviewAppState extends State<PreviewApp> {
       recurringReminder: widget.recurringReminder,
       investmentMarketServices: widget.investmentMarketServices,
       cloudBackupGatewayFactory: widget.cloudBackupGatewayFactory,
+      exitApp: widget.exitApp,
       onLock: _routes.cancel,
     ),
   );
@@ -300,6 +307,7 @@ class PreviewHome extends StatefulWidget {
     this.recurringReminder,
     this.investmentMarketServices,
     this.cloudBackupGatewayFactory,
+    this.exitApp,
     required this.onLock,
   });
   final Future<PreviewEngine> engine;
@@ -309,6 +317,7 @@ class PreviewHome extends StatefulWidget {
   final RecurringReminderService? recurringReminder;
   final InvestmentMarketServices? investmentMarketServices;
   final CloudBackupGatewayFactory? cloudBackupGatewayFactory;
+  final Future<void> Function()? exitApp;
   final VoidCallback onLock;
   @override
   State<PreviewHome> createState() => _PreviewHomeState();
@@ -1808,37 +1817,88 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       child: Text(label),
     ),
   );
+  Future<void> _prepareDraftForNavigation() async {
+    if (_draftSaveError != null &&
+        (_page == _Page.posting ||
+            _page == _Page.cardPurchase ||
+            _page == _Page.cardPayment)) {
+      _queueDraft();
+      await _draftSaveTail;
+      if (_draftSaveError != null) throw _draftSaveError!;
+    }
+  }
+
+  Future<void> _leaveCurrentPage() => _perform(() async {
+    await _prepareDraftForNavigation();
+    _imported = null;
+    if (_page == _Page.simpleImport) {
+      _clearSimpleImport();
+      await widget.documents.discardSimpleImport();
+    }
+    if (_page == _Page.simpleExport) {
+      _clearSimpleExport();
+      await widget.documents.discardSimpleExport();
+    }
+    _credential.clear();
+    _pin.clear();
+    _pinConfirm.clear();
+    await _refresh();
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+      });
+    }
+  });
+
+  Future<void> _exitSecurely() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await _draftSaveTail;
+      await _prepareDraftForNavigation();
+      if (_draftSaveError != null) throw _draftSaveError!;
+      if (_engine?.isUnlocked ?? false) {
+        _lock();
+        await _lockBarrier;
+      }
+      await (widget.exitApp?.call() ?? SystemNavigator.pop());
+    } catch (error) {
+      if (mounted && (_engine?.isUnlocked ?? false)) {
+        setState(() => _message = _error(error));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _handleSystemBack() async {
+    if (_busy) return;
+    if (_page == _Page.home) {
+      await _exitSecurely();
+      return;
+    }
+    if (_page == _Page.upgrade) {
+      _lock();
+      return;
+    }
+    if ({
+      _Page.loading,
+      _Page.setup,
+      _Page.recovery,
+      _Page.locked,
+      _Page.blocked,
+    }.contains(_page)) {
+      await _exitSecurely();
+      return;
+    }
+    await _leaveCurrentPage();
+  }
+
   Widget _back() => TextButton(
-    onPressed: _busy
-        ? null
-        : () => _perform(() async {
-            if (_draftSaveError != null &&
-                (_page == _Page.posting ||
-                    _page == _Page.cardPurchase ||
-                    _page == _Page.cardPayment)) {
-              _queueDraft();
-              await _draftSaveTail;
-              if (_draftSaveError != null) throw _draftSaveError!;
-            }
-            _imported = null;
-            if (_page == _Page.simpleImport) {
-              _clearSimpleImport();
-              await widget.documents.discardSimpleImport();
-            }
-            if (_page == _Page.simpleExport) {
-              _clearSimpleExport();
-              await widget.documents.discardSimpleExport();
-            }
-            _credential.clear();
-            _pin.clear();
-            _pinConfirm.clear();
-            await _refresh();
-            if (mounted) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_scroll.hasClients) _scroll.jumpTo(0);
-              });
-            }
-          }),
+    onPressed: _busy ? null : _leaveCurrentPage,
     child: const Text('返回帳本'),
   );
 
@@ -2220,112 +2280,118 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(_page == _Page.home ? '這個月' : '記帳 V2'),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(3),
-        child: SizedBox(
-          height: 3,
-          child: _busy ? const LinearProgressIndicator() : null,
+  Widget build(BuildContext context) => PopScope<void>(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) unawaited(_handleSystemBack());
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: Text(_page == _Page.home ? '這個月' : '記帳 V2'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(3),
+          child: SizedBox(
+            height: 3,
+            child: _busy ? const LinearProgressIndicator() : null,
+          ),
         ),
-      ),
-      actions: [
-        if (_page == _Page.home && (_engine?.isUnlocked ?? false))
-          IconButton(
-            onPressed: _busy ? null : _showSettings,
-            tooltip: '設定',
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        if ({
-              _Page.home,
-              _Page.search,
-              _Page.monthlyReport,
-              _Page.budgets,
-              _Page.recurring,
-              _Page.cardStatements,
-              _Page.cardSettings,
-              _Page.cardAuthorizations,
-              _Page.cardInstallments,
-              _Page.investments,
-              _Page.simpleImport,
-              _Page.simpleExport,
-            }.contains(_page) &&
-            (_engine?.isUnlocked ?? false))
-          IconButton(
-            onPressed: _busy ? null : _togglePrivacy,
-            tooltip: _privacy == PrivacyMode.hidden ? '顯示金額' : '隱藏金額',
-            icon: Icon(
-              _privacy == PrivacyMode.hidden
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
+        actions: [
+          if (_page == _Page.home && (_engine?.isUnlocked ?? false))
+            IconButton(
+              onPressed: _busy ? null : _showSettings,
+              tooltip: '設定',
+              icon: const Icon(Icons.settings_outlined),
             ),
-          ),
-        if (_engine?.isUnlocked ?? false)
-          IconButton(
-            onPressed: _lock,
-            tooltip: '鎖定',
-            icon: const Icon(Icons.lock_outline),
-          ),
-      ],
-    ),
-    bottomNavigationBar: _page == _Page.home && (_engine?.isUnlocked ?? false)
-        ? NavigationBar(
-            // Keep the five primary destinations compact so the last fully
-            // visible control in the page body is not covered on short phones.
-            height: 44,
-            selectedIndex: _homeDestination,
-            onDestinationSelected: _busy ? null : _selectHomeDestination,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: '首頁',
+          if ({
+                _Page.home,
+                _Page.search,
+                _Page.monthlyReport,
+                _Page.budgets,
+                _Page.recurring,
+                _Page.cardStatements,
+                _Page.cardSettings,
+                _Page.cardAuthorizations,
+                _Page.cardInstallments,
+                _Page.investments,
+                _Page.simpleImport,
+                _Page.simpleExport,
+              }.contains(_page) &&
+              (_engine?.isUnlocked ?? false))
+            IconButton(
+              onPressed: _busy ? null : _togglePrivacy,
+              tooltip: _privacy == PrivacyMode.hidden ? '顯示金額' : '隱藏金額',
+              icon: Icon(
+                _privacy == PrivacyMode.hidden
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
               ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long_rounded),
-                label: '紀錄',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.add_circle_outline_rounded),
-                selectedIcon: Icon(Icons.add_circle_rounded),
-                label: '新增',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.account_balance_wallet_outlined),
-                selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-                label: '帳戶',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.show_chart_rounded),
-                label: '投資',
-              ),
-            ],
-          )
-        : null,
-    body: SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: ListView(
-            key: ValueKey(_page),
-            controller: _scroll,
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text('開發驗證版', style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 12),
-              if (_message != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(_message!, key: const Key('message')),
-                  ),
+            ),
+          if (_engine?.isUnlocked ?? false)
+            IconButton(
+              onPressed: _lock,
+              tooltip: '鎖定',
+              icon: const Icon(Icons.lock_outline),
+            ),
+        ],
+      ),
+      bottomNavigationBar: _page == _Page.home && (_engine?.isUnlocked ?? false)
+          ? NavigationBar(
+              // Keep the five primary destinations compact so the last fully
+              // visible control in the page body is not covered on short phones.
+              height: 44,
+              selectedIndex: _homeDestination,
+              onDestinationSelected: _busy ? null : _selectHomeDestination,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: '首頁',
                 ),
-              ..._content(),
-            ],
+                NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long_rounded),
+                  label: '紀錄',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.add_circle_outline_rounded),
+                  selectedIcon: Icon(Icons.add_circle_rounded),
+                  label: '新增',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                  label: '帳戶',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.show_chart_rounded),
+                  label: '投資',
+                ),
+              ],
+            )
+          : null,
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: ListView(
+              key: ValueKey(_page),
+              controller: _scroll,
+              padding: const EdgeInsets.all(20),
+              children: [
+                const Text('開發驗證版', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 12),
+                if (_message != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(_message!, key: const Key('message')),
+                    ),
+                  ),
+                ..._content(),
+              ],
+            ),
           ),
         ),
       ),

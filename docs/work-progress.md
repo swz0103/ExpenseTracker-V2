@@ -938,4 +938,12 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 帳戶明細不再從首頁 30 筆快取篩選；改以 account ID 直接查詢 Ledger 權威資料，使用 keyset 載入較早活動。來源與 transfer destination 都會命中，轉入列顯示實際 received 金額。
 - [x] 帳戶 sheet 有獨立首次／後續 loading、真正 empty、error／retry 與 hasMore 狀態。request epoch、mounted 與解鎖檢查會丟棄關閉或鎖定後的晚到結果；無關帳戶與重複分頁 row fail closed，既有分類摘要不退步。
 - [x] 獨立引擎與畫面 3/3、活動／搜尋關聯回歸合計 7/7、架構 22/22及靜態分析通過。[主機證據](test-results/2026-10-02/account-activity-pagination-host-2026-10-02.md)
-- [ ] Android 真機的系統返回與 process death 仍留在 R05／R08；下一批依稽核順序進入 R05 共用安全離頁。
+- [ ] Android 真機的系統返回與 process death 仍留在 R08；R05 主機修正已由下方批次接續。
+
+## 2026-10-02 外部稽核 R05：系統返回共用安全離頁
+
+- [x] App root 以 `PopScope` 接管 Android 系統返回；內頁與「返回帳本」按鈕共用安全離頁命令。dialog／bottom sheet 由 Navigator 先關閉，不會同時退出 root。
+- [x] 編輯頁返回會等待草稿寫入；先前保存失敗時必須重試成功，否則停留原頁。簡易匯入／匯出仍先清除未完成暫存。upgrade 返回只鎖定，不繞過升級。
+- [x] 只有解鎖首頁會要求平台退出，且必須先等待草稿尾端、鎖定 Ledger session、關閉敏感 popup 並完成 lock barrier。未解鎖的 loading／setup／recovery／locked／blocked 可直接退出。
+- [x] 新增安全返回 3/3，並與草稿 2/2、背景鎖定／popup 6/6 合計 11/11；架構 22/22及靜態分析通過。[主機證據](test-results/2026-10-02/safe-back-navigation-host-2026-10-02.md)
+- [ ] Android predictive back、實體返回鍵、process death 與 OEM 行為仍列 R08 真機 gate；下一批依稽核順序進入 R11 帳戶生命週期 App 接線。

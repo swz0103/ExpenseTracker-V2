@@ -63,9 +63,11 @@ host CI、ARM64 debug build 與手動簽署 workflow 都是正面證據，但不
 
 獨立 sheet 已分開首次 loading、後續 loading、error／retry、真正 empty 與 hasMore；request epoch、mounted 與帳本解鎖狀態會阻止關閉或鎖定後的晚到結果寫回。結果若含無關帳戶或重複 keyset row 會 fail closed，既有分類摘要也保持顯示。主機已通過獨立 30+3 分頁、無重疊、轉入腿與畫面 31 筆分頁入口，另有活動／搜尋關聯回歸，共 7/7；架構 22/22 與靜態分析通過。詳見 [R03 主機驗證](../test-results/2026-10-02/account-activity-pagination-host-2026-10-02.md)。
 
-### R05 P2：系統返回未共用安全離頁流程 — 成立
+### R05 P2：系統返回未共用安全離頁流程 — 已完成第一批修正
 
-畫面內返回命令會處理草稿、匯入／匯出、清理與鎖定，但 Android Back 仍可落到單一 root 的預設行為。應由 PopScope 或 router 共用同一安全離頁命令；modal 先關閉、草稿保存失敗阻止離頁，只有首頁才離開 App。
+root 現在使用 `PopScope` 接管系統返回，內頁與「返回帳本」按鈕共用同一個安全離頁命令。最上層 dialog／bottom sheet 仍由 Navigator 先關閉，不會同時觸發 root 退出；內頁返回會等待在途草稿寫入，寫入失敗時重試並留在原頁，匯入／匯出暫存也沿用既有 discard 流程。
+
+首頁是解鎖狀態唯一會要求離開 App 的頁面；離開前先等待草稿尾端、鎖定 SQLCipher session、關閉敏感 popup，確認 lock barrier 完成後才呼叫平台退出。upgrade 頁的返回只鎖定，不嘗試繞過升級；尚未解鎖的 loading／setup／recovery／locked／blocked 才可直接退出。主機新增系統返回草稿保存、保存失敗阻擋、modal 優先及首頁先鎖後退出案例，與既有草稿／背景鎖定共 11/11；架構 22/22 與靜態分析通過。詳見 [R05 主機驗證](../test-results/2026-10-02/safe-back-navigation-host-2026-10-02.md)。Android predictive back／實體鍵仍需 R08 真機驗收。
 
 ### R10 P2：雲端待傳工作未綁定穩定帳號 principal — 成立
 
@@ -109,7 +111,7 @@ domain 已有 rename、archive、close、reactivate 與摘要設定規則，但 
 ### 第二階段：使用者可直接碰到的缺口
 
 1. R03 帳戶活動獨立查詢與分頁（已完成第一批修正）。
-2. R05 Android Back 共用安全離頁。
+2. R05 Android Back 共用安全離頁（已完成第一批修正）。
 3. R11 帳戶 rename/archive/close/reactivate/summary 設定。
 
 退出條件：活動不漏筆、不混頁；返回不能繞過草稿或鎖定；domain 已有能力都有可操作且受版本保護的 App 入口。
