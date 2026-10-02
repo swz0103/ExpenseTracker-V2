@@ -46,44 +46,45 @@ void main() {
     expect(find.text('備份已驗證，並交給安全還原流程。'), findsOneWidget);
   });
 
-  testWidgets('retention does not remove until recoverable cleanup confirmation', (
-    tester,
-  ) async {
-    final gateway = _Gateway()
-      ..items.addAll([_item('newest'), _item('oldest')]);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CloudBackupScreen(
-          gateway: gateway,
-          now: () => DateTime.utc(2026, 10, 1),
+  testWidgets(
+    'retention does not remove until recoverable cleanup confirmation',
+    (tester) async {
+      final gateway = _Gateway()
+        ..items.addAll([_item('newest'), _item('oldest')]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CloudBackupScreen(
+            gateway: gateway,
+            now: () => DateTime.utc(2026, 10, 1),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('retention-count')),
-      250,
-    );
-    await tester.tap(find.byKey(const ValueKey('retention-count')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('1 份').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('預覽並清理舊備份'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('清理舊備份？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-    expect(gateway.applyCalls, 0);
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('retention-count')),
+        250,
+      );
+      await tester.tap(find.byKey(const ValueKey('retention-count')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('1 份').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('預覽並清理舊備份'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('清理舊備份？'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(gateway.applyCalls, 0);
 
-    await tester.tap(find.text('預覽並清理舊備份'));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(find.text('確認清理'));
-    await tester.pumpAndSettle();
-    expect(gateway.applyCalls, 1);
-    await tester.drag(find.byType(ListView), const Offset(0, 1000));
-    await tester.pumpAndSettle();
-    expect(find.text('舊備份已依重新核對的預覽結果移出目前清單。'), findsOneWidget);
-  });
+      await tester.tap(find.text('預覽並清理舊備份'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('確認清理'));
+      await tester.pumpAndSettle();
+      expect(gateway.applyCalls, 1);
+      await tester.drag(find.byType(ListView), const Offset(0, 1000));
+      await tester.pumpAndSettle();
+      expect(find.text('舊備份已依重新核對的預覽結果移出目前清單。'), findsOneWidget);
+    },
+  );
 
   testWidgets('authentication failure is actionable and preserves page', (
     tester,
@@ -124,10 +125,7 @@ void main() {
     expect(gateway.scheduleEnabled, isTrue);
     expect(gateway.scheduleInterval, const Duration(days: 7));
     expect(gateway.firstDueAt, now.add(const Duration(days: 7)));
-    expect(
-      find.text('自動備份已啟用；下次開啟並解鎖後會補做已到期快照。'),
-      findsOneWidget,
-    );
+    expect(find.text('自動備份已啟用；下次開啟並解鎖後會補做已到期快照。'), findsOneWidget);
     expect(find.textContaining('需開啟並解鎖才建立新快照'), findsOneWidget);
   });
 
