@@ -656,10 +656,17 @@ final class LedgerStore {
       );
       final session = LedgerSession._(db);
       try {
-        // Reads and writes both require either a verified local projection or
-        // a complete streamed authority admission before application access.
-        await session._admitCapacity();
-        await session._persistRebuiltCapacityProjection();
+        // Build or verify the accelerator before application access whenever
+        // this preview can represent the store's current capacity.
+        try {
+          await session._admitCapacity();
+          await session._persistRebuiltCapacityProjection();
+        } on PreviewCapacity {
+          // A structurally valid portable store may exceed this preview's
+          // write subset. It must remain readable, exportable, and able to
+          // distinguish replay/conflict; mutating commands will retry
+          // admission and fail closed before adding rows.
+        }
         result = await work(session);
       } catch (error, stack) {
         failure = error;

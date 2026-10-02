@@ -70,10 +70,13 @@ final class LedgerSession {
   ({int rows, int bytes})? _capacityUsage;
   Map<String, int>? _capacityTableRows;
   bool _capacityProjectionLoaded = false;
+  bool _capacityProjectionDirty = false;
+  String? _capacityGenerationValue;
 
   Future<T> _write<T>(Future<T> Function() work) async {
     final prior = _capacityUsage;
     final priorLoaded = _capacityProjectionLoaded;
+    final priorDirty = _capacityProjectionDirty;
     final priorRows = _capacityTableRows == null
         ? null
         : Map<String, int>.from(_capacityTableRows!);
@@ -81,9 +84,10 @@ final class LedgerSession {
       return await _db.transaction(() async {
         final result = await work();
         final usage = _capacityUsage;
-        if (usage != null) {
+        if (usage != null && _capacityProjectionDirty) {
           await _persistCapacityProjection(usage);
           _capacityProjectionLoaded = true;
+          _capacityProjectionDirty = false;
         }
         return result;
       });
@@ -92,6 +96,7 @@ final class LedgerSession {
       _capacityUsage = prior;
       _capacityTableRows = priorRows;
       _capacityProjectionLoaded = priorLoaded;
+      _capacityProjectionDirty = priorDirty;
       rethrow;
     }
   }
@@ -196,6 +201,7 @@ final class LedgerSession {
     if (usage == null) throw PreviewCapacity();
     await _db.transaction(() => _persistCapacityProjection(usage));
     _capacityProjectionLoaded = true;
+    _capacityProjectionDirty = false;
   }
 
   Future<void> _capacity(Posting posting, {bool account = false}) async {

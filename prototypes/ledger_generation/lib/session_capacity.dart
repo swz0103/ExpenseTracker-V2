@@ -442,11 +442,13 @@ extension _SessionRowCapacity on LedgerSession {
       .toString();
 
   Future<String> _capacityGeneration() async {
+    final cached = _capacityGenerationValue;
+    if (cached != null) return cached;
     final rows = await _db
         .customSelect('SELECT generation FROM storage_identity')
         .get();
     if (rows.length != 1) throw PreviewCapacity();
-    return rows.single.read<String>('generation');
+    return _capacityGenerationValue = rows.single.read<String>('generation');
   }
 
   Future<Map<String, int>> _currentTableCounts(Map<String, int> limits) async {
@@ -596,6 +598,7 @@ extension _SessionRowCapacity on LedgerSession {
       }
       counts[table] = count;
       _capacityUsage = next;
+      _capacityProjectionDirty = true;
     }
   }
 
