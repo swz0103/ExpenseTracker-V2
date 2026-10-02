@@ -1,0 +1,212 @@
+name: Signed Android release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_signed_release:
+        description: 'Build a long-term-key signed APK and AAB from main'
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: signed-android-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    if: github.ref_name == 'main' && inputs.confirm_signed_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: android-production
+    defaults:
+      run:
+        working-directory: prototypes/expense_preview
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Install pinned Android native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkmanager_path="${android_sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager_path"
+          "$sdkmanager_path" "cmake;3.22.1"
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Verify presentation and host behavior
+        run: |
+          dart format --output=none --set-exit-if-changed lib test tool
+          flutter analyze --no-pub
+          flutter test --no-pub --reporter expanded
+      - name: Materialize and verify long-term signing key
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          EXPECTED_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
+          RELEASE_APPLICATION_ID: ${{ vars.ANDROID_RELEASE_APPLICATION_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in \
+            "$KEYSTORE_BASE64" \
+            "$STORE_PASSWORD" \
+            "$KEY_ALIAS" \
+            "$EXPECTED_CERT_SHA256" \
+            "$RELEASE_APPLICATION_ID"; do
+            test -n "$value"
+          done
+          if [[ ! "$RELEASE_APPLICATION_ID" =~ ^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$ ]]; then
+            echo "ANDROID_RELEASE_APPLICATION_ID is invalid." >&2
+            exit 1
+          fi
+          store="$RUNNER_TEMP/expense-v2-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$store"
+          test -s "$store"
+          actual_cert_sha256="$(
+            "$JAVA_HOME/bin/keytool" \
+              -exportcert \
+              -keystore "$store" \
+              -storepass "$STORE_PASSWORD" \
+              -alias "$KEY_ALIAS" \
+              | sha256sum \
+              | cut -d' ' -f1
+          )"
+          expected_cert_sha256="$(
+            printf '%s' "$EXPECTED_CERT_SHA256" \
+              | tr -d ':[:space:]' \
+              | tr '[:upper:]' '[:lower:]'
+          )"
+          test "${#expected_cert_sha256}" -eq 64
+          if [[ "$actual_cert_sha256" != "$expected_cert_sha256" ]]; then
+            echo "The release certificate SHA-256 does not match the protected environment." >&2
+            exit 1
+          fi
+          {
+            echo "store=$store"
+            echo "application_id=$RELEASE_APPLICATION_ID"
+            echo "certificate_sha256=$actual_cert_sha256"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build signed APK and App Bundle
+        env:
+          ORG_GRADLE_PROJECT_v2EnableReleaseSigning: 'true'
+          V2_RELEASE_APPLICATION_ID: ${{ steps.signing.outputs.application_id }}
+          V2_RELEASE_STORE_FILE: ${{ steps.signing.outputs.store }}
+          V2_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          V2_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          V2_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$V2_RELEASE_KEY_PASSWORD"
+          args=(--release --no-pub)
+          if [[ -n "${GOOGLE_SERVER_CLIENT_ID:-}" ]]; then
+            args+=(--dart-define="GOOGLE_SERVER_CLIENT_ID=${GOOGLE_SERVER_CLIENT_ID}")
+          fi
+          flutter build appbundle "${args[@]}"
+          flutter build apk "${args[@]}" --target-platform android-arm64
+      - name: Verify signed artifacts
+        env:
+          EXPECTED_CERT_SHA256: ${{ steps.signing.outputs.certificate_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          apksigner="$(find "$android_sdk/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          aab="build/app/outputs/bundle/release/app-release.aab"
+          test -s "$apk"
+          test -s "$aab"
+          "$apksigner" verify --verbose --print-certs "$apk"
+          actual_apk_cert_sha256="$(
+            "$apksigner" verify --print-certs "$apk" \
+              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+              | head -n 1 \
+              | tr '[:upper:]' '[:lower:]'
+          )"
+          test "$actual_apk_cert_sha256" = "$EXPECTED_CERT_SHA256"
+          jarsigner -verify "$aab"
+          actual_aab_cert_sha256="$(
+            "$JAVA_HOME/bin/keytool" -printcert -jarfile "$aab" -rfc \
+              | openssl x509 -outform der \
+              | sha256sum \
+              | cut -d' ' -f1
+          )"
+          test "$actual_aab_cert_sha256" = "$EXPECTED_CERT_SHA256"
+      - name: Prepare signed release assets
+        id: release
+        env:
+          RELEASE_APPLICATION_ID: ${{ steps.signing.outputs.application_id }}
+          RELEASE_CERT_SHA256: ${{ steps.signing.outputs.certificate_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          safe_version="${app_version/+/-build}"
+          tag="signed-v${safe_version}"
+          apk_asset="ExpenseTracker-V2-${tag}-arm64.apk"
+          aab_asset="ExpenseTracker-V2-${tag}.aab"
+          cp build/app/outputs/flutter-apk/app-release.apk "$apk_asset"
+          cp build/app/outputs/bundle/release/app-release.aab "$aab_asset"
+          sha256sum "$apk_asset" > "${apk_asset}.sha256"
+          sha256sum "$aab_asset" > "${aab_asset}.sha256"
+          {
+            echo "tag=$tag"
+            echo "apk_asset=$apk_asset"
+            echo "aab_asset=$aab_asset"
+          } >> "$GITHUB_OUTPUT"
+          cat > signed-release-notes.md <<EOF
+          這是以受保護長期金鑰簽署的 Android release candidate，來源提交：${GITHUB_SHA}。
+
+          - App ID：${RELEASE_APPLICATION_ID}
+          - 簽章憑證 SHA-256：${RELEASE_CERT_SHA256}
+          - APK：ARM64 側載驗收
+          - AAB：Google Play 測試軌上傳候選
+
+          本 release 不代表已通過商店審查或 Android 實機 gate。請核對同名 SHA-256 檔案，並先備份既有帳本。
+          EOF
+      - name: Publish signed GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          APK_ASSET: ${{ steps.release.outputs.apk_asset }}
+          AAB_ASSET: ${{ steps.release.outputs.aab_asset }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; bump pubspec version first." >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            "$APK_ASSET#Long-term-key signed ARM64 APK" \
+            "${APK_ASSET}.sha256#APK SHA-256 checksum" \
+            "$AAB_ASSET#Long-term-key signed Android App Bundle" \
+            "${AAB_ASSET}.sha256#AAB SHA-256 checksum" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ExpenseTracker V2 ${RELEASE_TAG}" \
+            --notes-file signed-release-notes.md \
+            --prerelease
+      - name: Remove signing key from runner
+        if: always()
+        env:
+          RELEASE_STORE: ${{ runner.temp }}/expense-v2-release.jks
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RELEASE_STORE" in
+            "$RUNNER_TEMP"/*) rm -f -- "$RELEASE_STORE" ;;
+            *) echo "Refusing to remove a path outside RUNNER_TEMP." >&2; exit 1 ;;
+          esac
