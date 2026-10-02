@@ -185,7 +185,8 @@ final class CloudBackupScheduleStore {
 typedef AutomaticBackupSource = Future<VerifiedBackupArtifact> Function(
   String providerId,
   String backupId,
-  DateTime dueAt,
+  DateTime scheduledFor,
+  DateTime capturedAt,
 );
 
 final class CloudBackupAutomaticScheduler {
@@ -215,13 +216,18 @@ final class CloudBackupAutomaticScheduler {
           occurrence.providerId,
           occurrence.backupId,
           occurrence.dueAt,
+          now.toUtc(),
         );
         if (artifact.backupId != occurrence.backupId) {
           throw StateError(
             'Automatic backup source changed occurrence identity',
           );
         }
-        await runner.schedule(artifact, now: now);
+        await runner.schedule(
+          artifact,
+          now: now,
+          scheduledFor: occurrence.dueAt,
+        );
       }
       checkpoint?.call('after-schedule');
       if (!schedules.acknowledge(occurrence, now)) {

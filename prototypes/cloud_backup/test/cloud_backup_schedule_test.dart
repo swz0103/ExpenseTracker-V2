@@ -93,7 +93,8 @@ void main() {
       Future<VerifiedBackupArtifact> build(
         String providerId,
         String backupId,
-        DateTime dueAt,
+        DateTime scheduledFor,
+        DateTime capturedAt,
       ) async {
         builds++;
         final created = await EnvelopeCodec().create(
@@ -105,7 +106,7 @@ void main() {
           envelope: created.envelope,
           password: password,
           recoveryKey: created.recoveryKey,
-          createdAt: dueAt,
+          createdAt: capturedAt,
         );
       }
 
@@ -117,7 +118,8 @@ void main() {
           if (point == 'after-schedule') throw StateError('simulated crash');
         },
       );
-      await expectLater(crashing.tick(start), throwsStateError);
+      final capturedAt = start.add(const Duration(hours: 2));
+      await expectLater(crashing.tick(capturedAt), throwsStateError);
       expect(builds, 1);
       expect(
         work.pendingBackupIds(providerId: provider.providerId),
@@ -129,9 +131,14 @@ void main() {
         runners: {provider.providerId: runner},
         source: build,
       );
-      expect(await resumed.tick(start), 1);
+      expect(await resumed.tick(capturedAt), 1);
       expect(builds, 1);
       expect(await schedules.due(start), isEmpty);
+      final staged = work.byId(
+        work.pendingBackupIds(providerId: provider.providerId).single,
+      )!;
+      expect(staged.scheduledFor, start);
+      expect(staged.createdAt, capturedAt);
       work.close();
       jobs.close();
     },
@@ -166,9 +173,9 @@ void main() {
     final automatic = CloudBackupAutomaticScheduler(
       schedules: schedules,
       runners: {provider.providerId: runner},
-      source: (providerId, backupId, dueAt) async {
+      source: (providerId, backupId, scheduledFor, capturedAt) async {
         builds++;
-        return _artifact(backupId, dueAt, password);
+        return _artifact(backupId, capturedAt, password);
       },
     );
     expect(await automatic.tick(start), 0);

@@ -13,14 +13,32 @@ final class CloudBackupProviderChoice {
 }
 
 final class CloudBackupRuntimeReport {
-  const CloudBackupRuntimeReport({required this.pendingJobs, this.lastFailure});
+  const CloudBackupRuntimeReport({
+    required this.pendingJobs,
+    this.lastFailure,
+    this.lastScheduledFor,
+    this.lastCapturedAt,
+    this.lastSuccessfulUploadAt,
+  });
 
   final int pendingJobs;
   final CloudBackupWorkFailure? lastFailure;
+  final DateTime? lastScheduledFor;
+  final DateTime? lastCapturedAt;
+  final DateTime? lastSuccessfulUploadAt;
 }
 
 abstract interface class CloudBackupRuntimeGateway {
   Future<CloudBackupRuntimeReport> maintainRuntime(
+    String providerId,
+    DateTime now,
+  );
+}
+
+/// Pumps only already-encrypted work. This is safe to call while the ledger is
+/// locked because it must never capture a new snapshot or request a credential.
+abstract interface class CloudBackupPendingRuntimeGateway {
+  Future<CloudBackupRuntimeReport> maintainPendingRuntime(
     String providerId,
     DateTime now,
   );
@@ -90,6 +108,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
   int _keepLatest = 3;
   bool _automaticEnabled = false;
   int _automaticDays = 7;
+  DateTime? _automaticNextDueAt;
   CloudBackupRuntimeReport? _runtime;
 
   @override
@@ -143,6 +162,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
           _history = rows;
           _automaticEnabled = schedule?.enabled ?? false;
           _automaticDays = _supportedDays(schedule?.interval) ?? 7;
+          _automaticNextDueAt = schedule?.nextDueAt;
           _runtime = runtime;
           if (runtime?.lastFailure case final failure?) {
             _authenticationRequired = _requiresReconnect(failure);
@@ -193,6 +213,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         _history = results[0]! as List<RemoteBackupMetadata>;
         _automaticEnabled = schedule?.enabled ?? false;
         _automaticDays = _supportedDays(schedule?.interval) ?? 7;
+        _automaticNextDueAt = schedule?.nextDueAt;
         _runtime = runtime;
         _message = runtime != null && runtime.pendingJobs == 0
             ? '雲端帳號已重新連結，待處理備份已完成。'
@@ -269,21 +290,61 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
         final selectedDays = days ?? _automaticDays;
         final interval = Duration(days: selectedDays);
         final now = widget.now().toUtc();
+        final firstDueAt = now.add(interval);
         await widget.gateway.configureSchedule(
           providerId: _providerId!,
           enabled: enabled,
           interval: interval,
-          firstDueAt: now.add(interval),
+          firstDueAt: firstDueAt,
           now: now,
         );
         if (mounted) {
           setState(() {
             _automaticEnabled = enabled;
             _automaticDays = selectedDays;
-            _message = enabled ? '自動備份已啟用，會從下一個週期開始。' : '自動備份已停用；已排入的工作不會被刪除。';
+            _automaticNextDueAt = enabled ? firstDueAt : null;
+            _message = enabled
+                ? '自動備份已啟用；下次開啟並解鎖後會補做已到期快照。'
+                : '自動備份已停用；已排入的工作不會被刪除。';
           });
         }
       });
+
+  String _automaticScheduleText() {
+    if (!_automaticEnabled || _automaticNextDueAt == null) {
+      return '預設關閉。已加密待傳檔可在 App 冷啟動續傳；新快照只在開啟並解鎖後建立。';
+    }
+    final due = _automaticNextDueAt!.toLocal();
+    final overdue = !_automaticNextDueAt!.isAfter(widget.now().toUtc());
+    final time =
+        '${due.year}-${due.month.toString().padLeft(2, '0')}-'
+        '${due.day.toString().padLeft(2, '0')} '
+        '${due.hour.toString().padLeft(2, '0')}:'
+        '${due.minute.toString().padLeft(2, '0')}';
+    return overdue
+        ? '已逾期（原定 $time）；下次開啟並解鎖後補做。關閉 App 時不會建立新快照。'
+        : '下次預定 $time；需開啟並解鎖才建立新快照。已加密待傳檔可在冷啟動續傳。';
+  }
+
+  String? _runtimeTimelineText(CloudBackupRuntimeReport runtime) {
+    final parts = <String>[
+      if (runtime.lastScheduledFor case final value?)
+        '最近排程 ${_dateTimeText(value)}',
+      if (runtime.lastCapturedAt case final value?)
+        '實際擷取 ${_dateTimeText(value)}',
+      if (runtime.lastSuccessfulUploadAt case final value?)
+        '最後上傳成功 ${_dateTimeText(value)}',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  String _dateTimeText(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,6 +370,15 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
             key: const ValueKey('cloud-runtime-status'),
           ),
         ),
+      if (_runtime case final runtime?)
+        if (_runtimeTimelineText(runtime) case final timeline?)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              timeline,
+              key: const ValueKey('cloud-runtime-timeline'),
+            ),
+          ),
       if (_authenticationRequired &&
           _providerId != null &&
           widget.gateway.canReconnect(_providerId!))
@@ -371,7 +441,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
           key: const ValueKey('automatic-backup'),
           contentPadding: EdgeInsets.zero,
           title: const Text('自動加密備份'),
-          subtitle: const Text('預設關閉；啟用後從下一個週期開始。'),
+          subtitle: Text(_automaticScheduleText()),
           value: _automaticEnabled,
           onChanged: _busy ? null : _configureAutomatic,
         ),

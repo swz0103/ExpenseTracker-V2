@@ -22,17 +22,20 @@
 
 主機驗證已通過買入、賣出、股息、拆股的提交後回覆遺失與重啟核對、確定拒絕後安全捨棄、vault 刪除失敗保留、加密備份雙憑證還原，以及畫面二次確認。詳細證據見 [R01 主機驗證](../test-results/2026-10-02/investment-intent-resolution-host-2026-10-02.md)。實機 process death 仍列入 R08 候選版 gate，不以本批主機測試取代。
 
-### R02 P1：自動備份缺少獨立執行入口 — 成立
+### R02 P1：自動備份缺少獨立執行入口 — 已完成前景 runner
 
-schedule、retry、持久工作與 runner 已存在，但目前 `maintainRuntime` 仍由雲端備份頁的 reload、建立與重新連結流程觸發。使用者只停留首頁、跨過 dueAt 或重新開啟 App 時，不保證自動建立並上傳快照。
+App 現在有獨立於雲端備份頁的 application runner。冷啟動在帳本仍鎖定時只 reconcile／續傳已經加密並持久化的 artifact；密碼、救援文字與未加密帳本內容不會交給這條路徑。成功解鎖（密碼、裝置解鎖或 PIN）後才檢查到期排程、建立新的雙憑證驗證快照並執行 bounded upload pump。
 
-改善原則：
+現行保護與限制：
 
-- 先在成功解鎖及 App 冷啟動恢復後，由單一 application runner 檢查到期排程與既有待傳工作。
-- 建立快照需要帳本已安全解鎖；不新增背景主密碼落地或繞過鎖定。
-- 已加密且已持久化的待傳 artifact，才可交給後續 Android background worker。
-- 保存 `scheduledFor`、`capturedAt`、最後成功時間、下一次到期時間與逾期狀態。
-- 若第一版只能「開啟並解鎖後補做」，UI 與文件必須明說，不能承諾關閉 App 仍準時建立新備份。
+- 冷啟動續傳與解鎖後排程共用序列化 application runner，不能同時操作同一工作庫。
+- 建立快照需要帳本已安全解鎖；沒有新增背景主密碼落地或繞過鎖定。
+- 工作 schema 3 分開保存 `scheduledFor`、實際 `capturedAt` 與工作 `updatedAt`；runtime 顯示最後成功上傳時間，排程庫保存 `nextDueAt`。
+- 畫面明示逾期、下次預定時間，以及「關閉 App 時不建立新快照；下次開啟並解鎖後補做」。
+- 失敗 provider 不阻止其他 provider 維護；既有持久失敗仍在雲端備份頁顯示並可重新連結。
+- 本批不是 Android OS 背景喚醒：App 完全關閉時不保證準時建立新快照。後續若接 worker，只能處理已加密 artifact，不能持有帳本密碼。
+
+主機已通過雲端核心 41/41、App runner／畫面／首頁接線／engine 整合 12/12、架構 22/22與靜態分析。詳見 [R02 主機驗證](../test-results/2026-10-02/cloud-backup-application-runner-host-2026-10-02.md)。
 
 ### R09 P1：雲端清理沒有保護預計保留集合 — 已完成第一批修正
 

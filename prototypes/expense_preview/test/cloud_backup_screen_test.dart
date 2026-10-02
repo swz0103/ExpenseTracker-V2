@@ -124,7 +124,11 @@ void main() {
     expect(gateway.scheduleEnabled, isTrue);
     expect(gateway.scheduleInterval, const Duration(days: 7));
     expect(gateway.firstDueAt, now.add(const Duration(days: 7)));
-    expect(find.text('自動備份已啟用，會從下一個週期開始。'), findsOneWidget);
+    expect(
+      find.text('自動備份已啟用；下次開啟並解鎖後會補做已到期快照。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('需開啟並解鎖才建立新快照'), findsOneWidget);
   });
 
   testWidgets('persisted runtime failure and pending work remain actionable', (
@@ -132,13 +136,22 @@ void main() {
   ) async {
     final gateway = _Gateway()
       ..pendingJobs = 2
-      ..runtimeFailure = CloudBackupWorkFailure.authenticationRequired;
+      ..runtimeFailure = CloudBackupWorkFailure.authenticationRequired
+      ..lastScheduledFor = DateTime.utc(2026, 10, 1, 8)
+      ..lastCapturedAt = DateTime.utc(2026, 10, 1, 9)
+      ..lastSuccessfulUploadAt = DateTime.utc(2026, 10, 1, 10);
     await tester.pumpWidget(
       MaterialApp(home: CloudBackupScreen(gateway: gateway)),
     );
     await tester.pumpAndSettle();
     expect(gateway.maintenanceCalls, 1);
     expect(find.text('尚有 2 份加密備份等待上傳。'), findsOneWidget);
+    final timeline = tester.widget<Text>(
+      find.byKey(const ValueKey('cloud-runtime-timeline')),
+    );
+    expect(timeline.data, contains('最近排程'));
+    expect(timeline.data, contains('實際擷取'));
+    expect(timeline.data, contains('最後上傳成功'));
     expect(find.text('雲端登入已失效，請重新連結後續傳。'), findsOneWidget);
     expect(find.text('重新連結雲端帳號'), findsOneWidget);
   });
@@ -172,6 +185,9 @@ final class _Gateway
   var maintenanceCalls = 0;
   var pendingJobs = 0;
   CloudBackupWorkFailure? runtimeFailure;
+  DateTime? lastScheduledFor;
+  DateTime? lastCapturedAt;
+  DateTime? lastSuccessfulUploadAt;
 
   @override
   Future<CloudBackupRuntimeReport> maintainRuntime(
@@ -182,6 +198,9 @@ final class _Gateway
     return CloudBackupRuntimeReport(
       pendingJobs: pendingJobs,
       lastFailure: runtimeFailure,
+      lastScheduledFor: lastScheduledFor,
+      lastCapturedAt: lastCapturedAt,
+      lastSuccessfulUploadAt: lastSuccessfulUploadAt,
     );
   }
 

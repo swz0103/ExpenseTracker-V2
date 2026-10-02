@@ -81,8 +81,12 @@ void main() {
         ),
       );
       await settle(tester);
+      expect(gateway.pendingMaintenanceCalls, 1);
+      expect(gateway.unlockedMaintenanceCalls, 0);
       await input(tester, '密碼', password);
       await tap(tester, '解鎖');
+      await settle(tester);
+      expect(gateway.unlockedMaintenanceCalls, 1);
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('open-cloud-backup')),
         180,
@@ -104,9 +108,33 @@ void main() {
   });
 }
 
-final class _Gateway implements CloudBackupScreenGateway {
+final class _Gateway
+    implements
+        CloudBackupScreenGateway,
+        CloudBackupPendingRuntimeGateway,
+        CloudBackupRuntimeGateway {
   final items = <RemoteBackupMetadata>[];
   var createCalls = 0;
+  var pendingMaintenanceCalls = 0;
+  var unlockedMaintenanceCalls = 0;
+
+  @override
+  Future<CloudBackupRuntimeReport> maintainPendingRuntime(
+    String providerId,
+    DateTime now,
+  ) async {
+    pendingMaintenanceCalls++;
+    return const CloudBackupRuntimeReport(pendingJobs: 1);
+  }
+
+  @override
+  Future<CloudBackupRuntimeReport> maintainRuntime(
+    String providerId,
+    DateTime now,
+  ) async {
+    unlockedMaintenanceCalls++;
+    return const CloudBackupRuntimeReport(pendingJobs: 0);
+  }
 
   @override
   List<CloudBackupProviderChoice> get providers => const [

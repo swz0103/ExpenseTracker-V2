@@ -188,8 +188,8 @@ Future<CloudBackupScreenGateway> createGoogleDriveCloudBackupGateway({
   final automatic = CloudBackupAutomaticScheduler(
     schedules: schedules,
     runners: runners,
-    source: (_, backupId, dueAt) =>
-        engine.exportVerifiedCloudBackup(backupId: backupId, createdAt: dueAt),
+    source: (_, backupId, scheduledFor, capturedAt) => engine
+        .exportVerifiedCloudBackup(backupId: backupId, createdAt: capturedAt),
   );
   return FlowCloudBackupScreenGateway(
     flow: flow,

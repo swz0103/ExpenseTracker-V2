@@ -925,3 +925,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 核對涵蓋整個 workspace 的 operation／event／payload 身分；多筆、跨持倉碰撞或內容不符一律 fail closed。只有完全沒有權威事實時才刪除 secure vault intent，且刪除後 read-back；注入刪除失敗時 intent 仍保留。
 - [x] App 靜態分析零問題；四種流程 8/8、投資畫面 8/8、持久層賣出 7/7 通過。流程包含提交後回覆遺失、重啟核對、確定拒絕後捨棄、刪除失敗保留及雙憑證還原。[主機證據](test-results/2026-10-02/investment-intent-resolution-host-2026-10-02.md)
 - [ ] Android process death 與正式候選 APK 實機仍屬 R08 gate；R01 主機修正不代表整體正式版可發布。下一批依外部稽核順序進入 R02 獨立自動備份 runner。
+
+## 2026-10-02 外部稽核 R02：獨立自動備份 application runner
+
+- [x] App 冷啟動不必進入備份頁，即會 reconcile 並續傳已加密的持久 artifact；這條鎖定路徑不建立新快照、不讀帳本密碼。密碼、裝置或 PIN 成功解鎖後，獨立 runner 才檢查到期排程、建立快照並執行有界上傳。
+- [x] 冷啟動與解鎖工作序列化，逐 provider 隔離失敗。工作庫 schema 3 保存原定排程、實際擷取與更新時間，runtime 回報最後成功上傳；舊 schema 1 可逐步升級且保留 staged work。
+- [x] UI 顯示下次預定／逾期、最近排程、實際擷取、最後成功上傳，並明示 App 關閉時不會建立新快照、需下次開啟並解鎖補做。雲端核心 41/41、App 相關 12/12、架構 22/22與靜態分析通過。[主機證據](test-results/2026-10-02/cloud-backup-application-runner-host-2026-10-02.md)
+- [ ] 尚未接 Android OS 背景喚醒，也不承諾 App 關閉時準時備份；未來 worker 僅能續傳已加密 artifact。Google 真實帳號、OAuth、換帳號 principal 綁定與實機仍是獨立 gate。下一批依稽核順序進入 R03 帳戶活動獨立分頁。

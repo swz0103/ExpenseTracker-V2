@@ -38,6 +38,7 @@ import 'cross_currency_portfolio_panel.dart';
 import 'investment_market_services.dart';
 import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
+import 'cloud_backup_application_runner.dart';
 import 'price_alert_service.dart';
 import 'background_price_alerts.dart';
 import 'market_credentials.dart';
@@ -317,6 +318,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   void _updateSimpleExport(VoidCallback change) => setState(change);
   PreviewEngine? _engine;
   CloudBackupScreenGateway? _cloudBackupGateway;
+  CloudBackupApplicationRunner? _cloudBackupRunner;
   _Page _page = _Page.loading;
   bool _busy = false, _saved = false, _useRecovery = false;
   int _homeDestination = 0;
@@ -420,9 +422,13 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       try {
         final gateway = widget.cloudBackupGatewayFactory?.call(engine);
         _cloudBackupGateway = gateway == null ? null : await gateway;
+        if (_cloudBackupGateway case final gateway?) {
+          _cloudBackupRunner = CloudBackupApplicationRunner(gateway);
+        }
       } catch (_) {
         // Cloud setup is optional and must never prevent local ledger access.
         _cloudBackupGateway = null;
+        _cloudBackupRunner = null;
       }
       final exists = await engine.hasProfile();
       final safety = await _availableLockedSafetyCopy(engine);
@@ -452,6 +458,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         _pinEnabled = pinEnabled;
         _page = exists ? _Page.locked : _Page.setup;
       });
+      unawaited(_maintainPendingCloudBackups());
     } catch (_) {
       if (mounted) {
         final safety = _engine == null
@@ -486,6 +493,31 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _maintainPendingCloudBackups() async {
+    try {
+      await _cloudBackupRunner?.maintainPending(DateTime.now().toUtc());
+    } catch (_) {
+      // Persistent failure state remains visible on the cloud backup page.
+    }
+  }
+
+  void _maintainCloudBackupsAfterUnlock() {
+    final engine = _engine;
+    final runner = _cloudBackupRunner;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (engine == null ||
+        runner == null ||
+        !engine.isUnlocked ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+      return;
+    }
+    unawaited(
+      runner.maintainUnlocked(DateTime.now().toUtc()).catchError((Object _) {
+        return <CloudBackupApplicationProviderReport>[];
+      }),
+    );
   }
 
   @override
@@ -915,6 +947,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       }
     }
     await _refresh();
+    _maintainCloudBackupsAfterUnlock();
     if (mounted && deviceError) {
       setState(() => _message = '裝置解鎖未啟用；仍可使用帳本密碼。');
     }
@@ -935,6 +968,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
       return;
     }
     await _refresh();
+    _maintainCloudBackupsAfterUnlock();
   });
 
   Future<void> _unlockWithPin() => _perform(() async {
@@ -960,6 +994,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         return;
       }
       await _refresh();
+      _maintainCloudBackupsAfterUnlock();
     } finally {
       _pin.clear();
     }

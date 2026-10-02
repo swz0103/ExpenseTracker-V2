@@ -18,7 +18,10 @@ typedef CloudBackupReconnect = Future<void> Function(String providerId);
 /// The final app integration supplies an engine-backed source factory and the
 /// existing clean-restore handoff without changing screen behavior.
 final class FlowCloudBackupScreenGateway
-    implements CloudBackupScreenGateway, CloudBackupRuntimeGateway {
+    implements
+        CloudBackupScreenGateway,
+        CloudBackupRuntimeGateway,
+        CloudBackupPendingRuntimeGateway {
   FlowCloudBackupScreenGateway({
     required this.flow,
     required this.providerChoices,
@@ -92,6 +95,14 @@ final class FlowCloudBackupScreenGateway
     DateTime now,
   ) async {
     await automaticScheduler?.tick(now.toUtc());
+    return maintainPendingRuntime(providerId, now);
+  }
+
+  @override
+  Future<CloudBackupRuntimeReport> maintainPendingRuntime(
+    String providerId,
+    DateTime now,
+  ) async {
     final runner = runners[providerId];
     runner?.reconcile(now.toUtc());
     await _runProvider(providerId, now.toUtc(), throwFailures: false);
@@ -107,9 +118,17 @@ final class FlowCloudBackupScreenGateway
         break;
       }
     }
+    final latest = runner.work.latest(providerId: providerId);
+    final latestUploaded = runner.work.latest(
+      providerId: providerId,
+      state: CloudBackupWorkState.uploaded,
+    );
     return CloudBackupRuntimeReport(
       pendingJobs: pending.length,
       lastFailure: lastFailure,
+      lastScheduledFor: latest?.scheduledFor,
+      lastCapturedAt: latest?.createdAt,
+      lastSuccessfulUploadAt: latestUploaded?.updatedAt,
     );
   }
 

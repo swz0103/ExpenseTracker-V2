@@ -30,8 +30,10 @@ final class CloudBackupWorkRecord {
     required this.sha256,
     required this.byteLength,
     required this.createdAt,
+    required this.updatedAt,
     required this.fileName,
     required this.state,
+    this.scheduledFor,
     this.remoteObjectId,
     this.lastFailure,
   });
@@ -41,6 +43,8 @@ final class CloudBackupWorkRecord {
   final String sha256;
   final int byteLength;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? scheduledFor;
   final String fileName;
   final CloudBackupWorkState state;
   final String? remoteObjectId;
@@ -95,6 +99,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
               sha256 TEXT NOT NULL,
               byte_length INTEGER NOT NULL CHECK(byte_length > 0),
               created_at INTEGER NOT NULL,
+              scheduled_for INTEGER,
               file_name TEXT NOT NULL UNIQUE,
               state TEXT NOT NULL CHECK(state IN ('staged','uploaded')),
               remote_object_id TEXT UNIQUE,
@@ -107,16 +112,17 @@ final class CloudBackupWorkStore implements DriveReservationStore {
             ) STRICT
           ''');
           db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
-          db.execute('PRAGMA user_version=2');
+          db.execute('PRAGMA user_version=3');
           db.execute('COMMIT');
         } catch (_) {
           db.execute('ROLLBACK');
           rethrow;
         }
-      } else if (db.userVersion == 1) {
-        db.execute('BEGIN IMMEDIATE');
-        try {
-          db.execute('''
+      } else {
+        if (db.userVersion == 1) {
+          db.execute('BEGIN IMMEDIATE');
+          try {
+            db.execute('''
             ALTER TABLE backup_work ADD COLUMN last_failure TEXT CHECK(
               last_failure IN (
                 'authenticationRequired','permissionDenied','quotaExceeded',
@@ -125,13 +131,28 @@ final class CloudBackupWorkStore implements DriveReservationStore {
               )
             )
           ''');
-          db.execute('PRAGMA user_version=2');
-          db.execute('COMMIT');
-        } catch (_) {
-          db.execute('ROLLBACK');
-          rethrow;
+            db.execute('PRAGMA user_version=2');
+            db.execute('COMMIT');
+          } catch (_) {
+            db.execute('ROLLBACK');
+            rethrow;
+          }
         }
-      } else if (db.userVersion != 2) {
+        if (db.userVersion == 2) {
+          db.execute('BEGIN IMMEDIATE');
+          try {
+            db.execute(
+              'ALTER TABLE backup_work ADD COLUMN scheduled_for INTEGER',
+            );
+            db.execute('PRAGMA user_version=3');
+            db.execute('COMMIT');
+          } catch (_) {
+            db.execute('ROLLBACK');
+            rethrow;
+          }
+        }
+      }
+      if (db.userVersion != 3) {
         throw StateError('Unsupported cloud backup schema');
       }
       return CloudBackupWorkStore._(db, artifactDirectory);
@@ -147,11 +168,12 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     VerifiedBackupArtifact artifact, {
     required String providerId,
     required DateTime now,
+    DateTime? scheduledFor,
   }) async {
     _validateRoute(providerId);
     final existing = byId(artifact.backupId);
     if (existing != null) {
-      _requireSame(existing, artifact, providerId);
+      _requireSame(existing, artifact, providerId, scheduledFor);
       await _verifyFile(existing);
       return existing;
     }
@@ -165,8 +187,9 @@ final class CloudBackupWorkStore implements DriveReservationStore {
       _db.execute(
         '''
         INSERT INTO backup_work(
-          backup_id,provider_id,sha256,byte_length,created_at,file_name,state,updated_at
-        ) VALUES(?,?,?,?,?,?,'staged',?)
+          backup_id,provider_id,sha256,byte_length,created_at,scheduled_for,
+          file_name,state,updated_at
+        ) VALUES(?,?,?,?,?,?,?,'staged',?)
         ''',
         [
           artifact.backupId,
@@ -174,6 +197,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
           artifact.sha256,
           artifact.byteLength,
           artifact.createdAt.millisecondsSinceEpoch,
+          scheduledFor?.toUtc().millisecondsSinceEpoch,
           fileName,
           timestamp,
         ],
@@ -181,7 +205,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     } catch (_) {
       final raced = byId(artifact.backupId);
       if (raced == null) rethrow;
-      _requireSame(raced, artifact, providerId);
+      _requireSame(raced, artifact, providerId, scheduledFor);
     }
     return byId(artifact.backupId)!;
   }
@@ -190,6 +214,19 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     final rows = _db.select('SELECT * FROM backup_work WHERE backup_id=?', [
       backupId,
     ]);
+    return rows.isEmpty ? null : _record(rows.single);
+  }
+
+  CloudBackupWorkRecord? latest({
+    required String providerId,
+    CloudBackupWorkState? state,
+  }) {
+    final rows = _db.select(
+      state == null
+          ? 'SELECT * FROM backup_work WHERE provider_id=? ORDER BY created_at DESC,backup_id DESC LIMIT 1'
+          : 'SELECT * FROM backup_work WHERE provider_id=? AND state=? ORDER BY updated_at DESC,backup_id DESC LIMIT 1',
+      state == null ? [providerId] : [providerId, state.name],
+    );
     return rows.isEmpty ? null : _record(rows.single);
   }
 
@@ -294,6 +331,17 @@ final class CloudBackupWorkStore implements DriveReservationStore {
       row['created_at'] as int,
       isUtc: true,
     ),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      row['updated_at'] as int,
+      isUtc: true,
+    ),
+    scheduledFor: switch (row['scheduled_for']) {
+      final int value => DateTime.fromMillisecondsSinceEpoch(
+        value,
+        isUtc: true,
+      ),
+      _ => null,
+    },
     fileName: row['file_name'] as String,
     state: CloudBackupWorkState.values.byName(row['state'] as String),
     remoteObjectId: row['remote_object_id'] as String?,
@@ -331,8 +379,14 @@ final class CloudBackupJobRunner {
   Future<void> schedule(
     VerifiedBackupArtifact artifact, {
     required DateTime now,
+    DateTime? scheduledFor,
   }) async {
-    await work.stage(artifact, providerId: provider.providerId, now: now);
+    await work.stage(
+      artifact,
+      providerId: provider.providerId,
+      now: now,
+      scheduledFor: scheduledFor,
+    );
     jobs.enqueue(
       idempotencyKey: '$_jobPrefix${artifact.backupId}',
       kind: cloudBackupUploadJobKind,
@@ -441,11 +495,13 @@ void _requireSame(
   CloudBackupWorkRecord record,
   VerifiedBackupArtifact artifact,
   String providerId,
+  DateTime? scheduledFor,
 ) {
   if (record.providerId != providerId ||
       record.sha256 != artifact.sha256 ||
       record.byteLength != artifact.byteLength ||
-      record.createdAt != artifact.createdAt) {
+      record.createdAt != artifact.createdAt ||
+      record.scheduledFor != scheduledFor?.toUtc()) {
     throw StateError('Backup ID belongs to different cloud backup work');
   }
 }

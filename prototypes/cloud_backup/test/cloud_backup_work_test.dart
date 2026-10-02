@@ -71,6 +71,13 @@ void main() {
     runner = _runner(jobs: jobs, work: work, api: api);
     expect(await runner.runNext(start), isTrue);
     expect(work.byId(artifact.backupId)!.state, CloudBackupWorkState.uploaded);
+    final latestUploaded = work.latest(
+      providerId: googleDriveBackupProviderId,
+      state: CloudBackupWorkState.uploaded,
+    );
+    expect(latestUploaded?.backupId, artifact.backupId);
+    expect(latestUploaded?.updatedAt, start);
+    expect(latestUploaded?.scheduledFor, isNull);
     expect(
       jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
       JobState.succeeded,
