@@ -1,3 +1,11 @@
+## 2026-10-02 容量檢查重複掃描移除
+
+- [x] Ledger 開啟工作階段時直接沿用 generation recovery 已完成驗證的 canonical snapshot；第一次寫入做容量 admission 時不再立刻重新掃描整個 SQLCipher 資料庫，減少大資料量下同一工作階段的重複 I/O 與序列化成本。
+- [x] 容量驗證仍延後到第一次寫入，因此超過目前寫入上限但格式完整的資料庫仍可唯讀及匯出；沒有快取 snapshot 的既有呼叫路徑會安全退回原本的完整 capture，不降低 fail-closed 行為。
+- [x] 暫存的明文 snapshot 只存在工作階段記憶體，使用後或關閉工作階段時會覆寫並清除；不新增磁碟明文、備份欄位或另一份權威資料。
+- [x] Storage recovery 28 項、Ledger store／reference session 39 項及 session／5,000-event reference scale 8 項測試通過；後者以單執行緒完成於 9 分 33 秒。兩個受影響套件靜態分析通過。
+- [ ] 本批沒有提高現行 5,000 事件、50,000 allocations 或 16 MiB encoded snapshot 上限，也不宣稱 100,000 筆完成；下一階段要分離量測 recovery inspection、容量解析、SQLCipher 寫入與備份／還原成本，再決定分塊格式與升級策略。
+
 ## 2026-10-02 Android 背景到價提醒
 
 - [x] 到價提醒新增使用者明確開關；只有 Yahoo 免金鑰來源可映射的 TWSE、TPEx、NASDAQ、NYSE 與 NYSE Arca 標的才顯示。前景仍可依 1／5 分鐘行情檢查，背景清楚標示為 Android 約 15 分鐘以上的盡力排程，省電、休眠或廠牌限制可能延後。

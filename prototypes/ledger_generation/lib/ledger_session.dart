@@ -51,7 +51,8 @@ final class LedgerEntry {
 /// Exclusive, bounded command scope. No public SQL or database handle.
 /// Preview limits preserve room for portable backups; not full M3 capacity.
 final class LedgerSession {
-  LedgerSession._(this._db);
+  LedgerSession._(this._db, {List<int>? inspectedSnapshot})
+    : _inspectedSnapshot = inspectedSnapshot;
   static const maxEvents = 5000;
   static const maxNoteChanges = 5000;
   static const maxAccounts = 32;
@@ -68,6 +69,7 @@ final class LedgerSession {
   Future<void> _tail = Future.value();
   bool _closed = false;
   ({int rows, int bytes})? _capacityUsage;
+  List<int>? _inspectedSnapshot;
 
   Future<T> _write<T>(Future<T> Function() work) async {
     final prior = _capacityUsage;
@@ -90,6 +92,12 @@ final class LedgerSession {
   Future<void> _close() async {
     _closed = true;
     await _tail;
+    _discardInspectedSnapshot();
+  }
+
+  void _discardInspectedSnapshot() {
+    _inspectedSnapshot?.fillRange(0, _inspectedSnapshot!.length, 0);
+    _inspectedSnapshot = null;
   }
 
   Future<int> _count(String table) async =>
@@ -111,31 +119,33 @@ final class LedgerSession {
 
   Future<void> _admitCapacity() async {
     if (_capacityUsage != null) return;
+    final inspected = _inspectedSnapshot;
     final admitted = validateSessionCapacity(
-      await SnapshotCodec(
-        categoryAware: _db.categoryAware,
-        generationAware: true,
-        categoryReferences: _db.categoryReferences,
-        tagsAware: _db.tagsAware,
-        merchantsAware: _db.merchantsAware,
-        transfersAware: _db.transfersAware,
-        fxTransfersAware: _db.fxTransfersAware,
-        refundsAware: _db.refundsAware,
-        reversalsAware: _db.reversalsAware,
-        notesAware: _db.notesAware,
-        correctionsAware: _db.correctionsAware,
-        tombstonesAware: _db.tombstonesAware,
-        budgetsAware: _db.budgetsAware,
-        recurringAware: _db.recurringAware,
-        creditCardsAware: _db.creditCardsAware,
-        cardStatementsAware: _db.cardStatementsAware,
-        cardAuthorizationsAware: _db.cardAuthorizationsAware,
-        installmentsAware: _db.installmentsAware,
-        investmentsAware: _db.investmentsAware,
-        investmentSalesAware: _db.investmentSalesAware,
-        investmentDividendsAware: _db.investmentDividendsAware,
-        investmentSplitsAware: _db.investmentSplitsAware,
-      ).capture(_db),
+      inspected ??
+          await SnapshotCodec(
+            categoryAware: _db.categoryAware,
+            generationAware: true,
+            categoryReferences: _db.categoryReferences,
+            tagsAware: _db.tagsAware,
+            merchantsAware: _db.merchantsAware,
+            transfersAware: _db.transfersAware,
+            fxTransfersAware: _db.fxTransfersAware,
+            refundsAware: _db.refundsAware,
+            reversalsAware: _db.reversalsAware,
+            notesAware: _db.notesAware,
+            correctionsAware: _db.correctionsAware,
+            tombstonesAware: _db.tombstonesAware,
+            budgetsAware: _db.budgetsAware,
+            recurringAware: _db.recurringAware,
+            creditCardsAware: _db.creditCardsAware,
+            cardStatementsAware: _db.cardStatementsAware,
+            cardAuthorizationsAware: _db.cardAuthorizationsAware,
+            installmentsAware: _db.installmentsAware,
+            investmentsAware: _db.investmentsAware,
+            investmentSalesAware: _db.investmentSalesAware,
+            investmentDividendsAware: _db.investmentDividendsAware,
+            investmentSplitsAware: _db.investmentSplitsAware,
+          ).capture(_db),
       categoryAware: _db.categoryAware,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
@@ -159,6 +169,7 @@ final class LedgerSession {
       investmentSplitsAware: _db.investmentSplitsAware,
     );
     _capacityUsage = _snapshotUsage(admitted);
+    _discardInspectedSnapshot();
   }
 
   Future<void> _capacity(Posting posting, {bool account = false}) async {

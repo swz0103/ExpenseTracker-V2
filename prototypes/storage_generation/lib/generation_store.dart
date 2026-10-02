@@ -314,6 +314,22 @@ final class GenerationStore {
     );
   }, cancellation: cancellation);
 
+  /// Opens the active generation and also supplies the payload that recovery
+  /// already inspected under the same lifecycle lock. Consumers can reuse it
+  /// instead of immediately scanning a large encrypted database a second time.
+  Future<T> withInspectedCurrent<T>(
+    Future<T> Function(File, StorageKey, InstalledFixture) work, {
+    LockWaitCancellation? cancellation,
+  }) => _locked((catalog) async {
+    final inspected = await _recover(catalog);
+    if (inspected == null) throw StateError('No active generation');
+    return work(
+      databaseFile(inspected.receipt.generation),
+      await keys.read(inspected.receipt.slot),
+      inspected,
+    );
+  }, cancellation: cancellation);
+
   GenerationReceipt? _active(Database catalog) {
     final refs = catalog.select(
       'SELECT generation FROM active WHERE singleton=1',

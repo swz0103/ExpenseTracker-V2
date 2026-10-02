@@ -98,6 +98,27 @@ void main() {
   });
 
   test(
+    'inspected scope exposes the payload already validated by recovery',
+    () async {
+      await installOld();
+      final counted = CountingSlots(slots);
+      final reopened = GenerationStore(root, counted);
+      final seen = await reopened.withInspectedCurrent((
+        file,
+        key,
+        installed,
+      ) async {
+        expect(await file.exists(), isTrue);
+        expect(key.toString(), 'StorageKey(redacted)');
+        expect(installed.receipt.generation, isNotNull);
+        return installed.value;
+      });
+      expect(seen, oldValue);
+      expect(counted.reads, 2); // Inspect once, then supply the callback key.
+    },
+  );
+
+  test(
     'publishes a paired encrypted generation and retains old database and key',
     () async {
       final old = await installOld();

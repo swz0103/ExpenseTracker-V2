@@ -597,7 +597,8 @@ final class LedgerStore {
     Object? failure;
     StackTrace? trace;
     late T result;
-    await generations.withCurrent((file, key, receipt) async {
+    await generations.withInspectedCurrent((file, key, installed) async {
+      final receipt = installed.receipt;
       final db = openEncrypted(
         file,
         key,
@@ -625,7 +626,10 @@ final class LedgerStore {
         investmentDividendsAware: investmentDividendsAware,
         investmentSplitsAware: investmentSplitsAware,
       );
-      final session = LedgerSession._(db);
+      final session = LedgerSession._(
+        db,
+        inspectedSnapshot: utf8.encode(installed.value),
+      );
       try {
         result = await work(session);
       } catch (error, stack) {
