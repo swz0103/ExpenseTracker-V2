@@ -135,6 +135,19 @@ bool _accountReceipt(Map row) {
       (input.first == 'create-v1' || input.first == 'card-create-v1');
 }
 
+bool _accountMutationReceipt(Map row) {
+  final input = jsonDecode(row['input'] as String);
+  return input is List &&
+      input.isNotEmpty &&
+      {
+        'archive-v1',
+        'account-rename-v1',
+        'account-net-worth-v1',
+        'account-reactivate-v1',
+        'account-close-v1',
+      }.contains(input.first);
+}
+
 bool _reversalReceipt(Map row) {
   var input = jsonDecode(row['input'] as String);
   if (input is List &&
@@ -167,6 +180,7 @@ void _checkRowBytes(String table, Map row) {
       ? 8192
       : table == 'receipts' &&
             (_accountReceipt(row) ||
+                _accountMutationReceipt(row) ||
                 [
                   'posting-v2', // Allocations need the same bound with or without tags.
                   'tagged-post-v1',
@@ -290,6 +304,9 @@ List<int> validateSessionCapacity(
   }
   final events = tables['events'] as List;
   final receipts = tables['receipts'] as List;
+  final accountChanges = receipts
+      .where((row) => _accountMutationReceipt(row as Map))
+      .length;
   final changes =
       (categoryAware ? (tables['category_changes'] as List).length : 0) +
       (tagsAware ? (tables['tag_changes'] as List).length : 0) +
@@ -313,6 +330,7 @@ List<int> validateSessionCapacity(
       receipts.length !=
           events.length +
               changes +
+              accountChanges +
               (investmentSplitsAware
                   ? (tables['investment_splits'] as List).length
                   : 0) ||

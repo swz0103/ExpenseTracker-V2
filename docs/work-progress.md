@@ -947,3 +947,11 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 只有解鎖首頁會要求平台退出，且必須先等待草稿尾端、鎖定 Ledger session、關閉敏感 popup 並完成 lock barrier。未解鎖的 loading／setup／recovery／locked／blocked 可直接退出。
 - [x] 新增安全返回 3/3，並與草稿 2/2、背景鎖定／popup 6/6 合計 11/11；架構 22/22及靜態分析通過。[主機證據](test-results/2026-10-02/safe-back-navigation-host-2026-10-02.md)
 - [ ] Android predictive back、實體返回鍵、process death 與 OEM 行為仍列 R08 真機 gate；下一批依稽核順序進入 R11 帳戶生命週期 App 接線。
+
+## 2026-10-02 外部稽核 R11：帳戶生命週期正式接線
+
+- [x] 設定新增「帳戶管理」正式入口，可改名、切換資產摘要、封存、重新啟用與關閉；不提供既有帳戶幣別／開戶日改寫。封存文案明示不刪歷史且不釋放 32 帳戶上限，關閉資訊會顯示於帳戶列。
+- [x] 所有命令以 operation ID、expected version 與 SQLCipher transaction 保存。相同輸入重送冪等；operation 碰撞或 stale version 拒絕。receipt／audit、session capacity 與 portable snapshot validator 均辨識新命令，多次關閉後仍可 snapshot 與重開。
+- [x] 關閉在同一交易讀取權威餘額及 unresolved 信用卡授權；非零餘額、待入帳項目、日期或接手帳戶無效都拒絕且不改狀態。重新啟用保留最近一次 closure metadata，完整操作歷史仍在 receipt／audit。
+- [x] Ledger 生命週期 2/2、正式畫面與帳戶／資產報表 4/4、validated restore 131/131、架構 22/22及相關靜態分析通過。[主機證據](test-results/2026-10-02/account-lifecycle-host-2026-10-02.md)
+- [ ] Android 真機、跨裝置 stale-version 演練與候選版雙憑證還原仍列 R08；下一階段依稽核順序進入 R10 雲端工作 principal 綁定。

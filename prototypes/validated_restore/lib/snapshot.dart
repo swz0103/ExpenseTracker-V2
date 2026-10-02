@@ -1223,12 +1223,27 @@ final class SnapshotCodec {
       ON counts.workspace=e.workspace AND counts.result_id=e.id WHERE COALESCE(counts.n,0)!=1''',
     ).get();
     if (orphanReceipts.isNotEmpty) throw const InvalidSnapshot();
-    for (final row
-        in await db
-            .customSelect(
-              'SELECT r.*,a.kind AS audit_kind FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id',
-            )
-            .get()) {
+    final receiptRows = await db
+        .customSelect(
+          'SELECT r.*,a.kind AS audit_kind FROM receipts r JOIN audit a ON a.workspace=r.workspace AND a.operation_id=r.operation_id',
+        )
+        .get();
+    final latestCloseVersion = <(String, String), int>{};
+    for (final row in receiptRows) {
+      final input = jsonDecode(row.read<String>('input'));
+      if (input is List &&
+          input.length == 6 &&
+          input.first == 'account-close-v1' &&
+          input[1] is String &&
+          input[2] is int) {
+        final key = (row.read<String>('workspace'), input[1] as String);
+        final version = input[2] as int;
+        if (version > (latestCloseVersion[key] ?? 0)) {
+          latestCloseVersion[key] = version;
+        }
+      }
+    }
+    for (final row in receiptRows) {
       var input = jsonDecode(row.read<String>('input'));
       if (input is! List ||
           input.isEmpty ||
@@ -1244,6 +1259,10 @@ final class SnapshotCodec {
             if (notesAware) 'note-v1',
             if (categoryReferences) 'posting-v2',
             'archive-v1',
+            'account-rename-v1',
+            'account-net-worth-v1',
+            'account-reactivate-v1',
+            'account-close-v1',
             if (categoryAware) 'category-v1',
             if (tagsAware) 'tag-v1',
             if (tagsAware) 'tagged-post-v1',
@@ -1400,6 +1419,69 @@ final class SnapshotCodec {
           PublicId.parse(resultId),
         );
         if (account.version <= input[2]) throw const InvalidSnapshot();
+        continue;
+      }
+      if ({
+        'account-rename-v1',
+        'account-net-worth-v1',
+        'account-reactivate-v1',
+        'account-close-v1',
+      }.contains(input.first)) {
+        final expectedLength = switch (input.first) {
+          'account-reactivate-v1' => 3,
+          'account-close-v1' => 6,
+          _ => 4,
+        };
+        final expectedKind = switch (input.first) {
+          'account-rename-v1' => 'account.rename',
+          'account-net-worth-v1' => 'account.net-worth',
+          'account-reactivate-v1' => 'account.reactivate',
+          _ => 'account.close',
+        };
+        if (input.length != expectedLength ||
+            input[1] != resultId ||
+            input[2] is! int ||
+            input[2] < 1 ||
+            auditKind != expectedKind ||
+            (input.first == 'account-rename-v1' &&
+                (input[3] is! String ||
+                    (input[3] as String).trim().isEmpty ||
+                    (input[3] as String).trim().length > 100)) ||
+            (input.first == 'account-net-worth-v1' && input[3] is! bool)) {
+          throw const InvalidSnapshot();
+        }
+        final account = await accounts.read(
+          WorkspaceId.parse(ws),
+          PublicId.parse(resultId),
+        );
+        if (account.version <= input[2]) throw const InvalidSnapshot();
+        if (input.first == 'account-close-v1') {
+          if (input[3] is! String ||
+              input[4] is! String ||
+              (input[5] != null && input[5] is! String)) {
+            throw const InvalidSnapshot();
+          }
+          final reason = (input[4] as String).trim();
+          if (reason.isEmpty || reason.length > 500) {
+            throw const InvalidSnapshot();
+          }
+          if (input[5] != null) {
+            try {
+              await accounts.read(
+                WorkspaceId.parse(ws),
+                PublicId.parse(input[5] as String),
+              );
+            } catch (_) {
+              throw const InvalidSnapshot();
+            }
+          }
+          if (latestCloseVersion[(ws, resultId)] == input[2] &&
+              (account.closedOn != BusinessDate.parse(input[3] as String) ||
+                  account.closingReason != reason ||
+                  account.successorId?.value != input[5])) {
+            throw const InvalidSnapshot();
+          }
+        }
         continue;
       }
       final event = eventsById[(ws, resultId)];

@@ -59,6 +59,7 @@ part 'tombstone_entry.dart';
 part 'note_entry.dart';
 part 'activity_dialog.dart';
 part 'account_details_sheet.dart';
+part 'account_management_screen.dart';
 part 'tag_screen.dart';
 part 'merchant_screen.dart';
 part 'search_screen.dart';
@@ -273,6 +274,7 @@ enum _Page {
   pinSetup,
   pinDisable,
   upgrade,
+  accountManagement,
   categories,
   tags,
   merchants,
@@ -2232,6 +2234,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
               const SizedBox(height: 8),
               const _SettingsLabel('個人化'),
               ListTile(
+                leading: const Icon(Icons.account_balance_wallet_outlined),
+                title: const Text('帳戶管理'),
+                onTap: () => open(sheetContext, _Page.accountManagement),
+              ),
+              ListTile(
                 leading: const Icon(Icons.category_outlined),
                 title: const Text('分類管理'),
                 onTap: () => open(sheetContext, _Page.categories),
@@ -2399,6 +2406,11 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
   );
   List<Widget> _content() {
     switch (_page) {
+      case _Page.accountManagement:
+        return [
+          _AccountManagementScreen(engine: _engine!, privacy: _privacy),
+          _back(),
+        ];
       case _Page.upgrade:
         return [
           Text('更新帳本', style: Theme.of(context).textTheme.headlineSmall),

@@ -433,6 +433,139 @@ final class FinancialWorkflows {
     null,
   );
 
+  Future<CommitResult> renameAccount(
+    WorkspaceId workspace,
+    PublicId accountId,
+    int version,
+    OperationId operation,
+    String name,
+  ) => _commit(
+    OperationKey(workspace, operation),
+    jsonEncode(['account-rename-v1', accountId.value, version, name]),
+    accountId,
+    () async {
+      final account = await accounts.read(workspace, accountId);
+      await accounts.replace(
+        account.rename(
+          workspace: workspace,
+          expectedVersion: version,
+          name: name,
+        ),
+      );
+    },
+    'account.rename',
+    null,
+  );
+
+  Future<CommitResult> setAccountNetWorthInclusion(
+    WorkspaceId workspace,
+    PublicId accountId,
+    int version,
+    OperationId operation,
+    bool included,
+  ) => _commit(
+    OperationKey(workspace, operation),
+    jsonEncode(['account-net-worth-v1', accountId.value, version, included]),
+    accountId,
+    () async {
+      final account = await accounts.read(workspace, accountId);
+      await accounts.replace(
+        account.setNetWorthInclusion(
+          workspace: workspace,
+          expectedVersion: version,
+          included: included,
+        ),
+      );
+    },
+    'account.net-worth',
+    null,
+  );
+
+  Future<CommitResult> reactivateAccount(
+    WorkspaceId workspace,
+    PublicId accountId,
+    int version,
+    OperationId operation,
+  ) => _commit(
+    OperationKey(workspace, operation),
+    jsonEncode(['account-reactivate-v1', accountId.value, version]),
+    accountId,
+    () async {
+      final account = await accounts.read(workspace, accountId);
+      await accounts.replace(
+        account.reactivate(workspace: workspace, expectedVersion: version),
+      );
+    },
+    'account.reactivate',
+    null,
+  );
+
+  Future<CommitResult> closeAccount(
+    WorkspaceId workspace,
+    PublicId accountId,
+    int version,
+    OperationId operation, {
+    required BusinessDate date,
+    required String reason,
+    PublicId? successorId,
+  }) => _commit(
+    OperationKey(workspace, operation),
+    jsonEncode([
+      'account-close-v1',
+      accountId.value,
+      version,
+      date.toString(),
+      reason,
+      successorId?.value,
+    ]),
+    accountId,
+    () async {
+      final account = await accounts.read(workspace, accountId);
+      final successor = successorId == null
+          ? null
+          : await accounts.read(workspace, successorId);
+      final balance = await ledger.balance(
+        PostingAccount(
+          id: account.id,
+          workspace: workspace,
+          currency: account.currency,
+          expectedVersion: account.version,
+        ),
+      );
+      var unsettled = false;
+      if (db.cardAuthorizationsAware) {
+        unsettled =
+            (await db
+                    .customSelect(
+                      'SELECT 1 FROM card_authorizations a '
+                      'LEFT JOIN card_authorization_resolutions r '
+                      'ON r.workspace=a.workspace AND r.charge_id=a.charge_id '
+                      'WHERE a.workspace=? AND a.card_id=? AND r.charge_id IS NULL LIMIT 1',
+                      variables: [
+                        Variable.withString(workspace.toString()),
+                        Variable.withString(accountId.value),
+                      ],
+                    )
+                    .get())
+                .isNotEmpty;
+      }
+      await accounts.replace(
+        account.close(
+          workspace: workspace,
+          expectedVersion: version,
+          balanceAccountId: accountId,
+          currentBalance: balance,
+          hasUnsettledItems: unsettled,
+          date: date,
+          reason: reason,
+          successor: successor,
+        ),
+      );
+    },
+    'account.close',
+    null,
+  );
+
   Future<void> _checkBalances(Posting posting) async {
     final visited = <PublicId>{};
     for (final leg in posting.legs) {

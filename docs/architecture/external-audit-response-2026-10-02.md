@@ -77,9 +77,13 @@ root 現在使用 `PopScope` 接管系統返回，內頁與「返回帳本」按
 
 固定 log-rate 網格無法證明所有根都被隔離。短期應在找到多根或無法證明唯一時回報「可能多解／不可用」，並加入報告提供的三根反例、近根、重根、邊界根與同日抵銷。若未來要完整支援多解，需要具可論證區間涵蓋的 root isolation，而不是單純增加取樣數。
 
-### R11 P2：帳戶生命週期 domain 尚未完整接 App — 成立
+### R11 P2：帳戶生命週期 domain 尚未完整接 App — 已完成第一批修正
 
-domain 已有 rename、archive、close、reactivate 與摘要設定規則，但 App 主要只有建立與查閱。需補 service、持久化交易、UI 與版本衝突；有交易的帳戶不能任意改幣別／起始日，非零餘額或未結項目不能關閉，封存不能被描述成釋放 32 帳戶容量。
+正式設定現在有「帳戶管理」入口，可操作改名、資產摘要納入／排除、封存、重新啟用與關閉。畫面不提供幣別或開戶日改寫；封存確認明示歷史保留且不會釋放 32 個帳戶上限。已關閉帳戶顯示關閉日、原因與接手帳戶，仍可重新啟用。
+
+每個命令都使用固定 operation ID、expected version 與同一 SQLCipher transaction。重送相同輸入冪等，operation 內容碰撞或 stale version fail closed。關閉在同一交易讀取權威 Ledger 餘額與尚未解決的信用卡授權；非零餘額、待入帳授權、無效日期或接手帳戶狀態不符都拒絕，帳戶保持原狀。receipt／audit、容量模型及 portable snapshot 白名單已加入新命令；多次關閉只以最新 closure metadata 對照，但所有歷史 receipt 仍保留並驗證格式與版本。
+
+主機已通過生命週期 session 2/2、正式畫面與帳戶／資產報表 4/4、validated restore 131/131、架構 22/22及相關靜態分析。詳見 [R11 主機驗證](../test-results/2026-10-02/account-lifecycle-host-2026-10-02.md)。真機、跨裝置版本衝突與候選版還原仍列 R08 gate。
 
 ### R06 P2：前景資料庫與重複投影缺少裝置量測 — 成立，部分改善
 
@@ -112,7 +116,7 @@ domain 已有 rename、archive、close、reactivate 與摘要設定規則，但 
 
 1. R03 帳戶活動獨立查詢與分頁（已完成第一批修正）。
 2. R05 Android Back 共用安全離頁（已完成第一批修正）。
-3. R11 帳戶 rename/archive/close/reactivate/summary 設定。
+3. R11 帳戶 rename/archive/close/reactivate/summary 設定（已完成第一批修正）。
 
 退出條件：活動不漏筆、不混頁；返回不能繞過草稿或鎖定；domain 已有能力都有可操作且受版本保護的 App 入口。
 

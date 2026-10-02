@@ -68,6 +68,7 @@ export 'package:modular_persistence_probe/investment_adapter.dart'
         InvestmentSplitFact;
 
 part 'ledger_session.dart';
+part 'account_session.dart';
 part 'simple_import_session.dart';
 part 'activity_session.dart';
 part 'note_session.dart';

@@ -30,6 +30,7 @@ import 'package:ledger_generation_probe/safety_backup.dart';
 import 'package:storage_generation_probe/generation_store.dart';
 
 part 'preview_categories.dart';
+part 'preview_accounts.dart';
 part 'preview_tags.dart';
 part 'preview_merchants.dart';
 part 'preview_copy.dart';
