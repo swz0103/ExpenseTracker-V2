@@ -1184,6 +1184,7 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
             priceAlerts: widget.marketServices?.priceAlerts,
             priceAlertNotifications:
                 widget.marketServices?.priceAlertNotifications,
+            priceAlertBackground: widget.marketServices?.priceAlertBackground,
           ),
           if (widget.marketServices case final services?) ...[
             const SizedBox(height: 12),

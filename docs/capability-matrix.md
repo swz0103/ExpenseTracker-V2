@@ -81,7 +81,7 @@
 | 美股 1／5 分鐘股價 | provider-neutral controller、路由與 UI 完成；Yahoo Chart 免金鑰盡力來源已接正式 registry，Twelve Data adapter 仍可作後續選配來源 | Yahoo 端點穩定性、延遲、顯示權利與 Android 實機需持續驗證；正式商用來源仍需使用者決定 |
 | 其他分鐘來源 | 可擴充，不作無限完成條件 | 依市場覆蓋、授權與額度需求增補 provider adapter |
 | 跨幣別投資摘要 | 正式投資畫面接線完成 | 真實 FX、實機與集中整合 gate |
-| 到價提醒 | secure storage、日終／分鐘 crossing、冷卻、去重、App 內與前景 Android 系統通知完成；前景分鐘查詢可免金鑰使用 Yahoo 盡力來源 | OS 背景策略、Yahoo 非保證端點風險、通知權限與實機驗證 |
+| 到價提醒 | secure storage、日終／分鐘 crossing、冷卻、去重、App 內／前景通知及使用者明確開啟的 Android WorkManager 背景檢查完成；背景與前景共用同一加密 checkpoint，免金鑰 Yahoo 五分鐘資料只作盡力來源 | Android 背景最低約 15 分鐘且可能被省電延後，不宣稱 1／5 分鐘；Yahoo 非保證端點、通知權限、重開排程及實機耗電／斷網仍需驗證 |
 
 ## 多來源市場資料契約
 

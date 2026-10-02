@@ -24,6 +24,7 @@ class MarketQuotePanel extends StatefulWidget {
     this.router,
     this.priceAlerts,
     this.priceAlertNotifications,
+    this.priceAlertBackground,
   });
 
   final InvestmentInstrument instrument;
@@ -44,6 +45,7 @@ class MarketQuotePanel extends StatefulWidget {
   final MarketDataRouter? router;
   final PriceAlertService? priceAlerts;
   final PriceAlertNotificationPresenter? priceAlertNotifications;
+  final PriceAlertBackgroundScheduler? priceAlertBackground;
 
   @override
   State<MarketQuotePanel> createState() => _MarketQuotePanelState();
@@ -56,6 +58,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
   MarketProviderDescriptor? _provider;
   SavedPriceAlert? _savedAlert;
   PriceAlertDirection _alertDirection = PriceAlertDirection.atOrAbove;
+  bool _backgroundEnabled = false;
   String? _alertMessage;
   bool _loading = false;
   bool _alertBusy = false;
@@ -90,6 +93,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
       _savedAlert = null;
       _alertTarget.clear();
       _alertDirection = PriceAlertDirection.atOrAbove;
+      _backgroundEnabled = false;
       _alertMessage = null;
       _alertBusy = false;
       unawaited(_loadAlert());
@@ -116,6 +120,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
         if (saved != null) {
           _alertTarget.text = saved.alert.target.toString();
           _alertDirection = saved.alert.direction;
+          _backgroundEnabled = saved.backgroundEnabled;
         }
       });
     } catch (_) {
@@ -143,16 +148,49 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
       _alertMessage = null;
     });
     try {
-      final saved = await service.save(
+      var saved = await service.save(
         instrument: widget.instrument,
         target: target,
         direction: _alertDirection,
+        backgroundEnabled: _backgroundEnabled,
       );
+      String message = '提醒已儲存；下次取得新行情時開始判斷。';
+      final background = widget.priceAlertBackground;
+      if (background != null) {
+        if (saved.backgroundEnabled) {
+          bool allowed;
+          try {
+            allowed = await background.synchronize(saved);
+          } catch (_) {
+            await service.save(
+              instrument: widget.instrument,
+              target: target,
+              direction: _alertDirection,
+              backgroundEnabled: false,
+            );
+            rethrow;
+          }
+          if (!allowed) {
+            saved = await service.save(
+              instrument: widget.instrument,
+              target: target,
+              direction: _alertDirection,
+              backgroundEnabled: false,
+            );
+            message = '提醒已儲存，但通知權限未開啟；目前只會在 App 取得行情時檢查。';
+          } else {
+            message = '提醒已儲存；Android 將在背景定期檢查，實際時間由系統安排。';
+          }
+        } else {
+          await background.cancel(widget.instrument.id);
+        }
+      }
       if (!mounted || request != _alertRequest) return;
       setState(() {
         _savedAlert = saved;
+        _backgroundEnabled = saved.backgroundEnabled;
         _alertBusy = false;
-        _alertMessage = '提醒已儲存；下次取得新行情時開始判斷。';
+        _alertMessage = message;
       });
     } catch (_) {
       if (!mounted || request != _alertRequest) return;
@@ -173,10 +211,12 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
     });
     try {
       await service.delete(widget.instrument);
+      await widget.priceAlertBackground?.cancel(widget.instrument.id);
       if (!mounted || request != _alertRequest) return;
       setState(() {
         _savedAlert = null;
         _alertTarget.clear();
+        _backgroundEnabled = false;
         _alertBusy = false;
         _alertMessage = '提醒已移除。';
       });
@@ -344,6 +384,21 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
                       },
               ),
               const SizedBox(height: 8),
+              if (widget.priceAlertBackground?.supports(widget.instrument) ??
+                  false)
+                SwitchListTile.adaptive(
+                  key: const ValueKey('price-alert-background'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('App 關閉時也定期檢查'),
+                  subtitle: const Text(
+                    'Android 約每 15 分鐘以上嘗試一次；省電、休眠或廠牌限制可能延後，不保證準時。',
+                  ),
+                  value: _backgroundEnabled,
+                  onChanged: _alertBusy
+                      ? null
+                      : (value) => setState(() => _backgroundEnabled = value),
+                ),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children: [
@@ -361,7 +416,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
                 ],
               ),
               const Text(
-                'App 取得新鮮行情並跨越門檻時提示；Android 會同時嘗試發出系統通知。提醒只保存在此裝置，不進帳本或備份。',
+                '前景可隨 1／5 分鐘行情更新檢查；背景受 Android 限制，不能保證 1／5 分鐘。提醒只保存在此裝置，不進帳本或備份。',
               ),
               if (_alertMessage != null)
                 Text(

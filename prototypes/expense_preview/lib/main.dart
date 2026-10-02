@@ -39,6 +39,7 @@ import 'investment_market_services.dart';
 import 'market_source_panel.dart';
 import 'cloud_backup_screen.dart';
 import 'price_alert_service.dart';
+import 'background_price_alerts.dart';
 import 'market_credentials.dart';
 import 'google_drive_cloud_backup.dart';
 import 'warm_presentation.dart';
@@ -68,8 +69,13 @@ part 'investment_split_section.dart';
 part 'simple_import_screen.dart';
 part 'simple_export_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await AndroidPriceAlertBackgroundScheduler.initialize();
+  } catch (_) {
+    // Optional reminder scheduling must never prevent the ledger from opening.
+  }
   final fugleCredentials = FugleCredentialManager(
     AndroidFugleCredentialVault(),
   );
@@ -91,6 +97,7 @@ void main() {
         fugleCredentials: fugleCredentials,
         priceAlerts: PriceAlertService(AndroidPriceAlertRecordStore()),
         priceAlertNotifications: AndroidPriceAlertNotificationPresenter(),
+        priceAlertBackground: AndroidPriceAlertBackgroundScheduler(),
       ),
     ),
   );

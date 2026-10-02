@@ -10,6 +10,7 @@ final class InvestmentMarketServices {
     this.fugleCredentials,
     this.priceAlerts,
     this.priceAlertNotifications,
+    this.priceAlertBackground,
   });
 
   final MarketDataGateway gateway;
@@ -17,12 +18,14 @@ final class InvestmentMarketServices {
   final FugleCredentialManager? fugleCredentials;
   final PriceAlertService? priceAlerts;
   final PriceAlertNotificationPresenter? priceAlertNotifications;
+  final PriceAlertBackgroundScheduler? priceAlertBackground;
 }
 
 InvestmentMarketServices createInvestmentMarketServices({
   FugleCredentialManager? fugleCredentials,
   PriceAlertService? priceAlerts,
   PriceAlertNotificationPresenter? priceAlertNotifications,
+  PriceAlertBackgroundScheduler? priceAlertBackground,
 }) {
   final gateway = MarketDataGateway();
   final frankfurter = FrankfurterReferenceFxGateway();
@@ -44,5 +47,6 @@ InvestmentMarketServices createInvestmentMarketServices({
     fugleCredentials: fugleCredentials,
     priceAlerts: priceAlerts,
     priceAlertNotifications: priceAlertNotifications,
+    priceAlertBackground: priceAlertBackground,
   );
 }

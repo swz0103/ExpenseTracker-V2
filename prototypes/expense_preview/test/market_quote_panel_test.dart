@@ -65,6 +65,28 @@ final class _AlertPresenter implements PriceAlertNotificationPresenter {
   }
 }
 
+final class _BackgroundScheduler implements PriceAlertBackgroundScheduler {
+  _BackgroundScheduler({this.allowed = true});
+
+  final bool allowed;
+  final synchronized = <SavedPriceAlert>[];
+  final cancelled = <PublicId>[];
+
+  @override
+  bool supports(InvestmentInstrument instrument) => true;
+
+  @override
+  Future<bool> synchronize(SavedPriceAlert saved) async {
+    synchronized.add(saved);
+    return allowed;
+  }
+
+  @override
+  Future<void> cancel(PublicId instrumentId) async {
+    cancelled.add(instrumentId);
+  }
+}
+
 void main() {
   final instrument = InvestmentInstrument(
     id: PublicId.generate(),
@@ -97,6 +119,7 @@ void main() {
     BusinessDate? latestPositionDate,
     PriceAlertService? priceAlerts,
     PriceAlertNotificationPresenter? priceAlertNotifications,
+    PriceAlertBackgroundScheduler? priceAlertBackground,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -131,6 +154,7 @@ void main() {
           gateway: gateway,
           priceAlerts: priceAlerts,
           priceAlertNotifications: priceAlertNotifications,
+          priceAlertBackground: priceAlertBackground,
         ),
       ),
     ),
@@ -283,6 +307,57 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('提醒已移除。'), findsOneWidget);
     expect(await alerts.load(instrument), isNull);
+  });
+
+  testWidgets('background opt-in is scheduled and cancelled with the alert', (
+    tester,
+  ) async {
+    final alerts = PriceAlertService(_AlertStore());
+    final scheduler = _BackgroundScheduler();
+    await show(
+      tester,
+      MarketDataGateway(transport: _Transport(rows)),
+      priceAlerts: alerts,
+      priceAlertBackground: scheduler,
+    );
+    await tester.tap(find.byKey(const ValueKey('price-alert-section')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('price-alert-target')),
+      '1500',
+    );
+    await tester.tap(find.byKey(const ValueKey('price-alert-background')));
+    await tester.tap(find.byKey(const ValueKey('save-price-alert')));
+    await tester.pumpAndSettle();
+    expect(scheduler.synchronized.single.backgroundEnabled, isTrue);
+    expect((await alerts.load(instrument))!.backgroundEnabled, isTrue);
+    await tester.tap(find.byKey(const ValueKey('delete-price-alert')));
+    await tester.pumpAndSettle();
+    expect(scheduler.cancelled, [instrument.id]);
+  });
+
+  testWidgets('denied notification permission rolls back background opt-in', (
+    tester,
+  ) async {
+    final alerts = PriceAlertService(_AlertStore());
+    final scheduler = _BackgroundScheduler(allowed: false);
+    await show(
+      tester,
+      MarketDataGateway(transport: _Transport(rows)),
+      priceAlerts: alerts,
+      priceAlertBackground: scheduler,
+    );
+    await tester.tap(find.byKey(const ValueKey('price-alert-section')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('price-alert-target')),
+      '1500',
+    );
+    await tester.tap(find.byKey(const ValueKey('price-alert-background')));
+    await tester.tap(find.byKey(const ValueKey('save-price-alert')));
+    await tester.pumpAndSettle();
+    expect((await alerts.load(instrument))!.backgroundEnabled, isFalse);
+    expect(find.textContaining('通知權限未開啟'), findsOneWidget);
   });
 
   testWidgets('privacy mode does not expose saved price alert amount', (

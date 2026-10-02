@@ -1,3 +1,11 @@
+## 2026-10-02 Android 背景到價提醒
+
+- [x] 到價提醒新增使用者明確開關；只有 Yahoo 免金鑰來源可映射的 TWSE、TPEx、NASDAQ、NYSE 與 NYSE Arca 標的才顯示。前景仍可依 1／5 分鐘行情檢查，背景清楚標示為 Android 約 15 分鐘以上的盡力排程，省電、休眠或廠牌限制可能延後。
+- [x] Android WorkManager 使用每標的一個唯一週期工作、聯網與電量限制、更新既有排程及退避；工作輸入只帶公開 instrument ID。目標價、標的 metadata、啟用狀態與 crossing checkpoint 保存在既有 Android secure storage，不進帳本、備份或明文工作資料。
+- [x] 背景 isolate 與前景共用同一 `PriceAlertService`、Yahoo 嚴格解析及 checkpoint；只有新鮮五分鐘 observation 真正跨越門檻時才由背景安全通知元件顯示，損壞記錄與暫時來源失敗均 fail closed。拒絕通知權限會自動回退前景模式，移除提醒會取消唯一工作。
+- [x] 相關 service／widget 18 項測試、完整 App 靜態分析、兩個先前平行逾時的既有還原測試單獨重跑，以及 Android ARM64 debug APK 組建通過。整批測試曾因本機同時啟動多個 SQLCipher 還原案例而有兩個 30 秒 timeout；不是斷言失敗，單獨以 2 分鐘上限均通過。
+- [ ] Android 實機仍需核對通知授權、強制停止、重開機、Doze、各廠牌省電、斷網恢復與耗電。背景排程不會也不能保證 1／5 分鐘；需要更即時且有 SLA 的提醒時，後續應使用合規伺服器推播與正式行情授權。
+
 ## 2026-10-01 免帳號市場來源、到價提醒與單一主分支
 
 - [x] 正式市場 registry 新增 Yahoo Finance Chart 免金鑰 1／5 分鐘 adapter，支援 TWSE、TPEx、NASDAQ、NYSE 與 NYSE Arca 代碼映射，並優先於需金鑰來源。端點、回傳序列、幣別、週期、時間、OHLCV、未來值、缺值、限流與同請求合併均 fail closed；畫面來源明示「非保證」，保留官方日終資料與 Fugle fallback，不將其描述為官方 API。合成 adapter／路由 19 項及正式投資畫面 9 項測試通過，另完成 2330.TW 真實唯讀回傳格式抽查。

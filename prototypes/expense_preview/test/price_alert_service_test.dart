@@ -54,6 +54,21 @@ void main() {
     expect(await service.load(instrument), isNull);
   });
 
+  test('v2 alert carries encrypted background worker metadata', () async {
+    await service.save(
+      instrument: instrument,
+      target: ShareUnitPrice.parse(currency, '1510'),
+      direction: PriceAlertDirection.atOrAbove,
+      backgroundEnabled: true,
+    );
+    final loaded = await service.loadById(instrument.id);
+    expect(loaded!.backgroundEnabled, isTrue);
+    expect(loaded.instrument!.id, instrument.id);
+    expect(loaded.instrument!.kind, InstrumentKind.stock);
+    expect(loaded.instrument!.marketCode, 'TWSE');
+    expect(loaded.instrument!.name, '測試股票');
+  });
+
   test('fresh observations arm then emit only after crossing', () async {
     await service.save(
       instrument: instrument,
