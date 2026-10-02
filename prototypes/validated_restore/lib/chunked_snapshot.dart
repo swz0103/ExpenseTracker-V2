@@ -21,6 +21,13 @@ final class ChunkedSnapshotSummary {
   final int chunkCount;
 }
 
+final class ChunkedSnapshotRow {
+  const ChunkedSnapshotRow({required this.table, required this.values});
+
+  final String table;
+  final Map<String, dynamic> values;
+}
+
 /// File-backed prototype for the next portable snapshot container.
 ///
 /// Chunks and the manifest have independent integrity digests. They are not a
@@ -261,6 +268,111 @@ final class ChunkedSnapshotStore {
         totalBytes: totalBytes,
         chunkCount: expectedOrdinal,
       );
+    } on InvalidChunkedSnapshot {
+      rethrow;
+    } catch (_) {
+      throw const InvalidChunkedSnapshot();
+    }
+  }
+
+  /// Verifies the complete container before exposing any row, then rechecks
+  /// each manifest and chunk digest while streaming. A consumer should apply
+  /// the stream inside one rollback-capable transaction because a later chunk
+  /// can still fail after earlier rows have been yielded.
+  Stream<ChunkedSnapshotRow> readRows(
+    Directory source, {
+    required List<String> expectedTables,
+  }) async* {
+    final summary = await verify(source, expectedTables: expectedTables);
+    try {
+      final manifestFile = File(
+        '${source.path}${Platform.pathSeparator}manifest.json',
+      );
+      final manifestBytes = await manifestFile.readAsBytes();
+      final manifestDigest = await File(
+        '${source.path}${Platform.pathSeparator}manifest.sha256',
+      ).readAsString();
+      if (await _digest(manifestBytes) != manifestDigest) {
+        throw const InvalidChunkedSnapshot();
+      }
+      final root = jsonDecode(utf8.decode(manifestBytes));
+      if (root is! Map<String, dynamic> ||
+          root.length != 6 ||
+          root['format'] != 'ledger-chunked-probe' ||
+          root['version'] != 1 ||
+          root['schema'] != summary.schema ||
+          root['tables'] is! List ||
+          root['totalRows'] != summary.totalRows ||
+          root['totalBytes'] != summary.totalBytes) {
+        throw const InvalidChunkedSnapshot();
+      }
+      final tables = root['tables'] as List;
+      if (tables.length != expectedTables.length) {
+        throw const InvalidChunkedSnapshot();
+      }
+      var expectedOrdinal = 0;
+      var totalRows = 0;
+      var totalBytes = 0;
+      for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+        final table = tables[tableIndex];
+        if (table is! Map<String, dynamic> ||
+            table.length != 2 ||
+            table['chunks'] is! List) {
+          throw const InvalidChunkedSnapshot();
+        }
+        final tableName = table['name'];
+        if (tableName != expectedTables[tableIndex]) {
+          throw const InvalidChunkedSnapshot();
+        }
+        for (final rawChunk in table['chunks'] as List) {
+          if (rawChunk is! Map<String, dynamic> ||
+              rawChunk.length != 5 ||
+              rawChunk['ordinal'] != expectedOrdinal ||
+              rawChunk['file'] !=
+                  'chunk-${expectedOrdinal.toString().padLeft(8, '0')}.ndjson' ||
+              rawChunk['rows'] is! int ||
+              rawChunk['bytes'] is! int ||
+              rawChunk['sha256'] is! String) {
+            throw const InvalidChunkedSnapshot();
+          }
+          final chunk = rawChunk;
+          final file = File(
+            '${source.path}${Platform.pathSeparator}${chunk['file']}',
+          );
+          if (FileSystemEntity.typeSync(file.path, followLinks: false) !=
+              FileSystemEntityType.file) {
+            throw const InvalidChunkedSnapshot();
+          }
+          final bytes = await file.readAsBytes();
+          if (bytes.length != chunk['bytes'] ||
+              bytes.length > maxChunkBytes ||
+              chunk['rows'] < 1 ||
+              chunk['rows'] > maxRowsPerChunk ||
+              await _digest(bytes) != chunk['sha256']) {
+            throw const InvalidChunkedSnapshot();
+          }
+          final lines = const LineSplitter().convert(utf8.decode(bytes));
+          if (lines.length != chunk['rows']) {
+            throw const InvalidChunkedSnapshot();
+          }
+          for (final line in lines) {
+            final row = jsonDecode(line);
+            if (row is! Map<String, dynamic> ||
+                jsonEncode(_canonical(row)) != line) {
+              throw const InvalidChunkedSnapshot();
+            }
+            yield ChunkedSnapshotRow(table: tableName as String, values: row);
+          }
+          totalRows += chunk['rows'] as int;
+          totalBytes += bytes.length;
+          expectedOrdinal++;
+        }
+      }
+      if (totalRows != summary.totalRows ||
+          totalBytes != summary.totalBytes ||
+          expectedOrdinal != summary.chunkCount) {
+        throw const InvalidChunkedSnapshot();
+      }
     } on InvalidChunkedSnapshot {
       rethrow;
     } catch (_) {

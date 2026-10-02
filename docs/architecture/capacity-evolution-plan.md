@@ -21,16 +21,16 @@
 - 時間軸複合索引；新帳本建立，既有同 schema 帳本開啟時 `IF NOT EXISTS` 補建。
 - 索引不屬於權威資料與 portable snapshot；補建前後財務 snapshot 相同。
 
-### C2：可串流快照格式（容器與資料庫 capture 原型完成，加密／還原接線待做）
+### C2：可串流快照格式（容器、capture、stage 原型完成，加密／promotion 接線待做）
 
 - [x] 檔案容器原型以 manifest 固定 format／version／schema、表順序、總列數／bytes 與每塊 digest；manifest 另有 SHA-256 完整性 digest。
 - [x] writer 接受 row stream，以 row／bytes 雙上限輸出 canonical NDJSON；暫存目錄完整驗證後才 rename，失敗不留目標。
 - [x] `SnapshotCodec` 在同一 read transaction 內驗證 authority 與實際主鍵，依 stable tuple keyset cursor 把每張 SQLCipher 表串入 bounded chunks；這仍是原型入口，尚未取代正式 App 的單檔 capture。
-- 還原寫入全新 generation，逐塊驗證並提交；任何未知表、缺塊、重塊、順序錯誤或 digest 不符都拒絕，舊 generation 保留。
+- [x] 還原先完整驗證，再以單一 transaction 逐塊寫入全新 staged database；任何未知表、缺塊、重塊、順序錯誤、canonical row 或 digest 不符都拒絕。後段 chunk 中途損壞會回滾已寫列並刪除 stage／sidecars。
 - 密碼與救援文字仍只解出同一資料金鑰；SHA-256 不是 authentication，仍須設計可中止、可清理的暫存與 authenticated streaming，再決定 envelope 版本。
 - 舊 snapshot 維持唯讀匯入；新格式不得讓舊 App 誤認可讀。升級／回退與 interrupted restore 必須有固定測試。
 
-容器／資料庫 capture 原型定向 6/6、validated_restore 完整 137/137 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未接正式備份，不提高現行上限。
+容器／資料庫 capture／stage 原型定向 9/9、validated_restore 完整 140/140 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未接正式備份與 generation promotion，不提高現行上限。
 
 ### C3：追加寫入與容量 admission
 

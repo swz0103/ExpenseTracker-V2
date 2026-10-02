@@ -8,18 +8,19 @@
 - 先寫唯一暫存目錄，完整自我驗證後才 rename 到目標；失敗清除暫存，既有目標拒絕覆寫。
 - 驗證拒絕 digest 變更、缺塊、多餘檔案、table／chunk 順序變更、總數竄改、超大單列、非法名稱與 symlink／非一般檔案。
 - `SnapshotCodec.captureChunked` 先核對現行 schema 與 authority，再在同一 read transaction 內讀取資料；每張表從實際 `PRAGMA table_info` 取得並驗證主鍵，使用 tuple keyset cursor 分頁串入 bounded writer，不以 `rowid` 猜測穩定順序。
+- `SnapshotCodec.stageChunked` 先完整驗證容器，再於單一 transaction 逐塊寫入全新 staged database；每塊在讀取時重驗 manifest／chunk digest 與 canonical row。中途竄改會回滾先前列並清除 DB、WAL、SHM／journal，不碰既有 generation。
 
 ## 驗證
 
-- 分塊容器定向：6/6 通過；新增真實 v1 authority、`pageSize=1` 的跨頁 stable primary-key capture／verify 案例。
-- validated_restore 完整套件：137/137 通過；既有單檔 snapshot、各 schema、失敗注入、跨程序還原與 promotion 行為未切換。
+- 分塊容器定向：9/9 通過；包含真實 v1 authority、`pageSize=1` 跨頁 capture、capture→stage→recapture bytes 等價、預先損壞與寫入中途竄改清理。
+- validated_restore 完整套件：140/140 通過；既有單檔 snapshot、各 schema、失敗注入、跨程序還原與 promotion 行為未切換。
 - 靜態分析：零問題。
 
-既有 Drift 多資料庫訊息仍是測試診斷；137 項 assertion 全數通過，本批未隱藏警告。
+既有 Drift 多資料庫訊息仍是測試診斷；140 項 assertion 全數通過，本批未隱藏警告。
 
 ## 安全邊界與未完成
 
 - SHA-256 是完整性 digest，不是攻擊者不可偽造的 authentication。正式格式必須以密碼／救援資料金鑰對完整 manifest 與 chunk 集合做 authenticated encryption／MAC 綁定。
-- SQLCipher 各表的 stable primary-key capture 已在原型完成；尚未把 chunks 逐塊 stage 到全新 generation。
+- SQLCipher 各表 stable primary-key capture 與逐塊 stage 到全新 database 已在原型完成；尚未接正式 generation promotion／中斷 journal。
 - 尚未定義正式 portable envelope 版本、舊 App 拒絕規則、舊單檔唯讀匯入與中斷回復 journal。
 - 因此本批不提高 5,000／50,000／16 MiB 上限，也不在正式 App／雲端備份使用此容器。

@@ -611,6 +611,61 @@ final class SnapshotCodec {
     }
   }
 
+  /// Streams a fully verified chunk container into a brand-new staged file.
+  /// Any late chunk failure rolls back the transaction and removes the stage;
+  /// an existing target is never opened or replaced.
+  Future<void> stageChunked(
+    Directory source,
+    File target, {
+    ChunkedSnapshotStore store = const ChunkedSnapshotStore(),
+    ProbeDatabase Function(File)? openDatabase,
+    void Function(String table, int rowsWritten)? checkpoint,
+  }) async {
+    if (generationAware && openDatabase == null) throw const InvalidSnapshot();
+    if (await target.exists()) throw StateError('Stage file already exists.');
+    final expectedTables = _columns.keys.toList(growable: false);
+    final summary = await store.verify(source, expectedTables: expectedTables);
+    if (summary.schema != _schemaVersion) throw const InvalidSnapshot();
+
+    ProbeDatabase? db;
+    var completed = false;
+    try {
+      db = openDatabase == null ? ProbeDatabase(target) : openDatabase(target);
+      final rowsWritten = <String, int>{};
+      await db.transaction(() async {
+        await for (final streamed in store.readRows(
+          source,
+          expectedTables: expectedTables,
+        )) {
+          final columns = _columns[streamed.table];
+          if (columns == null ||
+              streamed.values.length != columns.length ||
+              columns.any((column) => !streamed.values.containsKey(column))) {
+            throw const InvalidSnapshot();
+          }
+          await db!.customStatement(
+            'INSERT INTO ${streamed.table} (${columns.join(',')}) '
+            'VALUES (${List.filled(columns.length, '?').join(',')})',
+            [
+              for (final column in columns)
+                _integers.contains(column) && streamed.values[column] != null
+                    ? _integer(streamed.values[column])
+                    : streamed.values[column],
+            ],
+          );
+          final count = (rowsWritten[streamed.table] ?? 0) + 1;
+          rowsWritten[streamed.table] = count;
+          checkpoint?.call(streamed.table, count);
+        }
+        await validate(db!);
+      });
+      completed = true;
+    } finally {
+      await db?.close();
+      if (!completed) await _deleteStagedDatabase(target);
+    }
+  }
+
   Map<String, List<Map<String, dynamic>>> _parse(List<int> bytes) {
     if (bytes.length > EnvelopeCodec.maxPayloadBytes)
       throw const InvalidSnapshot();
@@ -1744,6 +1799,18 @@ final class SnapshotCodec {
 }
 
 Variable<Object> _variable(Object value) => Variable<Object>(value);
+
+Future<void> _deleteStagedDatabase(File target) async {
+  for (final path in [
+    target.path,
+    '${target.path}-wal',
+    '${target.path}-shm',
+    '${target.path}-journal',
+  ]) {
+    final file = File(path);
+    if (await file.exists()) await file.delete();
+  }
+}
 
 int _integer(Object? value) {
   if (value is! String ||

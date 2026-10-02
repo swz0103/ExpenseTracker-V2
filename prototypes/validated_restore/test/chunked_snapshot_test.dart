@@ -193,4 +193,164 @@ void main() {
       }
     },
   );
+
+  test('chunked stage recreates equivalent authority in a new file', () async {
+    final sourceFile = File('${root.path}/roundtrip-source.db');
+    final legacy = sqlite3.open(sourceFile.path);
+    try {
+      legacy.execute(
+        File('../modular_persistence/test/fixtures/v1.sql').readAsStringSync(),
+      );
+    } finally {
+      legacy.close();
+    }
+    const authorityStore = ChunkedSnapshotStore(
+      maxChunkBytes: 4096,
+      maxRowsPerChunk: 2,
+      maxTotalRows: 100,
+      maxTotalBytes: 65536,
+    );
+    final codec = SnapshotCodec();
+    final source = ProbeDatabase(sourceFile);
+    final container = Directory('${root.path}/roundtrip-container');
+    try {
+      await codec.captureChunked(
+        source,
+        container,
+        store: authorityStore,
+        pageSize: 1,
+      );
+    } finally {
+      await source.close();
+    }
+
+    final stagedFile = File('${root.path}/roundtrip-staged.db');
+    final checkpoints = <String>[];
+    await codec.stageChunked(
+      container,
+      stagedFile,
+      store: authorityStore,
+      checkpoint: (table, rows) => checkpoints.add('$table:$rows'),
+    );
+    expect(stagedFile.existsSync(), isTrue);
+    expect(checkpoints, containsAll(['events:1', 'events:2']));
+
+    final restored = ProbeDatabase(stagedFile);
+    final recaptured = Directory('${root.path}/roundtrip-recaptured');
+    try {
+      await codec.captureChunked(
+        restored,
+        recaptured,
+        store: authorityStore,
+        pageSize: 1,
+      );
+    } finally {
+      await restored.close();
+    }
+    final originalFiles = container.listSync().whereType<File>().toList()
+      ..sort((left, right) => left.path.compareTo(right.path));
+    final restoredFiles = recaptured.listSync().whereType<File>().toList()
+      ..sort((left, right) => left.path.compareTo(right.path));
+    expect(restoredFiles.length, originalFiles.length);
+    for (var index = 0; index < originalFiles.length; index++) {
+      expect(
+        restoredFiles[index].uri.pathSegments.last,
+        originalFiles[index].uri.pathSegments.last,
+      );
+      expect(
+        restoredFiles[index].readAsBytesSync(),
+        originalFiles[index].readAsBytesSync(),
+      );
+    }
+  });
+
+  test('invalid chunk never leaves a staged database or sidecars', () async {
+    final container = Directory('${root.path}/invalid-stage');
+    final sourceFile = File('${root.path}/invalid-stage-source.db');
+    final legacy = sqlite3.open(sourceFile.path);
+    try {
+      legacy.execute(
+        File('../modular_persistence/test/fixtures/v1.sql').readAsStringSync(),
+      );
+    } finally {
+      legacy.close();
+    }
+    const authorityStore = ChunkedSnapshotStore(
+      maxChunkBytes: 4096,
+      maxRowsPerChunk: 2,
+      maxTotalRows: 100,
+      maxTotalBytes: 65536,
+    );
+    final source = ProbeDatabase(sourceFile);
+    try {
+      await SnapshotCodec().captureChunked(
+        source,
+        container,
+        store: authorityStore,
+        pageSize: 1,
+      );
+    } finally {
+      await source.close();
+    }
+    File('${container.path}/chunk-00000000.ndjson').writeAsStringSync('bad\n');
+    final target = File('${root.path}/must-not-exist.db');
+    await expectLater(
+      SnapshotCodec().stageChunked(container, target, store: authorityStore),
+      throwsA(isA<InvalidChunkedSnapshot>()),
+    );
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
+      expect(File('${target.path}$suffix').existsSync(), isFalse);
+    }
+  });
+
+  test('late chunk damage rolls back rows and removes the stage', () async {
+    final sourceFile = File('${root.path}/late-damage-source.db');
+    final legacy = sqlite3.open(sourceFile.path);
+    try {
+      legacy.execute(
+        File('../modular_persistence/test/fixtures/v1.sql').readAsStringSync(),
+      );
+    } finally {
+      legacy.close();
+    }
+    const authorityStore = ChunkedSnapshotStore(
+      maxChunkBytes: 4096,
+      maxRowsPerChunk: 1,
+      maxTotalRows: 100,
+      maxTotalBytes: 65536,
+    );
+    final container = Directory('${root.path}/late-damage-container');
+    final source = ProbeDatabase(sourceFile);
+    try {
+      await SnapshotCodec().captureChunked(
+        source,
+        container,
+        store: authorityStore,
+        pageSize: 1,
+      );
+    } finally {
+      await source.close();
+    }
+
+    final target = File('${root.path}/late-damage-stage.db');
+    var damaged = false;
+    await expectLater(
+      SnapshotCodec().stageChunked(
+        container,
+        target,
+        store: authorityStore,
+        checkpoint: (_, _) {
+          if (damaged) return;
+          damaged = true;
+          File('${container.path}/chunk-00000001.ndjson')
+              .writeAsStringSync('late damage\n');
+        },
+      ),
+      throwsA(isA<InvalidChunkedSnapshot>()),
+    );
+    expect(damaged, isTrue);
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
+      expect(File('${target.path}$suffix').existsSync(), isFalse);
+    }
+  });
 }
