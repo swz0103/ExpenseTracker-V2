@@ -57,8 +57,12 @@ void main() {
   late RestoreStore store;
   late List<int> sourceBytes;
   late CreatedBackup backup;
+  late Directory chunkFixtureRoot;
+  late Directory chunkedBackup;
+  late String chunkedRecoveryKey;
   setUpAll(() async {
     final seed = root.createTempSync('seed-');
+    chunkFixtureRoot = root.createTempSync('chunk-fixture-');
     try {
       final file = File('${seed.path}/source.db');
       await fixture(file);
@@ -66,6 +70,10 @@ void main() {
       try {
         sourceBytes = await SnapshotCodec().capture(db);
         backup = await RestoreStore(seed).backup(db, password);
+        chunkedBackup = Directory('${chunkFixtureRoot.path}/authenticated');
+        final created = await RestoreStore(seed)
+            .backupChunked(db, chunkedBackup, password: password);
+        chunkedRecoveryKey = created.recoveryKey;
       } finally {
         await db.close();
       }
@@ -73,6 +81,7 @@ void main() {
       safeDelete(seed, root);
     }
   });
+  tearDownAll(() => safeDelete(chunkFixtureRoot, root));
   setUp(() {
     work = root.createTempSync('case-');
     store = RestoreStore(Directory('${work.path}/owned'));
@@ -140,6 +149,62 @@ void main() {
       },
     );
   }
+  for (final mode in ['password', 'recovery']) {
+    test('chunked restore promotes with $mode and preserves replay', () async {
+      await store.restoreChunked(
+        chunkedBackup,
+        password: mode == 'password' ? password : null,
+        recoveryKey: mode == 'recovery' ? chunkedRecoveryKey : null,
+      );
+      await verifyRestored();
+      expect(
+        File('${store.directory.path}/journal.json').existsSync(),
+        isFalse,
+      );
+    });
+  }
+  test(
+    'chunked promotion failure at every checkpoint restores old current',
+    () async {
+      for (final failure in ['validated', 'prepared', 'oldMoved', 'newMoved']) {
+        await fixture(store.current, extraIncome: true);
+        final before = store.current.readAsBytesSync();
+        await expectLater(
+          store.restoreChunked(
+            chunkedBackup,
+            recoveryKey: chunkedRecoveryKey,
+            checkpoint: (at) {
+              if (at == failure) throw StateError('fixture interruption');
+            },
+          ),
+          throwsStateError,
+        );
+        expect(store.current.readAsBytesSync(), before, reason: failure);
+        expect(
+          File('${store.directory.path}/stage.db').existsSync(),
+          isFalse,
+          reason: failure,
+        );
+        expect(
+          File('${store.directory.path}/journal.json').existsSync(),
+          isFalse,
+          reason: failure,
+        );
+        for (final retained
+            in store.directory.listSync().whereType<File>().where(
+              (file) => file.uri.pathSegments.last.startsWith('uncommitted-'),
+            )) {
+          retained.deleteSync();
+        }
+        store.current.deleteSync();
+      }
+      await store.restoreChunked(
+        chunkedBackup,
+        recoveryKey: chunkedRecoveryKey,
+      );
+      await verifyRestored();
+    },
+  );
   test('successful replacement retains complete previous database', () async {
     await fixture(store.current, extraIncome: true);
     final before = store.current.readAsBytesSync();

@@ -5,6 +5,7 @@ import 'package:backup_envelope_probe/envelope.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:modular_persistence_probe/database.dart';
 
+import 'authenticated_chunked_snapshot.dart';
 import 'snapshot.dart';
 
 /// Owned fixture directory only. Caller must close every DB handle before switching.
@@ -23,6 +24,21 @@ final class RestoreStore {
         await _snapshot.capture(source),
         password: password,
       );
+
+  Future<CreatedAuthenticatedChunkedSnapshot> backupChunked(
+    ProbeDatabase source,
+    Directory target, {
+    required String password,
+    String? recoveryKey,
+    AuthenticatedChunkedSnapshotStore store =
+        const AuthenticatedChunkedSnapshotStore(),
+  }) => _snapshot.captureAuthenticatedChunked(
+    source,
+    target,
+    password: password,
+    recoveryKey: recoveryKey,
+    store: store,
+  );
 
   Future<void> restore(
     String envelope, {
@@ -43,24 +59,65 @@ final class RestoreStore {
         _file('stage.db'),
         openDatabase: openDatabase,
       );
-      checkpoint?.call('validated');
-      final hadPrevious = await current.exists();
-      await _file('journal.json').writeAsString(
-        jsonEncode({'version': 1, 'hadPrevious': hadPrevious}),
-        flush: true,
-      );
-      checkpoint?.call('prepared');
-      if (hadPrevious) await _move(current, _file('previous.db'));
-      checkpoint?.call('oldMoved');
-      await _move(_file('stage.db'), current);
-      checkpoint?.call('newMoved');
-      // Commit point. Previous databases remain preserved for explicit retention policy.
-      await _file('journal.json').delete();
+      await _promoteStage(checkpoint);
     } catch (_) {
       await _recover();
       rethrow;
     }
   });
+
+  Future<void> restoreChunked(
+    Directory authenticated, {
+    String? password,
+    String? recoveryKey,
+    AuthenticatedChunkedSnapshotStore store =
+        const AuthenticatedChunkedSnapshotStore(),
+    void Function(String)? checkpoint,
+  }) => _locked(() async {
+    await _recover();
+    if ((password == null) == (recoveryKey == null)) {
+      throw ArgumentError('Exactly one unlock credential is required.');
+    }
+    final expectedTables = _snapshot.tableNames;
+    final opened = password != null
+        ? await store.readWithPassword(
+            source: authenticated,
+            expectedTables: expectedTables,
+            password: password,
+          )
+        : await store.readWithRecovery(
+            source: authenticated,
+            expectedTables: expectedTables,
+            recoveryKey: recoveryKey!,
+          );
+    try {
+      await _snapshot.stageAuthenticatedChunked(
+        opened,
+        _file('stage.db'),
+        openDatabase: openDatabase,
+      );
+      await _promoteStage(checkpoint);
+    } catch (_) {
+      await _recover();
+      rethrow;
+    }
+  });
+
+  Future<void> _promoteStage(void Function(String)? checkpoint) async {
+    checkpoint?.call('validated');
+    final hadPrevious = await current.exists();
+    await _file('journal.json').writeAsString(
+      jsonEncode({'version': 1, 'hadPrevious': hadPrevious}),
+      flush: true,
+    );
+    checkpoint?.call('prepared');
+    if (hadPrevious) await _move(current, _file('previous.db'));
+    checkpoint?.call('oldMoved');
+    await _move(_file('stage.db'), current);
+    checkpoint?.call('newMoved');
+    // Commit point. Previous databases remain preserved for explicit retention policy.
+    await _file('journal.json').delete();
+  }
 
   Future<void> recover() => _locked(_recover);
 

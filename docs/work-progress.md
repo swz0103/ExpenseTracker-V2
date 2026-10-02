@@ -986,5 +986,6 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 新增單次 Argon2id 派生的 authenticated chunk session：AES-256-GCM data key 由密碼／救援碼獨立包裝，manifest／chunk 各自獨立 nonce 並以 session＋用途檔名作 AAD。認證容器只接受 manifest 指定的精確集合，拒絕 ciphertext／metadata 竄改及 chunk 對調。
 - [x] 認證 reader 將 rows 直接串入新 database transaction，不先落地明文 chunks；後段加密 chunk 中途損壞會回滾已寫列並清除 stage／sidecars。
 - [x] 認證 writer 直接消費 SQL stable-key row streams，只在記憶體保留一個 bounded chunk；磁碟只寫 metadata 與 `.etv2` 密文，manifest 同樣認證加密，完整自驗後才 rename。
-- [x] 分塊原型 9/9、認證容器 4/4、backup_envelope 19/19、validated_restore 完整 144/144 與靜態分析通過；既有單檔格式及 App 匯出入口完全未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
-- [ ] 下一批接正式 generation promotion、中斷 journal、舊格式唯讀匯入與 envelope version／App 切換；未完成前維持原容量 gate。
+- [x] `RestoreStore.restoreChunked` 接既有 promotion journal；密碼／救援均可還原，四個 promotion checkpoint 例外均恢復舊 current、清除 stage／journal並可重試。
+- [x] 分塊原型 9/9、認證容器 4/4、backup_envelope 19/19、restore／promotion 32/32、validated_restore 完整 147/147 與靜態分析通過；既有單檔格式及 App 匯出入口尚未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
+- [ ] 下一批完成舊格式唯讀匯入政策與 envelope version／App 切換；未完成前維持原容量 gate。

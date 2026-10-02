@@ -260,6 +260,8 @@ final class SnapshotCodec {
   final bool investmentSalesAware;
   final bool investmentDividendsAware;
   final bool investmentSplitsAware;
+
+  List<String> get tableNames => _columns.keys.toList(growable: false);
   Map<String, List<String>> get _columns => {
     ..._financialColumns,
     if (fxTransfersAware) 'event_fx': fxTransferColumns,
