@@ -394,6 +394,12 @@ final class ProbeDatabase extends GeneratedDatabase {
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await customStatement('PRAGMA busy_timeout = 10000');
+      // Derived and rebuildable: existing ledgers can gain the timeline
+      // accelerator without changing authority rows or portable snapshots.
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS events_by_date '
+        'ON events(workspace,business_date DESC,id DESC)',
+      );
       if (storageBinding != null) await verifyStorageBinding();
     },
   );
@@ -443,6 +449,10 @@ final class ProbeDatabase extends GeneratedDatabase {
     migrationCheckpoint?.call('column');
     await customStatement(
       'CREATE INDEX legs_by_account ON legs(workspace,account_id)',
+    );
+    await customStatement(
+      'CREATE INDEX events_by_date '
+      'ON events(workspace,business_date DESC,id DESC)',
     );
     migrationCheckpoint?.call('index');
     if ((await customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {

@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-02",
+  "scope": "current-schema-host-profile-before-and-after-timeline-index",
+  "schema": 24,
+  "platform": "Windows 11 x64, 8 logical processors",
+  "dart": "3.13.4",
+  "dataset": "one synthetic TWD account; exact same 100, 1000 and 5000 event structure; no user data or network",
+  "baseline": {
+    "elapsedMs": 404148,
+    "checkpoints": [
+      {"events": 100, "cumulativeWriteMs": 3079, "firstPageMs": 25, "accountSummaryMs": 14, "monthlyReportMs": 64, "allPagesMs": 30, "backupMs": 2657, "restoreMs": 4789, "reopenMs": 1435, "payloadBytes": 105790, "authorityRows": 402},
+      {"events": 1000, "cumulativeWriteMs": 41718, "firstPageMs": 14, "accountSummaryMs": 9, "monthlyReportMs": 77, "allPagesMs": 398, "backupMs": 6174, "restoreMs": 11339, "reopenMs": 2609, "payloadBytes": 1040440, "authorityRows": 4002},
+      {"events": 5000, "cumulativeWriteMs": 264498, "firstPageMs": 160, "accountSummaryMs": 80, "monthlyReportMs": 770, "allPagesMs": 20540, "backupMs": 25711, "restoreMs": 46536, "reopenMs": 10208, "payloadBytes": 5206437, "authorityRows": 20002}
+    ]
+  },
+  "timelineIndex": {
+    "definition": "events(workspace,business_date DESC,id DESC)",
+    "authority": false,
+    "portableSnapshotMember": false,
+    "sameSchemaRebuild": true
+  },
+  "after": {
+    "elapsedMs": 373263,
+    "checkpoints": [
+      {"events": 100, "cumulativeWriteMs": 3023, "firstPageMs": 23, "accountSummaryMs": 11, "monthlyReportMs": 58, "allPagesMs": 30, "backupMs": 2707, "restoreMs": 4719, "reopenMs": 1478, "payloadBytes": 105790, "authorityRows": 402},
+      {"events": 1000, "cumulativeWriteMs": 42162, "firstPageMs": 5, "accountSummaryMs": 8, "monthlyReportMs": 82, "allPagesMs": 154, "backupMs": 6137, "restoreMs": 11532, "reopenMs": 2649, "payloadBytes": 1040446, "authorityRows": 4002},
+      {"events": 5000, "cumulativeWriteMs": 270543, "firstPageMs": 9, "accountSummaryMs": 53, "monthlyReportMs": 881, "allPagesMs": 2361, "backupMs": 24791, "restoreMs": 46369, "reopenMs": 10360, "payloadBytes": 5206422, "authorityRows": 20002}
+    ]
+  },
+  "comparisonAt5000": {
+    "allPagesImprovementPercent": 88.5,
+    "firstPageImprovementPercent": 94.4,
+    "backupInterpretation": "unchanged within single-run noise",
+    "restoreInterpretation": "unchanged within single-run noise"
+  },
+  "status": "passed",
+  "limitations": [
+    "Single Windows host sample, not Android profile or p95.",
+    "Resident bytes are process snapshots, not isolated or peak memory, so they are intentionally omitted from the comparison claim.",
+    "The index fixes timeline traversal but does not raise the 5000 event, 50000 row or 16 MiB gates.",
+    "A 20000 event run is impossible under the released fail-closed event limit and must wait for a new storage and snapshot design."
+  ]
+}

@@ -969,3 +969,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 多次符號變化若找到多根則明示多解；即使網格只找到一根或沒有找到，也回報「可能多解、無法證明唯一」，不再把取樣結果宣稱為唯一報酬率。
 - [x] 三根、近根對、偶數重根、上界根、同日抵銷、長期與極端範圍已加入回歸。XIRR 11/11、投資套件完整 69/69、績效／行情畫面 12/12、架構 22/22及相關靜態分析通過。[主機證據](test-results/2026-10-02/xirr-uniqueness-host-2026-10-02.md)
 - [ ] 本批不列舉全部根；多次符號變化但實際只有一根時仍可能保守拒絕。若產品未來要顯示所有解，需另做有證明的完整 root isolation。下一階段進入 R04／R06 容量量測與設計，不直接放寬 5,000／16 MiB 上限。
+
+## 2026-10-02 外部稽核 R04／R06：現行 schema 容量基線與時間軸索引
+
+- [x] 新增現行 schema 24 的 100／1,000／5,000 筆分階段 host profile，量測寫入、首批、帳戶摘要、月報、全分頁、備份、乾淨還原、重開、bytes 與 authority rows；輸出機器可讀 JSON，合成資料不碰使用者檔案或網路。
+- [x] 基線確認時間軸 keyset 缺少排序索引。新增可重建 `events(workspace,business_date DESC,id DESC)` 索引；既有同 schema 帳本開啟時安全補建，不改權威列或 portable snapshot。持久層完整 111/111、補建定向 5/5通過。
+- [x] 同機同工具 5,000 筆全分頁 20,540→2,361 ms（約快 88.5%），首頁首批 160→9 ms；備份 25,711→24,791 ms、還原 46,536→46,369 ms，證明查詢改善與快照瓶頸相互獨立。[數據](test-results/2026-10-02/current-schema-capacity-profile-windows-2026-10-02.json)與[容量演進計畫](architecture/capacity-evolution-plan.md)。
+- [ ] 仍維持 5,000 events／50,000 rows／16 MiB。下一個儲存里程碑是 bounded chunk manifest、authenticated streaming、全新 generation 還原及舊格式唯讀匯入；完成後才建立合法 20k 資料集。Android profile、frame、peak RSS 與 process death 仍屬外部 gate。

@@ -53,9 +53,11 @@ App 現在有獨立於雲端備份頁的 application runner。冷啟動在帳本
 
 host CI、ARM64 debug build 與手動簽署 workflow 都是正面證據，但不能替代正式 APK/AAB 的乾淨安裝、升級、還原與平台生命週期。需要 Android 實機、正式 OAuth client、正式 signing secrets 與候選產物才能關閉。
 
-### R04 P1：5,000 事件容量線不適合長期正式版 — 成立
+### R04 P1：5,000 事件容量線不適合長期正式版 — 基線與第一項查詢修正完成
 
-限制是刻意 fail-closed，而不是隱藏漏洞；但正式長期記帳不能只靠備份封存舊帳。必須先完成分階段量測、追加寫入與分塊／串流備份設計，才可提高上限。不能只修改常數。
+限制是刻意 fail-closed，而不是隱藏漏洞；但正式長期記帳不能只靠備份封存舊帳。現行 schema 24 已建立 100／1,000／5,000 筆分階段工具與基線。基線找出 keyset 時間軸缺少複合索引；補上可重建的 `(workspace,business_date DESC,id DESC)` 後，5,000 筆全分頁從 20,540 ms 降為 2,361 ms，首頁首批從 160 ms 降為 9 ms，持久層完整 111/111 及同 schema 補建測試通過。
+
+這不提高容量：5,000 筆已有 5,206,422-byte payload 與 20,002 權威列，備份／還原仍約 25／46 秒。20,000 筆在現行 5,000／50,000／16 MiB gate 下無法成為合法帳本。下一個儲存里程碑必須先完成 bounded chunk manifest、authenticated streaming、全新 generation 還原與舊格式唯讀匯入，之後才可建立 20k gate。詳見[容量演進計畫](capacity-evolution-plan.md)與[主機證據](../test-results/2026-10-02/current-schema-capacity-profile-windows-2026-10-02.json)。
 
 ### R03 P2：帳戶活動從首頁已載入 30 筆篩選 — 已完成第一批修正
 
@@ -93,18 +95,18 @@ XIRR 現在先計算依日期合併後的現金流符號變化。只有恰好一
 
 主機已通過生命週期 session 2/2、正式畫面與帳戶／資產報表 4/4、validated restore 131/131、架構 22/22及相關靜態分析。詳見 [R11 主機驗證](../test-results/2026-10-02/account-lifecycle-host-2026-10-02.md)。真機、跨裝置版本衝突與候選版還原仍列 R08 gate。
 
-### R06 P2：前景資料庫與重複投影缺少裝置量測 — 成立，部分改善
+### R06 P2：前景資料庫與重複投影缺少裝置量測 — host 分段基線與時間軸修正完成
 
-`cf00196` 已移除 recovery 後第一次容量 admission 的重複 snapshot scan。2026-10-02 Windows host 的單帳本 5,000 筆 App engine 基準通過全部一致性檢查：
+`cf00196` 已移除 recovery 後第一次容量 admission 的重複 snapshot scan。2026-10-02 Windows host 的現行 schema 24 單帳本基準通過全部一致性檢查；加入時間軸索引後 5,000 筆結果為：
 
-- 5,000 新交易及 5,000 次冪等重送：189,590 ms。
-- 完整 keyset 分頁：21,713 ms。
-- 5,226,616-byte plaintext payload 的加密備份：24,855 ms。
-- 乾淨密碼還原：36,495 ms。
-- 重新解鎖：8,607 ms。
-- 完整流程：327,995 ms。
+- 5,000 筆累積寫入：270,543 ms。
+- 首頁首批：9 ms；完整 keyset 分頁：2,361 ms（基線 20,540 ms）。
+- 月報：881 ms。
+- 5,206,422-byte plaintext payload 的加密備份：24,791 ms。
+- 乾淨密碼還原：46,369 ms；重新解鎖：10,360 ms。
+- 完整流程：373,263 ms。
 
-這是 Windows host 單次樣本，不是 Android p95。它證明資料正確，也證明不能直接把上限改成 100,000。後續需分離量測 SQLCipher transaction、UI isolate、首頁投影、報表、備份、還原與記憶體峰值。
+這是 Windows host 單次樣本，不是 Android p95。常駐記憶體只是整個 Dart 程序當下讀值，沒有當成 peak 或 App 專屬記憶體聲明。它證明索引可修正讀取成本，也證明全量備份／還原與容量格式仍不能靠調高常數解決；Android profile、UI frame 與 peak RSS 仍屬 R08／C4 gate。
 
 ### R07 P2：大型 shared-library UI 狀態提高維護成本 — 成立
 

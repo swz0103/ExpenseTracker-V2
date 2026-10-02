@@ -94,6 +94,16 @@ void main() {
         sources.map((row) => row.read<String>('source_context')),
         everyElement('legacy-unspecified'),
       );
+      final indexes = await db!
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND name IN ('legs_by_account','events_by_date') ORDER BY name",
+          )
+          .get();
+      expect(indexes.map((row) => row.read<String>('name')), [
+        'events_by_date',
+        'legs_by_account',
+      ]);
       final retry = Posting.income(
         id: PublicId.generate(),
         operation: OperationKey(
@@ -108,6 +118,38 @@ void main() {
       expect(snapshot(), before);
     },
   );
+  test('same-schema open rebuilds only the derived timeline index', () async {
+    db = ProbeDatabase(file);
+    await db!.customSelect('SELECT * FROM events').get();
+    await db!.close();
+    db = null;
+    final legacy = sqlite3.open(file.path);
+    late Map<String, List<Map<String, Object?>>> before;
+    try {
+      legacy.execute('DROP INDEX events_by_date');
+      before = snapshot();
+      expect(
+        legacy.select(
+          "SELECT name FROM sqlite_master WHERE type='index' "
+          "AND name='events_by_date'",
+        ),
+        isEmpty,
+      );
+    } finally {
+      legacy.close();
+    }
+
+    db = ProbeDatabase(file);
+    await db!.customSelect('SELECT * FROM events').get();
+    expect(snapshot(), before);
+    final rebuilt = await db!
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='index' "
+          "AND name='events_by_date'",
+        )
+        .get();
+    expect(rebuilt, hasLength(1));
+  });
   for (final point in ['column', 'index']) {
     test(
       'DATA-01 failure after $point rolls schema and data back to v1',
@@ -136,7 +178,8 @@ void main() {
           );
           expect(
             legacy.select(
-              "SELECT name FROM sqlite_master WHERE type='index' AND name='legs_by_account'",
+              "SELECT name FROM sqlite_master WHERE type='index' "
+              "AND name IN ('legs_by_account','events_by_date')",
             ),
             isEmpty,
           );
