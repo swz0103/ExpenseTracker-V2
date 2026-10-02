@@ -104,6 +104,21 @@ final class InvalidSnapshot implements Exception {
   String toString() => 'InvalidSnapshot';
 }
 
+final class SnapshotCapacityInspection {
+  const SnapshotCapacityInspection({
+    required this.rows,
+    required this.bytes,
+    required this.tableRows,
+  });
+
+  final int rows;
+
+  /// Exact conservative usage used by the existing session gate: canonical
+  /// snapshot bytes plus one comma allowance for every non-empty table.
+  final int bytes;
+  final Map<String, int> tableRows;
+}
+
 /// Fixed prototype manifest. All financial tables are portable; explicitly
 /// versioned local identity is validated but regenerated at the destination.
 final class SnapshotCodec {
@@ -544,6 +559,55 @@ final class SnapshotCodec {
       tables: streams,
       password: password,
       recoveryKey: recoveryKey,
+    );
+  });
+
+  /// Computes the same conservative row/byte usage as a materialized portable
+  /// snapshot while holding only one keyset page. Full authority validation is
+  /// still performed before any usage is admitted.
+  Future<SnapshotCapacityInspection> inspectCapacity(
+    ProbeDatabase source, {
+    int pageSize = 500,
+    void Function(String table, Map<String, Object?> row)? onRow,
+  }) => source.transaction(() async {
+    if (pageSize < 1 || pageSize > 1000) throw const InvalidSnapshot();
+    await _validateStructure(source);
+    await validate(source);
+    var rows = 0;
+    var bytes = empty().length;
+    final tableRows = <String, int>{};
+    for (final entry in _columns.entries) {
+      final info = await source
+          .customSelect('PRAGMA table_info(${entry.key})')
+          .get();
+      final primaryKey = [
+        for (final row in info.where((row) => row.read<int>('pk') > 0))
+          (row.read<int>('pk'), row.read<String>('name')),
+      ]..sort((left, right) => left.$1.compareTo(right.$1));
+      if (primaryKey.isEmpty ||
+          primaryKey.any((item) => !entry.value.contains(item.$2))) {
+        throw const InvalidSnapshot();
+      }
+      var count = 0;
+      await for (final row in _streamTable(
+        source,
+        entry.key,
+        entry.value,
+        primaryKey.map((item) => item.$2).toList(growable: false),
+        pageSize,
+        null,
+      )) {
+        onRow?.call(entry.key, row);
+        rows++;
+        count++;
+        bytes += utf8.encode(jsonEncode(row)).length + 1;
+      }
+      tableRows[entry.key] = count;
+    }
+    return SnapshotCapacityInspection(
+      rows: rows,
+      bytes: bytes,
+      tableRows: Map.unmodifiable(tableRows),
     );
   });
 

@@ -194,6 +194,51 @@ void main() {
     },
   );
 
+  test(
+    'streamed capacity exactly matches canonical conservative usage',
+    () async {
+      final databaseFile = File('${root.path}/capacity-source.db');
+      final legacy = sqlite3.open(databaseFile.path);
+      try {
+        legacy.execute(
+          File('../modular_persistence/test/fixtures/v1.sql')
+              .readAsStringSync(),
+        );
+      } finally {
+        legacy.close();
+      }
+      final database = ProbeDatabase(databaseFile);
+      try {
+        final codec = SnapshotCodec();
+        final canonical = await codec.capture(database);
+        final decoded = jsonDecode(utf8.decode(canonical)) as Map;
+        final tables = decoded['tables'] as Map;
+        final expectedRows = tables.values.fold<int>(
+          0,
+          (sum, rows) => sum + (rows as List).length,
+        );
+        final nonempty = tables.values.where(
+          (rows) => (rows as List).isNotEmpty,
+        );
+        var callbacks = 0;
+        final inspection = await codec.inspectCapacity(
+          database,
+          pageSize: 1,
+          onRow: (_, _) => callbacks++,
+        );
+        expect(inspection.rows, expectedRows);
+        expect(inspection.bytes, canonical.length + nonempty.length);
+        expect(callbacks, expectedRows);
+        expect(
+          inspection.tableRows.values.fold<int>(0, (sum, count) => sum + count),
+          expectedRows,
+        );
+      } finally {
+        await database.close();
+      }
+    },
+  );
+
   test('chunked stage recreates equivalent authority in a new file', () async {
     final sourceFile = File('${root.path}/roundtrip-source.db');
     final legacy = sqlite3.open(sourceFile.path);

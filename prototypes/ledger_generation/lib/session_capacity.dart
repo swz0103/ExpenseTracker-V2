@@ -379,6 +379,18 @@ void _requirePortableUsage(({int rows, int bytes}) usage) {
     throw PreviewCapacity();
 }
 
+void _requireInspectedCapacity(
+  SnapshotCapacityInspection inspection,
+  Map<String, int> limits,
+) {
+  _requirePortableUsage((rows: inspection.rows, bytes: inspection.bytes));
+  if (inspection.tableRows.length != limits.length) throw PreviewCapacity();
+  for (final entry in inspection.tableRows.entries) {
+    final limit = limits[entry.key];
+    if (limit == null || entry.value > limit) throw PreviewCapacity();
+  }
+}
+
 extension _SessionRowCapacity on LedgerSession {
   Future<void> _checkRows(
     String table,

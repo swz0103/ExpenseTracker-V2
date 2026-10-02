@@ -120,33 +120,9 @@ final class LedgerSession {
   Future<void> _admitCapacity() async {
     if (_capacityUsage != null) return;
     final inspected = _inspectedSnapshot;
-    final admitted = validateSessionCapacity(
-      inspected ??
-          await SnapshotCodec(
-            categoryAware: _db.categoryAware,
-            generationAware: true,
-            categoryReferences: _db.categoryReferences,
-            tagsAware: _db.tagsAware,
-            merchantsAware: _db.merchantsAware,
-            transfersAware: _db.transfersAware,
-            fxTransfersAware: _db.fxTransfersAware,
-            refundsAware: _db.refundsAware,
-            reversalsAware: _db.reversalsAware,
-            notesAware: _db.notesAware,
-            correctionsAware: _db.correctionsAware,
-            tombstonesAware: _db.tombstonesAware,
-            budgetsAware: _db.budgetsAware,
-            recurringAware: _db.recurringAware,
-            creditCardsAware: _db.creditCardsAware,
-            cardStatementsAware: _db.cardStatementsAware,
-            cardAuthorizationsAware: _db.cardAuthorizationsAware,
-            installmentsAware: _db.installmentsAware,
-            investmentsAware: _db.investmentsAware,
-            investmentSalesAware: _db.investmentSalesAware,
-            investmentDividendsAware: _db.investmentDividendsAware,
-            investmentSplitsAware: _db.investmentSplitsAware,
-          ).capture(_db),
+    final codec = SnapshotCodec(
       categoryAware: _db.categoryAware,
+      generationAware: true,
       categoryReferences: _db.categoryReferences,
       tagsAware: _db.tagsAware,
       merchantsAware: _db.merchantsAware,
@@ -168,7 +144,63 @@ final class LedgerSession {
       investmentDividendsAware: _db.investmentDividendsAware,
       investmentSplitsAware: _db.investmentSplitsAware,
     );
-    _capacityUsage = _snapshotUsage(admitted);
+    if (inspected != null) {
+      final admitted = validateSessionCapacity(
+        inspected,
+        categoryAware: _db.categoryAware,
+        categoryReferences: _db.categoryReferences,
+        tagsAware: _db.tagsAware,
+        merchantsAware: _db.merchantsAware,
+        transfersAware: _db.transfersAware,
+        fxTransfersAware: _db.fxTransfersAware,
+        refundsAware: _db.refundsAware,
+        reversalsAware: _db.reversalsAware,
+        notesAware: _db.notesAware,
+        correctionsAware: _db.correctionsAware,
+        tombstonesAware: _db.tombstonesAware,
+        budgetsAware: _db.budgetsAware,
+        recurringAware: _db.recurringAware,
+        creditCardsAware: _db.creditCardsAware,
+        cardStatementsAware: _db.cardStatementsAware,
+        cardAuthorizationsAware: _db.cardAuthorizationsAware,
+        installmentsAware: _db.installmentsAware,
+        investmentsAware: _db.investmentsAware,
+        investmentSalesAware: _db.investmentSalesAware,
+        investmentDividendsAware: _db.investmentDividendsAware,
+        investmentSplitsAware: _db.investmentSplitsAware,
+      );
+      _capacityUsage = _snapshotUsage(admitted);
+    } else {
+      final inspection = await codec.inspectCapacity(
+        _db,
+        onRow: (table, row) => _checkRowBytes(table, row),
+      );
+      final limits = _tableLimits(
+        _db.categoryAware,
+        _db.categoryReferences,
+        _db.tagsAware,
+        _db.merchantsAware,
+        _db.transfersAware,
+        _db.fxTransfersAware,
+        _db.refundsAware,
+        _db.reversalsAware,
+        _db.notesAware,
+        _db.correctionsAware,
+        _db.tombstonesAware,
+        _db.budgetsAware,
+        _db.recurringAware,
+        _db.creditCardsAware,
+        _db.cardStatementsAware,
+        _db.cardAuthorizationsAware,
+        _db.installmentsAware,
+        _db.investmentsAware,
+        _db.investmentSalesAware,
+        _db.investmentDividendsAware,
+        _db.investmentSplitsAware,
+      );
+      _requireInspectedCapacity(inspection, limits);
+      _capacityUsage = (rows: inspection.rows, bytes: inspection.bytes);
+    }
     _discardInspectedSnapshot();
   }
 

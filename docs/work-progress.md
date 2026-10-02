@@ -990,3 +990,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 舊單檔與新分塊的 format/version、`R1`／`R2` 救援碼完全分離；雙向誤讀與跨格式救援碼皆 fail closed，舊 restore 保留為相容匯入。
 - [x] 分塊原型 9/9、認證容器 4/4、backup_envelope 20/20、restore／promotion 32/32、validated_restore 完整 147/147 與靜態分析通過；App 匯出入口尚未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
 - [ ] 下一批核定 envelope version／App 切換並進入 C3；未完成前維持原容量 gate。
+
+## 2026-10-02 容量 C3a：串流 admission
+
+- [x] 新增 `SnapshotCodec.inspectCapacity`：完整 authority 驗證後，以實際 stable primary key 分頁掃描，只保留一頁；rows／bytes 精確等於既有 `canonical.length + nonempty table count` 保守 gate。
+- [x] Ledger 在沒有 recovery inspection 可沿用時改用串流 inspection；每列 byte limit、每表 count、50,000 rows／16 MiB 與工作階段 transaction-coupled delta 全部保留。
+- [x] 串流定向 10/10、Ledger 容量／回滾定向 6/6、`ledger_generation` 完整 301/301、`validated_restore` 148/148、兩套靜態分析通過。[主機證據](test-results/2026-10-02/streamed-capacity-admission-host-2026-10-02.md)
+- [ ] 目前仍是 bounded full scan；C3b 要建立 SQLCipher transaction-coupled projection、版本／checksum 與開啟時重建核對。未完成前不提高容量上限。

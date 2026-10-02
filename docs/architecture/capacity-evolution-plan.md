@@ -40,7 +40,8 @@
 ### C3：追加寫入與容量 admission
 
 - 保留 SQLCipher Ledger 作權威，不以 UI cache 取代。
-- 容量計數持久化為可驗證 projection；交易內同步更新，開啟時抽樣／完整重建可核對，碰撞或不一致 fail closed。
+- [x] C3a：首次 admission 不再 materialize 完整 portable snapshot；完整 authority 驗證後，按 stable primary-key keyset 分頁，逐列套用 byte／table count gate，計算結果與既有 canonical conservative usage 精確相等。完整 Ledger 301/301、還原 148/148 通過；[證據](../test-results/2026-10-02/streamed-capacity-admission-host-2026-10-02.md)。
+- [ ] C3b：容量計數持久化為可驗證 projection；交易內同步更新，開啟時抽樣／完整重建可核對，碰撞或不一致 fail closed。
 - 將每筆寫入需要的全量檢查拆成局部 constraint、索引查詢與週期性完整驗證；不能移除 receipt、audit、版本或財務重播。
 
 ### C4：20k 及設計目標驗證
