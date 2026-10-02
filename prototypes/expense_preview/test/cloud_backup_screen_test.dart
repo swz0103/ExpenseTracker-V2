@@ -46,7 +46,7 @@ void main() {
     expect(find.text('備份已驗證，並交給安全還原流程。'), findsOneWidget);
   });
 
-  testWidgets('retention does not delete until permanent confirmation', (
+  testWidgets('retention does not remove until recoverable cleanup confirmation', (
     tester,
   ) async {
     final gateway = _Gateway()
@@ -70,19 +70,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('預覽並清理舊備份'));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('永久刪除舊備份？'), findsOneWidget);
+    expect(find.text('清理舊備份？'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(gateway.applyCalls, 0);
 
     await tester.tap(find.text('預覽並清理舊備份'));
     await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(find.text('確認永久刪除'));
+    await tester.tap(find.text('確認清理'));
     await tester.pumpAndSettle();
     expect(gateway.applyCalls, 1);
     await tester.drag(find.byType(ListView), const Offset(0, 1000));
     await tester.pumpAndSettle();
-    expect(find.text('舊備份已依預覽結果刪除。'), findsOneWidget);
+    expect(find.text('舊備份已依重新核對的預覽結果移出目前清單。'), findsOneWidget);
   });
 
   testWidgets('authentication failure is actionable and preserves page', (

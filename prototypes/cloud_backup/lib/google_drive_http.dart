@@ -262,8 +262,22 @@ final class GoogleDriveRestApi implements DriveBackupApi {
   }
 
   @override
-  Future<void> deleteFile(String fileId) async {
-    await _send('DELETE', _api.resolve('files/${Uri.encodeComponent(fileId)}'));
+  Future<void> trashFile(String fileId) async {
+    try {
+      await _send(
+        'PATCH',
+        _api
+            .resolve('files/${Uri.encodeComponent(fileId)}')
+            .replace(queryParameters: const {'fields': 'id,trashed'}),
+        body: utf8.encode(jsonEncode(const {'trashed': true})),
+        headers: const {
+          HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        },
+        resultMayBeCommitted: true,
+      );
+    } on DriveHttpTransportException {
+      throw const DriveApiException(DriveApiFailure.uncertainResult);
+    }
   }
 
   Future<DriveHttpResponse> _send(

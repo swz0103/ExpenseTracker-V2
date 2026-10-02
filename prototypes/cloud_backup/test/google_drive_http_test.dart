@@ -106,21 +106,28 @@ void main() {
     );
   });
 
-  test('get, download and delete use exact object routes', () async {
+  test('get, download and recoverable trash use exact object routes', () async {
     final properties = _properties('backup-1', 3);
     final transport = _Transport([
       _json(HttpStatus.ok, _file('one', 3, properties)),
       DriveHttpResponse(statusCode: HttpStatus.ok, body: const [1, 2, 3]),
-      DriveHttpResponse(statusCode: HttpStatus.noContent),
+      DriveHttpResponse(statusCode: HttpStatus.ok),
       DriveHttpResponse(statusCode: HttpStatus.notFound),
     ]);
     final api = _api(transport);
     expect((await api.getFile('one'))!.id, 'one');
     expect(await api.downloadFile('one'), [1, 2, 3]);
-    await api.deleteFile('one');
+    await api.trashFile('one');
     expect(await api.getFile('missing'), isNull);
     expect(transport.requests[1].uri.queryParameters['alt'], 'media');
-    expect(transport.requests[2].method, 'DELETE');
+    expect(transport.requests[2].method, 'PATCH');
+    expect(jsonDecode(utf8.decode(transport.requests[2].body)), {
+      'trashed': true,
+    });
+    expect(
+      transport.requests[2].headers[HttpHeaders.contentTypeHeader],
+      'application/json; charset=utf-8',
+    );
   });
 
   test('Drive HTTP failures retain actionable meanings', () async {
@@ -144,6 +151,13 @@ void main() {
         throwsA(_driveFailure(entry.value)),
       );
     }
+  });
+
+  test('lost trash response is reported as an uncertain result', () async {
+    await expectLater(
+      _api(_Transport([const DriveHttpTransportException()])).trashFile('one'),
+      throwsA(_driveFailure(DriveApiFailure.uncertainResult)),
+    );
   });
 
   test(

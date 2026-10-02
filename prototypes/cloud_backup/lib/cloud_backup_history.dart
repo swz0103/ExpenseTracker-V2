@@ -7,8 +7,9 @@ abstract interface class CloudBackupCatalogProvider {
 
   Future<List<RemoteBackupMetadata>> listBackups();
 
-  /// Permanently removes exactly [expected]. Implementations must inspect the
-  /// current remote metadata again and fail closed if it changed.
+  /// Removes exactly [expected] from active history. Implementations must
+  /// inspect current remote metadata again, fail closed if it changed, and use
+  /// provider trash or another recoverable removal mechanism when available.
   Future<void> deleteBackup(RemoteBackupMetadata expected);
 }
 
@@ -139,8 +140,50 @@ final class CloudBackupRetentionService {
     if (plan.providerId != provider.providerId) {
       throw StateError('Retention plan belongs to another provider');
     }
+    _validatePlan(plan);
+    var remaining = List<RemoteBackupMetadata>.of(plan.delete);
+    if (remaining.isEmpty) {
+      await _requirePlanState(plan, remaining);
+      return;
+    }
+    while (remaining.isNotEmpty) {
+      final expected = remaining.first;
+      // Retention is deliberately expensive: re-read immediately before every
+      // destructive operation so a stale preview cannot silently outlive a
+      // keep-item removal or metadata change from another client.
+      await _requirePlanState(plan, remaining);
+      await provider.deleteBackup(expected);
+      remaining = remaining.sublist(1);
+      // Verify the invariant again after every provider call. A provider may
+      // implement deletion as recoverable trash, but the service never assumes
+      // that a successful response preserved the planned keep set.
+      await _requirePlanState(plan, remaining);
+    }
+  }
+
+  void _validatePlan(CloudBackupRetentionPlan plan) {
+    if (plan.keep.isEmpty) {
+      throw const CloudBackupValidationException(
+        CloudBackupValidationFailure.remoteMetadataMismatch,
+      );
+    }
+    final identities = <String>{};
+    for (final item in [...plan.keep, ...plan.delete]) {
+      _validateHistoryItem(item, provider.providerId);
+      if (!identities.add(item.objectId)) {
+        throw const CloudBackupValidationException(
+          CloudBackupValidationFailure.remoteMetadataMismatch,
+        );
+      }
+    }
+  }
+
+  Future<void> _requirePlanState(
+    CloudBackupRetentionPlan plan,
+    List<RemoteBackupMetadata> remaining,
+  ) async {
     final current = {for (final item in await history()) item.objectId: item};
-    for (final expected in plan.delete) {
+    for (final expected in [...plan.keep, ...remaining]) {
       final actual = current[expected.objectId];
       if (actual == null || !_sameMetadata(actual, expected)) {
         throw const CloudBackupValidationException(
@@ -148,8 +191,10 @@ final class CloudBackupRetentionService {
         );
       }
     }
-    for (final expected in plan.delete) {
-      await provider.deleteBackup(expected);
+    if (current.length - remaining.length < plan.keep.length) {
+      throw const CloudBackupValidationException(
+        CloudBackupValidationFailure.remoteMetadataMismatch,
+      );
     }
   }
 }

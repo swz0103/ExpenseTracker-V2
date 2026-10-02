@@ -236,9 +236,10 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('永久刪除舊備份？'),
+        title: const Text('清理舊備份？'),
         content: Text(
-          '將保留最新 ${plan.keep.length} 份，永久刪除 ${plan.delete.length} 份。刪除後無法復原。',
+          '將保留最新 ${plan.keep.length} 份，從目前清單移除 ${plan.delete.length} 份。'
+          '若雲端服務支援垃圾桶，可在服務的保留期間內復原。執行前會重新核對保留項目。',
         ),
         actions: [
           TextButton(
@@ -247,7 +248,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('確認永久刪除'),
+            child: const Text('確認清理'),
           ),
         ],
       ),
@@ -258,7 +259,7 @@ final class _CloudBackupScreenState extends State<CloudBackupScreen> {
     if (mounted && _providerId == providerId) {
       setState(() {
         _history = rows;
-        _message = '舊備份已依預覽結果刪除。';
+        _message = '舊備份已依重新核對的預覽結果移出目前清單。';
       });
     }
   });

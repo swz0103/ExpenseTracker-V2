@@ -61,7 +61,9 @@ abstract interface class DriveBackupApi {
   /// ExpenseTracker backup app property.
   Future<List<DriveFileRecord>> listBackupFiles();
 
-  Future<void> deleteFile(String fileId);
+  /// Moves the file to the provider trash. Retention must remain recoverable;
+  /// permanent provider deletion is outside this adapter's authority.
+  Future<void> trashFile(String fileId);
 }
 
 /// A generated Drive file ID must be durable before upload starts. The store
@@ -178,14 +180,32 @@ final class GoogleDriveBackupProvider
     }
     try {
       final file = await api.getFile(expected.objectId);
-      if (file == null ||
-          file.trashed ||
-          !_sameRemote(_metadata(file), expected)) {
+      if (file == null || !_sameRemote(_metadata(file), expected)) {
         throw const CloudBackupValidationException(
           CloudBackupValidationFailure.remoteMetadataMismatch,
         );
       }
-      await api.deleteFile(expected.objectId);
+      if (file.trashed) return;
+      try {
+        await api.trashFile(expected.objectId);
+      } on DriveApiException catch (error) {
+        if (error.failure != DriveApiFailure.uncertainResult) rethrow;
+        final uncertainReadBack = await api.getFile(expected.objectId);
+        if (uncertainReadBack != null &&
+            uncertainReadBack.trashed &&
+            _sameRemote(_metadata(uncertainReadBack), expected)) {
+          return;
+        }
+        rethrow;
+      }
+      final readBack = await api.getFile(expected.objectId);
+      if (readBack == null ||
+          !readBack.trashed ||
+          !_sameRemote(_metadata(readBack), expected)) {
+        throw const CloudBackupValidationException(
+          CloudBackupValidationFailure.remoteMetadataMismatch,
+        );
+      }
     } on DriveApiException catch (error) {
       throw _providerError(error.failure);
     }

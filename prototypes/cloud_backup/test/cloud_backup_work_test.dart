@@ -332,8 +332,14 @@ final class _DriveApi implements DriveBackupApi {
       _files.values.toList(growable: false);
 
   @override
-  Future<void> deleteFile(String fileId) async {
-    _files.remove(fileId);
-    _bytes.remove(fileId);
+  Future<void> trashFile(String fileId) async {
+    final current = _files[fileId]!;
+    _files[fileId] = DriveFileRecord(
+      id: current.id,
+      mimeType: current.mimeType,
+      byteLength: current.byteLength,
+      appProperties: current.appProperties,
+      trashed: true,
+    );
   }
 }

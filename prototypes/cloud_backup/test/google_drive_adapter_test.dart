@@ -139,7 +139,7 @@ void main() {
     );
   });
 
-  test('Drive history and permanent deletion recheck metadata', () async {
+  test('Drive history and recoverable trash recheck metadata', () async {
     final api = _DriveApi();
     final provider = GoogleDriveBackupProvider(
       api: api,
@@ -169,6 +169,18 @@ void main() {
     final clean = await CloudBackupCoordinator(cleanProvider).upload(artifact);
     await cleanProvider.deleteBackup(clean);
     expect(await cleanProvider.listBackups(), isEmpty);
+    expect(cleanApi.contains(clean.objectId), isTrue);
+    expect((await cleanApi.getFile(clean.objectId))!.trashed, isTrue);
+
+    final uncertainApi = _DriveApi(trashUncertainAfterCommit: true);
+    final uncertainProvider = GoogleDriveBackupProvider(
+      api: uncertainApi,
+      reservations: _Reservations(),
+    );
+    final uncertain = await CloudBackupCoordinator(uncertainProvider)
+        .upload(artifact);
+    await uncertainProvider.deleteBackup(uncertain);
+    expect((await uncertainApi.getFile(uncertain.objectId))!.trashed, isTrue);
   });
 }
 
@@ -196,12 +208,14 @@ final class _DriveApi implements DriveBackupApi {
     this.conflictAfterCommit = false,
     this.trashedAfterCreate = false,
     this.omitIntegrityProperty = false,
+    this.trashUncertainAfterCommit = false,
     this.createFailure,
   });
 
   final bool conflictAfterCommit;
   final bool trashedAfterCreate;
   final bool omitIntegrityProperty;
+  final bool trashUncertainAfterCommit;
   final DriveApiFailure? createFailure;
   final _files = <String, DriveFileRecord>{};
   final _bytes = <String, List<int>>{};
@@ -276,8 +290,17 @@ final class _DriveApi implements DriveBackupApi {
       _files.values.toList(growable: false);
 
   @override
-  Future<void> deleteFile(String fileId) async {
-    _files.remove(fileId);
-    _bytes.remove(fileId);
+  Future<void> trashFile(String fileId) async {
+    final current = _files[fileId]!;
+    _files[fileId] = DriveFileRecord(
+      id: current.id,
+      mimeType: current.mimeType,
+      byteLength: current.byteLength,
+      appProperties: current.appProperties,
+      trashed: true,
+    );
+    if (trashUncertainAfterCommit) {
+      throw const DriveApiException(DriveApiFailure.uncertainResult);
+    }
   }
 }

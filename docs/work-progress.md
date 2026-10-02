@@ -1,3 +1,12 @@
+## 2026-10-02 外部稽核回應與雲端清理保護
+
+- [x] 完整閱讀 16 頁外部程式碼稽核，逐項對照固定基準 `25ae084` 與目前 `main`；R01–R12 均有現行程式依據。已建立[逐項回應與分階段改善計畫](architecture/external-audit-response-2026-10-02.md)，先處理資料不可恢復風險，再處理產品入口、身分／數學語意、容量與候選版 gate。
+- [x] 雲端 retention apply 現在驗證 provider、非空 keep、唯一且不重疊的 object ID，並在每一個清理動作前後重新讀取 history，核對所有 keep 與剩餘 delete metadata；預覽後 keep 消失／改變或清理途中被移除會 fail closed，不再繼續後續刪除。
+- [x] Google Drive retention 從永久 DELETE 改為可復原 trash；操作前核對完整 metadata，操作後 GET read-back 確認同一 object 已 trashed。回覆遺失後重試若發現同 metadata 已 trashed，視為冪等完成。
+- [x] Cloud backup 完整 41 項測試與靜態分析通過；新增 keep 預覽後消失、清理途中消失、metadata 改變、trash 回覆遺失與 read-back 回復等競態回歸。
+- [x] 5,000 筆 App engine host 基準通過 5,000 次冪等重送、完整分頁、加密備份、乾淨還原與重開；本機總計 327,995 ms，顯示資料正確但目前架構不能只放寬常數後宣稱 100k 完成。
+- [ ] Drive trash 與多裝置競態仍需真實帳號／兩裝置演練；下一項依稽核順序處理 R01 投資 intent 的「確認未提交後捨棄／已提交後完成／結果未知同身分重試」。
+
 ## 2026-10-02 容量檢查重複掃描移除
 
 - [x] Ledger 開啟工作階段時直接沿用 generation recovery 已完成驗證的 canonical snapshot；第一次寫入做容量 admission 時不再立刻重新掃描整個 SQLCipher 資料庫，減少大資料量下同一工作階段的重複 I/O 與序列化成本。

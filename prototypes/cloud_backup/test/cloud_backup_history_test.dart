@@ -67,6 +67,51 @@ void main() {
     },
   );
 
+  test('missing planned keep aborts retention before any deletion', () async {
+    final provider = _CatalogProvider('provider-a', [
+      _item('newest', now),
+      _item('middle', now.subtract(const Duration(days: 5))),
+      _item('oldest', now.subtract(const Duration(days: 10))),
+    ]);
+    final service = CloudBackupRetentionService(provider);
+    final plan = await service.preview(
+      const CloudBackupRetentionPolicy(keepLatest: 1),
+      now: now,
+    );
+    provider.items.removeWhere((item) => item.objectId == 'newest');
+
+    await expectLater(
+      service.apply(plan),
+      throwsA(isA<CloudBackupValidationException>()),
+    );
+    expect(provider.deleted, isEmpty);
+    expect(provider.items.map((item) => item.objectId), ['middle', 'oldest']);
+  });
+
+  test('keep loss during apply stops every later deletion', () async {
+    final provider = _CatalogProvider('provider-a', [
+      _item('newest', now),
+      _item('middle', now.subtract(const Duration(days: 5))),
+      _item('oldest', now.subtract(const Duration(days: 10))),
+    ]);
+    final service = CloudBackupRetentionService(provider);
+    final plan = await service.preview(
+      const CloudBackupRetentionPolicy(keepLatest: 1),
+      now: now,
+    );
+    provider.afterDelete = (_) async {
+      provider.afterDelete = null;
+      provider.items.removeWhere((item) => item.objectId == 'newest');
+    };
+
+    await expectLater(
+      service.apply(plan),
+      throwsA(isA<CloudBackupValidationException>()),
+    );
+    expect(provider.deleted, ['middle']);
+    expect(provider.items.map((item) => item.objectId), ['oldest']);
+  });
+
   test('invalid policies and malformed provider history fail closed', () async {
     final provider = _CatalogProvider('provider-a', [
       _item('bad', now, sha256: 'not-a-digest'),
@@ -106,6 +151,7 @@ final class _CatalogProvider
   final String providerId;
   final List<RemoteBackupMetadata> items;
   final List<String> deleted = [];
+  Future<void> Function(String objectId)? afterDelete;
 
   @override
   Future<List<RemoteBackupMetadata>> listBackups() async => List.of(items);
@@ -118,6 +164,7 @@ final class _CatalogProvider
     if (index < 0) throw StateError('missing');
     deleted.add(expected.objectId);
     items.removeAt(index);
+    await afterDelete?.call(expected.objectId);
   }
 
   @override
