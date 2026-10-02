@@ -90,6 +90,7 @@ void main() {
       await work.stage(
         artifact,
         providerId: googleDriveBackupProviderId,
+        principalId: 'principal-a',
         now: start,
       );
       expect(jobs.byKey('cloud-backup:${artifact.backupId}'), isNull);
@@ -155,6 +156,7 @@ void main() {
     await work.stage(
       artifact,
       providerId: googleDriveBackupProviderId,
+      principalId: 'principal-a',
       now: start,
     );
     final other = await EnvelopeCodec().create(
@@ -172,6 +174,7 @@ void main() {
       work.stage(
         conflicting,
         providerId: googleDriveBackupProviderId,
+        principalId: 'principal-a',
         now: start,
       ),
       throwsStateError,
@@ -197,11 +200,52 @@ void main() {
         CloudBackupWorkFailure.authenticationRequired,
       );
       api.createFailure = null;
-      expect(runner.retryAfterUserAction(artifact.backupId, start), isTrue);
+      expect(
+        await runner.retryAfterUserAction(artifact.backupId, start),
+        isTrue,
+      );
       expect(work.byId(artifact.backupId)!.lastFailure, isNull);
       expect(await runner.runNext(start), isTrue);
     },
   );
+
+  test('different account cannot upload or retry staged work', () async {
+    var principal = 'principal-a';
+    final runner = _runner(
+      jobs: jobs,
+      work: work,
+      api: api,
+      principalId: () async => principal,
+    );
+    await runner.schedule(artifact, now: start);
+    expect(work.byId(artifact.backupId)!.principalId, 'principal-a');
+
+    principal = 'principal-b';
+    await expectLater(
+      runner.runNext(start),
+      throwsA(
+        isA<CloudBackupProviderException>().having(
+          (error) => error.failure,
+          'failure',
+          CloudBackupProviderFailure.authenticationRequired,
+        ),
+      ),
+    );
+    expect(api.createCalls, 0);
+    expect(
+      jobs.byKey('cloud-backup:${artifact.backupId}')!.state,
+      JobState.terminalFailure,
+    );
+    expect(
+      await runner.retryAfterUserAction(artifact.backupId, start),
+      isFalse,
+    );
+
+    principal = 'principal-a';
+    expect(await runner.retryAfterUserAction(artifact.backupId, start), isTrue);
+    expect(await runner.runNext(start), isTrue);
+    expect(api.createCalls, 1);
+  });
 
   test('throttling remains retryable with a visible failure state', () async {
     api.createFailure = DriveApiFailure.throttled;
@@ -252,6 +296,7 @@ void main() {
     await legacy.stage(
       artifact,
       providerId: googleDriveBackupProviderId,
+      principalId: 'principal-a',
       now: start,
     );
     legacy.recordFailure(
@@ -271,6 +316,77 @@ void main() {
     );
     legacy.close();
   });
+
+  test('schema 3 staged work remains unbound and cannot be adopted', () async {
+    final legacyRoot = Directory('${root.path}/legacy-unbound')..createSync();
+    final legacyKey = StorageKey.random();
+    final databaseFile = File('${legacyRoot.path}/work.db');
+    final db = sqlite3.open(databaseFile.path);
+    configureEncryption(db, legacyKey);
+    db.execute('''
+      CREATE TABLE backup_work (
+        backup_id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        byte_length INTEGER NOT NULL CHECK(byte_length > 0),
+        created_at INTEGER NOT NULL,
+        file_name TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL CHECK(state IN ('staged','uploaded')),
+        remote_object_id TEXT UNIQUE,
+        updated_at INTEGER NOT NULL,
+        last_failure TEXT CHECK(last_failure IN (
+          'authenticationRequired','permissionDenied','quotaExceeded',
+          'throttled','unavailable','uncertainResult',
+          'integrityRejected','temporaryLocalFailure'
+        )),
+        scheduled_for INTEGER
+      ) STRICT
+    ''');
+    db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
+    db.execute(
+      '''
+      INSERT INTO backup_work(
+        backup_id,provider_id,sha256,byte_length,created_at,file_name,state,
+        updated_at
+      ) VALUES(?,?,?,?,?,?,'staged',?)
+      ''',
+      [
+        artifact.backupId,
+        googleDriveBackupProviderId,
+        artifact.sha256,
+        artifact.byteLength,
+        start.millisecondsSinceEpoch,
+        '${artifact.backupId}.envelope',
+        start.millisecondsSinceEpoch,
+      ],
+    );
+    db.execute('PRAGMA user_version=3');
+    db.close();
+
+    final legacy = CloudBackupWorkStore.open(
+      databaseFile: databaseFile,
+      artifactDirectory: Directory('${legacyRoot.path}/artifacts'),
+      key: legacyKey,
+    );
+    expect(legacy.byId(artifact.backupId)!.principalId, isNull);
+    final legacyJobs = PersistentJobStore.open(
+      File('${legacyRoot.path}/jobs.db'),
+      StorageKey.random(),
+    );
+    final runner = _runner(jobs: legacyJobs, work: legacy, api: api);
+    runner.reconcile(start);
+    await expectLater(
+      runner.runNext(start),
+      throwsA(isA<CloudBackupProviderException>()),
+    );
+    expect(api.createCalls, 0);
+    expect(
+      legacy.byId(artifact.backupId)!.lastFailure,
+      CloudBackupWorkFailure.authenticationRequired,
+    );
+    legacyJobs.close();
+    legacy.close();
+  });
 }
 
 CloudBackupWorkStore _openWork(Directory root, StorageKey key) =>
@@ -284,6 +400,7 @@ CloudBackupJobRunner _runner({
   required PersistentJobStore jobs,
   required CloudBackupWorkStore work,
   required _DriveApi api,
+  Future<String> Function()? principalId,
   void Function(String)? checkpoint,
 }) {
   final provider = GoogleDriveBackupProvider(api: api, reservations: work);
@@ -291,6 +408,7 @@ CloudBackupJobRunner _runner({
     jobs: jobs,
     work: work,
     provider: provider,
+    principalId: principalId ?? () async => 'principal-a',
     checkpoint: checkpoint,
   );
 }

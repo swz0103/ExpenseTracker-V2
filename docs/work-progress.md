@@ -955,3 +955,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 關閉在同一交易讀取權威餘額及 unresolved 信用卡授權；非零餘額、待入帳項目、日期或接手帳戶無效都拒絕且不改狀態。重新啟用保留最近一次 closure metadata，完整操作歷史仍在 receipt／audit。
 - [x] Ledger 生命週期 2/2、正式畫面與帳戶／資產報表 4/4、validated restore 131/131、架構 22/22及相關靜態分析通過。[主機證據](test-results/2026-10-02/account-lifecycle-host-2026-10-02.md)
 - [ ] Android 真機、跨裝置 stale-version 演練與候選版雙憑證還原仍列 R08；下一階段依稽核順序進入 R10 雲端工作 principal 綁定。
+
+## 2026-10-02 外部稽核 R10：雲端工作穩定帳號綁定
+
+- [x] 雲端工作庫升至 schema 4；每個新工作保存 provider 與建立時的穩定 principal。Google Drive 從 Google Sign-In account ID 取得 principal，不保存或回顯 OAuth token。
+- [x] 排程、冷啟動續傳與人工重新連線都先核對目前 principal。同帳號重新授權可用原 backup ID／reservation 續傳；不同帳號在讀取 artifact 或呼叫 provider 前即終止，留下 authentication-required 與原加密工作，不會誤傳。
+- [x] schema 1–3 工作升級後維持未綁定，不自動歸屬下一個登入帳號。雲端核心 43/43、App runner／畫面／入口 11/11、架構 22/22、cloud_backup 與 expense_preview 靜態分析及 `git diff --check` 通過。[主機證據](test-results/2026-10-02/cloud-backup-principal-binding-host-2026-10-02.md)
+- [ ] 目前安全預設是不同帳號與舊版未綁工作保持暫停。若要允許搬到另一帳號，仍需明確確認 UI、清除舊 reservation、建立新目的地及真實 Google 帳號／撤權／換帳號實機驗證；下一批先處理 R12 XIRR 多根保守語意。

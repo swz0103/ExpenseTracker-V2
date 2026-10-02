@@ -81,6 +81,7 @@ void main() {
         jobs: jobs,
         work: work,
         provider: provider,
+        principalId: () async => 'principal-a',
       );
       schedules.configure(
         providerId: provider.providerId,
@@ -159,6 +160,7 @@ void main() {
       jobs: jobs,
       work: work,
       provider: provider,
+      principalId: () async => 'principal-a',
     );
     final existing = await _artifact('manual-pending', start, password);
     await runner.schedule(existing, now: start);

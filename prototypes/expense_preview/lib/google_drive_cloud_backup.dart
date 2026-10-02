@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:cloud_backup_probe/cloud_backup_history.dart';
+import 'package:cloud_backup_probe/cloud_backup.dart';
 import 'package:cloud_backup_probe/cloud_backup_manual_flow.dart';
 import 'package:cloud_backup_probe/cloud_backup_schedule.dart';
 import 'package:cloud_backup_probe/cloud_backup_work.dart';
@@ -72,6 +73,20 @@ final class GoogleDriveSignInTokenSource implements DriveAccessTokenSource {
     await _initialize();
     await _signIn.disconnect();
     _account = null;
+  }
+
+  Future<String> principalId() async {
+    await _initialize();
+    var account = _account;
+    if (account == null) {
+      final attempt = _signIn.attemptLightweightAuthentication();
+      account = attempt == null ? null : await attempt;
+      _account = account;
+    }
+    if (account == null || account.id.trim().isEmpty) {
+      throw const DriveApiException(DriveApiFailure.authenticationRequired);
+    }
+    return account.id;
   }
 
   @override
@@ -172,6 +187,15 @@ Future<CloudBackupScreenGateway> createGoogleDriveCloudBackupGateway({
     jobs: jobs,
     work: work,
     provider: provider,
+    principalId: () async {
+      try {
+        return await authorization.principalId();
+      } on DriveApiException {
+        throw const CloudBackupProviderException(
+          CloudBackupProviderFailure.authenticationRequired,
+        );
+      }
+    },
   );
   final runners = {googleDriveBackupProviderId: runner};
   final providers = CloudBackupProviderRegistry([provider]);

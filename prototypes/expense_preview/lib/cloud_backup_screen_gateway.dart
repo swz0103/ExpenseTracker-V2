@@ -70,7 +70,7 @@ final class FlowCloudBackupScreenGateway
       for (final backupId in runner.work.pendingBackupIds(
         providerId: providerId,
       )) {
-        runner.retryAfterUserAction(backupId, now);
+        await runner.retryAfterUserAction(backupId, now);
       }
       runner.reconcile(now);
       await _runProvider(providerId, now, throwFailures: true);

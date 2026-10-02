@@ -69,9 +69,13 @@ root 現在使用 `PopScope` 接管系統返回，內頁與「返回帳本」按
 
 首頁是解鎖狀態唯一會要求離開 App 的頁面；離開前先等待草稿尾端、鎖定 SQLCipher session、關閉敏感 popup，確認 lock barrier 完成後才呼叫平台退出。upgrade 頁的返回只鎖定，不嘗試繞過升級；尚未解鎖的 loading／setup／recovery／locked／blocked 才可直接退出。主機新增系統返回草稿保存、保存失敗阻擋、modal 優先及首頁先鎖後退出案例，與既有草稿／背景鎖定共 11/11；架構 22/22 與靜態分析通過。詳見 [R05 主機驗證](../test-results/2026-10-02/safe-back-navigation-host-2026-10-02.md)。Android predictive back／實體鍵仍需 R08 真機驗收。
 
-### R10 P2：雲端待傳工作未綁定穩定帳號 principal — 成立
+### R10 P2：雲端待傳工作未綁定穩定帳號 principal — 已完成安全預設
 
-工作目前以 provider ID 分類，換 Google 帳號後可能用新 token 繼續舊目的地工作。需保存 provider + Google stable subject ID，重新授權同帳號可續跑；不同帳號預設暫停，只有使用者明確選擇後才重建 reservation／目的地。
+雲端工作 schema 4 現在把 provider 與穩定 principal 一起保存；Google Drive 使用 Google Sign-In account ID，只保存識別值，不保存 token。排程、冷啟動續傳與人工重試都會先核對目前 principal；重新授權同一帳號可沿用原 backup ID 與 reservation，不同帳號則在任何檔案讀取或 provider 呼叫前以 authentication-required 終止，工作與加密 artifact 原樣保留。
+
+schema 1–3 的既有工作升級後刻意保持 principal 未綁定，不會把歷史工作默默歸給下一個登入帳號。主機已通過雲端核心 43/43，其中包含不同帳號零次上傳、切回原帳號續傳及 schema 3 不得被接管；App 雲端 runner／畫面／入口 11/11、架構 22/22及兩個套件靜態分析通過。詳見 [R10 主機驗證](../test-results/2026-10-02/cloud-backup-principal-binding-host-2026-10-02.md)。
+
+目前沒有提供「把舊工作改綁到另一帳號」的自動捷徑。若產品要支援遷移，下一批必須加入顯示來源／目前帳號、使用者明確確認、清除舊 remote reservation 並重新建立目的地的受測流程；在那之前安全行為是保持暫停。
 
 ### R12 P2：XIRR 取樣可能漏掉根，卻把結果呈現為唯一 — 成立
 
@@ -122,7 +126,7 @@ root 現在使用 `PopScope` 接管系統返回，內頁與「返回帳本」按
 
 ### 第三階段：身分與數學語意
 
-1. R10 雲端工作與穩定 principal 綁定、帳號切換遷移。
+1. R10 穩定 principal 綁定與不同帳號安全暫停已完成；明確帳號遷移 UI 尚待補齊。
 2. R12 XIRR 多根辨識與保守呈現。
 
 退出條件：換帳號不會默默改變上傳目的地；XIRR 在多根資料上不再宣稱唯一答案。

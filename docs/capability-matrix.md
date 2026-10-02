@@ -58,9 +58,9 @@
 | 待入帳授權、取消與正式入帳 | 功能線完成，停用前 pending 結算已閉環 | 與帳單、退款的最後組合回查 |
 | 原刷卡跨帳期退款 | 功能線完成，結帳後獨立呈現與活動查閱已開放 | 最後集中實機與整合 gate |
 | 固定本金／明列費用分期 | 功能線完成，退款後獨立呈現與活動查閱已開放 | 真實發卡行帳單、實機與最後整合 gate |
-| 持久工作佇列 | App 冷啟動獨立續傳已加密 artifact；解鎖後獨立執行排程 tick 與 bounded `runNext`，保存排程／擷取／成功時間、持久失敗並可人工重試 | OS 背景喚醒、Ledger 同交易 outbox、真實 provider 與實機 |
-| Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff、立即執行、冷啟動續傳、解鎖後逾期補跑與重新連結後同 ID 重試完成 | App 關閉時建立新快照、實機與整合 gate |
-| Google Drive 備份 | Google Sign-In token source、`drive.file`、Drive REST、加密佇列、歷史、保留、下載驗證與還原 handoff 已接入正式 App factory | 需設定 OAuth client／簽章 SHA，並以真實帳號、網路、撤權與乾淨安裝驗證 |
+| 持久工作佇列 | App 冷啟動獨立續傳已加密 artifact；解鎖後獨立執行排程 tick 與 bounded `runNext`，保存排程／擷取／成功時間、穩定 principal、持久失敗並可人工重試 | OS 背景喚醒、Ledger 同交易 outbox、真實 provider 與實機 |
+| Provider-neutral 加密備份核心 | 正式導航、無憑證 engine handoff、立即執行、冷啟動續傳、解鎖後逾期補跑完成；同 principal 重新連結才可同 ID 重試，不同 principal 安全暫停 | 明確跨帳號遷移 UI、App 關閉時建立新快照、實機與整合 gate |
+| Google Drive 備份 | Google Sign-In token source、穩定 account ID 綁定、`drive.file`、Drive REST、加密佇列、歷史、保留、下載驗證與還原 handoff已接入正式 App factory | 需設定 OAuth client／簽章 SHA，並以真實帳號、網路、撤權、換帳號與乾淨安裝驗證 |
 | 多 provider 備份歷史與保留策略 | 正式 App 入口及 Google Drive provider 接線完成 | 其他真實 provider、實機與背景排程 |
 | GitHub 可下載 Android 預發版 | `main` 人工確認 workflow 已完成：全 Flutter host gate、ARM64 APK、SHA-256 與 GitHub prerelease | 第一次 exact-head workflow 實跑；Google Play 長期 signing key 與商店發行 |
 | Google Drive 加密備份 | Adapter、HTTPS、續傳、歷史與刪除契約完成 | OAuth、`drive.file` 授權、撤權、真實帳號與乾淨還原 |

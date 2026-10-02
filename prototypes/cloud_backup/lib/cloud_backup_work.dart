@@ -27,6 +27,7 @@ final class CloudBackupWorkRecord {
   const CloudBackupWorkRecord({
     required this.backupId,
     required this.providerId,
+    required this.principalId,
     required this.sha256,
     required this.byteLength,
     required this.createdAt,
@@ -40,6 +41,7 @@ final class CloudBackupWorkRecord {
 
   final String backupId;
   final String providerId;
+  final String? principalId;
   final String sha256;
   final int byteLength;
   final DateTime createdAt;
@@ -96,6 +98,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
             CREATE TABLE backup_work (
               backup_id TEXT PRIMARY KEY,
               provider_id TEXT NOT NULL,
+              principal_id TEXT NOT NULL,
               sha256 TEXT NOT NULL,
               byte_length INTEGER NOT NULL CHECK(byte_length > 0),
               created_at INTEGER NOT NULL,
@@ -112,7 +115,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
             ) STRICT
           ''');
           db.execute('CREATE INDEX backup_work_state ON backup_work(state)');
-          db.execute('PRAGMA user_version=3');
+          db.execute('PRAGMA user_version=4');
           db.execute('COMMIT');
         } catch (_) {
           db.execute('ROLLBACK');
@@ -151,8 +154,21 @@ final class CloudBackupWorkStore implements DriveReservationStore {
             rethrow;
           }
         }
+        if (db.userVersion == 3) {
+          db.execute('BEGIN IMMEDIATE');
+          try {
+            // Existing work predates account binding and must never be
+            // silently adopted by whichever account signs in next.
+            db.execute('ALTER TABLE backup_work ADD COLUMN principal_id TEXT');
+            db.execute('PRAGMA user_version=4');
+            db.execute('COMMIT');
+          } catch (_) {
+            db.execute('ROLLBACK');
+            rethrow;
+          }
+        }
       }
-      if (db.userVersion != 3) {
+      if (db.userVersion != 4) {
         throw StateError('Unsupported cloud backup schema');
       }
       return CloudBackupWorkStore._(db, artifactDirectory);
@@ -167,13 +183,15 @@ final class CloudBackupWorkStore implements DriveReservationStore {
   Future<CloudBackupWorkRecord> stage(
     VerifiedBackupArtifact artifact, {
     required String providerId,
+    required String principalId,
     required DateTime now,
     DateTime? scheduledFor,
   }) async {
     _validateRoute(providerId);
+    _validateRoute(principalId);
     final existing = byId(artifact.backupId);
     if (existing != null) {
-      _requireSame(existing, artifact, providerId, scheduledFor);
+      _requireSame(existing, artifact, providerId, principalId, scheduledFor);
       await _verifyFile(existing);
       return existing;
     }
@@ -187,13 +205,14 @@ final class CloudBackupWorkStore implements DriveReservationStore {
       _db.execute(
         '''
         INSERT INTO backup_work(
-          backup_id,provider_id,sha256,byte_length,created_at,scheduled_for,
+          backup_id,provider_id,principal_id,sha256,byte_length,created_at,scheduled_for,
           file_name,state,updated_at
-        ) VALUES(?,?,?,?,?,?,?,'staged',?)
+        ) VALUES(?,?,?,?,?,?,?,?,'staged',?)
         ''',
         [
           artifact.backupId,
           providerId,
+          principalId,
           artifact.sha256,
           artifact.byteLength,
           artifact.createdAt.millisecondsSinceEpoch,
@@ -205,7 +224,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
     } catch (_) {
       final raced = byId(artifact.backupId);
       if (raced == null) rethrow;
-      _requireSame(raced, artifact, providerId, scheduledFor);
+      _requireSame(raced, artifact, providerId, principalId, scheduledFor);
     }
     return byId(artifact.backupId)!;
   }
@@ -325,6 +344,7 @@ final class CloudBackupWorkStore implements DriveReservationStore {
   CloudBackupWorkRecord _record(Row row) => CloudBackupWorkRecord(
     backupId: row['backup_id'] as String,
     providerId: row['provider_id'] as String,
+    principalId: row['principal_id'] as String?,
     sha256: row['sha256'] as String,
     byteLength: row['byte_length'] as int,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
@@ -368,12 +388,14 @@ final class CloudBackupJobRunner {
     required this.jobs,
     required this.work,
     required this.provider,
+    required this.principalId,
     this.checkpoint,
   });
 
   final PersistentJobStore jobs;
   final CloudBackupWorkStore work;
   final CloudBackupProvider provider;
+  final Future<String> Function() principalId;
   final void Function(String point)? checkpoint;
 
   Future<void> schedule(
@@ -381,9 +403,12 @@ final class CloudBackupJobRunner {
     required DateTime now,
     DateTime? scheduledFor,
   }) async {
+    final principal = await principalId();
+    _validateRoute(principal);
     await work.stage(
       artifact,
       providerId: provider.providerId,
+      principalId: principal,
       now: now,
       scheduledFor: scheduledFor,
     );
@@ -413,8 +438,20 @@ final class CloudBackupJobRunner {
       lease: const Duration(minutes: 5),
     );
     if (lease == null) return false;
+    final backupId = _backupId(lease.job.idempotencyKey);
+    final record = work.byId(backupId);
+    if (record == null) {
+      jobs.failTerminal(lease, now);
+      throw StateError('Cloud backup job has no staged work');
+    }
     try {
-      final backupId = _backupId(lease.job.idempotencyKey);
+      final currentPrincipal = await principalId();
+      _validateRoute(currentPrincipal);
+      if (record.principalId != currentPrincipal) {
+        throw const CloudBackupProviderException(
+          CloudBackupProviderFailure.authenticationRequired,
+        );
+      }
       final artifact = await work.load(backupId);
       final metadata = await CloudBackupCoordinator(provider).upload(artifact);
       checkpoint?.call('after-upload');
@@ -425,7 +462,6 @@ final class CloudBackupJobRunner {
       }
       return true;
     } on CloudBackupProviderException catch (error) {
-      final backupId = _backupId(lease.job.idempotencyKey);
       final failure = CloudBackupWorkFailure.values.byName(error.failure.name);
       work.recordFailure(backupId: backupId, failure: failure, now: now);
       if (_requiresUserAction(error.failure)) {
@@ -435,7 +471,6 @@ final class CloudBackupJobRunner {
       }
       rethrow;
     } on CloudBackupValidationException {
-      final backupId = _backupId(lease.job.idempotencyKey);
       work.recordFailure(
         backupId: backupId,
         failure: CloudBackupWorkFailure.integrityRejected,
@@ -444,7 +479,6 @@ final class CloudBackupJobRunner {
       jobs.failTerminal(lease, now);
       rethrow;
     } catch (_) {
-      final backupId = _backupId(lease.job.idempotencyKey);
       work.recordFailure(
         backupId: backupId,
         failure: CloudBackupWorkFailure.temporaryLocalFailure,
@@ -455,11 +489,14 @@ final class CloudBackupJobRunner {
     }
   }
 
-  bool retryAfterUserAction(String backupId, DateTime now) {
+  Future<bool> retryAfterUserAction(String backupId, DateTime now) async {
     final record = work.byId(backupId);
     if (record == null || record.state != CloudBackupWorkState.staged) {
       return false;
     }
+    final currentPrincipal = await principalId();
+    _validateRoute(currentPrincipal);
+    if (record.principalId != currentPrincipal) return false;
     final retried = jobs.retryTerminal('$_jobPrefix$backupId', now);
     if (retried) work.clearFailure(backupId, now);
     return retried;
@@ -495,9 +532,11 @@ void _requireSame(
   CloudBackupWorkRecord record,
   VerifiedBackupArtifact artifact,
   String providerId,
+  String principalId,
   DateTime? scheduledFor,
 ) {
   if (record.providerId != providerId ||
+      record.principalId != principalId ||
       record.sha256 != artifact.sha256 ||
       record.byteLength != artifact.byteLength ||
       record.createdAt != artifact.createdAt ||
