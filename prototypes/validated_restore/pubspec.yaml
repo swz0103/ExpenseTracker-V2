@@ -13,6 +13,7 @@ dependencies:
   ledger:
     path: ../../packages/ledger
   drift: 2.35.0
+  cryptography: 2.9.0
 dev_dependencies:
   credit_cards:
     path: ../../packages/credit_cards

@@ -976,3 +976,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 基線確認時間軸 keyset 缺少排序索引。新增可重建 `events(workspace,business_date DESC,id DESC)` 索引；既有同 schema 帳本開啟時安全補建，不改權威列或 portable snapshot。持久層完整 111/111、補建定向 5/5通過。
 - [x] 同機同工具 5,000 筆全分頁 20,540→2,361 ms（約快 88.5%），首頁首批 160→9 ms；備份 25,711→24,791 ms、還原 46,536→46,369 ms，證明查詢改善與快照瓶頸相互獨立。[數據](test-results/2026-10-02/current-schema-capacity-profile-windows-2026-10-02.json)與[容量演進計畫](architecture/capacity-evolution-plan.md)。
 - [ ] 仍維持 5,000 events／50,000 rows／16 MiB。下一個儲存里程碑是 bounded chunk manifest、authenticated streaming、全新 generation 還原及舊格式唯讀匯入；完成後才建立合法 20k 資料集。Android profile、frame、peak RSS 與 process death 仍屬外部 gate。
+
+## 2026-10-02 容量 C2：分塊快照容器原型
+
+- [x] 新增 file-backed 分塊容器：row stream 輸入、canonical NDJSON、每塊 row／bytes 上限、chunk SHA-256、固定順序 manifest 與 manifest SHA-256。
+- [x] 暫存目錄只有在完整 verify 後才 rename；竄改、缺塊、多餘檔案、順序／總數錯誤、超大單列、非法名稱及非一般檔案 fail closed，失敗不留下目標。
+- [x] 原型 5/5、validated_restore 完整 136/136與靜態分析通過；既有單檔格式及 App 匯出入口完全未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
+- [ ] SHA-256 只有完整性，不是 authentication；下一批需把 SQLCipher stable-key cursor、完整 manifest 的 authenticated encryption／MAC、逐塊新 generation stage、舊格式唯讀匯入及中斷 journal 接成可恢復閉環。未完成前維持原容量 gate。
