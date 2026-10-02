@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:modular_persistence_probe/database.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:validated_restore_probe/chunked_snapshot.dart';
+import 'package:validated_restore_probe/snapshot.dart';
 
 void main() {
   late Directory root;
@@ -136,4 +139,58 @@ void main() {
       throwsA(isA<InvalidChunkedSnapshot>()),
     );
   });
+
+  test(
+    'snapshot codec streams real authority by stable primary keys',
+    () async {
+      final databaseFile = File('${root.path}/source.db');
+      final legacy = sqlite3.open(databaseFile.path);
+      try {
+        legacy.execute(
+          File('../modular_persistence/test/fixtures/v1.sql')
+              .readAsStringSync(),
+        );
+      } finally {
+        legacy.close();
+      }
+      final database = ProbeDatabase(databaseFile);
+      final checkpoints = <String>[];
+      const authorityStore = ChunkedSnapshotStore(
+        maxChunkBytes: 4096,
+        maxRowsPerChunk: 2,
+        maxTotalRows: 100,
+        maxTotalBytes: 65536,
+      );
+      try {
+        final target = Directory('${root.path}/authority');
+        final summary = await SnapshotCodec().captureChunked(
+          database,
+          target,
+          store: authorityStore,
+          pageSize: 1,
+          checkpoint: (table, rows) => checkpoints.add('$table:$rows'),
+        );
+        expect(summary.schema, 2);
+        expect(summary.totalRows, greaterThan(0));
+        expect(checkpoints, containsAll(['events:1', 'events:2']));
+        expect(
+          await authorityStore.verify(
+            target,
+            expectedTables: const [
+              'accounts',
+              'events',
+              'legs',
+              'openings',
+              'allocations',
+              'receipts',
+              'audit',
+            ],
+          ),
+          isA<ChunkedSnapshotSummary>(),
+        );
+      } finally {
+        await database.close();
+      }
+    },
+  );
 }

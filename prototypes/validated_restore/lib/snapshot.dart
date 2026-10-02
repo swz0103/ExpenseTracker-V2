@@ -35,6 +35,8 @@ import 'package:modular_persistence_probe/card_statements_adapter.dart';
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/reversals_adapter.dart';
 
+import 'chunked_snapshot.dart';
+
 part 'refund_snapshot.dart';
 part 'reversal_snapshot.dart';
 part 'correction_snapshot.dart';
@@ -434,34 +436,7 @@ final class SnapshotCodec {
   Future<List<int>> capture(
     ProbeDatabase source,
   ) => source.transaction(() async {
-    // A new module or column must extend this manifest before backup is allowed.
-    final persisted = await source
-        .customSelect(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'",
-        )
-        .get();
-    final localTables = {
-      ..._columns,
-      if (generationAware)
-        'storage_identity': [
-          'singleton',
-          'generation',
-          'slot',
-          'operation',
-          'fingerprint',
-        ],
-    };
-    if (persisted.length != localTables.length ||
-        persisted.any((r) => !localTables.containsKey(r.read<String>('name'))))
-      throw const InvalidSnapshot();
-    for (final entry in localTables.entries) {
-      final columns = await source
-          .customSelect('PRAGMA table_xinfo(${entry.key})')
-          .get();
-      if (columns.length != entry.value.length ||
-          columns.any((r) => !entry.value.contains(r.read<String>('name'))))
-        throw const InvalidSnapshot();
-    }
+    await _validateStructure(source);
     await validate(source);
     final tables = <String, Object>{};
     var count = 0;
@@ -485,6 +460,120 @@ final class SnapshotCodec {
     }
     return _encode(tables);
   });
+
+  /// Prototype current-schema capture that never holds more than one database
+  /// page plus one bounded output chunk. The released app still uses [capture].
+  Future<ChunkedSnapshotSummary> captureChunked(
+    ProbeDatabase source,
+    Directory target, {
+    ChunkedSnapshotStore store = const ChunkedSnapshotStore(),
+    int pageSize = 500,
+    void Function(String table, int rowsRead)? checkpoint,
+  }) => source.transaction(() async {
+    if (pageSize < 1 || pageSize > 1000) throw const InvalidSnapshot();
+    await _validateStructure(source);
+    await validate(source);
+    final streams = <String, Stream<Map<String, Object?>>>{};
+    for (final entry in _columns.entries) {
+      final info = await source
+          .customSelect('PRAGMA table_info(${entry.key})')
+          .get();
+      final primaryKey = [
+        for (final row in info.where((row) => row.read<int>('pk') > 0))
+          (row.read<int>('pk'), row.read<String>('name')),
+      ]..sort((left, right) => left.$1.compareTo(right.$1));
+      if (primaryKey.isEmpty ||
+          primaryKey.any((item) => !entry.value.contains(item.$2))) {
+        throw const InvalidSnapshot();
+      }
+      streams[entry.key] = _streamTable(
+        source,
+        entry.key,
+        entry.value,
+        primaryKey.map((item) => item.$2).toList(growable: false),
+        pageSize,
+        checkpoint,
+      );
+    }
+    return store.write(target: target, schema: _schemaVersion, tables: streams);
+  });
+
+  Future<void> _validateStructure(ProbeDatabase source) async {
+    // A new module or column must extend this manifest before backup is allowed.
+    final persisted = await source
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'",
+        )
+        .get();
+    final localTables = {
+      ..._columns,
+      if (generationAware)
+        'storage_identity': [
+          'singleton',
+          'generation',
+          'slot',
+          'operation',
+          'fingerprint',
+        ],
+    };
+    if (persisted.length != localTables.length ||
+        persisted.any(
+          (r) => !localTables.containsKey(r.read<String>('name')),
+        )) {
+      throw const InvalidSnapshot();
+    }
+    for (final entry in localTables.entries) {
+      final columns = await source
+          .customSelect('PRAGMA table_xinfo(${entry.key})')
+          .get();
+      if (columns.length != entry.value.length ||
+          columns.any((r) => !entry.value.contains(r.read<String>('name')))) {
+        throw const InvalidSnapshot();
+      }
+    }
+  }
+
+  Stream<Map<String, Object?>> _streamTable(
+    ProbeDatabase source,
+    String table,
+    List<String> columns,
+    List<String> primaryKey,
+    int pageSize,
+    void Function(String table, int rowsRead)? checkpoint,
+  ) async* {
+    List<Object>? cursor;
+    var rowsRead = 0;
+    while (true) {
+      final where = cursor == null
+          ? ''
+          : 'WHERE (${primaryKey.join(',')}) > '
+                '(${List.filled(primaryKey.length, '?').join(',')}) ';
+      final rows = await source
+          .customSelect(
+            'SELECT ${columns.join(',')} FROM $table $where'
+            'ORDER BY ${primaryKey.join(',')} LIMIT ?',
+            variables: [
+              if (cursor != null) ...cursor.map(_variable),
+              Variable.withInt(pageSize),
+            ],
+          )
+          .get();
+      if (rows.isEmpty) return;
+      for (final row in rows) {
+        yield {
+          for (final column in columns)
+            column: row.data[column] is int
+                ? row.data[column].toString()
+                : row.data[column],
+        };
+      }
+      rowsRead += rows.length;
+      checkpoint?.call(table, rowsRead);
+      final last = rows.last;
+      cursor = [for (final column in primaryKey) last.data[column] as Object];
+      if (rows.length < pageSize) return;
+    }
+  }
 
   /// Imports only known columns with bound values into a brand-new staged file.
   Future<void> stage(
@@ -1653,6 +1742,8 @@ final class SnapshotCodec {
     }
   }
 }
+
+Variable<Object> _variable(Object value) => Variable<Object>(value);
 
 int _integer(Object? value) {
   if (value is! String ||

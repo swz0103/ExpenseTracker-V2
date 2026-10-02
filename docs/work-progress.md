@@ -981,5 +981,6 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 
 - [x] 新增 file-backed 分塊容器：row stream 輸入、canonical NDJSON、每塊 row／bytes 上限、chunk SHA-256、固定順序 manifest 與 manifest SHA-256。
 - [x] 暫存目錄只有在完整 verify 後才 rename；竄改、缺塊、多餘檔案、順序／總數錯誤、超大單列、非法名稱及非一般檔案 fail closed，失敗不留下目標。
-- [x] 原型 5/5、validated_restore 完整 136/136與靜態分析通過；既有單檔格式及 App 匯出入口完全未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
-- [ ] SHA-256 只有完整性，不是 authentication；下一批需把 SQLCipher stable-key cursor、完整 manifest 的 authenticated encryption／MAC、逐塊新 generation stage、舊格式唯讀匯入及中斷 journal 接成可恢復閉環。未完成前維持原容量 gate。
+- [x] `SnapshotCodec` 在同一 read transaction 先驗證 authority 與實際主鍵，再以 stable tuple keyset cursor 分頁串流所有 SQLCipher 表；真實 v1 authority 使用 `pageSize=1` 驗證跨頁不中斷、不重複。
+- [x] 原型 6/6、validated_restore 完整 137/137 與靜態分析通過；既有單檔格式及 App 匯出入口完全未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
+- [ ] SHA-256 只有完整性，不是 authentication；下一批需把完整 manifest 的 authenticated encryption／MAC、逐塊新 generation stage、舊格式唯讀匯入及中斷 journal 接成可恢復閉環。未完成前維持原容量 gate。
