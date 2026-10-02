@@ -12,6 +12,7 @@
 - 新增 authenticated chunk session：Argon2id 每次開啟只派生一次 password wrapping key，隨機 AES-256-GCM data key 同時由密碼與救援碼獨立包裝；manifest 與每個 chunk 使用獨立 nonce，並以 session header＋固定用途／ordinal 檔名作 AAD。
 - authenticated directory 先驗證加密 manifest，再只接受它列出的精確 chunk 集合；ciphertext 竄改、metadata 竄改、用途交換與 chunk 對調均 fail closed。
 - authenticated reader 可將已驗證 rows 直接串入新 database，不先重建明文 chunk 目錄；後段加密 chunk 在已寫入部分列後遭竄改，仍會使 transaction 回滾並清除 stage／sidecars。
+- authenticated writer 直接消費 SQL authority stable-key row streams，只在記憶體保留單一 bounded chunk，磁碟只寫 `metadata.json` 與 `.etv2` 密文；manifest 也只以認證密文落地。完成後以同一 session 自驗全部 chunks 才 rename。
 
 ## 驗證
 
@@ -26,6 +27,6 @@
 
 - SHA-256 仍只用於內層完整性；外層原型已以 AES-256-GCM 綁定 session、manifest 與各 chunk 用途，密碼／救援雙路皆會驗證 authentication tag。
 - SQLCipher 各表 stable primary-key capture 與逐塊 stage 到全新 database 已在原型完成；尚未接正式 generation promotion／中斷 journal。
-- 還原端已能直接把已認證 rows 串入 database；備份端 `seal` 原型仍從既有明文 bounded container 讀取。正式接線需讓 SQLCipher capture 直接輸出加密 chunks，避免備份建立期間落地明文。
+- capture 與 stage 均已有不落地明文 chunks 的直串原型；尚未接正式 generation promotion／中斷 journal，也未把此新格式切換成 App 與雲端備份預設。
 - 尚未定義正式 portable envelope 版本、舊 App 拒絕規則、舊單檔唯讀匯入與中斷回復 journal。
 - 因此本批不提高 5,000／50,000／16 MiB 上限，也不在正式 App／雲端備份使用此容器。

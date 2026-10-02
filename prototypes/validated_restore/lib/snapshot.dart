@@ -499,6 +499,52 @@ final class SnapshotCodec {
     return store.write(target: target, schema: _schemaVersion, tables: streams);
   });
 
+  /// Current-schema capture that writes only authenticated encrypted chunks;
+  /// plaintext rows are bounded in memory and never form an on-disk container.
+  Future<CreatedAuthenticatedChunkedSnapshot> captureAuthenticatedChunked(
+    ProbeDatabase source,
+    Directory target, {
+    required String password,
+    String? recoveryKey,
+    AuthenticatedChunkedSnapshotStore store =
+        const AuthenticatedChunkedSnapshotStore(),
+    int pageSize = 500,
+    void Function(String table, int rowsRead)? checkpoint,
+  }) => source.transaction(() async {
+    if (pageSize < 1 || pageSize > 1000) throw const InvalidSnapshot();
+    await _validateStructure(source);
+    await validate(source);
+    final streams = <String, Stream<Map<String, Object?>>>{};
+    for (final entry in _columns.entries) {
+      final info = await source
+          .customSelect('PRAGMA table_info(${entry.key})')
+          .get();
+      final primaryKey = [
+        for (final row in info.where((row) => row.read<int>('pk') > 0))
+          (row.read<int>('pk'), row.read<String>('name')),
+      ]..sort((left, right) => left.$1.compareTo(right.$1));
+      if (primaryKey.isEmpty ||
+          primaryKey.any((item) => !entry.value.contains(item.$2))) {
+        throw const InvalidSnapshot();
+      }
+      streams[entry.key] = _streamTable(
+        source,
+        entry.key,
+        entry.value,
+        primaryKey.map((item) => item.$2).toList(growable: false),
+        pageSize,
+        checkpoint,
+      );
+    }
+    return store.write(
+      target: target,
+      schema: _schemaVersion,
+      tables: streams,
+      password: password,
+      recoveryKey: recoveryKey,
+    );
+  });
+
   Future<void> _validateStructure(ProbeDatabase source) async {
     // A new module or column must extend this manifest before backup is allowed.
     final persisted = await source

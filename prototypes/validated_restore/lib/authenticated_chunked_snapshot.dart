@@ -41,6 +41,121 @@ final class AuthenticatedChunkedSnapshotStore {
 
   final ChunkedSnapshotStore plainStore;
 
+  Future<CreatedAuthenticatedChunkedSnapshot> write({
+    required Directory target,
+    required int schema,
+    required Map<String, Stream<Map<String, Object?>>> tables,
+    required String password,
+    String? recoveryKey,
+  }) async {
+    if (schema < 1 ||
+        schema > 10000 ||
+        tables.isEmpty ||
+        plainStore.maxChunkBytes < 128 ||
+        plainStore.maxChunkBytes > ChunkEnvelopeCodec.maxChunkBytes ||
+        plainStore.maxRowsPerChunk < 1 ||
+        plainStore.maxTotalRows < plainStore.maxRowsPerChunk ||
+        plainStore.maxTotalBytes < plainStore.maxChunkBytes) {
+      throw const BackupException(BackupError.invalidFormat);
+    }
+    final names = tables.keys.toList(growable: false);
+    if (names.toSet().length != names.length ||
+        names.any(
+          (name) => !RegExp(r'^[a-z][a-z0-9_]{0,63}$').hasMatch(name),
+        )) {
+      throw const BackupException(BackupError.invalidFormat);
+    }
+    _requireMissing(target);
+    final temporary = _temporaryFor(target);
+    temporary.createSync(recursive: true);
+    try {
+      final created = await ChunkEnvelopeCodec().create(
+        password: password,
+        recoveryKey: recoveryKey,
+      );
+      await File('${temporary.path}${Platform.pathSeparator}metadata.json')
+          .writeAsString(created.metadata, flush: true);
+      final tableManifests = <Object>[];
+      var totalRows = 0;
+      var totalBytes = 0;
+      var ordinal = 0;
+      for (final entry in tables.entries) {
+        final chunks = <Object>[];
+        var buffer = <int>[];
+        var rows = 0;
+
+        Future<void> flush() async {
+          if (rows == 0) return;
+          final purpose = 'chunk-${ordinal.toString().padLeft(8, '0')}';
+          await File('${temporary.path}${Platform.pathSeparator}$purpose.etv2')
+              .writeAsString(
+                await created.session.seal(buffer, purpose: purpose),
+                flush: true,
+              );
+          chunks.add({
+            'ordinal': ordinal,
+            'file': '$purpose.ndjson',
+            'rows': rows,
+            'bytes': buffer.length,
+            'sha256': await _digest(buffer),
+          });
+          totalBytes += buffer.length;
+          ordinal++;
+          buffer = <int>[];
+          rows = 0;
+        }
+
+        await for (final row in entry.value) {
+          final encoded = utf8.encode(
+            '${jsonEncode(_authenticatedCanonical(row))}\n',
+          );
+          if (encoded.length > plainStore.maxChunkBytes) {
+            throw const BackupException(BackupError.limitExceeded);
+          }
+          if (rows > 0 &&
+              (rows == plainStore.maxRowsPerChunk ||
+                  buffer.length + encoded.length > plainStore.maxChunkBytes)) {
+            await flush();
+          }
+          buffer.addAll(encoded);
+          rows++;
+          totalRows++;
+          if (totalRows > plainStore.maxTotalRows ||
+              totalBytes + buffer.length > plainStore.maxTotalBytes) {
+            throw const BackupException(BackupError.limitExceeded);
+          }
+        }
+        await flush();
+        tableManifests.add({'name': entry.key, 'chunks': chunks});
+      }
+      final manifest = utf8.encode(
+        jsonEncode({
+          'format': 'ledger-chunked-probe',
+          'version': 1,
+          'schema': schema,
+          'tables': tableManifests,
+          'totalRows': totalRows,
+          'totalBytes': totalBytes,
+        }),
+      );
+      await File('${temporary.path}${Platform.pathSeparator}manifest.etv2')
+          .writeAsString(
+            await created.session.seal(manifest, purpose: 'manifest'),
+            flush: true,
+          );
+      final opened = await _openReader(temporary, names, created.session);
+      await opened.rows.drain<void>();
+      await temporary.rename(target.path);
+      return CreatedAuthenticatedChunkedSnapshot(
+        recoveryKey: created.recoveryKey,
+        summary: opened.summary,
+      );
+    } catch (_) {
+      if (temporary.existsSync()) temporary.deleteSync(recursive: true);
+      rethrow;
+    }
+  }
+
   Future<CreatedAuthenticatedChunkedSnapshot> seal({
     required Directory source,
     required Directory target,

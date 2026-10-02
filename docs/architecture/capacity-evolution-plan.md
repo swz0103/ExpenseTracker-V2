@@ -29,7 +29,8 @@
 - [x] 還原先完整驗證，再以單一 transaction 逐塊寫入全新 staged database；任何未知表、缺塊、重塊、順序錯誤、canonical row 或 digest 不符都拒絕。後段 chunk 中途損壞會回滾已寫列並刪除 stage／sidecars。
 - [x] 密碼與救援文字各自包裝同一隨機 AES-256-GCM data key；Argon2id 每次開啟只執行一次。加密 manifest 與每個 chunk 使用獨立 nonce，並以固定 session header＋用途檔名作 AAD，拒絕竄改與 chunk 交換。SHA-256 僅保留為內層完整性，不冒充 authentication。
 - [x] 還原端將 authenticated rows 直接串入單一 transaction 的新 database，不重建明文 chunk 目錄；後段 authentication failure 會回滾並清除 stage。
-- [ ] 備份端 `seal` 仍以既有明文 bounded container 為輸入；正式 App 必須讓 SQLCipher capture 直接輸出加密 chunks，再接 generation promotion／中斷 journal，不能在磁碟保留明文 chunks。
+- [x] 備份端可由 SQL authority stable-key rows 直接產生認證密文，記憶體只保留單一 bounded chunk；manifest／chunks 均不以明文落地，完整自驗後才發布目標目錄。
+- [ ] 下一步接 generation promotion／中斷 journal及舊格式唯讀匯入，再定義正式 envelope version 與 App／雲端切換策略。
 - 舊 snapshot 維持唯讀匯入；新格式不得讓舊 App 誤認可讀。升級／回退與 interrupted restore 必須有固定測試。
 
 容器／資料庫 capture／stage 定向 9/9、authenticated container 4/4、backup_envelope 19/19、validated_restore 完整 144/144 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未接正式 App 與 generation promotion，不提高現行上限。

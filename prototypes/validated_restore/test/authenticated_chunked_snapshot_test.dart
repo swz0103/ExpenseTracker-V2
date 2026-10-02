@@ -155,33 +155,36 @@ void main() {
         plainStore: authorityStore,
       );
       final codec = SnapshotCodec();
-      final authority = Directory('${root.path}/direct-authority');
+      final encrypted = Directory('${root.path}/direct-encrypted');
       final source = ProbeDatabase(sourceFile);
       try {
-        await codec.captureChunked(
+        await codec.captureAuthenticatedChunked(
           source,
-          authority,
-          store: authorityStore,
+          encrypted,
+          store: secureStore,
+          password: password,
           pageSize: 1,
         );
       } finally {
         await source.close();
       }
-      final encrypted = Directory('${root.path}/direct-encrypted');
-      await secureStore.seal(
-        source: authority,
-        target: encrypted,
-        expectedTables: const [
-          'accounts',
-          'events',
-          'legs',
-          'openings',
-          'allocations',
-          'receipts',
-          'audit',
-        ],
-        password: password,
+      expect(
+        encrypted.listSync().map((entity) => entity.uri.pathSegments.last),
+        everyElement(anyOf(equals('metadata.json'), endsWith('.etv2'))),
       );
+
+      final authority = Directory('${root.path}/test-only-reference');
+      final referenceSource = ProbeDatabase(sourceFile);
+      try {
+        await codec.captureChunked(
+          referenceSource,
+          authority,
+          store: authorityStore,
+          pageSize: 1,
+        );
+      } finally {
+        await referenceSource.close();
+      }
       final opened = await secureStore.readWithPassword(
         source: encrypted,
         expectedTables: const [
