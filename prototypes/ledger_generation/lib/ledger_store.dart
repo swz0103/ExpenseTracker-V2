@@ -672,8 +672,19 @@ final class LedgerStore {
         failure = error;
         trace = stack;
       } finally {
-        await session._close();
-        await db.close();
+        try {
+          await session._close();
+        } catch (error, stack) {
+          // Authority commands are already committed. Surface projection flush
+          // failure when it is the primary failure; otherwise preserve the
+          // original command error. A later open rejects stale row counts.
+          if (failure == null) {
+            failure = error;
+            trace = stack;
+          }
+        } finally {
+          await db.close();
+        }
       }
     });
     if (failure != null) Error.throwWithStackTrace(failure!, trace!);

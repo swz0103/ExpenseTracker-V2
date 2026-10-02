@@ -83,12 +83,6 @@ final class LedgerSession {
     try {
       return await _db.transaction(() async {
         final result = await work();
-        final usage = _capacityUsage;
-        if (usage != null && _capacityProjectionDirty) {
-          await _persistCapacityProjection(usage);
-          _capacityProjectionLoaded = true;
-          _capacityProjectionDirty = false;
-        }
         return result;
       });
     } catch (_) {
@@ -111,6 +105,12 @@ final class LedgerSession {
   Future<void> _close() async {
     _closed = true;
     await _tail;
+    final usage = _capacityUsage;
+    if (usage != null && _capacityProjectionDirty) {
+      await _db.transaction(() => _persistCapacityProjection(usage));
+      _capacityProjectionLoaded = true;
+      _capacityProjectionDirty = false;
+    }
   }
 
   Future<int> _count(String table) async =>

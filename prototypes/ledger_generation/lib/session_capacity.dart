@@ -452,9 +452,16 @@ extension _SessionRowCapacity on LedgerSession {
   }
 
   Future<Map<String, int>> _currentTableCounts(Map<String, int> limits) async {
+    final entries = limits.entries.toList(growable: false);
+    final selected = await _db
+        .customSelect(
+          'SELECT ${[for (var i = 0; i < entries.length; i++) '(SELECT COUNT(*) FROM ${entries[i].key}) AS c$i'].join(',')}',
+        )
+        .getSingle();
     final counts = <String, int>{};
-    for (final entry in limits.entries) {
-      final count = await _count(entry.key);
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final count = selected.read<int>('c$i');
       if (count < 0 || count > entry.value) throw PreviewCapacity();
       counts[entry.key] = count;
     }
