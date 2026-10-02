@@ -8,17 +8,19 @@
 
 ## 發現核對
 
-### R01 P1：投資交易拒絕後缺少安全恢復出口 — 成立
+### R01 P1：投資交易拒絕後缺少安全恢復出口 — 已完成第一批修正
 
-買入、賣出、股息與拆股都會先把完整 intent 寫入 secure vault，再呼叫 Ledger；成功後才把 intent 標成 committed。若核心在 commit 前確定拒絕，或 commit 已成功但 App 未收到回覆，畫面目前都只剩相同 intent 重試，沒有「先核對結果，再安全捨棄或完成」的出口。
+買入、賣出、股息與拆股現在都保留原本的相同 intent 重試，並新增明確的「核對結果或捨棄」出口。核對會讀取整個 workspace 的權威投資事實，而不是只看原帳戶／標的，避免身分碰撞被誤判為未提交。
 
-改善原則：
+現行保護：
 
-- intent 明確區分「已確認未提交」、「結果未知」與「已確認提交」。
-- 只有從 Ledger 權威資料確認完全未提交後，才可刪除 intent。
-- 結果未知只能沿用相同 operation ID／event ID 重試，不建立新交易。
-- 若 Ledger 已有完全相同結果，將 intent 完成並恢復畫面，不重複入帳。
-- 買入、賣出、股息與拆股共用相同的解析規則與失敗注入測試。
+- 使用者必須先通過二次確認；畫面不提供未核對的直接刪除。
+- 若 workspace 內找到完全相同的 operation／event／payload，將 intent 標成 committed，不重新入帳。
+- 若找到多筆、識別碰撞或內容不符，核對 fail closed，intent 原樣保留。
+- 只有權威事實完全不存在時才刪除 vault intent，並在刪除後 read-back；刪除失敗時 intent 保留。
+- 結果未知仍可沿用相同 operation ID／event ID 重試，不建立新交易。
+
+主機驗證已通過買入、賣出、股息、拆股的提交後回覆遺失與重啟核對、確定拒絕後安全捨棄、vault 刪除失敗保留、加密備份雙憑證還原，以及畫面二次確認。詳細證據見 [R01 主機驗證](../test-results/2026-10-02/investment-intent-resolution-host-2026-10-02.md)。實機 process death 仍列入 R08 候選版 gate，不以本批主機測試取代。
 
 ### R02 P1：自動備份缺少獨立執行入口 — 成立
 

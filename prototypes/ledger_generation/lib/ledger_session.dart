@@ -242,6 +242,10 @@ final class LedgerSession {
     () => investment.investmentSales(_db, workspace, accountId, instrumentId),
   );
 
+  Future<List<investment.InvestmentSellFact>> allInvestmentSales(
+    WorkspaceId workspace,
+  ) => _enqueue(() => investment.allInvestmentSales(_db, workspace));
+
   /// A buy changes cash and the owned lot in one encrypted SQLite transaction.
   /// The event ID must be retained by the caller for an unambiguous retry.
   Future<CommitResult> postInvestmentBuy(

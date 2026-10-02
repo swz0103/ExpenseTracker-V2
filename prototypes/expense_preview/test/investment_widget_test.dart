@@ -386,7 +386,7 @@ void main() {
     }
   });
 
-  testWidgets('ambiguous result exposes retry of the same investment buy', (
+  testWidgets('ambiguous buy can be reconciled without a duplicate posting', (
     tester,
   ) async {
     final root = Directory('.dart_tool/investment-widget-tests')
@@ -418,7 +418,10 @@ void main() {
       expect((await tester.runAsync(engine.hasPendingInvestmentBuy))!, isTrue);
       expect((await tester.runAsync(engine.investmentBuys))!, hasLength(1));
 
-      await _tapKey(tester, 'retry-investment-buy');
+      await _tapKey(tester, 'resolve-investment-buy');
+      expect(find.text('核對並處理待確認買入？'), findsOneWidget);
+      await tester.tap(find.text('開始核對'));
+      await tester.pump();
       await _waitForEnabledButton(tester, 'review-investment-buy');
       expect((await tester.runAsync(engine.hasPendingInvestmentBuy))!, isFalse);
       expect((await tester.runAsync(engine.investmentBuys))!, hasLength(1));

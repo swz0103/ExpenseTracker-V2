@@ -918,3 +918,10 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 投資頁新增使用者明確發起的歷史 ECB 匯率查詢，可選 EUR 與 USD／JPY／GBP／CHF 的正反向幣對及指定日期。畫面保留來源、真正觀測日、取得時間；較早的觀測值不當成指定日匯率，輸入無效不連線，隱私遮蔽取消延遲結果。顯示值約至六位小數，僅為參考，不更改帳本、成本或實際換匯金額。
 - [x] 畫面 4 項定向測試、既有買入畫面 1 項整合回歸與 App 靜態分析已通過；詳見[本批證據](test-results/2026-09-30/historical-fx-ui-host-2026-09-30.json)。
 - [ ] 尚未提供非 EUR 路由（尤其 USD／TWD）、跨幣別估值或真實換匯入帳；全 App 同來源回歸、實機與目前 PR head 雲端 gate 仍未通過。
+
+## 2026-10-02 外部稽核 R01：投資待確認交易安全核對
+
+- [x] 買入、賣出、股息與拆股的未解決 intent 都新增「核對結果或捨棄」二次確認流程；Ledger 已有完全相同權威事實時只完成 intent，不重複入帳。
+- [x] 核對涵蓋整個 workspace 的 operation／event／payload 身分；多筆、跨持倉碰撞或內容不符一律 fail closed。只有完全沒有權威事實時才刪除 secure vault intent，且刪除後 read-back；注入刪除失敗時 intent 仍保留。
+- [x] App 靜態分析零問題；四種流程 8/8、投資畫面 8/8、持久層賣出 7/7 通過。流程包含提交後回覆遺失、重啟核對、確定拒絕後捨棄、刪除失敗保留及雙憑證還原。[主機證據](test-results/2026-10-02/investment-intent-resolution-host-2026-10-02.md)
+- [ ] Android process death 與正式候選 APK 實機仍屬 R08 gate；R01 主機修正不代表整體正式版可發布。下一批依外部稽核順序進入 R02 獨立自動備份 runner。

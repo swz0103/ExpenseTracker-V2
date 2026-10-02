@@ -48,6 +48,7 @@ part 'preview_investments.dart';
 abstract interface class PreviewVault {
   Future<String?> read(String name);
   Future<void> write(String name, String value);
+  Future<void> delete(String name);
 }
 
 final class PreviewLocked implements Exception {}

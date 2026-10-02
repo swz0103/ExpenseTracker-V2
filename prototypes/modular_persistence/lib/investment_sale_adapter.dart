@@ -166,6 +166,38 @@ Future<List<InvestmentSellFact>> investmentSales(
   return List.unmodifiable(position.sales);
 }
 
+/// Returns every authoritative sale in a workspace.
+///
+/// This deliberately reuses the complete position validator rather than
+/// reading sale rows directly. Callers that reconcile a durable operation
+/// intent must be able to detect an identity collision outside the intended
+/// account or instrument before deciding that the intent was never committed.
+Future<List<InvestmentSellFact>> allInvestmentSales(
+  ProbeDatabase db,
+  WorkspaceId workspace,
+) async {
+  _requireSaleSchema(db);
+  final positions = await db
+      .customSelect(
+        'SELECT DISTINCT investment_account_id,instrument_id '
+        'FROM investment_sales WHERE workspace=? '
+        'ORDER BY investment_account_id,instrument_id',
+        variables: [Variable(workspace.toString())],
+      )
+      .get();
+  final facts = <InvestmentSellFact>[];
+  for (final row in positions) {
+    final position = await _loadPosition(
+      db,
+      workspace,
+      PublicId.parse(row.read<String>('investment_account_id')),
+      PublicId.parse(row.read<String>('instrument_id')),
+    );
+    facts.addAll(position.sales);
+  }
+  return List.unmodifiable(facts);
+}
+
 /// Full schema-22 authority check for future backup capture and restore.
 /// Position reads alone cannot detect an orphan event or an unrelated sale.
 Future<void> validateInvestmentSaleFacts(ProbeDatabase db) async {

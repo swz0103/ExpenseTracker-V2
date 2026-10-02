@@ -212,6 +212,10 @@ void main() {
       )).single.eventId,
       eventId,
     );
+    expect(
+      (await allInvestmentSales(db, workspace)).single.eventId,
+      eventId,
+    );
     await validateInvestmentSaleFacts(db);
   });
 

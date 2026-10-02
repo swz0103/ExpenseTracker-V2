@@ -26,6 +26,12 @@ final class MemoryVault implements PreviewVault, SlotVault {
     if (failWrites) throw StateError('injected');
     values[name] = value;
   }
+
+  @override
+  Future<void> delete(String name) async {
+    if (failWrites) throw StateError('injected');
+    values.remove(name);
+  }
 }
 
 final class CatalogVault implements KeyVault {

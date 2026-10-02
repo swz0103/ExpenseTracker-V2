@@ -152,7 +152,10 @@ void main() {
         await engine.lock();
         engine = open();
         await engine.unlock(password);
-        await engine.retryPendingInvestmentSplit();
+        expect(
+          await engine.resolvePendingInvestmentSplit(),
+          InvestmentIntentResolution.committed,
+        );
         expect(await engine.hasPendingInvestmentSplit(), isFalse);
         expect(await engine.investmentSplits(), hasLength(1));
         expect(

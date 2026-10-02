@@ -1,5 +1,7 @@
 part of 'preview_engine.dart';
 
+enum InvestmentIntentResolution { committed, discarded }
+
 /// The private vault retains the exact preview and event ID until the
 /// encrypted Ledger result is known. An ambiguous result can only be retried
 /// with the same financial identity, never rebuilt as a fresh buy.
@@ -243,6 +245,38 @@ extension PreviewInvestments on PreviewEngine {
     await _replayInvestmentSplit(intent, epoch);
   });
 
+  Future<InvestmentIntentResolution> resolvePendingInvestmentSplit() =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentSplits) throw PreviewInvalid();
+        final intent = await _readInvestmentSplitIntent();
+        if (intent == null || intent.committed) throw PreviewInvalid();
+        final facts = await _session!.investmentSplits(_workspace!);
+        _check(epoch);
+        final related = facts
+            .where(
+              (fact) =>
+                  fact.preview.id == intent.preview.id ||
+                  fact.preview.operation == intent.preview.operation,
+            )
+            .toList(growable: false);
+        if (related.length > 1) throw DraftUnavailable();
+        if (related case [final fact]) {
+          if (const StockSplitPreviewCodec().encode(fact.preview) !=
+              intent.signature) {
+            throw DraftUnavailable();
+          }
+          await _writeInvestmentSplitIntent(intent.complete());
+          return InvestmentIntentResolution.committed;
+        }
+        await vault.delete(_investmentSplitIntentSlot);
+        if (await vault.read(_investmentSplitIntentSlot) != null) {
+          throw DraftUnavailable();
+        }
+        _check(epoch);
+        return InvestmentIntentResolution.discarded;
+      });
+
   Future<void> submitInvestmentSplit(StockSplitPreview preview) =>
       _draftExclusive((epoch) async {
         _require();
@@ -327,6 +361,40 @@ extension PreviewInvestments on PreviewEngine {
         final intent = await _readInvestmentDividendIntent();
         if (intent == null || intent.committed) throw PreviewInvalid();
         await _replayInvestmentDividend(intent, epoch);
+      });
+
+  Future<InvestmentIntentResolution> resolvePendingInvestmentDividend() =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentDividends) throw PreviewInvalid();
+        final intent = await _readInvestmentDividendIntent();
+        if (intent == null || intent.committed) throw PreviewInvalid();
+        final facts = await _session!.investmentDividends(_workspace!);
+        _check(epoch);
+        final related = facts
+            .where(
+              (fact) =>
+                  fact.preview.id == intent.preview.id ||
+                  fact.preview.operation == intent.preview.operation ||
+                  fact.eventId == intent.eventId,
+            )
+            .toList(growable: false);
+        if (related.length > 1) throw DraftUnavailable();
+        if (related case [final fact]) {
+          if (fact.eventId != intent.eventId ||
+              const InvestmentDividendPreviewCodec().encode(fact.preview) !=
+                  intent.signature) {
+            throw DraftUnavailable();
+          }
+          await _writeInvestmentDividendIntent(intent.complete());
+          return InvestmentIntentResolution.committed;
+        }
+        await vault.delete(_investmentDividendIntentSlot);
+        if (await vault.read(_investmentDividendIntentSlot) != null) {
+          throw DraftUnavailable();
+        }
+        _check(epoch);
+        return InvestmentIntentResolution.discarded;
       });
 
   Future<void> submitInvestmentDividend(InvestmentDividendPreview preview) =>
@@ -415,6 +483,40 @@ extension PreviewInvestments on PreviewEngine {
     if (intent == null || intent.committed) throw PreviewInvalid();
     await _replayInvestmentBuy(intent, epoch);
   });
+
+  Future<InvestmentIntentResolution> resolvePendingInvestmentBuy() =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investments) throw PreviewInvalid();
+        final intent = await _readInvestmentIntent();
+        if (intent == null || intent.committed) throw PreviewInvalid();
+        final facts = await _session!.investmentBuys(_workspace!);
+        _check(epoch);
+        final related = facts
+            .where(
+              (fact) =>
+                  fact.preview.id == intent.preview.id ||
+                  fact.preview.operation == intent.preview.operation ||
+                  fact.eventId == intent.eventId,
+            )
+            .toList(growable: false);
+        if (related.length > 1) throw DraftUnavailable();
+        if (related case [final fact]) {
+          if (fact.eventId != intent.eventId ||
+              const InvestmentBuyPreviewCodec().encode(fact.preview) !=
+                  intent.signature) {
+            throw DraftUnavailable();
+          }
+          await _writeInvestmentIntent(intent.complete());
+          return InvestmentIntentResolution.committed;
+        }
+        await vault.delete(_investmentIntentSlot);
+        if (await vault.read(_investmentIntentSlot) != null) {
+          throw DraftUnavailable();
+        }
+        _check(epoch);
+        return InvestmentIntentResolution.discarded;
+      });
 
   Future<void> submitInvestmentBuy(InvestmentBuyPreview preview) =>
       _draftExclusive((epoch) async {
@@ -526,6 +628,40 @@ extension PreviewInvestments on PreviewEngine {
     if (intent == null || intent.committed) throw PreviewInvalid();
     await _replayInvestmentSell(intent, epoch);
   });
+
+  Future<InvestmentIntentResolution> resolvePendingInvestmentSell() =>
+      _draftExclusive((epoch) async {
+        _require();
+        if (!capabilities.investmentSales) throw PreviewInvalid();
+        final intent = await _readInvestmentSellIntent();
+        if (intent == null || intent.committed) throw PreviewInvalid();
+        final facts = await _session!.allInvestmentSales(_workspace!);
+        _check(epoch);
+        final related = facts
+            .where(
+              (fact) =>
+                  fact.preview.id == intent.preview.id ||
+                  fact.preview.operation == intent.preview.operation ||
+                  fact.eventId == intent.eventId,
+            )
+            .toList(growable: false);
+        if (related.length > 1) throw DraftUnavailable();
+        if (related case [final fact]) {
+          if (fact.eventId != intent.eventId ||
+              const InvestmentSellPreviewCodec().encode(fact.preview) !=
+                  intent.signature) {
+            throw DraftUnavailable();
+          }
+          await _writeInvestmentSellIntent(intent.complete());
+          return InvestmentIntentResolution.committed;
+        }
+        await vault.delete(_investmentSellIntentSlot);
+        if (await vault.read(_investmentSellIntentSlot) != null) {
+          throw DraftUnavailable();
+        }
+        _check(epoch);
+        return InvestmentIntentResolution.discarded;
+      });
 
   Future<void> submitInvestmentSell(InvestmentSellPreview preview) =>
       _draftExclusive((epoch) async {

@@ -161,7 +161,10 @@ void main() {
         await engine.lock();
         engine = open();
         await engine.unlock(password);
-        await engine.retryPendingInvestmentSell();
+        expect(
+          await engine.resolvePendingInvestmentSell(),
+          InvestmentIntentResolution.committed,
+        );
         expect(await engine.hasPendingInvestmentSell(), isFalse);
         expect(
           await engine.investmentSales(investmentAccount.id, instrument.id),

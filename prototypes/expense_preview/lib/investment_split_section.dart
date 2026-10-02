@@ -263,6 +263,44 @@ class _InvestmentSplitSectionState extends State<_InvestmentSplitSection> {
     }
   }
 
+  Future<void> _resolvePending() async {
+    if (_busy ||
+        !_pending ||
+        !widget.engine.isUnlocked ||
+        widget.privacy == PrivacyMode.hidden) {
+      return;
+    }
+    if (!await _confirmInvestmentIntentResolution(context, '拆股') || !mounted) {
+      return;
+    }
+    final request = ++_request;
+    setState(() => _busy = true);
+    try {
+      final resolution = await widget.engine.resolvePendingInvestmentSplit();
+      if (!mounted ||
+          request != _request ||
+          !widget.engine.isUnlocked ||
+          widget.privacy == PrivacyMode.hidden) {
+        return;
+      }
+      setState(() {
+        _review = null;
+        _message = resolution == InvestmentIntentResolution.committed
+            ? '帳本已有同一筆拆股；已完成本機確認，沒有重複套用。'
+            : '帳本確認沒有這筆拆股；已安全捨棄待確認意圖。';
+      });
+      await _load();
+      await _loadLots();
+      await widget.onSaved();
+    } catch (_) {
+      if (mounted && request == _request) {
+        setState(() => _message = '無法安全判定拆股結果；待確認資料已保留，請重試。');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.engine.isUnlocked || widget.privacy == PrivacyMode.hidden) {
@@ -277,11 +315,20 @@ class _InvestmentSplitSectionState extends State<_InvestmentSplitSection> {
       children: [
         const Text('不可回填而改寫既有賣出；僅支援無現金找零的正向拆股。'),
         if (_pending) ...[
-          const Text('上一筆拆股結果待確認，請先重試同一筆。'),
-          TextButton(
-            key: const ValueKey('retry-investment-split'),
-            onPressed: _busy ? null : _retry,
-            child: const Text('核對並重試拆股'),
+          const Text('上一筆拆股結果待確認；可重試同一筆，或先核對帳本再安全處理。'),
+          Row(
+            children: [
+              TextButton(
+                key: const ValueKey('retry-investment-split'),
+                onPressed: _busy ? null : _retry,
+                child: const Text('核對並重試拆股'),
+              ),
+              TextButton(
+                key: const ValueKey('resolve-investment-split'),
+                onPressed: _busy ? null : _resolvePending,
+                child: const Text('核對結果或捨棄'),
+              ),
+            ],
           ),
         ],
         if (_positions.isEmpty)

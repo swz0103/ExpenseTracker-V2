@@ -155,7 +155,10 @@ void main() {
         await engine.lock();
         engine = open();
         await engine.unlock(password);
-        await engine.retryPendingInvestmentDividend();
+        expect(
+          await engine.resolvePendingInvestmentDividend(),
+          InvestmentIntentResolution.committed,
+        );
         expect(await engine.hasPendingInvestmentDividend(), isFalse);
         expect(await engine.investmentDividends(), hasLength(1));
         expect((await engine.accounts()).single.balance.majorText, '87.75');

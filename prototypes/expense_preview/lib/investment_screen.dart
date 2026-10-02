@@ -1,5 +1,31 @@
 part of 'main.dart';
 
+Future<bool> _confirmInvestmentIntentResolution(
+  BuildContext context,
+  String label,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('核對並處理待確認$label？'),
+        content: Text(
+          '程式會先核對加密帳本。若同一筆$label已入帳，只會完成本機確認；'
+          '只有帳本完全沒有這筆交易時，才會捨棄待確認意圖。身分衝突時不會清除。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('開始核對'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
 /// A buy is reviewed as a cash debit and a new acquisition lot before it is
 /// submitted. No market price, gain, or tax basis is inferred here.
 class _InvestmentScreen extends StatefulWidget {
@@ -562,6 +588,45 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
     }
   }
 
+  Future<void> _resolvePendingBuy() async {
+    if (_busy ||
+        !_pending ||
+        !widget.engine.isUnlocked ||
+        widget.privacy == PrivacyMode.hidden) {
+      return;
+    }
+    if (!await _confirmInvestmentIntentResolution(context, '買入') || !mounted) {
+      return;
+    }
+    final request = ++_request;
+    setState(() => _busy = true);
+    try {
+      final resolution = await widget.engine.resolvePendingInvestmentBuy();
+      if (!mounted ||
+          request != _request ||
+          !widget.engine.isUnlocked ||
+          widget.privacy == PrivacyMode.hidden) {
+        return;
+      }
+      setState(() {
+        _review = null;
+        _message = resolution == InvestmentIntentResolution.committed
+            ? '帳本已有同一筆買入；已完成本機確認，沒有重複入帳。'
+            : '帳本確認沒有這筆買入；已安全捨棄待確認意圖。';
+      });
+      await _load();
+    } catch (_) {
+      if (mounted &&
+          request == _request &&
+          widget.engine.isUnlocked &&
+          widget.privacy != PrivacyMode.hidden) {
+        setState(() => _message = '無法安全判定買入結果；待確認資料已保留，請重試。');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _prepareSell() {
     if (_busy ||
         _hasPendingOperation ||
@@ -691,6 +756,45 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
     }
   }
 
+  Future<void> _resolvePendingSell() async {
+    if (_busy ||
+        !_sellPending ||
+        !widget.engine.isUnlocked ||
+        widget.privacy == PrivacyMode.hidden) {
+      return;
+    }
+    if (!await _confirmInvestmentIntentResolution(context, '賣出') || !mounted) {
+      return;
+    }
+    final request = ++_request;
+    setState(() => _busy = true);
+    try {
+      final resolution = await widget.engine.resolvePendingInvestmentSell();
+      if (!mounted ||
+          request != _request ||
+          !widget.engine.isUnlocked ||
+          widget.privacy == PrivacyMode.hidden) {
+        return;
+      }
+      setState(() {
+        _sellReview = null;
+        _sellMessage = resolution == InvestmentIntentResolution.committed
+            ? '帳本已有同一筆賣出；已完成本機確認，沒有重複入帳。'
+            : '帳本確認沒有這筆賣出；已安全捨棄待確認意圖。';
+      });
+      await _load();
+    } catch (_) {
+      if (mounted &&
+          request == _request &&
+          widget.engine.isUnlocked &&
+          widget.privacy != PrivacyMode.hidden) {
+        setState(() => _sellMessage = '無法安全判定賣出結果；待確認資料已保留，請重試。');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   String _shareUnitsText(BigInt units) {
     final scale = BigInt.from(10).pow(InvestmentSellPreview.quantityScale);
     final whole = units ~/ scale;
@@ -726,11 +830,20 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
       subtitle: const Text('依實際成交價賣出；FIFO 或平均成本可供選擇。'),
       children: [
         if (_sellPending) ...[
-          const Text('前一筆賣出尚待核對，請先重試同一筆。'),
-          TextButton(
-            key: const ValueKey('retry-investment-sell'),
-            onPressed: _busy ? null : _retrySell,
-            child: const Text('核對並重試賣出'),
+          const Text('前一筆賣出尚待核對；可重試同一筆，或先核對帳本再安全處理。'),
+          Row(
+            children: [
+              TextButton(
+                key: const ValueKey('retry-investment-sell'),
+                onPressed: _busy ? null : _retrySell,
+                child: const Text('核對並重試賣出'),
+              ),
+              TextButton(
+                key: const ValueKey('resolve-investment-sell'),
+                onPressed: _busy ? null : _resolvePendingSell,
+                child: const Text('核對結果或捨棄'),
+              ),
+            ],
           ),
         ],
         if (_sellChoices.isEmpty)
@@ -941,11 +1054,20 @@ class _InvestmentScreenState extends State<_InvestmentScreen> {
         if (_loaded && _fundingAccounts.isEmpty) const Text('請先建立可用的現金或銀行帳戶。'),
         if (_loaded && _fundingAccounts.isNotEmpty) ...[
           if (_pending) ...[
-            const Text('前一筆買入尚待核對，請先重試同一筆。'),
-            TextButton(
-              key: const ValueKey('retry-investment-buy'),
-              onPressed: _busy ? null : _retry,
-              child: const Text('核對並重試'),
+            const Text('前一筆買入尚待核對；可重試同一筆，或先核對帳本再安全處理。'),
+            Row(
+              children: [
+                TextButton(
+                  key: const ValueKey('retry-investment-buy'),
+                  onPressed: _busy ? null : _retry,
+                  child: const Text('核對並重試'),
+                ),
+                TextButton(
+                  key: const ValueKey('resolve-investment-buy'),
+                  onPressed: _busy ? null : _resolvePendingBuy,
+                  child: const Text('核對結果或捨棄'),
+                ),
+              ],
             ),
           ],
           DropdownButtonFormField<PublicId>(

@@ -27,6 +27,9 @@ final class AndroidPreviewVault implements PreviewVault, SlotVault {
   @override
   Future<void> write(String name, String value) =>
       storage.write(key: name, value: value);
+
+  @override
+  Future<void> delete(String name) => storage.delete(key: name);
 }
 
 /// Optional local convenience unlock. The master password remains portable only
