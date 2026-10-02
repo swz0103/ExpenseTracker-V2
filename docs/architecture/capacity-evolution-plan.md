@@ -28,10 +28,11 @@
 - [x] `SnapshotCodec` 在同一 read transaction 內驗證 authority 與實際主鍵，依 stable tuple keyset cursor 把每張 SQLCipher 表串入 bounded chunks；這仍是原型入口，尚未取代正式 App 的單檔 capture。
 - [x] 還原先完整驗證，再以單一 transaction 逐塊寫入全新 staged database；任何未知表、缺塊、重塊、順序錯誤、canonical row 或 digest 不符都拒絕。後段 chunk 中途損壞會回滾已寫列並刪除 stage／sidecars。
 - [x] 密碼與救援文字各自包裝同一隨機 AES-256-GCM data key；Argon2id 每次開啟只執行一次。加密 manifest 與每個 chunk 使用獨立 nonce，並以固定 session header＋用途檔名作 AAD，拒絕竄改與 chunk 交換。SHA-256 僅保留為內層完整性，不冒充 authentication。
-- [ ] 原型 opener 目前重建暫時明文 bounded container；正式 App 必須直接將已認證 rows 串入 SQLCipher stage，並接上 generation promotion／中斷 journal，不能在磁碟保留明文 chunks。
+- [x] 還原端將 authenticated rows 直接串入單一 transaction 的新 database，不重建明文 chunk 目錄；後段 authentication failure 會回滾並清除 stage。
+- [ ] 備份端 `seal` 仍以既有明文 bounded container 為輸入；正式 App 必須讓 SQLCipher capture 直接輸出加密 chunks，再接 generation promotion／中斷 journal，不能在磁碟保留明文 chunks。
 - 舊 snapshot 維持唯讀匯入；新格式不得讓舊 App 誤認可讀。升級／回退與 interrupted restore 必須有固定測試。
 
-容器／資料庫 capture／stage 定向 9/9、authenticated container 3/3、backup_envelope 19/19、validated_restore 完整 143/143 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未接正式 App 與 generation promotion，不提高現行上限。
+容器／資料庫 capture／stage 定向 9/9、authenticated container 4/4、backup_envelope 19/19、validated_restore 完整 144/144 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未接正式 App 與 generation promotion，不提高現行上限。
 
 ### C3：追加寫入與容量 admission
 

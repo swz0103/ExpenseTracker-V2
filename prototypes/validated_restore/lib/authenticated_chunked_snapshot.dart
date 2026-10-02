@@ -17,6 +17,16 @@ final class CreatedAuthenticatedChunkedSnapshot {
   final ChunkedSnapshotSummary summary;
 }
 
+final class OpenedAuthenticatedChunkedSnapshot {
+  const OpenedAuthenticatedChunkedSnapshot({
+    required this.summary,
+    required this.rows,
+  });
+
+  final ChunkedSnapshotSummary summary;
+  final Stream<ChunkedSnapshotRow> rows;
+}
+
 /// Authenticated directory wrapper for the bounded chunk prototype.
 ///
 /// The key metadata wraps one random data key with independent password and
@@ -119,6 +129,53 @@ final class AuthenticatedChunkedSnapshotStore {
     return _open(source, target, expectedTables, session);
   }
 
+  Future<OpenedAuthenticatedChunkedSnapshot> readWithPassword({
+    required Directory source,
+    required List<String> expectedTables,
+    required String password,
+  }) async => _openReader(
+    source,
+    expectedTables,
+    await ChunkEnvelopeCodec().openWithPassword(
+      await _metadata(source),
+      password,
+    ),
+  );
+
+  Future<OpenedAuthenticatedChunkedSnapshot> readWithRecovery({
+    required Directory source,
+    required List<String> expectedTables,
+    required String recoveryKey,
+  }) async => _openReader(
+    source,
+    expectedTables,
+    await ChunkEnvelopeCodec().openWithRecovery(
+      await _metadata(source),
+      recoveryKey,
+    ),
+  );
+
+  Future<OpenedAuthenticatedChunkedSnapshot> _openReader(
+    Directory source,
+    List<String> expectedTables,
+    ChunkEnvelopeSession session,
+  ) async {
+    final manifest = await session.open(
+      await _readFile(
+        source,
+        'manifest.etv2',
+        ChunkEnvelopeCodec.maxEnvelopeCharacters,
+      ),
+      purpose: 'manifest',
+    );
+    final parsed = _parseManifest(manifest, expectedTables, plainStore);
+    _validateEncryptedEntities(source, parsed.chunks);
+    return OpenedAuthenticatedChunkedSnapshot(
+      summary: parsed.summary,
+      rows: _readAuthenticatedRows(source, parsed, session),
+    );
+  }
+
   Future<ChunkedSnapshotSummary> _open(
     Directory source,
     Directory target,
@@ -132,23 +189,8 @@ final class AuthenticatedChunkedSnapshotStore {
       ChunkEnvelopeCodec.maxEnvelopeCharacters,
     );
     final manifest = await session.open(manifestEnvelope, purpose: 'manifest');
-    final chunkFiles = _chunkFiles(manifest, expectedTables);
-    final expectedEncrypted = {
-      'metadata.json',
-      'manifest.etv2',
-      for (final chunk in chunkFiles)
-        '${chunk.substring(0, chunk.length - 7)}.etv2',
-    };
-    final entities = source.listSync(followLinks: false);
-    if (entities.length != expectedEncrypted.length ||
-        entities.any(
-          (entity) =>
-              FileSystemEntity.typeSync(entity.path, followLinks: false) !=
-                  FileSystemEntityType.file ||
-              !expectedEncrypted.contains(entity.uri.pathSegments.last),
-        )) {
-      throw const BackupException(BackupError.invalidFormat);
-    }
+    final parsed = _parseManifest(manifest, expectedTables, plainStore);
+    _validateEncryptedEntities(source, parsed.chunks);
 
     final temporary = _temporaryFor(target);
     temporary.createSync(recursive: true);
@@ -157,15 +199,15 @@ final class AuthenticatedChunkedSnapshotStore {
           .writeAsBytes(manifest, flush: true);
       await File('${temporary.path}${Platform.pathSeparator}manifest.sha256')
           .writeAsString(await _digest(manifest), flush: true);
-      for (final chunkName in chunkFiles) {
-        final purpose = chunkName.substring(0, chunkName.length - 7);
+      for (final chunk in parsed.chunks) {
+        final purpose = chunk.purpose;
         final envelope = await _readFile(
           source,
           '$purpose.etv2',
           ChunkEnvelopeCodec.maxEnvelopeCharacters,
         );
         final bytes = await session.open(envelope, purpose: purpose);
-        await File('${temporary.path}${Platform.pathSeparator}$chunkName')
+        await File('${temporary.path}${Platform.pathSeparator}${chunk.file}')
             .writeAsBytes(bytes, flush: true);
       }
       final summary = await plainStore.verify(
@@ -184,22 +226,57 @@ final class AuthenticatedChunkedSnapshotStore {
       _readFile(source, 'metadata.json', 16384);
 }
 
-List<String> _chunkFiles(List<int> manifest, List<String> expectedTables) {
+final class _AuthenticatedManifest {
+  const _AuthenticatedManifest({required this.summary, required this.chunks});
+
+  final ChunkedSnapshotSummary summary;
+  final List<_AuthenticatedChunk> chunks;
+}
+
+final class _AuthenticatedChunk {
+  const _AuthenticatedChunk({
+    required this.table,
+    required this.file,
+    required this.rows,
+    required this.bytes,
+    required this.sha256,
+  });
+
+  final String table;
+  final String file;
+  final int rows;
+  final int bytes;
+  final String sha256;
+  String get purpose => file.substring(0, file.length - 7);
+}
+
+_AuthenticatedManifest _parseManifest(
+  List<int> manifest,
+  List<String> expectedTables,
+  ChunkedSnapshotStore limits,
+) {
   try {
     final root = jsonDecode(utf8.decode(manifest));
     if (root is! Map<String, dynamic> ||
         root.length != 6 ||
         root['format'] != 'ledger-chunked-probe' ||
         root['version'] != 1 ||
-        root['tables'] is! List) {
+        root['schema'] is! int ||
+        root['schema'] < 1 ||
+        root['schema'] > 10000 ||
+        root['tables'] is! List ||
+        root['totalRows'] is! int ||
+        root['totalBytes'] is! int) {
       throw const BackupException(BackupError.invalidFormat);
     }
     final tables = root['tables'] as List;
     if (tables.length != expectedTables.length) {
       throw const BackupException(BackupError.invalidFormat);
     }
-    final files = <String>[];
+    final chunks = <_AuthenticatedChunk>[];
     var ordinal = 0;
+    var totalRows = 0;
+    var totalBytes = 0;
     for (var index = 0; index < tables.length; index++) {
       final table = tables[index];
       if (table is! Map<String, dynamic> ||
@@ -213,17 +290,120 @@ List<String> _chunkFiles(List<int> manifest, List<String> expectedTables) {
         if (rawChunk is! Map<String, dynamic> ||
             rawChunk.length != 5 ||
             rawChunk['ordinal'] != ordinal ||
-            rawChunk['file'] != expected) {
+            rawChunk['file'] != expected ||
+            rawChunk['rows'] is! int ||
+            rawChunk['bytes'] is! int ||
+            rawChunk['sha256'] is! String ||
+            rawChunk['rows'] < 1 ||
+            rawChunk['rows'] > limits.maxRowsPerChunk ||
+            rawChunk['bytes'] < 1 ||
+            rawChunk['bytes'] > limits.maxChunkBytes ||
+            !RegExp(r'^[a-f0-9]{64}$').hasMatch(rawChunk['sha256'])) {
           throw const BackupException(BackupError.invalidFormat);
         }
-        files.add(expected);
+        chunks.add(
+          _AuthenticatedChunk(
+            table: expectedTables[index],
+            file: expected,
+            rows: rawChunk['rows'] as int,
+            bytes: rawChunk['bytes'] as int,
+            sha256: rawChunk['sha256'] as String,
+          ),
+        );
+        totalRows += rawChunk['rows'] as int;
+        totalBytes += rawChunk['bytes'] as int;
+        if (totalRows > limits.maxTotalRows ||
+            totalBytes > limits.maxTotalBytes) {
+          throw const BackupException(BackupError.limitExceeded);
+        }
         ordinal++;
       }
     }
-    return files;
+    if (root['totalRows'] != totalRows || root['totalBytes'] != totalBytes) {
+      throw const BackupException(BackupError.invalidFormat);
+    }
+    return _AuthenticatedManifest(
+      summary: ChunkedSnapshotSummary(
+        schema: root['schema'] as int,
+        totalRows: totalRows,
+        totalBytes: totalBytes,
+        chunkCount: ordinal,
+      ),
+      chunks: chunks,
+    );
   } on FormatException {
     throw const BackupException(BackupError.invalidFormat);
   }
+}
+
+void _validateEncryptedEntities(
+  Directory source,
+  List<_AuthenticatedChunk> chunks,
+) {
+  final expected = {
+    'metadata.json',
+    'manifest.etv2',
+    for (final chunk in chunks) '${chunk.purpose}.etv2',
+  };
+  final entities = source.listSync(followLinks: false);
+  if (entities.length != expected.length ||
+      entities.any(
+        (entity) =>
+            FileSystemEntity.typeSync(entity.path, followLinks: false) !=
+                FileSystemEntityType.file ||
+            !expected.contains(entity.uri.pathSegments.last),
+      )) {
+    throw const BackupException(BackupError.invalidFormat);
+  }
+}
+
+Stream<ChunkedSnapshotRow> _readAuthenticatedRows(
+  Directory source,
+  _AuthenticatedManifest manifest,
+  ChunkEnvelopeSession session,
+) async* {
+  for (final chunk in manifest.chunks) {
+    final bytes = await session.open(
+      await _readFile(
+        source,
+        '${chunk.purpose}.etv2',
+        ChunkEnvelopeCodec.maxEnvelopeCharacters,
+      ),
+      purpose: chunk.purpose,
+    );
+    if (bytes.length != chunk.bytes || await _digest(bytes) != chunk.sha256) {
+      throw const BackupException(BackupError.authenticationFailed);
+    }
+    final lines = const LineSplitter().convert(utf8.decode(bytes));
+    if (lines.length != chunk.rows) {
+      throw const BackupException(BackupError.invalidFormat);
+    }
+    for (final line in lines) {
+      final row = jsonDecode(line);
+      if (row is! Map<String, dynamic> ||
+          jsonEncode(_authenticatedCanonical(row)) != line) {
+        throw const BackupException(BackupError.invalidFormat);
+      }
+      yield ChunkedSnapshotRow(table: chunk.table, values: row);
+    }
+  }
+}
+
+Object? _authenticatedCanonical(Object? value) => switch (value) {
+  Map<Object?, Object?> map => _authenticatedCanonicalMap(map),
+  List<Object?> list => [
+    for (final item in list) _authenticatedCanonical(item),
+  ],
+  String() || int() || bool() || null => value,
+  _ => throw const BackupException(BackupError.invalidFormat),
+};
+
+Map<String, Object?> _authenticatedCanonicalMap(Map<Object?, Object?> map) {
+  if (map.keys.any((key) => key is! String)) {
+    throw const BackupException(BackupError.invalidFormat);
+  }
+  final keys = map.keys.cast<String>().toList()..sort();
+  return {for (final key in keys) key: _authenticatedCanonical(map[key])};
 }
 
 Future<String> _readFile(Directory source, String name, int maxLength) async {

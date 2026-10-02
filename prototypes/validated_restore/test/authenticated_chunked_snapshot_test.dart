@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:backup_envelope_probe/envelope.dart';
+import 'package:modular_persistence_probe/database.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:validated_restore_probe/authenticated_chunked_snapshot.dart';
 import 'package:validated_restore_probe/chunked_snapshot.dart';
+import 'package:validated_restore_probe/snapshot.dart';
 
 void main() {
   const password = 'fixture passphrase only';
@@ -128,4 +131,130 @@ void main() {
     );
     expect(target.existsSync(), isFalse);
   });
+
+  test(
+    'authenticated rows stage directly without a plaintext container',
+    () async {
+      final sourceFile = File('${root.path}/direct-source.db');
+      final legacy = sqlite3.open(sourceFile.path);
+      try {
+        legacy.execute(
+          File('../modular_persistence/test/fixtures/v1.sql')
+              .readAsStringSync(),
+        );
+      } finally {
+        legacy.close();
+      }
+      const authorityStore = ChunkedSnapshotStore(
+        maxChunkBytes: 4096,
+        maxRowsPerChunk: 1,
+        maxTotalRows: 100,
+        maxTotalBytes: 65536,
+      );
+      const secureStore = AuthenticatedChunkedSnapshotStore(
+        plainStore: authorityStore,
+      );
+      final codec = SnapshotCodec();
+      final authority = Directory('${root.path}/direct-authority');
+      final source = ProbeDatabase(sourceFile);
+      try {
+        await codec.captureChunked(
+          source,
+          authority,
+          store: authorityStore,
+          pageSize: 1,
+        );
+      } finally {
+        await source.close();
+      }
+      final encrypted = Directory('${root.path}/direct-encrypted');
+      await secureStore.seal(
+        source: authority,
+        target: encrypted,
+        expectedTables: const [
+          'accounts',
+          'events',
+          'legs',
+          'openings',
+          'allocations',
+          'receipts',
+          'audit',
+        ],
+        password: password,
+      );
+      final opened = await secureStore.readWithPassword(
+        source: encrypted,
+        expectedTables: const [
+          'accounts',
+          'events',
+          'legs',
+          'openings',
+          'allocations',
+          'receipts',
+          'audit',
+        ],
+        password: password,
+      );
+      final stagedFile = File('${root.path}/direct-stage.db');
+      await codec.stageAuthenticatedChunked(opened, stagedFile);
+      expect(stagedFile.existsSync(), isTrue);
+
+      final staged = ProbeDatabase(stagedFile);
+      final recaptured = Directory('${root.path}/direct-recaptured');
+      try {
+        await codec.captureChunked(
+          staged,
+          recaptured,
+          store: authorityStore,
+          pageSize: 1,
+        );
+      } finally {
+        await staged.close();
+      }
+      final originalFiles = authority.listSync().whereType<File>().toList()
+        ..sort((left, right) => left.path.compareTo(right.path));
+      final restoredFiles = recaptured.listSync().whereType<File>().toList()
+        ..sort((left, right) => left.path.compareTo(right.path));
+      expect(restoredFiles.length, originalFiles.length);
+      for (var index = 0; index < originalFiles.length; index++) {
+        expect(
+          restoredFiles[index].readAsBytesSync(),
+          originalFiles[index].readAsBytesSync(),
+        );
+      }
+
+      final lateOpened = await secureStore.readWithPassword(
+        source: encrypted,
+        expectedTables: const [
+          'accounts',
+          'events',
+          'legs',
+          'openings',
+          'allocations',
+          'receipts',
+          'audit',
+        ],
+        password: password,
+      );
+      final target = File('${root.path}/late-secure-stage.db');
+      var damaged = false;
+      await expectLater(
+        SnapshotCodec().stageAuthenticatedChunked(
+          lateOpened,
+          target,
+          checkpoint: (_, _) {
+            if (damaged) return;
+            damaged = true;
+            File('${encrypted.path}/chunk-00000001.etv2')
+                .writeAsStringSync('late damage', flush: true);
+          },
+        ),
+        throwsA(isA<BackupException>()),
+      );
+      expect(damaged, isTrue);
+      for (final suffix in ['', '-wal', '-shm', '-journal']) {
+        expect(File('${target.path}$suffix').existsSync(), isFalse);
+      }
+    },
+  );
 }

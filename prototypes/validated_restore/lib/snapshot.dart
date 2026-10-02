@@ -35,6 +35,7 @@ import 'package:modular_persistence_probe/card_statements_adapter.dart';
 import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/reversals_adapter.dart';
 
+import 'authenticated_chunked_snapshot.dart';
 import 'chunked_snapshot.dart';
 
 part 'refund_snapshot.dart';
@@ -637,6 +638,55 @@ final class SnapshotCodec {
           source,
           expectedTables: expectedTables,
         )) {
+          final columns = _columns[streamed.table];
+          if (columns == null ||
+              streamed.values.length != columns.length ||
+              columns.any((column) => !streamed.values.containsKey(column))) {
+            throw const InvalidSnapshot();
+          }
+          await db!.customStatement(
+            'INSERT INTO ${streamed.table} (${columns.join(',')}) '
+            'VALUES (${List.filled(columns.length, '?').join(',')})',
+            [
+              for (final column in columns)
+                _integers.contains(column) && streamed.values[column] != null
+                    ? _integer(streamed.values[column])
+                    : streamed.values[column],
+            ],
+          );
+          final count = (rowsWritten[streamed.table] ?? 0) + 1;
+          rowsWritten[streamed.table] = count;
+          checkpoint?.call(streamed.table, count);
+        }
+        await validate(db!);
+      });
+      completed = true;
+    } finally {
+      await db?.close();
+      if (!completed) await _deleteStagedDatabase(target);
+    }
+  }
+
+  /// Consumes authenticated rows directly into a new database without first
+  /// reconstructing a plaintext chunk directory on disk.
+  Future<void> stageAuthenticatedChunked(
+    OpenedAuthenticatedChunkedSnapshot opened,
+    File target, {
+    ProbeDatabase Function(File)? openDatabase,
+    void Function(String table, int rowsWritten)? checkpoint,
+  }) async {
+    if (opened.summary.schema != _schemaVersion) {
+      throw const InvalidSnapshot();
+    }
+    if (generationAware && openDatabase == null) throw const InvalidSnapshot();
+    if (await target.exists()) throw StateError('Stage file already exists.');
+    ProbeDatabase? db;
+    var completed = false;
+    try {
+      db = openDatabase == null ? ProbeDatabase(target) : openDatabase(target);
+      final rowsWritten = <String, int>{};
+      await db.transaction(() async {
+        await for (final streamed in opened.rows) {
           final columns = _columns[streamed.table];
           if (columns == null ||
               streamed.values.length != columns.length ||
