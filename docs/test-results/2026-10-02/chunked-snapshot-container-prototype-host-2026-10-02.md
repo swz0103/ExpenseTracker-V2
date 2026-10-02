@@ -14,11 +14,12 @@
 - authenticated reader 可將已驗證 rows 直接串入新 database，不先重建明文 chunk 目錄；後段加密 chunk 在已寫入部分列後遭竄改，仍會使 transaction 回滾並清除 stage／sidecars。
 - authenticated writer 直接消費 SQL authority stable-key row streams，只在記憶體保留單一 bounded chunk，磁碟只寫 `metadata.json` 與 `.etv2` 密文；manifest 也只以認證密文落地。完成後以同一 session 自驗全部 chunks 才 rename。
 - `RestoreStore.restoreChunked` 已接既有 promotion journal 與跨程序復原狀態機；密碼／救援皆可 restore。`validated`、`prepared`、`oldMoved`、`newMoved` 四點例外注入均恢復舊 current、清除 stage／journal並可重試。
+- 舊單檔與新分塊格式使用不同固定 format/version 及 `R1`／`R2` 救援碼前綴；新舊解析器與救援碼互相輸入時皆 fail closed，舊 `restore` 路徑仍保留作相容匯入。
 
 ## 驗證
 
 - 分塊容器定向：9/9 通過；包含真實 v1 authority、`pageSize=1` 跨頁 capture、capture→stage→recapture bytes 等價、預先損壞與寫入中途竄改清理。
-- authenticated container 定向：4/4；backup_envelope 完整套件：19/19。
+- authenticated container 定向：4/4；backup_envelope 完整套件：20/20。
 - restore／promotion 定向：32/32；validated_restore 完整套件：147/147 通過。既有單檔 snapshot、各 schema、失敗注入與跨程序還原行為維持通過。
 - 靜態分析：零問題。
 
@@ -28,6 +29,6 @@
 
 - SHA-256 仍只用於內層完整性；外層原型已以 AES-256-GCM 綁定 session、manifest 與各 chunk 用途，密碼／救援雙路皆會驗證 authentication tag。
 - SQLCipher 各表 stable primary-key capture、逐塊 stage、generation promotion 與中斷 journal 已在原型完成，並共用既有 fail-closed 狀態機。
-- capture、stage、promotion 均已有不落地明文 chunks 的閉環原型；尚未完成舊單檔唯讀匯入政策、正式 envelope version 與 App／雲端備份切換。
+- capture、stage、promotion 均已有不落地明文 chunks 的閉環原型，新舊格式辨識與相容匯入邊界已固定；尚未核定正式 envelope version 與 App／雲端備份切換。
 - 尚未定義正式 portable envelope 版本、舊 App 拒絕規則、舊單檔唯讀匯入與中斷回復 journal。
 - 因此本批不提高 5,000／50,000／16 MiB 上限，也不在正式 App／雲端備份使用此容器。

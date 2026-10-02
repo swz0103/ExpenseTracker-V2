@@ -987,5 +987,6 @@ PR #38（`7298ca413514c67d344c5ba5cdb97de3f9c78cb2`）在本次預算調整前�
 - [x] 認證 reader 將 rows 直接串入新 database transaction，不先落地明文 chunks；後段加密 chunk 中途損壞會回滾已寫列並清除 stage／sidecars。
 - [x] 認證 writer 直接消費 SQL stable-key row streams，只在記憶體保留一個 bounded chunk；磁碟只寫 metadata 與 `.etv2` 密文，manifest 同樣認證加密，完整自驗後才 rename。
 - [x] `RestoreStore.restoreChunked` 接既有 promotion journal；密碼／救援均可還原，四個 promotion checkpoint 例外均恢復舊 current、清除 stage／journal並可重試。
-- [x] 分塊原型 9/9、認證容器 4/4、backup_envelope 19/19、restore／promotion 32/32、validated_restore 完整 147/147 與靜態分析通過；既有單檔格式及 App 匯出入口尚未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
-- [ ] 下一批完成舊格式唯讀匯入政策與 envelope version／App 切換；未完成前維持原容量 gate。
+- [x] 舊單檔與新分塊的 format/version、`R1`／`R2` 救援碼完全分離；雙向誤讀與跨格式救援碼皆 fail closed，舊 restore 保留為相容匯入。
+- [x] 分塊原型 9/9、認證容器 4/4、backup_envelope 20/20、restore／promotion 32/32、validated_restore 完整 147/147 與靜態分析通過；App 匯出入口尚未切換。[主機證據](test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)
+- [ ] 下一批核定 envelope version／App 切換並進入 C3；未完成前維持原容量 gate。

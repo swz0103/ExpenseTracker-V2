@@ -107,4 +107,40 @@ void main() {
       throwsA(isA<BackupException>()),
     );
   });
+
+  test('legacy and chunked formats never accept each other', () async {
+    final legacy = await EnvelopeCodec().create(chunk, password: password);
+    final chunked = await ChunkEnvelopeCodec().create(password: password);
+    await expectLater(
+      ChunkEnvelopeCodec().openWithPassword(legacy.envelope, password),
+      throwsA(isA<BackupException>()),
+    );
+    await expectLater(
+      EnvelopeCodec().openWithPassword(chunked.metadata, password),
+      throwsA(isA<BackupException>()),
+    );
+    await expectLater(
+      ChunkEnvelopeCodec().openWithRecovery(
+        chunked.metadata,
+        legacy.recoveryKey,
+      ),
+      throwsA(
+        isA<BackupException>().having(
+          (error) => error.code,
+          'code',
+          BackupError.invalidFormat,
+        ),
+      ),
+    );
+    await expectLater(
+      EnvelopeCodec().openWithRecovery(legacy.envelope, chunked.recoveryKey),
+      throwsA(
+        isA<BackupException>().having(
+          (error) => error.code,
+          'code',
+          BackupError.invalidFormat,
+        ),
+      ),
+    );
+  });
 }

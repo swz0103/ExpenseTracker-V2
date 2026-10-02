@@ -31,10 +31,11 @@
 - [x] 還原端將 authenticated rows 直接串入單一 transaction 的新 database，不重建明文 chunk 目錄；後段 authentication failure 會回滾並清除 stage。
 - [x] 備份端可由 SQL authority stable-key rows 直接產生認證密文，記憶體只保留單一 bounded chunk；manifest／chunks 均不以明文落地，完整自驗後才發布目標目錄。
 - [x] `RestoreStore` 接回既有 promotion journal：密碼／救援雙路在新 stage 完整驗證後，沿用 `prepared → oldMoved → newMoved`；四點例外注入都恢復舊 current 並可重試，既有跨程序中止測試仍覆蓋同一 promotion helper。
-- [ ] 下一步完成舊格式唯讀匯入政策，再定義正式 envelope version 與 App／雲端切換策略。
+- [x] 舊單檔與新分塊使用不同固定 format/version 與 `R1`／`R2` 救援碼前綴；雙向解析及跨格式救援碼皆拒絕，舊 `RestoreStore.restore` 保留作相容匯入。
+- [ ] 下一步核定正式 envelope version 與 App／雲端切換策略。
 - 舊 snapshot 維持唯讀匯入；新格式不得讓舊 App 誤認可讀。升級／回退與 interrupted restore 必須有固定測試。
 
-容器／資料庫 capture／stage 定向 9/9、authenticated container 4/4、backup_envelope 19/19、restore／promotion 32/32、validated_restore 完整 147/147 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未切換正式 App，不提高現行上限。
+容器／資料庫 capture／stage 定向 9/9、authenticated container 4/4、backup_envelope 20/20、restore／promotion 32/32、validated_restore 完整 147/147 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未切換正式 App，不提高現行上限。
 
 ### C3：追加寫入與容量 admission
 
