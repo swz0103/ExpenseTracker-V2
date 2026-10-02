@@ -611,6 +611,12 @@ final class SnapshotCodec {
     );
   });
 
+  /// Validates the exact authority and local-table manifest without scanning
+  /// authority rows. Callers still need capacity or semantic validation before
+  /// accepting data when no trusted local projection is available.
+  Future<void> validateStructure(ProbeDatabase source) =>
+      _validateStructure(source);
+
   Future<void> _validateStructure(ProbeDatabase source) async {
     // A new module or column must extend this manifest before backup is allowed.
     final persisted = await source
@@ -627,6 +633,17 @@ final class SnapshotCodec {
           'slot',
           'operation',
           'fingerprint',
+        ],
+      if (generationAware)
+        'capacity_projection': [
+          'singleton',
+          'format_version',
+          'schema_version',
+          'generation',
+          'rows',
+          'bytes',
+          'table_counts',
+          'checksum',
         ],
     };
     if (persisted.length != localTables.length ||

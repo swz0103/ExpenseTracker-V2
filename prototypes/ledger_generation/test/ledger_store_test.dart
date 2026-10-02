@@ -7,6 +7,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
 import 'package:modular_persistence_probe/database.dart';
+import 'package:modular_persistence_probe/operations.dart'
+    show OperationConflict;
 import 'package:modular_persistence_probe/storage_binding.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:storage_generation_probe/fixture_key_slots.dart';
@@ -78,6 +80,16 @@ void main() {
   });
   Future<GenerationReceipt> install() =>
       store.restore(backup.envelope, operation(), password: password);
+  Future<T> withRawGeneration<T>(T Function(Database) work) =>
+      store.generations.withCurrent((file, key, receipt) async {
+        final raw = sqlite3.open(file.path);
+        try {
+          configureEncryption(raw, key);
+          return work(raw);
+        } finally {
+          raw.close();
+        }
+      });
   Future<ProcessResult> child(
     String mode,
     String point,
@@ -136,6 +148,85 @@ void main() {
       expect((await store.post(posting)).replayed, isFalse);
       expect((await store.post(posting)).replayed, isTrue);
       expect((await store.balance(account)).minorUnits, BigInt.from(12200));
+    },
+  );
+
+  test(
+    'capacity projection is transactional and rebuilds when untrusted',
+    () async {
+      await install();
+      final committedOperation = operation();
+      await store.withSession(
+        (session) => session.post(income('1', op: committedOperation)),
+      );
+      final first = await withRawGeneration(
+        (raw) => raw.select('SELECT * FROM capacity_projection').single,
+      );
+      expect(first['format_version'], 1);
+      expect(first['schema_version'], 3);
+      expect(first['generation'], isNotEmpty);
+      expect(first['rows'], greaterThan(0));
+      expect(first['bytes'], greaterThan(0));
+      expect(first['checksum'], matches(RegExp(r'^[0-9a-f]{64}$')));
+      final portable = jsonDecode(utf8.decode(await store.snapshot())) as Map;
+      expect(
+        (portable['tables'] as Map),
+        isNot(contains('capacity_projection')),
+      );
+
+      await expectLater(
+        store.withSession(
+          (session) => session.post(income('99', op: committedOperation)),
+        ),
+        throwsA(isA<OperationConflict>()),
+      );
+      final afterFailure = await withRawGeneration(
+        (raw) => raw.select('SELECT * FROM capacity_projection').single,
+      );
+      expect(afterFailure['rows'], first['rows']);
+      expect(afterFailure['bytes'], first['bytes']);
+      expect(afterFailure['table_counts'], first['table_counts']);
+      expect(afterFailure['checksum'], first['checksum']);
+
+      await withRawGeneration<void>((raw) {
+        raw.execute(
+          'UPDATE capacity_projection SET checksum=? WHERE singleton=1',
+          [List.filled(64, '0').join()],
+        );
+      });
+      await store.withSession((session) => session.post(income('2')));
+      final rebuilt = await withRawGeneration(
+        (raw) => raw.select('SELECT * FROM capacity_projection').single,
+      );
+      expect(rebuilt['checksum'], isNot(List.filled(64, '0').join()));
+      final counts = jsonDecode(rebuilt['table_counts'] as String) as Map;
+      expect(
+        counts.values.cast<int>().fold<int>(0, (sum, value) => sum + value),
+        rebuilt['rows'],
+      );
+
+      final foreignGeneration = PublicId.generate().value;
+      await withRawGeneration<void>((raw) {
+        raw.execute(
+          'UPDATE capacity_projection SET generation=? WHERE singleton=1',
+          [foreignGeneration],
+        );
+      });
+      await store.withSession((session) => session.accounts(workspace));
+      final rebound = await withRawGeneration(
+        (raw) => raw.select('SELECT * FROM capacity_projection').single,
+      );
+      expect(rebound['generation'], rebuilt['generation']);
+      expect(rebound['generation'], isNot(foreignGeneration));
+
+      await withRawGeneration<void>(
+        (raw) => raw.execute('DROP TABLE capacity_projection'),
+      );
+      await store.withSession((session) => session.post(income('3')));
+      final recreated = await withRawGeneration(
+        (raw) => raw.select('SELECT * FROM capacity_projection').single,
+      );
+      expect(recreated['rows'], greaterThan(rebuilt['rows'] as int));
     },
   );
 

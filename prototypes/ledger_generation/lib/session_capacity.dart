@@ -392,6 +392,176 @@ void _requireInspectedCapacity(
 }
 
 extension _SessionRowCapacity on LedgerSession {
+  static const _projectionFormat = 1;
+  static const _projectionColumns = <String>[
+    'singleton',
+    'format_version',
+    'schema_version',
+    'generation',
+    'rows',
+    'bytes',
+    'table_counts',
+    'checksum',
+  ];
+
+  Map<String, int> _capacityLimits() => _tableLimits(
+    _db.categoryAware,
+    _db.categoryReferences,
+    _db.tagsAware,
+    _db.merchantsAware,
+    _db.transfersAware,
+    _db.fxTransfersAware,
+    _db.refundsAware,
+    _db.reversalsAware,
+    _db.notesAware,
+    _db.correctionsAware,
+    _db.tombstonesAware,
+    _db.budgetsAware,
+    _db.recurringAware,
+    _db.creditCardsAware,
+    _db.cardStatementsAware,
+    _db.cardAuthorizationsAware,
+    _db.installmentsAware,
+    _db.investmentsAware,
+    _db.investmentSalesAware,
+    _db.investmentDividendsAware,
+    _db.investmentSplitsAware,
+  );
+
+  String _capacityChecksum(
+    String generation,
+    int rows,
+    int bytes,
+    String tableCounts,
+  ) => sha256
+      .convert(
+        utf8.encode(
+          '$_projectionFormat|${_db.schemaVersion}|$generation|$rows|$bytes|$tableCounts',
+        ),
+      )
+      .toString();
+
+  Future<String> _capacityGeneration() async {
+    final rows = await _db
+        .customSelect('SELECT generation FROM storage_identity')
+        .get();
+    if (rows.length != 1) throw PreviewCapacity();
+    return rows.single.read<String>('generation');
+  }
+
+  Future<Map<String, int>> _currentTableCounts(Map<String, int> limits) async {
+    final counts = <String, int>{};
+    for (final entry in limits.entries) {
+      final count = await _count(entry.key);
+      if (count < 0 || count > entry.value) throw PreviewCapacity();
+      counts[entry.key] = count;
+    }
+    return counts;
+  }
+
+  Future<({int rows, int bytes, Map<String, int> tableRows})?>
+  _readCapacityProjection() async {
+    final shape = await _db
+        .customSelect('PRAGMA table_xinfo(capacity_projection)')
+        .get();
+    if (shape.length != _projectionColumns.length ||
+        shape.asMap().entries.any(
+          (entry) =>
+              entry.value.read<String>('name') != _projectionColumns[entry.key],
+        )) {
+      throw PreviewCapacity();
+    }
+    final records = await _db
+        .customSelect('SELECT * FROM capacity_projection')
+        .get();
+    if (records.isEmpty) return null;
+    if (records.length != 1) throw PreviewCapacity();
+    final row = records.single;
+    final format = row.read<int>('format_version');
+    final schema = row.read<int>('schema_version');
+    final generation = row.read<String>('generation');
+    final rows = row.read<int>('rows');
+    final bytes = row.read<int>('bytes');
+    final encodedCounts = row.read<String>('table_counts');
+    final checksum = row.read<String>('checksum');
+    if (row.read<int>('singleton') != 1 ||
+        format != _projectionFormat ||
+        schema != _db.schemaVersion ||
+        generation != await _capacityGeneration() ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(checksum) ||
+        checksum != _capacityChecksum(generation, rows, bytes, encodedCounts)) {
+      return null;
+    }
+    Object? decoded;
+    try {
+      decoded = jsonDecode(encodedCounts);
+    } catch (_) {
+      return null;
+    }
+    final limits = _capacityLimits();
+    if (decoded is! Map || decoded.length != limits.length) return null;
+    final saved = <String, int>{};
+    for (final entry in decoded.entries) {
+      if (entry.key is! String || entry.value is! int) return null;
+      saved[entry.key as String] = entry.value as int;
+    }
+    if (saved.keys.any((key) => !limits.containsKey(key)) ||
+        saved.values.any((value) => value < 0) ||
+        saved.values.fold<int>(0, (sum, value) => sum + value) != rows) {
+      return null;
+    }
+    final actual = await _currentTableCounts(limits);
+    if (jsonEncode(actual) != encodedCounts) return null;
+    final usage = (rows: rows, bytes: bytes);
+    _requirePortableUsage(usage);
+    return (rows: rows, bytes: bytes, tableRows: saved);
+  }
+
+  Future<void> _persistCapacityProjection(({int rows, int bytes}) usage) async {
+    _requirePortableUsage(usage);
+    final limits = _capacityLimits();
+    final counts = _capacityTableRows;
+    if (counts == null ||
+        counts.length != limits.length ||
+        counts.keys.any((key) => !limits.containsKey(key)) ||
+        counts.entries.any(
+          (entry) => entry.value < 0 || entry.value > limits[entry.key]!,
+        )) {
+      throw PreviewCapacity();
+    }
+    if (counts.values.fold<int>(0, (sum, value) => sum + value) != usage.rows) {
+      throw PreviewCapacity();
+    }
+    final encodedCounts = jsonEncode(counts);
+    final generation = await _capacityGeneration();
+    final checksum = _capacityChecksum(
+      generation,
+      usage.rows,
+      usage.bytes,
+      encodedCounts,
+    );
+    await _db.customStatement(
+      'INSERT INTO capacity_projection '
+      '(singleton,format_version,schema_version,generation,rows,bytes,table_counts,checksum) '
+      'VALUES(1,?,?,?,?,?,?,?) '
+      'ON CONFLICT(singleton) DO UPDATE SET '
+      'format_version=excluded.format_version, '
+      'schema_version=excluded.schema_version, generation=excluded.generation, '
+      'rows=excluded.rows, '
+      'bytes=excluded.bytes, table_counts=excluded.table_counts, '
+      'checksum=excluded.checksum',
+      [
+        _projectionFormat,
+        _db.schemaVersion,
+        generation,
+        usage.rows,
+        usage.bytes,
+        encodedCounts,
+        checksum,
+      ],
+    );
+  }
+
   Future<void> _checkRows(
     String table,
     String predicate,
@@ -418,6 +588,13 @@ extension _SessionRowCapacity on LedgerSession {
             prior.bytes + delta * (utf8.encode(jsonEncode(encoded)).length + 1),
       );
       _requirePortableUsage(next);
+      final counts = _capacityTableRows!;
+      final count = (counts[table] ?? (throw PreviewCapacity())) + delta;
+      final limit = _capacityLimits()[table];
+      if (limit == null || count < 0 || count > limit) {
+        throw PreviewCapacity();
+      }
+      counts[table] = count;
       _capacityUsage = next;
     }
   }

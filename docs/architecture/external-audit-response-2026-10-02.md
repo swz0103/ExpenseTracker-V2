@@ -108,6 +108,8 @@ XIRR 現在先計算依日期合併後的現金流符號變化。只有恰好一
 
 這是 Windows host 單次樣本，不是 Android p95。常駐記憶體只是整個 Dart 程序當下讀值，沒有當成 peak 或 App 專屬記憶體聲明。它證明索引可修正讀取成本，也證明全量備份／還原與容量格式仍不能靠調高常數解決；Android profile、UI frame 與 peak RSS 仍屬 R08／C4 gate。
 
+後續 C2、C3a、C3b 已依序完成：認證分塊備份／還原、bounded 串流 admission，以及同交易持久化容量 projection。正式 session opening 已移除 recovery 的完整 portable snapshot materialization；可信 projection 以版本、checksum、完整表計數及實際 SQL counts 核對，不可信時回到完整串流 authority validation 並重建。詳細證據見[容量演進計畫](capacity-evolution-plan.md)與[C3b 主機驗證](../test-results/2026-10-02/persistent-capacity-projection-host-2026-10-02.md)。現行上限仍不變；下一個 gate 是合法 20k 雙憑證還原與 host／Android profile。
+
 ### R07 P2：大型 shared-library UI 狀態提高維護成本 — 成立
 
 這是維護與回歸隔離風險，不是單靠行數可證明的功能錯誤。順序應是先固定行為測試，再依使用案例抽出記帳、還原、投資、信用卡 controller/service 與 lock/busy/epoch 狀態；避免一次全面改寫 UI。

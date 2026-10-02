@@ -70,6 +70,7 @@ abstract interface class GenerationPayload {
     String input,
     void Function(String)? checkpoint,
   );
+  Future<void> validate(File file, StorageKey key, GenerationReceipt receipt);
   Future<String> inspect(File file, StorageKey key, GenerationReceipt receipt);
 }
 
@@ -304,7 +305,7 @@ final class GenerationStore {
     Future<T> Function(File, StorageKey, GenerationReceipt) work, {
     LockWaitCancellation? cancellation,
   }) => _locked((catalog) async {
-    await _recover(catalog);
+    await _recoverValidated(catalog);
     final active = _active(catalog);
     if (active == null) throw StateError('No active generation');
     return work(
@@ -350,6 +351,18 @@ final class GenerationStore {
     // Recovery validates the active payload. Reuse that validation in current()
     // instead of scanning and serializing a large Ledger a second time.
     final inspected = active == null ? null : await _inspect(active);
+    _retirePending(catalog, active);
+    return inspected;
+  }
+
+  Future<GenerationReceipt?> _recoverValidated(Database catalog) async {
+    final active = _active(catalog);
+    if (active != null) await _validate(active);
+    _retirePending(catalog, active);
+    return active;
+  }
+
+  void _retirePending(Database catalog, GenerationReceipt? active) {
     final pending = catalog.select(
       "SELECT * FROM attempts WHERE status='pending'",
     );
@@ -364,7 +377,6 @@ final class GenerationStore {
         [row['generation']],
       );
     }
-    return inspected;
   }
 
   Future<void> _createDatabase(
@@ -462,6 +474,25 @@ final class GenerationStore {
     } finally {
       db.close();
     }
+  }
+
+  Future<void> _validate(GenerationReceipt receipt) async {
+    if (payload == null) {
+      await _inspect(receipt);
+      return;
+    }
+    final file = databaseFile(receipt.generation);
+    await _regular(file);
+    for (final suffix in ['-journal', '-wal', '-shm']) {
+      if (await FileSystemEntity.type(
+            '${file.path}$suffix',
+            followLinks: false,
+          ) !=
+          FileSystemEntityType.notFound) {
+        throw StateError('Unexpected generation sidecar');
+      }
+    }
+    await payload!.validate(file, await keys.read(receipt.slot), receipt);
   }
 
   Future<void> _regular(File file, {bool allowAbsent = false}) async {

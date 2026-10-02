@@ -51,8 +51,7 @@ final class LedgerEntry {
 /// Exclusive, bounded command scope. No public SQL or database handle.
 /// Preview limits preserve room for portable backups; not full M3 capacity.
 final class LedgerSession {
-  LedgerSession._(this._db, {List<int>? inspectedSnapshot})
-    : _inspectedSnapshot = inspectedSnapshot;
+  LedgerSession._(this._db);
   static const maxEvents = 5000;
   static const maxNoteChanges = 5000;
   static const maxAccounts = 32;
@@ -69,15 +68,30 @@ final class LedgerSession {
   Future<void> _tail = Future.value();
   bool _closed = false;
   ({int rows, int bytes})? _capacityUsage;
-  List<int>? _inspectedSnapshot;
+  Map<String, int>? _capacityTableRows;
+  bool _capacityProjectionLoaded = false;
 
   Future<T> _write<T>(Future<T> Function() work) async {
     final prior = _capacityUsage;
+    final priorLoaded = _capacityProjectionLoaded;
+    final priorRows = _capacityTableRows == null
+        ? null
+        : Map<String, int>.from(_capacityTableRows!);
     try {
-      return await _db.transaction(work);
+      return await _db.transaction(() async {
+        final result = await work();
+        final usage = _capacityUsage;
+        if (usage != null) {
+          await _persistCapacityProjection(usage);
+          _capacityProjectionLoaded = true;
+        }
+        return result;
+      });
     } catch (_) {
       // Admission and deltas must roll back with SQLite, including failed commit.
       _capacityUsage = prior;
+      _capacityTableRows = priorRows;
+      _capacityProjectionLoaded = priorLoaded;
       rethrow;
     }
   }
@@ -92,12 +106,6 @@ final class LedgerSession {
   Future<void> _close() async {
     _closed = true;
     await _tail;
-    _discardInspectedSnapshot();
-  }
-
-  void _discardInspectedSnapshot() {
-    _inspectedSnapshot?.fillRange(0, _inspectedSnapshot!.length, 0);
-    _inspectedSnapshot = null;
   }
 
   Future<int> _count(String table) async =>
@@ -119,7 +127,13 @@ final class LedgerSession {
 
   Future<void> _admitCapacity() async {
     if (_capacityUsage != null) return;
-    final inspected = _inspectedSnapshot;
+    final projected = await _readCapacityProjection();
+    if (projected != null) {
+      _capacityUsage = (rows: projected.rows, bytes: projected.bytes);
+      _capacityTableRows = Map<String, int>.from(projected.tableRows);
+      _capacityProjectionLoaded = true;
+      return;
+    }
     final codec = SnapshotCodec(
       categoryAware: _db.categoryAware,
       generationAware: true,
@@ -144,64 +158,44 @@ final class LedgerSession {
       investmentDividendsAware: _db.investmentDividendsAware,
       investmentSplitsAware: _db.investmentSplitsAware,
     );
-    if (inspected != null) {
-      final admitted = validateSessionCapacity(
-        inspected,
-        categoryAware: _db.categoryAware,
-        categoryReferences: _db.categoryReferences,
-        tagsAware: _db.tagsAware,
-        merchantsAware: _db.merchantsAware,
-        transfersAware: _db.transfersAware,
-        fxTransfersAware: _db.fxTransfersAware,
-        refundsAware: _db.refundsAware,
-        reversalsAware: _db.reversalsAware,
-        notesAware: _db.notesAware,
-        correctionsAware: _db.correctionsAware,
-        tombstonesAware: _db.tombstonesAware,
-        budgetsAware: _db.budgetsAware,
-        recurringAware: _db.recurringAware,
-        creditCardsAware: _db.creditCardsAware,
-        cardStatementsAware: _db.cardStatementsAware,
-        cardAuthorizationsAware: _db.cardAuthorizationsAware,
-        installmentsAware: _db.installmentsAware,
-        investmentsAware: _db.investmentsAware,
-        investmentSalesAware: _db.investmentSalesAware,
-        investmentDividendsAware: _db.investmentDividendsAware,
-        investmentSplitsAware: _db.investmentSplitsAware,
-      );
-      _capacityUsage = _snapshotUsage(admitted);
-    } else {
-      final inspection = await codec.inspectCapacity(
-        _db,
-        onRow: (table, row) => _checkRowBytes(table, row),
-      );
-      final limits = _tableLimits(
-        _db.categoryAware,
-        _db.categoryReferences,
-        _db.tagsAware,
-        _db.merchantsAware,
-        _db.transfersAware,
-        _db.fxTransfersAware,
-        _db.refundsAware,
-        _db.reversalsAware,
-        _db.notesAware,
-        _db.correctionsAware,
-        _db.tombstonesAware,
-        _db.budgetsAware,
-        _db.recurringAware,
-        _db.creditCardsAware,
-        _db.cardStatementsAware,
-        _db.cardAuthorizationsAware,
-        _db.installmentsAware,
-        _db.investmentsAware,
-        _db.investmentSalesAware,
-        _db.investmentDividendsAware,
-        _db.investmentSplitsAware,
-      );
-      _requireInspectedCapacity(inspection, limits);
-      _capacityUsage = (rows: inspection.rows, bytes: inspection.bytes);
-    }
-    _discardInspectedSnapshot();
+    final inspection = await codec.inspectCapacity(
+      _db,
+      onRow: (table, row) => _checkRowBytes(table, row),
+    );
+    final limits = _tableLimits(
+      _db.categoryAware,
+      _db.categoryReferences,
+      _db.tagsAware,
+      _db.merchantsAware,
+      _db.transfersAware,
+      _db.fxTransfersAware,
+      _db.refundsAware,
+      _db.reversalsAware,
+      _db.notesAware,
+      _db.correctionsAware,
+      _db.tombstonesAware,
+      _db.budgetsAware,
+      _db.recurringAware,
+      _db.creditCardsAware,
+      _db.cardStatementsAware,
+      _db.cardAuthorizationsAware,
+      _db.installmentsAware,
+      _db.investmentsAware,
+      _db.investmentSalesAware,
+      _db.investmentDividendsAware,
+      _db.investmentSplitsAware,
+    );
+    _requireInspectedCapacity(inspection, limits);
+    _capacityUsage = (rows: inspection.rows, bytes: inspection.bytes);
+    _capacityTableRows = Map<String, int>.from(inspection.tableRows);
+  }
+
+  Future<void> _persistRebuiltCapacityProjection() async {
+    if (_capacityProjectionLoaded) return;
+    final usage = _capacityUsage;
+    if (usage == null) throw PreviewCapacity();
+    await _db.transaction(() => _persistCapacityProjection(usage));
+    _capacityProjectionLoaded = true;
   }
 
   Future<void> _capacity(Posting posting, {bool account = false}) async {

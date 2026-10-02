@@ -35,13 +35,13 @@
 - [ ] 下一步核定正式 envelope version 與 App／雲端切換策略。
 - 舊 snapshot 維持唯讀匯入；新格式不得讓舊 App 誤認可讀。升級／回退與 interrupted restore 必須有固定測試。
 
-容器／資料庫 capture／stage 定向 9/9、authenticated container 4/4、backup_envelope 20/20、restore／promotion 32/32、validated_restore 完整 147/147 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未切換正式 App，不提高現行上限。
+容器／資料庫 capture／stage 定向 10/10、authenticated container 4/4、backup_envelope 20/20、restore／promotion 32/32、validated_restore 完整 148/148 及靜態分析通過；證據見[分塊容器原型](../test-results/2026-10-02/chunked-snapshot-container-prototype-host-2026-10-02.md)。它尚未切換正式 App，不提高現行上限。
 
 ### C3：追加寫入與容量 admission
 
 - 保留 SQLCipher Ledger 作權威，不以 UI cache 取代。
 - [x] C3a：首次 admission 不再 materialize 完整 portable snapshot；完整 authority 驗證後，按 stable primary-key keyset 分頁，逐列套用 byte／table count gate，計算結果與既有 canonical conservative usage 精確相等。完整 Ledger 301/301、還原 148/148 通過；[證據](../test-results/2026-10-02/streamed-capacity-admission-host-2026-10-02.md)。
-- [ ] C3b：容量計數持久化為可驗證 projection；交易內同步更新，開啟時抽樣／完整重建可核對，碰撞或不一致 fail closed。
+- [x] C3b：SQLCipher 內的本機 `capacity_projection` 保存 format/schema version、generation identity、總 rows/bytes、完整 authority table counts 與 SHA-256 checksum；它是可重建 accelerator，不進 portable snapshot。正式 session 開啟不再先 materialize 完整 snapshot，而是先做 cipher／binding／精確結構驗證，再核對 projection 與實際表計數；缺失、版本／generation／checksum／計數不符時改走 C3a 完整串流 admission 並交易式重建。每個 Ledger 命令以記憶體分表 delta 同交易更新 projection，失敗或 commit 失敗一起回滾。[證據](../test-results/2026-10-02/persistent-capacity-projection-host-2026-10-02.md)。
 - 將每筆寫入需要的全量檢查拆成局部 constraint、索引查詢與週期性完整驗證；不能移除 receipt、audit、版本或財務重播。
 
 ### C4：20k 及設計目標驗證
@@ -52,4 +52,4 @@
 
 ## 發布限制
 
-在 C2/C3 完成且 20k 雙憑證還原通過前，維持 5,000 events、50,000 authority rows 與 16 MiB payload 的 fail-closed gate。索引改善不代表容量上限已提高，也不替代 R08 Android 候選版驗收。
+在 20k 雙憑證還原與 host／Android profile 通過前，維持 5,000 events、50,000 authority rows 與 16 MiB payload 的 fail-closed gate。C2/C3 完成只代表可以安全開始製造下一級合法資料集，不代表容量上限已提高，也不替代 R08 Android 候選版驗收。

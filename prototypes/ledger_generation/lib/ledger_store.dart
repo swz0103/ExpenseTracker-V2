@@ -292,18 +292,12 @@ final class LedgerPayload implements GenerationPayload {
     ),
   );
 
-  @override
-  Future<String> inspect(
-    File file,
-    StorageKey key,
-    GenerationReceipt receipt,
-  ) async {
+  Future<int> _physicalVersion(File file, StorageKey key) async {
     // Inspect the physical version first; never migrate while opening a source.
     final raw = sqlite3.open(file.path, mode: OpenMode.readOnly);
-    late int version;
     try {
       configureEncryption(raw, key);
-      version = raw.userVersion;
+      final version = raw.userVersion;
       if (!(version == 3 ||
               (categoryAware && version == 4) ||
               (categoryReferences && version == 5) ||
@@ -334,59 +328,93 @@ final class LedgerPayload implements GenerationPayload {
               .isNotEmpty) {
         throw StateError('Unexpected Ledger generation');
       }
+      return version;
     } finally {
       raw.close();
     }
-    final sourceCodec = SnapshotCodec(
-      generationAware: true,
-      categoryAware: version == 4,
-      categoryReferences: version >= 5,
-      tagsAware: version >= 6,
-      merchantsAware: version >= 7,
-      transfersAware: version >= 8,
-      fxTransfersAware: version >= 9,
-      refundsAware: version >= 10,
-      reversalsAware: version >= 11,
-      notesAware: version >= 12,
-      correctionsAware: version >= 13,
-      tombstonesAware: version >= 14,
-      budgetsAware: version >= 15,
-      recurringAware: version >= 16,
-      creditCardsAware: version >= 17,
-      cardStatementsAware: version >= 18,
-      cardAuthorizationsAware: version >= 19,
-      installmentsAware: version >= 20,
-      investmentsAware: version >= 21,
-      investmentSalesAware: version >= 22,
-      investmentDividendsAware: version >= 23,
-      investmentSplitsAware: version >= 24,
-    );
-    final db = openEncrypted(
-      file,
-      key,
-      storageBinding: _binding(receipt),
-      categoryAware: version == 4,
-      categoryReferences: version >= 5,
-      tagsAware: version >= 6,
-      merchantsAware: version >= 7,
-      transfersAware: version >= 8,
-      fxTransfersAware: version >= 9,
-      refundsAware: version >= 10,
-      reversalsAware: version >= 11,
-      notesAware: version >= 12,
-      correctionsAware: version >= 13,
-      tombstonesAware: version >= 14,
-      budgetsAware: version >= 15,
-      recurringAware: version >= 16,
-      creditCardsAware: version >= 17,
-      cardStatementsAware: version >= 18,
-      cardAuthorizationsAware: version >= 19,
-      installmentsAware: version >= 20,
-      investmentsAware: version >= 21,
-      investmentSalesAware: version >= 22,
-      investmentDividendsAware: version >= 23,
-      investmentSplitsAware: version >= 24,
-    );
+  }
+
+  SnapshotCodec _codecForVersion(int version) => SnapshotCodec(
+    generationAware: true,
+    categoryAware: version == 4,
+    categoryReferences: version >= 5,
+    tagsAware: version >= 6,
+    merchantsAware: version >= 7,
+    transfersAware: version >= 8,
+    fxTransfersAware: version >= 9,
+    refundsAware: version >= 10,
+    reversalsAware: version >= 11,
+    notesAware: version >= 12,
+    correctionsAware: version >= 13,
+    tombstonesAware: version >= 14,
+    budgetsAware: version >= 15,
+    recurringAware: version >= 16,
+    creditCardsAware: version >= 17,
+    cardStatementsAware: version >= 18,
+    cardAuthorizationsAware: version >= 19,
+    installmentsAware: version >= 20,
+    investmentsAware: version >= 21,
+    investmentSalesAware: version >= 22,
+    investmentDividendsAware: version >= 23,
+    investmentSplitsAware: version >= 24,
+  );
+
+  ProbeDatabase _openVersion(
+    File file,
+    StorageKey key,
+    GenerationReceipt receipt,
+    int version,
+  ) => openEncrypted(
+    file,
+    key,
+    storageBinding: _binding(receipt),
+    categoryAware: version == 4,
+    categoryReferences: version >= 5,
+    tagsAware: version >= 6,
+    merchantsAware: version >= 7,
+    transfersAware: version >= 8,
+    fxTransfersAware: version >= 9,
+    refundsAware: version >= 10,
+    reversalsAware: version >= 11,
+    notesAware: version >= 12,
+    correctionsAware: version >= 13,
+    tombstonesAware: version >= 14,
+    budgetsAware: version >= 15,
+    recurringAware: version >= 16,
+    creditCardsAware: version >= 17,
+    cardStatementsAware: version >= 18,
+    cardAuthorizationsAware: version >= 19,
+    installmentsAware: version >= 20,
+    investmentsAware: version >= 21,
+    investmentSalesAware: version >= 22,
+    investmentDividendsAware: version >= 23,
+    investmentSplitsAware: version >= 24,
+  );
+
+  @override
+  Future<void> validate(
+    File file,
+    StorageKey key,
+    GenerationReceipt receipt,
+  ) async {
+    final version = await _physicalVersion(file, key);
+    final db = _openVersion(file, key, receipt, version);
+    try {
+      await _codecForVersion(version).validateStructure(db);
+    } finally {
+      await db.close();
+    }
+  }
+
+  @override
+  Future<String> inspect(
+    File file,
+    StorageKey key,
+    GenerationReceipt receipt,
+  ) async {
+    final version = await _physicalVersion(file, key);
+    final sourceCodec = _codecForVersion(version);
+    final db = _openVersion(file, key, receipt, version);
     try {
       // Installation fingerprint authenticates the imported input, not the live
       // ledger after later ACID postings. Capture validates its current contents.
@@ -598,8 +626,7 @@ final class LedgerStore {
     Object? failure;
     StackTrace? trace;
     late T result;
-    await generations.withInspectedCurrent((file, key, installed) async {
-      final receipt = installed.receipt;
+    await generations.withCurrent((file, key, receipt) async {
       final db = openEncrypted(
         file,
         key,
@@ -627,11 +654,12 @@ final class LedgerStore {
         investmentDividendsAware: investmentDividendsAware,
         investmentSplitsAware: investmentSplitsAware,
       );
-      final session = LedgerSession._(
-        db,
-        inspectedSnapshot: utf8.encode(installed.value),
-      );
+      final session = LedgerSession._(db);
       try {
+        // Reads and writes both require either a verified local projection or
+        // a complete streamed authority admission before application access.
+        await session._admitCapacity();
+        await session._persistRebuiltCapacityProjection();
         result = await work(session);
       } catch (error, stack) {
         failure = error;

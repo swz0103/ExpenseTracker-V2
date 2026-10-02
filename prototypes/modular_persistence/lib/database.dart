@@ -400,6 +400,22 @@ final class ProbeDatabase extends GeneratedDatabase {
         'CREATE INDEX IF NOT EXISTS events_by_date '
         'ON events(workspace,business_date DESC,id DESC)',
       );
+      if (storageBinding != null) {
+        // Local, rebuildable admission accelerator. It is updated in the same
+        // transaction as Ledger commands and deliberately excluded from
+        // portable snapshots.
+        await customStatement(
+          'CREATE TABLE IF NOT EXISTS capacity_projection ('
+          'singleton INTEGER PRIMARY KEY CHECK(singleton=1), '
+          'format_version INTEGER NOT NULL CHECK(format_version=1), '
+          'schema_version INTEGER NOT NULL, '
+          'generation TEXT NOT NULL, '
+          'rows INTEGER NOT NULL CHECK(rows>=0), '
+          'bytes INTEGER NOT NULL CHECK(bytes>=0), '
+          'table_counts TEXT NOT NULL, '
+          'checksum TEXT NOT NULL) STRICT',
+        );
+      }
       if (storageBinding != null) await verifyStorageBinding();
     },
   );
