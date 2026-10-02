@@ -441,6 +441,7 @@ class _MarketQuotePanelState extends State<MarketQuotePanel> {
               InvestmentXirrStatus.available =>
                 '年化報酬率約 ${(result.annualRate! * 100).toStringAsFixed(2)}%（XIRR，依實際現金流與參考收盤價）',
               InvestmentXirrStatus.multipleRoots => '年化報酬率有多個解，暫不顯示。',
+              InvestmentXirrStatus.ambiguousRoots => '年化報酬率可能有多個解，無法證明唯一，暫不顯示。',
               InvestmentXirrStatus.outsideSearchRange => '年化報酬率超出安全計算範圍。',
               InvestmentXirrStatus.nonConvergent => '年化報酬率未收斂。',
               InvestmentXirrStatus.noSolution => '現金流不足，無法計算年化報酬率。',

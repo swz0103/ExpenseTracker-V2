@@ -15,6 +15,7 @@ enum InvestmentXirrStatus {
   available,
   noSolution,
   multipleRoots,
+  ambiguousRoots,
   outsideSearchRange,
   nonConvergent,
 }
@@ -68,6 +69,27 @@ InvestmentXirrResult calculateInvestmentXirr({
             365.25,
       ),
   ];
+
+  // For an exponential polynomial, the number of real roots is bounded by
+  // the chronological coefficient sign changes (generalized Descartes rule).
+  // Exactly one change therefore proves that any root is unique. More changes
+  // only provide an upper bound: a sampling grid cannot prove that a close
+  // pair or an even-multiplicity root was not missed.
+  var previousFlowSign = 0;
+  var flowSignChanges = 0;
+  for (final date in dates) {
+    final value = byDate[date]!;
+    final currentFlowSign = value.isNegative
+        ? -1
+        : value > BigInt.zero
+        ? 1
+        : 0;
+    if (currentFlowSign == 0) continue;
+    if (previousFlowSign != 0 && currentFlowSign != previousFlowSign) {
+      flowSignChanges++;
+    }
+    previousFlowSign = currentFlowSign;
+  }
 
   // Divide all discounted terms by the largest exponential factor. This does
   // not change the root's sign and avoids overflow for long-lived portfolios.
@@ -126,6 +148,9 @@ InvestmentXirrResult calculateInvestmentXirr({
   if (distinctExact.length + brackets.length > 1) {
     return const InvestmentXirrResult(InvestmentXirrStatus.multipleRoots);
   }
+  if (flowSignChanges > 1) {
+    return const InvestmentXirrResult(InvestmentXirrStatus.ambiguousRoots);
+  }
   if (distinctExact.isNotEmpty) {
     return InvestmentXirrResult(
       InvestmentXirrStatus.available,
@@ -133,20 +158,7 @@ InvestmentXirrResult calculateInvestmentXirr({
     );
   }
   if (brackets.isEmpty) {
-    var lastFlowSign = 0;
-    var changes = 0;
-    for (final date in dates) {
-      final value = byDate[date]!;
-      final flowSign = value.isNegative
-          ? -1
-          : value > BigInt.zero
-          ? 1
-          : 0;
-      if (flowSign == 0) continue;
-      if (lastFlowSign != 0 && flowSign != lastFlowSign) changes++;
-      lastFlowSign = flowSign;
-    }
-    if (changes == 1) {
+    if (flowSignChanges == 1) {
       return const InvestmentXirrResult(
         InvestmentXirrStatus.outsideSearchRange,
       );
