@@ -147,7 +147,7 @@
 - [ ] 建立預覽簽章金鑰並設定 GitHub Secrets（見下方）。
 - [ ] 把預覽金鑰的 SHA-1 加入 Google Cloud 的 Android OAuth 用戶端。
 - [ ] 安裝第一個固定簽章版本前，先匯出備份（簽章改變的這一次仍需解除安裝）。
-- [ ] 加一個「在 posting 交易中殺掉行程後重開」的行程終止測試。
+- [x] 加一個「在 posting 交易中殺掉行程後重開」的行程終止測試（`ledger_sqlcipher` 的 `posting_worker`）。
 
 ## 預覽簽章 Secrets
 
