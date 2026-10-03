@@ -34,6 +34,10 @@ final class Merchant {
         (replacementId != null && !archived)) {
       throw const MerchantException(MerchantError.invalidInput);
     }
+    // addAlias refuses an alias equal to the name; restore must agree.
+    if (aliases.any((alias) => _key(alias) == _key(this.name))) {
+      throw const MerchantException(MerchantError.duplicate);
+    }
   }
 
   final PublicId id;

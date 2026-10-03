@@ -248,4 +248,42 @@ void main() {
       fails(FailureKind.rejected, 'account.unsettledItems'),
     );
   });
+
+  test('a reversed refund gives its amount back to the limit', () async {
+    final dinner = await expense(1000);
+    final wrong = await refund(dinner, 900);
+    await expectLater(
+      refund(dinner, 200),
+      fails(FailureKind.rejected, 'ledger.refundLimit'),
+    );
+    await books.reversePosting(
+      ReversePosting(
+        operation: op(),
+        reversalId: PublicId.generate(),
+        originalId: wrong,
+        date: BusinessDate(2026, 10, 10),
+      ),
+    );
+    await refund(dinner, 200);
+    expect(ledger.balance(account(cash)), ntd(10000 - 1000 + 200));
+    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(800));
+  });
+
+  test('replacing the opening balance reverses the old one', () async {
+    Future<void> setOpening(int units) => books.setOpeningBalance(
+      SetOpeningBalance(
+        operation: op(),
+        postingId: PublicId.generate(),
+        reversalId: PublicId.generate(),
+        accountId: cash,
+        expectedVersion: account(cash).version,
+        amount: ntd(units),
+      ),
+    );
+    await setOpening(12500);
+    expect(ledger.balance(account(cash)), ntd(12500));
+    await setOpening(-300);
+    expect(ledger.balance(account(cash)), ntd(-300));
+    expect(ledger.monthly(workspace, '2026-10'), isEmpty);
+  });
 }

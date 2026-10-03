@@ -68,8 +68,12 @@ abstract interface class BookkeepingTransaction implements WriteTransaction {
   /// it must be corrected through that record instead of a plain reversal.
   Future<bool> isLocked(PublicId postingId);
 
-  /// Refunds recorded against [expenseId], oldest first.
+  /// Refunds recorded against [expenseId], oldest first, including any
+  /// that were later reversed.
   Future<List<Posting>> refundsOf(PublicId expenseId);
+
+  /// The account's opening posting that has not been reversed, if any.
+  Future<Posting?> openingOf(PublicId accountId);
 
   Future<Money> balance(PublicId accountId, Currency currency);
 
@@ -130,6 +134,10 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   Future<CommandOutcome<PublicId>> recordRefund(RecordRefund command) =>
       _runner.run(command, (t) => _guard(() => _refund(t, command)));
+
+  Future<CommandOutcome<PublicId>> setOpeningBalance(
+    SetOpeningBalance command,
+  ) => _runner.run(command, (t) => _guard(() => _setOpening(t, command)));
 
   Future<CommandOutcome<int>> closeAccount(CloseAccount command) =>
       _runner.run(command, (t) => _guard(() => _close(t, command)));
@@ -281,7 +289,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (await t.isLocked(original.id)) {
       throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
     }
-    if ((await t.refundsOf(original.id)).isNotEmpty) {
+    if ((await _activeRefunds(t, original.id)).isNotEmpty) {
       throw const AppFailure(FailureKind.rejected, 'posting.has-refunds');
     }
     // A closed account must keep its zero balance.
@@ -325,7 +333,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       amount: original.reportExpense,
       allocations: original.allocations,
     );
-    for (final earlier in await t.refundsOf(original.id)) {
+    for (final earlier in await _activeRefunds(t, original.id)) {
       budget = budget.consume(
         amount: -earlier.reportExpense,
         date: earlier.date,
@@ -365,6 +373,54 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     await _savePosting(t, posting, await t.postingMetadata(original.id));
     return posting.id;
   }
+
+  /// Replaces the opening balance: the current opening (if any) is reversed
+  /// and a new one is posted on the opening date, in one transaction.
+  Future<PublicId> _setOpening(T t, SetOpeningBalance command) async {
+    await _requireNewPosting(t, command.postingId);
+    await _requireNewPosting(t, command.reversalId);
+    final account = await _account(t, command.accountId);
+    if (account.state == AccountState.closed) {
+      throw const AppFailure(FailureKind.rejected, 'account.unavailable');
+    }
+    final participant = PostingAccount(
+      id: account.id,
+      workspace: account.workspace,
+      currency: account.currency,
+      expectedVersion: account.version,
+    );
+    account.requirePosting(
+      workspace: command.operation.workspace,
+      currency: command.amount.currency,
+      expectedVersion: command.expectedVersion,
+      date: account.openedOn,
+    );
+    final current = await t.openingOf(account.id);
+    if (current != null) {
+      final reversal = Posting.reversal(
+        id: command.reversalId,
+        operation: command.operation,
+        date: account.openedOn,
+        original: current,
+        reason: 'opening-balance-replaced',
+      );
+      await _savePosting(t, reversal, PostingMetadata.none);
+    }
+    final opening = Posting.opening(
+      id: command.postingId,
+      operation: command.operation,
+      date: account.openedOn,
+      account: participant,
+      amount: command.amount,
+    );
+    await _savePosting(t, opening, PostingMetadata.none);
+    return opening.id;
+  }
+
+  Future<List<Posting>> _activeRefunds(T t, PublicId expenseId) async => [
+    for (final refund in await t.refundsOf(expenseId))
+      if (!await t.isReversed(refund.id)) refund,
+  ];
 
   Future<int> _close(T t, CloseAccount command) async {
     final workspace = command.operation.workspace;

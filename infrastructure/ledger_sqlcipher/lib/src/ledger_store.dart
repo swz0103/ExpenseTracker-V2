@@ -452,6 +452,18 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
   }
 
   @override
+  Future<Posting?> openingOf(PublicId accountId) async {
+    final rows = _transaction.select(
+      "SELECT p.payload FROM ledger_postings p JOIN ledger_legs l "
+      "ON l.posting_id = p.id WHERE l.account_id = ? AND p.kind = 'opening' "
+      'AND NOT EXISTS (SELECT 1 FROM ledger_postings r '
+      'WHERE r.reversal_of = p.id)',
+      [accountId.value],
+    );
+    return rows.isEmpty ? null : _decodePosting(rows.single['payload']);
+  }
+
+  @override
   Future<Money> balance(PublicId accountId, Currency currency) async {
     final rows = _transaction.select(
       'SELECT minor_units FROM ledger_balances WHERE account_id = ?',
@@ -743,9 +755,10 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
   /// A reversal or refund subtracts allocations in its own month.
   void _addToCategories(Posting posting) {
     final original = posting.reversedPosting ?? posting;
-    final negative =
-        posting.reversedPosting != null || posting.kind == PostingKind.refund;
-    final sign = negative ? -BigInt.one : BigInt.one;
+    // A refund takes spending back; reversing anything negates it again.
+    final refund = original.kind == PostingKind.refund;
+    final reversed = posting.reversedPosting != null;
+    final sign = refund != reversed ? -BigInt.one : BigInt.one;
     final isIncome = original.kind == PostingKind.income;
     for (final allocation in posting.allocations) {
       final amount = allocation.amount;

@@ -74,7 +74,7 @@ void main() {
       expect(() => r.legs.clear(), throwsUnsupportedError);
     }
   });
-  test('self-reference, wrong workspace/date, opening/refund/reversal and invalid reason reject', () {
+  test('self-reference, wrong workspace/date, reversal and invalid reason reject', () {
     final p = Posting.expense(
       id: PublicId.generate(),
       operation: op(),
@@ -89,27 +89,37 @@ void main() {
       () => rev(p, reason: ' bad '),
       () => rev(p, reason: '字' * 257),
       () => rev(rev(p)),
-      () => rev(
-        Posting.opening(
-          id: PublicId.generate(),
-          operation: op(),
-          date: date,
-          account: x,
-          amount: amount,
-        ),
-      ),
-      () => rev(
-        Posting.refund(
-          id: PublicId.generate(),
-          operation: op(),
-          date: date,
-          account: x,
-          originalId: p.id,
-          amount: amount,
-        ),
-      ),
     ])
       expect(make, throwsA(isA<LedgerException>()));
     expect(rev(p, reason: '字' * 256).reversalReason!.length, 256);
+  });
+  test('an opening or a refund can be reversed exactly', () {
+    final opening = Posting.opening(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      amount: amount,
+    );
+    final expense = Posting.expense(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      amount: amount,
+    );
+    final refund = Posting.refund(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      originalId: expense.id,
+      amount: amount,
+    );
+    for (final original in [opening, refund]) {
+      final reversal = rev(original);
+      expect(reversal.reportExpense, -original.reportExpense);
+      expect(rebuildBalance(x, [original, reversal]).minorUnits, BigInt.zero);
+    }
   });
 }

@@ -303,11 +303,11 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
         }
         final targetName = parts.first;
         final library = parts.skip(1).join('/');
+        // Runtime modules that declare entrypoints get the same protection.
+        final entrypoints = registered[targetName]?['publicEntrypoints'];
         if (targetName != owner.name &&
-            modules.containsKey(targetName) &&
-            !(modules[targetName]!['publicEntrypoints'] as List).contains(
-              library,
-            )) {
+            entrypoints is List &&
+            !entrypoints.contains(library)) {
           report(
             'private-import',
             file.path,

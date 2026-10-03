@@ -412,6 +412,10 @@ final class Posting {
 
   /// Retains the original and negates every cash/report effect exactly.
   /// Persistence revalidates the original and its dependent events atomically.
+  /// An opening or a refund can be reversed too, so a wrong opening balance
+  /// or a refund booked against the wrong expense has a correction path; a
+  /// reversed refund gives its amount back to the original's refund limit.
+  /// Investment cash postings are corrected with their trade, not here.
   factory Posting.reversal({
     required PublicId id,
     required OperationKey operation,
@@ -420,9 +424,11 @@ final class Posting {
     String reason = '',
   }) {
     if (![
+          PostingKind.opening,
           PostingKind.income,
           PostingKind.expense,
           PostingKind.transfer,
+          PostingKind.refund,
         ].contains(original.kind) ||
         id == original.id ||
         date.compareTo(original.date) < 0 ||
@@ -548,10 +554,12 @@ void _allocations(Money amount, List<Allocation> allocations) {
 Money rebuildBalance(PostingAccount account, Iterable<Posting> committed) {
   var total = BigInt.zero;
   final identities = <PublicId>{};
+  final operations = <OperationKey>{};
   for (final posting in committed) {
     if (posting.operation.workspace != account.workspace)
       throw const LedgerException(LedgerError.workspaceMismatch);
-    if (!identities.add(posting.id))
+    // A retried command must never be counted twice, even under a new id.
+    if (!identities.add(posting.id) || !operations.add(posting.operation))
       throw const LedgerException(LedgerError.duplicateIdentity);
     for (final leg in posting.legs.where(
       (leg) => leg.account.id == account.id,

@@ -325,3 +325,31 @@ final class CloseAccount extends AccountCommand {
     'successorId': successorId?.value,
   };
 }
+
+/// Replaces an account's opening balance. Returns the new opening posting.
+final class SetOpeningBalance extends PostingCommand {
+  SetOpeningBalance({
+    required OperationKey operation,
+    required PublicId postingId,
+    required this.reversalId,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.amount,
+  }) : super(operation, postingId);
+
+  /// Used only when an earlier opening has to be reversed.
+  final PublicId reversalId;
+  final PublicId accountId;
+  final int expectedVersion;
+  final Money amount;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-opening-balance-v1',
+    'postingId': postingId.value,
+    'reversalId': reversalId.value,
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'amount': amount.toJson(),
+  };
+}

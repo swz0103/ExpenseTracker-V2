@@ -195,6 +195,30 @@ const text = "import 'dart:ui';";
     package('infrastructure/new_adapter', 'new_adapter');
     expect(codes(), contains('unregistered-runtime'));
   });
+  test('runtime entrypoints are enforced when declared', () {
+    runtimeModules['storage'] = {
+      'directory': 'prototypes/storage',
+      'publicEntrypoints': ['storage.dart'],
+      'dependencies': <String>[],
+    };
+    (runtimeModules['app']! as Map)['dependencies'] = ['ledger', 'storage'];
+    policy();
+    package('prototypes/storage', 'storage');
+    write('prototypes/storage/lib/src/secret.dart', '');
+    package(
+      'prototypes/app',
+      'app',
+      dependencies: {
+        'ledger': {'path': '../../packages/ledger'},
+        'storage': {'path': '../storage'},
+      },
+    );
+    write(
+      'prototypes/app/lib/app.dart',
+      "import 'package:storage/src/secret.dart';",
+    );
+    expect(codes(), contains('private-import'));
+  });
   test('new app cannot skip registration', () {
     package('apps/new_app', 'new_app');
     expect(codes(), contains('unregistered-runtime'));

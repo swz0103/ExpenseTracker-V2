@@ -171,6 +171,19 @@ final class MemoryBookkeepingTransaction implements BookkeepingTransaction {
   ];
 
   @override
+  Future<Posting?> openingOf(PublicId accountId) async {
+    for (final id in _live.order) {
+      final posting = _live.postings[id]!;
+      if (posting.kind == PostingKind.opening &&
+          posting.legs.single.account.id == accountId &&
+          !await isReversed(posting.id)) {
+        return posting;
+      }
+    }
+    return null;
+  }
+
+  @override
   Future<Money> balance(PublicId accountId, Currency currency) async =>
       _balance(_live, accountId, currency);
 
