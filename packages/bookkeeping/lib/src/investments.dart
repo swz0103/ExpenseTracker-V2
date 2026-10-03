@@ -334,8 +334,9 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     Map<String, Object?> trade,
   ) async {
     final record = {'version': InvestmentRecords.version, ...trade};
-    await t.saveTrade(record);
+    // The posting first: the trade row refers to it.
     await _books._savePosting(t, posting, PostingMetadata.none);
+    await t.saveTrade(record);
     await _event(t, operation.workspace, 'investment.traded', record);
   }
 
@@ -556,9 +557,8 @@ final class _LotState {
 String _decimal(BigInt units) {
   final digits = units.toString().padLeft(13, '0');
   final whole = digits.substring(0, digits.length - 12);
-  final fraction = digits.substring(digits.length - 12).replaceAll(
-    RegExp(r'0+$'),
-    '',
-  );
+  final fraction = digits
+      .substring(digits.length - 12)
+      .replaceAll(RegExp(r'0+$'), '');
   return fraction.isEmpty ? whole : '$whole.$fraction';
 }

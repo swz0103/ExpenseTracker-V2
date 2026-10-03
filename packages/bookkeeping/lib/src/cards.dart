@@ -135,8 +135,9 @@ final class CardBook<T extends CardTransaction> {
       command.tags,
       command.merchant,
     );
-    await t.saveCardCharge(posted);
+    // The posting first: the charge row refers to it.
     await _books._savePosting(t, posting, metadata);
+    await t.saveCardCharge(posted);
     await _event(t, workspace, 'card.posted', _charge(posted));
     return posting.id;
   }
@@ -179,8 +180,8 @@ final class CardBook<T extends CardTransaction> {
       amount: command.amount,
       ledgerEventId: posting.id,
     );
-    await t.saveCardPayment(payment);
     await _books._savePosting(t, posting, PostingMetadata.none);
+    await t.saveCardPayment(payment);
     await _event(t, workspace, 'card.paid', CardRecords.payment(payment));
     return posting.id;
   }
