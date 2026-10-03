@@ -179,6 +179,19 @@ void main() {
         fee: ntd(0),
       ),
     );
+    final held = PublicId.generate();
+    await cards.authorize(
+      AuthorizeCardCharge(
+        operation: op(),
+        chargeId: held,
+        cardId: card,
+        authorizedOn: day,
+        amount: ntd(99),
+      ),
+    );
+    await cards.release(
+      ReleaseAuthorization(operation: op(), chargeId: held, cardId: card),
+    );
     await cards.planInstallments(
       PlanInstallments(
         operation: op(),
@@ -281,6 +294,17 @@ void main() {
         tax: cents(0),
       ),
     );
+    await invest.split(
+      SplitInvestment(
+        operation: op(),
+        splitId: PublicId.generate(),
+        accountId: brokerage,
+        instrumentId: apple,
+        effectiveOn: day,
+        newShares: 2,
+        oldShares: 1,
+      ),
+    );
     await invest.sell(
       SellInvestment(
         operation: op(),
@@ -290,8 +314,8 @@ void main() {
         tradedOn: day,
         costMethod: InvestmentCostMethod.averageCost,
         quantity: '1',
-        unitPrice: '120',
-        gross: cents(12000),
+        unitPrice: '60',
+        gross: cents(6000),
         fee: cents(100),
         tax: cents(0),
       ),

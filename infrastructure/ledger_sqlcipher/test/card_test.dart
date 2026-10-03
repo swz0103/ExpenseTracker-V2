@@ -281,4 +281,26 @@ void main() {
     final totals = ledger.categoryTotals(workspace, '2026-10');
     expect(totals[(food, 'TWD')]!.expense, ntd(720));
   });
+
+  test('a released authorization leaves the statement', () async {
+    final chargeId = PublicId.generate();
+    await cards.authorize(
+      AuthorizeCardCharge(
+        operation: op(),
+        chargeId: chargeId,
+        cardId: card,
+        authorizedOn: purchaseDay,
+        amount: ntd(500),
+      ),
+    );
+    expect(ledger.statement(card, close).pendingCount, 1);
+    await cards.release(
+      ReleaseAuthorization(operation: op(), chargeId: chargeId, cardId: card),
+    );
+    expect(ledger.statement(card, close).pendingCount, 0);
+    await expectLater(
+      post(chargeId: chargeId),
+      fails(FailureKind.rejected, 'card.released'),
+    );
+  });
 }

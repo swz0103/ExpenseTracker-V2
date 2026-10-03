@@ -945,6 +945,11 @@ Future<R> _guard<R>(Future<R> Function() body) async {
         ? FailureKind.conflict
         : FailureKind.rejected;
     throw AppFailure(kind, 'investment.${error.code.name}');
+  } on StockSplitException catch (error) {
+    final kind = error.code == StockSplitError.staleLots
+        ? FailureKind.conflict
+        : FailureKind.rejected;
+    throw AppFailure(kind, 'split.${error.code.name}');
   } on InvestmentDividendException catch (error) {
     throw AppFailure(FailureKind.rejected, 'dividend.${error.code.name}');
   } on CreditCardException catch (error) {

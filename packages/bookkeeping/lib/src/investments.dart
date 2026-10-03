@@ -54,6 +54,55 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<CommandOutcome<PublicId>> dividend(RecordDividend command) =>
       _runner.run(command, (t) => _guard(() => _dividend(t, command)));
 
+  Future<CommandOutcome<int>> split(SplitInvestment command) =>
+      _runner.run(command, (t) => _guard(() => _split(t, command)));
+
+  Future<int> _split(T t, SplitInvestment command) async {
+    final workspace = command.operation.workspace;
+    final account = await _found(
+      t.investmentAccount(command.accountId),
+      workspace,
+    );
+    final instrument = await t.instrument(command.instrumentId);
+    if (instrument == null) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    final trades = await t.trades(account.id, instrument.id);
+    final lots = InvestmentRecords.openLots(trades);
+    final preview = StockSplitPreview.create(
+      id: command.splitId,
+      operation: command.operation,
+      effectiveOn: command.effectiveOn,
+      broker: await _found(t.broker(account.brokerId), workspace),
+      account: account,
+      instrument: instrument,
+      newShares: command.newShares,
+      oldShares: command.oldShares,
+      lots: lots,
+    );
+    final record = <String, Object?>{
+      'version': InvestmentRecords.version,
+      'kind': 'split',
+      'id': preview.id.value,
+      'accountId': account.id.value,
+      'instrumentId': instrument.id.value,
+      'postingId': null,
+      'date': command.effectiveOn.toString(),
+      'newShares': command.newShares,
+      'oldShares': command.oldShares,
+      'lots': [
+        for (final change in preview.lots)
+          {
+            'lotId': change.before.id.value,
+            'quantity': change.afterQuantity.toString(),
+          },
+      ],
+    };
+    await t.saveTrade(record);
+    await _event(t, workspace, 'investment.traded', record);
+    return preview.lots.length;
+  }
+
   Future<int> _broker(T t, RegisterBroker command) async {
     if (await t.broker(command.brokerId) != null) {
       throw const AppFailure(FailureKind.conflict, 'investment.exists');
@@ -509,6 +558,22 @@ abstract final class InvestmentRecords {
               cost: Money.fromJson(
                 entry['remainingCost'] as Map<String, Object?>,
               ),
+              version: lot.version + 1,
+            );
+          }
+        case 'split':
+          for (final change in trade['lots']! as List) {
+            final entry = change as Map<String, Object?>;
+            final id = entry['lotId']! as String;
+            final lot = lots[id] ?? (throw const CodecException('lot'));
+            final quantity = ShareQuantity.parse(entry['quantity']! as String);
+            final scale = BigInt.from(10).pow(12 - quantity.scale);
+            lots[id] = _LotState(
+              accountId: lot.accountId,
+              instrumentId: lot.instrumentId,
+              acquiredOn: lot.acquiredOn,
+              units: quantity.coefficient * scale,
+              cost: lot.cost,
               version: lot.version + 1,
             );
           }

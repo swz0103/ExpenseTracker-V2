@@ -198,3 +198,23 @@ final class PlanInstallments extends _IntResult {
     'fixedFee': fixedFee.toJson(),
   };
 }
+
+/// Drops a pending authorization that will never post, for example a
+/// cancelled hold. Returns the charge id.
+final class ReleaseAuthorization extends _IdResult {
+  ReleaseAuthorization({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.cardId,
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId cardId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'release-authorization-v1',
+    'chargeId': chargeId.value,
+    'cardId': cardId.value,
+  };
+}

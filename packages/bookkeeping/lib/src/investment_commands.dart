@@ -256,3 +256,35 @@ final class RecordDividend extends _Trade {
     'net': net.toJson(),
   };
 }
+
+/// A forward split, for example 4-for-1. Quantities change, cost does not,
+/// and no cash moves. Returns the number of lots changed.
+final class SplitInvestment extends _Registration {
+  SplitInvestment({
+    required OperationKey operation,
+    required this.splitId,
+    required this.accountId,
+    required this.instrumentId,
+    required this.effectiveOn,
+    required this.newShares,
+    required this.oldShares,
+  }) : super(operation);
+
+  final PublicId splitId;
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final BusinessDate effectiveOn;
+  final int newShares;
+  final int oldShares;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'split-investment-v1',
+    'splitId': splitId.value,
+    'accountId': accountId.value,
+    'instrumentId': instrumentId.value,
+    'effectiveOn': effectiveOn.toString(),
+    'newShares': newShares,
+    'oldShares': oldShares,
+  };
+}

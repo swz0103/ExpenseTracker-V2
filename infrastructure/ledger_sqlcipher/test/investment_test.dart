@@ -268,4 +268,25 @@ void main() {
       fails(FailureKind.conflict, 'investment.exists'),
     );
   });
+
+  test('a split multiplies shares, keeps cost and replays', () async {
+    await buy('10', '150', 150000);
+    final changed = await invest.split(
+      SplitInvestment(
+        operation: op(),
+        splitId: PublicId.generate(),
+        accountId: brokerage,
+        instrumentId: apple,
+        effectiveOn: BusinessDate(2026, 10, 10),
+        newShares: 4,
+        oldShares: 1,
+      ),
+    );
+    expect(changed.value, 1);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '40');
+    expect(lot.remainingCost, cents(150000));
+    await sell('40', '40', 160000);
+    expect(ledger.holdings(brokerage, apple), isEmpty);
+  });
 }

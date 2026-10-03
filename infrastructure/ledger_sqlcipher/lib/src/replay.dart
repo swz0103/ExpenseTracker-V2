@@ -121,6 +121,8 @@ abstract final class LedgerReplay {
         );
       case 'card.authorized' || 'card.posted':
         await t.saveCardCharge(CardRecords.readCharge(p));
+      case 'card.released':
+        await t.releaseCardCharge(PublicId.parse(p['chargeId']! as String));
       case 'card.paid':
         await t.saveCardPayment(CardRecords.readPayment(p));
       case 'card.installments-planned':

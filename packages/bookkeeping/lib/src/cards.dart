@@ -11,6 +11,11 @@ abstract interface class CardTransaction implements BookkeepingTransaction {
 
   Future<void> saveCardCharge(CardCharge charge);
 
+  /// True once a pending authorization was released without posting.
+  Future<bool> isReleased(PublicId chargeId);
+
+  Future<void> releaseCardCharge(PublicId chargeId);
+
   Future<void> saveCardPayment(CardPayment payment);
 
   Future<CardInstallmentSchedule?> installmentPlan(PublicId purchaseEventId);
@@ -35,6 +40,9 @@ final class CardBook<T extends CardTransaction> {
 
   Future<CommandOutcome<PublicId>> post(PostCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _post(t, command)));
+
+  Future<CommandOutcome<PublicId>> release(ReleaseAuthorization command) =>
+      _runner.run(command, (t) => _guard(() => _release(t, command)));
 
   Future<CommandOutcome<PublicId>> pay(PayCard command) =>
       _runner.run(command, (t) => _guard(() => _pay(t, command)));
@@ -85,10 +93,29 @@ final class CardBook<T extends CardTransaction> {
     return charge.id;
   }
 
+  Future<PublicId> _release(T t, ReleaseAuthorization command) async {
+    final card = await _card(t, command.cardId, command.operation);
+    final charge = await t.cardCharge(command.chargeId);
+    if (charge == null || charge.cardId != card.id) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (charge.isPosted || await t.isReleased(charge.id)) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-pending');
+    }
+    await t.releaseCardCharge(charge.id);
+    await _event(t, card.workspace, 'card.released', {
+      'chargeId': charge.id.value,
+    });
+    return charge.id;
+  }
+
   Future<PublicId> _post(T t, PostCardCharge command) async {
     final workspace = command.operation.workspace;
     final card = await _card(t, command.card.id, command.operation);
     await _books._requireNewPosting(t, command.postingId);
+    if (await t.isReleased(command.chargeId)) {
+      throw const AppFailure(FailureKind.rejected, 'card.released');
+    }
     final pending =
         await t.cardCharge(command.chargeId) ??
         CardCharge.pending(

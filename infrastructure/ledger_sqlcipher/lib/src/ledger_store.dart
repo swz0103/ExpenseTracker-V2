@@ -231,6 +231,41 @@ final ledgerSchema = SchemaModule('ledger', [
     ) STRICT, WITHOUT ROWID
     ''',
   ],
+  [
+    // A stock split is a trade with no cash posting, so posting_id becomes
+    // optional. SQLite cannot relax NOT NULL in place; the table is
+    // rebuilt with the same rows and sequence numbers.
+    'DROP TRIGGER invest_trades_immutable',
+    'DROP TRIGGER invest_trades_kept',
+    '''
+    CREATE TABLE invest_trades_next (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      instrument_id TEXT NOT NULL,
+      posting_id TEXT UNIQUE REFERENCES ledger_postings (id),
+      payload TEXT NOT NULL
+    ) STRICT
+    ''',
+    'INSERT INTO invest_trades_next SELECT * FROM invest_trades',
+    'DROP TABLE invest_trades',
+    'ALTER TABLE invest_trades_next RENAME TO invest_trades',
+    '''
+    CREATE INDEX invest_trades_by_holding
+    ON invest_trades (account_id, instrument_id, seq)
+    ''',
+    '''
+    CREATE TRIGGER invest_trades_immutable BEFORE UPDATE ON invest_trades
+    BEGIN SELECT RAISE(ABORT, 'trades are immutable'); END
+    ''',
+    '''
+    CREATE TRIGGER invest_trades_kept BEFORE DELETE ON invest_trades
+    BEGIN SELECT RAISE(ABORT, 'trades are immutable'); END
+    ''',
+    '''
+    ALTER TABLE card_charges
+    ADD COLUMN released INTEGER NOT NULL DEFAULT 0
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -309,7 +344,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     final terms = cardTerms(cardId);
     if (terms == null) throw StateError('Card has no terms.');
     final charges = _store.select(
-      'SELECT payload FROM card_charges WHERE card_id = ?',
+      'SELECT payload FROM card_charges WHERE card_id = ? AND released = 0',
       [cardId.value],
     );
     final payments = _store.select(
@@ -684,7 +719,8 @@ final class SqlBookkeeping
   @override
   Future<bool> hasUnsettledItems(PublicId accountId) async {
     final pending = _transaction.select(
-      'SELECT 1 FROM card_charges WHERE card_id = ? AND posting_id IS NULL',
+      'SELECT 1 FROM card_charges '
+      'WHERE card_id = ? AND posting_id IS NULL AND released = 0',
       [accountId.value],
     );
     if (pending.isNotEmpty) return true;
@@ -818,7 +854,8 @@ final class SqlBookkeeping
   @override
   Future<void> saveCardCharge(CardCharge charge) async {
     _transaction.execute(
-      'INSERT INTO card_charges VALUES (?, ?, ?, ?) ON CONFLICT (id) '
+      'INSERT INTO card_charges (id, card_id, posting_id, payload) '
+      'VALUES (?, ?, ?, ?) ON CONFLICT (id) '
       'DO UPDATE SET posting_id = excluded.posting_id, '
       'payload = excluded.payload',
       [
@@ -827,6 +864,23 @@ final class SqlBookkeeping
         charge.ledgerEventId?.value,
         jsonEncode(CardRecords.charge(charge)),
       ],
+    );
+  }
+
+  @override
+  Future<bool> isReleased(PublicId chargeId) async {
+    final rows = _transaction.select(
+      'SELECT 1 FROM card_charges WHERE id = ? AND released = 1',
+      [chargeId.value],
+    );
+    return rows.isNotEmpty;
+  }
+
+  @override
+  Future<void> releaseCardCharge(PublicId chargeId) async {
+    _transaction.execute(
+      'UPDATE card_charges SET released = 1 WHERE id = ?',
+      [chargeId.value],
     );
   }
 
