@@ -722,4 +722,66 @@ void main() {
     final again = decoded.cycleFor(BusinessDate(2028, 3, 26));
     expect(again.closesOn, BusinessDate(2028, 3, 27));
   });
+
+  test('foreign charges keep their own amount and refund limit', () {
+    final dollars = Money.parse(usd, '100');
+    final fee = foreignTransactionFee(Money.parse(twd, '3200'));
+    expect(fee, Money.parse(twd, '48'));
+    final small = foreignTransactionFee(Money.parse(twd, '33.33'));
+    expect(small, Money.parse(twd, '0.50'));
+    final pending = CardCharge.pending(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      kind: CardChargeKind.purchase,
+      authorizedOn: BusinessDate(2028, 2, 20),
+      authorizedAmount: dollars,
+    );
+    final purchase = pending.post(
+      postedOn: BusinessDate(2028, 2, 21),
+      settledAmount: Money.parse(twd, '3200'),
+      fee: fee,
+      ledgerEventId: PublicId.generate(),
+    );
+    expect(purchase.foreignAmount, dollars);
+    CardCharge refund(Money amount, String local) {
+      final credit = CardCharge.pending(
+        id: PublicId.generate(),
+        workspace: space,
+        cardId: card,
+        kind: CardChargeKind.refund,
+        authorizedOn: BusinessDate(2028, 3, 2),
+        authorizedAmount: amount,
+        originalChargeId: purchase.id,
+      );
+      return credit.post(
+        postedOn: BusinessDate(2028, 3, 2),
+        settledAmount: Money.parse(twd, local),
+        fee: Money.parse(twd, '0'),
+        ledgerEventId: PublicId.generate(),
+      );
+    }
+
+    // The rate rose, so the full refund is more than the purchase alone.
+    final back = refund(dollars, '3240');
+    final left = refundableOf(purchase, [back]);
+    expect(left.local, Money.parse(twd, '8'));
+    expect(left.foreign, Money.parse(usd, '0'));
+    final cycle = terms.cycleFor(BusinessDate(2028, 3, 2));
+    final extra = refund(Money.parse(usd, '0.01'), '1');
+    expect(
+      () => CardStatement.calculate(
+        terms: terms,
+        cycle: cycle,
+        charges: [purchase, back, extra],
+        payments: [],
+      ),
+      throwsA(isA<CreditCardException>()),
+    );
+    final local = refund(Money.parse(twd, '10'), '10');
+    expect(
+      () => refundableOf(purchase, [local]),
+      throwsA(isA<CreditCardException>()),
+    );
+  });
 }

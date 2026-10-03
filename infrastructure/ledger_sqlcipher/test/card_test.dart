@@ -302,6 +302,49 @@ void main() {
     expect(ledger.statement(card, close).remainingDue, ntd(30));
   });
 
+  test('a foreign purchase is refunded in its own currency', () async {
+    final purchase = PublicId.generate();
+    final usd = Currency.of('USD');
+    Money dollars(int cents) => Money(usd, BigInt.from(cents));
+    await cards.post(
+      PostCardCharge(
+        operation: op(),
+        chargeId: purchase,
+        postingId: PublicId.generate(),
+        card: ref(card),
+        postedOn: purchaseDay,
+        settledAmount: ntd(3200),
+        fee: ntd(48),
+        foreignAmount: dollars(10000),
+      ),
+    );
+    Future<CommandOutcome<PublicId>> refund(int local, Money? foreign) =>
+        cards.refund(
+          RefundCardCharge(
+            operation: op(),
+            refundChargeId: PublicId.generate(),
+            postingId: PublicId.generate(),
+            originalChargeId: purchase,
+            card: ref(card),
+            postedOn: BusinessDate(2026, 10, 10),
+            amount: ntd(local),
+            foreignAmount: foreign,
+          ),
+        );
+    await expectLater(
+      refund(100, null),
+      fails(FailureKind.rejected, 'card.foreign-amount'),
+    );
+    // The rate rose: the full refund is more than the purchase alone.
+    await refund(3240, dollars(10000));
+    expect(ledger.balance(account(card)), ntd(-8));
+    await expectLater(
+      refund(1, dollars(1)),
+      fails(FailureKind.rejected, 'ledger.refundLimit'),
+    );
+    expect(ledger.statement(card, close).refunds, ntd(3240));
+  });
+
   test('a mistaken charge or payment is voided on the card', () async {
     final wrong = PublicId.generate();
     final posting = await post(chargeId: wrong, settled: 800);

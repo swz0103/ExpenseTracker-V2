@@ -1129,6 +1129,18 @@ final class SqlBookkeeping
   }
 
   @override
+  Future<List<CardCharge>> cardRefunds(PublicId purchaseId) async {
+    final rows = _transaction.select(
+      'SELECT payload FROM card_charges WHERE released = 0 '
+      "AND json_extract(payload, '\$.originalChargeId') = ?",
+      [purchaseId.value],
+    );
+    return [
+      for (final row in rows) CardRecords.readCharge(_json(row['payload'])),
+    ];
+  }
+
+  @override
   Future<bool> isReleased(PublicId chargeId) async {
     final rows = _transaction.select(
       'SELECT 1 FROM card_charges WHERE id = ? AND released = 1',

@@ -422,6 +422,7 @@ final class CardCharge {
     this.settledAmount,
     this.fee,
     this.ledgerEventId,
+    this.foreignAmount,
   });
 
   factory CardCharge.pending({
@@ -460,28 +461,43 @@ final class CardCharge {
   final Money? settledAmount;
   final Money? fee;
   final PublicId? ledgerEventId;
+
+  /// What the merchant charged in its own currency, for a foreign charge
+  /// (feature audit G-09).
+  final Money? foreignAmount;
   bool get isPosted => ledgerEventId != null;
 
   /// A posting is a separate confirmed fact: its date and currency may differ
   /// from the authorization. It replaces the pending estimate, never adds a
   /// second purchase. The application must commit the Ledger event atomically
   /// and retain its identity for retries.
+  ///
+  /// [foreignAmount] defaults to a foreign-currency authorization.
   CardCharge post({
     required BusinessDate postedOn,
     required Money settledAmount,
     required Money fee,
     required PublicId ledgerEventId,
+    Money? foreignAmount,
   }) {
+    final local = settledAmount.currency.code;
+    final sameCurrency = authorizedAmount.currency.code == local;
+    final foreign = foreignAmount ?? (sameCurrency ? null : authorizedAmount);
     if (settledAmount.minorUnits <= BigInt.zero ||
         fee.minorUnits < BigInt.zero ||
         settledAmount.currency != fee.currency) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    if (foreign != null &&
+        (foreign.minorUnits.sign < 1 || foreign.currency.code == local)) {
       throw const CreditCardException(CreditCardError.invalidInput);
     }
     if (isPosted) {
       if (this.postedOn == postedOn &&
           this.settledAmount == settledAmount &&
           this.fee == fee &&
-          this.ledgerEventId == ledgerEventId) {
+          this.ledgerEventId == ledgerEventId &&
+          this.foreignAmount == foreign) {
         return this;
       }
       throw const CreditCardException(CreditCardError.alreadyPosted);
@@ -498,8 +514,53 @@ final class CardCharge {
       settledAmount: settledAmount,
       fee: fee,
       ledgerEventId: ledgerEventId,
+      foreignAmount: foreign,
     );
   }
+}
+
+/// The issuer's foreign transaction fee on [settled], 1.5% by default,
+/// rounded half up to the card currency (feature audit G-09). A
+/// suggestion: the statement's own figure wins.
+Money foreignTransactionFee(Money settled, {int basisPoints = 150}) {
+  if (basisPoints < 0 || basisPoints > 10000 || settled.minorUnits.isNegative) {
+    throw const CreditCardException(CreditCardError.invalidInput);
+  }
+  return Money.quantizeRatio(
+    settled.currency,
+    settled.minorUnits * BigInt.from(basisPoints),
+    BigInt.from(10000) * BigInt.from(10).pow(settled.currency.scale),
+  );
+}
+
+/// How much more of [purchase] the card can credit back, given the
+/// refunds already posted against it. A foreign purchase is limited in
+/// its own currency and may come back with its fee, since the exchange
+/// rate moves; a local one only up to the amount charged (G-09).
+({Money local, Money? foreign}) refundableOf(
+  CardCharge purchase,
+  Iterable<CardCharge> refunds,
+) {
+  if (purchase.kind != CardChargeKind.purchase || !purchase.isPosted) {
+    throw const CreditCardException(CreditCardError.invalidInput);
+  }
+  final foreign = purchase.foreignAmount;
+  var local = foreign == null
+      ? purchase.settledAmount!
+      : purchase.settledAmount! + purchase.fee!;
+  var abroad = foreign;
+  for (final refund in refunds) {
+    if (refund.originalChargeId != purchase.id || !refund.isPosted) continue;
+    local -= refund.settledAmount!;
+    if (abroad != null) {
+      final back = refund.foreignAmount;
+      if (back == null || back.currency != abroad.currency) {
+        throw const CreditCardException(CreditCardError.currencyMismatch);
+      }
+      abroad -= back;
+    }
+  }
+  return (local: local, foreign: abroad);
 }
 
 /// The application links this to a committed Ledger transfer, never expense.
@@ -565,7 +626,7 @@ final class CardStatement {
     final events = <PublicId>{};
     final allCharges = charges.toList();
     final chargesById = <PublicId, CardCharge>{};
-    final refundedByPurchase = <PublicId, BigInt>{};
+    final refunded = <CardCharge>{};
     for (final charge in allCharges) {
       _checkOwner(terms, charge.workspace, charge.cardId);
       if (!ids.add(charge.id)) {
@@ -585,13 +646,7 @@ final class CardStatement {
         if (charge.postedOn!.compareTo(original.postedOn!) < 0) {
           throw const CreditCardException(CreditCardError.invalidInput);
         }
-        final refunded =
-            (refundedByPurchase[original.id] ?? BigInt.zero) +
-            charge.settledAmount!.minorUnits;
-        if (refunded > original.settledAmount!.minorUnits) {
-          throw const CreditCardException(CreditCardError.invalidInput);
-        }
-        refundedByPurchase[original.id] = refunded;
+        refunded.add(original);
       }
       if (!charge.isPosted) {
         if (cycle.includes(charge.authorizedOn)) pendingCount++;
@@ -639,6 +694,13 @@ final class CardStatement {
         refunds += charge.settledAmount!;
       }
       fees += charge.fee!;
+    }
+    for (final purchase in refunded) {
+      final left = refundableOf(purchase, allCharges);
+      if (left.local.minorUnits.isNegative ||
+          (left.foreign?.minorUnits.isNegative ?? false)) {
+        throw const CreditCardException(CreditCardError.invalidInput);
+      }
     }
     for (final payment in payments) {
       _checkOwner(terms, payment.workspace, payment.cardId);

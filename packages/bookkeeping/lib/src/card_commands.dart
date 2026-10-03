@@ -144,6 +144,7 @@ final class PostCardCharge extends _IdResult {
     this.allocations = const [],
     this.tags = const [],
     this.merchant,
+    this.foreignAmount,
   }) : super(operation);
 
   final PublicId chargeId;
@@ -152,6 +153,10 @@ final class PostCardCharge extends _IdResult {
   final BusinessDate postedOn;
   final Money settledAmount;
   final Money fee;
+
+  /// The merchant's amount in its own currency, for a foreign charge; a
+  /// foreign authorization supplies it otherwise (feature audit G-09).
+  final Money? foreignAmount;
 
   /// Empty, or shares adding up to settled amount plus fee.
   final List<CategoryShare> allocations;
@@ -174,6 +179,7 @@ final class PostCardCharge extends _IdResult {
     ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
     'merchant': merchant?.id.value,
     'merchantVersion': merchant?.expectedVersion,
+    'foreignAmount': foreignAmount?.toJson(),
   };
 }
 
@@ -268,6 +274,7 @@ final class RefundCardCharge extends _IdResult {
     required this.postedOn,
     required this.amount,
     this.allocations = const [],
+    this.foreignAmount,
   }) : super(operation);
 
   final PublicId refundChargeId;
@@ -280,6 +287,9 @@ final class RefundCardCharge extends _IdResult {
   /// Empty, or the categories the credit goes back to.
   final List<CategoryShare> allocations;
 
+  /// Required for a foreign purchase: the amount returned in its currency.
+  final Money? foreignAmount;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'refund-card-charge-v1',
@@ -290,6 +300,7 @@ final class RefundCardCharge extends _IdResult {
     'postedOn': postedOn.toString(),
     'amount': amount.toJson(),
     'allocations': [for (final share in allocations) share.toJson()],
+    'foreignAmount': foreignAmount?.toJson(),
   };
 }
 

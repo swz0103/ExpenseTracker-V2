@@ -11,6 +11,9 @@ abstract interface class CardTransaction implements BookkeepingTransaction {
 
   Future<void> saveCardCharge(CardCharge charge);
 
+  /// The refunds credited against [purchaseId], voided ones left out.
+  Future<List<CardCharge>> cardRefunds(PublicId purchaseId);
+
   /// True once a pending authorization was released without posting.
   Future<bool> isReleased(PublicId chargeId);
 
@@ -90,13 +93,17 @@ final class CardBook<T extends CardTransaction> {
     if (command.amount.currency != card.currency) {
       throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
     }
-    // A card credit can return the purchase, never its fee.
-    var refunded = command.amount;
-    final earlier = await _books._activeRefunds(t, original.ledgerEventId!);
-    for (final refund in earlier) {
-      refunded -= refund.reportExpense;
+    // A local credit returns the purchase, never its fee; a foreign one is
+    // limited in its own currency (feature audit G-09).
+    final foreign = original.foreignAmount;
+    final asked = command.foreignAmount;
+    if ((foreign == null) != (asked == null) ||
+        (foreign != null && foreign.currency != asked!.currency)) {
+      throw const AppFailure(FailureKind.rejected, 'card.foreign-amount');
     }
-    if (refunded.minorUnits > original.settledAmount!.minorUnits) {
+    final left = refundableOf(original, await t.cardRefunds(original.id));
+    if (command.amount.minorUnits > left.local.minorUnits ||
+        (asked != null && asked.minorUnits > left.foreign!.minorUnits)) {
       throw const AppFailure(FailureKind.rejected, 'ledger.refundLimit');
     }
     final postingId = await _books._refund(
@@ -126,6 +133,7 @@ final class CardBook<T extends CardTransaction> {
       settledAmount: command.amount,
       fee: Money(card.currency, BigInt.zero),
       ledgerEventId: postingId,
+      foreignAmount: asked,
     );
     await t.saveCardCharge(credit);
     await _event(t, workspace, 'card.posted', _charge(credit));
@@ -289,6 +297,7 @@ final class CardBook<T extends CardTransaction> {
       settledAmount: command.settledAmount,
       fee: command.fee,
       ledgerEventId: command.postingId,
+      foreignAmount: command.foreignAmount,
     );
     final total = command.settledAmount + command.fee;
     final account = await _books._postable(
@@ -452,6 +461,7 @@ abstract final class CardRecords {
     'settledAmount': charge.settledAmount?.toJson(),
     'fee': charge.fee?.toJson(),
     'ledgerEventId': charge.ledgerEventId?.value,
+    'foreignAmount': charge.foreignAmount?.toJson(),
   };
 
   static CardCharge readCharge(Map<String, Object?> json) => decoding(() {
@@ -468,6 +478,7 @@ abstract final class CardRecords {
       'settledAmount',
       'fee',
       'ledgerEventId',
+      'foreignAmount',
     });
     if (json['version'] != version) throw const CodecException('version');
     final original = json['originalChargeId'] as String?;
@@ -484,7 +495,8 @@ abstract final class CardRecords {
     if (event == null) {
       if (json['postedOn'] != null ||
           json['settledAmount'] != null ||
-          json['fee'] != null) {
+          json['fee'] != null ||
+          json['foreignAmount'] != null) {
         throw const CodecException('pending');
       }
       return pending;
@@ -494,6 +506,9 @@ abstract final class CardRecords {
       settledAmount: _readMoney(json['settledAmount']),
       fee: _readMoney(json['fee']),
       ledgerEventId: PublicId.parse(event),
+      foreignAmount: json['foreignAmount'] == null
+          ? null
+          : _readMoney(json['foreignAmount']),
     );
   });
 
