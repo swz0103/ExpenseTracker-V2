@@ -254,9 +254,8 @@ void main() {
     );
     await flows.post(purchase);
     await registerPostedCardCharge(db, workspace, purchase.id, card.id);
-    await NotesAdapter(
-      db,
-    ).revise(operation(), NoteChange(purchase.id, 0, 'shared dinner'));
+    await NotesAdapter(db)
+        .revise(operation(), NoteChange(purchase.id, 0, 'shared dinner'));
     await validateCardStatementFacts(db);
     expect(await unallocatedCardPayments(db, workspace, card.id), isEmpty);
   });

@@ -74,47 +74,49 @@ void main() {
     work.deleteSync(recursive: true);
   });
 
-  test('corrected tagged and merchant-linked entry keeps references valid',
-      () async {
-    final tag = PublicId.generate(), merchant = PublicId.generate();
-    await TagsAdapter(db).mutate(op(), TagMutation.create(tag, 'Trip'));
-    await MerchantsAdapter(db)
-        .mutate(op(), MerchantMutation.create(merchant, 'Cafe'));
-    final original = Posting.expense(
-      id: PublicId.generate(),
-      operation: op(),
-      date: date,
-      account: ref(account),
-      amount: money('10'),
-    );
-    await flows.post(
-      original,
-      tags: [TagSelection(tag, 1)],
-      merchant: MerchantSelection(merchant, 1),
-    );
-    await validateTagReferences(db);
-    await validateMerchantReferences(db);
+  test(
+    'corrected tagged and merchant-linked entry keeps references valid',
+    () async {
+      final tag = PublicId.generate(), merchant = PublicId.generate();
+      await TagsAdapter(db).mutate(op(), TagMutation.create(tag, 'Trip'));
+      await MerchantsAdapter(db)
+          .mutate(op(), MerchantMutation.create(merchant, 'Cafe'));
+      final original = Posting.expense(
+        id: PublicId.generate(),
+        operation: op(),
+        date: date,
+        account: ref(account),
+        amount: money('10'),
+      );
+      await flows.post(
+        original,
+        tags: [TagSelection(tag, 1)],
+        merchant: MerchantSelection(merchant, 1),
+      );
+      await validateTagReferences(db);
+      await validateMerchantReferences(db);
 
-    await flows.correct(
-      PostingCorrection(
-        original: original,
-        replacement: Posting.expense(
-          id: PublicId.generate(),
-          operation: op(),
-          date: date,
-          account: ref(account),
-          amount: money('7'),
+      await flows.correct(
+        PostingCorrection(
+          original: original,
+          replacement: Posting.expense(
+            id: PublicId.generate(),
+            operation: op(),
+            date: date,
+            account: ref(account),
+            amount: money('7'),
+          ),
+          reversalId: PublicId.generate(),
+          reversalOperation: op(),
+          reason: 'incorrect amount',
         ),
-        reversalId: PublicId.generate(),
-        reversalOperation: op(),
-        reason: 'incorrect amount',
-      ),
-      replacementTags: [TagSelection(tag, 1)],
-      replacementMerchant: MerchantSelection(merchant, 1),
-    );
+        replacementTags: [TagSelection(tag, 1)],
+        replacementMerchant: MerchantSelection(merchant, 1),
+      );
 
-    await validateTagReferences(db);
-    await validateMerchantReferences(db);
-    expect(await flows.ledger.balance(ref(account)), money('93'));
-  });
+      await validateTagReferences(db);
+      await validateMerchantReferences(db);
+      expect(await flows.ledger.balance(ref(account)), money('93'));
+    },
+  );
 }
