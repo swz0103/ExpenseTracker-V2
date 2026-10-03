@@ -270,6 +270,7 @@ final class CardBook<T extends CardTransaction> {
       workspace,
       total.currency,
       command.postedOn,
+      card: true,
     );
     final posting = Posting.expense(
       id: command.postingId,
@@ -323,6 +324,7 @@ final class CardBook<T extends CardTransaction> {
         workspace,
         command.amount.currency,
         command.postedOn,
+        card: true,
       ),
       principal: command.amount,
     );

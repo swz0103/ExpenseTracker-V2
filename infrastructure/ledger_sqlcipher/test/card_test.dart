@@ -314,6 +314,36 @@ void main() {
     );
   });
 
+  test('a card takes postings only from card commands', () async {
+    await expectLater(
+      books.recordCashFlow(
+        RecordCashFlow(
+          operation: op(),
+          postingId: PublicId.generate(),
+          flow: CashFlow.expense,
+          account: ref(card),
+          date: purchaseDay,
+          amount: ntd(100),
+        ),
+      ),
+      fails(FailureKind.rejected, 'card.use-card-commands'),
+    );
+    await expectLater(
+      books.recordTransfer(
+        RecordTransfer(
+          operation: op(),
+          postingId: PublicId.generate(),
+          source: ref(bank),
+          destination: ref(card),
+          date: purchaseDay,
+          principal: ntd(100),
+        ),
+      ),
+      fails(FailureKind.rejected, 'card.use-card-commands'),
+    );
+    expect(ledger.balance(account(card)), ntd(0));
+  });
+
   test('card postings are corrected on the card, not reversed', () async {
     final posting = await post();
     await expectLater(

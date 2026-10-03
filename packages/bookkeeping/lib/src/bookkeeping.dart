@@ -134,6 +134,13 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   Future<CommandOutcome<int>> renameAccount(RenameAccount command) =>
       _runner.run(command, (t) => _guard(() => _rename(t, command)));
 
+  Future<CommandOutcome<int>> setNetWorthInclusion(
+    SetNetWorthInclusion command,
+  ) => _runner.run(command, (t) => _guard(() => _setNetWorth(t, command)));
+
+  Future<CommandOutcome<int>> changeOpeningDate(ChangeOpeningDate command) =>
+      _runner.run(command, (t) => _guard(() => _moveOpening(t, command)));
+
   Future<CommandOutcome<int>> changeAccountState(ChangeAccountState command) =>
       _runner.run(command, (t) => _guard(() => _changeState(t, command)));
 
@@ -194,6 +201,49 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       await _savePosting(t, posting, PostingMetadata.none);
     }
     return account.version;
+  }
+
+  Future<int> _setNetWorth(T t, SetNetWorthInclusion command) async {
+    final account = await _account(t, command.accountId);
+    final changed = account.setNetWorthInclusion(
+      workspace: command.operation.workspace,
+      expectedVersion: command.expectedVersion,
+      included: command.included,
+    );
+    await _saveAccount(t, changed, 'account.changed');
+    return changed.version;
+  }
+
+  Future<int> _moveOpening(T t, ChangeOpeningDate command) async {
+    final account = await _account(t, command.accountId);
+    final moved = account.moveOpening(
+      workspace: command.operation.workspace,
+      expectedVersion: command.expectedVersion,
+      openedOn: command.openedOn,
+    );
+    await _saveAccount(t, moved, 'account.changed');
+    final opening = await t.openingOf(account.id);
+    if (opening != null && opening.date != command.openedOn) {
+      await _requireNewPosting(t, command.reversalId);
+      await _requireNewPosting(t, command.postingId);
+      final reversal = Posting.reversal(
+        id: command.reversalId,
+        operation: _secondary(command.operation, command.reversalId),
+        date: opening.date,
+        original: opening,
+        reason: 'opening-date-moved',
+      );
+      await _savePosting(t, reversal, PostingMetadata.none);
+      final again = Posting.opening(
+        id: command.postingId,
+        operation: command.operation,
+        date: command.openedOn,
+        account: _participant(moved),
+        amount: opening.legs.first.amount,
+      );
+      await _savePosting(t, again, PostingMetadata.none);
+    }
+    return moved.version;
   }
 
   Future<int> _rename(T t, RenameAccount command) async {
@@ -547,6 +597,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
         workspace,
         received.currency,
         command.date,
+        card: owned,
       ),
       originalId: original.id,
       amount: command.amount,
@@ -632,13 +683,16 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   }
 
   /// Checks the account rules in the same transaction as the ledger write.
+  /// A credit card takes postings only from its card commands ([card]),
+  /// so its statement always matches its balance.
   Future<PostingAccount> _postable(
     T t,
     AccountRef ref,
     WorkspaceId workspace,
     Currency currency,
-    BusinessDate date,
-  ) async {
+    BusinessDate date, {
+    bool card = false,
+  }) async {
     final account = await _account(t, ref.id);
     account.requirePosting(
       workspace: workspace,
@@ -646,6 +700,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       expectedRulesVersion: ref.expectedVersion,
       date: date,
     );
+    if (account.kind == AccountKind.creditCard && !card) {
+      throw const AppFailure(FailureKind.rejected, 'card.use-card-commands');
+    }
     return _participant(account);
   }
 

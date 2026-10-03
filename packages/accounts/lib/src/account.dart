@@ -166,6 +166,36 @@ final class Account {
     return _copy(includeInNetWorth: included);
   }
 
+  /// Moves the opening date earlier, so entries from before the account
+  /// was set up in the app can be recorded. Later dates are refused: an
+  /// existing entry could fall before them.
+  Account moveOpening({
+    required WorkspaceId workspace,
+    required int expectedVersion,
+    required BusinessDate openedOn,
+  }) {
+    _check(workspace, expectedVersion);
+    if (state == AccountState.closed)
+      throw const AccountException(AccountError.unavailable);
+    if (openedOn.compareTo(this.openedOn) > 0)
+      throw const AccountException(AccountError.invalidDate);
+    return Account._(
+      id: id,
+      workspace: workspace,
+      name: name,
+      kind: kind,
+      currency: currency,
+      openedOn: openedOn,
+      includeInNetWorth: includeInNetWorth,
+      version: version + 1,
+      rulesVersion: rulesVersion,
+      state: state,
+      closedOn: closedOn,
+      closingReason: closingReason,
+      successorId: successorId,
+    );
+  }
+
   Account archive({
     required WorkspaceId workspace,
     required int expectedVersion,

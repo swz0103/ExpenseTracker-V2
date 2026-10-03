@@ -106,6 +106,60 @@ final class RenameAccount extends AccountCommand {
   };
 }
 
+/// Includes the account in net worth or leaves it out, for example a
+/// family member's account kept here. Returns the new version.
+final class SetNetWorthInclusion extends AccountCommand {
+  SetNetWorthInclusion({
+    required OperationKey operation,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.included,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final int expectedVersion;
+  final bool included;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-net-worth-inclusion-v1',
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'included': included,
+  };
+}
+
+/// Moves the opening date earlier so older entries can be recorded. An
+/// opening balance moves with it: reversed on its old date and booked
+/// again on the new one, using [reversalId] and [postingId]. Returns the
+/// new account version.
+final class ChangeOpeningDate extends AccountCommand {
+  ChangeOpeningDate({
+    required OperationKey operation,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.openedOn,
+    required this.reversalId,
+    required this.postingId,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final int expectedVersion;
+  final BusinessDate openedOn;
+  final PublicId reversalId;
+  final PublicId postingId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'change-opening-date-v1',
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'openedOn': openedOn.toString(),
+    'reversalId': reversalId.value,
+    'postingId': postingId.value,
+  };
+}
+
 enum AccountStateChange { archive, reactivate }
 
 final class ChangeAccountState extends AccountCommand {

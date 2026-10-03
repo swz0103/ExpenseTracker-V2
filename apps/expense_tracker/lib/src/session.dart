@@ -107,10 +107,7 @@ final class AppSession extends ChangeNotifier {
 
   final twd = Currency.of('TWD');
 
-  BusinessDate get today {
-    final now = clock.now().value.toLocal();
-    return BusinessDate(now.year, now.month, now.day);
-  }
+  BusinessDate get today => clock.today();
 
   List<Account> get accounts =>
       _reads.accounts(workspace)..sort((a, b) => a.name.compareTo(b.name));

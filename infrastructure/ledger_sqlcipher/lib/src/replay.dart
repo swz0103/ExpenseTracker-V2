@@ -95,6 +95,7 @@ abstract final class LedgerReplay {
     switch (kind) {
       case 'account.opened' ||
           'account.renamed' ||
+          'account.changed' ||
           'account.archived' ||
           'account.reactivated' ||
           'account.closed':

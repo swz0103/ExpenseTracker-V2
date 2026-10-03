@@ -215,6 +215,53 @@ void main() {
     expect(account(cash).name, '錢包');
   });
 
+  test('the opening date can move earlier, with its balance', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final september = BusinessDate(2026, 9, 20);
+    await expectLater(
+      flow(CashFlow.expense, cash, money(twd, 100), date: september),
+      fails(FailureKind.rejected, 'account.invalidDate'),
+    );
+    Future<CommandOutcome<int>> move(BusinessDate to) =>
+        books.changeOpeningDate(
+          ChangeOpeningDate(
+            operation: op(),
+            accountId: cash,
+            expectedVersion: account(cash).version,
+            openedOn: to,
+            reversalId: PublicId.generate(),
+            postingId: PublicId.generate(),
+          ),
+        );
+    await expectLater(
+      move(BusinessDate(2026, 10, 2)),
+      fails(FailureKind.rejected, 'account.invalidDate'),
+    );
+    await move(BusinessDate(2026, 9, 1));
+    expect(account(cash).openedOn, BusinessDate(2026, 9, 1));
+    await flow(CashFlow.expense, cash, money(twd, 100), date: september);
+    expect(ledger.balance(account(cash)), money(twd, 900));
+    final openings = [
+      for (final p in ledger.postings(cash))
+        if (p.kind == PostingKind.opening) p.date,
+    ];
+    expect(openings, [day, BusinessDate(2026, 9, 1)]..sort());
+  });
+
+  test('net worth inclusion can be changed', () async {
+    final cash = await openAccount('家人', twd);
+    await books.setNetWorthInclusion(
+      SetNetWorthInclusion(
+        operation: op(),
+        accountId: cash,
+        expectedVersion: account(cash).version,
+        included: false,
+      ),
+    );
+    expect(account(cash).includeInNetWorth, isFalse);
+    expect(account(cash).rulesVersion, 1);
+  });
+
   test('archived accounts refuse postings until reactivated', () async {
     final cash = await openAccount('現金', twd);
     Future<void> change(AccountStateChange change) => books.changeAccountState(
