@@ -155,7 +155,9 @@ void main() {
       rejected(),
     );
     expect(
-      () => InvestmentRecords.openLots([{...buy, 'version': 9}]),
+      () => InvestmentRecords.openLots([
+        {...buy, 'version': 9},
+      ]),
       rejected(),
     );
   });

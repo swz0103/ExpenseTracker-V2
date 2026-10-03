@@ -223,7 +223,25 @@ void main() {
       final mirror = kept(id);
       expect(mirror.version, stored.version);
       expect(mirror.name, stored.name);
-      expect(memoryStore.balance(mirror), ledger.balance(stored));
+      final sqlIds = {for (final p in ledger.postings(id)) p.id};
+      final memoryIds = {
+        for (final p in memoryStore.postings(workspace))
+          if (p.legs.any((leg) => leg.account.id == id)) p.id,
+      };
+      final missing = [
+        for (final p in memoryStore.postings(workspace))
+          if (memoryIds.contains(p.id) && !sqlIds.contains(p.id)) p.kind.name,
+      ];
+      final extra = [
+        for (final p in ledger.postings(id))
+          if (!memoryIds.contains(p.id)) p.kind.name,
+      ];
+      expect(missing, isEmpty, reason: 'only in memory');
+      expect(extra, isEmpty, reason: 'only in SQLCipher');
+      expect(
+        memoryStore.balance(mirror).minorUnits,
+        ledger.balance(stored).minorUnits,
+      );
     }
     for (final month in ['2026-08', '2026-09', '2026-10']) {
       final stored = ledger.monthly(workspace, month);
