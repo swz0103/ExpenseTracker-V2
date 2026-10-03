@@ -309,16 +309,15 @@ void main() {
       );
     }
 
-    Future<CommandOutcome<PublicId>> voidTrade(PublicId id) =>
-        invest.voidTrade(
-          VoidInvestmentTrade(
-            operation: op(),
-            accountId: brokerage,
-            instrumentId: apple,
-            tradeId: id,
-            reversalId: PublicId.generate(),
-          ),
-        );
+    Future<CommandOutcome<PublicId>> voidTrade(PublicId id) => invest.voidTrade(
+      VoidInvestmentTrade(
+        operation: op(),
+        accountId: brokerage,
+        instrumentId: apple,
+        tradeId: id,
+        reversalId: PublicId.generate(),
+      ),
+    );
 
     final first = PublicId.generate();
     final second = PublicId.generate();

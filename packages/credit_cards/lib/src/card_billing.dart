@@ -58,11 +58,17 @@ final class CreditCardTerms {
       close = _day(next.$1, next.$2, closingDay);
     }
     final previous = _month(close.year, close.month, -1);
-    final following = _month(close.year, close.month, 1);
+    // Due on the first [dueDay] after the close: the same month when the
+    // due day comes later in it, otherwise the next (health check G2-08).
+    var due = _day(close.year, close.month, dueDay);
+    if (due.compareTo(close) <= 0) {
+      final following = _month(close.year, close.month, 1);
+      due = _day(following.$1, following.$2, dueDay);
+    }
     return CardCycle(
       startsAfter: _day(previous.$1, previous.$2, closingDay),
       closesOn: close,
-      dueOn: _day(following.$1, following.$2, dueDay),
+      dueOn: due,
     );
   }
 }
@@ -279,6 +285,7 @@ final class CardPayment {
 final class CardStatement {
   CardStatement._({
     required this.cycle,
+    required this.carriedOver,
     required this.purchases,
     required this.refunds,
     required this.fees,
@@ -298,6 +305,9 @@ final class CardStatement {
     var refunds = Money(terms.currency, BigInt.zero);
     var fees = Money(terms.currency, BigInt.zero);
     var paid = Money(terms.currency, BigInt.zero);
+    // What earlier statements left unpaid, or overpaid when negative
+    // (health check G2-12).
+    var carried = Money(terms.currency, BigInt.zero);
     var pendingCount = 0;
     final ids = <PublicId>{};
     final events = <PublicId>{};
@@ -342,6 +352,13 @@ final class CardStatement {
       if (!events.add(charge.ledgerEventId!)) {
         throw const CreditCardException(CreditCardError.duplicateIdentity);
       }
+      if (charge.postedOn!.compareTo(cycle.startsAfter) <= 0) {
+        carried += charge.kind == CardChargeKind.purchase
+            ? charge.settledAmount!
+            : -charge.settledAmount!;
+        carried += charge.fee!;
+        continue;
+      }
       if (!cycle.includes(charge.postedOn!)) continue;
       if (charge.kind == CardChargeKind.purchase) {
         purchases += charge.settledAmount!;
@@ -358,11 +375,16 @@ final class CardStatement {
       if (payment.amount.currency != terms.currency) {
         throw const CreditCardException(CreditCardError.currencyMismatch);
       }
-      if (payment.statementClose == cycle.closesOn) paid += payment.amount;
+      if (payment.statementClose == cycle.closesOn) {
+        paid += payment.amount;
+      } else if (payment.statementClose.compareTo(cycle.startsAfter) <= 0) {
+        carried -= payment.amount;
+      }
     }
-    final net = purchases - refunds + fees - paid;
+    final net = carried + purchases - refunds + fees - paid;
     return CardStatement._(
       cycle: cycle,
+      carriedOver: carried,
       purchases: purchases,
       refunds: refunds,
       fees: fees,
@@ -378,6 +400,9 @@ final class CardStatement {
   }
 
   final CardCycle cycle;
+
+  /// Unpaid balance from earlier statements; negative for a credit.
+  final Money carriedOver;
   final Money purchases;
   final Money refunds;
   final Money fees;

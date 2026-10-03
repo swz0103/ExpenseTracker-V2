@@ -319,10 +319,40 @@ void main() {
       charges: [purchase, refund],
       payments: [payment],
     );
+    // February left 60 unpaid; it carries into March (G2-12).
+    expect(next.carriedOver.majorText, '60.00');
     expect(next.purchases.majorText, '0.00');
     expect(next.refunds.majorText, '30.00');
-    expect(next.remainingDue.majorText, '0.00');
-    expect(next.credit.majorText, '30.00');
+    expect(next.remainingDue.majorText, '30.00');
+    expect(next.credit.majorText, '0.00');
+  });
+
+  test('an early close is due the same month; later posts roll over', () {
+    final early = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: twd,
+      closingDay: 5,
+      dueDay: 20,
+    );
+    final march = early.scheduledCycleFor(BusinessDate(2028, 3, 3));
+    expect(march.startsAfter, BusinessDate(2028, 2, 5));
+    expect(march.closesOn, BusinessDate(2028, 3, 5));
+    expect(march.dueOn, BusinessDate(2028, 3, 20));
+    final april = early.scheduledCycleFor(BusinessDate(2028, 3, 10));
+    expect(april.closesOn, BusinessDate(2028, 4, 5));
+    expect(april.dueOn, BusinessDate(2028, 4, 20));
+    final lateClose = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: twd,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    expect(
+      lateClose.scheduledCycleFor(BusinessDate(2028, 3, 26)).dueOn,
+      BusinessDate(2028, 5, 10),
+    );
   });
 
   test('pending from another cycle is excluded and orphan refund rejected', () {

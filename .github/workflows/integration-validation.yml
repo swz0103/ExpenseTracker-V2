@@ -28,11 +28,11 @@ on:
 permissions:
   contents: read
 
-# Pushes to one ref supersede each other; release and manual runs never get
-# cancelled by a later push.
+# Pushes to one ref queue instead of cancelling, so every commit on main
+# keeps a result (G9-09); release and manual runs run on their own.
 concurrency:
   group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 jobs:
   architecture:

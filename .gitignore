@@ -19,6 +19,8 @@ build/
 *.keystore
 *.pem
 *.p12
+*.apk
+*.aab
 *.db
 *.db-shm
 *.db-wal

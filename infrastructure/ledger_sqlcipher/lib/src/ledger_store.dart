@@ -843,7 +843,9 @@ final class SqlBookkeeping
 
   @override
   Future<void> voidTrade(PublicId tradeId) async {
-    _transaction.execute('INSERT INTO invest_voids VALUES (?)', [tradeId.value]);
+    _transaction.execute('INSERT INTO invest_voids VALUES (?)', [
+      tradeId.value,
+    ]);
   }
 
   @override
