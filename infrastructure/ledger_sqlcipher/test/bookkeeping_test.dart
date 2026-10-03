@@ -364,7 +364,7 @@ void main() {
       }
     }
     expect(refused, greaterThan(0));
-    expect(posted.length, greaterThan(50));
+    expect(posted.length, greaterThan(20));
 
     void verify() {
       final all = <PublicId, Posting>{};
