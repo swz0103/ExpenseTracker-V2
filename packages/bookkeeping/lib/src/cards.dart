@@ -16,7 +16,17 @@ abstract interface class CardTransaction implements BookkeepingTransaction {
 
   Future<void> releaseCardCharge(PublicId chargeId);
 
+  /// Takes a posted charge off the statement once its posting has been
+  /// reversed; [isReleased] then reports true for it.
+  Future<void> voidCardCharge(PublicId chargeId);
+
   Future<void> saveCardPayment(CardPayment payment);
+
+  Future<CardPayment?> cardPayment(PublicId paymentId);
+
+  Future<bool> isPaymentVoided(PublicId paymentId);
+
+  Future<void> voidCardPayment(PublicId paymentId);
 
   Future<CardInstallmentSchedule?> installmentPlan(PublicId purchaseEventId);
 
@@ -49,6 +59,153 @@ final class CardBook<T extends CardTransaction> {
 
   Future<CommandOutcome<int>> planInstallments(PlanInstallments command) =>
       _runner.run(command, (t) => _guard(() => _plan(t, command)));
+
+  Future<CommandOutcome<PublicId>> refund(RefundCardCharge command) =>
+      _runner.run(command, (t) => _guard(() => _refund(t, command)));
+
+  Future<CommandOutcome<PublicId>> voidCharge(VoidCardCharge command) =>
+      _runner.run(command, (t) => _guard(() => _voidCharge(t, command)));
+
+  Future<CommandOutcome<PublicId>> voidPayment(VoidCardPayment command) =>
+      _runner.run(command, (t) => _guard(() => _voidPayment(t, command)));
+
+  Future<PublicId> _refund(T t, RefundCardCharge command) async {
+    final workspace = command.operation.workspace;
+    final card = await _card(t, command.card.id, command.operation);
+    final original = await t.cardCharge(command.originalChargeId);
+    if (original == null || original.cardId != card.id) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (original.kind != CardChargeKind.purchase ||
+        !original.isPosted ||
+        await t.isReleased(original.id)) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-posted');
+    }
+    if (await t.cardCharge(command.refundChargeId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'card.charge-exists');
+    }
+    if (command.amount.currency != card.currency) {
+      throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
+    }
+    // A card credit can return the purchase, never its fee.
+    var refunded = command.amount;
+    final earlier = await _books._activeRefunds(t, original.ledgerEventId!);
+    for (final refund in earlier) {
+      refunded -= refund.reportExpense;
+    }
+    if (refunded.minorUnits > original.settledAmount!.minorUnits) {
+      throw const AppFailure(FailureKind.rejected, 'ledger.refundLimit');
+    }
+    final postingId = await _books._refund(
+      t,
+      RecordRefund(
+        operation: command.operation,
+        postingId: command.postingId,
+        originalId: original.ledgerEventId!,
+        account: command.card,
+        date: command.postedOn,
+        amount: command.amount,
+        allocations: command.allocations,
+      ),
+      owned: true,
+    );
+    final pending = CardCharge.pending(
+      id: command.refundChargeId,
+      workspace: workspace,
+      cardId: card.id,
+      kind: CardChargeKind.refund,
+      authorizedOn: command.postedOn,
+      authorizedAmount: command.amount,
+      originalChargeId: original.id,
+    );
+    final credit = pending.post(
+      postedOn: command.postedOn,
+      settledAmount: command.amount,
+      fee: Money(card.currency, BigInt.zero),
+      ledgerEventId: postingId,
+    );
+    await t.saveCardCharge(credit);
+    await _event(t, workspace, 'card.posted', _charge(credit));
+    return postingId;
+  }
+
+  Future<PublicId> _voidCharge(T t, VoidCardCharge command) async {
+    final workspace = command.operation.workspace;
+    final charge = await t.cardCharge(command.chargeId);
+    if (charge == null || charge.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (!charge.isPosted) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-posted');
+    }
+    if (await t.isReleased(charge.id)) {
+      throw const AppFailure(FailureKind.conflict, 'card.voided');
+    }
+    if (charge.kind == CardChargeKind.purchase &&
+        await t.installmentPlan(charge.ledgerEventId!) != null) {
+      throw const AppFailure(FailureKind.rejected, 'card.has-installments');
+    }
+    final reversal = await _reverseOwned(
+      t,
+      command.operation,
+      command.reversalId,
+      charge.ledgerEventId!,
+    );
+    await t.voidCardCharge(charge.id);
+    await _event(t, workspace, 'card.voided', {'chargeId': charge.id.value});
+    return reversal;
+  }
+
+  Future<PublicId> _voidPayment(T t, VoidCardPayment command) async {
+    final workspace = command.operation.workspace;
+    final payment = await t.cardPayment(command.paymentId);
+    if (payment == null || payment.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'card.payment-not-found');
+    }
+    if (await t.isPaymentVoided(payment.id)) {
+      throw const AppFailure(FailureKind.conflict, 'card.voided');
+    }
+    final reversal = await _reverseOwned(
+      t,
+      command.operation,
+      command.reversalId,
+      payment.ledgerEventId,
+    );
+    await t.voidCardPayment(payment.id);
+    await _event(t, workspace, 'card.payment-voided', {
+      'paymentId': payment.id.value,
+    });
+    return reversal;
+  }
+
+  /// Reverses a posting this card owns, on the posting's own date.
+  Future<PublicId> _reverseOwned(
+    T t,
+    OperationKey operation,
+    PublicId reversalId,
+    PublicId postingId,
+  ) async {
+    await _books._requireNewPosting(t, reversalId);
+    final original = await _books._undoable(
+      t,
+      operation.workspace,
+      postingId,
+      owned: true,
+    );
+    final reversal = Posting.reversal(
+      id: reversalId,
+      operation: operation,
+      date: original.date,
+      original: original,
+      reason: 'voided',
+    );
+    await _books._savePosting(
+      t,
+      reversal,
+      await t.postingMetadata(original.id),
+    );
+    return reversal.id;
+  }
 
   Future<int> _setTerms(T t, SetCardTerms command) async {
     final card = await _card(t, command.cardId, command.operation);

@@ -218,3 +218,84 @@ final class ReleaseAuthorization extends _IdResult {
     'cardId': cardId.value,
   };
 }
+
+/// A merchant credit for a posted purchase, booked on the card: it lowers
+/// the card balance, the statement and the original spending. Returns the
+/// refund posting id.
+final class RefundCardCharge extends _IdResult {
+  RefundCardCharge({
+    required OperationKey operation,
+    required this.refundChargeId,
+    required this.postingId,
+    required this.originalChargeId,
+    required this.card,
+    required this.postedOn,
+    required this.amount,
+    this.allocations = const [],
+  }) : super(operation);
+
+  final PublicId refundChargeId;
+  final PublicId postingId;
+  final PublicId originalChargeId;
+  final AccountRef card;
+  final BusinessDate postedOn;
+  final Money amount;
+
+  /// Empty, or the categories the credit goes back to.
+  final List<CategoryShare> allocations;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'refund-card-charge-v1',
+    'refundChargeId': refundChargeId.value,
+    'postingId': postingId.value,
+    'originalChargeId': originalChargeId.value,
+    'card': card.toJson(),
+    'postedOn': postedOn.toString(),
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+  };
+}
+
+/// Removes a posted charge or card refund entered by mistake: its posting
+/// is reversed on its own date and it leaves the statement. A purchase
+/// with active refunds or an installment plan cannot be voided. Returns
+/// the reversal posting id.
+final class VoidCardCharge extends _IdResult {
+  VoidCardCharge({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-card-charge-v1',
+    'chargeId': chargeId.value,
+    'reversalId': reversalId.value,
+  };
+}
+
+/// Removes a card payment entered by mistake: the transfer is reversed on
+/// its own date and the payment leaves the statement. Returns the reversal
+/// posting id.
+final class VoidCardPayment extends _IdResult {
+  VoidCardPayment({
+    required OperationKey operation,
+    required this.paymentId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId paymentId;
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-card-payment-v1',
+    'paymentId': paymentId.value,
+    'reversalId': reversalId.value,
+  };
+}

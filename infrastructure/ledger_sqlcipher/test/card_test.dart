@@ -199,6 +199,121 @@ void main() {
     );
   });
 
+  test('a card refund lowers the bill and the spending', () async {
+    final purchase = PublicId.generate();
+    await post(chargeId: purchase, settled: 3000, fee: 30);
+    Future<CommandOutcome<PublicId>> refund(int units) => cards.refund(
+      RefundCardCharge(
+        operation: op(),
+        refundChargeId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        originalChargeId: purchase,
+        card: ref(card),
+        postedOn: BusinessDate(2026, 10, 10),
+        amount: ntd(units),
+      ),
+    );
+    await refund(1000);
+    final statement = ledger.statement(card, close);
+    expect(statement.purchases, ntd(3000));
+    expect(statement.refunds, ntd(1000));
+    expect(statement.remainingDue, ntd(2030));
+    expect(ledger.balance(account(card)), ntd(-2030));
+    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(2030));
+    // The fee is never refunded by the merchant.
+    await expectLater(
+      refund(2001),
+      fails(FailureKind.rejected, 'ledger.refundLimit'),
+    );
+    await refund(2000);
+    expect(ledger.statement(card, close).remainingDue, ntd(30));
+  });
+
+  test('a mistaken charge or payment is voided on the card', () async {
+    final wrong = PublicId.generate();
+    final posting = await post(chargeId: wrong, settled: 800);
+    await post(settled: 500);
+    Future<CommandOutcome<PublicId>> voidCharge(PublicId id) =>
+        cards.voidCharge(
+          VoidCardCharge(
+            operation: op(),
+            chargeId: id,
+            reversalId: PublicId.generate(),
+          ),
+        );
+    await voidCharge(wrong);
+    expect(ledger.statement(card, close).purchases, ntd(500));
+    expect(ledger.balance(account(card)), ntd(-500));
+    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(500));
+    await expectLater(
+      voidCharge(wrong),
+      fails(FailureKind.conflict, 'card.voided'),
+    );
+    await expectLater(
+      books.reversePosting(
+        ReversePosting(
+          operation: op(),
+          reversalId: PublicId.generate(),
+          originalId: posting,
+          date: purchaseDay,
+        ),
+      ),
+      fails(FailureKind.conflict, 'posting.already-reversed'),
+    );
+
+    final payment = PublicId.generate();
+    await cards.pay(
+      PayCard(
+        operation: op(),
+        paymentId: payment,
+        postingId: PublicId.generate(),
+        source: ref(bank),
+        card: ref(card),
+        statementClose: close,
+        postedOn: BusinessDate(2026, 11, 8),
+        amount: ntd(5000),
+      ),
+    );
+    expect(ledger.statement(card, close).credit, ntd(4500));
+    await cards.voidPayment(
+      VoidCardPayment(
+        operation: op(),
+        paymentId: payment,
+        reversalId: PublicId.generate(),
+      ),
+    );
+    final statement = ledger.statement(card, close);
+    expect(statement.payments, ntd(0));
+    expect(statement.remainingDue, ntd(500));
+    expect(ledger.balance(account(bank)), ntd(100000));
+  });
+
+  test('a refunded purchase cannot be voided', () async {
+    final purchase = PublicId.generate();
+    await post(chargeId: purchase, settled: 900);
+    await cards.refund(
+      RefundCardCharge(
+        operation: op(),
+        refundChargeId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        originalChargeId: purchase,
+        card: ref(card),
+        postedOn: purchaseDay,
+        amount: ntd(100),
+      ),
+    );
+    await expectLater(
+      cards.voidCharge(
+        VoidCardCharge(
+          operation: op(),
+          chargeId: purchase,
+          reversalId: PublicId.generate(),
+        ),
+      ),
+      fails(FailureKind.rejected, 'posting.has-refunds'),
+    );
+  });
+
   test('card postings are corrected on the card, not reversed', () async {
     final posting = await post();
     await expectLater(

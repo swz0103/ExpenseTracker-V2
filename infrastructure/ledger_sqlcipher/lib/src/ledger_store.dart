@@ -266,6 +266,14 @@ final ledgerSchema = SchemaModule('ledger', [
     ADD COLUMN released INTEGER NOT NULL DEFAULT 0
     ''',
   ],
+  [
+    // A payment entered by mistake can be voided; it then leaves the
+    // statement. (A voided charge reuses card_charges.released.)
+    '''
+    ALTER TABLE card_payments
+    ADD COLUMN voided INTEGER NOT NULL DEFAULT 0
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -358,7 +366,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
       [cardId.value],
     );
     final payments = _store.select(
-      'SELECT payload FROM card_payments WHERE card_id = ?',
+      'SELECT payload FROM card_payments WHERE card_id = ? AND voided = 0',
       [cardId.value],
     );
     return CardStatement.calculate(
@@ -914,12 +922,45 @@ final class SqlBookkeeping
   }
 
   @override
+  Future<void> voidCardCharge(PublicId chargeId) => releaseCardCharge(chargeId);
+
+  @override
   Future<void> saveCardPayment(CardPayment payment) async {
-    _transaction.execute('INSERT INTO card_payments VALUES (?, ?, ?, ?)', [
-      payment.id.value,
-      payment.cardId.value,
-      payment.ledgerEventId.value,
-      jsonEncode(CardRecords.payment(payment)),
+    _transaction.execute(
+      'INSERT INTO card_payments (id, card_id, posting_id, payload) '
+      'VALUES (?, ?, ?, ?)',
+      [
+        payment.id.value,
+        payment.cardId.value,
+        payment.ledgerEventId.value,
+        jsonEncode(CardRecords.payment(payment)),
+      ],
+    );
+  }
+
+  @override
+  Future<CardPayment?> cardPayment(PublicId paymentId) async {
+    final rows = _transaction.select(
+      'SELECT payload FROM card_payments WHERE id = ?',
+      [paymentId.value],
+    );
+    if (rows.isEmpty) return null;
+    return CardRecords.readPayment(_json(rows.single['payload']));
+  }
+
+  @override
+  Future<bool> isPaymentVoided(PublicId paymentId) async {
+    final rows = _transaction.select(
+      'SELECT 1 FROM card_payments WHERE id = ? AND voided = 1',
+      [paymentId.value],
+    );
+    return rows.isNotEmpty;
+  }
+
+  @override
+  Future<void> voidCardPayment(PublicId paymentId) async {
+    _transaction.execute('UPDATE card_payments SET voided = 1 WHERE id = ?', [
+      paymentId.value,
     ]);
   }
 

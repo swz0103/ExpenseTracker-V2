@@ -422,14 +422,24 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   /// The checks every undo path shares: the posting exists in this
   /// workspace, is not reversed yet, is not owned by a card or trade, has
   /// no active refunds, and touches no closed account.
-  Future<Posting> _reversible(T t, Command<Object?> command) async {
+  Future<Posting> _reversible(T t, Command<Object?> command) {
     final originalId = switch (command) {
       ReversePosting(:final originalId) => originalId,
       DeletePosting(:final originalId) => originalId,
       CorrectCashFlow(:final originalId) => originalId,
       _ => throw StateError('Not an undo command.'),
     };
-    final workspace = command.operation.workspace;
+    return _undoable(t, command.operation.workspace, originalId);
+  }
+
+  /// [owned] is true when the card or trade that owns the posting undoes it
+  /// itself; everyone else is refused.
+  Future<Posting> _undoable(
+    T t,
+    WorkspaceId workspace,
+    PublicId originalId, {
+    bool owned = false,
+  }) async {
     final original = await t.posting(originalId);
     if (original == null || original.operation.workspace != workspace) {
       throw const AppFailure(FailureKind.notFound, 'posting.not-found');
@@ -437,7 +447,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (await t.isReversed(original.id)) {
       throw const AppFailure(FailureKind.conflict, 'posting.already-reversed');
     }
-    if (await t.isLocked(original.id)) {
+    if (!owned && await t.isLocked(original.id)) {
       throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
     }
     if ((await _activeRefunds(t, original.id)).isNotEmpty) {
@@ -453,7 +463,11 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     return original;
   }
 
-  Future<PublicId> _refund(T t, RecordRefund command) async {
+  Future<PublicId> _refund(
+    T t,
+    RecordRefund command, {
+    bool owned = false,
+  }) async {
     await _requireNewPosting(t, command.postingId);
     final workspace = command.operation.workspace;
     final original = await t.posting(command.originalId);
@@ -466,7 +480,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (await t.isReversed(original.id)) {
       throw const AppFailure(FailureKind.rejected, 'posting.already-reversed');
     }
-    if (await t.isLocked(original.id)) {
+    if (!owned && await t.isLocked(original.id)) {
       throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
     }
     // The remaining refund authority is replayed from earlier refunds.

@@ -212,6 +212,57 @@ void main() {
         amount: ntd(1000),
       ),
     );
+    // Card refund, voided charge and voided payment.
+    await cards.refund(
+      RefundCardCharge(
+        operation: op(),
+        refundChargeId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        originalChargeId: charge,
+        card: ref(card),
+        postedOn: day,
+        amount: ntd(200),
+      ),
+    );
+    final mistake = PublicId.generate();
+    await cards.post(
+      PostCardCharge(
+        operation: op(),
+        chargeId: mistake,
+        postingId: PublicId.generate(),
+        card: ref(card),
+        postedOn: day,
+        settledAmount: ntd(70),
+        fee: ntd(0),
+      ),
+    );
+    await cards.voidCharge(
+      VoidCardCharge(
+        operation: op(),
+        chargeId: mistake,
+        reversalId: PublicId.generate(),
+      ),
+    );
+    final wrongPayment = PublicId.generate();
+    await cards.pay(
+      PayCard(
+        operation: op(),
+        paymentId: wrongPayment,
+        postingId: PublicId.generate(),
+        source: ref(bank),
+        card: ref(card),
+        statementClose: BusinessDate(2026, 10, 25),
+        postedOn: BusinessDate(2026, 11, 6),
+        amount: ntd(10),
+      ),
+    );
+    await cards.voidPayment(
+      VoidCardPayment(
+        operation: op(),
+        paymentId: wrongPayment,
+        reversalId: PublicId.generate(),
+      ),
+    );
     final planning = PlanningBook(books);
     await planning.setBudget(
       SetBudget(
