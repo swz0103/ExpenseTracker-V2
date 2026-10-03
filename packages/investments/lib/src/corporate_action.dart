@@ -128,8 +128,8 @@ final class CorporateActionPreview {
         for (var i = 0; i < costs.length; i++)
           if (costs[i] > BigInt.zero) i,
       ];
-      final total = Money(currency, lowered);
-      final parts = total.allocate([for (final i in weighted) costs[i]]);
+      final lowering = Money(currency, lowered);
+      final parts = lowering.allocate([for (final i in weighted) costs[i]]);
       for (final (n, i) in weighted.indexed) {
         costs[i] -= parts[n].minorUnits;
       }
