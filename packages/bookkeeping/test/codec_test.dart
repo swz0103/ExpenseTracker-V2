@@ -72,6 +72,14 @@ void main() {
         date: date,
         account: cash,
         amount: money(twd, 15000),
+        allocations: [
+          Allocation(PublicId.generate(), money(twd, 10000)),
+          Allocation(
+            PublicId.generate(),
+            money(twd, 5000),
+            expectedCategoryVersion: 4,
+          ),
+        ],
       ),
       Posting.transfer(
         id: PublicId.generate(),

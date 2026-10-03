@@ -3,9 +3,13 @@ import 'dart:convert';
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:categories/categories.dart';
+import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:merchants/merchants.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
+import 'package:tags/tags.dart';
 
 /// Projection tables. Released steps are never edited; add a new step.
 final ledgerSchema = SchemaModule('ledger', [
@@ -66,6 +70,81 @@ final ledgerSchema = SchemaModule('ledger', [
     BEGIN SELECT RAISE(ABORT, 'postings are immutable'); END
     ''',
   ],
+  [
+    '''
+    CREATE TABLE catalog_entries (
+      type TEXT NOT NULL,
+      id TEXT NOT NULL,
+      workspace TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      PRIMARY KEY (type, id)
+    ) STRICT, WITHOUT ROWID
+    ''',
+    'CREATE INDEX catalog_by_workspace ON catalog_entries (workspace, type)',
+    '''
+    CREATE TABLE ledger_posting_tags (
+      posting_id TEXT NOT NULL REFERENCES ledger_postings (id),
+      tag_id TEXT NOT NULL,
+      PRIMARY KEY (posting_id, tag_id)
+    ) STRICT, WITHOUT ROWID
+    ''',
+    'CREATE INDEX ledger_posting_tags_by_tag ON ledger_posting_tags (tag_id)',
+    '''
+    CREATE TABLE ledger_posting_merchants (
+      posting_id TEXT PRIMARY KEY REFERENCES ledger_postings (id),
+      merchant_id TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    '''
+    CREATE INDEX ledger_posting_merchants_by_merchant
+    ON ledger_posting_merchants (merchant_id)
+    ''',
+    '''
+    CREATE TABLE ledger_category_monthly (
+      workspace TEXT NOT NULL,
+      month TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      scale INTEGER NOT NULL,
+      income TEXT NOT NULL,
+      expense TEXT NOT NULL,
+      PRIMARY KEY (workspace, month, category_id, currency, scale)
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
+  [
+    '''
+    CREATE TABLE card_terms (
+      card_id TEXT PRIMARY KEY REFERENCES ledger_accounts (id),
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    '''
+    CREATE TABLE card_charges (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES ledger_accounts (id),
+      posting_id TEXT UNIQUE REFERENCES ledger_postings (id),
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    'CREATE INDEX card_charges_by_card ON card_charges (card_id)',
+    '''
+    CREATE TABLE card_payments (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES ledger_accounts (id),
+      posting_id TEXT NOT NULL UNIQUE REFERENCES ledger_postings (id),
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    'CREATE INDEX card_payments_by_card ON card_payments (card_id)',
+    '''
+    CREATE TABLE card_installment_plans (
+      purchase_posting_id TEXT PRIMARY KEY REFERENCES ledger_postings (id),
+      card_id TEXT NOT NULL REFERENCES ledger_accounts (id),
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -118,6 +197,92 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     return [for (final row in rows) _decodePosting(row['payload'])];
   }
 
+  List<Category> categories(WorkspaceId workspace) => [
+    for (final json in _catalog('category', workspace))
+      CatalogCodec.readCategory(json),
+  ];
+
+  List<Tag> tags(WorkspaceId workspace) => [
+    for (final json in _catalog('tag', workspace)) CatalogCodec.readTag(json),
+  ];
+
+  List<Merchant> merchants(WorkspaceId workspace) => [
+    for (final json in _catalog('merchant', workspace))
+      CatalogCodec.readMerchant(json),
+  ];
+
+  CreditCardTerms? cardTerms(PublicId cardId) =>
+      _readTerms(_store.select, cardId);
+
+  /// The statement whose cycle contains [date], from posted charges and
+  /// payments. Pending authorizations are only counted.
+  CardStatement statement(PublicId cardId, BusinessDate date) {
+    final terms = cardTerms(cardId);
+    if (terms == null) throw StateError('Card has no terms.');
+    final charges = _store.select(
+      'SELECT payload FROM card_charges WHERE card_id = ?',
+      [cardId.value],
+    );
+    final payments = _store.select(
+      'SELECT payload FROM card_payments WHERE card_id = ?',
+      [cardId.value],
+    );
+    return CardStatement.calculate(
+      terms: terms,
+      cycle: terms.scheduledCycleFor(date),
+      charges: [
+        for (final row in charges)
+          CardRecords.readCharge(_json(row['payload'])),
+      ],
+      payments: [
+        for (final row in payments)
+          CardRecords.readPayment(_json(row['payload'])),
+      ],
+    );
+  }
+
+  /// Forecast installments for the purchase posted as [postingId].
+  List<CardInstallment> installments(PublicId postingId) {
+    final plan = _readPlan(_store.select, postingId);
+    return plan == null ? const [] : plan.installments;
+  }
+
+  PostingMetadata metadata(PublicId postingId) =>
+      _readMetadata(_store.select, postingId);
+
+  /// Category totals for `YYYY-MM`. Merged categories are reported under
+  /// the category they were merged into.
+  Map<(PublicId, String), MonthlyTotal> categoryTotals(
+    WorkspaceId workspace,
+    String month,
+  ) {
+    final catalog = CategoryCatalog.restore(workspace, categories(workspace));
+    final rows = _store.select(
+      'SELECT * FROM ledger_category_monthly WHERE workspace = ? AND month = ?',
+      [workspace.toString(), month],
+    );
+    final totals = <(PublicId, String), MonthlyTotal>{};
+    for (final row in rows) {
+      final category = PublicId.parse(row['category_id'] as String);
+      final key = (catalog.resolve(category).id, row['currency'] as String);
+      final income = _money(row, 'income');
+      final expense = _money(row, 'expense');
+      final earlier = totals[key];
+      totals[key] = earlier == null
+          ? MonthlyTotal(income, expense)
+          : MonthlyTotal(earlier.income + income, earlier.expense + expense);
+    }
+    return totals;
+  }
+
+  List<Map<String, Object?>> _catalog(String type, WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT payload FROM catalog_entries WHERE type = ? AND workspace = ?',
+      [type, workspace.toString()],
+    );
+    return [for (final row in rows) _json(row['payload'])];
+  }
+
   /// Totals for `YYYY-MM`, keyed by currency code.
   Map<String, MonthlyTotal> monthly(WorkspaceId workspace, String month) {
     final rows = _store.select(
@@ -136,7 +301,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
 
 /// The bookkeeping port on a SQLCipher write transaction. Every projection
 /// change happens in the same transaction as the event.
-final class SqlBookkeeping implements BookkeepingTransaction {
+final class SqlBookkeeping implements CardTransaction {
   SqlBookkeeping._(this._transaction);
 
   final SqlTransaction _transaction;
@@ -210,7 +375,143 @@ final class SqlBookkeeping implements BookkeepingTransaction {
   }
 
   @override
-  Future<void> savePosting(Posting posting) async {
+  Future<bool> isLocked(PublicId postingId) async {
+    final rows = _transaction.select(
+      'SELECT 1 FROM card_charges WHERE posting_id = ?1 '
+      'UNION ALL SELECT 1 FROM card_payments WHERE posting_id = ?1',
+      [postingId.value],
+    );
+    return rows.isNotEmpty;
+  }
+
+  @override
+  Future<CreditCardTerms?> cardTerms(PublicId cardId) async =>
+      _readTerms(_transaction.select, cardId);
+
+  @override
+  Future<void> saveCardTerms(CreditCardTerms terms) async {
+    _transaction.execute(
+      'INSERT INTO card_terms VALUES (?, ?) '
+      'ON CONFLICT (card_id) DO UPDATE SET payload = excluded.payload',
+      [terms.cardId.value, const CreditCardTermsCodec().encode(terms)],
+    );
+  }
+
+  @override
+  Future<CardCharge?> cardCharge(PublicId chargeId) async {
+    final rows = _transaction.select(
+      'SELECT payload FROM card_charges WHERE id = ?',
+      [chargeId.value],
+    );
+    if (rows.isEmpty) return null;
+    return CardRecords.readCharge(_json(rows.single['payload']));
+  }
+
+  @override
+  Future<void> saveCardCharge(CardCharge charge) async {
+    _transaction.execute(
+      'INSERT INTO card_charges VALUES (?, ?, ?, ?) ON CONFLICT (id) '
+      'DO UPDATE SET posting_id = excluded.posting_id, '
+      'payload = excluded.payload',
+      [
+        charge.id.value,
+        charge.cardId.value,
+        charge.ledgerEventId?.value,
+        jsonEncode(CardRecords.charge(charge)),
+      ],
+    );
+  }
+
+  @override
+  Future<void> saveCardPayment(CardPayment payment) async {
+    _transaction.execute('INSERT INTO card_payments VALUES (?, ?, ?, ?)', [
+      payment.id.value,
+      payment.cardId.value,
+      payment.ledgerEventId.value,
+      jsonEncode(CardRecords.payment(payment)),
+    ]);
+  }
+
+  @override
+  Future<CardInstallmentSchedule?> installmentPlan(PublicId purchase) async =>
+      _readPlan(_transaction.select, purchase);
+
+  @override
+  Future<void> saveInstallmentPlan(CardInstallmentSchedule plan) async {
+    _transaction.execute(
+      'INSERT INTO card_installment_plans VALUES (?, ?, ?)',
+      [
+        plan.purchaseEventId.value,
+        plan.cardId.value,
+        const CardInstallmentScheduleCodec().encode(plan),
+      ],
+    );
+  }
+
+  @override
+  Future<PostingMetadata> postingMetadata(PublicId postingId) async =>
+      _readMetadata(_transaction.select, postingId);
+
+  @override
+  Future<List<Category>> categories(WorkspaceId workspace) async => [
+    for (final json in _entries('category', workspace))
+      CatalogCodec.readCategory(json),
+  ];
+
+  @override
+  Future<List<Tag>> tags(WorkspaceId workspace) async => [
+    for (final json in _entries('tag', workspace)) CatalogCodec.readTag(json),
+  ];
+
+  @override
+  Future<List<Merchant>> merchants(WorkspaceId workspace) async => [
+    for (final json in _entries('merchant', workspace))
+      CatalogCodec.readMerchant(json),
+  ];
+
+  @override
+  Future<void> saveCategory(Category category) async => _saveEntry(
+    'category',
+    category.id,
+    category.workspace,
+    CatalogCodec.category(category),
+  );
+
+  @override
+  Future<void> saveTag(Tag tag) async =>
+      _saveEntry('tag', tag.id, tag.workspace, CatalogCodec.tag(tag));
+
+  @override
+  Future<void> saveMerchant(Merchant merchant) async => _saveEntry(
+    'merchant',
+    merchant.id,
+    merchant.workspace,
+    CatalogCodec.merchant(merchant),
+  );
+
+  List<Map<String, Object?>> _entries(String type, WorkspaceId workspace) {
+    final rows = _transaction.select(
+      'SELECT payload FROM catalog_entries WHERE type = ? AND workspace = ?',
+      [type, workspace.toString()],
+    );
+    return [for (final row in rows) _json(row['payload'])];
+  }
+
+  void _saveEntry(
+    String type,
+    PublicId id,
+    WorkspaceId workspace,
+    Map<String, Object?> json,
+  ) {
+    _transaction.execute(
+      'INSERT INTO catalog_entries VALUES (?, ?, ?, ?) '
+      'ON CONFLICT (type, id) DO UPDATE SET payload = excluded.payload',
+      [type, id.value, workspace.toString(), jsonEncode(json)],
+    );
+  }
+
+  @override
+  Future<void> savePosting(Posting posting, PostingMetadata metadata) async {
     _transaction.execute(
       'INSERT INTO ledger_postings '
       '(id, workspace, kind, date, payload, reversal_of) '
@@ -235,6 +536,56 @@ final class SqlBookkeeping implements BookkeepingTransaction {
       _addToBalance(leg.account.id, leg.amount);
     }
     _addToMonth(posting);
+    _addToCategories(posting);
+    for (final tag in metadata.tags) {
+      _transaction.execute('INSERT INTO ledger_posting_tags VALUES (?, ?)', [
+        posting.id.value,
+        tag.value,
+      ]);
+    }
+    final merchant = metadata.merchantId;
+    if (merchant != null) {
+      _transaction.execute(
+        'INSERT INTO ledger_posting_merchants VALUES (?, ?)',
+        [posting.id.value, merchant.value],
+      );
+    }
+  }
+
+  /// A reversal subtracts the original's allocations in its own month.
+  void _addToCategories(Posting posting) {
+    final original = posting.reversedPosting ?? posting;
+    final sign = posting.reversedPosting == null ? BigInt.one : -BigInt.one;
+    final isIncome = original.kind == PostingKind.income;
+    for (final allocation in posting.allocations) {
+      final amount = allocation.amount;
+      final zero = Money(amount.currency, BigInt.zero);
+      final signed = Money(amount.currency, amount.minorUnits * sign);
+      final key = [
+        posting.operation.workspace.toString(),
+        posting.date.toString().substring(0, 7),
+        allocation.categoryId.value,
+        amount.currency.code,
+        amount.currency.scale,
+      ];
+      final rows = _transaction.select(
+        'SELECT * FROM ledger_category_monthly WHERE workspace = ? '
+        'AND month = ? AND category_id = ? AND currency = ? AND scale = ?',
+        key,
+      );
+      var income = isIncome ? signed : zero;
+      var expense = isIncome ? zero : signed;
+      if (rows.isNotEmpty) {
+        income += _money(rows.single, 'income');
+        expense += _money(rows.single, 'expense');
+      }
+      _transaction.execute(
+        'INSERT INTO ledger_category_monthly VALUES (?, ?, ?, ?, ?, ?, ?) '
+        'ON CONFLICT (workspace, month, category_id, currency, scale) '
+        'DO UPDATE SET income = excluded.income, expense = excluded.expense',
+        [...key, '${income.minorUnits}', '${expense.minorUnits}'],
+      );
+    }
   }
 
   void _addToBalance(PublicId accountId, Money amount) {
@@ -282,6 +633,47 @@ final class SqlBookkeeping implements BookkeepingTransaction {
     );
   }
 }
+
+typedef _Select =
+    List<Map<String, Object?>> Function(String sql, [List<Object?> params]);
+
+CreditCardTerms? _readTerms(_Select select, PublicId cardId) {
+  final rows = select('SELECT payload FROM card_terms WHERE card_id = ?', [
+    cardId.value,
+  ]);
+  if (rows.isEmpty) return null;
+  return const CreditCardTermsCodec().decode(rows.single['payload'] as String);
+}
+
+CardInstallmentSchedule? _readPlan(_Select select, PublicId purchase) {
+  final rows = select(
+    'SELECT payload FROM card_installment_plans WHERE purchase_posting_id = ?',
+    [purchase.value],
+  );
+  if (rows.isEmpty) return null;
+  final payload = rows.single['payload'] as String;
+  return const CardInstallmentScheduleCodec().decode(payload);
+}
+
+PostingMetadata _readMetadata(_Select select, PublicId postingId) {
+  final tags = select(
+    'SELECT tag_id FROM ledger_posting_tags WHERE posting_id = ?',
+    [postingId.value],
+  );
+  final merchant = select(
+    'SELECT merchant_id FROM ledger_posting_merchants WHERE posting_id = ?',
+    [postingId.value],
+  );
+  return PostingMetadata(
+    tags: [for (final row in tags) PublicId.parse(row['tag_id'] as String)],
+    merchantId: merchant.isEmpty
+        ? null
+        : PublicId.parse(merchant.single['merchant_id'] as String),
+  );
+}
+
+Map<String, Object?> _json(Object? payload) =>
+    jsonDecode(payload as String) as Map<String, Object?>;
 
 Account _decodeAccount(Object? payload) =>
     AccountCodec.decode(jsonDecode(payload as String) as Map<String, Object?>);

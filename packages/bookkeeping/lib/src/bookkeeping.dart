@@ -2,11 +2,53 @@ import 'dart:convert';
 
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
+import 'package:categories/categories.dart';
+import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:merchants/merchants.dart';
+import 'package:tags/tags.dart';
 
+import 'card_commands.dart';
+import 'catalog_codec.dart';
+import 'catalog_commands.dart';
 import 'codec.dart';
 import 'commands.dart';
+
+part 'cards.dart';
+
+/// Tags and merchant attached to a posting. They never change amounts and
+/// are stored beside the posting; a reversal carries the original's.
+final class PostingMetadata {
+  PostingMetadata({Iterable<PublicId> tags = const [], this.merchantId})
+    : tags = List.unmodifiable(
+        {...tags}.toList()..sort((a, b) => a.value.compareTo(b.value)),
+      ) {
+    if (this.tags.length > 16) {
+      throw const AppFailure(FailureKind.rejected, 'tag.limit');
+    }
+  }
+
+  factory PostingMetadata.fromJson(Map<String, Object?> json) => decoding(() {
+    checkKeys(json, const {'tags', 'merchantId'});
+    final tags = (json['tags'] as List).cast<String>();
+    final merchant = json['merchantId'] as String?;
+    return PostingMetadata(
+      tags: tags.map(PublicId.parse),
+      merchantId: merchant == null ? null : PublicId.parse(merchant),
+    );
+  });
+
+  static final none = PostingMetadata();
+
+  final List<PublicId> tags;
+  final PublicId? merchantId;
+
+  Map<String, Object?> toJson() => {
+    'tags': [for (final tag in tags) tag.value],
+    'merchantId': merchantId?.value,
+  };
+}
 
 /// What bookkeeping needs from storage inside one write transaction.
 /// Implementations update their projections (balances, monthly totals) in
@@ -19,9 +61,27 @@ abstract interface class BookkeepingTransaction implements WriteTransaction {
   /// True once a reversal of [postingId] has been recorded.
   Future<bool> isReversed(PublicId postingId);
 
+  /// True when another record (a card charge or payment) owns the posting;
+  /// it must be corrected through that record instead of a plain reversal.
+  Future<bool> isLocked(PublicId postingId);
+
   Future<void> saveAccount(Account account);
 
-  Future<void> savePosting(Posting posting);
+  Future<PostingMetadata> postingMetadata(PublicId postingId);
+
+  Future<void> savePosting(Posting posting, PostingMetadata metadata);
+
+  Future<List<Category>> categories(WorkspaceId workspace);
+
+  Future<void> saveCategory(Category category);
+
+  Future<List<Tag>> tags(WorkspaceId workspace);
+
+  Future<void> saveTag(Tag tag);
+
+  Future<List<Merchant>> merchants(WorkspaceId workspace);
+
+  Future<void> saveMerchant(Merchant merchant);
 
   Future<void> appendEvent({
     required PublicId id,
@@ -56,6 +116,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   Future<CommandOutcome<PublicId>> reversePosting(ReversePosting command) =>
       _runner.run(command, (t) => _guard(() => _reverse(t, command)));
 
+  Future<CommandOutcome<int>> changeCatalog(ChangeCatalog command) =>
+      _runner.run(command, (t) => _guard(() => _catalog(t, command)));
+
   Future<int> _open(T t, OpenAccount command) async {
     if (await t.account(command.accountId) != null) {
       throw const AppFailure(FailureKind.conflict, 'account.exists');
@@ -79,7 +142,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
         account: _participant(account),
         amount: balance,
       );
-      await _savePosting(t, posting);
+      await _savePosting(t, posting, PostingMetadata.none);
     }
     return account.version;
   }
@@ -115,12 +178,25 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   Future<PublicId> _cashFlow(T t, RecordCashFlow command) async {
     await _requireNewPosting(t, command.postingId);
+    final workspace = command.operation.workspace;
     final account = await _postable(
       t,
       command.account,
-      command.operation.workspace,
+      workspace,
       command.amount.currency,
       command.date,
+    );
+    final allocations = await _allocations(
+      t,
+      workspace,
+      command.flow,
+      command.allocations,
+    );
+    final metadata = await _metadata(
+      t,
+      workspace,
+      command.tags,
+      command.merchant,
     );
     final posting = switch (command.flow) {
       CashFlow.income => Posting.income(
@@ -129,6 +205,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
         date: command.date,
         account: account,
         amount: command.amount,
+        allocations: allocations,
       ),
       CashFlow.expense => Posting.expense(
         id: command.postingId,
@@ -136,9 +213,10 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
         date: command.date,
         account: account,
         amount: command.amount,
+        allocations: allocations,
       ),
     };
-    await _savePosting(t, posting);
+    await _savePosting(t, posting, metadata);
     return posting.id;
   }
 
@@ -168,7 +246,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       received: command.received,
       fee: command.fee,
     );
-    await _savePosting(t, posting);
+    await _savePosting(t, posting, PostingMetadata.none);
     return posting.id;
   }
 
@@ -181,6 +259,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     }
     if (await t.isReversed(original.id)) {
       throw const AppFailure(FailureKind.conflict, 'posting.already-reversed');
+    }
+    if (await t.isLocked(original.id)) {
+      throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
     }
     // A closed account must keep its zero balance.
     for (final leg in original.legs) {
@@ -196,7 +277,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       original: original,
       reason: command.reason,
     );
-    await _savePosting(t, reversal);
+    await _savePosting(t, reversal, await t.postingMetadata(original.id));
     return reversal.id;
   }
 
@@ -242,16 +323,290 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     );
   }
 
-  Future<void> _savePosting(T t, Posting posting) async {
-    await t.savePosting(posting);
+  Future<void> _savePosting(
+    T t,
+    Posting posting,
+    PostingMetadata metadata,
+  ) async {
+    await t.savePosting(posting, metadata);
     await t.appendEvent(
       id: PublicId.generate(),
       workspace: posting.operation.workspace,
       kind: 'posting.recorded',
-      payload: jsonEncode(PostingCodec.encode(posting)),
+      payload: jsonEncode({
+        'posting': PostingCodec.encode(posting),
+        'metadata': metadata.toJson(),
+      }),
     );
   }
+
+  /// Checks every category in the write transaction, at the version shown.
+  Future<List<Allocation>> _allocations(
+    T t,
+    WorkspaceId workspace,
+    CashFlow flow,
+    List<CategoryShare> shares,
+  ) async {
+    if (shares.isEmpty) return const [];
+    final catalog = CategoryCatalog.restore(
+      workspace,
+      await t.categories(workspace),
+    );
+    final kind = flow == CashFlow.income
+        ? CategoryKind.income
+        : CategoryKind.expense;
+    return [
+      for (final share in shares) _allocation(catalog, workspace, kind, share),
+    ];
+  }
+
+  Allocation _allocation(
+    CategoryCatalog catalog,
+    WorkspaceId workspace,
+    CategoryKind kind,
+    CategoryShare share,
+  ) {
+    catalog.requireSelection(
+      workspace: workspace,
+      id: share.categoryId,
+      kind: kind,
+      expectedVersion: share.expectedVersion,
+    );
+    return Allocation(
+      share.categoryId,
+      share.amount,
+      expectedCategoryVersion: share.expectedVersion,
+    );
+  }
+
+  Future<PostingMetadata> _metadata(
+    T t,
+    WorkspaceId workspace,
+    List<TagSelection> selected,
+    MerchantSelection? merchant,
+  ) async {
+    if (selected.isNotEmpty) {
+      final tags = TagCatalog.restore(workspace, await t.tags(workspace));
+      for (final tag in selected) {
+        tags.requireSelection(
+          workspace: workspace,
+          id: tag.id,
+          expectedVersion: tag.expectedVersion,
+        );
+      }
+    }
+    if (merchant != null) {
+      final merchants = MerchantCatalog.restore(
+        workspace,
+        await t.merchants(workspace),
+      );
+      merchants.requireSelection(
+        workspace: workspace,
+        id: merchant.id,
+        expectedVersion: merchant.expectedVersion,
+      );
+    }
+    final ids = [for (final tag in selected) tag.id];
+    if (ids.toSet().length != ids.length) {
+      throw const AppFailure(FailureKind.rejected, 'tag.duplicate');
+    }
+    return PostingMetadata(tags: ids, merchantId: merchant?.id);
+  }
+
+  Future<int> _catalog(T t, ChangeCatalog command) async {
+    final workspace = command.operation.workspace;
+    final change = command.change;
+    switch (command.catalog) {
+      case CatalogType.category:
+        final before = await t.categories(workspace);
+        final catalog = CategoryCatalog.restore(workspace, before);
+        final after = _changeCategories(catalog, workspace, change).categories;
+        return _commitCatalog(
+          t,
+          before: {for (final row in before) row.id: row.version},
+          after: {for (final row in after) row.id: (row, row.version)},
+          subject: change.subject,
+          workspace: workspace,
+          save: t.saveCategory,
+          encode: CatalogCodec.category,
+          kind: 'category.changed',
+        );
+      case CatalogType.tag:
+        final before = await t.tags(workspace);
+        final catalog = TagCatalog.restore(workspace, before);
+        final after = _changeTags(catalog, workspace, change).tags;
+        return _commitCatalog(
+          t,
+          before: {for (final row in before) row.id: row.version},
+          after: {for (final row in after) row.id: (row, row.version)},
+          subject: change.subject,
+          workspace: workspace,
+          save: t.saveTag,
+          encode: CatalogCodec.tag,
+          kind: 'tag.changed',
+        );
+      case CatalogType.merchant:
+        final before = await t.merchants(workspace);
+        final catalog = MerchantCatalog.restore(workspace, before);
+        final after = _changeMerchants(catalog, workspace, change).merchants;
+        return _commitCatalog(
+          t,
+          before: {for (final row in before) row.id: row.version},
+          after: {for (final row in after) row.id: (row, row.version)},
+          subject: change.subject,
+          workspace: workspace,
+          save: t.saveMerchant,
+          encode: CatalogCodec.merchant,
+          kind: 'merchant.changed',
+        );
+    }
+  }
+
+  /// Saves and journals every row whose version moved.
+  Future<int> _commitCatalog<R>(
+    T t, {
+    required Map<PublicId, int> before,
+    required Map<PublicId, (R, int)> after,
+    required PublicId subject,
+    required WorkspaceId workspace,
+    required Future<void> Function(R row) save,
+    required Map<String, Object?> Function(R row) encode,
+    required String kind,
+  }) async {
+    for (final entry in after.entries) {
+      final (row, version) = entry.value;
+      if (before[entry.key] == version) continue;
+      await save(row);
+      await t.appendEvent(
+        id: PublicId.generate(),
+        workspace: workspace,
+        kind: kind,
+        payload: jsonEncode(encode(row)),
+      );
+    }
+    return after[subject]!.$2;
+  }
 }
+
+CategoryCatalog _changeCategories(
+  CategoryCatalog catalog,
+  WorkspaceId workspace,
+  CatalogChange change,
+) => switch (change) {
+  CreateEntry(:final id, :final name, :final kind?, :final parentId) =>
+    catalog.create(
+      workspace: workspace,
+      id: id,
+      name: name,
+      kind: kind,
+      parentId: parentId,
+    ),
+  RenameEntry(:final id, :final expectedVersion, :final name) =>
+    catalog.rename(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      name: name,
+    ),
+  ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
+    catalog.setArchived(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      archived: archived,
+    ),
+  MergeEntry merge => catalog.merge(
+    workspace: workspace,
+    sourceId: merge.sourceId,
+    expectedSourceVersion: merge.expectedSourceVersion,
+    targetId: merge.targetId,
+    expectedTargetVersion: merge.expectedTargetVersion,
+  ),
+  MoveCategory(:final id, :final expectedVersion, :final parentId) =>
+    catalog.move(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      parentId: parentId,
+    ),
+  _ => throw const AppFailure(FailureKind.rejected, 'catalog.unsupported'),
+};
+
+TagCatalog _changeTags(
+  TagCatalog catalog,
+  WorkspaceId workspace,
+  CatalogChange change,
+) => switch (change) {
+  CreateEntry(:final id, :final name, kind: null, parentId: null) =>
+    catalog.create(workspace: workspace, id: id, name: name),
+  RenameEntry(:final id, :final expectedVersion, :final name) =>
+    catalog.rename(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      name: name,
+    ),
+  ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
+    catalog.setArchived(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      archived: archived,
+    ),
+  MergeEntry merge => catalog.merge(
+    workspace: workspace,
+    sourceId: merge.sourceId,
+    expectedSourceVersion: merge.expectedSourceVersion,
+    targetId: merge.targetId,
+    expectedTargetVersion: merge.expectedTargetVersion,
+  ),
+  _ => throw const AppFailure(FailureKind.rejected, 'catalog.unsupported'),
+};
+
+MerchantCatalog _changeMerchants(
+  MerchantCatalog catalog,
+  WorkspaceId workspace,
+  CatalogChange change,
+) => switch (change) {
+  CreateEntry(:final id, :final name, kind: null, parentId: null) =>
+    catalog.create(workspace: workspace, id: id, name: name),
+  RenameEntry(:final id, :final expectedVersion, :final name) =>
+    catalog.rename(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      name: name,
+    ),
+  ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
+    catalog.setArchived(
+      workspace: workspace,
+      id: id,
+      expectedVersion: expectedVersion,
+      archived: archived,
+    ),
+  MergeEntry merge => catalog.merge(
+    workspace: workspace,
+    sourceId: merge.sourceId,
+    expectedSourceVersion: merge.expectedSourceVersion,
+    targetId: merge.targetId,
+    expectedTargetVersion: merge.expectedTargetVersion,
+  ),
+  ChangeAlias(:final id, :final expectedVersion, :final alias, :final add) =>
+    add
+        ? catalog.addAlias(
+            workspace: workspace,
+            id: id,
+            expectedVersion: expectedVersion,
+            alias: alias,
+          )
+        : catalog.removeAlias(
+            workspace: workspace,
+            id: id,
+            expectedVersion: expectedVersion,
+            alias: alias,
+          ),
+  _ => throw const AppFailure(FailureKind.rejected, 'catalog.unsupported'),
+};
 
 PostingAccount _participant(Account account) => PostingAccount(
   id: account.id,
@@ -273,5 +628,22 @@ Future<R> _guard<R>(Future<R> Function() body) async {
     throw AppFailure(FailureKind.rejected, 'ledger.${error.code.name}');
   } on MoneyException catch (error) {
     throw AppFailure(FailureKind.rejected, 'money.${error.code.name}');
+  } on CreditCardException catch (error) {
+    throw AppFailure(FailureKind.rejected, 'card.${error.code.name}');
+  } on CategoryException catch (error) {
+    throw _catalogFailure('category', error.code.name);
+  } on TagException catch (error) {
+    throw _catalogFailure('tag', error.code.name);
+  } on MerchantException catch (error) {
+    throw _catalogFailure('merchant', error.code.name);
   }
+}
+
+AppFailure _catalogFailure(String area, String code) {
+  final kind = switch (code) {
+    'versionConflict' => FailureKind.conflict,
+    'missing' => FailureKind.notFound,
+    _ => FailureKind.rejected,
+  };
+  return AppFailure(kind, '$area.$code');
 }

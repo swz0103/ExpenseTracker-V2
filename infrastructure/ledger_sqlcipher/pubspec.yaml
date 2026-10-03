@@ -11,12 +11,20 @@ dependencies:
     path: ../../packages/app_core
   bookkeeping:
     path: ../../packages/bookkeeping
+  categories:
+    path: ../../packages/categories
+  credit_cards:
+    path: ../../packages/credit_cards
   foundation_values:
     path: ../../packages/foundation_values
   ledger:
     path: ../../packages/ledger
+  merchants:
+    path: ../../packages/merchants
   storage_sqlcipher:
     path: ../storage_sqlcipher
+  tags:
+    path: ../../packages/tags
 dev_dependencies:
   test: 1.32.0
 hooks:

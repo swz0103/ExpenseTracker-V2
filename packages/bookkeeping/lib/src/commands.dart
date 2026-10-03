@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 
 /// Account commands return the account version after the change.
 abstract base class AccountCommand implements Command<int> {
@@ -143,6 +144,21 @@ final class AccountRef {
 
 enum CashFlow { income, expense }
 
+/// Part of an income or expense attributed to one category.
+final class CategoryShare {
+  const CategoryShare(this.categoryId, this.expectedVersion, this.amount);
+
+  final PublicId categoryId;
+  final int expectedVersion;
+  final Money amount;
+
+  Map<String, Object?> toJson() => {
+    'categoryId': categoryId.value,
+    'expectedVersion': expectedVersion,
+    'amount': amount.toJson(),
+  };
+}
+
 final class RecordCashFlow extends PostingCommand {
   RecordCashFlow({
     required OperationKey operation,
@@ -151,12 +167,20 @@ final class RecordCashFlow extends PostingCommand {
     required this.account,
     required this.date,
     required this.amount,
+    this.allocations = const [],
+    this.tags = const [],
+    this.merchant,
   }) : super(operation, postingId);
 
   final CashFlow flow;
   final AccountRef account;
   final BusinessDate date;
   final Money amount;
+
+  /// Empty, or shares that add up to [amount] exactly.
+  final List<CategoryShare> allocations;
+  final List<TagSelection> tags;
+  final MerchantSelection? merchant;
 
   @override
   Map<String, Object?> get fields => {
@@ -166,6 +190,17 @@ final class RecordCashFlow extends PostingCommand {
     'account': account.toJson(),
     'date': date.toString(),
     'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+    'tags': [
+      for (final tag in tags)
+        {'id': tag.id.value, 'expectedVersion': tag.expectedVersion},
+    ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
+    'merchant': merchant == null
+        ? null
+        : {
+            'id': merchant!.id.value,
+            'expectedVersion': merchant!.expectedVersion,
+          },
   };
 }
 

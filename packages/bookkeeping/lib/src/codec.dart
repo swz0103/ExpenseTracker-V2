@@ -33,8 +33,8 @@ abstract final class AccountCodec {
     'successorId': account.successorId?.value,
   };
 
-  static Account decode(Map<String, Object?> json) => _decoding(() {
-    _keys(json, const {
+  static Account decode(Map<String, Object?> json) => decoding(() {
+    checkKeys(json, const {
       'version',
       'id',
       'workspace',
@@ -83,7 +83,7 @@ abstract final class PostingCodec {
   };
 
   static Map<String, Object?> encode(Posting posting) {
-    if (!supported.contains(posting.kind) || posting.allocations.isNotEmpty) {
+    if (!supported.contains(posting.kind)) {
       throw UnsupportedError('Posting kind ${posting.kind.name} not stored.');
     }
     final base = <String, Object?>{
@@ -96,17 +96,25 @@ abstract final class PostingCodec {
     };
     final legs = posting.legs;
     switch (posting.kind) {
-      case PostingKind.opening || PostingKind.income:
+      case PostingKind.opening:
         return {
           ...base,
           'account': _account(legs.single.account),
           'amount': legs.single.amount.toJson(),
+        };
+      case PostingKind.income:
+        return {
+          ...base,
+          'account': _account(legs.single.account),
+          'amount': legs.single.amount.toJson(),
+          'allocations': _allocations(posting.allocations),
         };
       case PostingKind.expense:
         return {
           ...base,
           'account': _account(legs.single.account),
           'amount': (-legs.single.amount).toJson(),
+          'allocations': _allocations(posting.allocations),
         };
       case PostingKind.transfer:
         final fee = legs.where((leg) => leg.role == LegRole.fee);
@@ -129,7 +137,7 @@ abstract final class PostingCodec {
     }
   }
 
-  static Posting decode(Map<String, Object?> json) => _decoding(() {
+  static Posting decode(Map<String, Object?> json) => decoding(() {
     if (json['version'] != version) throw const CodecException('version');
     final kind = PostingKind.values.byName(json['kind'] as String);
     final common = {'version', 'id', 'workspace', 'operation', 'date', 'kind'};
@@ -141,35 +149,40 @@ abstract final class PostingCodec {
     );
     final date = BusinessDate.parse(json['date'] as String);
     switch (kind) {
-      case PostingKind.opening || PostingKind.income || PostingKind.expense:
-        _keys(json, {...common, 'account', 'amount'});
+      case PostingKind.opening:
+        checkKeys(json, {...common, 'account', 'amount'});
+        final amount = _money(json['amount']);
+        return Posting.opening(
+          id: id,
+          operation: operation,
+          date: date,
+          account: _readAccount(json['account'], workspace, amount),
+          amount: amount,
+        );
+      case PostingKind.income || PostingKind.expense:
+        checkKeys(json, {...common, 'account', 'amount', 'allocations'});
         final amount = _money(json['amount']);
         final account = _readAccount(json['account'], workspace, amount);
-        return switch (kind) {
-          PostingKind.opening => Posting.opening(
-            id: id,
-            operation: operation,
-            date: date,
-            account: account,
-            amount: amount,
-          ),
-          PostingKind.income => Posting.income(
-            id: id,
-            operation: operation,
-            date: date,
-            account: account,
-            amount: amount,
-          ),
-          _ => Posting.expense(
-            id: id,
-            operation: operation,
-            date: date,
-            account: account,
-            amount: amount,
-          ),
-        };
+        final allocations = _readAllocations(json['allocations']);
+        return kind == PostingKind.income
+            ? Posting.income(
+                id: id,
+                operation: operation,
+                date: date,
+                account: account,
+                amount: amount,
+                allocations: allocations,
+              )
+            : Posting.expense(
+                id: id,
+                operation: operation,
+                date: date,
+                account: account,
+                amount: amount,
+                allocations: allocations,
+              );
       case PostingKind.transfer:
-        _keys(json, {
+        checkKeys(json, {
           ...common,
           'source',
           'destination',
@@ -191,7 +204,7 @@ abstract final class PostingCodec {
           fee: fee,
         );
       case PostingKind.reversal:
-        _keys(json, {...common, 'original', 'reason'});
+        checkKeys(json, {...common, 'original', 'reason'});
         final original = json['original'];
         if (original is! Map<String, Object?> ||
             original['kind'] == PostingKind.reversal.name) {
@@ -209,6 +222,37 @@ abstract final class PostingCodec {
     }
   });
 
+  static List<Map<String, Object?>> _allocations(List<Allocation> list) => [
+    for (final allocation in list)
+      {
+        'categoryId': allocation.categoryId.value,
+        'categoryVersion': allocation.expectedCategoryVersion,
+        'amount': allocation.amount.toJson(),
+      },
+  ];
+
+  static List<Allocation> _readAllocations(Object? value) {
+    if (value is! List || value.length > 64) {
+      throw const CodecException('allocations');
+    }
+    return [
+      for (final item in value)
+        if (item is Map<String, Object?>)
+          _readAllocation(item)
+        else
+          throw const CodecException('allocation'),
+    ];
+  }
+
+  static Allocation _readAllocation(Map<String, Object?> json) {
+    checkKeys(json, const {'categoryId', 'categoryVersion', 'amount'});
+    return Allocation(
+      PublicId.parse(json['categoryId'] as String),
+      _money(json['amount']),
+      expectedCategoryVersion: json['categoryVersion'] as int?,
+    );
+  }
+
   static Map<String, Object?> _account(PostingAccount account) => {
     'id': account.id.value,
     'version': account.expectedVersion,
@@ -220,7 +264,7 @@ abstract final class PostingCodec {
     Money amount,
   ) {
     if (value is! Map<String, Object?>) throw const CodecException('account');
-    _keys(value, const {'id', 'version'});
+    checkKeys(value, const {'id', 'version'});
     return PostingAccount(
       id: PublicId.parse(value['id'] as String),
       workspace: workspace,
@@ -242,18 +286,18 @@ Map<String, Object?> _currency(Currency currency) => {
 
 Currency _readCurrency(Object? value) {
   if (value is! Map<String, Object?>) throw const CodecException('currency');
-  _keys(value, const {'code', 'scale'});
+  checkKeys(value, const {'code', 'scale'});
   return Currency(value['code'] as String, value['scale'] as int);
 }
 
-void _keys(Map<String, Object?> json, Set<String> keys) {
+void checkKeys(Map<String, Object?> json, Set<String> keys) {
   if (json.length != keys.length || !keys.containsAll(json.keys)) {
     throw const CodecException('fields');
   }
 }
 
 /// Maps every decoding failure, including domain validation, to one type.
-T _decoding<T>(T Function() body) {
+T decoding<T>(T Function() body) {
   try {
     return body();
   } on CodecException {
