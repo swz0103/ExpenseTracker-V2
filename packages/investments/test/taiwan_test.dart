@@ -52,6 +52,13 @@ void main() {
     );
   });
 
+  test('the NHI premium applies from NT\$20,000, up to NT\$10 million', () {
+    expect(supplementaryPremium(ntd(19999)), ntd(0));
+    expect(supplementaryPremium(ntd(20000)), ntd(422));
+    expect(supplementaryPremium(ntd(12345678)), ntd(211000));
+    expect(supplementaryPremium(ntd(30000), basisPoints: 200), ntd(600));
+  });
+
   test('trades settle two exchange days later', () {
     final calendar = BankingCalendar(holidays: {BusinessDate(2026, 10, 9)});
     final thursday = BusinessDate(2026, 10, 8);

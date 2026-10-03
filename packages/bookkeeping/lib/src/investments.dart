@@ -402,6 +402,16 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<PublicId> _dividend(T t, RecordDividend command) async {
     final context = await _context(t, command.operation, command.target);
     await _books._requireNewPosting(t, command.postingId);
+    final exDate = command.exDividendOn;
+    if (exDate != null && exDate.compareTo(command.paidOn) > 0) {
+      throw const AppFailure(FailureKind.rejected, 'investment.ex-date');
+    }
+    final premium =
+        command.healthPremium ?? Money(command.fee.currency, BigInt.zero);
+    if (premium.currency != command.fee.currency ||
+        premium.minorUnits.isNegative) {
+      throw const AppFailure(FailureKind.rejected, 'investment.premium');
+    }
     final preview = InvestmentDividendPreview.create(
       id: command.dividendId,
       operation: command.operation,
@@ -412,7 +422,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       funding: context.funding,
       gross: command.gross,
       withholdingTax: command.withholdingTax,
-      fee: command.fee,
+      fee: command.fee + premium,
       reportedNet: command.net,
     );
     final currency = context.instrument.tradingCurrency;
@@ -436,7 +446,9 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       'date': command.paidOn.toString(),
       'gross': preview.gross.toJson(),
       'withholdingTax': preview.withholdingTax.toJson(),
-      'fee': preview.fee.toJson(),
+      'fee': command.fee.toJson(),
+      'healthPremium': premium.toJson(),
+      'exDate': exDate?.toString(),
       'net': preview.netCashCredit.toJson(),
     });
     return posting.id;

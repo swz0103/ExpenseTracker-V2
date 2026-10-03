@@ -244,6 +244,8 @@ final class RecordDividend extends _Trade {
     required this.withholdingTax,
     required this.fee,
     required this.net,
+    this.exDividendOn,
+    this.healthPremium,
   }) : super(operation);
 
   final PublicId dividendId;
@@ -253,7 +255,16 @@ final class RecordDividend extends _Trade {
   final Money gross;
   final Money withholdingTax;
   final Money fee;
+
+  /// What arrived: gross less tax, fee and [healthPremium].
   final Money net;
+
+  /// The ex-dividend date, on or before [paidOn] (feature audit G-13).
+  final BusinessDate? exDividendOn;
+
+  /// Taiwan's NHI supplementary premium withheld from the dividend; see
+  /// `TaiwanTradeCharges.supplementaryPremium`.
+  final Money? healthPremium;
 
   @override
   Map<String, Object?> get fields => {
@@ -266,6 +277,8 @@ final class RecordDividend extends _Trade {
     'withholdingTax': withholdingTax.toJson(),
     'fee': fee.toJson(),
     'net': net.toJson(),
+    'exDividendOn': exDividendOn?.toString(),
+    'healthPremium': healthPremium?.toJson(),
   };
 }
 

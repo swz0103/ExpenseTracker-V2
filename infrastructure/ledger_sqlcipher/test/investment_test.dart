@@ -284,6 +284,48 @@ void main() {
     );
   });
 
+  test('dividends add up per year with premium and ex-date', () async {
+    await buy('10', '150', 150000);
+    Future<void> dividend(
+      BusinessDate paidOn, {
+      BusinessDate? exDate,
+      int premium = 0,
+    }) => invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: paidOn,
+        gross: cents(30000),
+        withholdingTax: cents(0),
+        fee: cents(10),
+        net: cents(30000 - 10 - premium),
+        exDividendOn: exDate,
+        healthPremium: cents(premium),
+      ),
+    );
+    await dividend(
+      BusinessDate(2026, 11, 15),
+      exDate: BusinessDate(2026, 10, 20),
+      premium: 633,
+    );
+    await dividend(BusinessDate(2026, 12, 15));
+    await dividend(BusinessDate(2027, 1, 15));
+    await expectLater(
+      dividend(BusinessDate(2027, 2, 1), exDate: BusinessDate(2027, 2, 2)),
+      fails(FailureKind.rejected, 'investment.ex-date'),
+    );
+    final year = ledger.dividendSummary(workspace, 2026).single;
+    expect(year.instrumentId, apple);
+    expect(year.payments, 2);
+    expect(year.gross, cents(60000));
+    expect(year.fee, cents(20));
+    expect(year.healthPremium, cents(633));
+    expect(year.net, cents(60000 - 20 - 633));
+    expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 89337));
+  });
+
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(

@@ -73,6 +73,27 @@ final class TaiwanTradeCharges {
   }
 }
 
+/// Taiwan's NHI supplementary premium on one dividend payment: 2.11% of
+/// the gross when it reaches NT$20,000, on at most NT$10 million,
+/// rounded half up (feature audit G-13). The rate is passed in when it
+/// changes.
+Money supplementaryPremium(Money gross, {int basisPoints = 211}) {
+  if (gross.currency != _twd) {
+    throw const InvestmentException(InvestmentError.currencyMismatch);
+  }
+  if (gross.minorUnits.isNegative || basisPoints < 0) {
+    throw const InvestmentException(InvestmentError.invalidInput);
+  }
+  if (gross.minorUnits < BigInt.from(20000)) return Money(_twd, BigInt.zero);
+  final cap = BigInt.from(10000000);
+  final base = gross.minorUnits > cap ? cap : gross.minorUnits;
+  return Money.quantizeRatio(
+    _twd,
+    base * BigInt.from(basisPoints),
+    BigInt.from(10000),
+  );
+}
+
 /// Taiwan stock trades settle two exchange days after the trade (T+2,
 /// feature audit G-07).
 BusinessDate taiwanSettlementDate(

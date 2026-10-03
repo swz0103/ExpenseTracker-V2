@@ -299,6 +299,40 @@ final class InvestmentIncome {
 
 Money _zero(Money like) => Money(like.currency, BigInt.zero);
 
+/// Dividends of one holding over a year, in its currency.
+final class DividendTotal {
+  const DividendTotal({
+    required this.accountId,
+    required this.instrumentId,
+    required this.gross,
+    required this.withholdingTax,
+    required this.fee,
+    required this.healthPremium,
+    required this.net,
+    required this.payments,
+  });
+
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final Money gross;
+  final Money withholdingTax;
+  final Money fee;
+  final Money healthPremium;
+  final Money net;
+  final int payments;
+
+  DividendTotal plus(DividendTotal other) => DividendTotal(
+    accountId: accountId,
+    instrumentId: instrumentId,
+    gross: gross + other.gross,
+    withholdingTax: withholdingTax + other.withholdingTax,
+    fee: fee + other.fee,
+    healthPremium: healthPremium + other.healthPremium,
+    net: net + other.net,
+    payments: payments + other.payments,
+  );
+}
+
 /// Bookkeeping on one SQLCipher store. Open the store with [ledgerSchema].
 final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
   LedgerStore(this._store) {
@@ -552,6 +586,41 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
           dividends: dividends[code] ?? _zero(realized[code]!),
         ),
     };
+  }
+
+  /// Dividends paid in [year], per account, instrument and currency, for
+  /// the annual tax summary (feature audit G-13).
+  List<DividendTotal> dividendSummary(WorkspaceId workspace, int year) {
+    final totals = <(PublicId, PublicId, String), DividendTotal>{};
+    for (final account in investmentAccounts(workspace)) {
+      final rows = _store.select(
+        'SELECT payload FROM invest_trades WHERE account_id = ? '
+        "AND json_extract(payload, '\$.kind') = 'dividend' "
+        "AND json_extract(payload, '\$.date') BETWEEN ? AND ? "
+        "AND json_extract(payload, '\$.id') NOT IN "
+        '(SELECT trade_id FROM invest_voids) ORDER BY seq',
+        [account.id.value, '$year-01-01', '$year-12-31'],
+      );
+      for (final row in rows) {
+        final json = _json(row['payload']);
+        Money money(String key) =>
+            Money.fromJson(json[key]! as Map<String, Object?>);
+        final gross = money('gross');
+        final paid = DividendTotal(
+          accountId: account.id,
+          instrumentId: PublicId.parse(json['instrumentId']! as String),
+          gross: gross,
+          withholdingTax: money('withholdingTax'),
+          fee: money('fee'),
+          healthPremium: money('healthPremium'),
+          net: money('net'),
+          payments: 1,
+        );
+        final key = (paid.accountId, paid.instrumentId, gross.currency.code);
+        totals[key] = totals[key]?.plus(paid) ?? paid;
+      }
+    }
+    return totals.values.toList();
   }
 
   EntryNote note(PublicId postingId) => _readNote(_store.select, postingId);
