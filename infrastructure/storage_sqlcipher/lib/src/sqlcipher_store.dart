@@ -157,6 +157,38 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
     return cipher.isEmpty ? result : 'cipher integrity failure';
   }
 
+  /// Every event in commit order, across workspaces. Replay and backup
+  /// read the journal through this, a page at a time.
+  List<StoredEvent> journal({int afterSeq = 0, int limit = 500}) {
+    _requireOpen();
+    final rows = _db.select(
+      'SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?',
+      [afterSeq, limit],
+    );
+    return rows.map(_event).toList();
+  }
+
+  /// Recorded operations ordered by key, a page at a time.
+  List<RecordedOperation> operations({int offset = 0, int limit = 500}) {
+    _requireOpen();
+    final rows = _db.select(
+      'SELECT * FROM operations ORDER BY workspace, operation_id '
+      'LIMIT ? OFFSET ?',
+      [limit, offset],
+    );
+    return [
+      for (final row in rows)
+        RecordedOperation(
+          key: OperationKey(
+            WorkspaceId.parse(row['workspace'] as String),
+            OperationId.parse(row['operation_id'] as String),
+          ),
+          input: row['input'] as String,
+          result: row['result'] as String,
+        ),
+    ];
+  }
+
   List<StoredEvent> events(
     WorkspaceId workspace, {
     int afterSeq = 0,
