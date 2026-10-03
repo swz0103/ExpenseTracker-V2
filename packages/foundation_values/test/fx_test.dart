@@ -277,7 +277,20 @@ void main() {
         error(FxError.dateMismatch),
       );
       expect(
-        value.rateFor(BusinessDate(2026, 9, 25), allowEarlier: true),
+        value.rateFor(BusinessDate(2026, 9, 7), allowEarlier: true),
+        value.rate,
+      );
+      // Older than a week needs the caller to say how old is acceptable.
+      expect(
+        () => value.rateFor(BusinessDate(2026, 9, 25), allowEarlier: true),
+        error(FxError.dateMismatch),
+      );
+      expect(
+        value.rateFor(
+          BusinessDate(2026, 9, 25),
+          allowEarlier: true,
+          maxEarlierDays: 30,
+        ),
         value.rate,
       );
       expect(

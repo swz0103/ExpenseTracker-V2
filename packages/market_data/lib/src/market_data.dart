@@ -57,9 +57,48 @@ abstract interface class MarketTransport {
 const marketResponseLimit = 8 * 1024 * 1024;
 
 final class _Snapshot {
-  const _Snapshot(this.body, this.fetchedAt);
+  _Snapshot(this.body, this.fetchedAt);
   final String body;
   final UtcInstant fetchedAt;
+
+  /// Rows by symbol, decoded once per fetched snapshot rather than once per
+  /// holding (health check G2-03).
+  final _indexes = <String, _SymbolIndex>{};
+
+  _SymbolIndex index(String market, String key) =>
+      _indexes[key] ??= _SymbolIndex.parse(body, market, key);
+}
+
+final class _SymbolIndex {
+  _SymbolIndex(this.rows, this.duplicates);
+
+  factory _SymbolIndex.parse(String body, String market, String key) {
+    final decoded = jsonDecode(body);
+    if (decoded is! List) throw FormatException('Expected $market rows');
+    final rows = <String, Map<String, dynamic>>{};
+    final duplicates = <String>{};
+    for (final row in decoded) {
+      if (row is! Map<String, dynamic>) {
+        throw FormatException('Invalid $market row');
+      }
+      final symbol = row[key];
+      if (symbol is! String) continue;
+      if (rows.containsKey(symbol)) duplicates.add(symbol);
+      rows[symbol] = row;
+    }
+    return _SymbolIndex(rows, duplicates);
+  }
+
+  final Map<String, Map<String, dynamic>> rows;
+  final Set<String> duplicates;
+
+  /// The row for [symbol]; a symbol listed twice is unusable.
+  Map<String, dynamic>? row(String market, String symbol) {
+    if (duplicates.contains(symbol)) {
+      throw FormatException('Duplicate $market symbol');
+    }
+    return rows[symbol];
+  }
 }
 
 final class _Fetch {
@@ -84,8 +123,10 @@ final class MarketDataGateway {
     this.cacheTtl = const Duration(minutes: 20),
     this.requestCooldown = const Duration(seconds: 10),
     this.maximumObservationAge = const Duration(days: 4),
+    Future<void> Function(Duration delay)? wait,
   }) : _transport = transport,
-       _clock = clock ?? DateTime.now {
+       _clock = clock ?? DateTime.now,
+       _wait = wait ?? Future<void>.delayed {
     if (cacheTtl <= Duration.zero ||
         requestCooldown < Duration.zero ||
         maximumObservationAge < Duration.zero) {
@@ -111,7 +152,15 @@ final class MarketDataGateway {
   final Duration requestCooldown;
   final Duration maximumObservationAge;
   final Map<Uri, _Snapshot> _cache = {};
-  final Map<String, DateTime> _lastAttempt = {};
+  final Future<void> Function(Duration delay) _wait;
+
+  /// When each resource was last requested; asking again sooner is
+  /// throttled.
+  final Map<Uri, DateTime> _lastAttempt = {};
+
+  /// When each host may next be asked. Another series on the same host
+  /// waits its turn instead of failing (health check G2-13).
+  final Map<String, DateTime> _hostFree = {};
   final Map<Uri, Future<_Fetch>> _pending = {};
 
   Future<MarketResult<StockClose>> stockClose(
@@ -131,19 +180,8 @@ final class MarketDataGateway {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final decoded = jsonDecode(fetched.snapshot!.body);
-      if (decoded is! List) throw const FormatException('Expected TWSE rows');
-      Map<String, dynamic>? match;
-      for (final row in decoded) {
-        if (row is! Map<String, dynamic>) {
-          throw const FormatException('Invalid TWSE row');
-        }
-        if (row['Code'] == instrument.symbol) {
-          if (match != null)
-            throw const FormatException('Duplicate TWSE symbol');
-          match = row;
-        }
-      }
+      final rows = fetched.snapshot!.index('TWSE', 'Code');
+      final match = rows.row('TWSE', instrument.symbol);
       if (match == null)
         return const MarketResult(
           MarketState.missing,
@@ -196,19 +234,8 @@ final class MarketDataGateway {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final decoded = jsonDecode(fetched.snapshot!.body);
-      if (decoded is! List) throw const FormatException('Expected TPEx rows');
-      Map<String, dynamic>? match;
-      for (final row in decoded) {
-        if (row is! Map<String, dynamic>) {
-          throw const FormatException('Invalid TPEx row');
-        }
-        if (row['SecuritiesCompanyCode'] == instrument.symbol) {
-          if (match != null)
-            throw const FormatException('Duplicate TPEx symbol');
-          match = row;
-        }
-      }
+      final rows = fetched.snapshot!.index('TPEx', 'SecuritiesCompanyCode');
+      final match = rows.row('TPEx', instrument.symbol);
       if (match == null) {
         return const MarketResult(
           MarketState.missing,
@@ -464,7 +491,7 @@ final class MarketDataGateway {
     }
     final inFlight = _pending[uri];
     if (inFlight != null) return inFlight;
-    final last = _lastAttempt[uri.host];
+    final last = _lastAttempt[uri];
     if (last != null &&
         !now.isBefore(last) &&
         now.difference(last) < requestCooldown) {
@@ -476,8 +503,17 @@ final class MarketDataGateway {
         ),
       );
     }
-    _lastAttempt[uri.host] = now;
-    final future = _request(uri, cached, UtcInstant(now));
+    _lastAttempt[uri] = now;
+    final free = _hostFree[uri.host];
+    var delay = free == null || !free.isAfter(now)
+        ? Duration.zero
+        : free.difference(now);
+    if (delay > requestCooldown) delay = requestCooldown;
+    _hostFree[uri.host] = now.add(delay).add(requestCooldown);
+    final ready = delay == Duration.zero ? Future<void>.value() : _wait(delay);
+    final future = ready.then(
+      (_) => _request(uri, cached, UtcInstant(now.add(delay))),
+    );
     _pending[uri] = future;
     return future.whenComplete(() => _pending.remove(uri));
   }
@@ -615,10 +651,15 @@ final class MarketDataGateway {
 bool _twseSymbolSupported(InvestmentInstrument instrument) {
   final symbol = instrument.symbol;
   return switch (instrument.kind) {
-    InstrumentKind.stock => RegExp(r'^[1-9][0-9]{3}$').hasMatch(symbol),
-    InstrumentKind.etf => RegExp(r'^00[0-9]{2,4}$').hasMatch(symbol),
+    InstrumentKind.stock => _stockSymbol.hasMatch(symbol),
+    InstrumentKind.etf => _etfSymbol.hasMatch(symbol),
   };
 }
+
+/// Ordinary and preferred shares (2881A); bond, leveraged and inverse ETFs
+/// (00679B, 00631L, 00632R) too (health check G2-09).
+final _stockSymbol = RegExp(r'^[1-9][0-9]{3}[A-Z]?$');
+final _etfSymbol = RegExp(r'^00[0-9]{2,4}[A-Z]?$');
 
 bool _tpexSymbolSupported(InvestmentInstrument instrument) =>
     _twseSymbolSupported(instrument);
@@ -636,7 +677,7 @@ List<_CbcRow> _cbcRows(String body) {
   final result = <_CbcRow>[];
   BusinessDate? prior;
   for (final raw in decoded) {
-    if (raw is! Map<String, dynamic> || raw.length != 2) {
+    if (raw is! Map<String, dynamic>) {
       throw const FormatException('Invalid CBC row');
     }
     final asOf = _calendarDate(raw['日期']);

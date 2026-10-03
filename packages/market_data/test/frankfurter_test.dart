@@ -73,6 +73,32 @@ void main() {
     },
   );
 
+  test('JSON numbers become exact decimal text', () {
+    expect(plainDecimal('6.14e-05'), '0.0000614');
+    expect(plainDecimal('1.13530'), '1.1353');
+    expect(plainDecimal('2E3'), '2000');
+    expect(plainDecimal('0.5e1'), '5');
+    expect(() => plainDecimal('-1'), throwsFormatException);
+  });
+
+  test('a tiny rate in exponent form is not misread', () async {
+    final idr = Currency('IDR', 2);
+    final transport = _Transport(
+      const MarketResponse(
+        200,
+        '{"date":"2026-10-01","base":"IDR","quote":"USD",'
+        '"rate":6.14e-05,"note":"added later"}',
+      ),
+    );
+    final gateway = FrankfurterReferenceFxGateway(
+      transport: transport,
+      clock: () => now,
+    );
+    final result = await gateway.rate(idr, usd);
+    expect(result.state, MarketState.available);
+    expect(result.value!.observation.rate, FxRate.parse(idr, usd, '0.0000614'));
+  });
+
   test('cache coalesces identical no-key requests', () async {
     final transport = _Transport(
       const MarketResponse(

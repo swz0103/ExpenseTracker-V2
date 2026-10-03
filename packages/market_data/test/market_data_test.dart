@@ -219,6 +219,19 @@ void main() {
         (await malformed.cbcUsdTwdRate(usd, twd)).state,
         MarketState.failed,
       );
+
+      // An added provider field must not become an outage (G2-23).
+      final extended = MarketDataGateway(
+        transport: FakeTransport(
+          (_) async => const MarketResponse(
+            200,
+            '[{"日期":"20260930","NTD_USD":"31.8","備註":""}]',
+          ),
+        ),
+        clock: () => now,
+      );
+      final rate = await extended.cbcUsdTwdRate(usd, twd);
+      expect(rate.state, MarketState.available);
     },
   );
 
@@ -399,21 +412,24 @@ void main() {
   });
 
   test(
-    'ECB cooldown is shared across series, not bypassed by changing pair',
+    'another ECB series waits for the host cooldown instead of failing',
     () async {
       final transport = FakeTransport(
         (_) async => const MarketResponse(200, ecbCsv),
       );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
+      final waited = <Duration>[];
+      final gateway = MarketDataGateway(
+        transport: transport,
+        clock: () => now,
+        wait: (delay) async => waited.add(delay),
+      );
       expect(
         (await gateway.fxRate(Currency('EUR', 2), Currency('USD', 2))).state,
         MarketState.available,
       );
-      expect(
-        (await gateway.fxRate(Currency('EUR', 2), Currency('JPY', 0))).state,
-        MarketState.throttled,
-      );
-      expect(transport.requests.length, 1);
+      await gateway.fxRate(Currency('EUR', 2), Currency('JPY', 0));
+      expect(waited, [const Duration(seconds: 10)]);
+      expect(transport.requests.length, 2);
     },
   );
 

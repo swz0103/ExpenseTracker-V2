@@ -183,6 +183,10 @@ final class TwelveDataIntradayStockProvider implements IntradayStockProvider {
   }) => gateway.latestBar(instrument, interval: interval);
 }
 
+/// Opt-in only (ADR-06, health check G2-17): the App never registers this
+/// provider by default. A user may turn it on for personal use after seeing
+/// the [MarketProviderDescriptor.attribution] disclaimer; it must never be
+/// the first or only source for background alerts.
 final class YahooChartIntradayStockProvider implements IntradayStockProvider {
   YahooChartIntradayStockProvider(this.gateway);
 
@@ -326,11 +330,24 @@ final class FrankfurterReferenceFxProvider implements ReferenceFxProvider {
     Currency quote, {
     required BusinessDate date,
     int lookbackDays = 7,
-  }) {
+  }) async {
     if (lookbackDays < 0 || lookbackDays > 7) {
       throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
     }
-    return gateway.rate(base, quote, requiredAsOf: date);
+    // Frankfurter answers with the latest rate on or before the date, which
+    // can be months old for a dropped pair (health check G2-10).
+    final result = await gateway.rate(base, quote, requiredAsOf: date);
+    final asOf = result.value?.observation.asOf;
+    if (asOf == null) return result;
+    final requested = DateTime.utc(date.year, date.month, date.day);
+    final observed = DateTime.utc(asOf.year, asOf.month, asOf.day);
+    if (requested.difference(observed).inDays > lookbackDays) {
+      return MarketResult(
+        MarketState.missing,
+        reason: 'Frankfurter has no rate within $lookbackDays days',
+      );
+    }
+    return result;
   }
 }
 
@@ -714,10 +731,21 @@ bool _sameStockClose(StockClose a, StockClose b) =>
     a.asOf == b.asOf &&
     _canonicalDecimal(a.decimalPrice) == _canonicalDecimal(b.decimalPrice);
 
-bool _sameReferenceRate(ReferenceRate a, ReferenceRate b) =>
-    a.observation.asOf == b.observation.asOf &&
-    a.observation.rate == b.observation.rate &&
-    a.derivedInverse == b.derivedInverse;
+/// Central banks publish slightly different reference rates for the same
+/// day, so only a gap over half a percent is a disagreement (health check
+/// G2-22).
+bool _sameReferenceRate(ReferenceRate a, ReferenceRate b) {
+  final x = a.observation.rate;
+  final y = b.observation.rate;
+  if (a.observation.asOf != b.observation.asOf ||
+      x.base != y.base ||
+      x.quote != y.quote) {
+    return false;
+  }
+  final cross = x.numerator * y.denominator;
+  final gap = (cross - y.numerator * x.denominator).abs();
+  return gap * BigInt.from(200) <= cross;
+}
 
 String _canonicalDecimal(String value) {
   final parts = value.split('.');
