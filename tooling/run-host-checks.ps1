@@ -14,6 +14,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('lib', 'bin', 'test'); Architecture = $true },
     @{ Path = 'packages/foundation_values'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/app_core'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/accounts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },

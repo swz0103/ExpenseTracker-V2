@@ -18,6 +18,16 @@
         "uuid"
       ]
     },
+    "app_core": {
+      "directory": "packages/app_core",
+      "publicEntrypoints": [
+        "app_core.dart",
+        "testing.dart"
+      ],
+      "dependencies": [
+        "foundation_values"
+      ]
+    },
     "accounts": {
       "directory": "packages/accounts",
       "publicEntrypoints": [

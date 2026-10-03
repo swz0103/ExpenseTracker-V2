@@ -55,7 +55,8 @@ jobs:
       - shell: pwsh
         run: |
           $packages = @(
-            'packages/foundation_values', 'packages/accounts',
+            'packages/foundation_values', 'packages/app_core',
+            'packages/accounts',
             'packages/categories', 'packages/tags', 'packages/merchants',
             'packages/entry_drafts', 'packages/amount_input',
             'packages/ledger', 'packages/reports', 'packages/budgets',
