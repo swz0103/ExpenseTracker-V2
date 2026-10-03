@@ -150,8 +150,7 @@ final class SqlBookkeeping implements BookkeepingTransaction {
       _transaction.recordOperation(operation);
 
   @override
-  Future<void> enqueue(OutboxMessage message) =>
-      _transaction.enqueue(message);
+  Future<void> enqueue(OutboxMessage message) => _transaction.enqueue(message);
 
   @override
   Future<void> appendEvent({
@@ -227,10 +226,12 @@ final class SqlBookkeeping implements BookkeepingTransaction {
     );
     for (var i = 0; i < posting.legs.length; i++) {
       final leg = posting.legs[i];
-      _transaction.execute(
-        'INSERT INTO ledger_legs VALUES (?, ?, ?, ?)',
-        [posting.id.value, i, leg.account.id.value, '${leg.amount.minorUnits}'],
-      );
+      _transaction.execute('INSERT INTO ledger_legs VALUES (?, ?, ?, ?)', [
+        posting.id.value,
+        i,
+        leg.account.id.value,
+        '${leg.amount.minorUnits}',
+      ]);
       _addToBalance(leg.account.id, leg.amount);
     }
     _addToMonth(posting);
@@ -277,11 +278,7 @@ final class SqlBookkeeping implements BookkeepingTransaction {
       'INSERT INTO ledger_monthly VALUES (?, ?, ?, ?, ?, ?) '
       'ON CONFLICT (workspace, month, currency, scale) DO UPDATE SET '
       'income = excluded.income, expense = excluded.expense',
-      [
-        ...key,
-        '${total.income.minorUnits}',
-        '${total.expense.minorUnits}',
-      ],
+      [...key, '${total.income.minorUnits}', '${total.expense.minorUnits}'],
     );
   }
 }
