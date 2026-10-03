@@ -138,6 +138,23 @@ void main() {
     (await vault.unlockWithPassword(password)).close();
     expect(vault.keyringFile.existsSync(), isTrue);
 
+    // A crash while writing the very first keyring leaves half a file:
+    // that is no ledger, so setup can run again.
+    final fresh = LedgerVault(
+      Directory('${directory.path}/fresh'),
+      codec: codec,
+    );
+    fresh.directory.createSync();
+    File('${fresh.directory.path}/keyring.json.new').writeAsStringSync('{"id');
+    expect(fresh.exists, isFalse);
+    await expectLater(
+      fresh.unlockWithPassword(password),
+      fails(VaultProblem.missing),
+    );
+    final (again, _) = await fresh.create(password);
+    again.close();
+    expect(fresh.exists, isTrue);
+
     vault.keyringFile.writeAsStringSync('{"broken": true}');
     await expectLater(
       vault.unlockWithPassword(password),

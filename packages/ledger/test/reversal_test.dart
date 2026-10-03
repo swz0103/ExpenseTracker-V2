@@ -122,4 +122,36 @@ void main() {
       expect(rebuildBalance(x, [original, reversal]).minorUnits, BigInt.zero);
     }
   });
+  test('investment cash is reversed only by voiding its trade', () {
+    Money m(int units) => Money(usd, BigInt.from(units));
+    final buy = Posting.investmentBuy(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      investmentBuyId: PublicId.generate(),
+      gross: m(1000),
+      fee: m(5),
+      tax: m(0),
+      cashDebit: m(1005),
+    );
+    expect(
+      () => rev(buy),
+      throwsA(
+        isA<LedgerException>().having(
+          (e) => e.code,
+          'code',
+          LedgerError.reversalReference,
+        ),
+      ),
+    );
+    final voided = Posting.reversal(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      original: buy,
+      tradeVoid: true,
+    );
+    expect(rebuildBalance(x, [buy, voided]), Money(usd, BigInt.zero));
+  });
 }

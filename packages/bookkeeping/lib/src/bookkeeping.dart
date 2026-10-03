@@ -439,6 +439,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       date: original.date,
       original: original,
       reason: 'voided',
+      tradeVoid: true,
     );
     await _savePosting(t, reversal, await t.postingMetadata(original.id));
     return reversal.id;

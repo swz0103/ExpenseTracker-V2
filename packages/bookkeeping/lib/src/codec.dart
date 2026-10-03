@@ -263,6 +263,8 @@ abstract final class PostingCodec {
           date: date,
           original: decode(original),
           reason: json['reason'] as String,
+          // Stored investment reversals were written by a trade void.
+          tradeVoid: true,
         );
       case PostingKind.refund:
         checkKeys(json, {

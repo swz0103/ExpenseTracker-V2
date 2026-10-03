@@ -45,19 +45,19 @@ void main() {
     expect(decoded.limit!.majorText, '8000.00');
     expect(
       () => codec.decode(encoded.replaceFirst('"version":2', '"version":0')),
-      throwsA(anything),
+      throwsFormatException,
     );
     expect(
       () => codec.decode(
         encoded.replaceFirst('"closingDay":30', '"closingDay":32'),
       ),
-      throwsA(anything),
+      throwsFormatException,
     );
     expect(
       () => codec.decode(
         encoded.replaceFirst('"limitMinor":"800000"', '"limitMinor":"0800000"'),
       ),
-      throwsA(anything),
+      throwsFormatException,
     );
   });
 

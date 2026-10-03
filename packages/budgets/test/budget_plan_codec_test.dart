@@ -69,17 +69,23 @@ void main() {
       () => codec.decode(' ' * (BudgetPlanCodec.maxBytes + 1)),
       throwsFormatException,
     );
-    expect(
-      () => codec.decode(
-        jsonEncode({
-          ...original,
-          'accountIds': List.filled(
-            BudgetPlanCodec.maxSelections + 1,
-            accountA.value,
-          ),
-        }),
-      ),
-      throwsFormatException,
-    );
+    List<String> ids(int count) => [
+      for (var i = 0; i < count; i++) PublicId.generate().value,
+    ]..sort();
+    // The most selections fit in the byte limit on both lists ...
+    final full = jsonEncode({
+      ...original,
+      'accountIds': ids(BudgetPlanCodec.maxSelections),
+      'tagIds': ids(BudgetPlanCodec.maxSelections),
+    });
+    expect(utf8.encode(full).length, lessThan(BudgetPlanCodec.maxBytes));
+    expect(codec.decode(full).accountIds, hasLength(150));
+    // ... so one more is refused by the selection bound, not by size.
+    final over = jsonEncode({
+      ...original,
+      'accountIds': ids(BudgetPlanCodec.maxSelections + 1),
+    });
+    expect(utf8.encode(over).length, lessThan(BudgetPlanCodec.maxBytes));
+    expect(() => codec.decode(over), throwsFormatException);
   });
 }

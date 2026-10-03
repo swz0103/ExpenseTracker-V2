@@ -10,7 +10,9 @@ import 'budget.dart';
 final class BudgetPlanCodec {
   static const formatVersion = 1;
   static const maxBytes = 16384;
-  static const maxSelections = 1000;
+  /// Low enough that a plan using every selection on both lists still
+  /// fits in [maxBytes], so this bound is reachable on its own.
+  static const maxSelections = 150;
 
   static const _keys = {
     'format',

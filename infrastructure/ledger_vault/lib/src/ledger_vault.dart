@@ -78,7 +78,22 @@ final class LedgerVault {
   File get databaseFile => File('${directory.path}/ledger.db');
   File get _pending => File('${directory.path}/keyring.json.new');
 
-  bool get exists => keyringFile.existsSync() || _pending.existsSync();
+  /// A ledger is here: its keyring, or a complete replacement that a
+  /// crash left before the rename. A half-written first keyring is not a
+  /// ledger, so setup can start again.
+  bool get exists => keyringFile.existsSync() || _completePending();
+
+  bool _completePending() {
+    if (!_pending.existsSync()) return false;
+    try {
+      Keyring.parse(_pending.readAsStringSync());
+      return true;
+    } on KeyringException {
+      return false;
+    } on FormatException {
+      return false;
+    }
+  }
 
   /// First launch. Returns the vault and the recovery code, which is shown
   /// once and never stored.
@@ -133,11 +148,10 @@ final class LedgerVault {
   Future<Keyring> _keyring() async {
     if (!await keyringFile.exists()) {
       // A crash during the replace leaves only the new file behind.
-      if (await _pending.exists()) {
-        await _pending.rename(keyringFile.path);
-      } else {
+      if (!_completePending()) {
         throw const VaultException(VaultProblem.missing);
       }
+      await _pending.rename(keyringFile.path);
     }
     try {
       return Keyring.parse(await keyringFile.readAsString());

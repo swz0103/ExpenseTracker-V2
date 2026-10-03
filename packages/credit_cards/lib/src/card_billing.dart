@@ -123,15 +123,21 @@ final class CreditCardTermsCodec {
     final limit = value['limitMinor'] == null
         ? null
         : Money(currency, parseMinorUnits(value['limitMinor'] as String));
-    final terms = CreditCardTerms(
-      workspace: WorkspaceId.parse(value['workspace'] as String),
-      cardId: PublicId.parse(value['cardId'] as String),
-      currency: currency,
-      closingDay: value['closingDay'] as int,
-      dueDay: value['dueDay'] as int,
-      limit: limit,
-      version: value['version'] as int,
-    );
+    final CreditCardTerms terms;
+    try {
+      terms = CreditCardTerms(
+        workspace: WorkspaceId.parse(value['workspace'] as String),
+        cardId: PublicId.parse(value['cardId'] as String),
+        currency: currency,
+        closingDay: value['closingDay'] as int,
+        dueDay: value['dueDay'] as int,
+        limit: limit,
+        version: value['version'] as int,
+      );
+    } on CreditCardException {
+      // One error type for every stored-settings problem.
+      throw const FormatException('Invalid card settings');
+    }
     if (encode(terms) != encoded) {
       throw const FormatException('Non-canonical card settings');
     }

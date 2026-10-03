@@ -98,7 +98,51 @@ void main() {
         original: income,
         reason: '重複記錄',
       ),
+      Posting.refund(
+        id: PublicId.generate(),
+        operation: key(),
+        date: BusinessDate(2026, 10, 6),
+        account: account(usd),
+        originalId: PublicId.generate(),
+        amount: money(twd, 3200),
+        received: money(usd, 100),
+      ),
+      Posting.investmentBuy(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentBuyId: PublicId.generate(),
+        gross: money(twd, 10000),
+        fee: money(twd, 20),
+        tax: money(twd, 0),
+        cashDebit: money(twd, 10020),
+      ),
+      Posting.investmentSell(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentSellId: PublicId.generate(),
+        gross: money(twd, 12000),
+        fee: money(twd, 20),
+        tax: money(twd, 36),
+        cashCredit: money(twd, 11944),
+      ),
+      Posting.investmentDividend(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentDividendId: PublicId.generate(),
+        gross: money(twd, 500),
+        withholdingTax: money(twd, 50),
+        fee: money(twd, 10),
+        cashCredit: money(twd, 440),
+      ),
     ];
+    final kinds = {for (final posting in postings) posting.kind};
+    expect(kinds, PostingKind.values.toSet());
     for (final posting in postings) {
       expectSame(posting, roundTrip(posting));
     }

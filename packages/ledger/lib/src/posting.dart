@@ -415,21 +415,28 @@ final class Posting {
   /// An opening or a refund can be reversed too, so a wrong opening balance
   /// or a refund booked against the wrong expense has a correction path; a
   /// reversed refund gives its amount back to the original's refund limit.
-  /// Investment cash postings are corrected with their trade, not here.
+  /// Investment cash postings are reversed only when their trade is voided:
+  /// [tradeVoid] says the caller removes the trade in the same transaction.
   factory Posting.reversal({
     required PublicId id,
     required OperationKey operation,
     required BusinessDate date,
     required Posting original,
     String reason = '',
+    bool tradeVoid = false,
   }) {
-    if (![
-          PostingKind.opening,
-          PostingKind.income,
-          PostingKind.expense,
-          PostingKind.transfer,
-          PostingKind.refund,
-        ].contains(original.kind) ||
+    final allowed = switch (original.kind) {
+      PostingKind.opening ||
+      PostingKind.income ||
+      PostingKind.expense ||
+      PostingKind.transfer ||
+      PostingKind.refund => true,
+      PostingKind.investmentBuy ||
+      PostingKind.investmentSell ||
+      PostingKind.investmentDividend => tradeVoid,
+      PostingKind.reversal => false,
+    };
+    if (!allowed ||
         id == original.id ||
         date.compareTo(original.date) < 0 ||
         reason != reason.trim() ||
