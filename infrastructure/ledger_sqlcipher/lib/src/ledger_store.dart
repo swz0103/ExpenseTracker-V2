@@ -744,9 +744,8 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
         continue;
       }
       if (change == BigInt.zero) continue;
-      final known =
-          _bookedValue(posting, metadata(posting.id), amount) ??
-          rate?.call(amount, posting.date);
+      var known = _bookedValue(posting, metadata(posting.id), amount);
+      known ??= rate?.call(amount, posting.date);
       if (known == null || known.currency != homeCurrency) return null;
       units += change;
       cost += known.minorUnits;

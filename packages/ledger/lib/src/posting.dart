@@ -288,8 +288,12 @@ final class Posting {
     required Money cashCredit,
     Money? settled,
   }) {
-    final (moved, conversion) =
-        _settle(operation, account, cashCredit, settled);
+    final (moved, conversion) = _settle(
+      operation,
+      account,
+      cashCredit,
+      settled,
+    );
     _sameCurrency(cashCredit, [gross, fee, tax]);
     _positive(gross);
     // A sale whose fees exceed its proceeds debits cash (G1-06); one that
@@ -339,8 +343,12 @@ final class Posting {
     required Money cashCredit,
     Money? settled,
   }) {
-    final (moved, conversion) =
-        _settle(operation, account, cashCredit, settled);
+    final (moved, conversion) = _settle(
+      operation,
+      account,
+      cashCredit,
+      settled,
+    );
     _sameCurrency(cashCredit, [gross, withholdingTax, fee]);
     _positive(gross);
     if (withholdingTax.minorUnits < BigInt.zero ||

@@ -493,8 +493,8 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     if (exDate != null && exDate.compareTo(command.paidOn) > 0) {
       throw const AppFailure(FailureKind.rejected, 'investment.ex-date');
     }
-    final premium =
-        command.healthPremium ?? Money(command.fee.currency, BigInt.zero);
+    final none = Money(command.fee.currency, BigInt.zero);
+    final premium = command.healthPremium ?? none;
     if (premium.currency != command.fee.currency ||
         premium.minorUnits.isNegative) {
       throw const AppFailure(FailureKind.rejected, 'investment.premium');
