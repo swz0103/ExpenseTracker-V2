@@ -6,11 +6,11 @@ import 'market_data.dart';
 
 final class FrankfurterReferenceFxGateway {
   FrankfurterReferenceFxGateway({
-    MarketTransport? transport,
+    required MarketTransport transport,
     DateTime Function()? clock,
     this.cacheTtl = const Duration(hours: 12),
     this.maximumObservationAge = const Duration(days: 4),
-  }) : _transport = transport ?? const IoMarketTransport(),
+  }) : _transport = transport,
        _clock = clock ?? DateTime.now {
     if (cacheTtl <= Duration.zero || maximumObservationAge < Duration.zero) {
       throw ArgumentError('Invalid Frankfurter time policy');

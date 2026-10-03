@@ -15,6 +15,7 @@ $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('lib', 'bin', 'test'); Architecture = $true },
     @{ Path = 'packages/foundation_values'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/app_core'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/bookkeeping'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/accounts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
@@ -34,11 +35,14 @@ $checks = @(
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/backup_security'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/market_adapters'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
     @{ Path = 'prototypes/validated_restore'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/encrypted_storage'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/storage_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/generation_worker.dart' },
     @{ Path = 'prototypes/ledger_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/ledger_worker.dart' },
+    @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true },
     @{ Path = 'prototypes/android_foundation'; Dirs = @('lib', 'test', 'integration_test'); Flutter = $true },
     @{ Path = 'prototypes/expense_preview'; Dirs = @('lib', 'test', 'tool'); Flutter = $true }
 )
@@ -70,6 +74,12 @@ foreach ($check in $selected) {
     try {
         $isFlutter = $check.ContainsKey('Flutter')
         $driver = if ($isFlutter) { $Flutter } else { $Dart }
+        if (-not (Test-Path 'pubspec.lock')) {
+            # A new package: resolve once and print the lock to commit.
+            Invoke-CheckCommand $driver @('pub', 'get')
+            Get-Content 'pubspec.lock'
+            throw "$($check.Path) has no pubspec.lock; commit the lock printed above."
+        }
         $pubArguments = @('pub', 'get', '--enforce-lockfile')
         if ($Offline) { $pubArguments += '--offline' }
         Invoke-CheckCommand $driver $pubArguments

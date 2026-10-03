@@ -247,7 +247,7 @@ final class MerchantCatalog {
 
   Merchant _mutable(WorkspaceId workspace, PublicId id, int expectedVersion) {
     final row = _check(workspace, id, expectedVersion);
-    if (row.version == 9223372036854775807) {
+    if (row.version >= _maxSafeVersion) {
       throw const MerchantException(MerchantError.versionConflict);
     }
     if (row.replacementId != null) {
@@ -310,3 +310,7 @@ List<String> _aliases(Iterable<String> input) {
   values.sort((a, b) => _key(a).compareTo(_key(b)));
   return List.unmodifiable(values);
 }
+
+/// The largest version that can still be incremented exactly on every
+/// platform, including the web, where integers are doubles.
+const _maxSafeVersion = 9007199254740991;

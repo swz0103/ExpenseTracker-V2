@@ -68,6 +68,20 @@ final class StorageKey {
   String toString() => 'StorageKey(redacted)';
 }
 
+/// Projection tables owned by one feature module. Steps follow the same
+/// rules as the core schema: append only, each step commits with its
+/// version, and a file from a newer build is refused.
+final class SchemaModule {
+  SchemaModule(this.name, this.migrations) {
+    if (!_modulePattern.hasMatch(name)) {
+      throw ArgumentError.value(name, 'name', 'Invalid module name.');
+    }
+  }
+
+  final String name;
+  final List<List<String>> migrations;
+}
+
 final class StoredEvent {
   const StoredEvent({
     required this.seq,
@@ -85,6 +99,7 @@ final class StoredEvent {
 }
 
 final _kindPattern = RegExp(r'^[a-z][a-z0-9.\-]{0,63}$');
+final _modulePattern = RegExp(r'^[a-z][a-z0-9_]{0,31}$');
 const _outboxPage = 'SELECT * FROM outbox ORDER BY seq LIMIT ?';
 
 /// One encrypted SQLite database in WAL mode holding the append-only event
@@ -96,11 +111,21 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
   SqlCipherStore._(this._db);
 
   /// Opens or creates [file], applying any pending migrations.
-  factory SqlCipherStore.open(File file, StorageKey key) {
+  factory SqlCipherStore.open(
+    File file,
+    StorageKey key, {
+    List<SchemaModule> modules = const [],
+  }) {
+    if (modules.map((m) => m.name).toSet().length != modules.length) {
+      throw ArgumentError('Duplicate schema module.');
+    }
     final db = sqlite3.open(file.path);
     try {
       _configure(db, key);
       _migrate(db);
+      for (final module in modules) {
+        _migrateModule(db, module);
+      }
       return SqlCipherStore._(db);
     } catch (_) {
       db.close();
@@ -235,32 +260,98 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
     db.execute('PRAGMA temp_store = MEMORY');
   }
 
+  /// Applied version of a feature module, or 0 if it was never installed.
+  int moduleVersion(String name) {
+    _requireOpen();
+    return _moduleVersion(_db, name);
+  }
+
+  /// Read-only query outside a write, for screens and reports.
+  List<Map<String, Object?>> select(
+    String sql, [
+    List<Object?> params = const [],
+  ]) {
+    _requireOpen();
+    return _rows(_db.select(sql, params));
+  }
+
+  static int _moduleVersion(Database db, String name) {
+    final rows = db.select(
+      'SELECT version FROM schema_modules WHERE name = ?',
+      [name],
+    );
+    return rows.isEmpty ? 0 : rows.single['version'] as int;
+  }
+
+  static void _migrateModule(Database db, SchemaModule module) {
+    final current = _moduleVersion(db, module.name);
+    if (current > module.migrations.length) {
+      throw const StorageUnavailable(StorageProblem.newerSchema);
+    }
+    for (var version = current; version < module.migrations.length; version++) {
+      _step(db, module.migrations[version], () {
+        db.execute(
+          'INSERT INTO schema_modules (name, version) VALUES (?, ?) '
+          'ON CONFLICT (name) DO UPDATE SET version = excluded.version',
+          [module.name, version + 1],
+        );
+      });
+    }
+  }
+
+  static void _step(
+    Database db,
+    List<String> statements,
+    void Function() bump,
+  ) {
+    db.execute('BEGIN IMMEDIATE');
+    try {
+      for (final statement in statements) {
+        db.execute(statement);
+      }
+      bump();
+      db.execute('COMMIT');
+    } catch (_) {
+      if (!db.autocommit) db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
   static void _migrate(Database db) {
     final current = db.userVersion;
     if (current > migrations.length) {
       throw const StorageUnavailable(StorageProblem.newerSchema);
     }
     for (var version = current; version < migrations.length; version++) {
-      db.execute('BEGIN IMMEDIATE');
-      try {
-        for (final statement in migrations[version]) {
-          db.execute(statement);
-        }
-        db.userVersion = version + 1;
-        db.execute('COMMIT');
-      } catch (_) {
-        if (!db.autocommit) db.execute('ROLLBACK');
-        rethrow;
-      }
+      _step(db, migrations[version], () => db.userVersion = version + 1);
     }
   }
 }
+
+List<Map<String, Object?>> _rows(ResultSet result) => [
+  for (final row in result) Map<String, Object?>.of(row),
+];
 
 final class SqlTransaction implements WriteTransaction {
   SqlTransaction._(this._db);
 
   final Database _db;
   bool _open = true;
+
+  /// Writes to a module's projection tables inside this transaction.
+  void execute(String sql, [List<Object?> params = const []]) {
+    _requireOpen();
+    _db.execute(sql, params);
+  }
+
+  /// Reads committed rows plus this transaction's own writes.
+  List<Map<String, Object?>> select(
+    String sql, [
+    List<Object?> params = const [],
+  ]) {
+    _requireOpen();
+    return _rows(_db.select(sql, params));
+  }
 
   /// Appends an immutable event and returns its sequence number.
   int append({

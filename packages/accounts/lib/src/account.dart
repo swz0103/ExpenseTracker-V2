@@ -225,7 +225,7 @@ final class Account {
   void _check(WorkspaceId requestedWorkspace, int expectedVersion) {
     if (requestedWorkspace != workspace)
       throw const AccountException(AccountError.workspaceMismatch);
-    if (expectedVersion != version || version == 9223372036854775807) {
+    if (expectedVersion != version || version >= _maxSafeVersion) {
       throw const AccountException(AccountError.versionConflict);
     }
   }
@@ -253,3 +253,7 @@ String _name(String value) {
     throw const AccountException(AccountError.invalidInput);
   return result;
 }
+
+/// The largest version that can still be incremented exactly on every
+/// platform, including the web, where integers are doubles.
+const _maxSafeVersion = 9007199254740991;

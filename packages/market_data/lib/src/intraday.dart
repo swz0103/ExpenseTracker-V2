@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
@@ -44,55 +43,18 @@ abstract interface class FugleMarketTransport {
   Future<MarketResponse> get(Uri uri, {required String apiKey});
 }
 
-final class IoFugleMarketTransport implements FugleMarketTransport {
-  const IoFugleMarketTransport();
-
-  static const maximumResponseBytes = 1024 * 1024;
-
-  @override
-  Future<MarketResponse> get(Uri uri, {required String apiKey}) async {
-    if (uri.scheme != 'https' ||
-        uri.host != 'api.fugle.tw' ||
-        !uri.path.startsWith('/marketdata/v1.0/stock/')) {
-      throw ArgumentError('Untrusted Fugle URI');
-    }
-    _validateApiKey(apiKey);
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
-      request.headers.set('X-API-KEY', apiKey);
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = <int>[];
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Fugle response too large');
-        }
-      }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
+/// Largest response body accepted from this provider, in bytes.
+const fugleResponseLimit = 1024 * 1024;
 
 typedef FugleApiKeySource = Future<String> Function();
 
 final class FugleIntradayGateway {
   FugleIntradayGateway({
     required FugleApiKeySource apiKeySource,
-    FugleMarketTransport? transport,
+    required FugleMarketTransport transport,
     DateTime Function()? clock,
   }) : _apiKeySource = apiKeySource,
-       _transport = transport ?? const IoFugleMarketTransport(),
+       _transport = transport,
        _clock = clock ?? DateTime.now;
 
   final FugleApiKeySource _apiKeySource;
@@ -153,7 +115,7 @@ final class FugleIntradayGateway {
         );
       }
       if (response.statusCode != 200 ||
-          response.body.length > IoFugleMarketTransport.maximumResponseBytes) {
+          response.body.length > fugleResponseLimit) {
         return const MarketResult(
           MarketState.failed,
           reason: 'Fugle request failed',

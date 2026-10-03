@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 /// Explicit, read-only ECB reference lookup. It never posts or converts Ledger
@@ -26,7 +27,9 @@ class _HistoricalFxPanelState extends State<HistoricalFxPanel> {
     'CHF/EUR',
   ];
 
-  late final MarketDataGateway _ownedGateway = MarketDataGateway();
+  late final MarketDataGateway _ownedGateway = MarketDataGateway(
+    transport: const IoMarketTransport(),
+  );
   late final TextEditingController _date = TextEditingController(
     text: _today(),
   );

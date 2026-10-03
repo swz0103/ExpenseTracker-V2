@@ -1,0 +1,271 @@
+import 'dart:io';
+
+import 'package:accounts/accounts.dart';
+import 'package:app_core/app_core.dart';
+import 'package:bookkeeping/bookkeeping.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
+import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:storage_sqlcipher/storage_sqlcipher.dart';
+import 'package:test/test.dart';
+
+final usd = Currency.iso('USD');
+final opened = BusinessDate(2026, 9, 1);
+
+Money cents(int units) => Money(usd, BigInt.from(units));
+
+Matcher fails(FailureKind kind, String diagnostic) =>
+    throwsA(AppFailure(kind, diagnostic));
+
+void main() {
+  late Directory directory;
+  late File file;
+  late StorageKey key;
+  late SqlCipherStore store;
+  late LedgerStore ledger;
+  late Bookkeeping<SqlBookkeeping> books;
+  late InvestmentBook<SqlBookkeeping> invest;
+  late PublicId bank;
+  late PublicId brokerage;
+  late PublicId apple;
+  final workspace = WorkspaceId(PublicId.generate());
+
+  OperationKey op() =>
+      OperationKey(workspace, OperationId(PublicId.generate()));
+
+  void open() {
+    store = SqlCipherStore.open(file, key, modules: [ledgerSchema]);
+    ledger = LedgerStore(store);
+    books = Bookkeeping(ledger);
+    invest = InvestmentBook(books);
+  }
+
+  Account account(PublicId id) =>
+      ledger.accounts(workspace).singleWhere((a) => a.id == id);
+
+  TradeTarget target() => TradeTarget(
+    accountId: brokerage,
+    instrumentId: apple,
+    funding: AccountRef(bank, account(bank).version),
+  );
+
+  setUp(() async {
+    directory = Directory.systemTemp.createTempSync('ledger-invest-');
+    file = File('${directory.path}/ledger.db');
+    key = StorageKey.random();
+    open();
+    bank = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: bank,
+        name: '美元帳戶',
+        kind: AccountKind.bank,
+        currency: usd,
+        openedOn: opened,
+        openingBalance: cents(1000000),
+        openingPostingId: PublicId.generate(),
+      ),
+    );
+    final broker = PublicId.generate();
+    await invest.registerBroker(
+      RegisterBroker(operation: op(), brokerId: broker, name: '複委託'),
+    );
+    brokerage = PublicId.generate();
+    await invest.openAccount(
+      OpenInvestmentAccount(
+        operation: op(),
+        accountId: brokerage,
+        brokerId: broker,
+        fundingAccountId: bank,
+        name: '美股',
+      ),
+    );
+    apple = PublicId.generate();
+    await invest.registerInstrument(
+      RegisterInstrument(
+        operation: op(),
+        instrumentId: apple,
+        kind: InstrumentKind.stock,
+        marketCode: 'NASDAQ',
+        symbol: 'AAPL',
+        name: 'Apple',
+        currency: usd,
+      ),
+    );
+  });
+
+  tearDown(() {
+    store.close();
+    directory.deleteSync(recursive: true);
+  });
+
+  Future<PublicId> buy(
+    String quantity,
+    String price,
+    int gross, {
+    int fee = 0,
+    OperationKey? operation,
+    BusinessDate? on,
+  }) async {
+    final outcome = await invest.buy(
+      BuyInvestment(
+        operation: operation ?? op(),
+        buyId: PublicId.generate(),
+        lotId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        tradedOn: on ?? BusinessDate(2026, 10, 1),
+        quantity: quantity,
+        unitPrice: price,
+        gross: cents(gross),
+        fee: cents(fee),
+        tax: cents(0),
+      ),
+    );
+    return outcome.value;
+  }
+
+  Future<PublicId> sell(String quantity, String price, int gross) async {
+    final outcome = await invest.sell(
+      SellInvestment(
+        operation: op(),
+        sellId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        tradedOn: BusinessDate(2026, 10, 20),
+        costMethod: InvestmentCostMethod.fifo,
+        quantity: quantity,
+        unitPrice: price,
+        gross: cents(gross),
+        fee: cents(100),
+        tax: cents(0),
+      ),
+    );
+    return outcome.value;
+  }
+
+  test('a buy debits cash, opens a lot and is not spending', () async {
+    await buy('10', '150.25', 150250, fee: 100);
+    expect(ledger.balance(account(bank)), cents(1000000 - 150350));
+    final lots = ledger.holdings(brokerage, apple);
+    expect(lots.single.remainingQuantity.toString(), '10');
+    expect(lots.single.remainingCost, cents(150350));
+    expect(ledger.monthly(workspace, '2026-10'), isEmpty);
+  });
+
+  test('a FIFO sell credits net cash and replays into lots', () async {
+    await buy('10', '150', 150000);
+    await buy('5', '160', 80000, on: BusinessDate(2026, 10, 5));
+    await sell('12', '170', 204000);
+    expect(
+      ledger.balance(account(bank)),
+      cents(1000000 - 150000 - 80000 + 203900),
+    );
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '3');
+    expect(lot.remainingCost, cents(48000));
+    expect(lot.expectedVersion, 2);
+
+    store.close();
+    open();
+    final replayed = ledger.holdings(brokerage, apple).single;
+    expect(replayed.remainingCost, cents(48000));
+    await expectLater(
+      sell('4', '170', 68000),
+      fails(FailureKind.rejected, 'investment.oversell'),
+    );
+  });
+
+  test('a dividend credits the settlement account', () async {
+    await buy('10', '150', 150000);
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(700),
+      ),
+    );
+    expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 700));
+    expect(ledger.monthly(workspace, '2026-11'), isEmpty);
+  });
+
+  test('trade postings cannot be reversed directly', () async {
+    final posting = await buy('1', '100', 10000);
+    await expectLater(
+      books.reversePosting(
+        ReversePosting(
+          operation: op(),
+          reversalId: PublicId.generate(),
+          originalId: posting,
+          date: BusinessDate(2026, 10, 2),
+        ),
+      ),
+      fails(FailureKind.rejected, 'posting.owned-elsewhere'),
+    );
+  });
+
+  test('quotes, funding and retries are checked', () async {
+    await expectLater(
+      buy('3', '10.01', 3000),
+      fails(FailureKind.rejected, 'investment.grossMismatch'),
+    );
+    final other = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: other,
+        name: '其他',
+        kind: AccountKind.bank,
+        currency: usd,
+        openedOn: opened,
+      ),
+    );
+    await expectLater(
+      invest.buy(
+        BuyInvestment(
+          operation: op(),
+          buyId: PublicId.generate(),
+          lotId: PublicId.generate(),
+          postingId: PublicId.generate(),
+          target: TradeTarget(
+            accountId: brokerage,
+            instrumentId: apple,
+            funding: AccountRef(other, 1),
+          ),
+          tradedOn: BusinessDate(2026, 10, 1),
+          quantity: '1',
+          unitPrice: '1',
+          gross: cents(100),
+          fee: cents(0),
+          tax: cents(0),
+        ),
+      ),
+      fails(FailureKind.rejected, 'investment.funding'),
+    );
+    await expectLater(
+      sell('1', '1', 100),
+      fails(FailureKind.rejected, 'investment.no-holdings'),
+    );
+    await expectLater(
+      invest.registerInstrument(
+        RegisterInstrument(
+          operation: op(),
+          instrumentId: PublicId.generate(),
+          kind: InstrumentKind.stock,
+          marketCode: 'NASDAQ',
+          symbol: 'AAPL',
+          name: 'Apple again',
+          currency: usd,
+        ),
+      ),
+      fails(FailureKind.conflict, 'investment.exists'),
+    );
+  });
+}

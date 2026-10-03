@@ -1,0 +1,34 @@
+name: expense_tracker
+description: "記帳本 V2：建立在 app_core 與 bookkeeping 上的新 App（階段 4）。"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  accounts:
+    path: ../../packages/accounts
+  app_core:
+    path: ../../packages/app_core
+  bookkeeping:
+    path: ../../packages/bookkeeping
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: NotoSansTC
+      fonts:
+        - asset: fonts/NotoSansTC-Regular.ttf
+        - asset: fonts/NotoSansTC-Bold.ttf
+          weight: 700

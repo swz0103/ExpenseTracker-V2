@@ -18,6 +18,11 @@
         "uuid"
       ]
     },
+    "bookkeeping": {
+      "directory": "packages/bookkeeping",
+      "publicEntrypoints": ["bookkeeping.dart", "memory.dart"],
+      "dependencies": ["accounts", "app_core", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "tags"]
+    },
     "app_core": {
       "directory": "packages/app_core",
       "publicEntrypoints": [
@@ -83,9 +88,7 @@
     "market_data": {
       "directory": "packages/market_data",
       "publicEntrypoints": ["market_data.dart"],
-      "dependencies": ["foundation_values", "investments"],
-      "extraSdkLibraries": ["dart:io"],
-      "note": "Temporary: HTTP transports move to an infrastructure package in phase 3."
+      "dependencies": ["foundation_values", "investments"]
     },
     "recurring_transactions": {
       "directory": "packages/recurring_transactions",
@@ -142,6 +145,20 @@
     }
   },
   "runtimeModules": {
+    "expense_tracker": {
+      "directory": "apps/expense_tracker",
+      "dependencies": ["accounts", "app_core", "bookkeeping", "foundation_values", "ledger"]
+    },
+    "market_adapters": {
+      "directory": "infrastructure/market_adapters",
+      "publicEntrypoints": ["market_adapters.dart"],
+      "dependencies": ["market_data"]
+    },
+    "ledger_sqlcipher": {
+      "directory": "infrastructure/ledger_sqlcipher",
+      "publicEntrypoints": ["ledger_sqlcipher.dart"],
+      "dependencies": ["accounts", "app_core", "bookkeeping", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "storage_sqlcipher", "tags"]
+    },
     "backup_security": {
       "directory": "infrastructure/backup_security",
       "publicEntrypoints": ["backup_security.dart"],
@@ -164,7 +181,7 @@
     },
     "expense_preview": {
       "directory": "prototypes/expense_preview",
-        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "cloud_backup_probe", "validated_restore_probe", "encrypted_storage_probe", "persistent_jobs_probe"]
+        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_adapters", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "cloud_backup_probe", "validated_restore_probe", "encrypted_storage_probe", "persistent_jobs_probe"]
     },
     "android_foundation": {
       "directory": "prototypes/android_foundation",

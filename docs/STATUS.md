@@ -2,7 +2,7 @@
 
 最後更新：2026-10-03（階段 2 完成）
 
-## 目前階段：階段 3 領域移植
+## 目前階段：階段 4 UI 重建
 
 全專案健檢（189 項問題，P0 3 項）後決定：保留 `packages/` 的值物件與領域規則，重建儲存層、應用層與 UI。完整說明見 [ADR-0001](adr/0001-target-architecture.md)。
 
@@ -16,6 +16,23 @@
 - 預覽版改用固定簽章金鑰，之後可直接覆蓋安裝。
 - 預覽版與正式版發佈前，必須先通過同一 commit 的完整驗證；只有發佈步驟持有寫入權限。
 - 移除未使用的 `transaction_boundary` 原型、兩條手動 workflow、未使用的 Twelve Data 憑證畫面，以及過期文件。
+
+## 階段 4 進行中
+
+- [x] 4a `apps/expense_tracker` 骨架：帳戶、記一筆、本月三個分頁，只透過 `AppSession` 走 `bookkeeping` 指令；錯誤訊息依 `AppFailure` 代碼顯示中文說明；內建繁中字型子集。
+- [x] 4a 網頁預覽：CI 建置 Flutter web（CanvasKit 不走 CDN），放在 `refs/previews/web`，發佈成私人網頁，改 UI 不必先裝到手機。
+- [ ] 4b Android 平台設定與 SQLCipher 接線（金鑰來自 `backup_security`）。
+- [ ] 4c 金額輸入狀態機、分類／標籤選擇、信用卡與投資畫面。
+- [ ] 4d l10n、懶載入、拆除舊 `prototypes/expense_preview`。
+
+## 階段 3 已完成
+
+- [x] 3a 帳戶與收支：`packages/bookkeeping`（開戶含期初餘額、改名、封存／重新啟用、收入、支出、跨幣別轉帳含手續費、沖銷）＋ `infrastructure/ledger_sqlcipher`（帳戶、分錄、餘額、月報投影表，與事件同交易更新）。300 筆亂數指令的對照測試：投影餘額＝domain `rebuildBalance`，月報＝分錄加總，重開後仍一致。`storage_sqlcipher` 支援模組各自的 migration。
+- [x] 3b 分類、標籤、商家：建立、改名、封存、合併（合併後報表歸到目標分類）、商家別名；收支可帶分類分攤、標籤、商家，沖銷沿用原分錄的分攤與標籤；分類月報投影。
+- [x] 3c 信用卡：帳單日設定、授權（pending）、入帳（同一筆授權只算一次）、繳款（轉帳，不是支出）、帳單 read model、分期預估；卡片分錄不能用一般沖銷，要在卡片上更正。
+- [x] 3d 投資：券商、投資帳戶、商品登錄；買進、賣出（FIFO／平均成本）、股利；持股批次一律由交易紀錄重播得出；交易分錄不能直接沖銷。
+- [x] 3e 市場資料：四個 HTTP transport 移到 `infrastructure/market_adapters`，`market_data` 不再有 `dart:io` 例外，gateway 一律注入 transport。
+- [x] 3f 退款（可跨幣別入帳、依原分類退回、剩餘可退額度由先前退款重播）；有退款的支出不能沖銷；結清帳戶（餘額須為零、不能有待入帳刷卡或未賣完的投資）。
 
 ## 階段 2 已完成
 

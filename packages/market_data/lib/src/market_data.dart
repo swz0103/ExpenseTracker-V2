@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
@@ -54,45 +53,8 @@ abstract interface class MarketTransport {
   Future<MarketResponse> get(Uri uri);
 }
 
-/// Android/desktop transport with a finite response budget and no redirects.
-final class IoMarketTransport implements MarketTransport {
-  const IoMarketTransport();
-
-  static const maximumResponseBytes = 8 * 1024 * 1024;
-
-  @override
-  Future<MarketResponse> get(Uri uri) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(
-        HttpHeaders.acceptHeader,
-        'application/json, text/csv',
-      );
-      request.headers.set(
-        HttpHeaders.userAgentHeader,
-        'ExpenseTracker-V2/market-data',
-      );
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = <int>[];
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Market response too large');
-        }
-      }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
+/// Largest response body accepted from this provider, in bytes.
+const marketResponseLimit = 8 * 1024 * 1024;
 
 final class _Snapshot {
   const _Snapshot(this.body, this.fetchedAt);
@@ -117,12 +79,12 @@ final class _EcbRow {
 /// request per holding, and cooldown prevents repeated requests on failures.
 final class MarketDataGateway {
   MarketDataGateway({
-    MarketTransport? transport,
+    required MarketTransport transport,
     DateTime Function()? clock,
     this.cacheTtl = const Duration(minutes: 20),
     this.requestCooldown = const Duration(seconds: 10),
     this.maximumObservationAge = const Duration(days: 4),
-  }) : _transport = transport ?? const IoMarketTransport(),
+  }) : _transport = transport,
        _clock = clock ?? DateTime.now {
     if (cacheTtl <= Duration.zero ||
         requestCooldown < Duration.zero ||
@@ -538,7 +500,7 @@ final class MarketDataGateway {
         );
       }
       if (response.statusCode != 200 ||
-          response.body.length > IoMarketTransport.maximumResponseBytes) {
+          response.body.length > marketResponseLimit) {
         return _Fetch(
           prior,
           prior == null ? MarketState.failed : MarketState.stale,

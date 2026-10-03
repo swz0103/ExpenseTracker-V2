@@ -1,0 +1,27 @@
+name: bookkeeping
+description: Account and posting commands on the app_core pipeline.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  accounts:
+    path: ../accounts
+  app_core:
+    path: ../app_core
+  categories:
+    path: ../categories
+  credit_cards:
+    path: ../credit_cards
+  foundation_values:
+    path: ../foundation_values
+  investments:
+    path: ../investments
+  ledger:
+    path: ../ledger
+  merchants:
+    path: ../merchants
+  tags:
+    path: ../tags
+dev_dependencies:
+  test: 1.32.0
