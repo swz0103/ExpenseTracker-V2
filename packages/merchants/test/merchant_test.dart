@@ -2,6 +2,9 @@ import 'package:merchants/merchants.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
+Matcher fails(MerchantError code) =>
+    throwsA(isA<MerchantException>().having((e) => e.code, 'code', code));
+
 void main() {
   final ws = WorkspaceId(PublicId.generate());
   final id = PublicId.generate(), target = PublicId.generate();
@@ -34,7 +37,7 @@ void main() {
     );
     expect(
       () => a.requireSelection(workspace: ws, id: id, expectedVersion: 2),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.unavailable),
     );
     final b = a.setArchived(
       workspace: ws,
@@ -44,7 +47,7 @@ void main() {
     );
     expect(
       () => b.requireSelection(workspace: ws, id: id, expectedVersion: 1),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.versionConflict),
     );
     b.requireSelection(workspace: ws, id: id, expectedVersion: 3);
   });
@@ -60,7 +63,7 @@ void main() {
     expect(a.resolve(id).id, target);
     expect(
       () => a.rename(workspace: ws, id: id, expectedVersion: 2, name: '新'),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.unavailable),
     );
     expect(
       () => initial().merge(
@@ -70,7 +73,7 @@ void main() {
         targetId: target,
         expectedTargetVersion: 2,
       ),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.versionConflict),
     );
   });
   test('workspace, missing target and cycles cannot be restored', () {
@@ -82,7 +85,7 @@ void main() {
         expectedVersion: 1,
         name: 'X',
       ),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.workspaceMismatch),
     );
     expect(
       () => MerchantCatalog.restore(ws, [
@@ -95,7 +98,7 @@ void main() {
           replacementId: target,
         ),
       ]),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.missing),
     );
     expect(
       () => MerchantCatalog.restore(ws, [
@@ -116,7 +119,7 @@ void main() {
           replacementId: id,
         ),
       ]),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.replacementCycle),
     );
   });
   test('invalid names and exhausted revisions fail without changing state', () {
@@ -128,7 +131,7 @@ void main() {
           expectedVersion: 1,
           name: name,
         ),
-        throwsA(isA<MerchantException>()),
+        fails(MerchantError.invalidInput),
       );
     }
     expect(
@@ -138,7 +141,7 @@ void main() {
         expectedVersion: 1,
         name: 'a\nb',
       ),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.invalidInput),
     );
     final c = MerchantCatalog.restore(ws, [
       Merchant.restore(
@@ -155,7 +158,7 @@ void main() {
         expectedVersion: 9223372036854775807,
         name: 'b',
       ),
-      throwsA(isA<MerchantException>()),
+      fails(MerchantError.versionConflict),
     );
   });
   test('long historical merge chains resolve iteratively without changing original IDs', () {
