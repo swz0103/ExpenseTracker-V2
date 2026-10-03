@@ -148,6 +148,7 @@ final class BuyInvestment extends _Trade {
     required this.fee,
     required this.tax,
     this.settlesOn,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId buyId;
@@ -167,6 +168,10 @@ final class BuyInvestment extends _Trade {
   /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
   final BusinessDate? settlesOn;
 
+  /// What moved on the funding account when it is in another currency,
+  /// as with TWD settlement of a foreign trade (feature audit G-06).
+  final Money? settledAmount;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'buy-investment-v1',
@@ -181,6 +186,7 @@ final class BuyInvestment extends _Trade {
     'fee': fee.toJson(),
     'tax': tax.toJson(),
     'settlesOn': settlesOn?.toString(),
+    'settledAmount': settledAmount?.toJson(),
   };
 }
 
@@ -198,6 +204,7 @@ final class SellInvestment extends _Trade {
     required this.fee,
     required this.tax,
     this.settlesOn,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId sellId;
@@ -215,6 +222,10 @@ final class SellInvestment extends _Trade {
   /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
   final BusinessDate? settlesOn;
 
+  /// What moved on the funding account when it is in another currency,
+  /// as with TWD settlement of a foreign trade (feature audit G-06).
+  final Money? settledAmount;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'sell-investment-v1',
@@ -229,6 +240,7 @@ final class SellInvestment extends _Trade {
     'fee': fee.toJson(),
     'tax': tax.toJson(),
     'settlesOn': settlesOn?.toString(),
+    'settledAmount': settledAmount?.toJson(),
   };
 }
 
@@ -246,6 +258,7 @@ final class RecordDividend extends _Trade {
     required this.net,
     this.exDividendOn,
     this.healthPremium,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId dividendId;
@@ -266,6 +279,10 @@ final class RecordDividend extends _Trade {
   /// `TaiwanTradeCharges.supplementaryPremium`.
   final Money? healthPremium;
 
+  /// The amount credited in the funding account's currency, for a foreign
+  /// dividend paid out in TWD (feature audit G-06).
+  final Money? settledAmount;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'record-dividend-v1',
@@ -279,6 +296,7 @@ final class RecordDividend extends _Trade {
     'net': net.toJson(),
     'exDividendOn': exDividendOn?.toString(),
     'healthPremium': healthPremium?.toJson(),
+    'settledAmount': settledAmount?.toJson(),
   };
 }
 

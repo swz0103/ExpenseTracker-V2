@@ -254,6 +254,82 @@ void main() {
     );
   });
 
+  test('a foreign trade can settle in NT dollars', () async {
+    final twd = Currency.of('TWD');
+    Money ntd(int units) => Money(twd, BigInt.from(units));
+    final local = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: local,
+        name: '台幣交割',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: opened,
+        openingBalance: ntd(1000000),
+        openingPostingId: PublicId.generate(),
+      ),
+    );
+    final broker = PublicId.generate();
+    await invest.registerBroker(
+      RegisterBroker(operation: op(), brokerId: broker, name: '複委託券商'),
+    );
+    final subBrokerage = PublicId.generate();
+    await invest.openAccount(
+      OpenInvestmentAccount(
+        operation: op(),
+        accountId: subBrokerage,
+        brokerId: broker,
+        fundingAccountId: local,
+        name: '複委託',
+      ),
+    );
+    TradeTarget there() => TradeTarget(
+      accountId: subBrokerage,
+      instrumentId: apple,
+      funding: AccountRef(local, account(local).rulesVersion),
+    );
+    Future<void> buyThere(Money? settled) => invest.buy(
+      BuyInvestment(
+        operation: op(),
+        buyId: PublicId.generate(),
+        lotId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: there(),
+        tradedOn: BusinessDate(2026, 10, 1),
+        quantity: '10',
+        unitPrice: '150',
+        gross: cents(150000),
+        fee: cents(0),
+        tax: cents(0),
+        settledAmount: settled,
+      ),
+    );
+    await expectLater(
+      buyThere(null),
+      fails(FailureKind.rejected, 'investment.currencyMismatch'),
+    );
+    await buyThere(ntd(48150));
+    expect(ledger.balance(account(local)), ntd(1000000 - 48150));
+    final lot = ledger.holdings(subBrokerage, apple).single;
+    expect(lot.remainingCost, cents(150000));
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: there(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(700),
+        settledAmount: ntd(224),
+      ),
+    );
+    expect(ledger.balance(account(local)), ntd(1000000 - 48150 + 224));
+  });
+
   test('only a bank or cash account settles trades', () async {
     final wallet = PublicId.generate();
     await books.openAccount(

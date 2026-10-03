@@ -271,7 +271,12 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   Future<PublicId> _buy(T t, BuyInvestment command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
     _requireInOrder(
@@ -304,6 +309,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       fee: preview.fee,
       tax: preview.tax,
       cashDebit: preview.cashDebit,
+      settled: command.settledAmount,
     );
     final lot = preview.lot;
     await _record(t, command.operation, posting, {
@@ -325,7 +331,12 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   Future<PublicId> _sell(T t, SellInvestment command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
     final trades = await t.trades(context.account.id, context.instrument.id);
@@ -369,6 +380,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       fee: preview.fee,
       tax: preview.tax,
       cashCredit: preview.netCashCredit,
+      settled: command.settledAmount,
     );
     await _record(t, command.operation, posting, {
       'kind': 'sell',
@@ -400,7 +412,12 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   Future<PublicId> _dividend(T t, RecordDividend command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     await _books._requireNewPosting(t, command.postingId);
     final exDate = command.exDividendOn;
     if (exDate != null && exDate.compareTo(command.paidOn) > 0) {
@@ -436,6 +453,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       withholdingTax: preview.withholdingTax,
       fee: preview.fee,
       cashCredit: preview.netCashCredit,
+      settled: command.settledAmount,
     );
     await _record(t, command.operation, posting, {
       'kind': 'dividend',
@@ -486,8 +504,9 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<_TradeContext> _context(
     T t,
     OperationKey operation,
-    TradeTarget target,
-  ) async {
+    TradeTarget target, {
+    Money? settled,
+  }) async {
     final workspace = operation.workspace;
     final account = await _found(
       t.investmentAccount(target.accountId),
@@ -501,6 +520,13 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       throw const AppFailure(FailureKind.rejected, 'investment.funding');
     }
     final cash = await _books._account(t, target.funding.id);
+    // Settled in another currency, the broker converts: the trade itself is
+    // still in the instrument's currency (feature audit G-06).
+    if (settled != null &&
+        (settled.currency != cash.currency ||
+            cash.currency.code == instrument.tradingCurrency.code)) {
+      throw const AppFailure(FailureKind.rejected, 'investment.settlement');
+    }
     return _TradeContext(
       broker: await _found(t.broker(account.brokerId), workspace),
       account: account,
@@ -508,7 +534,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       funding: FundingCashAccount(
         id: cash.id,
         workspace: cash.workspace,
-        currency: cash.currency,
+        currency: settled == null ? cash.currency : instrument.tradingCurrency,
         expectedVersion: target.funding.expectedVersion,
       ),
     );
@@ -521,17 +547,17 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     Currency currency,
     BusinessDate date,
   ) {
-    final target = switch (command) {
-      BuyInvestment(:final target) => target,
-      SellInvestment(:final target) => target,
-      RecordDividend(:final target) => target,
+    final (target, settled) = switch (command) {
+      BuyInvestment trade => (trade.target, trade.settledAmount),
+      SellInvestment trade => (trade.target, trade.settledAmount),
+      RecordDividend trade => (trade.target, trade.settledAmount),
       _ => throw StateError('Not a trade.'),
     };
     return _books._postable(
       t,
       target.funding,
       command.operation.workspace,
-      currency,
+      settled?.currency ?? currency,
       date,
     );
   }

@@ -237,11 +237,10 @@ final class Posting {
     required Money fee,
     required Money tax,
     required Money cashDebit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, fee);
-    _participation(operation, account, tax);
-    _participation(operation, account, cashDebit);
+    final (moved, conversion) = _settle(operation, account, cashDebit, settled);
+    _sameCurrency(cashDebit, [gross, fee, tax]);
     _positive(gross);
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
@@ -261,9 +260,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentBuy,
-      legs: [LedgerLeg._(account, -cashDebit, LegRole.principal)],
+      legs: [LedgerLeg._(account, -moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentBuy: InvestmentBuyCashDetails._(
         buyId: investmentBuyId,
         gross: gross,
@@ -286,11 +286,11 @@ final class Posting {
     required Money fee,
     required Money tax,
     required Money cashCredit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, fee);
-    _participation(operation, account, tax);
-    _participation(operation, account, cashCredit);
+    final (moved, conversion) =
+        _settle(operation, account, cashCredit, settled);
+    _sameCurrency(cashCredit, [gross, fee, tax]);
     _positive(gross);
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
@@ -310,9 +310,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentSell,
-      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      legs: [LedgerLeg._(account, moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentSell: InvestmentSellCashDetails._(
         sellId: investmentSellId,
         gross: gross,
@@ -335,11 +336,11 @@ final class Posting {
     required Money withholdingTax,
     required Money fee,
     required Money cashCredit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, withholdingTax);
-    _participation(operation, account, fee);
-    _participation(operation, account, cashCredit);
+    final (moved, conversion) =
+        _settle(operation, account, cashCredit, settled);
+    _sameCurrency(cashCredit, [gross, withholdingTax, fee]);
     _positive(gross);
     if (withholdingTax.minorUnits < BigInt.zero ||
         fee.minorUnits < BigInt.zero ||
@@ -360,9 +361,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentDividend,
-      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      legs: [LedgerLeg._(account, moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentDividend: InvestmentDividendCashDetails._(
         dividendId: investmentDividendId,
         gross: gross,
@@ -543,6 +545,34 @@ void _participation(
     throw const LedgerException(LedgerError.workspaceMismatch);
   if (amount.currency != account.currency)
     throw const LedgerException(LedgerError.currencyMismatch);
+}
+
+/// What moves on [account] for a trade's [cash]: the cash itself, or
+/// [settled] in the account's currency when the broker converted it, as
+/// Taiwan's sub-brokerage does for TWD settlement (feature audit G-06).
+(Money, ActualConversion?) _settle(
+  OperationKey operation,
+  PostingAccount account,
+  Money cash,
+  Money? settled,
+) {
+  if (settled == null) {
+    _participation(operation, account, cash);
+    return (cash, null);
+  }
+  _participation(operation, account, settled);
+  _positive(settled);
+  _positive(cash);
+  if (settled.currency.code == cash.currency.code)
+    throw const LedgerException(LedgerError.currencyMismatch);
+  return (settled, ActualConversion(cash, settled));
+}
+
+void _sameCurrency(Money cash, List<Money> parts) {
+  for (final part in parts) {
+    if (part.currency != cash.currency)
+      throw const LedgerException(LedgerError.currencyMismatch);
+  }
 }
 
 void _positive(Money amount) {
