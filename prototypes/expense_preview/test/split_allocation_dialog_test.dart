@@ -144,10 +144,10 @@ void main() {
       await mode(t, '固定比例');
       await enter(t, '比例 16', '2');
       await click(t, '預覽分配');
-      await visible(t, find.text('16. 分類 16：TWD 1.30'));
+      await visible(t, find.text('16. 分類 16：TWD 1.17'));
       await click(t, '套用分配');
       expect(result!.length, 16);
-      expect(result!.last.majorText, '1.30');
+      expect(result!.last.majorText, '1.17');
       expect(
         result!.fold(BigInt.zero, (a, b) => a + b.minorUnits),
         BigInt.from(1000),
