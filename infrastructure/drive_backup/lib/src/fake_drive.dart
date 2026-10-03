@@ -31,7 +31,16 @@ enum FaultKind {
 }
 
 final class Fault {
-  Fault(this.kind, this.matches, {this.status = 503, this.times = 1});
+  Fault(
+    this.kind,
+    this.matches, {
+    this.status = 503,
+    this.times = 1,
+    this.reasons = const [],
+  });
+
+  /// Google error reasons in the body, such as `storageQuotaExceeded`.
+  final List<String> reasons;
 
   final FaultKind kind;
   final bool Function(DriveRequest request) matches;
@@ -80,6 +89,12 @@ final class FakeDrive implements DriveTransport {
   /// Raw rows added to every listing, for malformed entries.
   final extraRows = <Object?>[];
 
+  /// Rows per listing page; Drive pages long listings.
+  int pageSize = 1000;
+
+  /// When set, every page points to this token, as a broken server might.
+  String? repeatPageToken;
+
   /// Tokens Drive accepts; the first refresh makes `token-2` valid.
   Set<String> validTokens = {'token-1', 'token-2'};
   int _ids = 0;
@@ -106,7 +121,12 @@ final class FakeDrive implements DriveTransport {
     }
     if (fault != null && fault.kind == FaultKind.status) {
       return _json(fault.status, {
-        'error': {'code': fault.status},
+        'error': {
+          'code': fault.status,
+          'errors': [
+            for (final reason in fault.reasons) {'reason': reason},
+          ],
+        },
       });
     }
     final token = request.headers['authorization']?.substring(7);
@@ -145,12 +165,16 @@ final class FakeDrive implements DriveTransport {
       });
     }
     if (path == '/drive/v3/files') {
+      final rows = [
+        for (final file in files.values)
+          if (!file.trashed) file.toJson(),
+        ...extraRows,
+      ];
+      final start = int.parse(uri.queryParameters['pageToken'] ?? '0');
+      final end = start + pageSize;
       return _json(200, {
-        'files': [
-          for (final file in files.values)
-            if (!file.trashed) file.toJson(),
-          ...extraRows,
-        ],
+        'files': rows.sublist(start, end < rows.length ? end : rows.length),
+        if (end < rows.length) 'nextPageToken': repeatPageToken ?? '$end',
       });
     }
     final id = Uri.decodeComponent(path.substring('/drive/v3/files/'.length));

@@ -60,6 +60,63 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<CommandOutcome<int>> split(SplitInvestment command) =>
       _runner.run(command, (t) => _guard(() => _split(t, command)));
 
+  Future<CommandOutcome<int>> rename(RenameInvestmentRecord command) =>
+      _runner.run(command, (t) => _guard(() => _rename(t, command)));
+
+  /// Stores the renamed record under the same id; the event repeats the
+  /// registration with the new name, which replay stores the same way.
+  Future<int> _rename(T t, RenameInvestmentRecord command) async {
+    final workspace = command.operation.workspace;
+    switch (command.type) {
+      case InvestmentRecordType.broker:
+        final current = await _found(t.broker(command.id), workspace);
+        final broker = BrokerIdentity(
+          id: current.id,
+          workspace: current.workspace,
+          name: command.name,
+        );
+        await t.saveBroker(broker);
+        await _event(t, workspace, 'investment.broker-registered', {
+          'broker': InvestmentRecords.broker(broker),
+        });
+      case InvestmentRecordType.account:
+        final current = await _found(
+          t.investmentAccount(command.id),
+          workspace,
+        );
+        final account = InvestmentAccount(
+          id: current.id,
+          workspace: current.workspace,
+          brokerId: current.brokerId,
+          fundingCashAccountId: current.fundingCashAccountId,
+          name: command.name,
+          expectedVersion: current.expectedVersion,
+        );
+        await t.saveInvestmentAccount(account);
+        await _event(t, workspace, 'investment.account-opened', {
+          'account': InvestmentRecords.account(account),
+        });
+      case InvestmentRecordType.instrument:
+        final current = await t.instrument(command.id);
+        if (current == null) {
+          throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+        }
+        final instrument = InvestmentInstrument(
+          id: current.id,
+          kind: current.kind,
+          marketCode: current.marketCode,
+          symbol: current.symbol,
+          name: command.name,
+          tradingCurrency: current.tradingCurrency,
+        );
+        await t.saveInstrument(instrument);
+        await _event(t, workspace, 'investment.listed', {
+          'instrument': InvestmentRecords.instrument(instrument),
+        });
+    }
+    return 1;
+  }
+
   Future<CommandOutcome<PublicId>> voidTrade(VoidInvestmentTrade command) =>
       _runner.run(command, (t) => _guard(() => _void(t, command)));
 

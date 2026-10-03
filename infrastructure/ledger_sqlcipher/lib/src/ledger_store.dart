@@ -828,11 +828,10 @@ final class SqlBookkeeping
       instrument.id,
       InvestmentRecords.instrument(instrument),
     );
-    _transaction.execute('INSERT INTO invest_listings VALUES (?, ?, ?)', [
-      instrument.marketCode,
-      instrument.symbol,
-      instrument.id.value,
-    ]);
+    _transaction.execute(
+      'INSERT OR IGNORE INTO invest_listings VALUES (?, ?, ?)',
+      [instrument.marketCode, instrument.symbol, instrument.id.value],
+    );
   }
 
   @override
@@ -871,11 +870,12 @@ final class SqlBookkeeping
   }
 
   void _register(String type, PublicId id, Map<String, Object?> json) {
-    _transaction.execute('INSERT INTO invest_registry VALUES (?, ?, ?)', [
-      type,
-      id.value,
-      jsonEncode(json),
-    ]);
+    // An upsert: a rename stores the record again under the same id.
+    _transaction.execute(
+      'INSERT INTO invest_registry VALUES (?, ?, ?) '
+      'ON CONFLICT (type, id) DO UPDATE SET payload = excluded.payload',
+      [type, id.value, jsonEncode(json)],
+    );
   }
 
   @override

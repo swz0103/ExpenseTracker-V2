@@ -379,4 +379,54 @@ void main() {
       fails(FailureKind.rejected, 'investment.cost-method'),
     );
   });
+
+  test('brokers, accounts and instruments can be renamed', () async {
+    final prepared = target();
+    await invest.rename(
+      RenameInvestmentRecord(
+        operation: op(),
+        type: InvestmentRecordType.instrument,
+        id: apple,
+        name: 'Apple Inc.',
+      ),
+    );
+    await invest.rename(
+      RenameInvestmentRecord(
+        operation: op(),
+        type: InvestmentRecordType.account,
+        id: brokerage,
+        name: '美股帳戶',
+      ),
+    );
+    await expectLater(
+      invest.rename(
+        RenameInvestmentRecord(
+          operation: op(),
+          type: InvestmentRecordType.broker,
+          id: PublicId.generate(),
+          name: 'x',
+        ),
+      ),
+      fails(FailureKind.notFound, 'investment.not-found'),
+    );
+    // A trade prepared before the renames still goes through.
+    await invest.buy(
+      BuyInvestment(
+        operation: op(),
+        buyId: PublicId.generate(),
+        lotId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: prepared,
+        tradedOn: BusinessDate(2026, 10, 1),
+        quantity: '1',
+        unitPrice: '100',
+        gross: cents(10000),
+        fee: cents(0),
+        tax: cents(0),
+      ),
+    );
+    store.close();
+    open();
+    expect(ledger.holdings(brokerage, apple), hasLength(1));
+  });
 }

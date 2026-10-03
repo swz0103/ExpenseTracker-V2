@@ -219,4 +219,43 @@ void main() {
       fails(BackupProblem.invalidFormat),
     );
   });
+
+  test('a newer format, a tail or an unknown epoch are refused', () async {
+    final file = await backup();
+    final original = frames(file);
+    final header = String.fromCharCodes(original[1]);
+    expect(header, contains('"version":2'));
+    writeFrames(file, [
+      original[0],
+      header.replaceFirst('"version":2', '"version":3').codeUnits,
+      ...original.skip(2),
+    ]);
+    await expectLater(
+      LedgerBackup.readHeader(file),
+      fails(BackupProblem.unsupportedVersion),
+    );
+
+    writeFrames(file, [...original, original[2]]);
+    await expectLater(restore(file), fails(BackupProblem.invalidFormat));
+
+    final rotated = await keys.unlocked.rotateBackupKey();
+    final newer = await backup(using: rotated);
+    await expectLater(
+      restore(newer, using: keys.unlocked),
+      fails(BackupProblem.authenticationFailed),
+    );
+  });
+
+  test('content that does not replay is reported as invalid', () async {
+    await source.write((t) async {
+      t.append(
+        id: PublicId.generate(),
+        workspace: workspace,
+        kind: 'account.opened',
+        payload: '{"not":"an account"}',
+      );
+    });
+    final file = await backup();
+    await expectLater(restore(file), fails(BackupProblem.invalidContent));
+  });
 }

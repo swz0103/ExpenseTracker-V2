@@ -384,6 +384,14 @@ void main() {
         net: cents(350),
       ),
     );
+    await invest.rename(
+      RenameInvestmentRecord(
+        operation: op(),
+        type: InvestmentRecordType.instrument,
+        id: target().instrumentId,
+        name: '改名後',
+      ),
+    );
     final wrongDividend = PublicId.generate();
     await invest.dividend(
       RecordDividend(

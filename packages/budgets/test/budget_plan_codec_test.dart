@@ -69,9 +69,8 @@ void main() {
       () => codec.decode(' ' * (BudgetPlanCodec.maxBytes + 1)),
       throwsFormatException,
     );
-    List<String> ids(int count) => [
-      for (var i = 0; i < count; i++) PublicId.generate().value,
-    ]..sort();
+    List<String> ids(int count) =>
+        [for (var i = 0; i < count; i++) PublicId.generate().value]..sort();
     // The most selections fit in the byte limit on both lists ...
     final full = jsonEncode({
       ...original,

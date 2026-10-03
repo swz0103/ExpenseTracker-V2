@@ -192,18 +192,70 @@ void main() {
     expect(queue.get(next.backupId)!.state, UploadState.uploaded);
   });
 
-  test('quota errors fail until the user retries', () async {
+  test('a full Drive fails until the user retries', () async {
     final upload = await enqueue(backupFile());
     drive.faults.add(
-      Fault(FaultKind.status, (r) => r.method == 'POST', status: 403),
+      Fault(
+        FaultKind.status,
+        (r) => r.method == 'POST',
+        status: 403,
+        reasons: ['storageQuotaExceeded'],
+      ),
     );
     final outcome = await run();
     expect(outcome.result, UploadResult.failed);
-    expect(outcome.failure, 'permissionDenied');
+    expect(outcome.failure, 'quotaExceeded');
     expect((await run()).result, UploadResult.idle);
 
     await queue.retry(upload.backupId, t0);
     expect((await run()).result, UploadResult.uploaded);
+  });
+
+  test('403 reasons map to throttling or a lost permission', () async {
+    await enqueue(backupFile());
+    drive.faults.add(
+      Fault(
+        FaultKind.status,
+        (r) => r.method == 'POST',
+        status: 403,
+        reasons: ['userRateLimitExceeded'],
+      ),
+    );
+    final throttled = await run();
+    expect(throttled.result, UploadResult.retryLater);
+    expect(queue.uploads().single.failure, 'throttled');
+
+    drive.faults.add(
+      Fault(FaultKind.status, (r) => r.method == 'POST', status: 403),
+    );
+    final later = t0.add(const Duration(hours: 1));
+    final denied = await run(now: later);
+    expect(denied.result, UploadResult.failed);
+    expect(denied.failure, 'permissionDenied');
+  });
+
+  test('listings are paged; a looping server is refused', () async {
+    for (var day = 1; day <= 5; day++) {
+      final at = DateTime.utc(2026, 9, day);
+      await enqueue(backupFile(length: 1000), at: at);
+      expect((await run(now: at)).result, UploadResult.uploaded);
+    }
+    drive.pageSize = 2;
+    final listing = await client.listBackups();
+    expect(listing.files, hasLength(5));
+    expect(listing.files.first.createdAt, DateTime.utc(2026, 9, 5));
+
+    drive.repeatPageToken = '2';
+    await expectLater(
+      client.listBackups(),
+      throwsA(
+        isA<DriveException>().having(
+          (e) => e.failure,
+          'failure',
+          DriveFailure.unavailable,
+        ),
+      ),
+    );
   });
 
   test('retries back off and give up after the attempt budget', () async {

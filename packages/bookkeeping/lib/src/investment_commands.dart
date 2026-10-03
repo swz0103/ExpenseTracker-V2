@@ -319,3 +319,28 @@ final class VoidInvestmentTrade extends _Trade {
     'reversalId': reversalId.value,
   };
 }
+
+enum InvestmentRecordType { broker, account, instrument }
+
+/// Renames a broker, investment account or instrument. Ids, trades and
+/// versions stay as they are, so prepared trades remain valid. Returns 1.
+final class RenameInvestmentRecord extends _Registration {
+  RenameInvestmentRecord({
+    required OperationKey operation,
+    required this.type,
+    required this.id,
+    required this.name,
+  }) : super(operation);
+
+  final InvestmentRecordType type;
+  final PublicId id;
+  final String name;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'rename-investment-record-v1',
+    'type': type.name,
+    'id': id.value,
+    'name': name,
+  };
+}

@@ -180,4 +180,39 @@ void main() {
     final health = service.health(principal: principal, every: day, now: now);
     expect(health.pending, 1);
   });
+
+  test('a failed restore leaves no plain copy behind', () async {
+    await backup(t0);
+    await sync(t0);
+    final listing = await client.listBackups();
+    final target = open();
+    addTearDown(target.close);
+    await expectLater(
+      service.restore(
+        drive: client,
+        file: listing.files.single,
+        unlock: (keyring) => codec.unlockWithPassword(keyring, 'wrong one!'),
+        into: LedgerStore(target),
+      ),
+      throwsA(const KeyringException(KeyringError.wrongSecret)),
+    );
+    expect(service.staging.listSync(), isEmpty);
+    expect(target.eventCount, 0);
+  });
+
+  test('due and health count only this account and live uploads', () async {
+    await service.backupNow(keys: keys.unlocked, principal: 'other', now: t0);
+    expect(service.due(principal: principal, every: day, now: t0), isTrue);
+    drive.faults.add(
+      Fault(FaultKind.status, (r) => r.method == 'POST', status: 403),
+    );
+    await backup(t0);
+    await sync(t0);
+    final health = service.health(principal: principal, every: day, now: t0);
+    expect(health.failed, 1);
+    expect(health.pending, 0);
+    expect(health.overdue, isTrue);
+    // A failed upload does not count as a backup taken.
+    expect(service.due(principal: principal, every: day, now: t0), isTrue);
+  });
 }
