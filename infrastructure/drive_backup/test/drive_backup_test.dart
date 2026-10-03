@@ -373,7 +373,7 @@ void main() {
     final removed = await queue.prune(
       drive: client,
       principal: principal,
-      keep: 2,
+      retention: const Retention.newest(2),
       now: now,
     );
     expect(removed, 2);
@@ -384,7 +384,7 @@ void main() {
     final again = await queue.prune(
       drive: client,
       principal: principal,
-      keep: 2,
+      retention: const Retention.newest(2),
       now: now,
     );
     expect(again, 0);

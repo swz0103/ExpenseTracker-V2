@@ -75,8 +75,12 @@ void main() {
   Future<CloudUpload> backup(DateTime now) =>
       service.backupNow(keys: keys.unlocked, principal: principal, now: now);
 
-  Future<SyncReport> sync(DateTime now, {int keep = 2}) =>
-      service.sync(drive: client, principal: principal, keep: keep, now: now);
+  Future<SyncReport> sync(DateTime now, {int keep = 2}) => service.sync(
+    drive: client,
+    principal: principal,
+    now: now,
+    retention: Retention.newest(keep),
+  );
 
   test('backups are due on schedule, upload and keep the newest', () async {
     expect(service.due(principal: principal, every: day, now: t0), isTrue);
@@ -89,6 +93,18 @@ void main() {
       expect(report.last.result, UploadResult.idle);
       now = now.add(day);
     }
+    // Nothing changed since the last backup, so none is due.
+    expect(service.due(principal: principal, every: day, now: now), isFalse);
+    await books.openAccount(
+      OpenAccount(
+        operation: OperationKey(workspace, OperationId(PublicId.generate())),
+        accountId: PublicId.generate(),
+        name: '新帳戶',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: BusinessDate(2026, 10, 1),
+      ),
+    );
     expect(service.due(principal: principal, every: day, now: now), isTrue);
     expect(drive.files.values.where((f) => !f.trashed), hasLength(2));
     expect(service.staging.listSync(), isEmpty);
@@ -214,5 +230,37 @@ void main() {
     expect(health.overdue, isTrue);
     // A failed upload does not count as a backup taken.
     expect(service.due(principal: principal, every: day, now: t0), isTrue);
+  });
+
+  test('Drive keeps daily, weekly and monthly copies', () {
+    final days = [
+      for (var i = 0; i < 120; i++) DateTime.utc(2026, 10, 1).subtract(day * i),
+    ];
+    final kept = const Retention(daily: 3, weekly: 2, monthly: 3).keep(days);
+    final dates = [for (final i in kept.toList()..sort()) days[i]];
+    // The three newest, the newest of last week, and the newest of each
+    // of the two months before.
+    expect(dates, [
+      DateTime.utc(2026, 10, 1),
+      DateTime.utc(2026, 9, 30),
+      DateTime.utc(2026, 9, 29),
+      DateTime.utc(2026, 9, 27),
+      DateTime.utc(2026, 8, 31),
+    ]);
+  });
+
+  test('a backup file on this device restores without Drive', () async {
+    final upload = await backup(t0);
+    final copy = File('${directory.path}/copied.etb');
+    upload.file.copySync(copy.path);
+    final target = open();
+    addTearDown(target.close);
+    final header = await service.restoreFile(
+      file: copy,
+      unlock: (keyring) => codec.unlockWithPassword(keyring, password),
+      into: LedgerStore(target),
+    );
+    expect(header.backupId.value, upload.backupId);
+    expect(projectionRows(target), projectionRows(store));
   });
 }

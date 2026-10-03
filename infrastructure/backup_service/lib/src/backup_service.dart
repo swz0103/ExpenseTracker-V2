@@ -60,13 +60,15 @@ final class BackupService {
   final Exclusive exclusive;
 
   /// Whether a scheduled backup is due: nothing queued or uploaded for
-  /// [principal] within [every].
+  /// [principal] within [every], and the ledger changed since the latest
+  /// one (feature audit G-21).
   bool due({
     required String principal,
     required Duration every,
     required DateTime now,
   }) {
     DateTime? latest;
+    var latestSeq = -1;
     for (final upload in queue.uploads()) {
       if (upload.principal != principal) continue;
       if (upload.state != UploadState.queued &&
@@ -76,9 +78,16 @@ final class BackupService {
       }
       if (latest == null || upload.createdAt.isAfter(latest)) {
         latest = upload.createdAt;
+        latestSeq = upload.lastSeq;
       }
     }
-    return latest == null || !now.isBefore(latest.add(every));
+    if (latest == null) return true;
+    return latestSeq != _lastSeq() && !now.isBefore(latest.add(every));
+  }
+
+  int _lastSeq() {
+    final rows = ledger.store.select('SELECT max(seq) AS seq FROM events');
+    return (rows.single['seq'] as int?) ?? 0;
   }
 
   /// Writes a backup now and queues it for upload.
@@ -90,8 +99,9 @@ final class BackupService {
     final backupId = PublicId.generate();
     await staging.create(recursive: true);
     final file = File('${staging.path}/${backupId.value}.etb');
+    final BackupHeader header;
     try {
-      await exclusive(
+      header = await exclusive(
         () => LedgerBackup.write(
           store: ledger.store,
           keys: keys,
@@ -110,17 +120,18 @@ final class BackupService {
       file: file,
       createdAt: now,
       now: now,
+      lastSeq: header.lastSeq,
     );
   }
 
-  /// Uploads what is due, then keeps the newest [keep] backups on Drive.
-  /// Pruning waits until nothing is left to upload, so a failing upload
-  /// never costs an older good copy.
+  /// Uploads what is due, then trims Drive to [retention]. Pruning waits
+  /// until nothing is left to upload, so a failing upload never costs an
+  /// older good copy.
   Future<SyncReport> sync({
     required DriveClient drive,
     required String principal,
-    required int keep,
     required DateTime now,
+    Retention retention = const Retention(),
   }) async {
     var uploaded = 0;
     var last = const UploadRun(UploadResult.idle);
@@ -134,7 +145,7 @@ final class BackupService {
       removed = await queue.prune(
         drive: drive,
         principal: principal,
-        keep: keep,
+        retention: retention,
         now: now,
       );
     }
@@ -160,6 +171,19 @@ final class BackupService {
       pending: pending,
       failed: failed,
     );
+  }
+
+  /// Restores a backup file already on this device, for example one
+  /// copied over by the user when Drive is unavailable. The file's own
+  /// authenticated header identifies it.
+  Future<BackupHeader> restoreFile({
+    required File file,
+    required Future<UnlockedKeyring> Function(Keyring keyring) unlock,
+    required LedgerStore into,
+  }) async {
+    final header = await LedgerBackup.readHeader(file);
+    final keys = await unlock(header.keyring);
+    return LedgerBackup.restore(file: file, keys: keys, into: into);
   }
 
   /// Downloads [file] and restores it into the empty ledger [into].

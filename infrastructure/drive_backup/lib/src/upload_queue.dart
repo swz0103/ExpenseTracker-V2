@@ -21,6 +21,7 @@ final cloudSchema = SchemaModule('cloud', [
       byte_length INTEGER NOT NULL CHECK (byte_length > 0),
       sha256 TEXT NOT NULL,
       created_at TEXT NOT NULL,
+      last_seq INTEGER NOT NULL DEFAULT 0,
       state TEXT NOT NULL
         CHECK (state IN (
           'queued', 'uploaded', 'failed', 'abandoned', 'removed'
@@ -72,6 +73,7 @@ final class CloudUpload {
     this.sessionUri,
     this.nextAttemptAt,
     this.failure,
+    this.lastSeq = 0,
   });
 
   final String backupId;
@@ -94,6 +96,49 @@ final class CloudUpload {
   /// Why the upload failed: a [DriveFailure] name, `local-artifact` or
   /// `remote-mismatch`.
   final String? failure;
+
+  /// The ledger's journal position the backup holds, so an unchanged
+  /// ledger is not backed up again.
+  final int lastSeq;
+}
+
+/// Which uploaded backups stay on Drive: the newest [daily], plus the
+/// newest of each of the last [weekly] weeks and [monthly] months that
+/// have one. An older good copy survives a run of bad new ones (feature
+/// audit G-21). The newest backup always stays.
+final class Retention {
+  const Retention({this.daily = 7, this.weekly = 4, this.monthly = 12})
+    : assert(daily >= 1 && weekly >= 0 && monthly >= 0);
+
+  /// Only the newest [count], for tests and small quotas.
+  const Retention.newest(int count) : this(daily: count, weekly: 0, monthly: 0);
+
+  final int daily;
+  final int weekly;
+  final int monthly;
+
+  /// The positions in [newestFirst] to keep.
+  Set<int> keep(List<DateTime> newestFirst) {
+    final kept = <int>{};
+    for (var i = 0; i < newestFirst.length && i < daily; i++) {
+      kept.add(i);
+    }
+    void bucket(int count, String Function(DateTime) key) {
+      final seen = <String>{};
+      for (final (index, at) in newestFirst.indexed) {
+        if (seen.length == count) break;
+        if (seen.add(key(at))) kept.add(index);
+      }
+    }
+
+    bucket(weekly, (at) {
+      final utc = at.toUtc();
+      final monday = utc.subtract(Duration(days: utc.weekday - 1));
+      return '${monday.year}-${monday.month}-${monday.day}';
+    });
+    bucket(monthly, (at) => '${at.toUtc().year}-${at.toUtc().month}');
+    return kept;
+  }
 }
 
 enum UploadResult {
@@ -160,6 +205,7 @@ final class CloudUploadQueue {
     required File file,
     required DateTime createdAt,
     required DateTime now,
+    int lastSeq = 0,
   }) async {
     if (backupId.isEmpty || principal.isEmpty) {
       throw ArgumentError('Empty backup id or principal.');
@@ -185,8 +231,8 @@ final class CloudUploadQueue {
       );
       t.execute(
         'INSERT INTO cloud_uploads (backup_id, principal, file_path, '
-        'byte_length, sha256, created_at, state, updated_at) '
-        "VALUES (?, ?, ?, ?, ?, ?, 'queued', ?)",
+        'byte_length, sha256, created_at, last_seq, state, updated_at) '
+        "VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?)",
         [
           backupId,
           principal,
@@ -194,6 +240,7 @@ final class CloudUploadQueue {
           length,
           digest,
           _time(createdAt),
+          lastSeq,
           _time(now),
         ],
       );
@@ -291,18 +338,20 @@ final class CloudUploadQueue {
   Future<int> prune({
     required DriveClient drive,
     required String principal,
-    required int keep,
+    required Retention retention,
     required DateTime now,
   }) async {
-    if (keep < 1) throw ArgumentError.value(keep, 'keep', 'Keep at least 1.');
     final rows = _store.select(
-      'SELECT backup_id, drive_file_id FROM cloud_uploads '
-      "WHERE state = 'uploaded' AND principal = ? "
-      'ORDER BY created_at DESC LIMIT -1 OFFSET ?',
-      [principal, keep],
+      'SELECT backup_id, drive_file_id, created_at FROM cloud_uploads '
+      "WHERE state = 'uploaded' AND principal = ? ORDER BY created_at DESC",
+      [principal],
     );
+    final kept = retention.keep([
+      for (final row in rows) DateTime.parse(row['created_at']! as String),
+    ]);
     var removed = 0;
-    for (final row in rows) {
+    for (final (index, row) in rows.indexed) {
+      if (kept.contains(index)) continue;
       final fileId = row['drive_file_id']! as String;
       final current = await drive.file(fileId);
       if (current != null && !current.trashed) await drive.trash(fileId);
@@ -578,6 +627,7 @@ final class CloudUploadQueue {
       sessionUri: session == null ? null : Uri.parse(session),
       nextAttemptAt: time('next_attempt_at'),
       failure: row['failure'] as String?,
+      lastSeq: row['last_seq']! as int,
     );
   }
 }
