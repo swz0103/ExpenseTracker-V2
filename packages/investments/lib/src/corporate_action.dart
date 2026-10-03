@@ -125,11 +125,11 @@ final class CorporateActionPreview {
     realized += returned - lowered;
     if (lowered > BigInt.zero) {
       final weighted = [
-        for (var i = 0; i < costs.length; i++) if (costs[i] > BigInt.zero) i,
+        for (var i = 0; i < costs.length; i++)
+          if (costs[i] > BigInt.zero) i,
       ];
-      final parts = Money(currency, lowered).allocate([
-        for (final i in weighted) costs[i],
-      ]);
+      final total = Money(currency, lowered);
+      final parts = total.allocate([for (final i in weighted) costs[i]]);
       for (final (n, i) in weighted.indexed) {
         costs[i] -= parts[n].minorUnits;
       }
