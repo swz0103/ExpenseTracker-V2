@@ -11,7 +11,26 @@ import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 /// Books [count] entries between the two TWD accounts: income, expenses,
 /// transfers and reversals of earlier ones. Prints `committed <n>` after
 /// every commit so a test can kill it mid-stream (health check G5-03).
+///
+/// Usage: posting_worker migrate <database> <hex key>
+///
+/// Upgrades the ledger to the current schema and then runs one long extra
+/// step from [bulkSchema], printing `migrating` first, so a test can kill
+/// it in the middle of a migration (health check G6-09).
 Future<void> main(List<String> args) async {
+  if (args.length == 3 && args[0] == 'migrate') {
+    stdout.writeln('migrating');
+    await stdout.flush();
+    final store = SqlCipherStore.open(
+      File(args[1]),
+      StorageKey.fromHex(args[2]),
+      modules: [ledgerSchema, bulkSchema],
+    );
+    store.close();
+    stdout.writeln('migrated');
+    await stdout.flush();
+    return;
+  }
   if (args.length != 6) exit(64);
   final store = SqlCipherStore.open(
     File(args[0]),
@@ -77,3 +96,20 @@ Future<void> main(List<String> args) async {
   await stdout.flush();
   store.close();
 }
+
+/// One migration step long enough to be killed part way.
+final bulkSchema = SchemaModule('bulk', [
+  [
+    'CREATE TABLE bulk_rows (n INTEGER PRIMARY KEY, pad TEXT NOT NULL)',
+    '''
+    INSERT INTO bulk_rows
+    WITH RECURSIVE c(n) AS (
+      SELECT 1 UNION ALL SELECT n + 1 FROM c LIMIT $bulkRows
+    )
+    SELECT n, hex(randomblob(32)) FROM c
+    ''',
+  ],
+]);
+
+/// Kept in step with `crash_test.dart`.
+const bulkRows = 2000000;

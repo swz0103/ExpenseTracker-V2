@@ -103,4 +103,53 @@ void main() {
       store.close();
     }
   });
+
+  test('a migration killed part way is all or nothing', () async {
+    final suffix = Platform.isWindows ? '.exe' : '';
+    final worker = File('.dart_tool/worker/bundle/bin/posting_worker$suffix');
+    // The ledger holds real entries; the worker adds one long module step.
+    final current = open();
+    final before = projectionRows(current);
+    current.close();
+
+    final random = Random(20261005);
+    for (var round = 0; round < 4; round++) {
+      final process = await Process.start(worker.absolute.path, [
+        'migrate',
+        file.path,
+        key.hex,
+      ]);
+      final output = process.stdout.transform(utf8.decoder);
+      final lines = output.transform(const LineSplitter());
+      var finished = false;
+      await for (final line in lines) {
+        if (line == 'migrating') {
+          final delay = Duration(milliseconds: random.nextInt(400));
+          await Future<void>.delayed(delay);
+          process.kill(ProcessSignal.sigkill);
+        }
+        if (line == 'migrated') finished = true;
+      }
+      await process.exitCode;
+
+      final store = open();
+      expect(store.integrityCheck(), 'ok');
+      expect(store.moduleVersion('ledger'), ledgerSchema.migrations.length);
+      final bulk = store.moduleVersion('bulk');
+      final tables = store.select(
+        "SELECT name FROM sqlite_master WHERE name = 'bulk_rows'",
+      );
+      if (bulk == 0) {
+        expect(finished, isFalse);
+        expect(tables, isEmpty);
+      } else {
+        expect(bulk, 1);
+        final rows = store.select('SELECT count(*) AS n FROM bulk_rows');
+        expect(rows.single['n'], 2000000);
+      }
+      expect(projectionRows(store), before);
+      store.close();
+      if (bulk == 1) break;
+    }
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }
