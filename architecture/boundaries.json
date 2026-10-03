@@ -145,6 +145,11 @@
     }
   },
   "runtimeModules": {
+    "ledger_backup": {
+      "directory": "infrastructure/ledger_backup",
+      "publicEntrypoints": ["ledger_backup.dart"],
+      "dependencies": ["app_core", "backup_security", "foundation_values", "ledger_sqlcipher", "storage_sqlcipher"]
+    },
     "expense_tracker": {
       "directory": "apps/expense_tracker",
       "dependencies": ["accounts", "app_core", "bookkeeping", "foundation_values", "ledger"]

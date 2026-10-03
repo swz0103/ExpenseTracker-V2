@@ -1,0 +1,24 @@
+name: ledger_backup
+description: Backup format v2 - a streamed, chunked, authenticated copy of the event journal, restored by replay.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  app_core:
+    path: ../../packages/app_core
+  backup_security:
+    path: ../backup_security
+  cryptography: 2.9.0
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger_sqlcipher:
+    path: ../ledger_sqlcipher
+  storage_sqlcipher:
+    path: ../storage_sqlcipher
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher

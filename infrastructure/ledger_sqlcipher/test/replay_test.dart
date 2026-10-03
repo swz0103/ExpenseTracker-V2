@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:accounts/accounts.dart';
-import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';

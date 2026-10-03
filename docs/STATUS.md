@@ -17,6 +17,14 @@
 - 預覽版與正式版發佈前，必須先通過同一 commit 的完整驗證；只有發佈步驟持有寫入權限。
 - 移除未使用的 `transaction_boundary` 原型、兩條手動 workflow、未使用的 Twelve Data 憑證畫面，以及過期文件。
 
+## 底層強化（UI 之前先做）
+
+- [x] 期初與退款可以沖銷；沖銷退款會把額度還給原支出；可替換期初餘額（健檢 G1-02）。
+- [x] `rebuildBalance` 拒絕重複的 OperationKey（G1-14）；runtime 模組也強制公開入口（G1-10）。
+- [x] 新套件啟用 strict-casts 等檢查；測試不得用 `throwsA(anything)`。
+- [x] 事件日誌重播：從日誌重建所有投影表，與原表逐列比對一致。
+- [x] 備份格式 v2（`infrastructure/ledger_backup`）：串流、分塊、每塊用 keyring 的備份金鑰加密並綁定標頭與順序；標頭含備份 ID、時間、日誌位置；擷取不做商業規則驗證（一定備得出來），還原時重播並驗證（健檢 G8-04、G8-05、G8-07）。
+
 ## 階段 4 進行中
 
 - [x] 4a `apps/expense_tracker` 骨架：帳戶、記一筆、本月三個分頁，只透過 `AppSession` 走 `bookkeeping` 指令；錯誤訊息依 `AppFailure` 代碼顯示中文說明；內建繁中字型子集。

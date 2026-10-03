@@ -74,7 +74,7 @@ void main() {
       expect(() => r.legs.clear(), throwsUnsupportedError);
     }
   });
-  test('self-reference, wrong workspace/date, reversal and invalid reason reject', () {
+  test('self-reference, wrong workspace or date, nested reversal reject', () {
     final p = Posting.expense(
       id: PublicId.generate(),
       operation: op(),

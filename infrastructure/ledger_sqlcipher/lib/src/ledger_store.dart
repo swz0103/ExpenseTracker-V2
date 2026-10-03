@@ -213,6 +213,9 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
 
   final SqlCipherStore _store;
 
+  /// The underlying store, for journal-level work such as backups.
+  SqlCipherStore get store => _store;
+
   @override
   Future<R> write<R>(Future<R> Function(SqlBookkeeping transaction) body) =>
       _store.write((transaction) => body(SqlBookkeeping._(transaction)));

@@ -36,6 +36,7 @@ $checks = @(
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/backup_security'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/market_adapters'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/ledger_backup'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
     @{ Path = 'prototypes/validated_restore'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
