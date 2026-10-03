@@ -426,11 +426,7 @@ final class CloudUploadQueue {
     return file;
   }
 
-  Future<void> _finish(
-    CloudUpload upload,
-    DriveFile file,
-    DateTime now,
-  ) async {
+  Future<void> _finish(CloudUpload upload, DriveFile file, DateTime now) async {
     await _store.write((t) async {
       t.execute(
         "UPDATE cloud_uploads SET state = 'uploaded', drive_file_id = ?, "
