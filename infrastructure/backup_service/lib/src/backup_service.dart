@@ -14,6 +14,7 @@ final class BackupHealth {
     required this.overdue,
     required this.pending,
     required this.failed,
+    this.problem,
   });
 
   /// When the newest backup on Drive was taken, if any.
@@ -23,6 +24,25 @@ final class BackupHealth {
   final bool overdue;
   final int pending;
   final int failed;
+
+  /// Why the latest scheduled pass did not finish, if it did not; shown
+  /// so skipped backups never look healthy (health check G3-13).
+  final String? problem;
+}
+
+/// What one scheduled pass did.
+final class ScheduledPass {
+  const ScheduledPass({this.backup, this.sync, this.problem});
+
+  /// The backup queued by this pass, if one was due.
+  final CloudUpload? backup;
+
+  /// The upload run, when a Drive client was available.
+  final SyncReport? sync;
+  final String? problem;
+
+  /// Another pass for the same account was still running.
+  static const busy = ScheduledPass(problem: 'busy');
 }
 
 final class SyncReport {
@@ -83,6 +103,62 @@ final class BackupService {
     }
     if (latest == null) return true;
     return latestSeq != _lastSeq() && !now.isBefore(latest.add(every));
+  }
+
+  final _problems = <String, String>{};
+  final _running = <String>{};
+
+  /// One scheduled pass: writes a backup when [due], then uploads when a
+  /// [drive] client is available. The app calls it after unlock and from
+  /// a periodic timer while unlocked, so a backup missed at unlock is
+  /// retried within one timer period (health check G3-13). A failure never
+  /// throws; it is returned and kept for [health] until a pass succeeds.
+  Future<ScheduledPass> runScheduled({
+    required UnlockedKeyring keys,
+    required String principal,
+    required Duration every,
+    required DateTime now,
+    DriveClient? drive,
+  }) async {
+    if (!_running.add(principal)) return ScheduledPass.busy;
+    CloudUpload? backup;
+    try {
+      if (due(principal: principal, every: every, now: now)) {
+        backup = await backupNow(keys: keys, principal: principal, now: now);
+      }
+      SyncReport? report;
+      if (drive != null) {
+        report = await sync(drive: drive, principal: principal, now: now);
+      }
+      final result = report?.last.result;
+      final problem = switch (result) {
+        null || UploadResult.idle || UploadResult.uploaded =>
+          _waiting(principal) ? _problems[principal] : null,
+        final UploadResult other => 'upload ${other.name}',
+      };
+      _remember(principal, problem);
+      return ScheduledPass(backup: backup, sync: report, problem: problem);
+    } on Object catch (error) {
+      final problem = 'backup failed: ${error.runtimeType}';
+      _remember(principal, problem);
+      return ScheduledPass(backup: backup, problem: problem);
+    } finally {
+      _running.remove(principal);
+    }
+  }
+
+  /// An upload still waits for its retry time, so an earlier problem
+  /// stands until it goes through.
+  bool _waiting(String principal) => queue
+      .uploads(state: UploadState.queued)
+      .any((upload) => upload.principal == principal);
+
+  void _remember(String principal, String? problem) {
+    if (problem == null) {
+      _problems.remove(principal);
+    } else {
+      _problems[principal] = problem;
+    }
   }
 
   int _lastSeq() {
@@ -170,6 +246,7 @@ final class BackupService {
       overdue: last == null || now.isAfter(last.add(every * 2)),
       pending: pending,
       failed: failed,
+      problem: _problems[principal],
     );
   }
 

@@ -232,6 +232,62 @@ void main() {
     expect(service.due(principal: principal, every: day, now: t0), isTrue);
   });
 
+  test('a scheduled pass reports problems until a pass succeeds', () async {
+    Future<ScheduledPass> pass(DateTime now) => service.runScheduled(
+      keys: keys.unlocked,
+      principal: principal,
+      every: day,
+      now: now,
+      drive: client,
+    );
+    drive.faults.add(
+      Fault(FaultKind.status, (r) => r.method == 'POST', status: 503),
+    );
+    final first = await pass(t0);
+    expect(first.backup, isNotNull);
+    expect(first.problem, 'upload retryLater');
+    // Before the retry time nothing runs, and the problem still shows.
+    final waiting = await pass(t0.add(const Duration(seconds: 1)));
+    expect(waiting.backup, isNull);
+    expect(waiting.problem, 'upload retryLater');
+    var health = service.health(principal: principal, every: day, now: t0);
+    expect(health.problem, 'upload retryLater');
+    // The timer's next pass uploads the waiting backup; nothing changed in
+    // the ledger, so no new backup is written.
+    final later = await pass(t0.add(const Duration(hours: 1)));
+    expect(later.backup, isNull);
+    expect(later.sync!.uploaded, 1);
+    expect(later.problem, isNull);
+    health = service.health(principal: principal, every: day, now: t0);
+    expect(health.problem, isNull);
+    expect(drive.files, hasLength(1));
+  });
+
+  test('a scheduled pass never throws and overlapping passes skip', () async {
+    final staging = File(service.staging.path)..createSync(recursive: true);
+    final failing = await service.runScheduled(
+      keys: keys.unlocked,
+      principal: principal,
+      every: day,
+      now: t0,
+    );
+    expect(failing.problem, startsWith('backup failed'));
+    staging.deleteSync();
+    final passes = await Future.wait([
+      for (var i = 0; i < 2; i++)
+        service.runScheduled(
+          keys: keys.unlocked,
+          principal: principal,
+          every: day,
+          now: t0,
+        ),
+    ]);
+    expect(passes.where((p) => p.problem == 'busy'), hasLength(1));
+    expect(passes.where((p) => p.backup != null), hasLength(1));
+    final health = service.health(principal: principal, every: day, now: t0);
+    expect(health.problem, isNull);
+  });
+
   test('Drive keeps daily, weekly and monthly copies', () {
     final days = [
       for (var i = 0; i < 120; i++) DateTime.utc(2026, 10, 1).subtract(day * i),
