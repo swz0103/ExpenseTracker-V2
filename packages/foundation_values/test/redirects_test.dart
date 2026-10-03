@@ -13,13 +13,8 @@ void main() {
       ids[3]: ids[2],
       ids[4]: null,
     })!;
-    expect([for (final id in ids) canonical[id]], [
-      ids[2],
-      ids[2],
-      ids[2],
-      ids[2],
-      ids[4],
-    ]);
+    final resolved = [for (final id in ids) canonical[id]];
+    expect(resolved, [ids[2], ids[2], ids[2], ids[2], ids[4]]);
   });
 
   test('a long history resolves without recursion', () {
