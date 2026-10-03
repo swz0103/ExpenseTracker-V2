@@ -384,6 +384,29 @@ void main() {
         net: cents(350),
       ),
     );
+    final wrongDividend = PublicId.generate();
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: wrongDividend,
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: day,
+        gross: cents(5),
+        withholdingTax: cents(0),
+        fee: cents(0),
+        net: cents(5),
+      ),
+    );
+    await invest.voidTrade(
+      VoidInvestmentTrade(
+        operation: op(),
+        accountId: target().accountId,
+        instrumentId: target().instrumentId,
+        tradeId: wrongDividend,
+        reversalId: PublicId.generate(),
+      ),
+    );
   }
 
   test('replaying the journal rebuilds every projection exactly', () async {

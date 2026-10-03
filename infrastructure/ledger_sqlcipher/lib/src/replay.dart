@@ -145,6 +145,8 @@ abstract final class LedgerReplay {
         );
       case 'investment.traded':
         await t.saveTrade(p);
+      case 'investment.voided':
+        await t.voidTrade(PublicId.parse(p['tradeId']! as String));
       case 'budget.set':
         await t.saveBudget(BudgetPlanCodec().decode(p['plan']! as String));
       case 'recurring.saved':
@@ -183,6 +185,7 @@ const ledgerTables = {
   'invest_registry': 'type, id',
   'invest_listings': 'market, symbol',
   'invest_trades': 'seq',
+  'invest_voids': 'trade_id',
   'plan_budgets': 'id',
   'plan_recurring': 'id',
   'plan_recurring_confirmed': 'template_id, due_date',

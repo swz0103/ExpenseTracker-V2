@@ -274,6 +274,11 @@ final ledgerSchema = SchemaModule('ledger', [
     ADD COLUMN voided INTEGER NOT NULL DEFAULT 0
     ''',
   ],
+  [
+    // Trades stay immutable; a voided one is listed here and left out of
+    // every replay.
+    'CREATE TABLE invest_voids (trade_id TEXT PRIMARY KEY) STRICT',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -837,6 +842,11 @@ final class SqlBookkeeping
   ) async => _readTrades(_transaction.select, accountId, instrumentId);
 
   @override
+  Future<void> voidTrade(PublicId tradeId) async {
+    _transaction.execute('INSERT INTO invest_voids VALUES (?)', [tradeId.value]);
+  }
+
+  @override
   Future<void> saveTrade(Map<String, Object?> trade) async {
     _transaction.execute(
       'INSERT INTO invest_trades '
@@ -1191,7 +1201,9 @@ List<Map<String, Object?>> _readTrades(
 ) {
   final rows = select(
     'SELECT payload FROM invest_trades '
-    'WHERE account_id = ? AND instrument_id = ? ORDER BY seq',
+    'WHERE account_id = ? AND instrument_id = ? '
+    "AND json_extract(payload, '\$.id') NOT IN "
+    '(SELECT trade_id FROM invest_voids) ORDER BY seq',
     [accountId.value, instrumentId.value],
   );
   return [for (final row in rows) _json(row['payload'])];

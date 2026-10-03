@@ -145,7 +145,7 @@ final class CardBook<T extends CardTransaction> {
         await t.installmentPlan(charge.ledgerEventId!) != null) {
       throw const AppFailure(FailureKind.rejected, 'card.has-installments');
     }
-    final reversal = await _reverseOwned(
+    final reversal = await _books._reverseOwned(
       t,
       command.operation,
       command.reversalId,
@@ -165,7 +165,7 @@ final class CardBook<T extends CardTransaction> {
     if (await t.isPaymentVoided(payment.id)) {
       throw const AppFailure(FailureKind.conflict, 'card.voided');
     }
-    final reversal = await _reverseOwned(
+    final reversal = await _books._reverseOwned(
       t,
       command.operation,
       command.reversalId,
@@ -176,35 +176,6 @@ final class CardBook<T extends CardTransaction> {
       'paymentId': payment.id.value,
     });
     return reversal;
-  }
-
-  /// Reverses a posting this card owns, on the posting's own date.
-  Future<PublicId> _reverseOwned(
-    T t,
-    OperationKey operation,
-    PublicId reversalId,
-    PublicId postingId,
-  ) async {
-    await _books._requireNewPosting(t, reversalId);
-    final original = await _books._undoable(
-      t,
-      operation.workspace,
-      postingId,
-      owned: true,
-    );
-    final reversal = Posting.reversal(
-      id: reversalId,
-      operation: operation,
-      date: original.date,
-      original: original,
-      reason: 'voided',
-    );
-    await _books._savePosting(
-      t,
-      reversal,
-      await t.postingMetadata(original.id),
-    );
-    return reversal.id;
   }
 
   Future<int> _setTerms(T t, SetCardTerms command) async {

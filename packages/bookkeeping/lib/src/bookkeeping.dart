@@ -419,6 +419,31 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     return note.revision;
   }
 
+  /// Reverses a posting its card or trade owns, on the posting's own date.
+  Future<PublicId> _reverseOwned(
+    T t,
+    OperationKey operation,
+    PublicId reversalId,
+    PublicId postingId,
+  ) async {
+    await _requireNewPosting(t, reversalId);
+    final original = await _undoable(
+      t,
+      operation.workspace,
+      postingId,
+      owned: true,
+    );
+    final reversal = Posting.reversal(
+      id: reversalId,
+      operation: operation,
+      date: original.date,
+      original: original,
+      reason: 'voided',
+    );
+    await _savePosting(t, reversal, await t.postingMetadata(original.id));
+    return reversal.id;
+  }
+
   /// The checks every undo path shares: the posting exists in this
   /// workspace, is not reversed yet, is not owned by a card or trade, has
   /// no active refunds, and touches no closed account.

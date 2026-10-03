@@ -288,3 +288,34 @@ final class SplitInvestment extends _Registration {
     'oldShares': oldShares,
   };
 }
+
+/// Removes a trade entered by mistake. Its cash posting, if any, is
+/// reversed on its own date and the holding is replayed without it. A
+/// dividend can always be voided; a buy, sell or split only while no later
+/// buy, sell or split of the same holding depends on it. Returns the
+/// trade id.
+final class VoidInvestmentTrade extends _Trade {
+  VoidInvestmentTrade({
+    required OperationKey operation,
+    required this.accountId,
+    required this.instrumentId,
+    required this.tradeId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final PublicId tradeId;
+
+  /// The reversal posting, when the trade moved cash.
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-investment-trade-v1',
+    'accountId': accountId.value,
+    'instrumentId': instrumentId.value,
+    'tradeId': tradeId.value,
+    'reversalId': reversalId.value,
+  };
+}

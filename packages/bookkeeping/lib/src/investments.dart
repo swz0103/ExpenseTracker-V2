@@ -25,6 +25,9 @@ abstract interface class InvestmentTransaction
   );
 
   Future<void> saveTrade(Map<String, Object?> trade);
+
+  /// Leaves the trade out of [trades] from now on. Trade records stay.
+  Future<void> voidTrade(PublicId tradeId);
 }
 
 /// Buy, sell and dividend commands. Each commits the trade record and its
@@ -56,6 +59,46 @@ final class InvestmentBook<T extends InvestmentTransaction> {
 
   Future<CommandOutcome<int>> split(SplitInvestment command) =>
       _runner.run(command, (t) => _guard(() => _split(t, command)));
+
+  Future<CommandOutcome<PublicId>> voidTrade(VoidInvestmentTrade command) =>
+      _runner.run(command, (t) => _guard(() => _void(t, command)));
+
+  Future<PublicId> _void(T t, VoidInvestmentTrade command) async {
+    final workspace = command.operation.workspace;
+    final account = await _found(
+      t.investmentAccount(command.accountId),
+      workspace,
+    );
+    final trades = await t.trades(account.id, command.instrumentId);
+    final index = trades.indexWhere((trade) {
+      return trade['id'] == command.tradeId.value;
+    });
+    if (index < 0) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    final trade = trades[index];
+    // Later sells and splits record the lots they changed, so only the
+    // newest one can go; dividends never touch lots.
+    final later = trades.skip(index + 1);
+    if (trade['kind'] != 'dividend' &&
+        later.any((other) => other['kind'] != 'dividend')) {
+      throw const AppFailure(FailureKind.rejected, 'investment.trade-in-use');
+    }
+    final postingId = trade['postingId'] as String?;
+    if (postingId != null) {
+      await _books._reverseOwned(
+        t,
+        command.operation,
+        command.reversalId,
+        PublicId.parse(postingId),
+      );
+    }
+    await t.voidTrade(command.tradeId);
+    await _event(t, workspace, 'investment.voided', {
+      'tradeId': command.tradeId.value,
+    });
+    return command.tradeId;
+  }
 
   Future<int> _split(T t, SplitInvestment command) async {
     final workspace = command.operation.workspace;

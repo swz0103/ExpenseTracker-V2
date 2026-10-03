@@ -289,4 +289,72 @@ void main() {
     await sell('40', '40', 160000);
     expect(ledger.holdings(brokerage, apple), isEmpty);
   });
+
+  test('a mistaken trade is voided and the holding replayed', () async {
+    Future<void> buyAs(PublicId id, String quantity, int gross) async {
+      await invest.buy(
+        BuyInvestment(
+          operation: op(),
+          buyId: id,
+          lotId: PublicId.generate(),
+          postingId: PublicId.generate(),
+          target: target(),
+          tradedOn: BusinessDate(2026, 10, 1),
+          quantity: quantity,
+          unitPrice: '100',
+          gross: cents(gross),
+          fee: cents(0),
+          tax: cents(0),
+        ),
+      );
+    }
+
+    Future<CommandOutcome<PublicId>> voidTrade(PublicId id) =>
+        invest.voidTrade(
+          VoidInvestmentTrade(
+            operation: op(),
+            accountId: brokerage,
+            instrumentId: apple,
+            tradeId: id,
+            reversalId: PublicId.generate(),
+          ),
+        );
+
+    final first = PublicId.generate();
+    final second = PublicId.generate();
+    await buyAs(first, '10', 100000);
+    await buyAs(second, '5', 50000);
+    final dividend = PublicId.generate();
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: dividend,
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(0),
+        fee: cents(0),
+        net: cents(1000),
+      ),
+    );
+
+    // The older buy has a later buy after it; dividends never block.
+    await expectLater(
+      voidTrade(first),
+      fails(FailureKind.rejected, 'investment.trade-in-use'),
+    );
+    await voidTrade(second);
+    await voidTrade(dividend);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '10');
+    expect(ledger.balance(account(bank)), cents(1000000 - 100000));
+    await expectLater(
+      voidTrade(second),
+      fails(FailureKind.notFound, 'investment.not-found'),
+    );
+    await voidTrade(first);
+    expect(ledger.holdings(brokerage, apple), isEmpty);
+    expect(ledger.balance(account(bank)), cents(1000000));
+  });
 }
