@@ -142,6 +142,11 @@
     }
   },
   "runtimeModules": {
+    "backup_security": {
+      "directory": "infrastructure/backup_security",
+      "publicEntrypoints": ["backup_security.dart"],
+      "dependencies": []
+    },
     "storage_sqlcipher": {
       "directory": "infrastructure/storage_sqlcipher",
       "publicEntrypoints": ["storage_sqlcipher.dart"],

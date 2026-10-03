@@ -1,0 +1,11 @@
+name: backup_security
+description: Key hierarchy for the encrypted database and backups - password, device and recovery slots with rotation.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  cryptography: 2.9.0
+  unorm_dart: 0.3.2
+dev_dependencies:
+  test: 1.32.0
