@@ -298,24 +298,22 @@ final class SqlTransaction implements WriteTransaction {
   @override
   Future<void> recordOperation(RecordedOperation operation) async {
     _requireOpen();
-    _db.execute(
-      'INSERT INTO operations VALUES (?, ?, ?, ?)',
-      [
-        operation.key.workspace.toString(),
-        operation.key.operation.toString(),
-        operation.input,
-        operation.result,
-      ],
-    );
+    _db.execute('INSERT INTO operations VALUES (?, ?, ?, ?)', [
+      operation.key.workspace.toString(),
+      operation.key.operation.toString(),
+      operation.input,
+      operation.result,
+    ]);
   }
 
   @override
   Future<void> enqueue(OutboxMessage message) async {
     _requireOpen();
-    _db.execute(
-      'INSERT INTO outbox (id, topic, payload) VALUES (?, ?, ?)',
-      [message.id.value, message.topic, message.payload],
-    );
+    _db.execute('INSERT INTO outbox (id, topic, payload) VALUES (?, ?, ?)', [
+      message.id.value,
+      message.topic,
+      message.payload,
+    ]);
   }
 
   void _requireOpen() {
