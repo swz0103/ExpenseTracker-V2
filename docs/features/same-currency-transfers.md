@@ -1,6 +1,6 @@
 # 同幣轉帳、來源手續費與可恢復送出
 
-2026-09-28，依賴 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53) 的共用日期輸入。對應 [M1-03](../delivery/implementation-plan.md#m1-03轉帳多幣別與結構化費用)、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 及 [Full Vision FV-047 結構化費用](../architecture/full-vision-baseline.md#fv-047)。這是 M1-03 的同幣部分，跨幣與實際匯率仍須接續；M1／M2／M3 未全部完成。
+2026-09-28，依賴 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53) 的共用日期輸入。對應 M1-03、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 及 [Full Vision FV-047 結構化費用](../architecture/full-vision-baseline.md#fv-047)。這是 M1-03 的同幣部分，跨幣與實際匯率仍須接續；M1／M2／M3 未全部完成。
 
 ## 財務行為與介面
 
@@ -36,10 +36,10 @@
 
 目前仍是 32 帳戶／5,000 事件（含期初）的有界工作階段，不宣稱最終 M3 容量。legs 表允許最多 3 × 事件上限，但會依工作區／事件檢查實際 leg 數；全體 50,000 rows、16 MiB 可攜 payload 及每 row byte cap 仍生效。完整語意驗證由 SnapshotCodec stage／capture 執行，容量 admission 不代替財務驗證。重送不因達上限失去原有含義。
 
-[本機驗證清單](../test-results/2026-09-28/same-currency-transfers-host-2026-09-28.json)記錄完整 18 套件／723 項（新增 26 項），以及全量後提示修正的 13 項相關回歸；不重複加總，亦不冒稱提示修正後再次跑完全部 18 套件。範圍包括草稿編碼、雙帳戶與 fee、失敗回滾／重試、schema 7 → 8 真實程序中止、App 舊草稿升級阻擋、舊 reader 拒讀、清除原始 DB／keys 後雙憑證獨立還原、UI 與隱私、大量資料與全主機回歸。首次測試 fixture 漏接受保護 catalog，以及 SemanticsHandle 清理時機不符測試生命週期，皆修正後重驗；完整主機與最終回歸無失敗。回查另修正帳戶未選、同帳戶及負費用提示，避免沿用收支文案讓使用者誤解。
+本機驗證清單記錄完整 18 套件／723 項（新增 26 項），以及全量後提示修正的 13 項相關回歸；不重複加總，亦不冒稱提示修正後再次跑完全部 18 套件。範圍包括草稿編碼、雙帳戶與 fee、失敗回滾／重試、schema 7 → 8 真實程序中止、App 舊草稿升級阻擋、舊 reader 拒讀、清除原始 DB／keys 後雙憑證獨立還原、UI 與隱私、大量資料與全主機回歸。首次測試 fixture 漏接受保護 catalog，以及 SemanticsHandle 清理時機不符測試生命週期，皆修正後重驗；完整主機與最終回歸無失敗。回查另修正帳戶未選、同帳戶及負費用提示，避免沿用收支文案讓使用者誤解。
 
 GitHub Actions 維持停用；手機、實際 Android Keystore／文件選擇／TalkBack 與平台還原 gate 待使用者回來。不得因本機通過宣稱雲端或實機已完成。
 
-[大量資料結果](../test-results/2026-09-28/same-currency-transfers-scale-2026-09-28.json)：5,000 事件（2 期初、1 原有收入、4,997 同幣轉帳）、4,998 次重送、28,748 rows、8,331,009 bytes snapshot。從 schema 7 升級後持續使用，達事件上限的新交易被拒絕且完整 snapshot 不變。獨立計算來源／目的餘額為 10,203／3,003 最小單位，費用合計 7,494，沒有把本金當收入或消費。刪除來源資料與所有原 key 後，密碼及救援各用乾淨 profile 還原，核對完整 snapshot、重開及每條路徑 5,000 筆無遺漏／重複的分頁。此次主機端總耗時約 307 秒，包含填入、重送、備份、清空、兩次還原與完整比對，不能當成實機單筆操作延遲或 100k 能力。
+大量資料結果：5,000 事件（2 期初、1 原有收入、4,997 同幣轉帳）、4,998 次重送、28,748 rows、8,331,009 bytes snapshot。從 schema 7 升級後持續使用，達事件上限的新交易被拒絕且完整 snapshot 不變。獨立計算來源／目的餘額為 10,203／3,003 最小單位，費用合計 7,494，沒有把本金當收入或消費。刪除來源資料與所有原 key 後，密碼及救援各用乾淨 profile 還原，核對完整 snapshot、重開及每條路徑 5,000 筆無遺漏／重複的分頁。此次主機端總耗時約 307 秒，包含填入、重送、備份、清空、兩次還原與完整比對，不能當成實機單筆操作延遲或 100k 能力。
 
-另有 [4 個草稿實際程序退出](../test-results/2026-09-28/same-currency-transfers-process-2026-09-28.json)；11 個升級退出案例已包含在上述 Ledger 全量計數內。
+另有 4 個草稿實際程序退出；11 個升級退出案例已包含在上述 Ledger 全量計數內。

@@ -98,7 +98,7 @@ final class LedgerSearchQuery {
           !RegExp(r'^(0|[1-9][0-9]*)$').hasMatch(raw)) {
         throw FormatException('Invalid search $name.');
       }
-      return Money(currency, BigInt.parse(raw));
+      return Money(currency, parseMinorUnits(raw));
     }
 
     final kindName = field('kind');

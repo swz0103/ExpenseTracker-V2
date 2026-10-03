@@ -1,9 +1,9 @@
 # Foundation Contracts — 第一版工程規格
 
 狀態：階段 0 工程規格草稿；不是實作完成或 Architecture Freeze。  
-依據：[rc1](../architecture/architecture-baseline-v1.0-rc1.md)、[A＋與業務套件](../architecture/architecture-baseline-v1.0-rc1.md#a-plus-coordination)、[實作安排](../delivery/implementation-plan.md)。
+依據：[rc1](../architecture/architecture-baseline-v1.0-rc1.md)、[A＋與業務套件](../architecture/architecture-baseline-v1.0-rc1.md#a-plus-coordination)、實作安排。
 
-本規格將已選方向細化為可實作、可測試的契約。部分值型別與 Accounts Domain 已實作，狀態見[逐項進度](../work-progress.md)；其餘資料實體仍是設計名稱，不能視為已建立的 SQLite schema。若實測需要改變既定財務規則，必須保留 ADR 差異，不能把原型行為默認為新規則。
+本規格將已選方向細化為可實作、可測試的契約。部分值型別與 Accounts Domain 已實作，狀態見逐項進度；其餘資料實體仍是設計名稱，不能視為已建立的 SQLite schema。若實測需要改變既定財務規則，必須保留 ADR 差異，不能把原型行為默認為新規則。
 
 ## 1. 套件與依賴
 
@@ -23,7 +23,7 @@
 
 每個套件列出允許的直接依賴與公開入口；CI 檢查 internal 存取、循環與 Domain 對平台／儲存的依賴。拆成套件本身不是邊界已受保護的證據。
 
-現有三個業務套件已接[架構邊界 gate](../architecture/architecture-boundary-checks.md)，包含原型使用端的私有入口引用檢查。未來 App／adapter／UI 的責任仍須隨功能明列，不能把此項當成所有模組都已完成的證據。
+現有三個業務套件已接架構邊界 gate，包含原型使用端的私有入口引用檢查。未來 App／adapter／UI 的責任仍須隨功能明列，不能把此項當成所有模組都已完成的證據。
 
 ## 2. 值型別與序列化
 
@@ -34,7 +34,7 @@
 - 公開 JSON／備份中的整數金額用十進位字串與明確 currency／scale 表達，避免經過不同 runtime 時失去精度。
 - 匯率、股數、單價與成本使用明確精度的 Decimal；原始輸入以十進位文字解析，不先經 binary floating-point。具體函式庫待工具鏈驗證。
 - 輸入超過該欄位允許精度時明示錯誤；不默默替使用者改已輸入的交易額。計算造成的精度收斂由 operation policy 決定。
-- FX 最終入帳量化的初版工程提案採 half-away-from-zero；分攤先算前 n−1 項，最後一項吸收尾差，保證總額完全相等。實際成交的兩邊金額優先於參考匯率推算，差異需記錄 context，不偷偷改原額。
+- FX 最終入帳量化的初版工程提案採 half-away-from-zero；分攤採最大餘數法（largest-remainder-v1），每份與精確比例相差不到一個最小單位，總額完全相等。實際成交的兩邊金額優先於參考匯率推算，差異需記錄 context，不偷偷改原額。
 - 投資成本與 FX 中間計算不反覆量化；每個最後入帳邊界保存 policy version。反轉直接對原已量化值取負，不重新用今日規則計算。
 
 FX 計算地基已以[精確比率值型別](../architecture/exact-fx-values.md)細化：十進位輸入保留精確值，反向／交叉運算不做中間量化；source／asOf／retrievedAt 分開保存。這不改成交金額優先、最終 half-away-from-zero 或反轉原已入帳額的規則。完整交易 context、股數／成本 Decimal 與資料層仍待實作。
@@ -122,4 +122,4 @@ DB 與平台金鑰的正式配對、發布及中止復原另見[生命週期契�
 
 資料版本、模組主責、升級前備份與暫存升級的具體邊界另見[資料演進契約](data-evolution-contract.md)。目前原型的自動 migration 入口尚未具備完整升級前安全備份協調，不能直接作為正式啟動流程。
 
-對應的具體數值與故障情境見[驗收案例](foundation-acceptance.md)。值型別與部分業務規則已有測試，正式 schema／資料庫適配器仍待完成；ADR-01／02／03 尚需完整資料路徑驗證，ADR-04 的加密／異機還原、ADR-06 的 provider 與 ADR-08 的執行 gate 尚未結案。套件配置、文件和工具安裝不能取代這些結果。
+對應的具體數值與故障情境見驗收案例。值型別與部分業務規則已有測試，正式 schema／資料庫適配器仍待完成；ADR-01／02／03 尚需完整資料路徑驗證，ADR-04 的加密／異機還原、ADR-06 的 provider 與 ADR-08 的執行 gate 尚未結案。套件配置、文件和工具安裝不能取代這些結果。

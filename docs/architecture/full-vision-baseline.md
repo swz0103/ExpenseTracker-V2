@@ -5,7 +5,7 @@
 狀態：170／170 原題與使用者答案已核對；待最終架構審查，尚未 Freeze  
 配套文件：[Architecture Baseline v1.0-rc1](architecture-baseline-v1.0-rc1.md)
 
-整合閱讀：[架構提案與已選方向](architecture-proposal.md) · [實作計畫](../delivery/implementation-plan.md)。三組產品取捨已選 1A／2A／3A，見 D-003；工程細節仍須規格與驗證，未開始開發。
+整合閱讀：架構提案與已選方向 · 實作計畫。三組產品取捨已選 1A／2A／3A，見 D-003；工程細節仍須規格與驗證，未開始開發。
 
 > **縮減的是當前 implementation scope，不是產品願景。**
 >
@@ -57,16 +57,16 @@ CORE 必須完整且可驗證；未使用的進階能力可只保留 Interface�
 - **2A**：首個可用版本交付備份密碼與文字救援金鑰，包含最小 Key Envelope、另行保存引導與兩條解鎖路徑的乾淨環境還原驗證。這是對最新 review 延後範圍的明確調整；QR、完整輪替與定期 health check 仍依後續能力交付。
 - **3A**：日常記帳先交付可用版本，再補 Budget／Recurring／提醒與信用卡／基本分期，最後完成股票／ETF 核心。各批均有必要安全、migration 與完整備份還原；首批不等於全部 rc1 CORE 完成。
 
-對應：[架構提案三組比較](architecture-proposal.md#choice-1)、[RC-02](architecture-baseline-v1.0-rc1.md#rc-02)、[RC-07](architecture-baseline-v1.0-rc1.md#rc-07)、[RC-09](architecture-baseline-v1.0-rc1.md#rc-09)、[RC-14](architecture-baseline-v1.0-rc1.md#rc-14)、[RC-22](architecture-baseline-v1.0-rc1.md#rc-22)。
+對應：架構提案三組比較、[RC-02](architecture-baseline-v1.0-rc1.md#rc-02)、[RC-07](architecture-baseline-v1.0-rc1.md#rc-07)、[RC-09](architecture-baseline-v1.0-rc1.md#rc-09)、[RC-14](architecture-baseline-v1.0-rc1.md#rc-14)、[RC-22](architecture-baseline-v1.0-rc1.md#rc-22)。
 
-使用者本輪要求先檢視[實作計畫](../delivery/implementation-plan.md)；選項採用不等於已實作、技術驗證通過、Architecture Freeze 或授權立即建立／發布程式。原始 170 題及先前 A＋、業務套件拆分方向不變。
+使用者本輪要求先檢視實作計畫；選項採用不等於已實作、技術驗證通過、Architecture Freeze 或授權立即建立／發布程式。原始 170 題及先前 A＋、業務套件拆分方向不變。
 
 <a id="development-start"></a>
 ### 後續工作指示：先建立 GitHub 專案與完成必要準備
 
 使用者在採用 1A／2A／3A 並檢視實作安排後，明確要求開始工作、直接建立新的 GitHub 專案，並先讓其完成必要準備。此指示更新 D-003 當時「先只看計畫」的工作狀態；repository 可在 Freeze 前先保存文件，初始文件 commit 不代表 Architecture Freeze。
 
-功能實作仍從規格、代表案例及必要技術驗證開始；需要使用者完成的登入／設定應先集中提出。當下準備與建立狀態見[開發前置準備](../delivery/development-readiness.md)。此指示不改變既有財務規則、套件邊界或原始 170 題。
+功能實作仍從規格、代表案例及必要技術驗證開始；需要使用者完成的登入／設定應先集中提出。當下準備與建立狀態見開發前置準備。此指示不改變既有財務規則、套件邊界或原始 170 題。
 
 ### 追溯 ID
 
@@ -93,7 +93,7 @@ CORE 必須完整且可驗證；未使用的進階能力可只保留 Interface�
 - **S5**：本次文件整理對話的後續確認：先定整體框架，再逐項實作功能，控制擴充的複雜度與影響範圍。見[框架先行原則](#framework-first)。
 - **S6**：本次對話選定 A＋並要求進一步優化，同時改以文字回答後續選擇。見 [D-001](#decision-a-plus)。
 - **S7**：本次對話明確選定按業務拆套件，業務內有必要時可以再拆；仍先定架構方向再開始開發。見 [D-002](#decision-module-enforcement)。
-- **S8**：使用者反映架構選擇過於密集，並同意先由助手整合框架，將真正需其選擇的取捨集中為最多三組；見[整合提案](architecture-proposal.md)。此同意是整理方式的授權，不代表已接受提案中的候選答案，也不授權提前開發功能。
+- **S8**：使用者反映架構選擇過於密集，並同意先由助手整合框架，將真正需其選擇的取捨集中為最多三組；見整合提案。此同意是整理方式的授權，不代表已接受提案中的候選答案，也不授權提前開發功能。
 - **S9**：使用者其後明確採用 1A／2A／3A，要求先提出實作安排；見 [D-003](#decision-product-delivery)。S8 記錄的是先前同意整理的時點，候選答案於 S9 才定案。
 
 來源是產品決策紀錄，不是目前外部服務價格、API 資格或平台政策的保證。來源中涉及供應商與平台的敘述保留歷史上下文；真正整合時仍需驗證當時的官方契約。

@@ -2,13 +2,13 @@
 
 獨立 Android App ID：`dev.expensetracker.preview`，不覆蓋地基原型。只建置 debug ARM64 APK，正式 release variant 關閉。這是持續開發中的 M1 入口，完整 M1／M2／M3 尚未完成；可安裝不作為停止點。
 
-> 2026-10-02 狀態提示：下方「已接入」保留早期逐批開發紀錄，其中 schema 15 與「信用卡／投資保留後續」等句子已不是目前狀態。正式 App 現為 schema 24，信用卡、投資、provider-neutral 雲端備份 runtime、免帳號日終／參考匯率及到價提醒均已形成可操作垂直切片；Yahoo Chart 免金鑰盡力來源已提供台／美股前景 1／5 分鐘資料，另可由使用者開啟 Android 約 15 分鐘以上、系統可能延後的背景到價檢查。畫面明示 Yahoo 不是正式公開 API，Fugle 官方 adapter 保留為可選安全金鑰備援。Google Drive 的 `drive.file` OAuth／REST／加密佇列也已接入正式 factory；冷啟動可續傳已加密 artifact，新的到期快照只在使用者開啟並解鎖後補做，尚無 OS 背景準時建立承諾。請以[功能完成矩陣](../../docs/capability-matrix.md)與[最新工作進度](../../docs/work-progress.md)為目前事實；Google Cloud client／真實帳號、OS 背景備份與 Android 實機仍未完成。
+> 2026-10-02 狀態提示：下方「已接入」保留早期逐批開發紀錄，其中 schema 15 與「信用卡／投資保留後續」等句子已不是目前狀態。正式 App 現為 schema 24，信用卡、投資、provider-neutral 雲端備份 runtime、免帳號日終／參考匯率及到價提醒均已形成可操作垂直切片；Yahoo Chart 免金鑰盡力來源已提供台／美股前景 1／5 分鐘資料，另可由使用者開啟 Android 約 15 分鐘以上、系統可能延後的背景到價檢查。畫面明示 Yahoo 不是正式公開 API，Fugle 官方 adapter 保留為可選安全金鑰備援。Google Drive 的 `drive.file` OAuth／REST／加密佇列也已接入正式 factory；冷啟動可續傳已加密 artifact，新的到期快照只在使用者開啟並解鎖後補做，尚無 OS 背景準時建立承諾。請以功能完成矩陣與最新工作進度為目前事實；Google Cloud client／真實帳號、OS 背景備份與 Android 實機仍未完成。
 
 ## 已接入
 
 - 簡易收入／支出 JSON／CSV 匯入：從 Android 系統選取檔案，必要時重新解鎖，逐一對應帳戶、審閱逐幣別金額及確認後整批寫入；相同來源重試不重複入帳。同一本帳的匯出檔不可再匯入自身。主機 4,999 筆新增與第 5,000 筆超額原子拒絕已驗；實機仍待測。[範圍](../../docs/features/simple-import-ledger.md)。
 - 簡易收入／支出 JSON／CSV 匯出：Android 選儲存位置後需重新解鎖、檢查納入及略過筆數，並再次確認。檔案未加密，只包含普通收支的日期、金額、帳戶識別及最新備註；分類、標籤、商家、期初及複雜交易等不包含。它不能取代完整加密備份，實機保存仍待測。[範圍](../../docs/features/simple-import-ledger.md)。
-- 月預算：以 schema 15 加密保存版本歷史，依已生效帳本計算同幣別已用／剩餘與提醒；簡潔畫面可新增、修改及確認刪除。舊 V2 帳本需要明確「備份並更新」，不能自動改寫；主機回歸已通過，實機及本批雲端 gate 待驗。[進度](../../docs/work-progress.md)。
+- 月預算：以 schema 15 加密保存版本歷史，依已生效帳本計算同幣別已用／剩餘與提醒；簡潔畫面可新增、修改及確認刪除。舊 V2 帳本需要明確「備份並更新」，不能自動改寫；主機回歸已通過，實機及本批雲端 gate 待驗。進度。
 
 - 首次設定至少 12 字元密碼、另存救援文字確認、空帳本；重新啟動與背景鎖定。操作層拒絕未解鎖命令，已接受的交易可完成，重新解鎖核對結果；重試沿用 operation ID。
 - 現金／銀行帳戶、期初餘額、TWD／USD（2 位）及 JPY（0 位）、收入／支出、日期、餘額及每頁 30 筆交易。金額不使用浮點數；不同幣別不直接加總。
@@ -54,4 +54,4 @@ Host 整合使用真實 SQLCipher 和測試用記憶體 vault；widget 測試使
 
 ## 驗證紀錄
 
-依各批實際結果查閱[工作進度](../../docs/work-progress.md)、[分類流程](../../docs/features/app-categories.md)、[Tag 流程](../../docs/features/transaction-tags.md)與[商家流程](../../docs/features/transaction-merchants.md)，APK 封裝版本見[安裝包紀錄](../../docs/delivery/installable-preview.md)。原 0.2.0 的[大量資料報告](../../docs/delivery/preview-validation-report.md)保留為歷史證據，不代表後續功能已跑相同雲端或實機驗收。
+依各批實際結果查閱工作進度、[分類流程](../../docs/features/app-categories.md)、[Tag 流程](../../docs/features/transaction-tags.md)與[商家流程](../../docs/features/transaction-merchants.md)，APK 封裝版本見安裝包紀錄。原 0.2.0 的大量資料報告保留為歷史證據，不代表後續功能已跑相同雲端或實機驗收。

@@ -2,7 +2,7 @@
 
 **狀態：全流程、完整本機回歸與大量資料驗證通過；雲端與實機尚未驗收。**
 
-[商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）。Domain、保存、Ledger 引用、升級與畫面集中在同一功能單位。來源：[M1-02](../delivery/implementation-plan.md)、[RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-012](../architecture/full-vision-baseline.md#fv-012)、[Q062](../architecture/full-vision-baseline.md#q062)。
+[商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）。Domain、保存、Ledger 引用、升級與畫面集中在同一功能單位。來源：M1-02、[RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-012](../architecture/full-vision-baseline.md#fv-012)、[Q062](../architecture/full-vision-baseline.md#q062)。
 
 ## 身份與別名
 
@@ -34,9 +34,9 @@
 
 ## 驗證與剩餘範圍
 
-先行 Domain [證據](../test-results/2026-09-27/merchant-domain-host-2026-09-27.json)為獨立歷史紀錄，不代表當時已有完整流程。此次新增保存／快照、來源損壞、程序中斷、App 升級與乾淨還原、候選確認和合併畫面等回歸；完整 16 套件 626 項獨有本機案例通過；其中一項原有 Tag 還原先在並行時逾時，固定版本單獨重驗通過，未改 timeout 或斷言。[本批清單](../test-results/2026-09-27/transaction-merchants-host-2026-09-27.json)保留完整範圍及重驗原因。
+先行 Domain 證據為獨立歷史紀錄，不代表當時已有完整流程。此次新增保存／快照、來源損壞、程序中斷、App 升級與乾淨還原、候選確認和合併畫面等回歸；完整 16 套件 626 項獨有本機案例通過；其中一項原有 Tag 還原先在並行時逾時，固定版本單獨重驗通過，未改 timeout 或斷言。本批清單保留完整範圍及重驗原因。
 
-兩組各自 5,000 筆事件均通過：[新帳本](../test-results/2026-09-27/transaction-merchants-scale-2026-09-27.json)含 4,999 個商家引用及 4,999 個 Tag 引用；[已滿舊帳本升級](../test-results/2026-09-27/transaction-merchants-upgrade-scale-2026-09-27.json)逐表保留原 5,000 筆事件及既有分類／Tag。舊帳本事件容量已滿，升級後新增商家 metadata，但沒有假造原交易的商家引用。
+兩組各自 5,000 筆事件均通過：新帳本含 4,999 個商家引用及 4,999 個 Tag 引用；已滿舊帳本升級逐表保留原 5,000 筆事件及既有分類／Tag。舊帳本事件容量已滿，升級後新增商家 metadata，但沒有假造原交易的商家引用。
 
 各案保留 256 商家／1,024 次異動／256 別名、256 Tag／1,024 次異動、256 分類／768 次異動、5,004 次重送；容量拒絕、獨立餘額及全部分頁皆核對。移除合成來源 DB／vault key 後，以密碼和救援分別乾淨還原、完整 bytes 比對、歷史版本及重開核對。新／舊快照分別 11,887,606／10,512,900 bytes，約 321.897／366.430 秒；這是兩組獨立主機案例，不能相加當成單帳本容量或宣稱 Android 效能。
 

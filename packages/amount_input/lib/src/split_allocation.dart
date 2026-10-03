@@ -24,7 +24,8 @@ final class SplitAllocation {
   static const policy = Money.allocationPolicy;
   final List<Money> amounts;
 
-  /// Minor units added to the last row beyond its truncated ideal share.
+  /// Minor units handed out beyond the truncated ideal shares. Under the
+  /// largest-remainder policy they go to the rows with the largest fractions.
   final BigInt remainderMinorUnits;
 }
 
@@ -79,6 +80,9 @@ SplitAllocation proposeSplit(
     fail(SplitAllocationError.zeroShare);
   }
   final sum = integers.fold(BigInt.zero, (a, b) => a + b);
-  final idealLast = total.minorUnits * integers.last ~/ sum;
-  return SplitAllocation._(amounts, amounts.last.minorUnits - idealLast);
+  final truncated = integers.fold(
+    BigInt.zero,
+    (a, weight) => a + total.minorUnits * weight ~/ sum,
+  );
+  return SplitAllocation._(amounts, total.minorUnits - truncated);
 }

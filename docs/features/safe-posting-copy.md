@@ -1,10 +1,10 @@
 # 安全複製日常收支
 
-2026-09-28 更新：[多分類拆分](split-entry-drafts.md)已延伸複製契約：保留 2～16 項分類結構，停用分類留空待選，所有金額及日期重新填寫。以下為 0.5.1 原始批次紀錄；目前格式與後續草稿／隱私進度以[最新進度](../work-progress.md)為準。
+2026-09-28 更新：[多分類拆分](split-entry-drafts.md)已延伸複製契約：保留 2～16 項分類結構，停用分類留空待選，所有金額及日期重新填寫。以下為 0.5.1 原始批次紀錄；目前格式與後續草稿／隱私進度以最新進度為準。
 
 **狀態：實作、本機回歸及 0.5.1 封裝核對通過；雲端與實機未驗收。**
 
-接續 [商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47)（`053b476342b0929f974d1541cc52f1b77e30d128`）。來源：[M1-02](../delivery/implementation-plan.md)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[FV-088](../architecture/full-vision-baseline.md#fv-088)、[Q157](../architecture/full-vision-baseline.md#q157)。
+接續 [商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47)（`053b476342b0929f974d1541cc52f1b77e30d128`）。來源：M1-02、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[FV-088](../architecture/full-vision-baseline.md#fv-088)、[Q157](../architecture/full-vision-baseline.md#q157)。
 
 ## 行為
 
@@ -24,6 +24,6 @@
 
 ## 驗證與後續
 
-新增案例涵蓋工作階段與 workspace 隔離、現行版本、封存合併不轉向、重複準備不新增事件、準備前後完整 snapshot 不變，以及 360×740 上完整複製／拒絕空金額日期／新舊交易核對。[本批清單](../test-results/2026-09-27/safe-posting-copy-host-2026-09-27.json)記錄 7 項 Ledger 工作階段、66 項完整 App 回歸、格式／分析及實際架構掃描通過，新增共 6 項。最後補強的同一 widget 另核對非預設來源帳戶，不重複累加測試數。
+新增案例涵蓋工作階段與 workspace 隔離、現行版本、封存合併不轉向、重複準備不新增事件、準備前後完整 snapshot 不變，以及 360×740 上完整複製／拒絕空金額日期／新舊交易核對。本批清單記錄 7 項 Ledger 工作階段、66 項完整 App 回歸、格式／分析及實際架構掃描通過，新增共 6 項。最後補強的同一 widget 另核對非預設來源帳戶，不重複累加測試數。
 
 表單自動保存／恢復草稿、隱私遮罩與其餘 M1-02 細節仍待接續；其他 M1／M2／M3 CORE 及實機 gate 仍保留。Actions 不啟動、main 不合併，沒有操作手機。

@@ -1,10 +1,10 @@
 # Ledger 驗證還原原型
 
-依據[實作計畫階段 1](../../docs/delivery/implementation-plan.md)、[BACKUP／DATA 驗收案例](../../docs/foundation/foundation-acceptance.md)與 [2A 決策](../../docs/architecture/full-vision-baseline.md#decision-product-delivery)。此項接續 [Envelope 原型](../backup_envelope/README.md)，只使用測試資料；本機 SQLite 尚未加密，不能存放日常財務資料。
+依據實作計畫階段 1、BACKUP／DATA 驗收案例與 [2A 決策](../../docs/architecture/full-vision-baseline.md#decision-product-delivery)。此項接續 [Envelope 原型](../backup_envelope/README.md)，只使用測試資料；本機 SQLite 尚未加密，不能存放日常財務資料。
 
 ## 備份與驗證
 
-2026-09-27 接續：明確 `categoryReferences: true` 使用 schema 5／snapshot 4／ledger 3，驗證收入與支出的[歷史分類引用](../../docs/foundation/ledger-category-references.md)。正式 active generation 升級尚未接入；以下初版七表／切換流程的紀錄不等於新格式已開放給 App。
+2026-09-27 接續：明確 `categoryReferences: true` 使用 schema 5／snapshot 4／ledger 3，驗證收入與支出的歷史分類引用。正式 active generation 升級尚未接入；以下初版七表／切換流程的紀錄不等於新格式已開放給 App。
 
 在同一 Drift read transaction 讀取 accounts、events、legs、openings、allocations、receipts、audit，保存 schema 2 與各模組版本。整數以十進位字串保存，避免 JSON 數值精度損失。遇到未識別的資料表、欄位、模組版本或過量內容即拒絕，不默默省略。上限為 16 MiB／50,000 列，是原型邊界，未測大資料集效能。
 

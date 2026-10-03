@@ -1,6 +1,6 @@
 # 跨幣轉帳、實際本金與可追溯換算
 
-2026-09-28；依賴 [PR #54](https://github.com/swz0103/ExpenseTracker-V2/pull/54) 的[同幣轉帳](same-currency-transfers.md)。對應 [M1-03](../delivery/implementation-plan.md)、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 [Full Vision](../architecture/full-vision-baseline.md)；完整核心範圍仍以 Baseline 為準。
+2026-09-28；依賴 [PR #54](https://github.com/swz0103/ExpenseTracker-V2/pull/54) 的[同幣轉帳](same-currency-transfers.md)。對應 M1-03、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 [Full Vision](../architecture/full-vision-baseline.md)；完整核心範圍仍以 Baseline 為準。
 
 ## 使用流程與財務規則
 
@@ -36,10 +36,10 @@ Snapshot 驗證兩邊 leg 的帳戶幣別、實際本金正負與金額、來源
 
 ## 驗證結果與未完成 gate
 
-[完整主機證據](../test-results/2026-09-28/cross-currency-transfers-host-2026-09-28.json)：18 套件／754 個獨立案例全數通過，新增 31 項，包含 11 處 schema 8 → 9 真正程序退出。全量後只有列表讀取優化，相關 10 個 UI 案例與分析通過，重跑不累計；266 檔指紋分別保留完整回歸與最終版本。初期靜態分析的括號規則提示已修正，最終分析通過；本批執行的測試無失敗。
+完整主機證據：18 套件／754 個獨立案例全數通過，新增 31 項，包含 11 處 schema 8 → 9 真正程序退出。全量後只有列表讀取優化，相關 10 個 UI 案例與分析通過，重跑不累計；266 檔指紋分別保留完整回歸與最終版本。初期靜態分析的括號規則提示已修正，最終分析通過；本批執行的測試無失敗。
 
-[大量資料](../test-results/2026-09-28/cross-currency-transfers-scale-2026-09-28.json)：5,000 事件含 4,997 雙向跨幣轉帳、4,998 次重送，33,745 rows／10,932,466 bytes。獨立預期餘額為 TWD 2,165,705 最小單位、JPY 2,144,604 最小單位；來源費用分別 TWD 2,498、JPY 4,996 最小單位，沒有跨幣裸加。第 5,001 筆新事件拒絕且 snapshot 不變。原 DB／key 刪除後，密碼與救援分別在乾淨 profile 還原、重開、核對全部 snapshot 與每路 5,000 筆完整分頁。全流程主機耗時 341465 ms，含寫入／重送／備份／刪除／雙路還原，不當成實機延遲或 M3 100k+ 能力。
+大量資料：5,000 事件含 4,997 雙向跨幣轉帳、4,998 次重送，33,745 rows／10,932,466 bytes。獨立預期餘額為 TWD 2,165,705 最小單位、JPY 2,144,604 最小單位；來源費用分別 TWD 2,498、JPY 4,996 最小單位，沒有跨幣裸加。第 5,001 筆新事件拒絕且 snapshot 不變。原 DB／key 刪除後，密碼與救援分別在乾淨 profile 還原、重開、核對全部 snapshot 與每路 5,000 筆完整分頁。全流程主機耗時 341465 ms，含寫入／重送／備份／刪除／雙路還原，不當成實機延遲或 M3 100k+ 能力。
 
-另有 [4 處草稿真正程序退出](../test-results/2026-09-28/cross-currency-transfers-process-2026-09-28.json)通過；變更兩本金的草稿發布保持原子性，prepared／committed 後只產生一次財務效果。[0.10.0+14 開發包](../delivery/installable-preview.md)通過身份、簽章與 ARM64 Flutter／SQLCipher 核心核對，只留本機。
+另有 4 處草稿真正程序退出通過；變更兩本金的草稿發布保持原子性，prepared／committed 後只產生一次財務效果。0.10.0+14 開發包通過身份、簽章與 ARM64 Flutter／SQLCipher 核心核對，只留本機。
 
 兩個 GitHub Actions workflow 仍停用，雲端未執行；手機未操作。實機 Keystore、生命週期、TalkBack 與平台還原 gate 等使用者回來，不能用本機結果取代。main 不合併，需雲端 gate 的分支不收斂；其餘 CORE 保留。

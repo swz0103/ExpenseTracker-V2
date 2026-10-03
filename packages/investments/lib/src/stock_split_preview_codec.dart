@@ -173,7 +173,7 @@ final class StockSplitPreviewCodec {
             remainingQuantity: ShareQuantity.parse(
               element['remainingQuantity'] as String,
             ),
-            remainingCost: Money(currency, BigInt.parse(costText)),
+            remainingCost: Money(currency, parseMinorUnits(costText)),
             expectedVersion: element['expectedVersion'] as int,
           ),
         );

@@ -14,8 +14,8 @@ App 現在共用追蹤 PopupRoute。鎖定時，首個畫面更新便把仍在�
 
 ## 驗證邊界
 
-[主機證據](../test-results/2026-09-27/lock-routes-host-2026-09-27.json)記錄修正前重現、修正後結果及相關舊畫面回歸；以實際結果為準。
+主機證據記錄修正前重現、修正後結果及相關舊畫面回歸；以實際結果為準。
 
 新案例覆蓋開啟中的捨棄確認、已排隊確認、帳戶下拉及標籤選單。模擬 resumed → inactive → hidden → paused → hidden → inactive → resumed，核對第一個鎖定畫面沒有浮層內容、解鎖可操作、草稿身份／金額保留、帳本筆數與餘額不變，標籤未被誤封存。
 
-Schema 7／snapshot 6／manual-entry-v1 不變；底層加密、程序中止、升級及五千筆資料沿用相同核心的 [PR #51 證據](../test-results/2026-09-27/amount-calculator-host-2026-09-27.json)，本批不重複執行或冒稱再次通過。Android debug 封裝與實機 gate 分開記錄；目前不操作手機，Recent Apps、實際生命週期與 TalkBack 仍待裝置驗收。
+Schema 7／snapshot 6／manual-entry-v1 不變；底層加密、程序中止、升級及五千筆資料沿用相同核心的 PR #51 證據，本批不重複執行或冒稱再次通過。Android debug 封裝與實機 gate 分開記錄；目前不操作手機，Recent Apps、實際生命週期與 TalkBack 仍待裝置驗收。

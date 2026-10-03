@@ -23,11 +23,11 @@
 
 format 2 驗證來源 storage_identity，但不輸出來源世代／slot 列；目標必須新建身份。`local_identity=1` 表示已知來源結構，不授權還原端沿用來源 key。generation-aware codec 可讀 format 1／2，legacy codec 不接受 format 2。
 
-後續[分類保存](categories-persistence.md)新增明確選用的 schema 4／snapshot format 3；沿用原七張表及本機身份，新增 categories、category_changes 權威表與 categories=1 manifest。category-aware codec 可讀已知 format 1／2／3；舊格式的新增分類表為空，既有權威資料保留。schema 4 只建立在新 stage，拒絕就地升級；現有 App／LedgerStore 仍是 schema 3，完整發布協調器尚未接入。
+後續分類保存新增明確選用的 schema 4／snapshot format 3；沿用原七張表及本機身份，新增 categories、category_changes 權威表與 categories=1 manifest。category-aware codec 可讀已知 format 1／2／3；舊格式的新增分類表為空，既有權威資料保留。schema 4 只建立在新 stage，拒絕就地升級；現有 App／LedgerStore 仍是 schema 3，完整發布協調器尚未接入。
 
 控制 catalog 的 schema 1 是明文 fixture，schema 2 是獨立 key 的加密模式；這兩個數字與財務 schema 1／2 毫無大小關係。目前沒有 catalog 明文→加密的自動升級，不能在正式接入時順便改寫。
 
-後續[升級控制紀錄](storage-upgrade-receipts.md)新增明確選用的加密 catalog 3，保存升級 intent 與每次目標／備份摘要。已知 catalog 2 僅在可信 adapter 準備完成後，於同一 transaction 升為 3 並保存第一次嘗試；普通開檔不自動改表。這是控制機制，尚未完成 Ledger 3→4 的財務備份／轉換接線，也不改 envelope 規格。
+後續升級控制紀錄新增明確選用的加密 catalog 3，保存升級 intent 與每次目標／備份摘要。已知 catalog 2 僅在可信 adapter 準備完成後，於同一 transaction 升為 3 並保存第一次嘗試；普通開檔不自動改表。這是控制機制，尚未完成 Ledger 3→4 的財務備份／轉換接線，也不改 envelope 規格。
 
 這些均為原型資料協定，未標定為首個正式產品 schema。轉入正式版本時須留下明確的 fixture 匯入或拒絕路徑，不把 `user_version` 改號當成完成遷移。
 
@@ -47,7 +47,7 @@ Capability 的 UI 開關與資料相容性分開。關閉投資 UI 仍需能讀�
 
 升級期間停止所有帳務、jobs、匯入與報表 DB 工作，等待已開 session 釋放；備份擷取到發布期間保持同一排他範圍。若未來為大型資料釋放鎖，必須加入經驗證的來源修訂核對／重試策略，不能直接沿用過期 snapshot。
 
-尚未取得排他權時可依[等待契約](storage-lock-wait.md)取消／逾時；取得後不得把程序已提交但回覆遺失說成「取消成功」。遇到不認識的來源版本，在任何 migration DDL 或新正式參照寫入前停止。
+尚未取得排他權時可依等待契約取消／逾時；取得後不得把程序已提交但回覆遺失說成「取消成功」。遇到不認識的來源版本，在任何 migration DDL 或新正式參照寫入前停止。
 
 ## 5. 升級前安全備份
 
@@ -81,7 +81,7 @@ upgrade operation ID 只識別一次升級，與財務 receipts 分開。相同 
 
 ## 7. 必須補上的故障驗收
 
-以下補充 [DATA-01 與 BACKUP-01～04](foundation-acceptance.md#資料演進與保護)，目前均未宣稱完整通過。
+以下補充 DATA-01 與 BACKUP-01～04，目前均未宣稱完整通過。
 
 - **EVOL-01 前置不寫入**：未知 schema／module version、相容路徑缺漏、錯 key 或未釋放 session 時，不執行 migration DDL、不改目前參照。
 - **EVOL-02 真正升級前備份**：在第一處 DDL 前，已持久保存的 envelope 可被新程序分別以密碼／救援 key 解鎖；內容是舊 schema 對應的完整來源資料。
@@ -94,8 +94,8 @@ upgrade operation ID 只識別一次升級，與財務 receipts 分開。相同 
 
 ## 8. 實作順序與現有證據
 
-2026-09-27 接續：[Ledger 分類升級](ledger-category-upgrade.md)已串接已知 schema 3 → 4 的來源、真實安全備份與 catalog 3 升級結果；該頁明列本機故障／還原驗證及未開放的 App gate。不將此單一路徑延伸宣稱為全部 EVOL 或通用模組升級完成。
+2026-09-27 接續：Ledger 分類升級已串接已知 schema 3 → 4 的來源、真實安全備份與 catalog 3 升級結果；該頁明列本機故障／還原驗證及未開放的 App gate。不將此單一路徑延伸宣稱為全部 EVOL 或通用模組升級完成。
 
-現有原型已驗證固定 1→2／3 transaction 回滾、指定程序中止、SQLITE_FULL、雙憑證乾淨 host 還原，以及 generation 發布去重；目前另串接限定 3→4 的「來源預檢→安全備份→目標升級→發布」。進度見[逐項紀錄](../work-progress.md)。尚無通用 module migration registry、正式 BackupProfile 或完整 Android 升級 gate。
+現有原型已驗證固定 1→2／3 transaction 回滾、指定程序中止、SQLITE_FULL、雙憑證乾淨 host 還原，以及 generation 發布去重；目前另串接限定 3→4 的「來源預檢→安全備份→目標升級→發布」。進度見逐項紀錄。尚無通用 module migration registry、正式 BackupProfile 或完整 Android 升級 gate。
 
 既定的分階段順序是先以已知財務 fixture 補來源預檢、持久安全備份與雙路新程序還原，再接目標升級及版本化 upgrade receipt；此限定路徑已接上。正式模組逐功能接入時仍須擴增 manifest／fixture，不先建立未使用的動態插件管理或任意遷移腳本下載能力。

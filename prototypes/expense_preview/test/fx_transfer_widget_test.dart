@@ -67,7 +67,9 @@ void main() {
           '轉入帳戶',
         );
         await tester.ensureVisible(picker);
-        await tester.pumpAndSettle();
+        // The draft save queued by the principal edit briefly disables the
+        // picker; wait for it instead of racing the real clock.
+        await settle(tester);
         await tester.tap(picker);
         await tester.pumpAndSettle();
         await tester.tap(find.text('轉入銀行 · JPY').last);

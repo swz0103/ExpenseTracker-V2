@@ -1,5 +1,17 @@
 enum MoneyError { invalidInput, precision, overflow, currencyMismatch }
 
+/// Strict decimal minor units as persisted: an optional '-', no leading
+/// zeros, no '+', whitespace, '-0' or hex. Throws [FormatException], as
+/// [BigInt.parse] does, so decoders keep their error handling.
+BigInt parseMinorUnits(String text) {
+  if (text.length > 20 || !_minorUnitsPattern.hasMatch(text)) {
+    throw FormatException('Invalid minor units', text);
+  }
+  return BigInt.parse(text);
+}
+
+final _minorUnitsPattern = RegExp(r'^(0|-?[1-9][0-9]*)$');
+
 final class MoneyException implements Exception {
   const MoneyException(this.code);
   final MoneyError code;
@@ -7,13 +19,54 @@ final class MoneyException implements Exception {
   String toString() => 'MoneyException(${code.name})';
 }
 
-/// A denomination, not an authoritative registry of supported currencies.
+/// A denomination. Use [Currency.iso] for the ISO 4217 minor units.
 final class Currency {
   Currency(this.code, this.scale) {
     if (!RegExp(r'^[A-Z]{3}$').hasMatch(code) || scale < 0 || scale > 18) {
       throw const MoneyException(MoneyError.invalidInput);
     }
   }
+
+  /// The ISO 4217 denomination for [code]. Use this instead of guessing a
+  /// scale; only the reference table below decides minor units.
+  factory Currency.iso(String code) => Currency(code, isoScale(code));
+
+  /// ISO 4217 minor units: listed codes use 0 or 3 decimals, all others 2.
+  static int isoScale(String code) {
+    if (_zeroDecimal.contains(code)) return 0;
+    if (_threeDecimal.contains(code)) return 3;
+    return 2;
+  }
+
+  static const _zeroDecimal = {
+    'BIF',
+    'CLP',
+    'DJF',
+    'GNF',
+    'ISK',
+    'JPY',
+    'KMF',
+    'KRW',
+    'PYG',
+    'RWF',
+    'UGX',
+    'UYI',
+    'VND',
+    'VUV',
+    'XAF',
+    'XOF',
+    'XPF',
+  };
+  static const _threeDecimal = {
+    'BHD',
+    'IQD',
+    'JOD',
+    'KWD',
+    'LYD',
+    'OMR',
+    'TND',
+  };
+
   final String code;
   final int scale;
   @override
@@ -34,7 +87,7 @@ final class Money {
   static final minMinorUnits = -(BigInt.one << 63);
   static final maxMinorUnits = (BigInt.one << 63) - BigInt.one;
   static const roundingPolicy = 'half-away-from-zero-v1';
-  static const allocationPolicy = 'truncate-last-remainder-v1';
+  static const allocationPolicy = 'largest-remainder-v1';
   final Currency currency;
   final BigInt minorUnits;
 
@@ -90,7 +143,7 @@ final class Money {
         scale is! int ||
         amount is! String ||
         amount.length > 20 ||
-        !RegExp(r'^-?(0|[1-9][0-9]*)$').hasMatch(amount)) {
+        !_minorUnitsPattern.hasMatch(amount)) {
       throw const MoneyException(MoneyError.invalidInput);
     }
     return Money(Currency(code, scale), BigInt.parse(amount));
@@ -115,7 +168,11 @@ final class Money {
 
   Money operator -() => Money(currency, -minorUnits);
 
-  /// First n-1 shares truncate toward zero; final share receives the remainder.
+  /// Largest-remainder allocation. Each share is truncated toward zero, then
+  /// the leftover minor units go one at a time to the shares with the largest
+  /// truncated fractions; earlier shares win ties. Every share is within one
+  /// minor unit of its exact proportion, and the shares always sum to the total
+  /// (10.00 by 1:2:3 is 1.67 / 3.33 / 5.00, not 1.66 / 3.33 / 5.01).
   List<Money> allocate(List<BigInt> weights) {
     if (weights.isEmpty ||
         weights.length > 10000 ||
@@ -126,15 +183,29 @@ final class Money {
       BigInt.zero,
       (sum, weight) => sum + weight,
     );
-    var remainder = minorUnits;
-    final shares = <Money>[];
-    for (var index = 0; index < weights.length - 1; index++) {
-      final share = minorUnits * weights[index] ~/ totalWeight;
-      shares.add(Money(currency, share));
-      remainder -= share;
+    final sign = minorUnits.isNegative ? -BigInt.one : BigInt.one;
+    final magnitude = minorUnits.abs();
+    final units = <BigInt>[];
+    final fractions = <BigInt>[];
+    for (final weight in weights) {
+      final product = magnitude * weight;
+      units.add(product ~/ totalWeight);
+      fractions.add(product.remainder(totalWeight));
     }
-    shares.add(Money(currency, remainder));
-    return List.unmodifiable(shares);
+    var left = magnitude - units.fold(BigInt.zero, (sum, unit) => sum + unit);
+    final order = List<int>.generate(weights.length, (index) => index)
+      ..sort((a, b) {
+        final byFraction = fractions[b].compareTo(fractions[a]);
+        return byFraction != 0 ? byFraction : a.compareTo(b);
+      });
+    for (final index in order) {
+      if (left == BigInt.zero) break;
+      units[index] += BigInt.one;
+      left -= BigInt.one;
+    }
+    return List.unmodifiable([
+      for (final unit in units) Money(currency, sign * unit),
+    ]);
   }
 
   String get majorText {

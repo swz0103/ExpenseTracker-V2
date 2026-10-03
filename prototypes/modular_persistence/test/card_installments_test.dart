@@ -119,7 +119,7 @@ void main() {
         throwsFormatException,
       );
       final saved = (await cardInstallmentPlans(db, workspace, card.id)).single;
-      expect(saved.plan.installments.last.projectedCharge.majorText, '33.70');
+      expect(saved.plan.installments.last.projectedCharge.majorText, '33.66');
       await validateCardInstallmentPlans(db);
       expect(await db.customSelect('SELECT * FROM events').get(), hasLength(2));
       await expectLater(

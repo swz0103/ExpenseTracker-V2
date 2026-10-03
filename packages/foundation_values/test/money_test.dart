@@ -44,21 +44,40 @@ void main() {
         usd,
         '1',
       ).allocate(List.filled(3, BigInt.one)).map((m) => m.majorText),
-      ['0.33', '0.33', '0.34'],
+      ['0.34', '0.33', '0.33'],
     );
     expect(
       Money.parse(
         usd,
         '-1',
       ).allocate(List.filled(3, BigInt.one)).map((m) => m.majorText),
-      ['-0.33', '-0.33', '-0.34'],
+      ['-0.34', '-0.33', '-0.33'],
     );
+  });
+  test('largest remainder keeps every share within one minor unit', () {
+    final ratio = [BigInt.one, BigInt.two, BigInt.from(3)];
+    final split = Money.parse(usd, '10').allocate(ratio);
+    expect(split.map((m) => m.majorText), ['1.67', '3.33', '5.00']);
+    for (var amount = -97; amount <= 97; amount += 7) {
+      final value = Money(usd, BigInt.from(amount));
+      final weights = [BigInt.from(3), BigInt.from(5), BigInt.from(11)];
+      final shares = value.allocate(weights);
+      expect(
+        shares.fold(BigInt.zero, (sum, share) => sum + share.minorUnits),
+        value.minorUnits,
+      );
+      for (var i = 0; i < shares.length; i++) {
+        final exact = value.minorUnits * weights[i];
+        final scaled = shares[i].minorUnits * BigInt.from(19);
+        expect((scaled - exact).abs() < BigInt.from(19), isTrue);
+      }
+    }
   });
   test('weighted allocation computes products without integer overflow', () {
     final value = Money(usd, Money.maxMinorUnits);
     final shares = value.allocate([Money.maxMinorUnits, Money.maxMinorUnits]);
-    expect(shares[0].minorUnits, BigInt.parse('4611686018427387903'));
-    expect(shares[1].minorUnits, BigInt.parse('4611686018427387904'));
+    expect(shares[0].minorUnits, BigInt.parse('4611686018427387904'));
+    expect(shares[1].minorUnits, BigInt.parse('4611686018427387903'));
     expect(shares[0] + shares[1], value);
   });
   test('VAL-04 manual input rejects extra precision', () {
@@ -152,5 +171,19 @@ void main() {
       () => Money.parse(usd, '1').allocate([BigInt.zero]),
       error(MoneyError.invalidInput),
     );
+  });
+  test('ISO registry decides minor units', () {
+    expect(Currency.iso('TWD').scale, 2);
+    expect(Currency.iso('USD'), Currency('USD', 2));
+    expect(Currency.iso('JPY').scale, 0);
+    expect(Currency.iso('KRW').scale, 0);
+    expect(Currency.iso('KWD').scale, 3);
+  });
+  test('persisted minor units are parsed strictly', () {
+    expect(parseMinorUnits('0'), BigInt.zero);
+    expect(parseMinorUnits('-125'), BigInt.from(-125));
+    for (final text in ['+1', ' 1', '1 ', '0x10', '-0', '01', '1.0', '']) {
+      expect(() => parseMinorUnits(text), throwsFormatException, reason: text);
+    }
   });
 }

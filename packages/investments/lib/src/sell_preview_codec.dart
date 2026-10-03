@@ -264,5 +264,5 @@ Money _money(Map<String, dynamic> map, String key, Currency currency) {
   if (value.length > 20 || !RegExp(r'^-?(0|[1-9][0-9]*)$').hasMatch(value)) {
     throw const FormatException('Invalid investment sale amount');
   }
-  return Money(currency, BigInt.parse(value));
+  return Money(currency, parseMinorUnits(value));
 }

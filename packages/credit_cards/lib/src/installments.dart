@@ -56,7 +56,8 @@ final class CardInstallmentSchedule {
   final int closingDay;
   final int count;
 
-  /// The final installment receives any integer-minor-unit remainder.
+  /// Largest-remainder split: leftover minor units go to the earliest
+  /// installments, one each.
   List<CardInstallment> get installments {
     final weights = List<BigInt>.filled(count, BigInt.one);
     final principals = principal.allocate(weights);
@@ -151,11 +152,11 @@ final class CardInstallmentScheduleCodec {
         cardId: PublicId.parse(value['cardId'] as String),
         principal: Money(
           currency,
-          BigInt.parse(value['principalMinor'] as String),
+          parseMinorUnits(value['principalMinor'] as String),
         ),
         fixedFee: Money(
           currency,
-          BigInt.parse(value['fixedFeeMinor'] as String),
+          parseMinorUnits(value['fixedFeeMinor'] as String),
         ),
         firstScheduledClose: BusinessDate.parse(
           value['firstScheduledClose'] as String,

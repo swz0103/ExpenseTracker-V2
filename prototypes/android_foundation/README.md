@@ -2,7 +2,7 @@
 
 狀態：限定原型，Android ARM64 debug APK 已建置，指定實機基本與乾淨還原案例已通過；完整平台 gate 未完成。不得保存真實帳本。
 
-對應[實作計畫階段 1](../../docs/delivery/implementation-plan.md)與[地基驗證紀錄](../../docs/foundation/foundation-validation.md)。此入口沿用既有業務套件及加密／還原原型，待平台 gate 通過後才整理正式產品組件。
+對應實作計畫階段 1與地基驗證紀錄。此入口沿用既有業務套件及加密／還原原型，待平台 gate 通過後才整理正式產品組件。
 
 ## 驗證路徑
 
@@ -11,13 +11,13 @@
 - 密碼與文字救援金鑰分別還原至各自的加密世代 DB，以獨立安全儲存 slot 保存目標 key。重新建立 adapter 後讀回目前配對、完整 snapshot 與餘額，重送收入操作必須回傳 replay。
 - 重複執行沿用固定 operation ID，確認不重複入帳。原始測試 DB 保留，供下次啟動核對。
 
-一般按鈕的兩條 Android 還原在同一應用程序內執行，來源 key 仍可能存在記憶體，不能單靠此入口證明乾淨還原。另有獨立 integration test 在清除 fixture App 資料後分別驗證兩條路徑及跨程序重開，詳見[實機紀錄](../../docs/delivery/android-device-validation.md)。跨程序及刪除來源 DB 的 host 證據見[加密儲存原型](../encrypted_storage/README.md)。
+一般按鈕的兩條 Android 還原在同一應用程序內執行，來源 key 仍可能存在記憶體，不能單靠此入口證明乾淨還原。另有獨立 integration test 在清除 fixture App 資料後分別驗證兩條路徑及跨程序重開，詳見實機紀錄。跨程序及刪除來源 DB 的 host 證據見[加密儲存原型](../encrypted_storage/README.md)。
 
 ## 安全界線
 
 來源 DB 的 `AndroidKeyVault` 沿用原 namespace；目標的 `AndroidSlotVault` 使用 `expense_v2_generation_probe_v1` 與逐 slot 名稱。兩者都明確設定 `resetOnError: false`、`migrateOnAlgorithmChange: false`。`SecureKeySlots` 建立前拒絕已存在欄位，寫後讀回；讀取缺失或未知格式只拒絕，不建立替代 key，不刪除寫入結果未定的 slot。
 
-目標使用 [Ledger 世代整合](../ledger_generation/README.md) 的財務 schema 3／snapshot format 2，以及[加密控制 schema 2](../../docs/foundation/storage-control-protection.md)。`androidCatalogProtection` 的 factory 以獨立 namespace 和逐 store key 保護控制紀錄，核對內外本機身份。平台 adapter 未匯入明文 FixtureKeySlots。等待已改為預設 10 秒上限並支援等待階段取消；正式輪替、清理及活躍連線租約仍未完成。
+目標使用 [Ledger 世代整合](../ledger_generation/README.md) 的財務 schema 3／snapshot format 2，以及加密控制 schema 2。`androidCatalogProtection` 的 factory 以獨立 namespace 和逐 store key 保護控制紀錄，核對內外本機身份。平台 adapter 未匯入明文 FixtureKeySlots。等待已改為預設 10 秒上限並支援等待階段取消；正式輪替、清理及活躍連線租約仍未完成。
 
 新測試路徑使用 `generation_v2_password`／`generation_v2_recovery`；兩個目標目錄、控制 key 與世代 slot 保留給重啟核對。先前 v1 目錄與 key 保留，不就地轉換；此改動不是正式資料升級機制。首次控制建表改為 stage 驗證後發布，host 已驗證初始化中止復原；舊版不完整正式 catalog 仍停止並保留，裝置行為未驗收。
 
@@ -35,7 +35,7 @@ Android manifest 停用系統備份，另加入 cloud／device／cross-platform 
 - 本機靜態分析與 17 項 host 金鑰測試通過：原有 6 項，加上 11 項 slot 獨立性、重新讀取、缺失／未知格式、不可覆寫、寫入前／後失敗、讀回不一致、錯誤去敏與跨 instance 競爭。測試 vault 為記憶體實作，不是 Android Keystore 證據；遠端結果見 PR checks。
 - 2026-09-27 排除 JNI 相依的 SDK Platform 35 與 CMake 3.22.1 缺漏後，ARM64 debug APK 建置成功。App 使用 SDK 36 不代表相依套件不需要 SDK 35；Build Tools 35 也不能替代 Platform 35。
 - 已核對 APK 含 ARM64 libsqlcipher.so；最終 manifest 為 min SDK 24／target SDK 36、debuggable=true、allowBackup=false，兩份備份排除規則引用存在。這是封裝檢查，不是裝置行為驗證。
-- 2026-09-27 已在 Samsung SM-A5660／Android 16（API 36）執行指定實機案例；範圍與失敗紀錄見[實機紀錄](../../docs/delivery/android-device-validation.md)。host CI 與裝置結果分開記錄。
+- 2026-09-27 已在 Samsung SM-A5660／Android 16（API 36）執行指定實機案例；範圍與失敗紀錄見實機紀錄。host CI 與裝置結果分開記錄。
 
 ## 接續步驟
 
@@ -60,6 +60,6 @@ flutter devices
 flutter test integration_test/device_probe_test.dart -d <Android裝置ID> --no-uninstall
 ```
 
-此入口在同一程序執行兩次；獨立乾淨還原、跨程序重開與平台故障案例另見實機紀錄。Flutter 預設會在 integration test 結束後移除 App，需用 --no-uninstall 才能驗證持久化。OS 重開機及完整故障矩陣仍待驗證。完整範圍以[驗收清單](../../docs/foundation/foundation-acceptance.md)為準。
+此入口在同一程序執行兩次；獨立乾淨還原、跨程序重開與平台故障案例另見實機紀錄。Flutter 預設會在 integration test 結束後移除 App，需用 --no-uninstall 才能驗證持久化。OS 重開機及完整故障矩陣仍待驗證。完整範圍以驗收清單為準。
 
 參考：[secure storage 版本紀錄](https://pub.dev/packages/flutter_secure_storage/changelog)、[Android 備份規則](https://developer.android.com/identity/data/autobackup)。實際相依及編譯結果以鎖定版本與執行結果為準。

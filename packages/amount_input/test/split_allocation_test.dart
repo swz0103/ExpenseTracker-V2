@@ -19,14 +19,14 @@ void main() {
     weights: weights,
   );
   test(
-    'equal distribution uses existing last-row policy in currency minor units',
+    'equal distribution uses the largest-remainder policy in minor units',
     () {
       final p = proposeSplit(
         Money.parse(usd, '10'),
         rows: 3,
         method: SplitMethod.equal,
       );
-      expect(parts(p), ['3.33', '3.33', '3.34']);
+      expect(parts(p), ['3.34', '3.33', '3.33']);
       expect(p.remainderMinorUnits, BigInt.one);
       expect(SplitAllocation.policy, Money.allocationPolicy);
       expect(
@@ -37,7 +37,7 @@ void main() {
             method: SplitMethod.equal,
           ),
         ),
-        ['3', '3', '4'],
+        ['4', '3', '3'],
       );
       expect(() => p.amounts.clear(), throwsUnsupportedError);
     },
@@ -74,7 +74,7 @@ void main() {
       ['0.000000000000000001', '0.000000000000000002', '0.000000000000000003'],
     ]) {
       final p = split('10', SplitMethod.ratio, w);
-      expect(parts(p), ['1.66', '3.33', '5.01']);
+      expect(parts(p), ['1.67', '3.33', '5.00']);
       expect(p.remainderMinorUnits, BigInt.one);
     }
   });
@@ -181,7 +181,15 @@ void main() {
       final divisor = weights.fold<int>(0, (a, b) => a + b);
       final expected = weights.map((w) => total * w ~/ divisor).toList();
       final remainder = total - expected.fold<int>(0, (a, b) => a + b);
-      expected[count - 1] += remainder;
+      int fraction(int i) => total * weights[i] % divisor;
+      final order = List.generate(count, (i) => i)
+        ..sort((a, b) {
+          final byFraction = fraction(b).compareTo(fraction(a));
+          return byFraction != 0 ? byFraction : a.compareTo(b);
+        });
+      for (final index in order.take(remainder)) {
+        expected[index] += 1;
+      }
       final proposal = proposeSplit(
         Money(usd, BigInt.from(total)),
         rows: count,

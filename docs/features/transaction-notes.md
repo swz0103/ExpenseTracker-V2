@@ -1,6 +1,6 @@
 # 交易純文字備註與修訂
 
-本批屬於 [M1-04](../delivery/implementation-plan.md#m1-04拆分退款更正與刪除規則)，接續 [正式撤銷](financial-reversals.md)。追溯 [Full Vision Q015](../architecture/full-vision-baseline.md#q015)、[Q151](../architecture/full-vision-baseline.md#q151)；金額更正／替代、tombstone 與完整 M1 gate 仍延後。
+本批屬於 M1-04，接續 [正式撤銷](financial-reversals.md)。追溯 [Full Vision Q015](../architecture/full-vision-baseline.md#q015)、[Q151](../architecture/full-vision-baseline.md#q151)；金額更正／替代、tombstone 與完整 M1 gate 仍延後。
 
 ## 行為與邊界
 
@@ -26,4 +26,4 @@ schema 12／snapshot 11 新增 event_note_revisions 與 ledger_notes manifest。
 
 ## 本批驗證
 
-完整 18 套件／869 案例、11 處真實升級程序退出通過；另完成 4 處草稿程序退出，以及 5,000 事件＋5,000 修訂／9,999 重播、上限拒絕與來源 DB／keys 刪除後密碼及救援各自乾淨還原。固定來源與結果見[主機](../test-results/2026-09-28/notes-host-2026-09-28.json)、[程序退出](../test-results/2026-09-28/notes-process-2026-09-28.json)、[大量資料](../test-results/2026-09-28/notes-scale-2026-09-28.json)。雲端 workflows 保持停用；實機與 main 合併仍另行等待，不宣稱所有 CORE 完成。
+完整 18 套件／869 案例、11 處真實升級程序退出通過；另完成 4 處草稿程序退出，以及 5,000 事件＋5,000 修訂／9,999 重播、上限拒絕與來源 DB／keys 刪除後密碼及救援各自乾淨還原。固定來源與結果見主機、程序退出、大量資料。雲端 workflows 保持停用；實機與 main 合併仍另行等待，不宣稱所有 CORE 完成。

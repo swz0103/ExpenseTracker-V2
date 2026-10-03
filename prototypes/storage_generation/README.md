@@ -2,7 +2,7 @@
 
 狀態：Windows host 的限定機制原型；尚非正式儲存、Ledger 還原或 Android 安全能力。
 
-依據：[生命週期契約](../../docs/foundation/storage-lifecycle-contract.md)、[驗收案例](../../docs/foundation/foundation-acceptance.md)。本項處理新 DB 與新 key 分開保存時，如何在程序中止後決定可用的配對。
+依據：[生命週期契約](../../docs/foundation/storage-lifecycle-contract.md)、驗收案例。本項處理新 DB 與新 key 分開保存時，如何在程序中止後決定可用的配對。
 
 ## 實際範圍
 
@@ -44,13 +44,13 @@ dart test --reporter expanded
 
 ## 不能支持的結論
 
-後續新增明確 `upgradeAware` 模式及加密 catalog 3：[升級控制紀錄與原子發布](../../docs/foundation/storage-upgrade-receipts.md)。升級 intent、來源 live digest、同鎖 prepare、版本化控制 DDL 及單一發布點已有機制實作；與一般 restore 操作分開辨識。固定 fixture 不能冒充完整 Ledger 升級或真實安全備份，預設模式不變。
+後續新增明確 `upgradeAware` 模式及加密 catalog 3：升級控制紀錄與原子發布。升級 intent、來源 live digest、同鎖 prepare、版本化控制 DDL 及單一發布點已有機制實作；與一般 restore 操作分開辨識。固定 fixture 不能冒充完整 Ledger 升級或真實安全備份，預設模式不變。
 
-後續新增明確的 `CatalogProtection` 模式：控制 DB 使用獨立 key、SQLCipher 與 schema 2，內部 store 身份必須符合 composition 提供的 ID；原 schema 1 明文模式只保留給舊 fixture。完整邊界見[控制紀錄加密](../../docs/foundation/storage-control-protection.md)。首次建表已改為[stage 驗證後發布](../../docs/foundation/storage-catalog-initialization.md)，新的初始化中止可重試，既有不完整正式 catalog 仍拒絕自動重設；不能宣稱任意損壞都能自動復原。
+後續新增明確的 `CatalogProtection` 模式：控制 DB 使用獨立 key、SQLCipher 與 schema 2，內部 store 身份必須符合 composition 提供的 ID；原 schema 1 明文模式只保留給舊 fixture。完整邊界見控制紀錄加密。首次建表已改為stage 驗證後發布，新的初始化中止可重試，既有不完整正式 catalog 仍拒絕自動重設；不能宣稱任意損壞都能自動復原。
 
 預設文字 fixture 有自己的 schema 1。後續新增 `GenerationPayload` adapter 與受鎖保護的內部連線 scope，由 [Ledger 整合原型](../ledger_generation/README.md) 接入明確的財務 schema 3／snapshot format 2，未放寬未知欄位檢查。發布前重開後的內容必須與正規化輸入摘要相同；文字 fixture 仍要求內容不可變，Ledger adapter 則允許發布後合法入帳。
 
-後續已接入 Android secure storage adapter，尚未完成裝置驗收。跨程序鎖改為預設 10 秒有界等待，支援等待階段取消與零期限嘗試；11 項新增案例及既有 44 項通過，詳見[等待契約](../../docs/foundation/storage-lock-wait.md)。尚未實作 App 活躍連線租約、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放；同 isolate busy 保護不代替正式背景工作協調。
+後續已接入 Android secure storage adapter，尚未完成裝置驗收。跨程序鎖改為預設 10 秒有界等待，支援等待階段取消與零期限嘗試；11 項新增案例及既有 44 項通過，詳見等待契約。尚未實作 App 活躍連線租約、舊世代清理、catalog 災難恢復或抗整套舊 metadata 回放；同 isolate busy 保護不代替正式背景工作協調。
 
 不刪除任何舊世代或 slot，尚不支援長期保留政策。若 active key 遺失，這個原型停止操作；正式產品從可攜備份恢復到新安全環境的路徑仍需另行整合。
 

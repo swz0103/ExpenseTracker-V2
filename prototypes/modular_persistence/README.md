@@ -1,6 +1,6 @@
 # Accounts／Ledger 共用 Drift 交易原型
 
-2026-09-27 接續：明確 schema 5 可保存[版本化交易分類引用](../../docs/foundation/ledger-category-references.md)，含收入／支出分攤、歷史位置、版本競爭及全量回滾。既有預設 schema 的拒絕規則保留；`fixture_allocation.dart` 是供主機測試共用的合成資料入口，不能用作產品初始化資料。以下原型測試數保留原批次歷程，最新驗證見工作進度。
+2026-09-27 接續：明確 schema 5 可保存版本化交易分類引用，含收入／支出分攤、歷史位置、版本競爭及全量回滾。既有預設 schema 的拒絕規則保留；`fixture_allocation.dart` 是供主機測試共用的合成資料入口，不能用作產品初始化資料。以下原型測試數保留原批次歷程，最新驗證見工作進度。
 
 這是階段 1 主機端整合原型：實際引入 Accounts、Ledger、Foundation Values 三個套件，以 Drift 2.35.0 + SQLite 3.6.0 寫入真實檔案。AccountsAdapter 與 LedgerAdapter 共用同一 ProbeDatabase；FinancialWorkflows 開啟並等待唯一 transaction 完成。
 
@@ -27,4 +27,4 @@ dart test --reporter expanded
 - 同 executor 並行通過不等於多程序／多連線的全部競爭情境。先前 SQLite 原型的程序退出測試仍保留，不能替代此 Drift adapter 的程序中斷測試。
 - Android、SQLCipher／密鑰、乾淨還原與完整 migration gate 均未完成。此次只涵蓋 v1 → v2；裝置斷電、空間不足、重大 migration 前加密安全備份與正式 module manifest 仍待驗證。
 
-來源：[Drift transactions](https://drift.simonbinder.eu/dart_api/transactions/)、[custom queries](https://drift.simonbinder.eu/sql_api/custom_queries/)。驗收對應見[案例](../../docs/foundation/foundation-acceptance.md)，進度見[紀錄](../../docs/work-progress.md)。
+來源：[Drift transactions](https://drift.simonbinder.eu/dart_api/transactions/)、[custom queries](https://drift.simonbinder.eu/sql_api/custom_queries/)。驗收對應見案例，進度見紀錄。

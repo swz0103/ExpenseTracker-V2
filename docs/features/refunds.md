@@ -1,6 +1,6 @@
 # 原支出退款與可恢復送出
 
-2026-09-28：由 [PR #57](https://github.com/swz0103/ExpenseTracker-V2/pull/57)（`fabe6b83f8aee0e7aaa4f8e0341ab336de37e61a`）接續。對應 [Full Vision FV-007](../architecture/full-vision-baseline.md#fv-007)、[FV-014](../architecture/full-vision-baseline.md#fv-014)、[FV-016](../architecture/full-vision-baseline.md#fv-016)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 [M1-04](../delivery/implementation-plan.md)。沿用已選 1A：退款在退款日期沖減原幣消費，保留原消費與退款各自事件。
+2026-09-28：由 [PR #57](https://github.com/swz0103/ExpenseTracker-V2/pull/57)（`fabe6b83f8aee0e7aaa4f8e0341ab336de37e61a`）接續。對應 [Full Vision FV-007](../architecture/full-vision-baseline.md#fv-007)、[FV-014](../architecture/full-vision-baseline.md#fv-014)、[FV-016](../architecture/full-vision-baseline.md#fv-016)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 M1-04。沿用已選 1A：退款在退款日期沖減原幣消費，保留原消費與退款各自事件。
 
 ## 使用流程
 
@@ -33,6 +33,6 @@
 
 還原器逐項重建每個原支出的退款預算，檢查同工作區關聯、來源類型、日期、原幣報表、現金 legs、FX context、每分類限額及原歷史歸屬，並與 receipt／audit 比對。不能只信快照內的負支出或外鍵存在。全量還原驗證使用每個原支出的累計狀態，避免對每筆退款反覆掃描整份快照。
 
-本批[完整 18 套件／810 個主機案例](../test-results/2026-09-28/refunds-host-2026-09-28.json)通過；另有[5,000 事件雙路乾淨還原](../test-results/2026-09-28/refunds-scale-2026-09-28.json)與[四處草稿程序中斷](../test-results/2026-09-28/refunds-process-2026-09-28.json)。優化前後同主機寫入階段為 259195／196085 ms；僅一次同資料規模比較，不推論手機效能。雲端 workflow 維持停用，實機仍待使用者安排。
+本批完整 18 套件／810 個主機案例通過；另有5,000 事件雙路乾淨還原與四處草稿程序中斷。優化前後同主機寫入階段為 259195／196085 ms；僅一次同資料規模比較，不推論手機效能。雲端 workflow 維持停用，實機仍待使用者安排。
 
 本批不含退款手續費、跨期信用卡帳單／分期重算、商店餘額折抵、退款撤回、更正原支出、刪除與活動歷史 UI，也尚未提供消費報表。負支出資料契約已供後續報表使用，不能宣稱報表功能已完成。後續 revision／reversal／tombstone 必須把原支出與退款相依一起檢查，禁止縮減、刪除或改分類而使既有退款變成超額、孤兒或錯誤歸屬。M1-04、M1 gate 及 M2／M3 均仍未全部完成。

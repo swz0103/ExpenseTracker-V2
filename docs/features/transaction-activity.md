@@ -1,6 +1,6 @@
 # 交易活動查閱
 
-2026-09-28：由 [退款 PR #58](https://github.com/swz0103/ExpenseTracker-V2/pull/58) 的 `d7b63bf3b7b5b7bb1ba2cc459a92dac9230962cc` 接續。對應 [Full Vision FV-008](../architecture/full-vision-baseline.md#fv-008)、[Q160 交易明細](../architecture/full-vision-baseline.md#q160)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 [M1-04](../delivery/implementation-plan.md)。
+2026-09-28：由 [退款 PR #58](https://github.com/swz0103/ExpenseTracker-V2/pull/58) 的 `d7b63bf3b7b5b7bb1ba2cc459a92dac9230962cc` 接續。對應 [Full Vision FV-008](../architecture/full-vision-baseline.md#fv-008)、[Q160 交易明細](../architecture/full-vision-baseline.md#q160)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 M1-04。
 
 ## 使用流程
 
@@ -22,7 +22,7 @@
 
 ## 驗證與剩餘範圍
 
-本批[受影響範圍 54 個獨立主機案例](../test-results/2026-09-28/transaction-activity-host-2026-09-28.json)通過，新增 5 個；包含 65 事件分頁／時間精度、32 事件窄畫面／雙倍字體、刪除來源 DB 與金鑰後的雙路乾淨還原及既有選單／隱私回歸。初期畫面測試等待繪製的修正另列證據，不重複計數。基礎退款沿用 #58 的完整 18 套件／810 案例、5,000 事件及程序中斷證據；本批只重跑受影響範圍，不宣稱重新完成整輪主機或大量資料檢查。
+本批受影響範圍 54 個獨立主機案例通過，新增 5 個；包含 65 事件分頁／時間精度、32 事件窄畫面／雙倍字體、刪除來源 DB 與金鑰後的雙路乾淨還原及既有選單／隱私回歸。初期畫面測試等待繪製的修正另列證據，不重複計數。基礎退款沿用 #58 的完整 18 套件／810 案例、5,000 事件及程序中斷證據；本批只重跑受影響範圍，不宣稱重新完成整輪主機或大量資料檢查。
 
 目前活動列表包含既有收入、支出、轉帳、期初及退款入帳。分類／標籤／商家改名歷史、歷史名稱檢視、一般編輯 revision、正式 reversal、tombstone 與相關恢復仍待完成；帳戶名稱沿用目前名稱。此查閱流程是 M1-04 的一部分，不等於完整 Activity Timeline 或 M1 gate 完成。更正或刪除原支出時仍須先處理退款依賴，禁止令既有退款超額、孤立或改變歸屬。
 

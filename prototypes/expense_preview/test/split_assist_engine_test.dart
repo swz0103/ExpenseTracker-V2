@@ -66,9 +66,11 @@ void main() {
             ],
           ),
         );
-        expected[draft.id] = method == SplitMethod.ratio
-            ? [166, 333, 501]
-            : [333, 333, 334];
+        expected[draft.id] = switch (method) {
+          SplitMethod.equal => [334, 333, 333],
+          SplitMethod.percentage => [333, 333, 334],
+          SplitMethod.ratio => [167, 333, 500],
+        };
         await engine.lock();
         await engine.unlock(password);
         expect((await engine.entryDraft())!.encode(), draft.encode());

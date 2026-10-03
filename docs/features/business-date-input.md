@@ -1,6 +1,6 @@
 # 共用日期輸入與繁體中文月曆
 
-2026-09-27，依賴 [PR #52](https://github.com/swz0103/ExpenseTracker-V2/pull/52) 的背景鎖定保護。對應 [M1-02](../delivery/implementation-plan.md#m1-02分類tagmerchant-與日常錄入)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md)、[Full Vision Q048](../architecture/full-vision-baseline.md#q048) 與 [Q155](../architecture/full-vision-baseline.md#q155)。本批是既有日常錄入的共用元件，不宣稱全部 M1 或設計系統完成。
+2026-09-27，依賴 [PR #52](https://github.com/swz0103/ExpenseTracker-V2/pull/52) 的背景鎖定保護。對應 M1-02、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md)、[Full Vision Q048](../architecture/full-vision-baseline.md#q048) 與 [Q155](../architecture/full-vision-baseline.md#q155)。本批是既有日常錄入的共用元件，不宣稱全部 M1 或設計系統完成。
 
 ## 可用行為
 
@@ -36,7 +36,7 @@ App 明確使用 zh_TW，載入 Flutter 官方 Material／Widgets／Cupertino �
 
 ## 驗證與相容性
 
-[本機驗證證據](../test-results/2026-09-27/business-date-host-2026-09-27.json)保存最終執行範圍、失敗修正、來源指紋與 APK 資訊。有效案例包括：
+本機驗證證據保存最終執行範圍、失敗修正、來源指紋與 APK 資訊。有效案例包括：
 
 - 真正點選閏日、確認／取消、相同日期不重寫、部分／錯誤日期不被正規化及過長貼上拒絕。
 - 範圍兩端、歷史跳日日期與不經時區轉換的日曆運算；窄螢幕大字體、月曆標示及日期欄位觸控大小檢查。
