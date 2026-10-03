@@ -58,6 +58,7 @@ jobs:
         run: |
           $packages = @(
             'packages/foundation_values', 'packages/app_core',
+            'packages/bookkeeping',
             'packages/accounts',
             'packages/categories', 'packages/tags', 'packages/merchants',
             'packages/entry_drafts', 'packages/amount_input',
@@ -84,6 +85,7 @@ jobs:
         run: |
           $packages = @(
             'infrastructure/storage_sqlcipher', 'infrastructure/backup_security',
+            'infrastructure/ledger_sqlcipher',
             'prototypes/persistent_jobs', 'prototypes/cloud_backup',
             'prototypes/modular_persistence',
             'prototypes/backup_envelope', 'prototypes/validated_restore',

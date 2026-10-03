@@ -17,6 +17,15 @@
 - 預覽版與正式版發佈前，必須先通過同一 commit 的完整驗證；只有發佈步驟持有寫入權限。
 - 移除未使用的 `transaction_boundary` 原型、兩條手動 workflow、未使用的 Twelve Data 憑證畫面，以及過期文件。
 
+## 階段 3 進行中
+
+- [x] 3a 帳戶與收支：`packages/bookkeeping`（開戶含期初餘額、改名、封存／重新啟用、收入、支出、跨幣別轉帳含手續費、沖銷）＋ `infrastructure/ledger_sqlcipher`（帳戶、分錄、餘額、月報投影表，與事件同交易更新）。300 筆亂數指令的對照測試：投影餘額＝domain `rebuildBalance`，月報＝分錄加總，重開後仍一致。`storage_sqlcipher` 支援模組各自的 migration。
+- [ ] 3b 分類、標籤、商家（catalog）與分攤。
+- [ ] 3c 信用卡：帳單、分期、繳款。
+- [ ] 3d 投資：買賣、股利、批次由事件重播。
+- [ ] 3e 市場資料：網路程式移到 `infrastructure/market_adapters`，`market_data` 移除 `dart:io` 例外。
+- [ ] 3f 退款、結清帳戶（需未結項目查詢）。
+
 ## 階段 2 已完成
 
 - [x] 2a `packages/app_core`：指令依序執行（不因忙碌失敗）、操作日誌與業務寫入同交易、交易性 outbox、型別化錯誤、可注入時鐘，以及 `MemoryStore` 參考實作。

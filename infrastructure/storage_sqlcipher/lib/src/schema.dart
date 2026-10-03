@@ -48,4 +48,12 @@ const migrations = <List<String>>[
     ) STRICT
     ''',
   ],
+  [
+    '''
+    CREATE TABLE schema_modules (
+      name TEXT PRIMARY KEY,
+      version INTEGER NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
 ];

@@ -18,6 +18,11 @@
         "uuid"
       ]
     },
+    "bookkeeping": {
+      "directory": "packages/bookkeeping",
+      "publicEntrypoints": ["bookkeeping.dart"],
+      "dependencies": ["accounts", "app_core", "foundation_values", "ledger"]
+    },
     "app_core": {
       "directory": "packages/app_core",
       "publicEntrypoints": [
@@ -142,6 +147,11 @@
     }
   },
   "runtimeModules": {
+    "ledger_sqlcipher": {
+      "directory": "infrastructure/ledger_sqlcipher",
+      "publicEntrypoints": ["ledger_sqlcipher.dart"],
+      "dependencies": ["accounts", "app_core", "bookkeeping", "foundation_values", "ledger", "storage_sqlcipher"]
+    },
     "backup_security": {
       "directory": "infrastructure/backup_security",
       "publicEntrypoints": ["backup_security.dart"],

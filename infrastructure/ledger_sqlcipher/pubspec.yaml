@@ -1,0 +1,25 @@
+name: ledger_sqlcipher
+description: SQLCipher projections for bookkeeping - accounts, postings, balances and monthly totals.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  accounts:
+    path: ../../packages/accounts
+  app_core:
+    path: ../../packages/app_core
+  bookkeeping:
+    path: ../../packages/bookkeeping
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger:
+    path: ../../packages/ledger
+  storage_sqlcipher:
+    path: ../storage_sqlcipher
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
