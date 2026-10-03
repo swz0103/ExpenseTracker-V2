@@ -8,6 +8,7 @@ import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
@@ -176,6 +177,71 @@ void main() {
     expect(october['USD']!.expense, money(usd, 1500));
     final byCategory = ledger.categoryTotals(workspace, '2026-10');
     expect(byCategory[(fees, 'USD')]!.expense, money(usd, 1500));
+  });
+
+  test('foreign entries count at their booked home value', () async {
+    final twdBank = await openAccount('台幣', twd, opening: money(twd, 500000));
+    final usdBank = await openAccount('美元', usd);
+    await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(twdBank),
+        destination: ref(usdBank),
+        date: day,
+        principal: money(twd, 3200),
+        received: money(usd, 10000),
+      ),
+    );
+    Future<void> foreign(CashFlow flow, int cents, int? home) =>
+        books.recordCashFlow(
+          RecordCashFlow(
+            operation: op(),
+            postingId: PublicId.generate(),
+            flow: flow,
+            account: ref(usdBank),
+            date: day,
+            amount: money(usd, cents),
+            homeValue: home == null ? null : money(twd, home),
+          ),
+        );
+    await foreign(CashFlow.expense, 2500, 810);
+    await foreign(CashFlow.income, 1000, 330);
+    await foreign(CashFlow.expense, 100, null);
+    await expectLater(
+      books.recordCashFlow(
+        RecordCashFlow(
+          operation: op(),
+          postingId: PublicId.generate(),
+          flow: CashFlow.expense,
+          account: ref(twdBank),
+          date: day,
+          amount: money(twd, 100),
+          homeValue: money(twd, 100),
+        ),
+      ),
+      fails(FailureKind.rejected, 'posting.home-value'),
+    );
+
+    final october = ledger.homeMonthly(workspace, ReportMonth(2026, 10));
+    expect(october.total.expense, money(twd, 810));
+    expect(october.total.income, money(twd, 330));
+    expect(october.unvalued, 1);
+
+    // 100 dollars cost 3,200; 25 left at the average, 10 came in at 330,
+    // and 1 more left at the average again.
+    expect(ledger.homeBalance(account(usdBank)), money(twd, 2698));
+    final eur = Currency.of('EUR');
+    await openAccount('歐元', eur, opening: money(eur, 5000));
+    final unknown = ledger.netWorth(workspace);
+    expect(unknown.total, money(twd, 496800 + 2698));
+    expect([for (final a in unknown.unvalued) a.name], ['歐元']);
+    // A euro at 35 dollars that day.
+    Money atTheDay(Money amount, BusinessDate date) =>
+        Money(twd, amount.minorUnits * BigInt.from(35) ~/ BigInt.from(100));
+    final valued = ledger.netWorth(workspace, rate: atTheDay);
+    expect(valued.total, money(twd, 496800 + 2698 + 1750));
+    expect(valued.unvalued, isEmpty);
   });
 
   test('a reversal negates the original on its own date', () async {

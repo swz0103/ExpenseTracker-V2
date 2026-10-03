@@ -279,6 +279,16 @@ final ledgerSchema = SchemaModule('ledger', [
     // every replay.
     'CREATE TABLE invest_voids (trade_id TEXT PRIMARY KEY) STRICT',
   ],
+  [
+    // What a foreign-currency entry was worth in the home currency when it
+    // was booked (feature audit G-11).
+    '''
+    CREATE TABLE ledger_posting_home (
+      posting_id TEXT PRIMARY KEY REFERENCES ledger_postings (id),
+      value TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -653,6 +663,113 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
       lines.add((_decodePosting(row['payload']), after));
     }
     return lines;
+  }
+
+  /// Income and expense for [month] in [homeCurrency]: home-currency
+  /// entries plus foreign ones at their booked home value (feature audit
+  /// G-11). [unvalued] counts foreign entries booked without one.
+  ({MonthlyTotal total, int unvalued}) homeMonthly(
+    WorkspaceId workspace,
+    ReportMonth month,
+  ) {
+    var income = Money(homeCurrency, BigInt.zero);
+    var expense = income;
+    var unvalued = 0;
+    for (final fact in monthlyFacts(workspace, month)) {
+      if (fact.income.currency != homeCurrency) {
+        unvalued++;
+        continue;
+      }
+      income += fact.income;
+      expense += fact.expense;
+    }
+    return (total: MonthlyTotal(income, expense), unvalued: unvalued);
+  }
+
+  /// Net worth in [homeCurrency] at booked values: home-currency accounts
+  /// at their balance, foreign ones at the home value of what is in them,
+  /// with money going out at the account's average booked rate (G-11).
+  /// [rate] values a foreign inflow booked without a home value, such as
+  /// sale proceeds, for example at that day's market rate; an account it
+  /// cannot value is listed in [unvalued] and left out of [total].
+  ({Money total, List<Account> unvalued}) netWorth(
+    WorkspaceId workspace, {
+    Money? Function(Money amount, BusinessDate date)? rate,
+  }) {
+    var total = Money(homeCurrency, BigInt.zero);
+    final unvalued = <Account>[];
+    for (final account in accounts(workspace)) {
+      if (!account.includeInNetWorth) continue;
+      final value = account.currency == homeCurrency
+          ? balance(account)
+          : homeBalance(account, rate: rate);
+      if (value == null) {
+        unvalued.add(account);
+      } else {
+        total += value;
+      }
+    }
+    return (total: total, unvalued: unvalued);
+  }
+
+  /// What a foreign-currency account holds, in [homeCurrency] at booked
+  /// values; null when an inflow has no known value. See [netWorth].
+  Money? homeBalance(
+    Account account, {
+    Money? Function(Money amount, BusinessDate date)? rate,
+  }) {
+    final rows = _store.select(
+      'SELECT p.id, p.payload, group_concat(l.minor_units) AS legs '
+      'FROM ledger_postings p JOIN ledger_legs l ON l.posting_id = p.id '
+      'WHERE l.account_id = ? GROUP BY p.id ORDER BY p.date, p.id',
+      [account.id.value],
+    );
+    var units = BigInt.zero;
+    var cost = BigInt.zero;
+    for (final row in rows) {
+      final posting = _decodePosting(row['payload']);
+      var change = BigInt.zero;
+      for (final leg in (row['legs']! as String).split(',')) {
+        change += BigInt.parse(leg);
+      }
+      final amount = Money(account.currency, change);
+      if (change.isNegative && units > BigInt.zero) {
+        // Out at the average booked rate.
+        final out = -change > units ? units : -change;
+        cost -= _divideRounded(cost * out, units);
+        units -= out;
+        if (units == BigInt.zero) cost = BigInt.zero;
+        continue;
+      }
+      if (change == BigInt.zero) continue;
+      final known =
+          _bookedValue(posting, metadata(posting.id), amount) ??
+          rate?.call(amount, posting.date);
+      if (known == null || known.currency != homeCurrency) return null;
+      units += change;
+      cost += known.minorUnits;
+    }
+    return Money(homeCurrency, cost);
+  }
+
+  /// The booked home value of [amount], one posting's effect on a foreign
+  /// account: from its home value, or from the rate of a transfer from or
+  /// to a home-currency account.
+  Money? _bookedValue(Posting posting, PostingMetadata meta, Money amount) {
+    final home = meta.homeValue;
+    if (home != null) {
+      final sign = BigInt.from(amount.minorUnits.sign);
+      return Money(homeCurrency, home.minorUnits * sign);
+    }
+    final rate = posting.conversion?.rate;
+    if (rate == null) return null;
+    if (rate.base == homeCurrency && rate.quote == amount.currency) {
+      return rate.inverse().convert(amount);
+    }
+    if (rate.quote == homeCurrency && rate.base == amount.currency) {
+      return rate.convert(amount);
+    }
+    return null;
   }
 
   /// Recurring templates in [workspace], with whether each is active.
@@ -1396,6 +1513,13 @@ final class SqlBookkeeping
         [posting.id.value, merchant.value],
       );
     }
+    final home = metadata.homeValue;
+    if (home != null) {
+      _transaction.execute('INSERT INTO ledger_posting_home VALUES (?, ?)', [
+        posting.id.value,
+        jsonEncode(home.toJson()),
+      ]);
+    }
   }
 
   /// A reversal or refund subtracts allocations in its own month.
@@ -1540,11 +1664,18 @@ PostingMetadata _readMetadata(_Select select, PublicId postingId) {
     'SELECT merchant_id FROM ledger_posting_merchants WHERE posting_id = ?',
     [postingId.value],
   );
+  final home = select(
+    'SELECT value FROM ledger_posting_home WHERE posting_id = ?',
+    [postingId.value],
+  );
   return PostingMetadata(
     tags: [for (final row in tags) PublicId.parse(row['tag_id'] as String)],
     merchantId: merchant.isEmpty
         ? null
         : PublicId.parse(merchant.single['merchant_id'] as String),
+    homeValue: home.isEmpty
+        ? null
+        : Money.fromJson(_json(home.single['value'])),
   );
 }
 
@@ -1597,3 +1728,10 @@ Money _money(Map<String, Object?> row, String column) => Money(
   Currency(row['currency'] as String, row['scale'] as int),
   parseMinorUnits(row[column] as String),
 );
+
+BigInt _divideRounded(BigInt numerator, BigInt denominator) {
+  final quotient = numerator ~/ denominator;
+  final twice = numerator.remainder(denominator).abs() * BigInt.two;
+  if (twice < denominator) return quotient;
+  return numerator.isNegative ? quotient - BigInt.one : quotient + BigInt.one;
+}

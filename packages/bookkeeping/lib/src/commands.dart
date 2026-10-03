@@ -227,6 +227,7 @@ final class RecordCashFlow extends PostingCommand {
     this.allocations = const [],
     this.tags = const [],
     this.merchant,
+    this.homeValue,
   }) : super(operation, postingId);
 
   final CashFlow flow;
@@ -238,6 +239,10 @@ final class RecordCashFlow extends PostingCommand {
   final List<CategoryShare> allocations;
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
+
+  /// For a foreign-currency amount: what it was worth in [homeCurrency]
+  /// that day, counted in reports, budgets and net worth (G-11).
+  final Money? homeValue;
 
   @override
   Map<String, Object?> get fields => {
@@ -258,6 +263,7 @@ final class RecordCashFlow extends PostingCommand {
             'id': merchant!.id.value,
             'expectedVersion': merchant!.expectedVersion,
           },
+    'homeValue': homeValue?.toJson(),
   };
 }
 
@@ -459,6 +465,7 @@ final class CorrectCashFlow extends PostingCommand {
     this.tags = const [],
     this.merchant,
     this.reason = '',
+    this.homeValue,
   }) : super(operation, replacementId);
 
   final PublicId originalId;
@@ -470,6 +477,7 @@ final class CorrectCashFlow extends PostingCommand {
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
   final String reason;
+  final Money? homeValue;
 
   @override
   Map<String, Object?> get fields => {
@@ -492,6 +500,7 @@ final class CorrectCashFlow extends PostingCommand {
             'expectedVersion': merchant!.expectedVersion,
           },
     'reason': reason,
+    'homeValue': homeValue?.toJson(),
   };
 }
 

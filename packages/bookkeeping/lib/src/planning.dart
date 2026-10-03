@@ -230,18 +230,42 @@ MonthlyFact reportFact(
   PostingMetadata metadata, {
   PublicId? account,
 }) {
+  var income = posting.reportIncome;
+  var expense = posting.reportExpense;
+  var allocations = [
+    for (final allocation in posting.allocations)
+      CategoryAllocation(allocation.categoryId, allocation.amount),
+  ];
+  // A foreign entry counts at its booked home value (feature audit G-11).
+  final home = metadata.homeValue;
+  if (home != null && expense.currency != homeCurrency) {
+    Money signed(Money amount) {
+      final sign = BigInt.from(amount.minorUnits.sign);
+      return Money(homeCurrency, home.minorUnits * sign);
+    }
+
+    income = signed(income);
+    expense = signed(expense);
+    if (allocations.isNotEmpty) {
+      final shares = home.allocate([
+        for (final allocation in allocations) allocation.amount.minorUnits,
+      ]);
+      allocations = [
+        for (final (i, allocation) in allocations.indexed)
+          if (shares[i].minorUnits > BigInt.zero)
+            CategoryAllocation(allocation.categoryId, shares[i]),
+      ];
+    }
+  }
   return MonthlyFact(
     id: posting.id,
     date: posting.date,
     kind: posting.kind,
-    income: posting.reportIncome,
-    expense: posting.reportExpense,
+    income: income,
+    expense: expense,
     accountId: account ?? _reportAccount(posting),
     merchantId: metadata.merchantId,
-    allocations: [
-      for (final allocation in posting.allocations)
-        CategoryAllocation(allocation.categoryId, allocation.amount),
-    ],
+    allocations: allocations,
     tagIds: metadata.tags.toSet(),
   );
 }

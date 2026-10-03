@@ -27,23 +27,37 @@ part 'planning.dart';
 
 /// Tags and merchant attached to a posting. They never change amounts and
 /// are stored beside the posting; a reversal carries the original's.
+/// The currency reports, budgets and net worth are kept in. A foreign
+/// entry counts at the value it had in it when booked (feature audit G-11).
+final homeCurrency = Currency.of('TWD');
+
 final class PostingMetadata {
-  PostingMetadata({Iterable<PublicId> tags = const [], this.merchantId})
-    : tags = List.unmodifiable(
-        {...tags}.toList()..sort((a, b) => a.value.compareTo(b.value)),
-      ) {
+  PostingMetadata({
+    Iterable<PublicId> tags = const [],
+    this.merchantId,
+    this.homeValue,
+  }) : tags = List.unmodifiable(
+         {...tags}.toList()..sort((a, b) => a.value.compareTo(b.value)),
+       ) {
     if (this.tags.length > 16) {
       throw const AppFailure(FailureKind.rejected, 'tag.limit');
+    }
+    final home = homeValue;
+    if (home != null &&
+        (home.currency != homeCurrency || home.minorUnits <= BigInt.zero)) {
+      throw const AppFailure(FailureKind.rejected, 'posting.home-value');
     }
   }
 
   factory PostingMetadata.fromJson(Map<String, Object?> json) => decoding(() {
-    checkKeys(json, const {'tags', 'merchantId'});
+    checkKeys(json, const {'tags', 'merchantId', 'homeValue'});
     final tags = (json['tags'] as List).cast<String>();
     final merchant = json['merchantId'] as String?;
+    final home = json['homeValue'] as Map<String, Object?>?;
     return PostingMetadata(
       tags: tags.map(PublicId.parse),
       merchantId: merchant == null ? null : PublicId.parse(merchant),
+      homeValue: home == null ? null : Money.fromJson(home),
     );
   });
 
@@ -52,9 +66,18 @@ final class PostingMetadata {
   final List<PublicId> tags;
   final PublicId? merchantId;
 
+  /// What a foreign-currency entry was worth in [homeCurrency] when it was
+  /// booked, as a positive amount.
+  final Money? homeValue;
+
+  /// The same tags and merchant with [homeValue] replaced.
+  PostingMetadata withHomeValue(Money? homeValue) =>
+      PostingMetadata(tags: tags, merchantId: merchantId, homeValue: homeValue);
+
   Map<String, Object?> toJson() => {
     'tags': [for (final tag in tags) tag.value],
     'merchantId': merchantId?.value,
+    'homeValue': homeValue?.toJson(),
   };
 }
 
@@ -301,6 +324,8 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       workspace,
       command.tags,
       command.merchant,
+      homeValue: command.homeValue,
+      currency: command.amount.currency,
     );
     final posting = switch (command.flow) {
       CashFlow.income => Posting.income(
@@ -457,7 +482,14 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     await _savePosting(
       t,
       replacement,
-      await _metadata(t, workspace, command.tags, command.merchant),
+      await _metadata(
+        t,
+        workspace,
+        command.tags,
+        command.merchant,
+        homeValue: command.homeValue,
+        currency: command.amount.currency,
+      ),
     );
     if (planning != null && confirmed != null) {
       final (templateId, dueDate) = confirmed;
@@ -707,7 +739,21 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       received: command.received,
       allocations: allocations,
     );
-    await _savePosting(t, posting, await t.postingMetadata(original.id));
+    // A foreign refund is worth its share of the purchase's home value.
+    final metadata = await t.postingMetadata(original.id);
+    final home = metadata.homeValue;
+    final share = home == null
+        ? null
+        : Money.quantizeRatio(
+            homeCurrency,
+            home.minorUnits * command.amount.minorUnits,
+            original.reportExpense.minorUnits *
+                BigInt.from(10).pow(homeCurrency.scale),
+          );
+    final value = share == null || share.minorUnits == BigInt.zero
+        ? null
+        : share;
+    await _savePosting(t, posting, metadata.withHomeValue(value));
     return posting.id;
   }
 
@@ -887,8 +933,14 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     T t,
     WorkspaceId workspace,
     List<TagSelection> selected,
-    MerchantSelection? merchant,
-  ) async {
+    MerchantSelection? merchant, {
+    Money? homeValue,
+    Currency? currency,
+  }) async {
+    // Only a foreign-currency entry has a home value (G-11).
+    if (homeValue != null && currency == homeCurrency) {
+      throw const AppFailure(FailureKind.rejected, 'posting.home-value');
+    }
     if (selected.isNotEmpty) {
       final tags = TagCatalog.restore(workspace, await t.tags(workspace));
       for (final tag in selected) {
@@ -914,7 +966,11 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (ids.toSet().length != ids.length) {
       throw const AppFailure(FailureKind.rejected, 'tag.duplicate');
     }
-    return PostingMetadata(tags: ids, merchantId: merchant?.id);
+    return PostingMetadata(
+      tags: ids,
+      merchantId: merchant?.id,
+      homeValue: homeValue,
+    );
   }
 
   Future<int> _catalog(T t, ChangeCatalog command) async {

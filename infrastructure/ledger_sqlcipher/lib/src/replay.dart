@@ -177,6 +177,7 @@ const ledgerTables = {
   'ledger_category_monthly': 'workspace, month, category_id, currency, scale',
   'ledger_posting_tags': 'posting_id, tag_id',
   'ledger_posting_merchants': 'posting_id',
+  'ledger_posting_home': 'posting_id',
   'ledger_notes': 'posting_id',
   'catalog_entries': 'type, id',
   'card_terms': 'card_id',
