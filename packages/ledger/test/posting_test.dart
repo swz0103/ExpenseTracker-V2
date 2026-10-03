@@ -450,10 +450,7 @@ void main() {
         rebuildBalance(a, [max, positive, negative]),
         Money(usd, Money.maxMinorUnits),
       );
-      expect(
-        () => rebuildBalance(a, [max, positive]),
-        overflows,
-      );
+      expect(() => rebuildBalance(a, [max, positive]), overflows);
     },
   );
 }

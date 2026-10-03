@@ -85,10 +85,7 @@ void main() {
         fee: Money.parse(usd, '0'),
       );
       expect(p.conversion!.rate, FxRate.parse(usd, jpy, '100'));
-      expect(
-        () => transfer(sent: Money(usd, Money.maxMinorUnits)),
-        overflows,
-      );
+      expect(() => transfer(sent: Money(usd, Money.maxMinorUnits)), overflows);
     },
   );
   test('a fee in the destination currency comes out of what arrives', () {

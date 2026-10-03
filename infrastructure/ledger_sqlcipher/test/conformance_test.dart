@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -238,6 +239,17 @@ void main() {
         for (final p in ledger.postings(id))
           if (!memoryIds.contains(p.id)) p.kind.name,
       ];
+      final byId = {for (final p in ledger.postings(id)) p.id: p};
+      final differing = <String>[];
+      for (final p in memoryStore.postings(workspace)) {
+        final other = byId[p.id];
+        if (other == null) continue;
+        final mine = jsonEncode(PostingCodec.encode(p));
+        if (mine != jsonEncode(PostingCodec.encode(other))) {
+          differing.add('${p.kind.name}: $mine');
+        }
+      }
+      expect(differing, isEmpty, reason: 'stored differently');
       expect(missing, isEmpty, reason: 'only in memory');
       expect(extra, isEmpty, reason: 'only in SQLCipher');
       expect(
