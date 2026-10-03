@@ -73,7 +73,8 @@ void main() {
     );
     final (open, recovery) = await vault.create(password);
     final workspace = open.workspace;
-    expect(open.workspace, workspace);
+    // An empty ledger keeps offering one workspace until the first command.
+    expect(open.workspace, same(workspace));
     await openAccount(open, workspace);
     final events = open.store.eventCount;
     open.close();

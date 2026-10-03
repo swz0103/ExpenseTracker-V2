@@ -69,7 +69,7 @@
 ### E. 測試品質（測試檢查）
 - [x] bookkeeping 套件自身測試太少：codec 測到退款與投資種類；catalog、卡片、投資紀錄的 codec 有來回測試；MemoryBookkeeping 和 SQLCipher 跑同一串 200 筆指令對照。
 - [x] 錯誤只斷言型別不斷言代碼：tags、merchants、ledger、credit_cards、backup_security、storage_sqlcipher 的測試改為斷言錯誤代碼。
-- [ ] 不會失敗的測試：信用卡帳期一律 31 日結帳、預算 maxSelections 永遠達不到、tombstone 測試、market_adapters 常數測試、ledger_vault workspace 自比、bookkeeping 月報對照複製正式邏輯、規模測試吞掉沖銷錯誤。
+- [x] 不會失敗的測試：信用卡改測 25 日與 5 日結帳及結帳日變更；預算上限 150 測得到；刪除沒用到的 `PostingTombstone`（刪除一律用沖銷）；market_adapters 改測真的檢查；ledger_vault 改為檢查同一個物件；月報改和記憶體版逐月對照；規模測試的沖銷錯誤會讓測試失敗。
 - [ ] 缺少的測試：資料庫 migration（帶資料從舊版升級）、posting 與 migration 中途被殺行程（G5-03、G6-09）、Drive 錯誤對應與分頁（假 Drive 要更像真的）、`IoDriveTransport`（G5-09、G8-16）、備份 invalidContent／unsupportedVersion、還原失敗時清掉暫存、`Account.restore` 規則、重疊寫入的 StateError、完整功能的備份來回（G5-05）、拒絕案例表格（G5-06）。
 - [ ] 實機效能數據（G5-13）、真實行情資料（G2-18）。
 

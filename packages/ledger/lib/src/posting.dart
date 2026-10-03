@@ -28,8 +28,6 @@ enum LedgerError {
   reversalReference,
   reversalDependency,
   correctionReference,
-  tombstoneReference,
-  tombstoneDependency,
   investmentBuyMismatch,
   investmentSellMismatch,
   investmentDividendMismatch,
