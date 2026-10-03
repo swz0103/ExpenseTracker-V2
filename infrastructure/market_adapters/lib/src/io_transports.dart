@@ -161,3 +161,16 @@ final class IoYahooChartTransport implements YahooChartTransport {
     }
   }
 }
+
+/// Keys go into a request header, so only printable ASCII is sent.
+void _validateApiKey(String value) => _requireHeaderSafe(value, 'Fugle');
+
+void _validateKey(String value) => _requireHeaderSafe(value, 'Twelve Data');
+
+void _requireHeaderSafe(String value, String provider) {
+  if (value.isEmpty ||
+      value.length > 512 ||
+      !RegExp(r'^[\x21-\x7E]+$').hasMatch(value)) {
+    throw ArgumentError('Invalid $provider API key');
+  }
+}
