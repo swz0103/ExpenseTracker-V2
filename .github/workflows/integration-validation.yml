@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/**'
       - 'architecture/**'
+      - 'infrastructure/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
@@ -15,6 +16,7 @@ on:
     paths:
       - '.github/workflows/**'
       - 'architecture/**'
+      - 'infrastructure/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
@@ -55,7 +57,8 @@ jobs:
       - shell: pwsh
         run: |
           $packages = @(
-            'packages/foundation_values', 'packages/accounts',
+            'packages/foundation_values', 'packages/app_core',
+            'packages/accounts',
             'packages/categories', 'packages/tags', 'packages/merchants',
             'packages/entry_drafts', 'packages/amount_input',
             'packages/ledger', 'packages/reports', 'packages/budgets',
@@ -80,6 +83,7 @@ jobs:
       - shell: pwsh
         run: |
           $packages = @(
+            'infrastructure/storage_sqlcipher',
             'prototypes/persistent_jobs', 'prototypes/cloud_backup',
             'prototypes/modular_persistence',
             'prototypes/backup_envelope', 'prototypes/validated_restore',

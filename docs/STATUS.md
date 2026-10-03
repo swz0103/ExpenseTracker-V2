@@ -2,7 +2,7 @@
 
 最後更新：2026-10-03（階段 0 已合併）
 
-## 目前階段：階段 1 地基整理
+## 目前階段：階段 2 新儲存與應用核心
 
 全專案健檢（189 項問題，P0 3 項）後決定：保留 `packages/` 的值物件與領域規則，重建儲存層、應用層與 UI。完整說明見 [ADR-0001](adr/0001-target-architecture.md)。
 
@@ -17,7 +17,15 @@
 - 預覽版與正式版發佈前，必須先通過同一 commit 的完整驗證；只有發佈步驟持有寫入權限。
 - 移除未使用的 `transaction_boundary` 原型、兩條手動 workflow、未使用的 Twelve Data 憑證畫面，以及過期文件。
 
-## 階段 1 進行中
+## 階段 2 進行中
+
+- [x] 2a `packages/app_core`：指令依序執行（不因忙碌失敗）、操作日誌與業務寫入同交易、交易性 outbox、型別化錯誤、可注入時鐘，以及 `MemoryStore` 參考實作。
+- [x] 2b `infrastructure/storage_sqlcipher`：單一 SQLCipher 資料庫（WAL、`synchronous=FULL`）、只能新增的事件日誌、不可改的操作日誌與 outbox，實作 `app_core` 介面並通過同一組行為測試；錯誤金鑰、未加密函式庫、較新 schema 都會拒絕開啟。
+- [x] 2c-1 SIGKILL 行程終止測試進 CI（固定亂數種子，8 輪，驗證完整性與「事件數＝操作數」）。
+- [ ] 2c-2 10 萬筆事件基準測試；投影表隨領域模組遷入時再加。
+- [ ] 2d `infrastructure/backup_security`：金鑰階層與輪替。
+
+## 階段 1 已完成
 
 - 分攤改為最大餘數法（`largest-remainder-v1`）：10.00 依 1:2:3 分成 1.67／3.33／5.00；分期的尾差從第一期開始分配。
 - 新增 ISO 4217 幣別登錄表 `Currency.iso`，移除程式中寫死的 `JPY ? 0 : 2`。

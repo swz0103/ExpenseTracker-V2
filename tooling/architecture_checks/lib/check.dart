@@ -88,7 +88,7 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
             'Business package needs an explicit boundary policy.',
           );
         } else if (runtimeModules.isNotEmpty &&
-            p.isWithin(p.join(root, 'prototypes'), entry.path) &&
+            !p.isWithin(p.join(root, 'packages'), entry.path) &&
             !runtimeModules.containsKey(name)) {
           report(
             'unregistered-runtime',
@@ -100,10 +100,13 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
     }
   }
 
-  for (final folder in ['packages', 'prototypes']) {
+  for (final folder in ['packages', 'infrastructure', 'prototypes']) {
     final location = p.join(root, folder);
-    if (FileSystemEntity.typeSync(location, followLinks: false) ==
-        FileSystemEntityType.link) {
+    final type = FileSystemEntity.typeSync(location, followLinks: false);
+    if (type == FileSystemEntityType.notFound && folder == 'infrastructure') {
+      continue;
+    }
+    if (type == FileSystemEntityType.link) {
       report('unsafe-path', location, 'Linked package root is not supported.');
     } else {
       discover(Directory(location));

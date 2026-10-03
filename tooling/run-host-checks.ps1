@@ -14,6 +14,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('lib', 'bin', 'test'); Architecture = $true },
     @{ Path = 'packages/foundation_values'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/app_core'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/accounts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
@@ -32,6 +33,7 @@ $checks = @(
     @{ Path = 'prototypes/cloud_backup'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
     @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
     @{ Path = 'prototypes/validated_restore'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/encrypted_storage'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/storage_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/generation_worker.dart' },
@@ -70,7 +72,13 @@ foreach ($check in $selected) {
         $pubArguments = @('pub', 'get', '--enforce-lockfile')
         if ($Offline) { $pubArguments += '--offline' }
         Invoke-CheckCommand $driver $pubArguments
-        Invoke-CheckCommand $Dart (@('format', '--output=none', '--set-exit-if-changed') + $check.Dirs)
+        & $Dart (@('format', '--output=none', '--set-exit-if-changed') + $check.Dirs)
+        if ($LASTEXITCODE -ne 0) {
+            # Show the expected layout so a fix needs no local SDK.
+            & $Dart (@('format') + $check.Dirs) | Out-Null
+            git --no-pager diff -- .
+            throw "dart format found unformatted files in $($check.Path)."
+        }
         Invoke-CheckCommand $driver @('analyze')
         if ($check.ContainsKey('Worker')) {
             Invoke-CheckCommand $Dart @('build', 'cli', '--target', $check.Worker, '--output', '.dart_tool/worker')
