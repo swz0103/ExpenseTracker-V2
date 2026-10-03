@@ -7,6 +7,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
@@ -195,6 +197,41 @@ void main() {
         statementClose: BusinessDate(2026, 10, 25),
         postedOn: BusinessDate(2026, 11, 5),
         amount: ntd(1000),
+      ),
+    );
+    final planning = PlanningBook(books);
+    await planning.setBudget(
+      SetBudget(
+        operation: op(),
+        budgetId: PublicId.generate(),
+        expectedVersion: 0,
+        month: ReportMonth(2026, 10),
+        limit: ntd(9000),
+        categoryId: food,
+      ),
+    );
+    final rent = PublicId.generate();
+    await planning.saveRecurring(
+      SaveRecurring(
+        operation: op(),
+        templateId: rent,
+        expectedVersion: 0,
+        accountId: bank,
+        label: '房租',
+        amount: ntd(-12000),
+        firstDate: day,
+        unit: RecurrenceUnit.month,
+        every: 1,
+      ),
+    );
+    await planning.confirm(
+      ConfirmRecurring(
+        operation: op(),
+        postingId: PublicId.generate(),
+        templateId: rent,
+        expectedTemplateVersion: 1,
+        dueDate: day,
+        account: ref(bank),
       ),
     );
     final broker = PublicId.generate();

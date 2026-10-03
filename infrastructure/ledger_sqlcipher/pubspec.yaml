@@ -11,6 +11,8 @@ dependencies:
     path: ../../packages/app_core
   bookkeeping:
     path: ../../packages/bookkeeping
+  budgets:
+    path: ../../packages/budgets
   categories:
     path: ../../packages/categories
   credit_cards:
@@ -23,6 +25,10 @@ dependencies:
     path: ../../packages/ledger
   merchants:
     path: ../../packages/merchants
+  recurring_transactions:
+    path: ../../packages/recurring_transactions
+  reports:
+    path: ../../packages/reports
   storage_sqlcipher:
     path: ../storage_sqlcipher
   tags:

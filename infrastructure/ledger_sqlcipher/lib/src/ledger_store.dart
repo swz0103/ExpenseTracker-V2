@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:budgets/budgets.dart';
 import 'package:categories/categories.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:merchants/merchants.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:tags/tags.dart';
 
@@ -201,6 +204,33 @@ final ledgerSchema = SchemaModule('ledger', [
     ) STRICT, WITHOUT ROWID
     ''',
   ],
+  [
+    '''
+    CREATE TABLE plan_budgets (
+      id TEXT PRIMARY KEY,
+      workspace TEXT NOT NULL,
+      month TEXT NOT NULL,
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    'CREATE INDEX plan_budgets_by_month ON plan_budgets (workspace, month)',
+    '''
+    CREATE TABLE plan_recurring (
+      id TEXT PRIMARY KEY,
+      workspace TEXT NOT NULL,
+      active INTEGER NOT NULL,
+      payload TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+    '''
+    CREATE TABLE plan_recurring_confirmed (
+      template_id TEXT NOT NULL REFERENCES plan_recurring (id),
+      due_date TEXT NOT NULL,
+      posting_id TEXT NOT NULL UNIQUE REFERENCES ledger_postings (id),
+      PRIMARY KEY (template_id, due_date)
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -317,6 +347,78 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
 
   EntryNote note(PublicId postingId) => _readNote(_store.select, postingId);
 
+  /// Report facts for one month, in date order: the same facts monthly
+  /// reports and budgets use.
+  List<MonthlyFact> monthlyFacts(WorkspaceId workspace, ReportMonth month) {
+    final rows = _store.select(
+      'SELECT id, payload FROM ledger_postings WHERE workspace = ? '
+      'AND date BETWEEN ? AND ? ORDER BY date, id',
+      [workspace.toString(), '${month.first}', '${month.last}'],
+    );
+    return [
+      for (final row in rows)
+        reportFact(
+          _decodePosting(row['payload']),
+          metadata(PublicId.parse(row['id']! as String)),
+        ),
+    ];
+  }
+
+  /// Every budget for [month] with what was spent against it. Merged
+  /// categories count toward the category they were merged into.
+  List<BudgetResult> budgetStatus(WorkspaceId workspace, ReportMonth month) {
+    final rows = _store.select(
+      'SELECT payload FROM plan_budgets WHERE workspace = ? AND month = ? '
+      'ORDER BY id',
+      [workspace.toString(), _month(month)],
+    );
+    final catalog = CategoryCatalog.restore(workspace, categories(workspace));
+    final facts = [
+      for (final fact in monthlyFacts(workspace, month))
+        BudgetFact(workspace: workspace, report: _canonical(fact, catalog)),
+    ];
+    return [
+      for (final row in rows)
+        evaluateBudget(
+          BudgetPlanCodec().decode(row['payload']! as String),
+          facts,
+          categories: catalog,
+        ),
+    ];
+  }
+
+  /// Occurrences due after [after] up to [through] that are not confirmed
+  /// yet, from active templates.
+  List<RecurringCandidate> dueRecurring(
+    WorkspaceId workspace, {
+    required BusinessDate after,
+    required BusinessDate through,
+  }) {
+    final rows = _store.select(
+      'SELECT payload FROM plan_recurring '
+      'WHERE workspace = ? AND active = 1 ORDER BY id',
+      [workspace.toString()],
+    );
+    final confirmed = {
+      for (final row in _store.select(
+        'SELECT template_id, due_date FROM plan_recurring_confirmed',
+      ))
+        '${row['template_id']}/${row['due_date']}',
+    };
+    return [
+      for (final row in rows)
+        for (final candidate in dueCandidates(
+          RecurringTemplateCodec().decode(row['payload']! as String),
+          after: after,
+          through: through,
+        ))
+          if (!confirmed.contains(
+            '${candidate.template.id.value}/${candidate.dueDate}',
+          ))
+            candidate,
+    ];
+  }
+
   PostingMetadata metadata(PublicId postingId) =>
       _readMetadata(_store.select, postingId);
 
@@ -371,7 +473,8 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
 
 /// The bookkeeping port on a SQLCipher write transaction. Every projection
 /// change happens in the same transaction as the event.
-final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
+final class SqlBookkeeping
+    implements CardTransaction, InvestmentTransaction, PlanningTransaction {
   SqlBookkeeping._(this._transaction);
 
   final SqlTransaction _transaction;
@@ -475,6 +578,85 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
       [accountId.value],
     );
     return rows.isEmpty ? null : _decodePosting(rows.single['payload']);
+  }
+
+  @override
+  Future<BudgetPlan?> budget(PublicId id) async {
+    final rows = _transaction.select(
+      'SELECT payload FROM plan_budgets WHERE id = ?',
+      [id.value],
+    );
+    if (rows.isEmpty) return null;
+    return BudgetPlanCodec().decode(rows.single['payload']! as String);
+  }
+
+  @override
+  Future<void> saveBudget(BudgetPlan plan) async {
+    _transaction.execute(
+      'INSERT INTO plan_budgets VALUES (?, ?, ?, ?) ON CONFLICT (id) '
+      'DO UPDATE SET month = excluded.month, payload = excluded.payload',
+      [
+        plan.id.value,
+        plan.workspace.toString(),
+        _month(plan.month),
+        BudgetPlanCodec().encode(plan),
+      ],
+    );
+  }
+
+  @override
+  Future<(RecurringTemplate, bool)?> recurring(PublicId id) async {
+    final rows = _transaction.select(
+      'SELECT active, payload FROM plan_recurring WHERE id = ?',
+      [id.value],
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.single;
+    final template = RecurringTemplateCodec().decode(row['payload']! as String);
+    return (template, row['active'] == 1);
+  }
+
+  @override
+  Future<void> saveRecurring(
+    RecurringTemplate template, {
+    required bool active,
+  }) async {
+    _transaction.execute(
+      'INSERT INTO plan_recurring VALUES (?, ?, ?, ?) ON CONFLICT (id) '
+      'DO UPDATE SET active = excluded.active, payload = excluded.payload',
+      [
+        template.id.value,
+        template.workspace.toString(),
+        active ? 1 : 0,
+        RecurringTemplateCodec().encode(template),
+      ],
+    );
+  }
+
+  @override
+  Future<PublicId?> confirmation(
+    PublicId templateId,
+    BusinessDate dueDate,
+  ) async {
+    final rows = _transaction.select(
+      'SELECT posting_id FROM plan_recurring_confirmed '
+      'WHERE template_id = ? AND due_date = ?',
+      [templateId.value, '$dueDate'],
+    );
+    if (rows.isEmpty) return null;
+    return PublicId.parse(rows.single['posting_id']! as String);
+  }
+
+  @override
+  Future<void> saveConfirmation(
+    PublicId templateId,
+    BusinessDate dueDate,
+    PublicId postingId,
+  ) async {
+    _transaction.execute(
+      'INSERT INTO plan_recurring_confirmed VALUES (?, ?, ?)',
+      [templateId.value, '$dueDate', postingId.value],
+    );
   }
 
   @override
@@ -924,6 +1106,37 @@ PostingMetadata _readMetadata(_Select select, PublicId postingId) {
     merchantId: merchant.isEmpty
         ? null
         : PublicId.parse(merchant.single['merchant_id'] as String),
+  );
+}
+
+String _month(ReportMonth month) =>
+    '${month.year.toString().padLeft(4, '0')}-'
+    '${month.month.toString().padLeft(2, '0')}';
+
+/// The fact with every category resolved to the one it was merged into.
+MonthlyFact _canonical(MonthlyFact fact, CategoryCatalog catalog) {
+  if (fact.allocations.isEmpty) return fact;
+  final merged = <PublicId, Money>{};
+  for (final allocation in fact.allocations) {
+    final id = catalog.resolve(allocation.categoryId).id;
+    final earlier = merged[id];
+    merged[id] = earlier == null
+        ? allocation.amount
+        : earlier + allocation.amount;
+  }
+  return MonthlyFact(
+    id: fact.id,
+    date: fact.date,
+    kind: fact.kind,
+    income: fact.income,
+    expense: fact.expense,
+    accountId: fact.accountId,
+    merchantId: fact.merchantId,
+    allocations: [
+      for (final MapEntry(:key, :value) in merged.entries)
+        CategoryAllocation(key, value),
+    ],
+    tagIds: fact.tagIds,
   );
 }
 

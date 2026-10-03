@@ -2,12 +2,15 @@ import 'dart:convert';
 
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
+import 'package:budgets/budgets.dart';
 import 'package:categories/categories.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:merchants/merchants.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:reports/reports.dart';
 import 'package:tags/tags.dart';
 
 import 'card_commands.dart';
@@ -16,9 +19,11 @@ import 'catalog_commands.dart';
 import 'codec.dart';
 import 'commands.dart';
 import 'investment_commands.dart';
+import 'planning_commands.dart';
 
 part 'cards.dart';
 part 'investments.dart';
+part 'planning.dart';
 
 /// Tags and merchant attached to a posting. They never change amounts and
 /// are stored beside the posting; a reversal carries the original's.

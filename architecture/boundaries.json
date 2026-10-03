@@ -21,7 +21,7 @@
     "bookkeeping": {
       "directory": "packages/bookkeeping",
       "publicEntrypoints": ["bookkeeping.dart", "memory.dart"],
-      "dependencies": ["accounts", "app_core", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "tags"]
+      "dependencies": ["accounts", "app_core", "budgets", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "recurring_transactions", "reports", "tags"]
     },
     "app_core": {
       "directory": "packages/app_core",
@@ -162,7 +162,7 @@
     "ledger_sqlcipher": {
       "directory": "infrastructure/ledger_sqlcipher",
       "publicEntrypoints": ["ledger_sqlcipher.dart"],
-      "dependencies": ["accounts", "app_core", "bookkeeping", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "storage_sqlcipher", "tags"]
+      "dependencies": ["accounts", "app_core", "bookkeeping", "budgets", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "recurring_transactions", "reports", "storage_sqlcipher", "tags"]
     },
     "backup_security": {
       "directory": "infrastructure/backup_security",

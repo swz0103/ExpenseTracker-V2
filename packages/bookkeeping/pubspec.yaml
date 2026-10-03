@@ -9,6 +9,8 @@ dependencies:
     path: ../accounts
   app_core:
     path: ../app_core
+  budgets:
+    path: ../budgets
   categories:
     path: ../categories
   credit_cards:
@@ -21,6 +23,10 @@ dependencies:
     path: ../ledger
   merchants:
     path: ../merchants
+  recurring_transactions:
+    path: ../recurring_transactions
+  reports:
+    path: ../reports
   tags:
     path: ../tags
 dev_dependencies:

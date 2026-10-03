@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:budgets/budgets.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 
 import 'ledger_store.dart';
@@ -137,6 +139,19 @@ abstract final class LedgerReplay {
         );
       case 'investment.traded':
         await t.saveTrade(p);
+      case 'budget.set':
+        await t.saveBudget(BudgetPlanCodec().decode(p['plan']! as String));
+      case 'recurring.saved':
+        await t.saveRecurring(
+          RecurringTemplateCodec().decode(p['template']! as String),
+          active: p['active']! as bool,
+        );
+      case 'recurring.confirmed':
+        await t.saveConfirmation(
+          PublicId.parse(p['templateId']! as String),
+          BusinessDate.parse(p['dueDate']! as String),
+          PublicId.parse(p['postingId']! as String),
+        );
       default:
         throw ReplayException(0, kind, 'unknown event kind');
     }
@@ -162,6 +177,9 @@ const ledgerTables = {
   'invest_registry': 'type, id',
   'invest_listings': 'market, symbol',
   'invest_trades': 'seq',
+  'plan_budgets': 'id',
+  'plan_recurring': 'id',
+  'plan_recurring_confirmed': 'template_id, due_date',
 };
 
 /// The rows of every projection table in key order, as plain values.
