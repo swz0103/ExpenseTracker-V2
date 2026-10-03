@@ -176,6 +176,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       _runner.run(command, (t) => _guard(() => _catalog(t, command)));
 
   Future<int> _open(T t, OpenAccount command) async {
+    _requireBookable(command.openedOn);
     if (await t.account(command.accountId) != null) {
       throw const AppFailure(FailureKind.conflict, 'account.exists');
     }
@@ -215,6 +216,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   }
 
   Future<int> _moveOpening(T t, ChangeOpeningDate command) async {
+    _requireBookable(command.openedOn);
     final account = await _account(t, command.accountId);
     final moved = account.moveOpening(
       workspace: command.operation.workspace,
@@ -766,6 +768,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     Posting posting,
     PostingMetadata metadata,
   ) async {
+    _requireBookable(posting.date);
     await t.savePosting(posting, metadata);
     await t.appendEvent(
       id: PublicId.generate(),
@@ -1106,4 +1109,16 @@ AppFailure _catalogFailure(String area, String code) {
     _ => FailureKind.rejected,
   };
   return AppFailure(kind, '$area.$code');
+}
+
+/// The first and last dates anything can be booked on; a date outside
+/// them is a typo (feature audit G-18b). Date pickers use the same range.
+final earliestBookingDate = BusinessDate(2000, 1, 1);
+final latestBookingDate = BusinessDate(2099, 12, 31);
+
+void _requireBookable(BusinessDate date) {
+  if (date.compareTo(earliestBookingDate) < 0 ||
+      date.compareTo(latestBookingDate) > 0) {
+    throw const AppFailure(FailureKind.rejected, 'date.out-of-range');
+  }
 }

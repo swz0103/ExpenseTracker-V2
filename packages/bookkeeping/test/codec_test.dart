@@ -46,6 +46,18 @@ void main() {
     expect(decoded.name, '錢包');
     expect(decoded.state, AccountState.archived);
     expect(decoded.version, 2);
+    for (final kind in AccountKind.values) {
+      final account = Account.open(
+        id: PublicId.generate(),
+        workspace: workspace,
+        name: kind.name,
+        kind: kind,
+        currency: twd,
+        openedOn: date,
+      );
+      final json = AccountCodec.encode(account);
+      expect(AccountCodec.decode(json).kind, kind);
+    }
   });
 
   test('every supported posting kind round trips', () {

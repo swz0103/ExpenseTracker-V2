@@ -231,7 +231,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     final broker = await _found(t.broker(command.brokerId), workspace);
     final funding = await _books._account(t, command.fundingAccountId);
     if (funding.workspace != workspace ||
-        funding.kind == AccountKind.creditCard ||
+        !const {AccountKind.bank, AccountKind.cash}.contains(funding.kind) ||
         funding.state != AccountState.active) {
       throw const AppFailure(FailureKind.rejected, 'investment.funding');
     }

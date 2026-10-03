@@ -1,6 +1,16 @@
 import 'package:foundation_values/foundation_values.dart';
 
-enum AccountKind { cash, bank, creditCard }
+enum AccountKind {
+  cash,
+  bank,
+  creditCard,
+
+  /// Stored value such as LINE Pay Money or JKOPAY (feature audit G-20b).
+  eWallet,
+
+  /// A loan; its balance is negative while money is owed.
+  loan,
+}
 
 enum AccountState { active, archived, closed }
 

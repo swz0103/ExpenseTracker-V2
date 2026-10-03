@@ -78,6 +78,51 @@ void main() {
     expect(store.postings(workspace), hasLength(4));
   });
 
+  test('dates outside 2000 to 2099 are refused as typos', () async {
+    final bank = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: bank,
+        name: '老帳戶',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: earliestBookingDate,
+      ),
+    );
+    Future<void> spend(BusinessDate date) => books.recordCashFlow(
+      RecordCashFlow(
+        operation: op(),
+        postingId: PublicId.generate(),
+        flow: CashFlow.expense,
+        account: AccountRef(bank, 1),
+        date: date,
+        amount: ntd(100),
+      ),
+    );
+    for (final date in [BusinessDate(1999, 12, 31), BusinessDate(2100, 1, 1)]) {
+      await expectLater(
+        spend(date),
+        throwsA(const AppFailure(FailureKind.rejected, 'date.out-of-range')),
+      );
+    }
+    await spend(earliestBookingDate);
+    await spend(latestBookingDate);
+    await expectLater(
+      books.openAccount(
+        OpenAccount(
+          operation: op(),
+          accountId: PublicId.generate(),
+          name: '太早',
+          kind: AccountKind.cash,
+          currency: twd,
+          openedOn: BusinessDate(1990, 1, 1),
+        ),
+      ),
+      throwsA(const AppFailure(FailureKind.rejected, 'date.out-of-range')),
+    );
+  });
+
   test('a failed command leaves nothing behind', () async {
     final bank = await open('銀行');
     final events = store.eventCount;

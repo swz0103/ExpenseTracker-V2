@@ -238,6 +238,36 @@ void main() {
     expect(year.dividends, cents(700));
   });
 
+  test('only a bank or cash account settles trades', () async {
+    final wallet = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: wallet,
+        name: '電子錢包',
+        kind: AccountKind.eWallet,
+        currency: usd,
+        openedOn: opened,
+      ),
+    );
+    final broker = PublicId.generate();
+    await invest.registerBroker(
+      RegisterBroker(operation: op(), brokerId: broker, name: '另一家'),
+    );
+    await expectLater(
+      invest.openAccount(
+        OpenInvestmentAccount(
+          operation: op(),
+          accountId: PublicId.generate(),
+          brokerId: broker,
+          fundingAccountId: wallet,
+          name: '錢包投資',
+        ),
+      ),
+      fails(FailureKind.rejected, 'investment.funding'),
+    );
+  });
+
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(
