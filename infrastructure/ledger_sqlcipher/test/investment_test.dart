@@ -356,4 +356,27 @@ void main() {
     expect(ledger.holdings(brokerage, apple), isEmpty);
     expect(ledger.balance(account(bank)), cents(1000000));
   });
+
+  test('a holding keeps the cost method of its first sell', () async {
+    await buy('10', '150', 150000);
+    await sell('3', '160', 48000);
+    await expectLater(
+      invest.sell(
+        SellInvestment(
+          operation: op(),
+          sellId: PublicId.generate(),
+          postingId: PublicId.generate(),
+          target: target(),
+          tradedOn: BusinessDate(2026, 10, 21),
+          costMethod: InvestmentCostMethod.averageCost,
+          quantity: '1',
+          unitPrice: '160',
+          gross: cents(16000),
+          fee: cents(0),
+          tax: cents(0),
+        ),
+      ),
+      fails(FailureKind.rejected, 'investment.cost-method'),
+    );
+  });
 }

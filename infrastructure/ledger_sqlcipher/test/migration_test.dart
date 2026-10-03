@@ -79,10 +79,8 @@ void main() {
         "VALUES ('acct', 'inst', NULL, '{}')",
       );
     });
-    final seqs = [
-      for (final row in store.select('SELECT seq FROM invest_trades'))
-        row['seq'],
-    ];
+    final rows = store.select('SELECT seq FROM invest_trades ORDER BY seq');
+    final seqs = [for (final row in rows) row['seq']];
     expect(seqs, [before[0]['seq'], before[1]['seq'], 3]);
   });
 }

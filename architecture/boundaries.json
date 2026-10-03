@@ -124,16 +124,6 @@
         "foundation_values"
       ]
     },
-    "entry_drafts": {
-      "directory": "packages/entry_drafts",
-      "publicEntrypoints": [
-        "entry_drafts.dart"
-      ],
-      "dependencies": [
-        "foundation_values",
-        "ledger"
-      ]
-    },
     "amount_input": {
       "directory": "packages/amount_input",
       "publicEntrypoints": [

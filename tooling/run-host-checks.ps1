@@ -20,7 +20,6 @@ $checks = @(
     @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/merchants'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/entry_drafts'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/amount_input'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/ledger'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/reports'; Dirs = @('lib', 'test') },

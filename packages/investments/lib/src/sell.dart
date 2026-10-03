@@ -163,7 +163,15 @@ final class InvestmentSellPreview {
     if (lots.isEmpty || lots.length > 10000) {
       throw const InvestmentSellException(InvestmentSellError.emptyLots);
     }
-    final ordered = List<InvestmentHoldingLot>.of(lots)..sort(_compareLots);
+    // Same-day lots keep the order they were bought in, which is the order
+    // [lots] arrive in (health check G2-19).
+    final position = {for (final (i, lot) in lots.indexed) lot.id: i};
+    final ordered = List<InvestmentHoldingLot>.of(lots)
+      ..sort((a, b) {
+        final byDate = a.acquiredOn.compareTo(b.acquiredOn);
+        if (byDate != 0) return byDate;
+        return position[a.id]!.compareTo(position[b.id]!);
+      });
     final ids = <PublicId>{};
     var totalQuantity = BigInt.zero;
     var totalCost = BigInt.zero;

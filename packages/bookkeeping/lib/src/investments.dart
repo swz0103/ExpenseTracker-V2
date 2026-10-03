@@ -267,6 +267,14 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     if (lots.isEmpty) {
       throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
     }
+    // One holding keeps one cost method, or its basis stops adding up
+    // (health check G2-25).
+    for (final trade in trades) {
+      if (trade['kind'] == 'sell' &&
+          trade['costMethod'] != command.costMethod.name) {
+        throw const AppFailure(FailureKind.rejected, 'investment.cost-method');
+      }
+    }
     final preview = InvestmentSellPreview.create(
       id: command.sellId,
       operation: command.operation,
