@@ -271,6 +271,7 @@ final class RecordTransfer extends PostingCommand {
     required this.principal,
     this.received,
     this.fee,
+    this.feeAllocations = const [],
   }) : super(operation, postingId);
 
   final AccountRef source;
@@ -278,7 +279,13 @@ final class RecordTransfer extends PostingCommand {
   final BusinessDate date;
   final Money principal;
   final Money? received;
+
+  /// In the source currency, or in the destination currency when the
+  /// receiving side charged it (feature audit G-17).
   final Money? fee;
+
+  /// Expense categories for the fee.
+  final List<CategoryShare> feeAllocations;
 
   @override
   Map<String, Object?> get fields => {
@@ -290,6 +297,7 @@ final class RecordTransfer extends PostingCommand {
     'principal': principal.toJson(),
     'received': received?.toJson(),
     'fee': fee?.toJson(),
+    'feeAllocations': [for (final share in feeAllocations) share.toJson()],
   };
 }
 
@@ -501,6 +509,7 @@ final class CorrectTransfer extends PostingCommand {
     required this.principal,
     this.received,
     this.fee,
+    this.feeAllocations = const [],
     this.reason = '',
   }) : super(operation, replacementId);
 
@@ -512,6 +521,7 @@ final class CorrectTransfer extends PostingCommand {
   final Money principal;
   final Money? received;
   final Money? fee;
+  final List<CategoryShare> feeAllocations;
   final String reason;
 
   @override
@@ -526,6 +536,7 @@ final class CorrectTransfer extends PostingCommand {
     'principal': principal.toJson(),
     'received': received?.toJson(),
     'fee': fee?.toJson(),
+    'feeAllocations': [for (final share in feeAllocations) share.toJson()],
     'reason': reason,
   };
 }

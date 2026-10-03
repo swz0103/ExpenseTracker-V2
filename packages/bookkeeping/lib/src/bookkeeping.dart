@@ -349,6 +349,12 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       principal: command.principal,
       received: command.received,
       fee: command.fee,
+      allocations: await _allocations(
+        t,
+        workspace,
+        CashFlow.expense,
+        command.feeAllocations,
+      ),
     );
     await _savePosting(t, posting, PostingMetadata.none);
     return posting.id;
@@ -508,6 +514,12 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       principal: command.principal,
       received: command.received,
       fee: command.fee,
+      allocations: await _allocations(
+        t,
+        workspace,
+        CashFlow.expense,
+        command.feeAllocations,
+      ),
     );
     final correction = PostingCorrection(
       original: original,

@@ -132,6 +132,7 @@ abstract final class PostingCodec {
           'principal': (-legs[0].amount).toJson(),
           'received': legs[1].amount.toJson(),
           'fee': fee.isEmpty ? null : (-fee.single.amount).toJson(),
+          'allocations': _allocations(posting.allocations),
         };
       case PostingKind.reversal:
         return {
@@ -236,6 +237,7 @@ abstract final class PostingCodec {
           'principal',
           'received',
           'fee',
+          'allocations',
         });
         final principal = _money(json['principal']);
         final received = _money(json['received']);
@@ -249,6 +251,7 @@ abstract final class PostingCodec {
           principal: principal,
           received: received,
           fee: fee,
+          allocations: _readAllocations(json['allocations']),
         );
       case PostingKind.reversal:
         checkKeys(json, {...common, 'original', 'reason'});

@@ -236,7 +236,7 @@ MonthlyFact reportFact(
     kind: posting.kind,
     income: posting.reportIncome,
     expense: posting.reportExpense,
-    accountId: account ?? posting.legs.first.account.id,
+    accountId: account ?? _reportAccount(posting),
     merchantId: metadata.merchantId,
     allocations: [
       for (final allocation in posting.allocations)
@@ -244,4 +244,13 @@ MonthlyFact reportFact(
     ],
     tagIds: metadata.tags.toSet(),
   );
+}
+
+/// A transfer reports its fee against the account that paid it, which is
+/// the destination when the fee is in the destination currency (G-17).
+PublicId _reportAccount(Posting posting) {
+  for (final leg in posting.legs) {
+    if (leg.role == LegRole.fee) return leg.account.id;
+  }
+  return posting.legs.first.account.id;
 }

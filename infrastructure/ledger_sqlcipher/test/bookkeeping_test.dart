@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
@@ -143,6 +144,38 @@ void main() {
     final october = ledger.monthly(workspace, '2026-10')['TWD']!;
     expect(october.income, money(twd, 0));
     expect(october.expense, money(twd, 1500));
+  });
+
+  test('a received-currency fee is booked with its category', () async {
+    final twdBank = await openAccount('台幣', twd, opening: money(twd, 500000));
+    final usdBank = await openAccount('美元', usd);
+    final fees = PublicId.generate();
+    await books.changeCatalog(
+      ChangeCatalog(
+        operation: op(),
+        catalog: CatalogType.category,
+        change: CreateEntry(fees, '手續費', kind: CategoryKind.expense),
+      ),
+    );
+    await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(twdBank),
+        destination: ref(usdBank),
+        date: day,
+        principal: money(twd, 320000),
+        received: money(usd, 10000),
+        fee: money(usd, 1500),
+        feeAllocations: [CategoryShare(fees, 1, money(usd, 1500))],
+      ),
+    );
+    expect(ledger.balance(account(twdBank)), money(twd, 180000));
+    expect(ledger.balance(account(usdBank)), money(usd, 8500));
+    final october = ledger.monthly(workspace, '2026-10');
+    expect(october['USD']!.expense, money(usd, 1500));
+    final byCategory = ledger.categoryTotals(workspace, '2026-10');
+    expect(byCategory[(fees, 'USD')]!.expense, money(usd, 1500));
   });
 
   test('a reversal negates the original on its own date', () async {

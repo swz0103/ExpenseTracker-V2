@@ -473,6 +473,7 @@ final class Posting {
     required Money principal,
     Money? received,
     Money? fee,
+    List<Allocation> allocations = const [],
   }) {
     final incoming = received ?? principal;
     _participation(operation, source, principal);
@@ -485,12 +486,18 @@ final class Posting {
     if ((!cross && incoming != principal) ||
         (cross && source.currency.code == destination.currency.code))
       throw const LedgerException(LedgerError.currencyMismatch);
+    // The fee is paid from the source, or taken from what arrives when it
+    // is in the destination currency (feature audit G-17).
     final charge = fee ?? Money(source.currency, BigInt.zero);
-    if (charge.currency != principal.currency)
-      throw const LedgerException(LedgerError.currencyMismatch);
+    final payer = charge.currency == principal.currency
+        ? source
+        : charge.currency == incoming.currency
+        ? destination
+        : throw const LedgerException(LedgerError.currencyMismatch);
     if (charge.minorUnits < BigInt.zero)
       throw const LedgerException(LedgerError.invalidAmount);
-    principal + charge;
+    if (payer == source) principal + charge;
+    _allocations(charge, allocations);
     return Posting._(
       id: id,
       operation: operation,
@@ -500,11 +507,12 @@ final class Posting {
         LedgerLeg._(source, -principal, LegRole.principal),
         LedgerLeg._(destination, incoming, LegRole.principal),
         if (charge.minorUnits != BigInt.zero)
-          LedgerLeg._(source, -charge, LegRole.fee),
+          LedgerLeg._(payer, -charge, LegRole.fee),
       ],
-      reportIncome: Money(source.currency, BigInt.zero),
+      reportIncome: Money(charge.currency, BigInt.zero),
       reportExpense: charge,
       conversion: cross ? ActualConversion(principal, incoming) : null,
+      allocations: allocations,
     );
   }
 

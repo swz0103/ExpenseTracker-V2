@@ -103,6 +103,17 @@ void main() {
         received: money(usd, 10000),
         fee: money(twd, 1500),
       ),
+      Posting.transfer(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        source: cash,
+        destination: account(usd),
+        principal: money(twd, 320000),
+        received: money(usd, 10000),
+        fee: money(usd, 50),
+        allocations: [Allocation(PublicId.generate(), money(usd, 50))],
+      ),
       Posting.reversal(
         id: PublicId.generate(),
         operation: key(),
