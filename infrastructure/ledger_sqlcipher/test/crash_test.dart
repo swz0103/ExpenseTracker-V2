@@ -151,5 +151,5 @@ void main() {
       store.close();
       if (bulk == 1) break;
     }
-  }, timeout: const Timeout(Duration(minutes: 3)));
+  });
 }
