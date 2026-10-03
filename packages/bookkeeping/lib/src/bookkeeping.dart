@@ -796,6 +796,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     BusinessDate date, {
     bool card = false,
   }) async {
+    _requireBookable(date);
     final account = await _account(t, ref.id);
     account.requirePosting(
       workspace: workspace,
