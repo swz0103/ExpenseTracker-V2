@@ -72,6 +72,7 @@ void main() {
     for (final (name, currency) in [('現金', twd), ('銀行', twd), ('美元', usd)]) {
       final id = PublicId.generate();
       final opening = money(currency, 500000);
+      final openingId = PublicId.generate();
       await both(
         (books) => books.openAccount(
           OpenAccount(
@@ -82,7 +83,7 @@ void main() {
             currency: currency,
             openedOn: BusinessDate(2026, 8, 1),
             openingBalance: opening,
-            openingPostingId: PublicId.generate(),
+            openingPostingId: openingId,
           ),
         ),
       );
@@ -105,6 +106,7 @@ void main() {
       final date = BusinessDate(2026, 8 + random.nextInt(3), 1 + i % 28);
       final units = 1 + random.nextInt(20000);
       final id = PublicId.generate();
+      final second = PublicId.generate();
       final bool ok;
       switch (random.nextInt(9)) {
         case 0 || 1 || 2:
@@ -177,7 +179,7 @@ void main() {
                 operation: op(),
                 replacementId: id,
                 originalId: original,
-                reversalId: PublicId.generate(),
+                reversalId: second,
                 account: from,
                 date: date,
                 amount: money(currency, units),
