@@ -6,6 +6,10 @@ import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 
 import 'drive_client.dart';
 
+/// Runs [job] when no other database write is in progress; the app passes
+/// `Bookkeeping.exclusive`, since the store refuses overlapping writes.
+typedef Exclusive = Future<R> Function<R>(Future<R> Function() job);
+
 /// Upload queue tables. Released migration steps are never edited.
 final cloudSchema = SchemaModule('cloud', [
   [
@@ -18,7 +22,9 @@ final cloudSchema = SchemaModule('cloud', [
       sha256 TEXT NOT NULL,
       created_at TEXT NOT NULL,
       state TEXT NOT NULL
-        CHECK (state IN ('queued', 'uploaded', 'failed', 'abandoned')),
+        CHECK (state IN (
+          'queued', 'uploaded', 'failed', 'abandoned', 'removed'
+        )),
       drive_file_id TEXT,
       session_uri TEXT,
       attempts INTEGER NOT NULL DEFAULT 0,
@@ -45,6 +51,9 @@ enum UploadState {
   /// Given up by the user or replaced by a newer backup; the local copy is
   /// deleted.
   abandoned,
+
+  /// Uploaded, then moved to the Drive trash by [CloudUploadQueue.prune].
+  removed,
 }
 
 /// One backup file on its way to Drive.
@@ -119,14 +128,15 @@ final class UploadRun {
 /// already holds (G8-11). A verified upload deletes its local copy
 /// (G8-17). A failed or stuck upload never blocks newer backups (G8-03).
 ///
-/// Writes go through [SqlCipherStore.write]; the app runs [runNext] and
-/// the other writers through the same queue as ledger commands.
+/// Every write goes through the [Exclusive] given to the constructor, so
+/// uploads never collide with ledger commands.
 final class CloudUploadQueue {
   CloudUploadQueue(
     this._store, {
+    Exclusive exclusive = _direct,
     this.chunkSize = 4 * quantum,
     this.maxAttempts = 20,
-  }) {
+  }) : _exclusive = exclusive {
     if (chunkSize <= 0 || chunkSize % quantum != 0) {
       throw ArgumentError.value(chunkSize, 'chunkSize', 'Not 256 KiB units.');
     }
@@ -136,6 +146,7 @@ final class CloudUploadQueue {
   static const quantum = 256 * 1024;
 
   final SqlCipherStore _store;
+  final Exclusive _exclusive;
   final int chunkSize;
   final int maxAttempts;
   bool _running = false;
@@ -161,7 +172,7 @@ final class CloudUploadQueue {
     }
     final (length, digest) = measured;
     if (length == 0) throw ArgumentError.value(file.path, 'file', 'Empty.');
-    final replaced = await _store.write((t) async {
+    final replaced = await _write((t) async {
       final rows = t.select(
         "SELECT file_path FROM cloud_uploads WHERE state = 'queued' "
         'AND principal = ? AND session_uri IS NULL',
@@ -227,7 +238,7 @@ final class CloudUploadQueue {
 
   /// Gives up on an upload that has not finished and deletes its file.
   Future<void> abandon(String backupId, DateTime now) async {
-    final path = await _store.write((t) async {
+    final path = await _write((t) async {
       final rows = t.select(
         'SELECT file_path FROM cloud_uploads WHERE backup_id = ? '
         "AND state IN ('queued', 'failed')",
@@ -246,7 +257,7 @@ final class CloudUploadQueue {
 
   /// Queues a failed upload again, with a fresh attempt budget.
   Future<void> retry(String backupId, DateTime now) async {
-    await _store.write((t) async {
+    await _write((t) async {
       t.execute(
         "UPDATE cloud_uploads SET state = 'queued', attempts = 0, "
         'next_attempt_at = NULL, failure = NULL, updated_at = ? '
@@ -260,12 +271,51 @@ final class CloudUploadQueue {
   /// after a crash between the upload and the delete. Returns the count.
   Future<int> sweep() async {
     var deleted = 0;
-    for (final state in [UploadState.uploaded, UploadState.abandoned]) {
+    for (final state in [
+      UploadState.uploaded,
+      UploadState.abandoned,
+      UploadState.removed,
+    ]) {
       for (final upload in uploads(state: state)) {
         if (await _delete(upload.file)) deleted++;
       }
     }
     return deleted;
+  }
+
+  /// Moves older backups of [principal] to the Drive trash, keeping the
+  /// newest [keep]. Only backups this queue uploaded are touched, ordered
+  /// by their local creation time: Drive properties are not authenticated,
+  /// so an edited file cannot push real backups out (health check G8-07).
+  /// Returns how many were removed.
+  Future<int> prune({
+    required DriveClient drive,
+    required String principal,
+    required int keep,
+    required DateTime now,
+  }) async {
+    if (keep < 1) throw ArgumentError.value(keep, 'keep', 'Keep at least 1.');
+    final rows = _store.select(
+      'SELECT backup_id, drive_file_id FROM cloud_uploads '
+      "WHERE state = 'uploaded' AND principal = ? "
+      'ORDER BY created_at DESC LIMIT -1 OFFSET ?',
+      [principal, keep],
+    );
+    var removed = 0;
+    for (final row in rows) {
+      final fileId = row['drive_file_id']! as String;
+      final current = await drive.file(fileId);
+      if (current != null && !current.trashed) await drive.trash(fileId);
+      await _write((t) async {
+        t.execute(
+          "UPDATE cloud_uploads SET state = 'removed', updated_at = ? "
+          "WHERE backup_id = ? AND state = 'uploaded'",
+          [_time(now), row['backup_id']],
+        );
+      });
+      removed++;
+    }
+    return removed;
   }
 
   /// Uploads the oldest due backup of [principal], or resumes it.
@@ -427,7 +477,7 @@ final class CloudUploadQueue {
   }
 
   Future<void> _finish(CloudUpload upload, DriveFile file, DateTime now) async {
-    await _store.write((t) async {
+    await _write((t) async {
       t.execute(
         "UPDATE cloud_uploads SET state = 'uploaded', drive_file_id = ?, "
         'session_uri = NULL, next_attempt_at = NULL, failure = NULL, '
@@ -439,7 +489,7 @@ final class CloudUploadQueue {
   }
 
   Future<void> _fail(String backupId, String reason, DateTime now) async {
-    await _store.write((t) async {
+    await _write((t) async {
       t.execute(
         "UPDATE cloud_uploads SET state = 'failed', failure = ?, "
         "next_attempt_at = NULL, updated_at = ? WHERE backup_id = ? "
@@ -457,7 +507,7 @@ final class CloudUploadQueue {
   ) async {
     final names = [...columns.keys, if (now != null) 'updated_at'];
     final values = [...columns.values, if (now != null) _time(now)];
-    await _store.write((t) async {
+    await _write((t) async {
       t.execute(
         'UPDATE cloud_uploads SET ${names.map((n) => '$n = ?').join(', ')} '
         "WHERE backup_id = ? AND state = 'queued'",
@@ -465,6 +515,11 @@ final class CloudUploadQueue {
       );
     });
   }
+
+  Future<R> _write<R>(Future<R> Function(SqlTransaction t) body) =>
+      _exclusive(() => _store.write(body));
+
+  static Future<R> _direct<R>(Future<R> Function() job) => job();
 
   static Duration _backoff(int attempts) {
     final minutes = min(1 << min(attempts - 1, 20), 6 * 60);

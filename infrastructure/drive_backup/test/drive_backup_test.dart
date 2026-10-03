@@ -3,10 +3,9 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:drive_backup/drive_backup.dart';
+import 'package:drive_backup/testing.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
-
-import 'fake_drive.dart';
 
 const principal = 'google-account-1';
 final t0 = DateTime.utc(2026, 10, 3, 9);
@@ -294,6 +293,43 @@ void main() {
     expect((await client.listBackups()).files, hasLength(2));
     final newest = listing.files[1];
     expect(await client.download(newest.id), drive.files[newest.id]!.bytes);
+  });
+
+  test('prune keeps the newest backups by local time only', () async {
+    final ids = <String>[];
+    for (final day in [1, 2, 3, 4]) {
+      final at = DateTime.utc(2026, 10, day);
+      final upload = await enqueue(backupFile(), at: at);
+      expect((await run(now: at)).result, UploadResult.uploaded);
+      ids.add(queue.get(upload.backupId)!.driveFileId!);
+    }
+    // Edited Drive properties do not change which ones are kept.
+    drive.files[ids[0]]!.properties['createdAt'] = '2030-01-01T00:00:00Z';
+    drive.files['elsewhere'] = FakeFile('elsewhere', 'other', {
+      'format': driveBackupFormat,
+      'backupId': 'other',
+      'createdAt': '2020-01-01T00:00:00Z',
+    }, [1], '0' * 64);
+
+    final now = DateTime.utc(2026, 10, 5);
+    final removed = await queue.prune(
+      drive: client,
+      principal: principal,
+      keep: 2,
+      now: now,
+    );
+    expect(removed, 2);
+    final trashed = [for (final id in ids) drive.files[id]!.trashed];
+    expect(trashed, [true, true, false, false]);
+    expect(drive.files['elsewhere']!.trashed, isFalse);
+    expect(queue.uploads(state: UploadState.removed), hasLength(2));
+    final again = await queue.prune(
+      drive: client,
+      principal: principal,
+      keep: 2,
+      now: now,
+    );
+    expect(again, 0);
   });
 
   test('only Google upload hosts may receive the token', () {

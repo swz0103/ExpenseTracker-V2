@@ -145,9 +145,19 @@
     }
   },
   "runtimeModules": {
+    "ledger_vault": {
+      "directory": "infrastructure/ledger_vault",
+      "publicEntrypoints": ["ledger_vault.dart"],
+      "dependencies": ["backup_security", "ledger_sqlcipher", "storage_sqlcipher"]
+    },
+    "backup_service": {
+      "directory": "infrastructure/backup_service",
+      "publicEntrypoints": ["backup_service.dart"],
+      "dependencies": ["backup_security", "drive_backup", "foundation_values", "ledger_backup", "ledger_sqlcipher"]
+    },
     "drive_backup": {
       "directory": "infrastructure/drive_backup",
-      "publicEntrypoints": ["drive_backup.dart"],
+      "publicEntrypoints": ["drive_backup.dart", "testing.dart"],
       "dependencies": ["storage_sqlcipher"]
     },
     "ledger_backup": {

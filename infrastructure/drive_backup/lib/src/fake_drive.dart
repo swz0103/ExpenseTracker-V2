@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:drive_backup/drive_backup.dart';
+
+import 'drive_client.dart';
+import 'drive_http.dart';
 
 /// Tokens that turn into a new token on refresh.
 final class FakeTokens implements DriveTokens {
