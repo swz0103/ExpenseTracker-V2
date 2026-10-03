@@ -25,12 +25,14 @@ void main() {
     final (open, _) = await vault.create('correct horse battery');
     final session = vaultSession(open, clock: clock);
     await session.openAccount(
+      session.begin(),
       '現金',
       AccountKind.cash,
-      Money(twd, BigInt.from(10000)),
+      opening: Money(twd, BigInt.from(10000)),
     );
     final cash = session.accounts.single;
     await session.record(
+      session.begin(),
       CashFlow.expense,
       cash,
       Money(twd, BigInt.from(2500)),

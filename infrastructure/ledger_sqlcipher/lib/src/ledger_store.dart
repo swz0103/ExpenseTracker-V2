@@ -1009,6 +1009,15 @@ final class SqlBookkeeping
     }
     _addToMonth(posting);
     _addToCategories(posting);
+    final original = posting.reversalOf;
+    if (original != null) {
+      // A reversed or deleted recurring entry opens its due date again
+      // (health check G6-08).
+      _transaction.execute(
+        'DELETE FROM plan_recurring_confirmed WHERE posting_id = ?',
+        [original.value],
+      );
+    }
     for (final tag in metadata.tags) {
       _transaction.execute('INSERT INTO ledger_posting_tags VALUES (?, ?)', [
         posting.id.value,

@@ -14,6 +14,20 @@ final class MonthSummary {
   final Money expense;
 }
 
+/// The identity of one user action: its operation key and the ids it
+/// creates. See [AppSession.begin].
+final class Submission {
+  Submission._(this.operation, this.id, this.secondId);
+
+  final OperationKey operation;
+
+  /// The new account or posting.
+  final PublicId id;
+
+  /// The opening posting of a new account.
+  final PublicId secondId;
+}
+
 /// What the screens read. The web preview reads memory; the phone reads
 /// the encrypted ledger.
 abstract interface class LedgerReads {
@@ -133,23 +147,38 @@ final class AppSession extends ChangeNotifier {
         MonthSummary(Money(twd, BigInt.zero), Money(twd, BigInt.zero));
   }
 
-  Future<void> openAccount(String name, AccountKind kind, Money? opening) =>
-      _run(
-        () => _books.openAccount(
-          OpenAccount(
-            operation: _operation(),
-            accountId: PublicId.generate(),
-            name: name,
-            kind: kind,
-            currency: twd,
-            openedOn: today,
-            openingBalance: opening,
-            openingPostingId: opening == null ? null : PublicId.generate(),
-          ),
-        ),
-      );
+  /// Identifies one user action. Take it when a form opens and pass the
+  /// same one to every retry: a retry after an unclear result then returns
+  /// the recorded outcome instead of booking twice (health check G4-10).
+  Submission begin() => Submission._(
+    _operation(),
+    PublicId.generate(),
+    PublicId.generate(),
+  );
+
+  Future<void> openAccount(
+    Submission submission,
+    String name,
+    AccountKind kind, {
+    Money? opening,
+    Currency? currency,
+  }) => _run(
+    () => _books.openAccount(
+      OpenAccount(
+        operation: submission.operation,
+        accountId: submission.id,
+        name: name,
+        kind: kind,
+        currency: currency ?? opening?.currency ?? twd,
+        openedOn: today,
+        openingBalance: opening,
+        openingPostingId: opening == null ? null : submission.secondId,
+      ),
+    ),
+  );
 
   Future<void> record(
+    Submission submission,
     CashFlow flow,
     Account account,
     Money amount,
@@ -157,8 +186,8 @@ final class AppSession extends ChangeNotifier {
   ) => _run(
     () => _books.recordCashFlow(
       RecordCashFlow(
-        operation: _operation(),
-        postingId: PublicId.generate(),
+        operation: submission.operation,
+        postingId: submission.id,
         flow: flow,
         account: AccountRef(account.id, account.rulesVersion),
         date: date,
@@ -167,11 +196,16 @@ final class AppSession extends ChangeNotifier {
     ),
   );
 
-  Future<void> transfer(Account from, Account to, Money amount) => _run(
+  Future<void> transfer(
+    Submission submission,
+    Account from,
+    Account to,
+    Money amount,
+  ) => _run(
     () => _books.recordTransfer(
       RecordTransfer(
-        operation: _operation(),
-        postingId: PublicId.generate(),
+        operation: submission.operation,
+        postingId: submission.id,
         source: AccountRef(from.id, from.rulesVersion),
         destination: AccountRef(to.id, to.rulesVersion),
         date: today,
@@ -180,13 +214,15 @@ final class AppSession extends ChangeNotifier {
     ),
   );
 
-  Future<void> reverse(Posting posting) => _run(
+  /// Undoes an entry on its own date, so its month's totals change and no
+  /// other month's do (health check G1-05).
+  Future<void> reverse(Submission submission, Posting posting) => _run(
     () => _books.reversePosting(
       ReversePosting(
-        operation: _operation(),
-        reversalId: PublicId.generate(),
+        operation: submission.operation,
+        reversalId: submission.id,
         originalId: posting.id,
-        date: today,
+        date: posting.date,
       ),
     ),
   );
@@ -236,7 +272,7 @@ final class AppSession extends ChangeNotifier {
         name: name,
         kind: kind,
         currency: twd,
-        openedOn: today,
+        openedOn: BusinessDate(today.year, 1, 1),
         openingBalance: opening,
         openingPostingId: PublicId.generate(),
       );

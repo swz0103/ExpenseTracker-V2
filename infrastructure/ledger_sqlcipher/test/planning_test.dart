@@ -195,4 +195,57 @@ void main() {
       fails(FailureKind.rejected, 'recurring.stopped'),
     );
   });
+
+  test('deleting a confirmed entry opens its due date again', () async {
+    final gym = PublicId.generate();
+    await planning.saveRecurring(
+      SaveRecurring(
+        operation: op(),
+        templateId: gym,
+        expectedVersion: 0,
+        accountId: cash,
+        label: '健身房',
+        amount: ntd(-990),
+        firstDate: BusinessDate(2026, 9, 1),
+        unit: RecurrenceUnit.month,
+        every: 1,
+      ),
+    );
+    Future<PublicId> confirm() async {
+      final outcome = await planning.confirm(
+        ConfirmRecurring(
+          operation: op(),
+          postingId: PublicId.generate(),
+          templateId: gym,
+          expectedTemplateVersion: 1,
+          dueDate: BusinessDate(2026, 9, 1),
+          account: AccountRef(cash, 1),
+        ),
+      );
+      return outcome.value;
+    }
+
+    bool open() => ledger
+        .dueRecurring(
+          workspace,
+          after: BusinessDate(2026, 8, 31),
+          through: BusinessDate(2026, 9, 30),
+        )
+        .isNotEmpty;
+
+    final first = await confirm();
+    expect(open(), isFalse);
+    await books.deletePosting(
+      DeletePosting(
+        operation: op(),
+        reversalId: PublicId.generate(),
+        originalId: first,
+      ),
+    );
+    expect(open(), isTrue);
+    final second = await confirm();
+    expect(second, isNot(first));
+    expect(open(), isFalse);
+    expect(ledger.balance(ledger.accounts(workspace).single), ntd(-990));
+  });
 }

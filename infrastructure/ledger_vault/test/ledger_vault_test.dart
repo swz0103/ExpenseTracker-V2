@@ -4,7 +4,6 @@ import 'package:accounts/accounts.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:foundation_values/foundation_values.dart';
-import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 import 'package:test/test.dart';
 

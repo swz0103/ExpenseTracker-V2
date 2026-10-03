@@ -26,9 +26,41 @@ void main() {
     session.addListener(() => notified++);
     final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
     final amount = parseAmount(session.twd, '1,000');
-    await session.record(CashFlow.expense, cash, amount, session.today);
+    final submission = session.begin();
+    Future<void> save() => session.record(
+      submission,
+      CashFlow.expense,
+      cash,
+      amount,
+      session.today,
+    );
+    await save();
     expect(formatMoney(session.balanceOf(cash)), '2,295');
     expect(notified, 1);
+
+    // A retry of the same submission replays it instead of booking twice.
+    await save();
+    expect(formatMoney(session.balanceOf(cash)), '2,295');
+    expect(session.recent, hasLength(6));
+  });
+
+  test('undo keeps the entry in its own month', () async {
+    final session = AppSession.preview(clock: clock);
+    await session.ready;
+    final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
+    await session.record(
+      session.begin(),
+      CashFlow.expense,
+      cash,
+      Money(session.twd, BigInt.from(400)),
+      BusinessDate(2026, 9, 20),
+    );
+    final entry = session.recent.firstWhere(
+      (p) => p.date == BusinessDate(2026, 9, 20),
+    );
+    await session.reverse(session.begin(), entry);
+    expect(formatMoney(session.monthTotal(2026, 9).expense), '0');
+    expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
   });
 
   test('refused input is explained in words', () {

@@ -55,9 +55,10 @@ void main() {
     final ready = startup.state as Ready;
     final twd = Currency.of('TWD');
     await ready.session.openAccount(
+      ready.session.begin(),
       '現金',
       AccountKind.cash,
-      Money(twd, BigInt.from(100)),
+      opening: Money(twd, BigInt.from(100)),
     );
 
     startup.lock();
