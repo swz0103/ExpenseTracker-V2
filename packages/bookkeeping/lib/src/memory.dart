@@ -29,6 +29,7 @@ final class _State {
       postings = Map.of(other.postings),
       order = List.of(other.order),
       metadata = Map.of(other.metadata),
+      notes = Map.of(other.notes),
       categories = Map.of(other.categories),
       tags = Map.of(other.tags),
       merchants = Map.of(other.merchants);
@@ -40,6 +41,7 @@ final class _State {
   Map<PublicId, Posting> postings = {};
   List<PublicId> order = [];
   Map<PublicId, PostingMetadata> metadata = {};
+  Map<PublicId, EntryNote> notes = {};
   Map<PublicId, Category> categories = {};
   Map<PublicId, Tag> tags = {};
   Map<PublicId, Merchant> merchants = {};
@@ -182,6 +184,14 @@ final class MemoryBookkeepingTransaction implements BookkeepingTransaction {
     }
     return null;
   }
+
+  @override
+  Future<EntryNote> noteOf(PublicId postingId) async =>
+      _live.notes[postingId] ?? const EntryNote(0, '');
+
+  @override
+  Future<void> saveNote(PublicId postingId, EntryNote note) async =>
+      _live.notes[postingId] = note;
 
   @override
   Future<Money> balance(PublicId accountId, Currency currency) async =>

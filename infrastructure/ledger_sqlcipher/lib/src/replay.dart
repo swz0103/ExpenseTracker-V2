@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:credit_cards/credit_cards.dart';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 
 import 'ledger_store.dart';
@@ -100,6 +102,11 @@ abstract final class LedgerReplay {
           PostingCodec.decode(part('posting')),
           PostingMetadata.fromJson(part('metadata')),
         );
+      case 'posting.noted':
+        await t.saveNote(
+          PublicId.parse(p['postingId']! as String),
+          EntryNote(p['revision']! as int, p['text']! as String),
+        );
       case 'category.changed':
         await t.saveCategory(CatalogCodec.readCategory(p));
       case 'tag.changed':
@@ -146,6 +153,7 @@ const ledgerTables = {
   'ledger_category_monthly': 'workspace, month, category_id, currency, scale',
   'ledger_posting_tags': 'posting_id, tag_id',
   'ledger_posting_merchants': 'posting_id',
+  'ledger_notes': 'posting_id',
   'catalog_entries': 'type, id',
   'card_terms': 'card_id',
   'card_charges': 'id',

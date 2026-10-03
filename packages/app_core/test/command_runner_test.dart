@@ -124,4 +124,30 @@ void main() {
     clock.advance(const Duration(minutes: 5));
     expect(clock.now(), UtcInstant(DateTime.utc(2026, 10, 3, 8, 5)));
   });
+
+  test('an exclusive job waits its turn and never overlaps a write', () async {
+    final order = <String>[];
+    Future<CommandOutcome<int>> step(String name) {
+      return runner.run(_Append(key(), name), (transaction) async {
+        order.add(name);
+        transaction.append(name);
+        return 0;
+      });
+    }
+
+    final first = step('a');
+    final job = runner.exclusive(() async {
+      order.add('job');
+      // A direct write inside the job cannot collide with a command.
+      return store.write((transaction) async {
+        transaction.append('backup');
+        return 7;
+      });
+    });
+    final last = step('b');
+    expect(await job, 7);
+    await Future.wait([first, last]);
+    expect(order, ['a', 'job', 'b']);
+    expect(store.events, ['a', 'backup', 'b']);
+  });
 }

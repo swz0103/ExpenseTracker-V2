@@ -353,3 +353,101 @@ final class SetOpeningBalance extends PostingCommand {
     'amount': amount.toJson(),
   };
 }
+
+/// Sets the note on a posting. Returns the note's new revision; revision 0
+/// means the posting never had a note.
+final class SetNote extends AccountCommand {
+  SetNote({
+    required OperationKey operation,
+    required this.postingId,
+    required this.expectedRevision,
+    required this.text,
+  }) : super(operation);
+
+  final PublicId postingId;
+  final int expectedRevision;
+  final String text;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-note-v1',
+    'postingId': postingId.value,
+    'expectedRevision': expectedRevision,
+    'text': text,
+  };
+}
+
+/// Fixes an income or expense: the original is reversed on its own date
+/// and a replacement is recorded, in one transaction, so reports for the
+/// original month are corrected rather than offset in a later month.
+/// Returns the replacement posting's id.
+final class CorrectCashFlow extends PostingCommand {
+  CorrectCashFlow({
+    required OperationKey operation,
+    required PublicId replacementId,
+    required this.originalId,
+    required this.reversalId,
+    required this.account,
+    required this.date,
+    required this.amount,
+    this.allocations = const [],
+    this.tags = const [],
+    this.merchant,
+    this.reason = '',
+  }) : super(operation, replacementId);
+
+  final PublicId originalId;
+  final PublicId reversalId;
+  final AccountRef account;
+  final BusinessDate date;
+  final Money amount;
+  final List<CategoryShare> allocations;
+  final List<TagSelection> tags;
+  final MerchantSelection? merchant;
+  final String reason;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'correct-cash-flow-v1',
+    'replacementId': postingId.value,
+    'originalId': originalId.value,
+    'reversalId': reversalId.value,
+    'account': account.toJson(),
+    'date': date.toString(),
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+    'tags': [
+      for (final tag in tags)
+        {'id': tag.id.value, 'expectedVersion': tag.expectedVersion},
+    ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
+    'merchant': merchant == null
+        ? null
+        : {
+            'id': merchant!.id.value,
+            'expectedVersion': merchant!.expectedVersion,
+          },
+    'reason': reason,
+  };
+}
+
+/// Removes a posting from balances and reports by reversing it on its own
+/// date. The original and the reversal stay in the journal.
+final class DeletePosting extends PostingCommand {
+  DeletePosting({
+    required OperationKey operation,
+    required PublicId reversalId,
+    required this.originalId,
+    this.reason = '',
+  }) : super(operation, reversalId);
+
+  final PublicId originalId;
+  final String reason;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'delete-posting-v1',
+    'reversalId': postingId.value,
+    'originalId': originalId.value,
+    'reason': reason,
+  };
+}

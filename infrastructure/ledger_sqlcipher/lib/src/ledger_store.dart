@@ -192,6 +192,15 @@ final ledgerSchema = SchemaModule('ledger', [
     ''',
     'CREATE INDEX ledger_postings_by_refund ON ledger_postings (refund_of)',
   ],
+  [
+    '''
+    CREATE TABLE ledger_notes (
+      posting_id TEXT PRIMARY KEY REFERENCES ledger_postings (id),
+      revision INTEGER NOT NULL,
+      text TEXT NOT NULL
+    ) STRICT, WITHOUT ROWID
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -305,6 +314,8 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
   ) => InvestmentRecords.openLots(
     _readTrades(_store.select, accountId, instrumentId),
   );
+
+  EntryNote note(PublicId postingId) => _readNote(_store.select, postingId);
 
   PostingMetadata metadata(PublicId postingId) =>
       _readMetadata(_store.select, postingId);
@@ -464,6 +475,19 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
       [accountId.value],
     );
     return rows.isEmpty ? null : _decodePosting(rows.single['payload']);
+  }
+
+  @override
+  Future<EntryNote> noteOf(PublicId postingId) async =>
+      _readNote(_transaction.select, postingId);
+
+  @override
+  Future<void> saveNote(PublicId postingId, EntryNote note) async {
+    _transaction.execute(
+      'INSERT INTO ledger_notes VALUES (?, ?, ?) ON CONFLICT (posting_id) '
+      'DO UPDATE SET revision = excluded.revision, text = excluded.text',
+      [postingId.value, note.revision, note.text],
+    );
   }
 
   @override
@@ -856,6 +880,16 @@ List<Map<String, Object?>> _readTrades(
     [accountId.value, instrumentId.value],
   );
   return [for (final row in rows) _json(row['payload'])];
+}
+
+EntryNote _readNote(_Select select, PublicId postingId) {
+  final rows = select(
+    'SELECT revision, text FROM ledger_notes WHERE posting_id = ?',
+    [postingId.value],
+  );
+  if (rows.isEmpty) return const EntryNote(0, '');
+  final row = rows.single;
+  return EntryNote(row['revision']! as int, row['text']! as String);
 }
 
 CreditCardTerms? _readTerms(_Select select, PublicId cardId) {

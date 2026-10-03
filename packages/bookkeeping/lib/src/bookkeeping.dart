@@ -75,6 +75,11 @@ abstract interface class BookkeepingTransaction implements WriteTransaction {
   /// The account's opening posting that has not been reversed, if any.
   Future<Posting?> openingOf(PublicId accountId);
 
+  /// Revision 0 with empty text when the posting has no note.
+  Future<EntryNote> noteOf(PublicId postingId);
+
+  Future<void> saveNote(PublicId postingId, EntryNote note);
+
   Future<Money> balance(PublicId accountId, Currency currency);
 
   /// True while the account has pending card authorizations or funds an
@@ -114,6 +119,10 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   final CommandRunner<T> _runner;
 
+  /// Runs [job] in the command queue with the store to itself, for work
+  /// such as a backup.
+  Future<R> exclusive<R>(Future<R> Function() job) => _runner.exclusive(job);
+
   Future<CommandOutcome<int>> openAccount(OpenAccount command) =>
       _runner.run(command, (t) => _guard(() => _open(t, command)));
 
@@ -138,6 +147,15 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   Future<CommandOutcome<PublicId>> setOpeningBalance(
     SetOpeningBalance command,
   ) => _runner.run(command, (t) => _guard(() => _setOpening(t, command)));
+
+  Future<CommandOutcome<int>> setNote(SetNote command) =>
+      _runner.run(command, (t) => _guard(() => _note(t, command)));
+
+  Future<CommandOutcome<PublicId>> correctCashFlow(CorrectCashFlow command) =>
+      _runner.run(command, (t) => _guard(() => _correct(t, command)));
+
+  Future<CommandOutcome<PublicId>> deletePosting(DeletePosting command) =>
+      _runner.run(command, (t) => _guard(() => _delete(t, command)));
 
   Future<CommandOutcome<int>> closeAccount(CloseAccount command) =>
       _runner.run(command, (t) => _guard(() => _close(t, command)));
@@ -278,9 +296,137 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   Future<PublicId> _reverse(T t, ReversePosting command) async {
     await _requireNewPosting(t, command.postingId);
-    final original = await t.posting(command.originalId);
-    if (original == null ||
-        original.operation.workspace != command.operation.workspace) {
+    final original = await _reversible(t, command);
+    final reversal = Posting.reversal(
+      id: command.postingId,
+      operation: command.operation,
+      date: command.date,
+      original: original,
+      reason: command.reason,
+    );
+    await _savePosting(t, reversal, await t.postingMetadata(original.id));
+    return reversal.id;
+  }
+
+  Future<PublicId> _delete(T t, DeletePosting command) async {
+    await _requireNewPosting(t, command.postingId);
+    final original = await _reversible(t, command);
+    final reversal = Posting.reversal(
+      id: command.postingId,
+      operation: command.operation,
+      date: original.date,
+      original: original,
+      reason: command.reason.isEmpty ? 'deleted' : command.reason,
+    );
+    await _savePosting(t, reversal, await t.postingMetadata(original.id));
+    return reversal.id;
+  }
+
+  Future<PublicId> _correct(T t, CorrectCashFlow command) async {
+    await _requireNewPosting(t, command.postingId);
+    await _requireNewPosting(t, command.reversalId);
+    final workspace = command.operation.workspace;
+    final original = await _reversible(t, command);
+    final flow = switch (original.kind) {
+      PostingKind.income => CashFlow.income,
+      PostingKind.expense => CashFlow.expense,
+      _ => throw const AppFailure(
+        FailureKind.rejected,
+        'ledger.correctionReference',
+      ),
+    };
+    final account = await _postable(
+      t,
+      command.account,
+      workspace,
+      command.amount.currency,
+      command.date,
+    );
+    final allocations = await _allocations(
+      t,
+      workspace,
+      flow,
+      command.allocations,
+    );
+    final replacementOperation = _secondary(
+      command.operation,
+      command.postingId,
+    );
+    final replacement = flow == CashFlow.income
+        ? Posting.income(
+            id: command.postingId,
+            operation: replacementOperation,
+            date: command.date,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          )
+        : Posting.expense(
+            id: command.postingId,
+            operation: replacementOperation,
+            date: command.date,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          );
+    final correction = PostingCorrection(
+      original: original,
+      replacement: replacement,
+      reversalId: command.reversalId,
+      reversalOperation: _secondary(command.operation, command.reversalId),
+      reason: command.reason,
+    );
+    await _savePosting(
+      t,
+      correction.reversal,
+      await t.postingMetadata(original.id),
+    );
+    await _savePosting(
+      t,
+      replacement,
+      await _metadata(t, workspace, command.tags, command.merchant),
+    );
+    return replacement.id;
+  }
+
+  Future<int> _note(T t, SetNote command) async {
+    final posting = await t.posting(command.postingId);
+    if (posting == null ||
+        posting.operation.workspace != command.operation.workspace) {
+      throw const AppFailure(FailureKind.notFound, 'posting.not-found');
+    }
+    final note = NoteChange(
+      command.postingId,
+      command.expectedRevision,
+      command.text,
+    ).apply(await t.noteOf(command.postingId));
+    await t.saveNote(command.postingId, note);
+    await t.appendEvent(
+      id: PublicId.generate(),
+      workspace: command.operation.workspace,
+      kind: 'posting.noted',
+      payload: jsonEncode({
+        'postingId': command.postingId.value,
+        'revision': note.revision,
+        'text': note.text,
+      }),
+    );
+    return note.revision;
+  }
+
+  /// The checks every undo path shares: the posting exists in this
+  /// workspace, is not reversed yet, is not owned by a card or trade, has
+  /// no active refunds, and touches no closed account.
+  Future<Posting> _reversible(T t, Command<Object?> command) async {
+    final originalId = switch (command) {
+      ReversePosting(:final originalId) => originalId,
+      DeletePosting(:final originalId) => originalId,
+      CorrectCashFlow(:final originalId) => originalId,
+      _ => throw StateError('Not an undo command.'),
+    };
+    final workspace = command.operation.workspace;
+    final original = await t.posting(originalId);
+    if (original == null || original.operation.workspace != workspace) {
       throw const AppFailure(FailureKind.notFound, 'posting.not-found');
     }
     if (await t.isReversed(original.id)) {
@@ -299,15 +445,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
         throw const AppFailure(FailureKind.rejected, 'account.unavailable');
       }
     }
-    final reversal = Posting.reversal(
-      id: command.postingId,
-      operation: command.operation,
-      date: command.date,
-      original: original,
-      reason: command.reason,
-    );
-    await _savePosting(t, reversal, await t.postingMetadata(original.id));
-    return reversal.id;
+    return original;
   }
 
   Future<PublicId> _refund(T t, RecordRefund command) async {
@@ -399,7 +537,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (current != null) {
       final reversal = Posting.reversal(
         id: command.reversalId,
-        operation: command.operation,
+        operation: _secondary(command.operation, command.reversalId),
         date: account.openedOn,
         original: current,
         reason: 'opening-balance-replaced',
@@ -764,6 +902,12 @@ MerchantCatalog _changeMerchants(
   _ => throw const AppFailure(FailureKind.rejected, 'catalog.unsupported'),
 };
 
+/// The identity of a second posting made by one command. Every posting
+/// needs its own OperationKey; deriving it from the posting's own id keeps
+/// it unique and stable across retries.
+OperationKey _secondary(OperationKey command, PublicId postingId) =>
+    OperationKey(command.workspace, OperationId(postingId));
+
 PostingAccount _participant(Account account) => PostingAccount(
   id: account.id,
   workspace: account.workspace,
@@ -782,6 +926,11 @@ Future<R> _guard<R>(Future<R> Function() body) async {
     throw AppFailure(kind, 'account.${error.code.name}');
   } on LedgerException catch (error) {
     throw AppFailure(FailureKind.rejected, 'ledger.${error.code.name}');
+  } on NoteException catch (error) {
+    final kind = error.code == NoteError.conflict
+        ? FailureKind.conflict
+        : FailureKind.rejected;
+    throw AppFailure(kind, 'note.${error.code.name}');
   } on MoneyException catch (error) {
     throw AppFailure(FailureKind.rejected, 'money.${error.code.name}');
   } on InvestmentException catch (error) {

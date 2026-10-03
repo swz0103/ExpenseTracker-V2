@@ -101,6 +101,14 @@ void main() {
         merchant: MerchantSelection(shop, 1),
       ),
     );
+    await books.setNote(
+      SetNote(
+        operation: op(),
+        postingId: lunch.value,
+        expectedRevision: 0,
+        text: '和同事',
+      ),
+    );
     await books.recordRefund(
       RecordRefund(
         operation: op(),
