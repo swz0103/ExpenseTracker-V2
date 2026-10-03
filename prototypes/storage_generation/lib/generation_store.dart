@@ -445,6 +445,15 @@ final class GenerationStore {
     } finally {
       db.close();
     }
+    // A process killed before the commit synced its journal leaves a journal
+    // whose header magic is still zero. SQLite treats that as "not hot" (the
+    // database file was never touched) and ignores it without deleting it,
+    // so remove exactly that case here.
+    final journal = File('${file.path}-journal');
+    if (await journal.exists()) {
+      final magic = await journal.openRead(0, 8).expand((c) => c).toList();
+      if (magic.every((byte) => byte == 0)) await journal.delete();
+    }
     if (await present()) throw StateError('Unexpected generation sidecar');
   }
 

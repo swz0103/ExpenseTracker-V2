@@ -314,7 +314,7 @@ void main() {
   );
 
   test(
-    'rollback journal left by an interrupted write is replayed by SQLite',
+    'journal left by a write killed before commit does not lock the ledger',
     () async {
       final old = await installOld();
       final path = store.databaseFile(old.generation).path;
@@ -331,7 +331,8 @@ void main() {
         db.close();
       }
       expect(hot, isNotEmpty);
-      await journal.writeAsBytes(hot); // As a killed process would leave it.
+      // As a process killed before its commit synced would leave it.
+      await journal.writeAsBytes(hot);
       expect((await store.current())!.value, oldValue);
       expect(journal.existsSync(), isFalse);
       expect((await store.current())!.value, oldValue);
