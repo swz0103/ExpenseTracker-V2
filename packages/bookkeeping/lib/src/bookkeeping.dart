@@ -166,6 +166,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   Future<CommandOutcome<PublicId>> correctCashFlow(CorrectCashFlow command) =>
       _runner.run(command, (t) => _guard(() => _correct(t, command)));
 
+  Future<CommandOutcome<PublicId>> correctTransfer(CorrectTransfer command) =>
+      _runner.run(command, (t) => _guard(() => _correctTransfer(t, command)));
+
   Future<CommandOutcome<PublicId>> deletePosting(DeletePosting command) =>
       _runner.run(command, (t) => _guard(() => _delete(t, command)));
 
@@ -476,6 +479,56 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     return replacement.id;
   }
 
+  Future<PublicId> _correctTransfer(T t, CorrectTransfer command) async {
+    await _requireNewPosting(t, command.postingId);
+    await _requireNewPosting(t, command.reversalId);
+    final workspace = command.operation.workspace;
+    final original = await _reversible(t, command);
+    if (original.kind != PostingKind.transfer) {
+      throw const AppFailure(
+        FailureKind.rejected,
+        'ledger.correctionReference',
+      );
+    }
+    final received = command.received ?? command.principal;
+    final replacement = Posting.transfer(
+      id: command.postingId,
+      operation: _secondary(command.operation, command.postingId),
+      date: command.date,
+      source: await _postable(
+        t,
+        command.source,
+        workspace,
+        command.principal.currency,
+        command.date,
+      ),
+      destination: await _postable(
+        t,
+        command.destination,
+        workspace,
+        received.currency,
+        command.date,
+      ),
+      principal: command.principal,
+      received: command.received,
+      fee: command.fee,
+    );
+    final correction = PostingCorrection(
+      original: original,
+      replacement: replacement,
+      reversalId: command.reversalId,
+      reversalOperation: _secondary(command.operation, command.reversalId),
+      reason: command.reason,
+    );
+    await _savePosting(t, correction.reversal, PostingMetadata.none);
+    await _savePosting(t, replacement, PostingMetadata.none);
+    final note = await t.noteOf(original.id);
+    if (note.text.isNotEmpty) {
+      await _saveNote(t, workspace, replacement.id, EntryNote(1, note.text));
+    }
+    return replacement.id;
+  }
+
   Future<int> _note(T t, SetNote command) async {
     final posting = await t.posting(command.postingId);
     if (posting == null ||
@@ -544,6 +597,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       ReversePosting(:final originalId) => originalId,
       DeletePosting(:final originalId) => originalId,
       CorrectCashFlow(:final originalId) => originalId,
+      CorrectTransfer(:final originalId) => originalId,
       _ => throw StateError('Not an undo command.'),
     };
     return _undoable(t, command.operation.workspace, originalId);

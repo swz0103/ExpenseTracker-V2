@@ -487,6 +487,49 @@ final class CorrectCashFlow extends PostingCommand {
   };
 }
 
+/// Replaces a transfer with a corrected one: the original is reversed on
+/// its own date and the replacement booked (feature audit G-15b).
+final class CorrectTransfer extends PostingCommand {
+  CorrectTransfer({
+    required OperationKey operation,
+    required PublicId replacementId,
+    required this.originalId,
+    required this.reversalId,
+    required this.source,
+    required this.destination,
+    required this.date,
+    required this.principal,
+    this.received,
+    this.fee,
+    this.reason = '',
+  }) : super(operation, replacementId);
+
+  final PublicId originalId;
+  final PublicId reversalId;
+  final AccountRef source;
+  final AccountRef destination;
+  final BusinessDate date;
+  final Money principal;
+  final Money? received;
+  final Money? fee;
+  final String reason;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'correct-transfer-v1',
+    'replacementId': postingId.value,
+    'originalId': originalId.value,
+    'reversalId': reversalId.value,
+    'source': source.toJson(),
+    'destination': destination.toJson(),
+    'date': date.toString(),
+    'principal': principal.toJson(),
+    'received': received?.toJson(),
+    'fee': fee?.toJson(),
+    'reason': reason,
+  };
+}
+
 /// Removes a posting from balances and reports by reversing it on its own
 /// date. The original and the reversal stay in the journal.
 final class DeletePosting extends PostingCommand {

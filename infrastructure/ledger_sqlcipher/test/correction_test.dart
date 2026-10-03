@@ -186,4 +186,58 @@ void main() {
     expect(note.text, '同事代墊，待收');
     expect(note.revision, 1);
   });
+
+  test('a transfer is corrected like any entry', () async {
+    final bank = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: bank,
+        name: '銀行',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: BusinessDate(2026, 1, 1),
+      ),
+    );
+    final moved = await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(),
+        destination: AccountRef(bank, 1),
+        date: august,
+        principal: ntd(3000),
+      ),
+    );
+    Future<CommandOutcome<PublicId>> fix(PublicId original) =>
+        books.correctTransfer(
+          CorrectTransfer(
+            operation: op(),
+            replacementId: PublicId.generate(),
+            originalId: original,
+            reversalId: PublicId.generate(),
+            source: ref(),
+            destination: AccountRef(bank, 1),
+            date: august,
+            principal: ntd(2000),
+            fee: ntd(15),
+          ),
+        );
+    await fix(moved.value);
+    Money balance(PublicId id) {
+      final account = ledger.accounts(workspace).singleWhere((a) => a.id == id);
+      return ledger.balance(account);
+    }
+
+    expect(balance(cash), ntd(10000 - 2000 - 15));
+    expect(balance(bank), ntd(2000));
+    await expectLater(
+      fix(moved.value),
+      fails(FailureKind.conflict, 'posting.already-reversed'),
+    );
+    await expectLater(
+      fix(await expense(100)),
+      fails(FailureKind.rejected, 'ledger.correctionReference'),
+    );
+  });
 }
