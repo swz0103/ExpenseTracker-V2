@@ -582,4 +582,91 @@ void main() {
       isNull,
     );
   });
+
+  test('a due date on a weekend or holiday moves to the next banking day', () {
+    // 2026-10-10 is a Saturday and National Day.
+    expect(
+      paymentDueOn(BusinessDate(2026, 10, 10)),
+      BusinessDate(2026, 10, 12),
+    );
+    expect(
+      paymentDueOn(
+        BusinessDate(2026, 10, 9),
+        holidays: {BusinessDate(2026, 10, 9)},
+      ),
+      BusinessDate(2026, 10, 12),
+    );
+    expect(
+      paymentDueOn(
+        BusinessDate(2026, 10, 10),
+        workdays: {BusinessDate(2026, 10, 10)},
+      ),
+      BusinessDate(2026, 10, 10),
+    );
+    expect(
+      paymentDueOn(BusinessDate(2026, 10, 14)),
+      BusinessDate(2026, 10, 14),
+    );
+  });
+
+  test('the minimum due is 10% of spending plus installments and fees', () {
+    final whole = Currency.of('TWD');
+    final card2 = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: whole,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    CardCharge posted(int amount, {int fee = 0}) {
+      final pending = CardCharge.pending(
+        id: PublicId.generate(),
+        workspace: space,
+        cardId: card,
+        kind: CardChargeKind.purchase,
+        authorizedOn: BusinessDate(2026, 10, 3),
+        authorizedAmount: Money(whole, BigInt.from(amount)),
+      );
+      return pending.post(
+        postedOn: BusinessDate(2026, 10, 3),
+        settledAmount: Money(whole, BigInt.from(amount)),
+        fee: Money(whole, BigInt.from(fee)),
+        ledgerEventId: PublicId.generate(),
+      );
+    }
+
+    final cycle = card2.scheduledCycleFor(BusinessDate(2026, 10, 3));
+    CardStatement statement(List<CardCharge> charges, [int paid = 0]) {
+      final payments = [
+        if (paid > 0)
+          CardPayment(
+            id: PublicId.generate(),
+            workspace: space,
+            cardId: card,
+            statementClose: cycle.closesOn,
+            postedOn: BusinessDate(2026, 10, 20),
+            amount: Money(whole, BigInt.from(paid)),
+            ledgerEventId: PublicId.generate(),
+          ),
+      ];
+      return CardStatement.calculate(
+        terms: card2,
+        cycle: cycle,
+        charges: charges,
+        payments: payments,
+      );
+    }
+
+    Money ntd(int units) => Money(whole, BigInt.from(units));
+    final charges = [posted(12345, fee: 30)];
+    // 30 fee + 10% of 12345 rounded up.
+    expect(statement(charges).minimumDue(), ntd(30 + 1235));
+    expect(statement(charges).minimumDue(floor: ntd(2000)), ntd(2000));
+    expect(statement(charges, 1000).minimumDue(), ntd(265));
+    expect(statement(charges, 5000).minimumDue(), ntd(0));
+    // Never more than what is owed.
+    final small = [posted(500)];
+    expect(statement(small).minimumDue(floor: ntd(1000)), ntd(500));
+    expect(statement(const []).minimumDue(), ntd(0));
+  });
 }

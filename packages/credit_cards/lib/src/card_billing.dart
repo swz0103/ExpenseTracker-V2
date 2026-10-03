@@ -449,6 +449,59 @@ final class CardStatement {
   final Money remainingDue;
   final Money credit;
   final int pendingCount;
+
+  /// What must still be paid by the due date to avoid a late fee: the
+  /// installments and fees billed now plus [percent] of everything else
+  /// owed, rounded up, at least [floor], less what was already paid
+  /// (feature audit G-10). Issuers differ, so the rule's numbers are
+  /// passed in.
+  Money minimumDue({int percent = 10, Money? floor}) {
+    final currency = remainingDue.currency;
+    if (percent < 0 || percent > 100) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    if (floor != null && floor.currency != currency) {
+      throw const CreditCardException(CreditCardError.currencyMismatch);
+    }
+    final owed =
+        carriedOver.minorUnits +
+        purchases.minorUnits +
+        installmentsDue.minorUnits -
+        refunds.minorUnits +
+        fees.minorUnits;
+    if (owed <= BigInt.zero) return Money(currency, BigInt.zero);
+    final fixed = installmentsDue.minorUnits + fees.minorUnits;
+    final rest = owed > fixed ? owed - fixed : BigInt.zero;
+    final hundred = BigInt.from(100);
+    var minimum =
+        fixed + (rest * BigInt.from(percent) + hundred - BigInt.one) ~/ hundred;
+    if (floor != null && minimum < floor.minorUnits) minimum = floor.minorUnits;
+    if (minimum > owed) minimum = owed;
+    final left = minimum - payments.minorUnits;
+    return Money(currency, left.isNegative ? BigInt.zero : left);
+  }
+}
+
+/// The day a payment is really due: [dueOn], or the next banking day when
+/// it falls on a weekend or one of [holidays] (feature audit G-10).
+/// [workdays] are weekend days banks open to make up for a holiday.
+/// Taiwan's calendar changes every year, so both are passed in.
+BusinessDate paymentDueOn(
+  BusinessDate dueOn, {
+  Set<BusinessDate> holidays = const {},
+  Set<BusinessDate> workdays = const {},
+}) {
+  var day = DateTime.utc(dueOn.year, dueOn.month, dueOn.day);
+  for (var i = 0; i < 60; i++) {
+    final date = BusinessDate(day.year, day.month, day.day);
+    final weekend =
+        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+    if (workdays.contains(date) || (!weekend && !holidays.contains(date))) {
+      return date;
+    }
+    day = day.add(const Duration(days: 1));
+  }
+  throw const CreditCardException(CreditCardError.invalidInput);
 }
 
 void _checkOwner(
