@@ -164,8 +164,11 @@ void main() {
         weights: List.filled(16, '9' * 128),
       );
       final q = total.minorUnits ~/ BigInt.from(16);
-      expect(p.amounts.take(15).map((m) => m.minorUnits), everyElement(q));
-      expect(p.amounts.last.minorUnits, total.minorUnits - q * BigInt.from(15));
+      expect(
+        p.amounts.take(15).map((m) => m.minorUnits),
+        everyElement(q + BigInt.one),
+      );
+      expect(p.amounts.last.minorUnits, q);
       expect(
         p.amounts.fold(BigInt.zero, (a, b) => a + b.minorUnits),
         total.minorUnits,
