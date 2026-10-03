@@ -415,6 +415,94 @@ void main() {
         reversalId: PublicId.generate(),
       ),
     );
+
+    // Later additions: issuer fees, statement dates, corporate actions,
+    // home values, corrected transfers and net worth inclusion.
+    await cards.adjust(
+      AdjustCard(
+        operation: op(),
+        chargeId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        card: ref(card),
+        postedOn: day,
+        kind: CardAdjustment.fee,
+        amount: ntd(1200),
+      ),
+    );
+    await cards.overrideCycle(
+      OverrideCardCycle(
+        operation: op(),
+        cardId: card,
+        expectedVersion: 1,
+        scheduledClose: BusinessDate(2026, 10, 25),
+        closesOn: BusinessDate(2026, 10, 27),
+        dueOn: BusinessDate(2026, 11, 11),
+      ),
+    );
+    await cards.setTerms(
+      SetCardTerms(
+        operation: op(),
+        cardId: card,
+        expectedVersion: 2,
+        closingDay: 5,
+        dueDay: 20,
+        effectiveFrom: BusinessDate(2026, 12, 5),
+      ),
+    );
+    await invest.corporateAction(
+      RecordCorporateAction(
+        operation: op(),
+        actionId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        effectiveOn: day,
+        newShares: 1,
+        oldShares: 1,
+        capitalReturned: cents(200),
+      ),
+    );
+    await books.recordCashFlow(
+      RecordCashFlow(
+        operation: op(),
+        postingId: PublicId.generate(),
+        flow: CashFlow.expense,
+        account: ref(dollars),
+        date: day,
+        amount: cents(1000),
+        homeValue: ntd(320),
+      ),
+    );
+    final moved = await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(bank),
+        destination: ref(cash),
+        date: day,
+        principal: ntd(500),
+      ),
+    );
+    await books.correctTransfer(
+      CorrectTransfer(
+        operation: op(),
+        replacementId: PublicId.generate(),
+        originalId: moved.value,
+        reversalId: PublicId.generate(),
+        source: ref(bank),
+        destination: ref(cash),
+        date: day,
+        principal: ntd(400),
+        fee: ntd(10),
+      ),
+    );
+    await books.setNetWorthInclusion(
+      SetNetWorthInclusion(
+        operation: op(),
+        accountId: bank,
+        expectedVersion: account(bank).version,
+        included: false,
+      ),
+    );
   }
 
   test('replaying the journal rebuilds every projection exactly', () async {
