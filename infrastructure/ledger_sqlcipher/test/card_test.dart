@@ -345,6 +345,31 @@ void main() {
     expect(ledger.statement(card, close).refunds, ntd(3240));
   });
 
+  test('issuer fees and cashback are booked on the card', () async {
+    Future<CommandOutcome<PublicId>> adjust(CardAdjustment kind, int units) =>
+        cards.adjust(
+          AdjustCard(
+            operation: op(),
+            chargeId: PublicId.generate(),
+            postingId: PublicId.generate(),
+            card: ref(card),
+            postedOn: purchaseDay,
+            kind: kind,
+            amount: ntd(units),
+          ),
+        );
+    await adjust(CardAdjustment.fee, 1200);
+    await adjust(CardAdjustment.credit, 35);
+    final statement = ledger.statement(card, close);
+    expect(statement.fees, ntd(1200));
+    expect(statement.credits, ntd(35));
+    expect(statement.remainingDue, ntd(1165));
+    expect(ledger.balance(account(card)), ntd(-1165));
+    final october = ledger.monthly(workspace, '2026-10')['TWD']!;
+    expect(october.expense, ntd(1200));
+    expect(october.income, ntd(35));
+  });
+
   test('a mistaken charge or payment is voided on the card', () async {
     final wrong = PublicId.generate();
     final posting = await post(chargeId: wrong, settled: 800);

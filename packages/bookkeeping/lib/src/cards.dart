@@ -69,6 +69,9 @@ final class CardBook<T extends CardTransaction> {
   Future<CommandOutcome<PublicId>> refund(RefundCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _refund(t, command)));
 
+  Future<CommandOutcome<PublicId>> adjust(AdjustCard command) =>
+      _runner.run(command, (t) => _guard(() => _adjust(t, command)));
+
   Future<CommandOutcome<PublicId>> voidCharge(VoidCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _voidCharge(t, command)));
 
@@ -138,6 +141,68 @@ final class CardBook<T extends CardTransaction> {
     await t.saveCardCharge(credit);
     await _event(t, workspace, 'card.posted', _charge(credit));
     return postingId;
+  }
+
+  Future<PublicId> _adjust(T t, AdjustCard command) async {
+    final workspace = command.operation.workspace;
+    final card = await _card(t, command.card.id, command.operation);
+    await _books._requireNewPosting(t, command.postingId);
+    if (await t.cardCharge(command.chargeId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'card.charge-exists');
+    }
+    if (command.amount.currency != card.currency) {
+      throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
+    }
+    final fee = command.kind == CardAdjustment.fee;
+    final account = await _books._postable(
+      t,
+      command.card,
+      workspace,
+      command.amount.currency,
+      command.postedOn,
+      card: true,
+    );
+    final allocations = await _books._allocations(
+      t,
+      workspace,
+      fee ? CashFlow.expense : CashFlow.income,
+      command.allocations,
+    );
+    final posting = fee
+        ? Posting.expense(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.postedOn,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          )
+        : Posting.income(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.postedOn,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          );
+    await _books._savePosting(t, posting, PostingMetadata.none);
+    final pending = CardCharge.pending(
+      id: command.chargeId,
+      workspace: workspace,
+      cardId: card.id,
+      kind: fee ? CardChargeKind.fee : CardChargeKind.credit,
+      authorizedOn: command.postedOn,
+      authorizedAmount: command.amount,
+    );
+    final adjustment = pending.post(
+      postedOn: command.postedOn,
+      settledAmount: command.amount,
+      fee: Money(card.currency, BigInt.zero),
+      ledgerEventId: posting.id,
+    );
+    await t.saveCardCharge(adjustment);
+    await _event(t, workspace, 'card.posted', _charge(adjustment));
+    return posting.id;
   }
 
   Future<PublicId> _voidCharge(T t, VoidCardCharge command) async {

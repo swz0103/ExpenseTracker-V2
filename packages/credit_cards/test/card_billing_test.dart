@@ -784,4 +784,46 @@ void main() {
       throwsA(isA<CreditCardException>()),
     );
   });
+
+  test('issuer fees and credits change what is due', () {
+    CardCharge issuer(CardChargeKind kind, String amount) {
+      final pending = CardCharge.pending(
+        id: PublicId.generate(),
+        workspace: space,
+        cardId: card,
+        kind: kind,
+        authorizedOn: BusinessDate(2028, 2, 20),
+        authorizedAmount: Money.parse(twd, amount),
+      );
+      return pending.post(
+        postedOn: BusinessDate(2028, 2, 20),
+        settledAmount: Money.parse(twd, amount),
+        fee: Money.parse(twd, '0'),
+        ledgerEventId: PublicId.generate(),
+      );
+    }
+
+    final charges = [
+      issuer(CardChargeKind.fee, '1200'),
+      issuer(CardChargeKind.credit, '35'),
+    ];
+    final feb = CardStatement.calculate(
+      terms: terms,
+      cycle: terms.cycleFor(BusinessDate(2028, 2, 20)),
+      charges: charges,
+      payments: [],
+    );
+    expect(feb.fees.majorText, '1200.00');
+    expect(feb.credits.majorText, '35.00');
+    expect(feb.remainingDue.majorText, '1165.00');
+    final march = CardStatement.calculate(
+      terms: terms,
+      cycle: terms.cycleFor(BusinessDate(2028, 3, 20)),
+      charges: charges,
+      payments: [],
+    );
+    expect(march.carriedOver.majorText, '1165.00');
+    final left = remainingCredit(terms: terms, charges: charges, payments: []);
+    expect(left!.majorText, '8835.00');
+  });
 }

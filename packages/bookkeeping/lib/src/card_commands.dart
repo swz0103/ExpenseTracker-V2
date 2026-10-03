@@ -346,3 +346,49 @@ final class VoidCardPayment extends _IdResult {
     'reversalId': reversalId.value,
   };
 }
+
+/// What the issuer itself put on the card.
+enum CardAdjustment {
+  /// An annual fee, late fee or interest: spending.
+  fee,
+
+  /// Cashback or a waived fee: income.
+  credit,
+}
+
+/// Books a fee or credit from the issuer on the card, for example the
+/// annual fee or cashback (health check G6-12).
+final class AdjustCard extends _IdResult {
+  AdjustCard({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.postingId,
+    required this.card,
+    required this.postedOn,
+    required this.kind,
+    required this.amount,
+    this.allocations = const [],
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId postingId;
+  final AccountRef card;
+  final BusinessDate postedOn;
+  final CardAdjustment kind;
+  final Money amount;
+
+  /// Expense categories for a fee, income categories for a credit.
+  final List<CategoryShare> allocations;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'adjust-card-v1',
+    'chargeId': chargeId.value,
+    'postingId': postingId.value,
+    'card': card.toJson(),
+    'postedOn': postedOn.toString(),
+    'kind': kind.name,
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+  };
+}

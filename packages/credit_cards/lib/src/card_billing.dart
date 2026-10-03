@@ -406,7 +406,16 @@ final class CardCycle {
       close.compareTo(scheduledClose) <= 0;
 }
 
-enum CardChargeKind { purchase, refund }
+enum CardChargeKind {
+  purchase,
+  refund,
+
+  /// Charged by the issuer itself: an annual fee, late fee or interest.
+  fee,
+
+  /// Credited by the issuer itself: cashback or a waived fee (G6-12).
+  credit,
+}
 
 /// Pending is only an authorization; only a posted charge has a Ledger event.
 final class CardCharge {
@@ -466,6 +475,10 @@ final class CardCharge {
   /// (feature audit G-09).
   final Money? foreignAmount;
   bool get isPosted => ledgerEventId != null;
+
+  /// True when it adds to what is owed: a purchase or an issuer fee.
+  bool get raisesBalance =>
+      kind == CardChargeKind.purchase || kind == CardChargeKind.fee;
 
   /// A posting is a separate confirmed fact: its date and currency may differ
   /// from the authorization. It replaces the pending estimate, never adds a
@@ -596,6 +609,7 @@ final class CardStatement {
     required this.purchases,
     required this.installmentsDue,
     required this.refunds,
+    required this.credits,
     required this.fees,
     required this.payments,
     required this.remainingDue,
@@ -616,6 +630,7 @@ final class CardStatement {
     var installmentsDue = Money(terms.currency, BigInt.zero);
     var purchases = Money(terms.currency, BigInt.zero);
     var refunds = Money(terms.currency, BigInt.zero);
+    var credits = Money(terms.currency, BigInt.zero);
     var fees = Money(terms.currency, BigInt.zero);
     var paid = Money(terms.currency, BigInt.zero);
     // What earlier statements left unpaid, or overpaid when negative
@@ -679,7 +694,7 @@ final class CardStatement {
       }
       if (charge.postedOn!.compareTo(cycle.startsAfter) <= 0) {
         if (plan == null) {
-          carried += charge.kind == CardChargeKind.purchase
+          carried += charge.raisesBalance
               ? charge.settledAmount!
               : -charge.settledAmount!;
         }
@@ -687,11 +702,16 @@ final class CardStatement {
         continue;
       }
       if (!cycle.includes(charge.postedOn!)) continue;
-      if (charge.kind == CardChargeKind.purchase) {
-        // A planned purchase is billed through installmentsDue above.
-        if (plan == null) purchases += charge.settledAmount!;
-      } else {
-        refunds += charge.settledAmount!;
+      switch (charge.kind) {
+        case CardChargeKind.purchase:
+          // A planned purchase is billed through installmentsDue above.
+          if (plan == null) purchases += charge.settledAmount!;
+        case CardChargeKind.refund:
+          refunds += charge.settledAmount!;
+        case CardChargeKind.fee:
+          fees += charge.settledAmount!;
+        case CardChargeKind.credit:
+          credits += charge.settledAmount!;
       }
       fees += charge.fee!;
     }
@@ -716,13 +736,15 @@ final class CardStatement {
         carried -= payment.amount;
       }
     }
-    final net = carried + purchases + installmentsDue - refunds + fees - paid;
+    final net =
+        carried + purchases + installmentsDue - refunds - credits + fees - paid;
     return CardStatement._(
       cycle: cycle,
       carriedOver: carried,
       installmentsDue: installmentsDue,
       purchases: purchases,
       refunds: refunds,
+      credits: credits,
       fees: fees,
       payments: paid,
       remainingDue: net.minorUnits.isNegative
@@ -745,6 +767,9 @@ final class CardStatement {
   /// fees included.
   final Money installmentsDue;
   final Money refunds;
+
+  /// Cashback and waived fees credited by the issuer.
+  final Money credits;
   final Money fees;
   final Money payments;
   final Money remainingDue;
@@ -768,7 +793,8 @@ final class CardStatement {
         carriedOver.minorUnits +
         purchases.minorUnits +
         installmentsDue.minorUnits -
-        refunds.minorUnits +
+        refunds.minorUnits -
+        credits.minorUnits +
         fees.minorUnits;
     if (owed <= BigInt.zero) return Money(currency, BigInt.zero);
     final fixed = installmentsDue.minorUnits + fees.minorUnits;
@@ -876,7 +902,7 @@ Money? remainingCredit({
       if (charge.settledAmount!.currency != terms.currency) {
         throw const CreditCardException(CreditCardError.currencyMismatch);
       }
-      used += charge.kind == CardChargeKind.purchase
+      used += charge.raisesBalance
           ? charge.settledAmount!.minorUnits
           : -charge.settledAmount!.minorUnits;
       used += charge.fee!.minorUnits;
