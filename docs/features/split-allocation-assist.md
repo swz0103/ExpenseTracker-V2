@@ -1,5 +1,7 @@
 # 拆分的平均、百分比與固定比例分配
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28：由 [PR #56](https://github.com/swz0103/ExpenseTracker-V2/pull/56)（`d6c1a24fed4e6cfd5116bd1253e8a183214916f1`）接續。[手動多分類拆分](split-entry-drafts.md)已具備金額保存、凍結送出與明細；本批補上 [Full Vision FV-016](../architecture/full-vision-baseline.md#fv-016) 已列出的三種分配方式，對應 [RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 M1-04。
 
 ## 使用流程

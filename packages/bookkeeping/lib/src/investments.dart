@@ -168,7 +168,11 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       throw const AppFailure(FailureKind.notFound, 'investment.not-found');
     }
     final trades = await t.trades(account.id, instrument.id);
-    final lots = InvestmentRecords.openLots(trades);
+    _requireInOrder(trades, command.effectiveOn);
+    final lots = _heldOn(
+      InvestmentRecords.openLots(trades),
+      command.effectiveOn,
+    );
     final preview = StockSplitPreview.create(
       id: command.splitId,
       operation: command.operation,
@@ -270,6 +274,10 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     final context = await _context(t, command.operation, command.target);
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
+    _requireInOrder(
+      await t.trades(context.account.id, context.instrument.id),
+      command.tradedOn,
+    );
     final preview = InvestmentBuyPreview.create(
       id: command.buyId,
       lotId: command.lotId,
@@ -320,7 +328,8 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
     final trades = await t.trades(context.account.id, context.instrument.id);
-    final lots = InvestmentRecords.openLots(trades);
+    _requireInOrder(trades, command.tradedOn);
+    final lots = _heldOn(InvestmentRecords.openLots(trades), command.tradedOn);
     if (lots.isEmpty) {
       throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
     }
@@ -430,6 +439,27 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     });
     return posting.id;
   }
+
+  /// Sells and splits record the lots they changed, so nothing may be
+  /// booked before the latest of them; void the later ones first
+  /// (health check G2-05).
+  void _requireInOrder(List<Map<String, Object?>> trades, BusinessDate date) {
+    for (final trade in trades) {
+      if ((trade['kind'] == 'sell' || trade['kind'] == 'split') &&
+          BusinessDate.parse(trade['date']! as String).compareTo(date) > 0) {
+        throw const AppFailure(FailureKind.rejected, 'investment.backdated');
+      }
+    }
+  }
+
+  /// Only lots bought by [date] can be sold or split on it.
+  List<InvestmentHoldingLot> _heldOn(
+    List<InvestmentHoldingLot> lots,
+    BusinessDate date,
+  ) => [
+    for (final lot in lots)
+      if (lot.acquiredOn.compareTo(date) <= 0) lot,
+  ];
 
   Future<_TradeContext> _context(
     T t,

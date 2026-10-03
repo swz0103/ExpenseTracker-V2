@@ -1,5 +1,7 @@
 # 手動收支草稿與恢復
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28 更新：下列保留原始單筆收支草稿批次紀錄。後續在同一加密 slot 接入[同幣轉帳](same-currency-transfers.md)、[跨幣轉帳](cross-currency-transfers.md)及[多分類拆分](split-entry-drafts.md)的獨立版本格式；目前正式帳本為 schema 9／snapshot 8。加密、凍結命令與備份 gate 原則繼續適用，具體證據依各批次區分。
 
 來源：M1-02、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[Q072](../architecture/full-vision-baseline.md#q072)、[Q155](../architecture/full-vision-baseline.md#q155)。依賴 [安全複製收支](safe-posting-copy.md)／PR #48。

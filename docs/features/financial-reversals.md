@@ -1,5 +1,7 @@
 # 正式撤銷交易
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 範圍：M1-04、[FV-008](../architecture/full-vision-baseline.md#fv-008)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 [Foundation 契約](../foundation/foundation-contracts.md)。本批提供收入、支出、同幣／跨幣轉帳的完整反向入帳；一般欄位編輯、原子更正與替代、tombstone、信用卡跨期沖回仍依 實作安排 接續，未宣稱整個 M1-04 完成。
 
 ## 財務語意

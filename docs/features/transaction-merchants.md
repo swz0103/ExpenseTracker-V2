@@ -1,5 +1,7 @@
 # 商家與基本別名
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 **狀態：全流程、完整本機回歸與大量資料驗證通過；雲端與實機尚未驗收。**
 
 [商家 PR #47](https://github.com/swz0103/ExpenseTracker-V2/pull/47) 接續 [Tag PR #46](https://github.com/swz0103/ExpenseTracker-V2/pull/46)（`10a49ba7ad67ee7d0dbca2a4c0e8a4000e3f3b9b`）。Domain、保存、Ledger 引用、升級與畫面集中在同一功能單位。來源：M1-02、[RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-012](../architecture/full-vision-baseline.md#fv-012)、[Q062](../architecture/full-vision-baseline.md#q062)。

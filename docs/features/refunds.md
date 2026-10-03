@@ -1,5 +1,7 @@
 # 原支出退款與可恢復送出
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28：由 [PR #57](https://github.com/swz0103/ExpenseTracker-V2/pull/57)（`fabe6b83f8aee0e7aaa4f8e0341ab336de37e61a`）接續。對應 [Full Vision FV-007](../architecture/full-vision-baseline.md#fv-007)、[FV-014](../architecture/full-vision-baseline.md#fv-014)、[FV-016](../architecture/full-vision-baseline.md#fv-016)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 M1-04。沿用已選 1A：退款在退款日期沖減原幣消費，保留原消費與退款各自事件。
 
 ## 使用流程

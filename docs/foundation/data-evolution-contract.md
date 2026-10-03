@@ -1,5 +1,7 @@
 # 資料版本與升級前備份契約
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 狀態：階段 0 工程契約；描述正式接入所需行為，尚未實作完整升級協調器。既有 host 原型只提供文末明列的部分證據。
 
 追溯：[工程規格第 7 節](foundation-contracts.md#7-migration-與備份契約)、[RC-14](../architecture/architecture-baseline-v1.0-rc1.md#rc-14)、[RC-22](../architecture/architecture-baseline-v1.0-rc1.md#rc-22)、[Full Vision Q118](../architecture/full-vision-baseline.md#q118)、[Q119](../architecture/full-vision-baseline.md#q119)、[Q120](../architecture/full-vision-baseline.md#q120)。延續按業務拆分、共用 SQLite transaction，以及密碼／文字救援兩條還原路徑，不引入通用 migration 工作流引擎。

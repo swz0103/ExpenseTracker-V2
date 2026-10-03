@@ -1,5 +1,7 @@
 # 多分類拆分、加密草稿與明細
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28：依賴 [PR #55](https://github.com/swz0103/ExpenseTracker-V2/pull/55)，實作 M1-04 的拆分收支使用流程。Ledger 與 Money 原則追溯 [Architecture Baseline rc1](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 [Full Vision FV-016](../architecture/full-vision-baseline.md#fv-016)／[Q006](../architecture/full-vision-baseline.md#q006)。退款、更正、撤銷、刪除與活動歷史仍另批完成，不把拆分完成等同 M1-04 全部完成。
 
 ## 已接入的行為

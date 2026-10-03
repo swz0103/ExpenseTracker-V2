@@ -1,5 +1,7 @@
 # 金額欄內建計算器
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 範圍：M1-02／[Full Vision Q025](../architecture/full-vision-baseline.md#q025)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[RC-04](../architecture/architecture-baseline-v1.0-rc1.md#rc-04)。本批交付期初餘額及手動收支金額的完整計算、套用、草稿與入帳路徑；不代表 M1 或 Design System 全部完成。
 
 ## 使用流程

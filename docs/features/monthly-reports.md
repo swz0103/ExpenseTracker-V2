@@ -1,5 +1,7 @@
 # M1-05：月度收支與分類
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 月度收支以 Ledger 已提交交易的權威報表影響值重建，沒有另存一份可能過期的合計。查閱月份使用交易的民用日期；首頁預設手機當地曆法的目前月份，即使本月沒有收支也能開啟明細查看其他月份。尚未提供工作區時區設定或跨幣估值。本批對應 [RC-13 Reports](../architecture/architecture-baseline-v1.0-rc1.md#rc-13) 的收支讀取子集；完整互動報表願景仍見 [FV-091](../architecture/full-vision-baseline.md#fv-091)。
 
 ## 財務口徑

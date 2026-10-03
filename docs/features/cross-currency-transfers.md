@@ -1,5 +1,7 @@
 # 跨幣轉帳、實際本金與可追溯換算
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28；依賴 [PR #54](https://github.com/swz0103/ExpenseTracker-V2/pull/54) 的[同幣轉帳](same-currency-transfers.md)。對應 M1-03、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 與 [Full Vision](../architecture/full-vision-baseline.md)；完整核心範圍仍以 Baseline 為準。
 
 ## 使用流程與財務規則

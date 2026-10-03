@@ -429,4 +429,19 @@ void main() {
     open();
     expect(ledger.holdings(brokerage, apple), hasLength(1));
   });
+
+  test('trades stay in date order around sells', () async {
+    await buy('10', '150', 150000);
+    await buy('5', '160', 80000, on: BusinessDate(2026, 10, 30));
+    // On the 20th only the first lot was held.
+    await expectLater(
+      sell('12', '170', 204000),
+      fails(FailureKind.rejected, 'investment.oversell'),
+    );
+    await sell('3', '160', 48000);
+    await expectLater(
+      buy('1', '150', 15000, on: BusinessDate(2026, 10, 10)),
+      fails(FailureKind.rejected, 'investment.backdated'),
+    );
+  });
 }

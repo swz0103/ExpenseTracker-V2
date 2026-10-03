@@ -1,5 +1,7 @@
 # 交易純文字備註與修訂
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 本批屬於 M1-04，接續 [正式撤銷](financial-reversals.md)。追溯 [Full Vision Q015](../architecture/full-vision-baseline.md#q015)、[Q151](../architecture/full-vision-baseline.md#q151)；金額更正／替代、tombstone 與完整 M1 gate 仍延後。
 
 ## 行為與邊界
