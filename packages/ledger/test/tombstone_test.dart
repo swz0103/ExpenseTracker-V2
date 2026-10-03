@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final workspace = WorkspaceId(PublicId.generate());
   final usd = Currency('USD', 2), jpy = Currency('JPY', 0);
@@ -57,25 +59,41 @@ void main() {
       account: source,
       amount: Money.parse(usd, '10'),
     );
-    for (final make in [
-      () => PostingTombstone(original: opening, operation: op()),
-      () => PostingTombstone(original: original, operation: original.operation),
-      () => PostingTombstone(
-        original: original,
-        operation: op(WorkspaceId(PublicId.generate())),
+    final other = op(WorkspaceId(PublicId.generate()));
+    for (final (make, code) in [
+      (
+        () => PostingTombstone(original: opening, operation: op()),
+        LedgerError.tombstoneReference,
       ),
-      () => PostingTombstone(
-        original: original,
-        operation: op(),
-        reason: ' trailing ',
+      (
+        () => PostingTombstone(
+          original: original,
+          operation: original.operation,
+        ),
+        LedgerError.tombstoneReference,
       ),
-      () => PostingTombstone(
-        original: original,
-        operation: op(),
-        reason: '字' * 257,
+      (
+        () => PostingTombstone(original: original, operation: other),
+        LedgerError.workspaceMismatch,
+      ),
+      (
+        () => PostingTombstone(
+          original: original,
+          operation: op(),
+          reason: ' trailing ',
+        ),
+        LedgerError.tombstoneReference,
+      ),
+      (
+        () => PostingTombstone(
+          original: original,
+          operation: op(),
+          reason: '字' * 257,
+        ),
+        LedgerError.tombstoneReference,
       ),
     ]) {
-      expect(make, throwsA(isA<LedgerException>()));
+      expect(make, fails(code));
     }
     expect(
       PostingTombstone(

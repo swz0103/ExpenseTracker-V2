@@ -2,6 +2,8 @@ import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final space = WorkspaceId(PublicId.generate());
   final card = PublicId.generate();
@@ -105,7 +107,7 @@ void main() {
         fee: Money.parse(twd, '0'),
         ledgerEventId: PublicId.generate(),
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.alreadyPosted),
     );
   });
 
@@ -388,7 +390,7 @@ void main() {
         charges: [orphan],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
   });
 
@@ -446,7 +448,7 @@ void main() {
         ],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
     expect(
       () => CardStatement.calculate(
@@ -455,7 +457,7 @@ void main() {
         charges: [purchase, refund('1', BusinessDate(2028, 2, 20))],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
   });
 
@@ -486,7 +488,7 @@ void main() {
         ],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.duplicateIdentity),
     );
     expect(
       () => CardStatement.calculate(
@@ -497,7 +499,7 @@ void main() {
         ],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.workspaceMismatch),
     );
   });
 
@@ -687,7 +689,7 @@ void main() {
         dueDay: 20,
         from: BusinessDate(2028, 4, 6),
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
 
     // The issuer closed March two days late.
@@ -712,7 +714,7 @@ void main() {
         closesOn: BusinessDate(2028, 3, 27),
         dueOn: BusinessDate(2028, 4, 11),
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
 
     const codec = CreditCardTermsCodec();
@@ -776,12 +778,12 @@ void main() {
         charges: [purchase, back, extra],
         payments: [],
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
     final local = refund(Money.parse(twd, '10'), '10');
     expect(
       () => refundableOf(purchase, [local]),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.currencyMismatch),
     );
   });
 

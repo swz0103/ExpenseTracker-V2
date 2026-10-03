@@ -60,7 +60,13 @@ void main() {
         v2,
         ['NOT SQL'],
       ]),
-      throwsA(isA<SqliteException>()),
+      throwsA(
+        isA<SqliteException>().having(
+          (e) => e.message,
+          'message',
+          contains('syntax error'),
+        ),
+      ),
     );
     final store = open([v1, v2]);
     expect(store.moduleVersion('notes'), 2);

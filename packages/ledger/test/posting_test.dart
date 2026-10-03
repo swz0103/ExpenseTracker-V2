@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final workspace = WorkspaceId(PublicId.generate());
   final usd = Currency('USD', 2);
@@ -450,7 +452,7 @@ void main() {
       );
       expect(
         () => rebuildBalance(a, [max, positive]),
-        throwsA(isA<MoneyException>()),
+        overflows,
       );
     },
   );

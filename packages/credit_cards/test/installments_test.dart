@@ -2,6 +2,8 @@ import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final twd = Currency('TWD', 2);
   CardInstallmentSchedule schedule({
@@ -45,14 +47,14 @@ void main() {
   test('rejects nonpositive, mismatched, or impossible schedule', () {
     expect(
       () => schedule(principal: '0.01'),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
-    expect(() => schedule(fee: '-0.01'), throwsA(isA<CreditCardException>()));
-    expect(() => schedule(count: 1), throwsA(isA<CreditCardException>()));
-    expect(() => schedule(count: 121), throwsA(isA<CreditCardException>()));
+    expect(() => schedule(fee: '-0.01'), fails(CreditCardError.invalidInput));
+    expect(() => schedule(count: 1), fails(CreditCardError.invalidInput));
+    expect(() => schedule(count: 121), fails(CreditCardError.invalidInput));
     expect(
       () => schedule(firstScheduledClose: BusinessDate(9999, 12, 31)),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
     expect(
       () => CardInstallmentSchedule(
@@ -65,11 +67,11 @@ void main() {
         closingDay: 31,
         count: 2,
       ),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
     expect(
       () => schedule(principal: '92233720368547758.07', fee: '0.01'),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
   });
 
@@ -83,7 +85,7 @@ void main() {
     ]);
     expect(
       () => schedule(firstScheduledClose: BusinessDate(2028, 2, 28)),
-      throwsA(isA<CreditCardException>()),
+      fails(CreditCardError.invalidInput),
     );
   });
 

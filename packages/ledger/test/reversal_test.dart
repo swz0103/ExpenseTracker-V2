@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final ws = WorkspaceId(PublicId.generate()),
       usd = Currency('USD', 2),
@@ -82,15 +84,21 @@ void main() {
       account: x,
       amount: amount,
     );
-    for (final make in [
-      () => rev(p, id: p.id),
-      () => rev(p, key: op(WorkspaceId(PublicId.generate()))),
-      () => rev(p, when: BusinessDate(2026, 9, 27)),
-      () => rev(p, reason: ' bad '),
-      () => rev(p, reason: '字' * 257),
-      () => rev(rev(p)),
+    for (final (make, code) in [
+      (() => rev(p, id: p.id), LedgerError.reversalReference),
+      (
+        () => rev(p, key: op(WorkspaceId(PublicId.generate()))),
+        LedgerError.workspaceMismatch,
+      ),
+      (
+        () => rev(p, when: BusinessDate(2026, 9, 27)),
+        LedgerError.reversalReference,
+      ),
+      (() => rev(p, reason: ' bad '), LedgerError.reversalReference),
+      (() => rev(p, reason: '字' * 257), LedgerError.reversalReference),
+      (() => rev(rev(p)), LedgerError.reversalReference),
     ])
-      expect(make, throwsA(isA<LedgerException>()));
+      expect(make, fails(code));
     expect(rev(p, reason: '字' * 256).reversalReason!.length, 256);
   });
   test('an opening or a refund can be reversed exactly', () {
