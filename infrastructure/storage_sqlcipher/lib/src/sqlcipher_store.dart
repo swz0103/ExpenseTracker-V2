@@ -85,6 +85,7 @@ final class StoredEvent {
 }
 
 final _kindPattern = RegExp(r'^[a-z][a-z0-9.\-]{0,63}$');
+const _outboxPage = 'SELECT * FROM outbox ORDER BY seq LIMIT ?';
 
 /// One encrypted SQLite database in WAL mode holding the append-only event
 /// journal, the operation journal and the outbox.
@@ -137,36 +138,18 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
     int limit = 500,
   }) {
     _requireOpen();
-    return [
-      for (final row in _db.select(
-        'SELECT * FROM events WHERE workspace = ? AND seq > ? '
-        'ORDER BY seq LIMIT ?',
-        [workspace.toString(), afterSeq, limit],
-      ))
-        StoredEvent(
-          seq: row['seq'] as int,
-          id: PublicId.parse(row['id'] as String),
-          workspace: WorkspaceId.parse(row['workspace'] as String),
-          kind: row['kind'] as String,
-          payload: row['payload'] as String,
-        ),
-    ];
+    final rows = _db.select(
+      'SELECT * FROM events WHERE workspace=? AND seq>? ORDER BY seq LIMIT ?',
+      [workspace.toString(), afterSeq, limit],
+    );
+    return rows.map(_event).toList();
   }
 
   /// Committed outbox messages in commit order.
   List<OutboxMessage> pendingOutbox({int limit = 50}) {
     _requireOpen();
-    return [
-      for (final row in _db.select(
-        'SELECT id, topic, payload FROM outbox ORDER BY seq LIMIT ?',
-        [limit],
-      ))
-        OutboxMessage(
-          id: PublicId.parse(row['id'] as String),
-          topic: row['topic'] as String,
-          payload: row['payload'] as String,
-        ),
-    ];
+    final rows = _db.select(_outboxPage, [limit]);
+    return rows.map(_message).toList();
   }
 
   /// Removes a delivered outbox message.
@@ -211,6 +194,24 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
 
   void _requireOpen() {
     if (_closed) throw StateError('Store is closed.');
+  }
+
+  static StoredEvent _event(Row row) {
+    return StoredEvent(
+      seq: row['seq'] as int,
+      id: PublicId.parse(row['id'] as String),
+      workspace: WorkspaceId.parse(row['workspace'] as String),
+      kind: row['kind'] as String,
+      payload: row['payload'] as String,
+    );
+  }
+
+  static OutboxMessage _message(Row row) {
+    return OutboxMessage(
+      id: PublicId.parse(row['id'] as String),
+      topic: row['topic'] as String,
+      payload: row['payload'] as String,
+    );
   }
 
   static void _configure(Database db, StorageKey key) {
@@ -283,8 +284,7 @@ final class SqlTransaction implements WriteTransaction {
   Future<RecordedOperation?> findOperation(OperationKey key) async {
     _requireOpen();
     final rows = _db.select(
-      'SELECT input, result FROM operations '
-      'WHERE workspace = ? AND operation_id = ?',
+      'SELECT * FROM operations WHERE workspace = ? AND operation_id = ?',
       [key.workspace.toString(), key.operation.toString()],
     );
     if (rows.isEmpty) return null;
@@ -299,8 +299,7 @@ final class SqlTransaction implements WriteTransaction {
   Future<void> recordOperation(RecordedOperation operation) async {
     _requireOpen();
     _db.execute(
-      'INSERT INTO operations (workspace, operation_id, input, result) '
-      'VALUES (?, ?, ?, ?)',
+      'INSERT INTO operations VALUES (?, ?, ?, ?)',
       [
         operation.key.workspace.toString(),
         operation.key.operation.toString(),
