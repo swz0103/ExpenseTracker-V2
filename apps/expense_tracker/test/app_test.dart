@@ -28,11 +28,9 @@ void main() {
     await tester.tap(find.text('記一筆'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('record-amount')), '1,000');
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(const Key('record-save')));
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    });
+    await tester.tap(find.byKey(const Key('record-save')));
     await tester.pumpAndSettle();
+    expect(find.text('2,295.00'), findsOneWidget);
     expect(find.text('NT\$ 54,295.00'), findsOneWidget);
   });
 

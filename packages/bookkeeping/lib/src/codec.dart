@@ -178,8 +178,6 @@ abstract final class PostingCodec {
           'tax': dividend.withholdingTax.toJson(),
           'cash': dividend.cashCredit.toJson(),
         };
-      default:
-        throw StateError('unreachable');
     }
   }
 
@@ -336,8 +334,6 @@ abstract final class PostingCodec {
             cashCredit: cash,
           ),
         };
-      default:
-        throw const CodecException('kind');
     }
   });
 

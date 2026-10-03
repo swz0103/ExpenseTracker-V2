@@ -6,14 +6,8 @@ void main() {
   test('response budgets come from the provider rules', () {
     expect(IoMarketTransport.maximumResponseBytes, marketResponseLimit);
     expect(IoFugleMarketTransport.maximumResponseBytes, fugleResponseLimit);
-    expect(
-      IoTwelveDataTransport.maximumResponseBytes,
-      twelveDataResponseLimit,
-    );
-    expect(
-      IoYahooChartTransport.maximumResponseBytes,
-      yahooChartResponseLimit,
-    );
+    expect(IoTwelveDataTransport.maximumResponseBytes, twelveDataResponseLimit);
+    expect(IoYahooChartTransport.maximumResponseBytes, yahooChartResponseLimit);
   });
 
   test('Yahoo transport refuses hosts other than the chart endpoint', () {

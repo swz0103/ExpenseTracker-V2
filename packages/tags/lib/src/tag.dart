@@ -192,7 +192,7 @@ final class TagCatalog {
 
   Tag _mutable(WorkspaceId workspace, PublicId id, int expectedVersion) {
     final row = _check(workspace, id, expectedVersion);
-    if (row.version == 9223372036854775807) {
+    if (row.version >= _maxSafeVersion) {
       throw const TagException(TagError.versionConflict);
     }
     if (row.replacementId != null) {
@@ -236,3 +236,7 @@ String _name(String value) {
   }
   return result;
 }
+
+/// The largest version that can still be incremented exactly on every
+/// platform, including the web, where integers are doubles.
+const _maxSafeVersion = 9007199254740991;
