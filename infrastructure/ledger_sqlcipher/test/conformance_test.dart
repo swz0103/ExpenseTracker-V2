@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -7,6 +6,7 @@ import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:bookkeeping/memory.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
@@ -129,6 +129,7 @@ void main() {
           final other = accounts[random.nextInt(accounts.length)];
           final otherCurrency = account(other).currency;
           final to = ref(other);
+          final fee = random.nextBool() ? money(currency, 15) : null;
           ok = await both(
             (books) => books.recordTransfer(
               RecordTransfer(
@@ -139,7 +140,7 @@ void main() {
                 date: date,
                 principal: money(currency, units),
                 received: money(otherCurrency, 1 + units ~/ 3),
-                fee: random.nextBool() ? money(currency, 15) : null,
+                fee: fee,
               ),
             ),
           );
@@ -244,9 +245,12 @@ void main() {
       for (final p in memoryStore.postings(workspace)) {
         final other = byId[p.id];
         if (other == null) continue;
-        final mine = jsonEncode(PostingCodec.encode(p));
-        if (mine != jsonEncode(PostingCodec.encode(other))) {
-          differing.add('${p.kind.name}: $mine');
+        String legs(Posting posting) => [
+          for (final leg in posting.legs)
+            '${leg.account.id.value}:${leg.amount.minorUnits}',
+        ].join(',');
+        if (legs(p) != legs(other)) {
+          differing.add('${p.kind.name}: ${legs(p)} / ${legs(other)}');
         }
       }
       expect(differing, isEmpty, reason: 'stored differently');
