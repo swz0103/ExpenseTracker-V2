@@ -44,7 +44,7 @@ InvestmentInstrument stock({
   marketCode: market,
   symbol: symbol,
   name: symbol,
-  tradingCurrency: Currency(currency, 2),
+  tradingCurrency: Currency.of(currency),
 );
 
 void main() {

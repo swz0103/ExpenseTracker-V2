@@ -32,6 +32,48 @@
 - [x] Google Drive 上傳佇列（`infrastructure/drive_backup`）：分塊續傳（session 存在資料庫，重開 App 也從 Drive 已收到的位置接著傳）、上傳完成核對大小與 SHA-256 後刪本機副本、失敗或卡住的上傳不擋新備份、可放棄／重試、過期 token 自動換一次、備份清單略過壞掉的項目（健檢 G8-03、G8-11、G8-14、G8-17、G8-22）。
 - [x] 備份服務（`infrastructure/backup_service`）：是否該備份、備份、上傳、保留最近 N 份（只依本機紀錄的時間，健檢 G8-07）、備份健康狀態、從 Drive 還原並核對備份 ID。
 
+## 總待辦（不可遺漏，依優先順序；做完打勾）
+
+健檢 189 條逐條對照現況（2026-10-03）：已修 63、隨舊 App 失效 54、待修 54、部分 18。下面是所有待修與部分完成的項目，加上測試檢查找到的問題。
+
+### A. 現有程式的錯誤（先修）
+- [ ] App 每次送出都產生新 OperationKey，結果不明時重試會重複入帳；改成表單開啟就固定 key 與 ID（G3-03、G4-10、G4-17）。
+- [ ] 撤銷用今天日期會把上個月的支出移到本月；沖銷固定在原日期（G1-05、G5-17）。
+- [ ] 刪除定期交易產生的分錄後，該期永遠顯示已確認（G6-08）。
+- [ ] 跨幣退款時帳戶月報列的幣別錯置（G6-18）。
+
+### B. 功能缺口
+- [ ] 信用卡刷卡、投資交易不能作廢或更正；沒有卡片退款、手續費、回饋（G6-04、G1-02、G6-12）。
+- [ ] 帳單沒有前期結轉、手續費只能加、繳款要求結帳日完全相同（G2-12）；結帳日早的卡繳款日晚一個月（G2-08）；分期計畫自存結帳日（G2-24）。
+- [ ] 投資：成本法未鎖定（G2-25）、全部賣出後仍可記股利（G7-22）、同日 FIFO 依 UUID（G2-19）、重播依寫入順序而非交易日（G2-05）、淨額為 0 或負的賣出與股利（G1-06）、券商帳戶商品不能改名（G7-14）、配股減資反向分割（G2-16）。
+- [ ] 跨幣摘要用今日匯率換算歷史成本（G2-01）；XIRR 多數情況回 ambiguous、用 365.25（G2-02、G2-21）。
+- [ ] 備份排程與背景喚醒（G3-13）；4b-2 Android 平台、Keystore、固定簽章（G9-01、G3-21）。
+- [x] 舊資料匯入（G6-01）：使用者確認沒有舊資料，當新 App，不做。
+
+### C. 行情（market_data，目前 App 未接上；決定保留或刪除後再處理）
+- [ ] 解析錯誤：指數、浮點、代號白名單、TPEx（G2-06、G2-07、G2-09、G2-15）；匯率沒有時效上限（G2-10、G1-17）；效能（G2-03、G2-13、G2-14）；Yahoo 的 ADR-06（G2-17、G9-12）；其他（G2-22、G2-23、G2-26）。
+
+### D. 架構與 CI
+- [ ] 單一 isolate 擁有資料庫（G7-10）；測試替身不放 lib 或禁止 App 引用（G7-16）。
+- [ ] `web-preview` 拆成建置與發佈兩個 job（G9-14）；main 的 CI 不互相取消（G9-09）；`.gitignore` 加 `*.apk`、`*.aab`（G9-20）。
+- [ ] 舊 Domain 套件加 lint、清掉 `throwsA(anything)`、inventory 對照檔案系統（G9-16、G1-15）。
+- [ ] 重複的 catalog 程式合併（G1-12）；App 寫死 TWD、沒有分頁、字串進 l10n（G4-23、G4-22、G4-13）。
+- [ ] 決定未使用套件的去留：`entry_drafts`、`amount_input`、`data_exchange`、`market_data`／`market_adapters`、`investments` 的 preview codec 與 XIRR／績效、`reports` 的 MonthlyReport／AssetReport、`ledger` 的搜尋（G1-11、G2-20）。
+
+### E. 測試品質（測試檢查）
+- [ ] bookkeeping 套件自身測試太少：codec 沒測退款與投資種類、catalog codec 沒測、MemoryBookkeeping 沒有和 SQLCipher 版本對照。
+- [ ] 錯誤只斷言型別不斷言代碼：tags、merchants、ledger、credit_cards、backup_security、storage_sqlcipher 的改寫保護。
+- [ ] 不會失敗的測試：信用卡帳期一律 31 日結帳、預算 maxSelections 永遠達不到、tombstone 測試、market_adapters 常數測試、ledger_vault workspace 自比、bookkeeping 月報對照複製正式邏輯、規模測試吞掉沖銷錯誤。
+- [ ] 缺少的測試：資料庫 migration（帶資料從舊版升級）、posting 與 migration 中途被殺行程（G5-03、G6-09）、Drive 錯誤對應與分頁（假 Drive 要更像真的）、`IoDriveTransport`（G5-09、G8-16）、備份 invalidContent／unsupportedVersion、還原失敗時清掉暫存、`Account.restore` 規則、重疊寫入的 StateError、完整功能的備份來回（G5-05）、拒絕案例表格（G5-06）。
+- [ ] 實機效能數據（G5-13）、真實行情資料（G2-18）。
+
+### F. 文件
+- [ ] 各套件 README、`docs/foundation/*`、`docs/delivery/google-drive-setup.md` 過期（G1-16、G7-19、G8-15、G9-15）。
+
+### G. 功能全面檢查（使用者要求）
+- [x] 台幣、日圓、韓圓用整數；只保留 14 種常用幣別（G1-08）。
+- [ ] 逐項功能走一遍找改進點，結果補進本表。
+
 ## 階段 4 進行中
 
 - [x] 4a `apps/expense_tracker` 骨架：帳戶、記一筆、本月三個分頁，只透過 `AppSession` 走 `bookkeeping` 指令；錯誤訊息依 `AppFailure` 代碼顯示中文說明；內建繁中字型子集。

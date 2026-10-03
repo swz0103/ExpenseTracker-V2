@@ -11,9 +11,8 @@ import 'package:test/test.dart';
 const password = 'correct horse battery';
 final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
 
-Matcher fails(VaultProblem problem) => throwsA(
-  isA<VaultException>().having((e) => e.problem, 'problem', problem),
-);
+Matcher fails(VaultProblem problem) =>
+    throwsA(isA<VaultException>().having((e) => e.problem, 'problem', problem));
 
 const wrongSecret = KeyringException(KeyringError.wrongSecret);
 
