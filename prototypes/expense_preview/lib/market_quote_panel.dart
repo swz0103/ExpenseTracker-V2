@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'price_alert_service.dart';
@@ -52,7 +53,9 @@ class MarketQuotePanel extends StatefulWidget {
 }
 
 class _MarketQuotePanelState extends State<MarketQuotePanel> {
-  late final MarketDataGateway _ownedGateway = MarketDataGateway();
+  late final MarketDataGateway _ownedGateway = MarketDataGateway(
+    transport: const IoMarketTransport(),
+  );
   final _alertTarget = TextEditingController();
   MarketResult<StockClose>? _result;
   MarketProviderDescriptor? _provider;

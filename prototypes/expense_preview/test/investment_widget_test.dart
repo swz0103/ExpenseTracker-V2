@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'support.dart';
@@ -295,7 +296,7 @@ void main() {
     );
     final provider = _MarketProvider();
     final services = InvestmentMarketServices(
-      gateway: MarketDataGateway(),
+      gateway: MarketDataGateway(transport: const IoMarketTransport()),
       router: MarketDataRouter(MarketProviderRegistry([provider])),
     );
     try {

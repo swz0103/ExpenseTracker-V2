@@ -38,6 +38,8 @@ dependencies:
     path: ../../packages/credit_cards
   investments:
     path: ../../packages/investments
+  market_adapters:
+    path: ../../infrastructure/market_adapters
   market_data:
     path: ../../packages/market_data
   foundation_values:

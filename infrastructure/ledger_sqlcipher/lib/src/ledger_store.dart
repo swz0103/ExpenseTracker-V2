@@ -6,6 +6,7 @@ import 'package:bookkeeping/bookkeeping.dart';
 import 'package:categories/categories.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:merchants/merchants.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
@@ -145,6 +146,45 @@ final ledgerSchema = SchemaModule('ledger', [
     ) STRICT, WITHOUT ROWID
     ''',
   ],
+  [
+    '''
+    CREATE TABLE invest_registry (
+      type TEXT NOT NULL,
+      id TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      PRIMARY KEY (type, id)
+    ) STRICT, WITHOUT ROWID
+    ''',
+    '''
+    CREATE TABLE invest_listings (
+      market TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      instrument_id TEXT NOT NULL UNIQUE,
+      PRIMARY KEY (market, symbol)
+    ) STRICT, WITHOUT ROWID
+    ''',
+    '''
+    CREATE TABLE invest_trades (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      instrument_id TEXT NOT NULL,
+      posting_id TEXT NOT NULL UNIQUE REFERENCES ledger_postings (id),
+      payload TEXT NOT NULL
+    ) STRICT
+    ''',
+    '''
+    CREATE INDEX invest_trades_by_holding
+    ON invest_trades (account_id, instrument_id, seq)
+    ''',
+    '''
+    CREATE TRIGGER invest_trades_immutable BEFORE UPDATE ON invest_trades
+    BEGIN SELECT RAISE(ABORT, 'trades are immutable'); END
+    ''',
+    '''
+    CREATE TRIGGER invest_trades_kept BEFORE DELETE ON invest_trades
+    BEGIN SELECT RAISE(ABORT, 'trades are immutable'); END
+    ''',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -247,6 +287,15 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     return plan == null ? const [] : plan.installments;
   }
 
+  /// Open lots for one investment account and instrument, replayed from
+  /// its trades.
+  List<InvestmentHoldingLot> holdings(
+    PublicId accountId,
+    PublicId instrumentId,
+  ) => InvestmentRecords.openLots(
+    _readTrades(_store.select, accountId, instrumentId),
+  );
+
   PostingMetadata metadata(PublicId postingId) =>
       _readMetadata(_store.select, postingId);
 
@@ -301,7 +350,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
 
 /// The bookkeeping port on a SQLCipher write transaction. Every projection
 /// change happens in the same transaction as the event.
-final class SqlBookkeeping implements CardTransaction {
+final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
   SqlBookkeeping._(this._transaction);
 
   final SqlTransaction _transaction;
@@ -378,10 +427,96 @@ final class SqlBookkeeping implements CardTransaction {
   Future<bool> isLocked(PublicId postingId) async {
     final rows = _transaction.select(
       'SELECT 1 FROM card_charges WHERE posting_id = ?1 '
-      'UNION ALL SELECT 1 FROM card_payments WHERE posting_id = ?1',
+      'UNION ALL SELECT 1 FROM card_payments WHERE posting_id = ?1 '
+      'UNION ALL SELECT 1 FROM invest_trades WHERE posting_id = ?1',
       [postingId.value],
     );
     return rows.isNotEmpty;
+  }
+
+  @override
+  Future<BrokerIdentity?> broker(PublicId id) async {
+    final json = _registry('broker', id);
+    return json == null ? null : InvestmentRecords.readBroker(json);
+  }
+
+  @override
+  Future<void> saveBroker(BrokerIdentity broker) async =>
+      _register('broker', broker.id, InvestmentRecords.broker(broker));
+
+  @override
+  Future<InvestmentAccount?> investmentAccount(PublicId id) async {
+    final json = _registry('account', id);
+    return json == null ? null : InvestmentRecords.readAccount(json);
+  }
+
+  @override
+  Future<void> saveInvestmentAccount(InvestmentAccount account) async =>
+      _register('account', account.id, InvestmentRecords.account(account));
+
+  @override
+  Future<InvestmentInstrument?> instrument(PublicId id) async {
+    final json = _registry('instrument', id);
+    return json == null ? null : InvestmentRecords.readInstrument(json);
+  }
+
+  @override
+  Future<bool> isListed(String marketCode, String symbol) async {
+    final rows = _transaction.select(
+      'SELECT 1 FROM invest_listings WHERE market = ? AND symbol = ?',
+      [marketCode, symbol],
+    );
+    return rows.isNotEmpty;
+  }
+
+  @override
+  Future<void> saveInstrument(InvestmentInstrument instrument) async {
+    _register(
+      'instrument',
+      instrument.id,
+      InvestmentRecords.instrument(instrument),
+    );
+    _transaction.execute('INSERT INTO invest_listings VALUES (?, ?, ?)', [
+      instrument.marketCode,
+      instrument.symbol,
+      instrument.id.value,
+    ]);
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> trades(
+    PublicId accountId,
+    PublicId instrumentId,
+  ) async => _readTrades(_transaction.select, accountId, instrumentId);
+
+  @override
+  Future<void> saveTrade(Map<String, Object?> trade) async {
+    _transaction.execute(
+      'INSERT INTO invest_trades '
+      '(account_id, instrument_id, posting_id, payload) VALUES (?, ?, ?, ?)',
+      [
+        trade['accountId'],
+        trade['instrumentId'],
+        trade['postingId'],
+        jsonEncode(trade),
+      ],
+    );
+  }
+
+  Map<String, Object?>? _registry(String type, PublicId id) {
+    final rows = _transaction.select(
+      'SELECT payload FROM invest_registry WHERE type = ? AND id = ?',
+      [type, id.value],
+    );
+    return rows.isEmpty ? null : _json(rows.single['payload']);
+  }
+
+  void _register(String type, PublicId id, Map<String, Object?> json) {
+    _transaction.execute('INSERT INTO invest_registry VALUES (?, ?, ?)', [
+      type,
+      id.value,
+      jsonEncode(json),
+    ]);
   }
 
   @override
@@ -634,8 +769,23 @@ final class SqlBookkeeping implements CardTransaction {
   }
 }
 
-typedef _Select =
-    List<Map<String, Object?>> Function(String sql, [List<Object?> params]);
+typedef _Select = List<Map<String, Object?>> Function(
+  String sql, [
+  List<Object?> params,
+]);
+
+List<Map<String, Object?>> _readTrades(
+  _Select select,
+  PublicId accountId,
+  PublicId instrumentId,
+) {
+  final rows = select(
+    'SELECT payload FROM invest_trades '
+    'WHERE account_id = ? AND instrument_id = ? ORDER BY seq',
+    [accountId.value, instrumentId.value],
+  );
+  return [for (final row in rows) _json(row['payload'])];
+}
 
 CreditCardTerms? _readTerms(_Select select, PublicId cardId) {
   final rows = select('SELECT payload FROM card_terms WHERE card_id = ?', [

@@ -80,6 +80,9 @@ abstract final class PostingCodec {
     PostingKind.expense,
     PostingKind.transfer,
     PostingKind.reversal,
+    PostingKind.investmentBuy,
+    PostingKind.investmentSell,
+    PostingKind.investmentDividend,
   };
 
   static Map<String, Object?> encode(Posting posting) {
@@ -131,6 +134,39 @@ abstract final class PostingCodec {
           ...base,
           'original': encode(posting.reversedPosting!),
           'reason': posting.reversalReason,
+        };
+      case PostingKind.investmentBuy:
+        final buy = posting.investmentBuy!;
+        return {
+          ...base,
+          'account': _account(legs.single.account),
+          'tradeId': buy.buyId.value,
+          'gross': buy.gross.toJson(),
+          'fee': buy.fee.toJson(),
+          'tax': buy.tax.toJson(),
+          'cash': buy.cashDebit.toJson(),
+        };
+      case PostingKind.investmentSell:
+        final sell = posting.investmentSell!;
+        return {
+          ...base,
+          'account': _account(legs.single.account),
+          'tradeId': sell.sellId.value,
+          'gross': sell.gross.toJson(),
+          'fee': sell.fee.toJson(),
+          'tax': sell.tax.toJson(),
+          'cash': sell.cashCredit.toJson(),
+        };
+      case PostingKind.investmentDividend:
+        final dividend = posting.investmentDividend!;
+        return {
+          ...base,
+          'account': _account(legs.single.account),
+          'tradeId': dividend.dividendId.value,
+          'gross': dividend.gross.toJson(),
+          'fee': dividend.fee.toJson(),
+          'tax': dividend.withholdingTax.toJson(),
+          'cash': dividend.cashCredit.toJson(),
         };
       default:
         throw StateError('unreachable');
@@ -217,6 +253,59 @@ abstract final class PostingCodec {
           original: decode(original),
           reason: json['reason'] as String,
         );
+      case PostingKind.investmentBuy ||
+          PostingKind.investmentSell ||
+          PostingKind.investmentDividend:
+        checkKeys(json, {
+          ...common,
+          'account',
+          'tradeId',
+          'gross',
+          'fee',
+          'tax',
+          'cash',
+        });
+        final cash = _money(json['cash']);
+        final account = _readAccount(json['account'], workspace, cash);
+        final trade = PublicId.parse(json['tradeId'] as String);
+        final gross = _money(json['gross']);
+        final fee = _money(json['fee']);
+        final tax = _money(json['tax']);
+        return switch (kind) {
+          PostingKind.investmentBuy => Posting.investmentBuy(
+            id: id,
+            operation: operation,
+            date: date,
+            account: account,
+            investmentBuyId: trade,
+            gross: gross,
+            fee: fee,
+            tax: tax,
+            cashDebit: cash,
+          ),
+          PostingKind.investmentSell => Posting.investmentSell(
+            id: id,
+            operation: operation,
+            date: date,
+            account: account,
+            investmentSellId: trade,
+            gross: gross,
+            fee: fee,
+            tax: tax,
+            cashCredit: cash,
+          ),
+          _ => Posting.investmentDividend(
+            id: id,
+            operation: operation,
+            date: date,
+            account: account,
+            investmentDividendId: trade,
+            gross: gross,
+            withholdingTax: tax,
+            fee: fee,
+            cashCredit: cash,
+          ),
+        };
       default:
         throw const CodecException('kind');
     }

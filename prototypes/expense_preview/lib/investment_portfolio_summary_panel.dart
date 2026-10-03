@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 import 'package:ledger_generation_probe/ledger_store.dart';
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'preview_engine.dart';
@@ -115,7 +116,9 @@ class _InvestmentPortfolioSummaryPanelState
   static const _maximumBuys = 1000;
   static const _maximumFactsPerRead = 1000;
 
-  late final MarketDataGateway _ownedGateway = MarketDataGateway();
+  late final MarketDataGateway _ownedGateway = MarketDataGateway(
+    transport: const IoMarketTransport(),
+  );
   InvestmentPortfolioSource get _source =>
       widget.source ?? _EnginePortfolioSource(widget.engine!);
   MarketDataGateway get _gateway => widget.gateway ?? _ownedGateway;

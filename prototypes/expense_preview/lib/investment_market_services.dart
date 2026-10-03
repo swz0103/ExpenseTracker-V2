@@ -1,3 +1,4 @@
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'market_credentials.dart';
@@ -27,13 +28,20 @@ InvestmentMarketServices createInvestmentMarketServices({
   PriceAlertNotificationPresenter? priceAlertNotifications,
   PriceAlertBackgroundScheduler? priceAlertBackground,
 }) {
-  final gateway = MarketDataGateway();
-  final frankfurter = FrankfurterReferenceFxGateway();
+  final gateway = MarketDataGateway(transport: const IoMarketTransport());
+  final frankfurter = FrankfurterReferenceFxGateway(
+    transport: const IoMarketTransport(),
+  );
   final registry = MarketProviderRegistry([
-    YahooChartIntradayStockProvider(YahooChartIntradayGateway()),
+    YahooChartIntradayStockProvider(
+      YahooChartIntradayGateway(transport: const IoYahooChartTransport()),
+    ),
     if (fugleCredentials != null)
       FugleIntradayStockProvider(
-        FugleIntradayGateway(apiKeySource: fugleCredentials.requireApiKey),
+        FugleIntradayGateway(
+          apiKeySource: fugleCredentials.requireApiKey,
+          transport: const IoFugleMarketTransport(),
+        ),
       ),
     TwseStockCloseProvider(gateway),
     TpexStockCloseProvider(gateway),

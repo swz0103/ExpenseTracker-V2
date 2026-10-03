@@ -1,0 +1,11 @@
+name: market_adapters
+description: dart:io HTTP transports for market_data providers.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  market_data:
+    path: ../../packages/market_data
+dev_dependencies:
+  test: 1.32.0

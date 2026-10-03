@@ -1,0 +1,564 @@
+part of 'bookkeeping.dart';
+
+/// Investment records stored next to the ledger. Trades are an append-only
+/// list per account and instrument; open lots are always replayed from it.
+abstract interface class InvestmentTransaction
+    implements BookkeepingTransaction {
+  Future<BrokerIdentity?> broker(PublicId id);
+
+  Future<void> saveBroker(BrokerIdentity broker);
+
+  Future<InvestmentAccount?> investmentAccount(PublicId id);
+
+  Future<void> saveInvestmentAccount(InvestmentAccount account);
+
+  Future<InvestmentInstrument?> instrument(PublicId id);
+
+  Future<bool> isListed(String marketCode, String symbol);
+
+  Future<void> saveInstrument(InvestmentInstrument instrument);
+
+  /// Trade records for one account and instrument, oldest first.
+  Future<List<Map<String, Object?>>> trades(
+    PublicId accountId,
+    PublicId instrumentId,
+  );
+
+  Future<void> saveTrade(Map<String, Object?> trade);
+}
+
+/// Buy, sell and dividend commands. Each commits the trade record and its
+/// cash posting together; the posting is then locked against reversal.
+final class InvestmentBook<T extends InvestmentTransaction> {
+  InvestmentBook(this._books);
+
+  final Bookkeeping<T> _books;
+
+  CommandRunner<T> get _runner => _books._runner;
+
+  Future<CommandOutcome<int>> registerBroker(RegisterBroker command) =>
+      _runner.run(command, (t) => _guard(() => _broker(t, command)));
+
+  Future<CommandOutcome<int>> openAccount(OpenInvestmentAccount command) =>
+      _runner.run(command, (t) => _guard(() => _account(t, command)));
+
+  Future<CommandOutcome<int>> registerInstrument(RegisterInstrument command) =>
+      _runner.run(command, (t) => _guard(() => _instrument(t, command)));
+
+  Future<CommandOutcome<PublicId>> buy(BuyInvestment command) =>
+      _runner.run(command, (t) => _guard(() => _buy(t, command)));
+
+  Future<CommandOutcome<PublicId>> sell(SellInvestment command) =>
+      _runner.run(command, (t) => _guard(() => _sell(t, command)));
+
+  Future<CommandOutcome<PublicId>> dividend(RecordDividend command) =>
+      _runner.run(command, (t) => _guard(() => _dividend(t, command)));
+
+  Future<int> _broker(T t, RegisterBroker command) async {
+    if (await t.broker(command.brokerId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'investment.exists');
+    }
+    final broker = BrokerIdentity(
+      id: command.brokerId,
+      workspace: command.operation.workspace,
+      name: command.name,
+    );
+    await t.saveBroker(broker);
+    await _event(t, broker.workspace, 'investment.broker-registered', {
+      'broker': InvestmentRecords.broker(broker),
+    });
+    return 1;
+  }
+
+  Future<int> _account(T t, OpenInvestmentAccount command) async {
+    final workspace = command.operation.workspace;
+    if (await t.investmentAccount(command.accountId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'investment.exists');
+    }
+    final broker = await _found(t.broker(command.brokerId), workspace);
+    final funding = await _books._account(t, command.fundingAccountId);
+    if (funding.workspace != workspace ||
+        funding.kind == AccountKind.creditCard ||
+        funding.state != AccountState.active) {
+      throw const AppFailure(FailureKind.rejected, 'investment.funding');
+    }
+    final account = InvestmentAccount(
+      id: command.accountId,
+      workspace: workspace,
+      brokerId: broker.id,
+      fundingCashAccountId: funding.id,
+      name: command.name,
+      expectedVersion: 1,
+    );
+    await t.saveInvestmentAccount(account);
+    await _event(t, workspace, 'investment.account-opened', {
+      'account': InvestmentRecords.account(account),
+    });
+    return 1;
+  }
+
+  Future<int> _instrument(T t, RegisterInstrument command) async {
+    if (await t.instrument(command.instrumentId) != null ||
+        await t.isListed(command.marketCode, command.symbol)) {
+      throw const AppFailure(FailureKind.conflict, 'investment.exists');
+    }
+    final instrument = InvestmentInstrument(
+      id: command.instrumentId,
+      kind: command.kind,
+      marketCode: command.marketCode,
+      symbol: command.symbol,
+      name: command.name,
+      tradingCurrency: command.currency,
+    );
+    await t.saveInstrument(instrument);
+    await _event(t, command.operation.workspace, 'investment.listed', {
+      'instrument': InvestmentRecords.instrument(instrument),
+    });
+    return 1;
+  }
+
+  Future<PublicId> _buy(T t, BuyInvestment command) async {
+    final context = await _context(t, command.operation, command.target);
+    final currency = context.instrument.tradingCurrency;
+    await _books._requireNewPosting(t, command.postingId);
+    final preview = InvestmentBuyPreview.create(
+      id: command.buyId,
+      lotId: command.lotId,
+      operation: command.operation,
+      tradedOn: command.tradedOn,
+      broker: context.broker,
+      account: context.account,
+      instrument: context.instrument,
+      funding: context.funding,
+      quantity: ShareQuantity.parse(command.quantity),
+      unitPrice: ShareUnitPrice.parse(currency, command.unitPrice),
+      executedGross: command.gross,
+      fee: command.fee,
+      tax: command.tax,
+    );
+    final posting = Posting.investmentBuy(
+      id: command.postingId,
+      operation: command.operation,
+      date: command.tradedOn,
+      account: await _cash(t, command, currency, command.tradedOn),
+      investmentBuyId: preview.id,
+      gross: preview.gross,
+      fee: preview.fee,
+      tax: preview.tax,
+      cashDebit: preview.cashDebit,
+    );
+    final lot = preview.lot;
+    await _record(t, command.operation, posting, {
+      'kind': 'buy',
+      'id': preview.id.value,
+      'accountId': lot.investmentAccountId.value,
+      'instrumentId': lot.instrumentId.value,
+      'postingId': posting.id.value,
+      'date': lot.acquiredOn.toString(),
+      'lotId': lot.id.value,
+      'quantity': lot.quantity.toString(),
+      'unitPrice': lot.unitPrice.toString(),
+      'gross': lot.gross.toJson(),
+      'fee': lot.fee.toJson(),
+      'tax': lot.tax.toJson(),
+      'cost': lot.acquisitionCashCost.toJson(),
+    });
+    return posting.id;
+  }
+
+  Future<PublicId> _sell(T t, SellInvestment command) async {
+    final context = await _context(t, command.operation, command.target);
+    final currency = context.instrument.tradingCurrency;
+    await _books._requireNewPosting(t, command.postingId);
+    final trades = await t.trades(context.account.id, context.instrument.id);
+    final lots = InvestmentRecords.openLots(trades);
+    if (lots.isEmpty) {
+      throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
+    }
+    final preview = InvestmentSellPreview.create(
+      id: command.sellId,
+      operation: command.operation,
+      tradedOn: command.tradedOn,
+      broker: context.broker,
+      account: context.account,
+      instrument: context.instrument,
+      funding: context.funding,
+      costMethod: command.costMethod,
+      quantity: ShareQuantity.parse(command.quantity),
+      unitPrice: ShareUnitPrice.parse(currency, command.unitPrice),
+      executedGross: command.gross,
+      fee: command.fee,
+      tax: command.tax,
+      lots: lots,
+    );
+    final posting = Posting.investmentSell(
+      id: command.postingId,
+      operation: command.operation,
+      date: command.tradedOn,
+      account: await _cash(t, command, currency, command.tradedOn),
+      investmentSellId: preview.id,
+      gross: preview.gross,
+      fee: preview.fee,
+      tax: preview.tax,
+      cashCredit: preview.netCashCredit,
+    );
+    await _record(t, command.operation, posting, {
+      'kind': 'sell',
+      'id': preview.id.value,
+      'accountId': context.account.id.value,
+      'instrumentId': context.instrument.id.value,
+      'postingId': posting.id.value,
+      'date': command.tradedOn.toString(),
+      'costMethod': preview.costMethod.name,
+      'quantity': preview.quantity.toString(),
+      'unitPrice': preview.unitPrice.toString(),
+      'gross': preview.gross.toJson(),
+      'fee': preview.fee.toJson(),
+      'tax': preview.tax.toJson(),
+      'net': preview.netCashCredit.toJson(),
+      'allocatedCost': preview.allocatedCost.toJson(),
+      'realized': preview.realizedResult.toJson(),
+      'lots': [
+        for (final allocation in preview.allocations)
+          {
+            'lotId': allocation.lot.id.value,
+            'soldUnits': '${allocation.soldQuantityUnits}',
+            'remainingUnits': '${allocation.remainingQuantityUnits}',
+            'remainingCost': allocation.remainingCost.toJson(),
+          },
+      ],
+    });
+    return posting.id;
+  }
+
+  Future<PublicId> _dividend(T t, RecordDividend command) async {
+    final context = await _context(t, command.operation, command.target);
+    await _books._requireNewPosting(t, command.postingId);
+    final preview = InvestmentDividendPreview.create(
+      id: command.dividendId,
+      operation: command.operation,
+      paidOn: command.paidOn,
+      broker: context.broker,
+      account: context.account,
+      instrument: context.instrument,
+      funding: context.funding,
+      gross: command.gross,
+      withholdingTax: command.withholdingTax,
+      fee: command.fee,
+      reportedNet: command.net,
+    );
+    final currency = context.instrument.tradingCurrency;
+    final posting = Posting.investmentDividend(
+      id: command.postingId,
+      operation: command.operation,
+      date: command.paidOn,
+      account: await _cash(t, command, currency, command.paidOn),
+      investmentDividendId: preview.id,
+      gross: preview.gross,
+      withholdingTax: preview.withholdingTax,
+      fee: preview.fee,
+      cashCredit: preview.netCashCredit,
+    );
+    await _record(t, command.operation, posting, {
+      'kind': 'dividend',
+      'id': preview.id.value,
+      'accountId': context.account.id.value,
+      'instrumentId': context.instrument.id.value,
+      'postingId': posting.id.value,
+      'date': command.paidOn.toString(),
+      'gross': preview.gross.toJson(),
+      'withholdingTax': preview.withholdingTax.toJson(),
+      'fee': preview.fee.toJson(),
+      'net': preview.netCashCredit.toJson(),
+    });
+    return posting.id;
+  }
+
+  Future<_TradeContext> _context(
+    T t,
+    OperationKey operation,
+    TradeTarget target,
+  ) async {
+    final workspace = operation.workspace;
+    final account = await _found(
+      t.investmentAccount(target.accountId),
+      workspace,
+    );
+    final instrument = await t.instrument(target.instrumentId);
+    if (instrument == null) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    if (target.funding.id != account.fundingCashAccountId) {
+      throw const AppFailure(FailureKind.rejected, 'investment.funding');
+    }
+    final cash = await _books._account(t, target.funding.id);
+    return _TradeContext(
+      broker: await _found(t.broker(account.brokerId), workspace),
+      account: account,
+      instrument: instrument,
+      funding: FundingCashAccount(
+        id: cash.id,
+        workspace: cash.workspace,
+        currency: cash.currency,
+        expectedVersion: target.funding.expectedVersion,
+      ),
+    );
+  }
+
+  /// The settlement account, checked at the version the person saw.
+  Future<PostingAccount> _cash(
+    T t,
+    Command<PublicId> command,
+    Currency currency,
+    BusinessDate date,
+  ) {
+    final target = switch (command) {
+      BuyInvestment(:final target) => target,
+      SellInvestment(:final target) => target,
+      RecordDividend(:final target) => target,
+      _ => throw StateError('Not a trade.'),
+    };
+    return _books._postable(
+      t,
+      target.funding,
+      command.operation.workspace,
+      currency,
+      date,
+    );
+  }
+
+  Future<void> _record(
+    T t,
+    OperationKey operation,
+    Posting posting,
+    Map<String, Object?> trade,
+  ) async {
+    final record = {'version': InvestmentRecords.version, ...trade};
+    await t.saveTrade(record);
+    await _books._savePosting(t, posting, PostingMetadata.none);
+    await _event(t, operation.workspace, 'investment.traded', record);
+  }
+
+  Future<void> _event(
+    T t,
+    WorkspaceId workspace,
+    String kind,
+    Map<String, Object?> payload,
+  ) => t.appendEvent(
+    id: PublicId.generate(),
+    workspace: workspace,
+    kind: kind,
+    payload: jsonEncode(payload),
+  );
+}
+
+final class _TradeContext {
+  const _TradeContext({
+    required this.broker,
+    required this.account,
+    required this.instrument,
+    required this.funding,
+  });
+
+  final BrokerIdentity broker;
+  final InvestmentAccount account;
+  final InvestmentInstrument instrument;
+  final FundingCashAccount funding;
+}
+
+/// Looks up a workspace-owned record or fails with `investment.not-found`.
+Future<R> _found<R extends Object>(
+  Future<R?> lookup,
+  WorkspaceId workspace,
+) async {
+  final value = await lookup;
+  final owner = switch (value) {
+    BrokerIdentity(workspace: final owner) => owner,
+    InvestmentAccount(workspace: final owner) => owner,
+    _ => null,
+  };
+  if (value == null || owner != workspace) {
+    throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+  }
+  return value;
+}
+
+/// Versioned JSON for investment registrations and trade records.
+abstract final class InvestmentRecords {
+  static const version = 1;
+
+  static Map<String, Object?> broker(BrokerIdentity broker) => {
+    'id': broker.id.value,
+    'workspace': broker.workspace.toString(),
+    'name': broker.name,
+  };
+
+  static BrokerIdentity readBroker(Map<String, Object?> json) => decoding(() {
+    checkKeys(json, const {'id', 'workspace', 'name'});
+    return BrokerIdentity(
+      id: PublicId.parse(json['id'] as String),
+      workspace: WorkspaceId.parse(json['workspace'] as String),
+      name: json['name'] as String,
+    );
+  });
+
+  static Map<String, Object?> account(InvestmentAccount account) => {
+    'id': account.id.value,
+    'workspace': account.workspace.toString(),
+    'brokerId': account.brokerId.value,
+    'fundingAccountId': account.fundingCashAccountId.value,
+    'name': account.name,
+    'accountVersion': account.expectedVersion,
+  };
+
+  static InvestmentAccount readAccount(Map<String, Object?> json) =>
+      decoding(() {
+        checkKeys(json, const {
+          'id',
+          'workspace',
+          'brokerId',
+          'fundingAccountId',
+          'name',
+          'accountVersion',
+        });
+        return InvestmentAccount(
+          id: PublicId.parse(json['id'] as String),
+          workspace: WorkspaceId.parse(json['workspace'] as String),
+          brokerId: PublicId.parse(json['brokerId'] as String),
+          fundingCashAccountId: PublicId.parse(
+            json['fundingAccountId'] as String,
+          ),
+          name: json['name'] as String,
+          expectedVersion: json['accountVersion'] as int,
+        );
+      });
+
+  static Map<String, Object?> instrument(InvestmentInstrument instrument) => {
+    'id': instrument.id.value,
+    'kind': instrument.kind.name,
+    'marketCode': instrument.marketCode,
+    'symbol': instrument.symbol,
+    'name': instrument.name,
+    'currency': instrument.tradingCurrency.code,
+    'scale': instrument.tradingCurrency.scale,
+  };
+
+  static InvestmentInstrument readInstrument(Map<String, Object?> json) =>
+      decoding(() {
+        checkKeys(json, const {
+          'id',
+          'kind',
+          'marketCode',
+          'symbol',
+          'name',
+          'currency',
+          'scale',
+        });
+        return InvestmentInstrument(
+          id: PublicId.parse(json['id'] as String),
+          kind: InstrumentKind.values.byName(json['kind'] as String),
+          marketCode: json['marketCode'] as String,
+          symbol: json['symbol'] as String,
+          name: json['name'] as String,
+          tradingCurrency: Currency(
+            json['currency'] as String,
+            json['scale'] as int,
+          ),
+        );
+      });
+
+  /// Replays buys and sells into the open lots, oldest first. Every sell
+  /// rewrites the lots it lists, so a lot's version counts its changes.
+  static List<InvestmentHoldingLot> openLots(
+    List<Map<String, Object?>> trades,
+  ) => decoding(() {
+    final lots = <String, _LotState>{};
+    for (final trade in trades) {
+      if (trade['version'] != version) throw const CodecException('version');
+      final accountId = PublicId.parse(trade['accountId'] as String);
+      final instrumentId = PublicId.parse(trade['instrumentId'] as String);
+      switch (trade['kind']) {
+        case 'buy':
+          final cost = Money.fromJson(trade['cost'] as Map<String, Object?>);
+          final quantity = ShareQuantity.parse(trade['quantity'] as String);
+          final scale = BigInt.from(10).pow(12 - quantity.scale);
+          lots[trade['lotId'] as String] = _LotState(
+            accountId: accountId,
+            instrumentId: instrumentId,
+            acquiredOn: BusinessDate.parse(trade['date'] as String),
+            units: quantity.coefficient * scale,
+            cost: cost,
+            version: 1,
+          );
+        case 'sell':
+          for (final change in trade['lots'] as List) {
+            final entry = change as Map<String, Object?>;
+            final id = entry['lotId'] as String;
+            final lot = lots[id] ?? (throw const CodecException('lot'));
+            final units = BigInt.parse(entry['remainingUnits'] as String);
+            if (units == BigInt.zero) {
+              lots.remove(id);
+              continue;
+            }
+            lots[id] = _LotState(
+              accountId: lot.accountId,
+              instrumentId: lot.instrumentId,
+              acquiredOn: lot.acquiredOn,
+              units: units,
+              cost: Money.fromJson(
+                entry['remainingCost'] as Map<String, Object?>,
+              ),
+              version: lot.version + 1,
+            );
+          }
+        case 'dividend':
+          break;
+        default:
+          throw const CodecException('trade');
+      }
+    }
+    return [
+      for (final MapEntry(:key, :value) in lots.entries)
+        InvestmentHoldingLot(
+          id: PublicId.parse(key),
+          investmentAccountId: value.accountId,
+          instrumentId: value.instrumentId,
+          acquiredOn: value.acquiredOn,
+          remainingQuantity: ShareQuantity.parse(_decimal(value.units)),
+          remainingCost: value.cost,
+          expectedVersion: value.version,
+        ),
+    ];
+  });
+}
+
+final class _LotState {
+  const _LotState({
+    required this.accountId,
+    required this.instrumentId,
+    required this.acquiredOn,
+    required this.units,
+    required this.cost,
+    required this.version,
+  });
+
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final BusinessDate acquiredOn;
+
+  /// Quantity in units of 10^-12 shares.
+  final BigInt units;
+  final Money cost;
+  final int version;
+}
+
+/// 10^-12 share units as canonical decimal text, for example `1.5`.
+String _decimal(BigInt units) {
+  final digits = units.toString().padLeft(13, '0');
+  final whole = digits.substring(0, digits.length - 12);
+  final fraction = digits.substring(digits.length - 12).replaceAll(
+    RegExp(r'0+$'),
+    '',
+  );
+  return fraction.isEmpty ? whole : '$whole.$fraction';
+}

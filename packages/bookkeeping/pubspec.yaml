@@ -15,6 +15,8 @@ dependencies:
     path: ../credit_cards
   foundation_values:
     path: ../foundation_values
+  investments:
+    path: ../investments
   ledger:
     path: ../ledger
   merchants:

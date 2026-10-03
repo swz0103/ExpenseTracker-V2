@@ -5,6 +5,7 @@ import 'package:app_core/app_core.dart';
 import 'package:categories/categories.dart';
 import 'package:credit_cards/credit_cards.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:merchants/merchants.dart';
 import 'package:tags/tags.dart';
@@ -14,8 +15,10 @@ import 'catalog_codec.dart';
 import 'catalog_commands.dart';
 import 'codec.dart';
 import 'commands.dart';
+import 'investment_commands.dart';
 
 part 'cards.dart';
+part 'investments.dart';
 
 /// Tags and merchant attached to a posting. They never change amounts and
 /// are stored beside the posting; a reversal carries the original's.
@@ -501,13 +504,12 @@ CategoryCatalog _changeCategories(
       kind: kind,
       parentId: parentId,
     ),
-  RenameEntry(:final id, :final expectedVersion, :final name) =>
-    catalog.rename(
-      workspace: workspace,
-      id: id,
-      expectedVersion: expectedVersion,
-      name: name,
-    ),
+  RenameEntry(:final id, :final expectedVersion, :final name) => catalog.rename(
+    workspace: workspace,
+    id: id,
+    expectedVersion: expectedVersion,
+    name: name,
+  ),
   ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
     catalog.setArchived(
       workspace: workspace,
@@ -539,13 +541,12 @@ TagCatalog _changeTags(
 ) => switch (change) {
   CreateEntry(:final id, :final name, kind: null, parentId: null) =>
     catalog.create(workspace: workspace, id: id, name: name),
-  RenameEntry(:final id, :final expectedVersion, :final name) =>
-    catalog.rename(
-      workspace: workspace,
-      id: id,
-      expectedVersion: expectedVersion,
-      name: name,
-    ),
+  RenameEntry(:final id, :final expectedVersion, :final name) => catalog.rename(
+    workspace: workspace,
+    id: id,
+    expectedVersion: expectedVersion,
+    name: name,
+  ),
   ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
     catalog.setArchived(
       workspace: workspace,
@@ -570,13 +571,12 @@ MerchantCatalog _changeMerchants(
 ) => switch (change) {
   CreateEntry(:final id, :final name, kind: null, parentId: null) =>
     catalog.create(workspace: workspace, id: id, name: name),
-  RenameEntry(:final id, :final expectedVersion, :final name) =>
-    catalog.rename(
-      workspace: workspace,
-      id: id,
-      expectedVersion: expectedVersion,
-      name: name,
-    ),
+  RenameEntry(:final id, :final expectedVersion, :final name) => catalog.rename(
+    workspace: workspace,
+    id: id,
+    expectedVersion: expectedVersion,
+    name: name,
+  ),
   ArchiveEntry(:final id, :final expectedVersion, :final archived) =>
     catalog.setArchived(
       workspace: workspace,
@@ -628,6 +628,15 @@ Future<R> _guard<R>(Future<R> Function() body) async {
     throw AppFailure(FailureKind.rejected, 'ledger.${error.code.name}');
   } on MoneyException catch (error) {
     throw AppFailure(FailureKind.rejected, 'money.${error.code.name}');
+  } on InvestmentException catch (error) {
+    throw AppFailure(FailureKind.rejected, 'investment.${error.code.name}');
+  } on InvestmentSellException catch (error) {
+    final kind = error.code == InvestmentSellError.staleLots
+        ? FailureKind.conflict
+        : FailureKind.rejected;
+    throw AppFailure(kind, 'investment.${error.code.name}');
+  } on InvestmentDividendException catch (error) {
+    throw AppFailure(FailureKind.rejected, 'dividend.${error.code.name}');
   } on CreditCardException catch (error) {
     throw AppFailure(FailureKind.rejected, 'card.${error.code.name}');
   } on CategoryException catch (error) {

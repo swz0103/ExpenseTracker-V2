@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
+import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -29,7 +30,7 @@ final class AndroidPriceAlertBackgroundScheduler
 
   @override
   bool supports(InvestmentInstrument instrument) =>
-      Platform.isAndroid && YahooChartIntradayGateway().supports(instrument);
+      Platform.isAndroid && _yahoo().supports(instrument);
 
   @override
   Future<bool> synchronize(SavedPriceAlert saved) async {
@@ -95,7 +96,7 @@ void priceAlertCallbackDispatcher() {
           !saved.alert.enabled) {
         return true;
       }
-      final gateway = YahooChartIntradayGateway();
+      final gateway = _yahoo();
       if (!gateway.supports(instrument)) return true;
       final result = await gateway.latestBar(
         instrument,
@@ -158,3 +159,6 @@ int _notificationId(String value) {
   }
   return hash >= 0x80000000 ? hash - 0x100000000 : hash;
 }
+
+YahooChartIntradayGateway _yahoo() =>
+    YahooChartIntradayGateway(transport: const IoYahooChartTransport());

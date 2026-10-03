@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
@@ -12,43 +11,8 @@ abstract interface class YahooChartTransport {
   Future<MarketResponse> get(Uri uri);
 }
 
-final class IoYahooChartTransport implements YahooChartTransport {
-  const IoYahooChartTransport();
-
-  static const maximumResponseBytes = 1024 * 1024;
-
-  @override
-  Future<MarketResponse> get(Uri uri) async {
-    if (uri.scheme != 'https' ||
-        uri.host != 'query1.finance.yahoo.com' ||
-        !uri.path.startsWith('/v8/finance/chart/')) {
-      throw ArgumentError('Untrusted Yahoo Chart URI');
-    }
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = <int>[];
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Yahoo Chart response too large');
-        }
-      }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
+/// Largest response body accepted from this provider, in bytes.
+const yahooChartResponseLimit = 1024 * 1024;
 
 /// Best-effort adapter for Yahoo Finance's undocumented public chart endpoint.
 ///
@@ -56,9 +20,9 @@ final class IoYahooChartTransport implements YahooChartTransport {
 /// provenance and fall back when the endpoint changes, throttles or disappears.
 final class YahooChartIntradayGateway {
   YahooChartIntradayGateway({
-    YahooChartTransport? transport,
+    required YahooChartTransport transport,
     DateTime Function()? clock,
-  }) : _transport = transport ?? const IoYahooChartTransport(),
+  }) : _transport = transport,
        _clock = clock ?? DateTime.now;
 
   final YahooChartTransport _transport;
@@ -119,7 +83,7 @@ final class YahooChartIntradayGateway {
         );
       }
       if (response.statusCode != 200 ||
-          response.body.length > IoYahooChartTransport.maximumResponseBytes) {
+          response.body.length > yahooChartResponseLimit) {
         return const MarketResult(
           MarketState.failed,
           reason: 'Yahoo Chart request failed',

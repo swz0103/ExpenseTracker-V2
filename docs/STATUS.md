@@ -22,8 +22,8 @@
 - [x] 3a 帳戶與收支：`packages/bookkeeping`（開戶含期初餘額、改名、封存／重新啟用、收入、支出、跨幣別轉帳含手續費、沖銷）＋ `infrastructure/ledger_sqlcipher`（帳戶、分錄、餘額、月報投影表，與事件同交易更新）。300 筆亂數指令的對照測試：投影餘額＝domain `rebuildBalance`，月報＝分錄加總，重開後仍一致。`storage_sqlcipher` 支援模組各自的 migration。
 - [x] 3b 分類、標籤、商家：建立、改名、封存、合併（合併後報表歸到目標分類）、商家別名；收支可帶分類分攤、標籤、商家，沖銷沿用原分錄的分攤與標籤；分類月報投影。
 - [x] 3c 信用卡：帳單日設定、授權（pending）、入帳（同一筆授權只算一次）、繳款（轉帳，不是支出）、帳單 read model、分期預估；卡片分錄不能用一般沖銷，要在卡片上更正。
-- [ ] 3d 投資：買賣、股利、批次由事件重播。
-- [ ] 3e 市場資料：網路程式移到 `infrastructure/market_adapters`，`market_data` 移除 `dart:io` 例外。
+- [x] 3d 投資：券商、投資帳戶、商品登錄；買進、賣出（FIFO／平均成本）、股利；持股批次一律由交易紀錄重播得出；交易分錄不能直接沖銷。
+- [x] 3e 市場資料：四個 HTTP transport 移到 `infrastructure/market_adapters`，`market_data` 不再有 `dart:io` 例外，gateway 一律注入 transport。
 - [ ] 3f 退款、結清帳戶（需未結項目查詢）。
 
 ## 階段 2 已完成
