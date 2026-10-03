@@ -455,11 +455,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     );
     if (planning != null && confirmed != null) {
       final (templateId, dueDate) = confirmed;
-      await planning.saveConfirmation(
-        templateId,
-        dueDate,
-        replacement.id,
-      );
+      await planning.saveConfirmation(templateId, dueDate, replacement.id);
       await t.appendEvent(
         id: PublicId.generate(),
         workspace: workspace,
