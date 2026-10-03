@@ -92,8 +92,24 @@ List<int> _backfillCardStatementFacts(List<int> targetBytes) {
       if (audits.containsKey(key)) throw const InvalidSnapshot();
       audits[key] = audit;
     }
+    bool financial(Map<String, dynamic> receipt) {
+      final kind =
+          audits[(
+                receipt['workspace'] as String,
+                receipt['operation_id'] as String,
+              )]?['kind']
+              as String?;
+      return kind == null ||
+          !(kind.startsWith('category.') ||
+              kind.startsWith('tag.') ||
+              kind.startsWith('merchant.') ||
+              kind == 'ledger.note' ||
+              kind == 'ledger.tombstone');
+    }
+
     void requireReceipt((String, String) event, String expectedKind) {
-      final matching = receipts[event];
+      // A note on a card entry adds a second receipt for the same event.
+      final matching = receipts[event]?.where(financial).toList();
       if (matching == null || matching.length != 1) {
         throw const InvalidSnapshot();
       }

@@ -314,17 +314,39 @@ void main() {
   );
 
   test(
-    'unexpected generation sidecar is preserved and stops reopening',
+    'rollback journal left by an interrupted write is replayed by SQLite',
     () async {
       final old = await installOld();
-      final sidecar = File(
-        '${store.databaseFile(old.generation).path}-journal',
-      );
-      await sidecar.writeAsString('unknown fixture sidecar');
-      await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
-      expect(await sidecar.readAsString(), 'unknown fixture sidecar');
+      final path = store.databaseFile(old.generation).path;
+      final journal = File('$path-journal');
+      final db = sqlite3.open(path);
+      late List<int> hot;
+      try {
+        configureEncryption(db, await slots.read(old.slot));
+        db.execute('BEGIN IMMEDIATE');
+        db.execute('UPDATE fixture SET value=?', ['interrupted write']);
+        hot = await journal.readAsBytes();
+        db.execute('ROLLBACK');
+      } finally {
+        db.close();
+      }
+      expect(hot, isNotEmpty);
+      await journal.writeAsBytes(hot); // As a killed process would leave it.
+      expect((await store.current())!.value, oldValue);
+      expect(journal.existsSync(), isFalse);
+      expect((await store.current())!.value, oldValue);
     },
   );
+
+  test('a sidecar that is not a regular file still fails closed', () async {
+    final old = await installOld();
+    final sidecar = Directory(
+      '${store.databaseFile(old.generation).path}-journal',
+    );
+    await sidecar.create();
+    await expectLater(store.current(), throwsA(isA<GenerationUnavailable>()));
+    expect(sidecar.existsSync(), isTrue);
+  });
 
   test('lost key fails closed without replacing the missing slot', () async {
     final old = await installOld();

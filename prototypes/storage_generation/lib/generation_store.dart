@@ -417,19 +417,42 @@ final class GenerationStore {
     }
   }
 
+  /// A process killed during a write leaves SQLite's own journal next to the
+  /// generation. SQLite must replay it (storage-lifecycle-contract: sidecars
+  /// are handled by SQLite, never deleted or treated as tampering). Payloads
+  /// open read-only and cannot replay, so one read-write handle does it here.
+  /// Anything SQLite does not clear still fails closed.
+  Future<void> _settleSidecars(File file, StorageKey key) async {
+    Future<bool> present() async {
+      for (final suffix in ['-journal', '-wal', '-shm']) {
+        final type = await FileSystemEntity.type(
+          '${file.path}$suffix',
+          followLinks: false,
+        );
+        if (type == FileSystemEntityType.notFound) continue;
+        if (type != FileSystemEntityType.file)
+          throw StateError('Unexpected generation sidecar');
+        return true;
+      }
+      return false;
+    }
+
+    if (!await present()) return;
+    final db = sqlite3.open(file.path);
+    try {
+      configureEncryption(db, key);
+      db.select('SELECT count(*) FROM sqlite_master'); // Replays a hot journal.
+    } finally {
+      db.close();
+    }
+    if (await present()) throw StateError('Unexpected generation sidecar');
+  }
+
   Future<InstalledFixture> _inspect(GenerationReceipt receipt) async {
     final file = databaseFile(receipt.generation);
     await _regular(file);
-    for (final suffix in ['-journal', '-wal', '-shm']) {
-      if (await FileSystemEntity.type(
-            '${file.path}$suffix',
-            followLinks: false,
-          ) !=
-          FileSystemEntityType.notFound) {
-        throw StateError('Unexpected generation sidecar');
-      }
-    }
     final key = await keys.read(receipt.slot);
+    await _settleSidecars(file, key);
     if (payload != null) {
       return InstalledFixture(
         receipt,
@@ -483,16 +506,9 @@ final class GenerationStore {
     }
     final file = databaseFile(receipt.generation);
     await _regular(file);
-    for (final suffix in ['-journal', '-wal', '-shm']) {
-      if (await FileSystemEntity.type(
-            '${file.path}$suffix',
-            followLinks: false,
-          ) !=
-          FileSystemEntityType.notFound) {
-        throw StateError('Unexpected generation sidecar');
-      }
-    }
-    await payload!.validate(file, await keys.read(receipt.slot), receipt);
+    final key = await keys.read(receipt.slot);
+    await _settleSidecars(file, key);
+    await payload!.validate(file, key, receipt);
   }
 
   Future<void> _regular(File file, {bool allowAbsent = false}) async {

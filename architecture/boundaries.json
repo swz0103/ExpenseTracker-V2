@@ -172,10 +172,6 @@
     "backup_envelope_probe": {
       "directory": "prototypes/backup_envelope",
       "dependencies": []
-    },
-    "transaction_boundary_probe": {
-      "directory": "prototypes/transaction_boundary",
-      "dependencies": []
     }
   }
 }

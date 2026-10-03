@@ -5,6 +5,7 @@ import 'package:foundation_values/foundation_values.dart';
 
 import 'database.dart';
 import 'merchants_adapter.dart';
+import 'tag_reference_validation.dart' show unwrapCorrectionReceipt;
 
 /// Verify metadata at posting time, then bind exact original IDs/versions to
 /// the same receipt as the financial event. A merge never rewrites those IDs.
@@ -55,7 +56,7 @@ Future<Set<(String, String)>> validateMerchantReferences(
   );
   if (pending.isNotEmpty) throw const InvalidMerchantHistory();
   for (final receipt in await db.customSelect('SELECT * FROM receipts').get()) {
-    final input = jsonDecode(receipt.read<String>('input'));
+    var input = jsonDecode(receipt.read<String>('input'));
     if (input is! List || input.isEmpty) throw const InvalidMerchantHistory();
     final key = (
       receipt.read<String>('workspace'),
@@ -64,6 +65,7 @@ Future<Set<(String, String)>> validateMerchantReferences(
     // Note revisions reference the same event but never consume attribution.
     // Their exact receipt and history are checked by the note validator.
     if (db.notesAware && input.first == 'note-v1') continue;
+    input = unwrapCorrectionReceipt(db, input, const InvalidMerchantHistory());
     // Metadata commands may share a public ID with a different module.
     if (input.first == 'merchant-v1' ||
         input.first == 'category-v1' ||
