@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 const strictPackages = [
   'apps/expense_tracker',
   'infrastructure/backup_security',
+  'infrastructure/drive_backup',
   'infrastructure/ledger_backup',
   'infrastructure/ledger_sqlcipher',
   'infrastructure/market_adapters',

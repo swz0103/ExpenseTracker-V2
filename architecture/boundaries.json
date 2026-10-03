@@ -145,6 +145,11 @@
     }
   },
   "runtimeModules": {
+    "drive_backup": {
+      "directory": "infrastructure/drive_backup",
+      "publicEntrypoints": ["drive_backup.dart"],
+      "dependencies": ["storage_sqlcipher"]
+    },
     "ledger_backup": {
       "directory": "infrastructure/ledger_backup",
       "publicEntrypoints": ["ledger_backup.dart"],
