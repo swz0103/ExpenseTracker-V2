@@ -402,11 +402,31 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     );
     return [
       for (final row in rows)
-        reportFact(
+        _fact(
           _decodePosting(row['payload']),
           metadata(PublicId.parse(row['id']! as String)),
         ),
     ];
+  }
+
+  MonthlyFact _fact(Posting posting, PostingMetadata metadata) {
+    var refunded = posting.refundOf;
+    final reversed = posting.reversalOf;
+    if (reversed != null) {
+      final rows = _store.select(
+        'SELECT refund_of FROM ledger_postings WHERE id = ?',
+        [reversed.value],
+      );
+      final original = rows.single['refund_of'] as String?;
+      if (original != null) refunded = PublicId.parse(original);
+    }
+    if (refunded == null) return reportFact(posting, metadata);
+    final legs = _store.select(
+      'SELECT account_id FROM ledger_legs WHERE posting_id = ? AND leg = 0',
+      [refunded.value],
+    );
+    final account = PublicId.parse(legs.single['account_id']! as String);
+    return reportFact(posting, metadata, account: account);
   }
 
   /// Every budget for [month] with what was spent against it. Merged

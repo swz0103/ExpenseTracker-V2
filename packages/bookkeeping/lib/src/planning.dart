@@ -197,14 +197,24 @@ final class PlanningBook<T extends PlanningTransaction> {
 
 /// The report fact for one posting: the single mapping from postings to
 /// monthly reports and budgets (health check G1-01).
-MonthlyFact reportFact(Posting posting, PostingMetadata metadata) {
+///
+/// [account] is the account the report amounts belong to. It defaults to
+/// the posting's own account; a refund, or the reversal of one, reports
+/// against the original expense's account, because its amounts are in
+/// that expense's currency even when the money arrived elsewhere
+/// (health check G6-18).
+MonthlyFact reportFact(
+  Posting posting,
+  PostingMetadata metadata, {
+  PublicId? account,
+}) {
   return MonthlyFact(
     id: posting.id,
     date: posting.date,
     kind: posting.kind,
     income: posting.reportIncome,
     expense: posting.reportExpense,
-    accountId: posting.legs.first.account.id,
+    accountId: account ?? posting.legs.first.account.id,
     merchantId: metadata.merchantId,
     allocations: [
       for (final allocation in posting.allocations)

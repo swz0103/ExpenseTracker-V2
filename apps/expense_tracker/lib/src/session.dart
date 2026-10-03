@@ -150,11 +150,8 @@ final class AppSession extends ChangeNotifier {
   /// Identifies one user action. Take it when a form opens and pass the
   /// same one to every retry: a retry after an unclear result then returns
   /// the recorded outcome instead of booking twice (health check G4-10).
-  Submission begin() => Submission._(
-    _operation(),
-    PublicId.generate(),
-    PublicId.generate(),
-  );
+  Submission begin() =>
+      Submission._(_operation(), PublicId.generate(), PublicId.generate());
 
   Future<void> openAccount(
     Submission submission,

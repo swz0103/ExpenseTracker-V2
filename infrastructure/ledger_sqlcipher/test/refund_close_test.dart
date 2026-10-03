@@ -5,7 +5,9 @@ import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
@@ -198,6 +200,14 @@ void main() {
     );
     expect(ledger.balance(account(dollars)), Money(usd, BigInt.from(100)));
     expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(0));
+
+    // The refund's TWD amounts belong to the TWD expense's account, not to
+    // the dollar account the money reached (G6-18); so does its reversal.
+    final refundFact = ledger
+        .monthlyFacts(workspace, ReportMonth(2026, 10))
+        .singleWhere((f) => f.kind == PostingKind.refund);
+    expect(refundFact.accountId, cash);
+    expect(refundFact.expense, ntd(-3200));
   });
 
   test('only an empty, settled account can be closed', () async {
@@ -267,6 +277,11 @@ void main() {
     await refund(dinner, 200);
     expect(ledger.balance(account(cash)), ntd(10000 - 1000 + 200));
     expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(800));
+    final reversal = ledger
+        .monthlyFacts(workspace, ReportMonth(2026, 10))
+        .singleWhere((f) => f.kind == PostingKind.reversal);
+    expect(reversal.accountId, cash);
+    expect(reversal.expense, ntd(900));
   });
 
   test('replacing the opening balance reverses the old one', () async {

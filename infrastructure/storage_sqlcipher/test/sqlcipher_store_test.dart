@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -190,13 +191,36 @@ void main() {
     store.close();
     final database = raw();
     addTearDown(database.close);
+    // The raw connection really reads the store, so a refusal below comes
+    // from the triggers, not from a wrong key.
+    expect(database.select('SELECT COUNT(*) AS n FROM events').single['n'], 1);
     for (final statement in _rewrites) {
       expect(
         () => database.execute(statement),
-        throwsA(isA<SqliteException>()),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            anyOf(contains('append-only'), contains('immutable')),
+          ),
+        ),
         reason: statement,
       );
     }
+    expect(database.select('SELECT COUNT(*) AS n FROM events').single['n'], 1);
+    final operations = database.select('SELECT COUNT(*) AS n FROM operations');
+    expect(operations.single['n'], 1);
+  });
+
+  test('overlapping writes and closing mid-write are refused', () async {
+    final store = open();
+    addTearDown(store.close);
+    final release = Completer<void>();
+    final first = store.write((_) => release.future);
+    await expectLater(store.write((_) async {}), throwsA(isA<StateError>()));
+    expect(store.close, throwsA(isA<StateError>()));
+    release.complete();
+    await first;
   });
 
   test('an invalid event kind is rejected before writing', () async {

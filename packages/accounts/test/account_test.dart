@@ -226,4 +226,48 @@ void main() {
       date: date,
     );
   });
+  test('restore refuses state no transition could produce', () {
+    Account restore({
+      int version = 3,
+      int rulesVersion = 2,
+      AccountState state = AccountState.closed,
+      BusinessDate? closedOn,
+      String? closingReason = 'moved bank',
+      PublicId? successorId,
+      PublicId? id,
+    }) {
+      final ownId = id ?? PublicId.generate();
+      return Account.restore(
+        id: ownId,
+        workspace: workspace,
+        name: 'Bank',
+        kind: AccountKind.bank,
+        currency: usd,
+        openedOn: date,
+        includeInNetWorth: true,
+        version: version,
+        rulesVersion: rulesVersion,
+        state: state,
+        closedOn: closedOn ?? BusinessDate(2026, 10, 1),
+        closingReason: closingReason,
+        successorId: successorId,
+      );
+    }
+
+    final valid = restore();
+    expect(valid.rulesVersion, 2);
+    final self = PublicId.generate();
+    final cases = <String, Account Function()>{
+      'version 0': () => restore(version: 0, rulesVersion: 0),
+      'rules newer than version': () => restore(version: 2, rulesVersion: 3),
+      'closed before opening': () =>
+          restore(closedOn: BusinessDate(2026, 9, 1)),
+      'closed without a reason': () => restore(closingReason: null),
+      'blank reason': () => restore(closingReason: '  '),
+      'its own successor': () => restore(id: self, successorId: self),
+    };
+    for (final MapEntry(:key, :value) in cases.entries) {
+      expect(value, error(AccountError.invalidInput), reason: key);
+    }
+  });
 }

@@ -63,6 +63,7 @@ void main() {
 
     final random = Random(42);
     final recorded = <PublicId>[];
+    var reversals = 0;
     final latencies = <int>[];
     final write = Stopwatch()..start();
     for (var i = 0; i < _commands; i++) {
@@ -83,18 +84,17 @@ void main() {
           ),
         );
       } else if (roll < 10 && recorded.isNotEmpty) {
-        try {
-          await books.reversePosting(
-            ReversePosting(
-              operation: op(),
-              reversalId: PublicId.generate(),
-              originalId: recorded.removeAt(random.nextInt(recorded.length)),
-              date: BusinessDate(2027, 1, 1),
-            ),
-          );
-        } on Object {
-          // Already reversed; fine for a load test.
-        }
+        // Each entry is reversed at most once, so every reversal must
+        // succeed; a refusal here is a real failure.
+        await books.reversePosting(
+          ReversePosting(
+            operation: op(),
+            reversalId: PublicId.generate(),
+            originalId: recorded.removeAt(random.nextInt(recorded.length)),
+            date: BusinessDate(2027, 1, 1),
+          ),
+        );
+        reversals++;
       } else {
         final amount = 100 + random.nextInt(100000);
         final category = categories[random.nextInt(categories.length)];
@@ -142,6 +142,7 @@ void main() {
       'replay ${replay.elapsed.inMilliseconds} ms, '
       '${store.eventCount} events',
     );
+    expect(reversals, greaterThan(100));
     expect(month, isNotEmpty);
     expect(byCategory, isNotEmpty);
     expect(projectionRows(copy), projectionRows(store));

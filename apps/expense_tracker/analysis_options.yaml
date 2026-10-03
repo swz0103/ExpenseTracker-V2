@@ -1,6 +1,9 @@
 # Stricter than the SDK default for packages written for the new
 # architecture (ADR-0001). Older packages adopt this as they are reworked.
 analyzer:
+  exclude:
+    - build/**
+    - web/**
   language:
     strict-casts: true
     strict-raw-types: true
