@@ -47,6 +47,7 @@ final class SetCardTerms extends _IntResult {
     required this.closingDay,
     required this.dueDay,
     this.limit,
+    this.effectiveFrom,
   }) : super(operation);
 
   final PublicId cardId;
@@ -57,6 +58,10 @@ final class SetCardTerms extends _IntResult {
   final int dueDay;
   final Money? limit;
 
+  /// The first close on the new days; earlier statements keep their
+  /// dates. Null applies the days to the whole card (feature audit G-08).
+  final BusinessDate? effectiveFrom;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'set-card-terms-v1',
@@ -65,6 +70,37 @@ final class SetCardTerms extends _IntResult {
     'closingDay': closingDay,
     'dueDay': dueDay,
     'limit': limit?.toJson(),
+    'effectiveFrom': effectiveFrom?.toString(),
+  };
+}
+
+/// Records the issuer's actual closing and due dates for one statement,
+/// or with null dates returns it to the schedule. Returns the terms
+/// version.
+final class OverrideCardCycle extends _IntResult {
+  OverrideCardCycle({
+    required OperationKey operation,
+    required this.cardId,
+    required this.expectedVersion,
+    required this.scheduledClose,
+    this.closesOn,
+    this.dueOn,
+  }) : super(operation);
+
+  final PublicId cardId;
+  final int expectedVersion;
+  final BusinessDate scheduledClose;
+  final BusinessDate? closesOn;
+  final BusinessDate? dueOn;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'override-card-cycle-v1',
+    'cardId': cardId.value,
+    'expectedVersion': expectedVersion,
+    'scheduledClose': scheduledClose.toString(),
+    'closesOn': closesOn?.toString(),
+    'dueOn': dueOn?.toString(),
   };
 }
 

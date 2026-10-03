@@ -45,6 +45,9 @@ final class CardBook<T extends CardTransaction> {
   Future<CommandOutcome<int>> setTerms(SetCardTerms command) =>
       _runner.run(command, (t) => _guard(() => _setTerms(t, command)));
 
+  Future<CommandOutcome<int>> overrideCycle(OverrideCardCycle command) =>
+      _runner.run(command, (t) => _guard(() => _overrideCycle(t, command)));
+
   Future<CommandOutcome<PublicId>> authorize(AuthorizeCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _authorize(t, command)));
 
@@ -184,17 +187,41 @@ final class CardBook<T extends CardTransaction> {
     if ((current?.version ?? 0) != command.expectedVersion) {
       throw const AppFailure(FailureKind.conflict, 'card.versionConflict');
     }
-    final terms = CreditCardTerms(
-      workspace: card.workspace,
-      cardId: card.id,
-      currency: card.currency,
-      closingDay: command.closingDay,
-      dueDay: command.dueDay,
-      limit: command.limit,
-      version: command.expectedVersion + 1,
+    final terms = current == null
+        ? CreditCardTerms(
+            workspace: card.workspace,
+            cardId: card.id,
+            currency: card.currency,
+            closingDay: command.closingDay,
+            dueDay: command.dueDay,
+            limit: command.limit,
+          )
+        : current.reschedule(
+            closingDay: command.closingDay,
+            dueDay: command.dueDay,
+            from: command.effectiveFrom,
+            limit: command.limit,
+          );
+    return _saveTerms(t, terms);
+  }
+
+  Future<int> _overrideCycle(T t, OverrideCardCycle command) async {
+    final card = await _card(t, command.cardId, command.operation);
+    final current = await _terms(t, card.id);
+    if (current.version != command.expectedVersion) {
+      throw const AppFailure(FailureKind.conflict, 'card.versionConflict');
+    }
+    final terms = current.overrideCycle(
+      scheduledClose: command.scheduledClose,
+      closesOn: command.closesOn,
+      dueOn: command.dueOn,
     );
+    return _saveTerms(t, terms);
+  }
+
+  Future<int> _saveTerms(T t, CreditCardTerms terms) async {
     await t.saveCardTerms(terms);
-    await _event(t, card.workspace, 'card.terms-set', {
+    await _event(t, terms.workspace, 'card.terms-set', {
       'terms': const CreditCardTermsCodec().encode(terms),
     });
     return terms.version;
@@ -302,7 +329,7 @@ final class CardBook<T extends CardTransaction> {
     final workspace = command.operation.workspace;
     final card = await _card(t, command.card.id, command.operation);
     final terms = await _terms(t, card.id);
-    final cycle = terms.scheduledCycleFor(command.statementClose);
+    final cycle = terms.cycleFor(command.statementClose);
     if (cycle.closesOn != command.statementClose) {
       throw const AppFailure(FailureKind.rejected, 'card.statement-close');
     }
@@ -355,14 +382,15 @@ final class CardBook<T extends CardTransaction> {
       throw const AppFailure(FailureKind.conflict, 'card.plan-exists');
     }
     final terms = await _terms(t, charge.cardId);
+    final first = terms.cycleFor(charge.postedOn!).scheduledClose;
     final plan = CardInstallmentSchedule(
       purchaseEventId: charge.ledgerEventId!,
       workspace: charge.workspace,
       cardId: charge.cardId,
       principal: charge.settledAmount!,
       fixedFee: command.fixedFee,
-      firstScheduledClose: terms.scheduledCycleFor(charge.postedOn!).closesOn,
-      closingDay: terms.closingDay,
+      firstScheduledClose: first,
+      closingDay: terms.closingDayOn(first),
       count: command.count,
     );
     await t.saveInstallmentPlan(plan);

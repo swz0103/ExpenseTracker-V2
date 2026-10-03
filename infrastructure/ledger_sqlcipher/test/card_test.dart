@@ -192,6 +192,47 @@ void main() {
     expect(ledger.availableCredit(card), ntd(47970));
   });
 
+  test('past statements keep their dates; the issuer can move one', () async {
+    await post(settled: 1000);
+    await cards.setTerms(
+      SetCardTerms(
+        operation: op(),
+        cardId: card,
+        expectedVersion: 1,
+        closingDay: 5,
+        dueDay: 20,
+        effectiveFrom: BusinessDate(2026, 11, 5),
+      ),
+    );
+    expect(ledger.statement(card, purchaseDay).cycle.closesOn, close);
+    final next = ledger.statement(card, BusinessDate(2026, 10, 30)).cycle;
+    expect(next.closesOn, BusinessDate(2026, 11, 5));
+    final actualClose = BusinessDate(2026, 10, 26);
+    await cards.overrideCycle(
+      OverrideCardCycle(
+        operation: op(),
+        cardId: card,
+        expectedVersion: 2,
+        scheduledClose: close,
+        closesOn: actualClose,
+        dueOn: BusinessDate(2026, 11, 11),
+      ),
+    );
+    await cards.pay(
+      PayCard(
+        operation: op(),
+        paymentId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        source: ref(bank),
+        card: ref(card),
+        statementClose: actualClose,
+        postedOn: BusinessDate(2026, 11, 8),
+        amount: ntd(1000),
+      ),
+    );
+    expect(ledger.statement(card, purchaseDay).remainingDue, ntd(0));
+  });
+
   test('paying the bill is a transfer, not new spending', () async {
     await post(settled: 5000);
     await cards.pay(

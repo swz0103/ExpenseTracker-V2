@@ -378,7 +378,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     if (terms == null) throw StateError('Card has no terms.');
     return CardStatement.calculate(
       terms: terms,
-      cycle: terms.scheduledCycleFor(date),
+      cycle: terms.cycleFor(date),
       charges: _cardCharges(cardId),
       payments: _cardPayments(cardId),
       plans: _cardPlans(cardId),
@@ -391,7 +391,7 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     final terms = cardTerms(cardId);
     if (terms == null) throw StateError('Card has no terms.');
     return CardStatementItems.select(
-      cycle: terms.scheduledCycleFor(date),
+      cycle: terms.cycleFor(date),
       charges: _cardCharges(cardId),
       payments: _cardPayments(cardId),
       plans: _cardPlans(cardId),

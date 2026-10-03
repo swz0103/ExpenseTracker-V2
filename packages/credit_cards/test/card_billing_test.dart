@@ -17,12 +17,12 @@ void main() {
   );
 
   test('month-end closes on actual last day and due date is next month', () {
-    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 29));
+    final feb = terms.cycleFor(BusinessDate(2028, 2, 29));
     expect(feb.startsAfter, BusinessDate(2028, 1, 31));
     expect(feb.closesOn, BusinessDate(2028, 2, 29));
     expect(feb.dueOn, BusinessDate(2028, 3, 15));
     expect(
-      terms.scheduledCycleFor(BusinessDate(2028, 3, 1)).closesOn,
+      terms.cycleFor(BusinessDate(2028, 3, 1)).closesOn,
       BusinessDate(2028, 3, 31),
     );
   });
@@ -70,7 +70,7 @@ void main() {
       authorizedOn: BusinessDate(2028, 2, 20),
       authorizedAmount: Money.parse(usd, '10'),
     );
-    final cycle = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
+    final cycle = terms.cycleFor(BusinessDate(2028, 2, 20));
     final before = CardStatement.calculate(
       terms: terms,
       cycle: cycle,
@@ -182,8 +182,8 @@ void main() {
       authorizedOn: BusinessDate(2028, 3, 1),
       authorizedAmount: Money.parse(usd, '10'),
     );
-    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 29));
-    final march = terms.scheduledCycleFor(BusinessDate(2028, 3, 1));
+    final feb = terms.cycleFor(BusinessDate(2028, 2, 29));
+    final march = terms.cycleFor(BusinessDate(2028, 3, 1));
     final pendingFebruary = CardStatement.calculate(
       terms: terms,
       cycle: feb,
@@ -292,8 +292,8 @@ void main() {
       '30',
       original: purchase.id,
     );
-    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
-    final march = terms.scheduledCycleFor(BusinessDate(2028, 3, 2));
+    final feb = terms.cycleFor(BusinessDate(2028, 2, 20));
+    final march = terms.cycleFor(BusinessDate(2028, 3, 2));
     final payment = CardPayment(
       id: PublicId.generate(),
       workspace: space,
@@ -335,11 +335,11 @@ void main() {
       closingDay: 5,
       dueDay: 20,
     );
-    final march = early.scheduledCycleFor(BusinessDate(2028, 3, 3));
+    final march = early.cycleFor(BusinessDate(2028, 3, 3));
     expect(march.startsAfter, BusinessDate(2028, 2, 5));
     expect(march.closesOn, BusinessDate(2028, 3, 5));
     expect(march.dueOn, BusinessDate(2028, 3, 20));
-    final april = early.scheduledCycleFor(BusinessDate(2028, 3, 10));
+    final april = early.cycleFor(BusinessDate(2028, 3, 10));
     expect(april.closesOn, BusinessDate(2028, 4, 5));
     expect(april.dueOn, BusinessDate(2028, 4, 20));
     final lateClose = CreditCardTerms(
@@ -350,13 +350,13 @@ void main() {
       dueDay: 10,
     );
     expect(
-      lateClose.scheduledCycleFor(BusinessDate(2028, 3, 26)).dueOn,
+      lateClose.cycleFor(BusinessDate(2028, 3, 26)).dueOn,
       BusinessDate(2028, 5, 10),
     );
   });
 
   test('pending from another cycle is excluded and orphan refund rejected', () {
-    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
+    final feb = terms.cycleFor(BusinessDate(2028, 2, 20));
     final future = CardCharge.pending(
       id: PublicId.generate(),
       workspace: space,
@@ -424,7 +424,7 @@ void main() {
         );
     final first = refund('40', BusinessDate(2028, 3, 2));
     final second = refund('50', BusinessDate(2028, 4, 2));
-    final cycle = terms.scheduledCycleFor(BusinessDate(2028, 4, 2));
+    final cycle = terms.cycleFor(BusinessDate(2028, 4, 2));
     expect(
       CardStatement.calculate(
         terms: terms,
@@ -460,7 +460,7 @@ void main() {
   });
 
   test('duplicate Ledger event and wrong workspace fail closed', () {
-    final cycle = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
+    final cycle = terms.cycleFor(BusinessDate(2028, 2, 20));
     final event = PublicId.generate();
     CardCharge charge(PublicId id, WorkspaceId owner) =>
         CardCharge.pending(
@@ -531,7 +531,7 @@ void main() {
       authorizedOn: BusinessDate(2028, 2, 21),
       authorizedAmount: Money.parse(usd, '20'),
     );
-    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
+    final feb = terms.cycleFor(BusinessDate(2028, 2, 20));
     final plan = CardInstallmentSchedule(
       purchaseEventId: planned.ledgerEventId!,
       workspace: space,
@@ -620,7 +620,7 @@ void main() {
       );
     }
 
-    final cycle = card2.scheduledCycleFor(BusinessDate(2026, 10, 3));
+    final cycle = card2.cycleFor(BusinessDate(2026, 10, 3));
     CardStatement statement(List<CardCharge> charges, [int paid = 0]) {
       final payments = [
         if (paid > 0)
@@ -653,5 +653,73 @@ void main() {
     final small = [posted(500)];
     expect(statement(small).minimumDue(floor: ntd(1000)), ntd(500));
     expect(statement(const []).minimumDue(), ntd(0));
+  });
+
+  test('a new closing day keeps past statements; actual dates win', () {
+    final base = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: twd,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    final changed = base.reschedule(
+      closingDay: 5,
+      dueDay: 20,
+      from: BusinessDate(2028, 4, 5),
+    );
+    expect(changed.version, 2);
+    final march = changed.cycleFor(BusinessDate(2028, 3, 10));
+    expect(march.startsAfter, BusinessDate(2028, 2, 25));
+    expect(march.closesOn, BusinessDate(2028, 3, 25));
+    expect(march.dueOn, BusinessDate(2028, 4, 10));
+    // The first cycle on the new day is a short one.
+    final transition = changed.cycleFor(BusinessDate(2028, 3, 30));
+    expect(transition.startsAfter, BusinessDate(2028, 3, 25));
+    expect(transition.closesOn, BusinessDate(2028, 4, 5));
+    expect(transition.dueOn, BusinessDate(2028, 4, 20));
+    final may = changed.cycleFor(BusinessDate(2028, 4, 20));
+    expect(may.startsAfter, BusinessDate(2028, 4, 5));
+    expect(may.closesOn, BusinessDate(2028, 5, 5));
+    expect(
+      () => base.reschedule(
+        closingDay: 5,
+        dueDay: 20,
+        from: BusinessDate(2028, 4, 6),
+      ),
+      throwsA(isA<CreditCardException>()),
+    );
+
+    // The issuer closed March two days late.
+    final moved = changed.overrideCycle(
+      scheduledClose: BusinessDate(2028, 3, 25),
+      closesOn: BusinessDate(2028, 3, 27),
+      dueOn: BusinessDate(2028, 4, 11),
+    );
+    final actual = moved.cycleFor(BusinessDate(2028, 3, 26));
+    expect(actual.closesOn, BusinessDate(2028, 3, 27));
+    expect(actual.dueOn, BusinessDate(2028, 4, 11));
+    expect(actual.scheduledClose, BusinessDate(2028, 3, 25));
+    final after = moved.cycleFor(BusinessDate(2028, 3, 28));
+    expect(after.startsAfter, BusinessDate(2028, 3, 27));
+    expect(
+      moved.overrideCycle(scheduledClose: BusinessDate(2028, 3, 25)).overrides,
+      isEmpty,
+    );
+    expect(
+      () => changed.overrideCycle(
+        scheduledClose: BusinessDate(2028, 3, 24),
+        closesOn: BusinessDate(2028, 3, 27),
+        dueOn: BusinessDate(2028, 4, 11),
+      ),
+      throwsA(isA<CreditCardException>()),
+    );
+
+    const codec = CreditCardTermsCodec();
+    final encoded = codec.encode(moved);
+    final decoded = codec.decode(encoded);
+    expect(codec.encode(decoded), encoded);
+    final again = decoded.cycleFor(BusinessDate(2028, 3, 26));
+    expect(again.closesOn, BusinessDate(2028, 3, 27));
   });
 }
