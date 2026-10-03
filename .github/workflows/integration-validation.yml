@@ -10,7 +10,6 @@ on:
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
-      - 'prototypes/**'
       - 'tooling/**'
   pull_request:
     branches: [main]
@@ -20,7 +19,6 @@ on:
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
-      - 'prototypes/**'
       - 'tooling/**'
   workflow_dispatch:
   # Release workflows call this first so a release only ships a SHA whose

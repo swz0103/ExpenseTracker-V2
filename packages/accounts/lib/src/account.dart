@@ -114,6 +114,7 @@ final class Account {
   final Currency currency;
   final BusinessDate openedOn;
   final bool includeInNetWorth;
+
   /// Bumped by every change, for edits of the account itself.
   final int version;
 

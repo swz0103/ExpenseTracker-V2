@@ -3,28 +3,32 @@ import 'dart:io';
 import 'package:accounts/accounts.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:expense_tracker/src/startup.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
 const password = 'correct horse battery';
 
-/// Stands in for an Android Keystore key.
+/// Stands in for an Android Keystore key; a blob opens only for the
+/// context it was wrapped with, as the real key requires.
 final class FakeDeviceKey implements DeviceKeyWrapper {
-  final _secrets = <String, List<int>>{};
+  final _secrets = <String, (List<int>, List<int>)>{};
 
   @override
   Future<List<int>> wrap(List<int> secret, List<int> context) async {
     final handle = 'blob-${_secrets.length}';
-    _secrets[handle] = List.of(secret);
+    _secrets[handle] = (List.of(secret), List.of(context));
     return handle.codeUnits;
   }
 
   @override
   Future<List<int>> unwrap(List<int> wrapped, List<int> context) async {
-    final secret = _secrets[String.fromCharCodes(wrapped)];
-    if (secret == null) throw StateError('not this device');
-    return secret;
+    final entry = _secrets[String.fromCharCodes(wrapped)];
+    if (entry == null || !listEquals(entry.$2, context)) {
+      throw StateError('not this device');
+    }
+    return entry.$1;
   }
 }
 

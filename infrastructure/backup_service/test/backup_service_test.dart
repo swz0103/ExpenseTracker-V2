@@ -164,18 +164,19 @@ void main() {
     var now = t0;
     for (var i = 0; i < 2; i++) {
       await backup(now);
-      await sync(now, keep: 1);
+      await sync(now, keep: 5);
       now = now.add(day);
     }
-    expect(drive.files.values.where((f) => !f.trashed), hasLength(1));
+    expect(drive.files.values.where((f) => !f.trashed), hasLength(2));
     drive.faults.add(
       Fault(FaultKind.status, (r) => r.method == 'POST', status: 503),
     );
     await backup(now);
+    // Keeping 1 would trash an older copy, but not while an upload fails.
     final report = await sync(now, keep: 1);
     expect(report.last.result, UploadResult.retryLater);
     expect(report.removed, 0);
-    expect(drive.files.values.where((f) => !f.trashed), hasLength(1));
+    expect(drive.files.values.where((f) => !f.trashed), hasLength(2));
     final health = service.health(principal: principal, every: day, now: now);
     expect(health.pending, 1);
   });

@@ -312,8 +312,9 @@ void main() {
       final stale = random.nextInt(10) == 0;
       final version = AccountRef(
         target,
-        stale ? current.version - 1 : current.version,
+        stale ? current.rulesVersion - 1 : current.rulesVersion,
       );
+      final edit = stale ? current.version - 1 : current.version;
       final date = BusinessDate(2026, 9 + random.nextInt(3), 1 + i % 28);
       final units = 1 + random.nextInt(20000);
       try {
@@ -362,7 +363,7 @@ void main() {
               RenameAccount(
                 operation: op(),
                 accountId: target,
-                expectedVersion: version.expectedVersion,
+                expectedVersion: edit,
                 name: '帳戶 $i',
               ),
             );
@@ -371,7 +372,7 @@ void main() {
               ChangeAccountState(
                 operation: op(),
                 accountId: target,
-                expectedVersion: version.expectedVersion,
+                expectedVersion: edit,
                 change: current.state == AccountState.active
                     ? AccountStateChange.archive
                     : AccountStateChange.reactivate,

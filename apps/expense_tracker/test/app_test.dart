@@ -34,7 +34,7 @@ void main() {
   test('refused input is explained in words', () {
     Object? error;
     try {
-      parseAmount(Currency.of('TWD'), '1.234');
+      parseAmount(Currency.of('TWD'), '1.5');
     } on MoneyException catch (e) {
       error = e;
     }
