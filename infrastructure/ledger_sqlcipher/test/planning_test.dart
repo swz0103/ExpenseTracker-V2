@@ -172,6 +172,8 @@ void main() {
     ];
 
     await save(0);
+    final listed = ledger.recurringTemplates(workspace).single;
+    expect((listed.$1.label, listed.$2), ('房租', true));
     expect(due(), [
       BusinessDate(2026, 8, 5),
       BusinessDate(2026, 9, 5),
@@ -190,6 +192,7 @@ void main() {
     );
     await save(1, active: false);
     expect(due(), isEmpty);
+    expect(ledger.recurringTemplates(workspace).single.$2, isFalse);
     await expectLater(
       confirm(BusinessDate(2026, 9, 5), version: 2),
       fails(FailureKind.rejected, 'recurring.stopped'),

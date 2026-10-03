@@ -160,6 +160,25 @@ void main() {
     expect(ledger.recentPostings(workspace), hasLength(2));
   });
 
+  test('each entry shows the balance after it and its reversal', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final income = await flow(CashFlow.income, cash, money(twd, 500));
+    await flow(
+      CashFlow.expense,
+      cash,
+      money(twd, 200),
+      date: BusinessDate(2026, 10, 5),
+    );
+    final reversal = await reverse(income, date: BusinessDate(2026, 10, 9));
+    final lines = ledger.runningBalance(account(cash));
+    final after = [for (final (_, balance) in lines) balance];
+    final expected = [1000, 1500, 1300, 800];
+    expect(after, [for (final units in expected) money(twd, units)]);
+    expect(lines.last.$1.id, reversal);
+    expect(ledger.reversedBy(income), reversal);
+    expect(ledger.reversedBy(reversal), isNull);
+  });
+
   test('a posting can be reversed only once, and never a reversal', () async {
     final cash = await openAccount('現金', twd);
     final income = await flow(CashFlow.income, cash, money(twd, 100));

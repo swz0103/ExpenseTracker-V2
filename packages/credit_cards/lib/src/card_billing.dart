@@ -476,3 +476,81 @@ BusinessDate _day(int year, int month, int requested) {
   final last = DateTime.utc(year, month + 1, 0).day;
   return BusinessDate(year, month, requested > last ? last : requested);
 }
+
+/// The posted lines behind one statement, for the statement detail view.
+/// A purchase paid in installments is listed through its installments.
+final class CardStatementItems {
+  const CardStatementItems({
+    required this.charges,
+    required this.installments,
+    required this.payments,
+  });
+
+  factory CardStatementItems.select({
+    required CardCycle cycle,
+    required Iterable<CardCharge> charges,
+    required Iterable<CardPayment> payments,
+    Iterable<CardInstallmentSchedule> plans = const [],
+  }) {
+    final planned = {for (final plan in plans) plan.purchaseEventId};
+    final posted = [
+      for (final charge in charges)
+        if (charge.isPosted &&
+            cycle.includes(charge.postedOn!) &&
+            !(charge.kind == CardChargeKind.purchase &&
+                planned.contains(charge.ledgerEventId)))
+          charge,
+    ]..sort((a, b) => a.postedOn!.compareTo(b.postedOn!));
+    return CardStatementItems(
+      charges: posted,
+      installments: [
+        for (final plan in plans)
+          for (final part in plan.installments)
+            if (part.scheduledClose == cycle.closesOn) part,
+      ],
+      payments: [
+        for (final payment in payments)
+          if (payment.statementClose == cycle.closesOn) payment,
+      ]..sort((a, b) => a.postedOn.compareTo(b.postedOn)),
+    );
+  }
+
+  final List<CardCharge> charges;
+  final List<CardInstallment> installments;
+  final List<CardPayment> payments;
+}
+
+/// What can still be charged to the card: the limit less posted charges
+/// and fees, less pending purchase authorizations, plus refunds and
+/// payments. Null when the card has no limit. An authorization in another
+/// currency is not counted until it posts; an overpayment can leave more
+/// than the limit.
+Money? remainingCredit({
+  required CreditCardTerms terms,
+  required Iterable<CardCharge> charges,
+  required Iterable<CardPayment> payments,
+}) {
+  final limit = terms.limit;
+  if (limit == null) return null;
+  var used = BigInt.zero;
+  for (final charge in charges) {
+    _checkOwner(terms, charge.workspace, charge.cardId);
+    if (charge.isPosted) {
+      if (charge.settledAmount!.currency != terms.currency) {
+        throw const CreditCardException(CreditCardError.currencyMismatch);
+      }
+      used += charge.kind == CardChargeKind.purchase
+          ? charge.settledAmount!.minorUnits
+          : -charge.settledAmount!.minorUnits;
+      used += charge.fee!.minorUnits;
+    } else if (charge.kind == CardChargeKind.purchase &&
+        charge.authorizedAmount.currency == terms.currency) {
+      used += charge.authorizedAmount.minorUnits;
+    }
+  }
+  for (final payment in payments) {
+    _checkOwner(terms, payment.workspace, payment.cardId);
+    used -= payment.amount.minorUnits;
+  }
+  return limit - Money(terms.currency, used);
+}

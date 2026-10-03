@@ -500,4 +500,86 @@ void main() {
       throwsA(isA<CreditCardException>()),
     );
   });
+
+  test('statement lines and available credit for the card screens', () {
+    CardCharge charge(String amount, {String fee = '0', bool post = true}) {
+      final pending = CardCharge.pending(
+        id: PublicId.generate(),
+        workspace: space,
+        cardId: card,
+        kind: CardChargeKind.purchase,
+        authorizedOn: BusinessDate(2028, 2, 20),
+        authorizedAmount: Money.parse(twd, amount),
+      );
+      if (!post) return pending;
+      return pending.post(
+        postedOn: BusinessDate(2028, 2, 20),
+        settledAmount: Money.parse(twd, amount),
+        fee: Money.parse(twd, fee),
+        ledgerEventId: PublicId.generate(),
+      );
+    }
+
+    final plain = charge('100', fee: '1.5');
+    final planned = charge('300');
+    final waiting = charge('50', post: false);
+    final abroad = CardCharge.pending(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      kind: CardChargeKind.purchase,
+      authorizedOn: BusinessDate(2028, 2, 21),
+      authorizedAmount: Money.parse(usd, '20'),
+    );
+    final feb = terms.scheduledCycleFor(BusinessDate(2028, 2, 20));
+    final plan = CardInstallmentSchedule(
+      purchaseEventId: planned.ledgerEventId!,
+      workspace: space,
+      cardId: card,
+      principal: Money.parse(twd, '300'),
+      fixedFee: Money.parse(twd, '0'),
+      firstScheduledClose: feb.closesOn,
+      closingDay: 31,
+      count: 3,
+    );
+    final payment = CardPayment(
+      id: PublicId.generate(),
+      workspace: space,
+      cardId: card,
+      statementClose: feb.closesOn,
+      postedOn: BusinessDate(2028, 2, 25),
+      amount: Money.parse(twd, '40'),
+      ledgerEventId: PublicId.generate(),
+    );
+    final charges = [plain, planned, waiting, abroad];
+    final items = CardStatementItems.select(
+      cycle: feb,
+      charges: charges,
+      payments: [payment],
+      plans: [plan],
+    );
+    expect(items.charges, [plain]);
+    expect([for (final part in items.installments) part.number], [1]);
+    expect(items.payments, [payment]);
+
+    // 10000 - (100 + 1.5 + 300 + 50 pending) + 40 paid; the USD hold is
+    // not counted until it posts.
+    final left = remainingCredit(
+      terms: terms,
+      charges: charges,
+      payments: [payment],
+    );
+    expect(left!.majorText, '9588.50');
+    final noLimit = CreditCardTerms(
+      workspace: space,
+      cardId: card,
+      currency: twd,
+      closingDay: 31,
+      dueDay: 15,
+    );
+    expect(
+      remainingCredit(terms: noLimit, charges: charges, payments: []),
+      isNull,
+    );
+  });
 }

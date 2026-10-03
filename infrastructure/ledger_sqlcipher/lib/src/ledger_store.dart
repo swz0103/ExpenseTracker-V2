@@ -289,6 +289,16 @@ final class MonthlyTotal {
   final Money expense;
 }
 
+/// Realized results and net dividends over a period, in one currency.
+final class InvestmentIncome {
+  const InvestmentIncome({required this.realized, required this.dividends});
+
+  final Money realized;
+  final Money dividends;
+}
+
+Money _zero(Money like) => Money(like.currency, BigInt.zero);
+
 /// Bookkeeping on one SQLCipher store. Open the store with [ledgerSchema].
 final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
   LedgerStore(this._store) {
@@ -366,36 +376,75 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
   CardStatement statement(PublicId cardId, BusinessDate date) {
     final terms = cardTerms(cardId);
     if (terms == null) throw StateError('Card has no terms.');
-    final charges = _store.select(
-      'SELECT payload FROM card_charges WHERE card_id = ? AND released = 0',
-      [cardId.value],
-    );
-    final payments = _store.select(
-      'SELECT payload FROM card_payments WHERE card_id = ? AND voided = 0',
-      [cardId.value],
-    );
-    final plans = _store.select(
-      'SELECT payload FROM card_installment_plans WHERE card_id = ?',
-      [cardId.value],
-    );
     return CardStatement.calculate(
       terms: terms,
       cycle: terms.scheduledCycleFor(date),
-      charges: [
-        for (final row in charges)
-          CardRecords.readCharge(_json(row['payload'])),
-      ],
-      payments: [
-        for (final row in payments)
-          CardRecords.readPayment(_json(row['payload'])),
-      ],
-      plans: [
-        for (final row in plans)
-          const CardInstallmentScheduleCodec().decode(
-            row['payload']! as String,
-          ),
-      ],
+      charges: _cardCharges(cardId),
+      payments: _cardPayments(cardId),
+      plans: _cardPlans(cardId),
     );
+  }
+
+  /// The posted charges, installments and payments behind the statement
+  /// whose cycle contains [date].
+  CardStatementItems statementItems(PublicId cardId, BusinessDate date) {
+    final terms = cardTerms(cardId);
+    if (terms == null) throw StateError('Card has no terms.');
+    return CardStatementItems.select(
+      cycle: terms.scheduledCycleFor(date),
+      charges: _cardCharges(cardId),
+      payments: _cardPayments(cardId),
+      plans: _cardPlans(cardId),
+    );
+  }
+
+  /// Authorizations that have not posted yet, oldest first.
+  List<CardCharge> pendingCharges(PublicId cardId) {
+    final pending = [
+      for (final charge in _cardCharges(cardId))
+        if (!charge.isPosted) charge,
+    ];
+    return pending..sort((a, b) => a.authorizedOn.compareTo(b.authorizedOn));
+  }
+
+  /// What can still be charged to the card; null when it has no limit.
+  Money? availableCredit(PublicId cardId) {
+    final terms = cardTerms(cardId);
+    if (terms == null) throw StateError('Card has no terms.');
+    return remainingCredit(
+      terms: terms,
+      charges: _cardCharges(cardId),
+      payments: _cardPayments(cardId),
+    );
+  }
+
+  List<CardCharge> _cardCharges(PublicId cardId) {
+    final rows = _store.select(
+      'SELECT payload FROM card_charges WHERE card_id = ? AND released = 0',
+      [cardId.value],
+    );
+    return [
+      for (final row in rows) CardRecords.readCharge(_json(row['payload'])),
+    ];
+  }
+
+  List<CardPayment> _cardPayments(PublicId cardId) {
+    final rows = _store.select(
+      'SELECT payload FROM card_payments WHERE card_id = ? AND voided = 0',
+      [cardId.value],
+    );
+    return [
+      for (final row in rows) CardRecords.readPayment(_json(row['payload'])),
+    ];
+  }
+
+  List<CardInstallmentSchedule> _cardPlans(PublicId cardId) {
+    const codec = CardInstallmentScheduleCodec();
+    final rows = _store.select(
+      'SELECT payload FROM card_installment_plans WHERE card_id = ?',
+      [cardId.value],
+    );
+    return [for (final row in rows) codec.decode(row['payload']! as String)];
   }
 
   /// Forecast installments for the purchase posted as [postingId].
@@ -413,7 +462,143 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     _readTrades(_store.select, accountId, instrumentId),
   );
 
+  /// Investment accounts in [workspace], by name.
+  List<InvestmentAccount> investmentAccounts(WorkspaceId workspace) {
+    final rows = _store.select(
+      "SELECT payload FROM invest_registry WHERE type = 'account' "
+      "AND json_extract(payload, '\$.workspace') = ?",
+      [workspace.toString()],
+    );
+    return [
+      for (final row in rows)
+        InvestmentRecords.readAccount(_json(row['payload'])),
+    ]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  InvestmentInstrument? instrument(PublicId id) {
+    final rows = _store.select(
+      'SELECT payload FROM invest_registry '
+      "WHERE type = 'instrument' AND id = ?",
+      [id.value],
+    );
+    return rows.isEmpty
+        ? null
+        : InvestmentRecords.readInstrument(_json(rows.single['payload']));
+  }
+
+  /// The instruments [accountId] still holds shares of.
+  List<PublicId> positions(PublicId accountId) {
+    final rows = _store.select(
+      'SELECT DISTINCT instrument_id FROM invest_trades WHERE account_id = ? '
+      'ORDER BY instrument_id',
+      [accountId.value],
+    );
+    final held = <PublicId>[];
+    for (final row in rows) {
+      final instrument = PublicId.parse(row['instrument_id']! as String);
+      if (holdings(accountId, instrument).isNotEmpty) held.add(instrument);
+    }
+    return held;
+  }
+
+  /// The trades of [accountId], newest first, optionally for one
+  /// instrument. Voided trades are left out.
+  List<InvestmentTrade> tradeHistory(
+    PublicId accountId, {
+    PublicId? instrumentId,
+  }) {
+    final rows = _store.select(
+      'SELECT payload FROM invest_trades WHERE account_id = ? '
+      'AND (? IS NULL OR instrument_id = ?) '
+      "AND json_extract(payload, '\$.id') NOT IN "
+      '(SELECT trade_id FROM invest_voids) ORDER BY seq DESC',
+      [accountId.value, instrumentId?.value, instrumentId?.value],
+    );
+    return [
+      for (final row in rows)
+        InvestmentRecords.readTrade(_json(row['payload'])),
+    ];
+  }
+
+  /// Realized results of sells and net dividends in [workspace] dated
+  /// [from] through [through], keyed by currency code.
+  Map<String, InvestmentIncome> investmentIncome(
+    WorkspaceId workspace, {
+    required BusinessDate from,
+    required BusinessDate through,
+  }) {
+    final realized = <String, Money>{};
+    final dividends = <String, Money>{};
+    void add(Map<String, Money> totals, Money amount) {
+      final code = amount.currency.code;
+      final earlier = totals[code];
+      totals[code] = earlier == null ? amount : earlier + amount;
+    }
+
+    for (final account in investmentAccounts(workspace)) {
+      for (final trade in tradeHistory(account.id)) {
+        if (trade.date.compareTo(from) < 0 ||
+            trade.date.compareTo(through) > 0) {
+          continue;
+        }
+        if (trade.kind == 'sell') add(realized, trade.realized!);
+        if (trade.kind == 'dividend') add(dividends, trade.cash!);
+      }
+    }
+    return {
+      for (final code in {...realized.keys, ...dividends.keys})
+        code: InvestmentIncome(
+          realized: realized[code] ?? _zero(dividends[code]!),
+          dividends: dividends[code] ?? _zero(realized[code]!),
+        ),
+    };
+  }
+
   EntryNote note(PublicId postingId) => _readNote(_store.select, postingId);
+
+  /// Whether [postingId] has been reversed, and by which posting.
+  PublicId? reversedBy(PublicId postingId) {
+    final rows = _store.select(
+      'SELECT id FROM ledger_postings WHERE reversal_of = ?',
+      [postingId.value],
+    );
+    return rows.isEmpty ? null : PublicId.parse(rows.single['id']! as String);
+  }
+
+  /// Every posting that touches [account], oldest first, with the
+  /// account's balance after it.
+  List<(Posting, Money)> runningBalance(Account account) {
+    final rows = _store.select(
+      'SELECT p.payload, group_concat(l.minor_units) AS legs '
+      'FROM ledger_postings p JOIN ledger_legs l ON l.posting_id = p.id '
+      'WHERE l.account_id = ? GROUP BY p.id ORDER BY p.date, p.id',
+      [account.id.value],
+    );
+    var balance = BigInt.zero;
+    final lines = <(Posting, Money)>[];
+    for (final row in rows) {
+      for (final leg in (row['legs']! as String).split(',')) {
+        balance += BigInt.parse(leg);
+      }
+      final after = Money(account.currency, balance);
+      lines.add((_decodePosting(row['payload']), after));
+    }
+    return lines;
+  }
+
+  /// Recurring templates in [workspace], with whether each is active.
+  List<(RecurringTemplate, bool)> recurringTemplates(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT payload, active FROM plan_recurring WHERE workspace = ? '
+      'ORDER BY id',
+      [workspace.toString()],
+    );
+    final codec = RecurringTemplateCodec();
+    return [
+      for (final row in rows)
+        (codec.decode(row['payload']! as String), row['active'] == 1),
+    ];
+  }
 
   /// Report facts for one month, in date order: the same facts monthly
   /// reports and budgets use.

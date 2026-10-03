@@ -196,6 +196,48 @@ void main() {
     expect(ledger.monthly(workspace, '2026-11'), isEmpty);
   });
 
+  test('investment screens list accounts, trades and income', () async {
+    await buy('10', '150', 150000);
+    await buy('5', '160', 80000, on: BusinessDate(2026, 10, 5));
+    await sell('12', '170', 204000);
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(700),
+      ),
+    );
+    final accounts = ledger.investmentAccounts(workspace);
+    expect([for (final account in accounts) account.name], ['美股']);
+    expect(ledger.instrument(apple)!.symbol, 'AAPL');
+    expect(ledger.positions(brokerage), [apple]);
+    final history = ledger.tradeHistory(brokerage, instrumentId: apple);
+    final kinds = [for (final trade in history) trade.kind];
+    expect(kinds, ['dividend', 'sell', 'buy', 'buy']);
+    expect(history.last.cash, cents(-150000));
+    // 203900 net less the cost of 10 + 2 shares (150000 + 32000).
+    expect(history[1].realized, cents(21900));
+    final october = ledger.investmentIncome(
+      workspace,
+      from: BusinessDate(2026, 10, 1),
+      through: BusinessDate(2026, 10, 31),
+    )['USD']!;
+    expect(october.realized, cents(21900));
+    expect(october.dividends, cents(0));
+    final year = ledger.investmentIncome(
+      workspace,
+      from: BusinessDate(2026, 1, 1),
+      through: BusinessDate(2026, 12, 31),
+    )['USD']!;
+    expect(year.dividends, cents(700));
+  });
+
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(

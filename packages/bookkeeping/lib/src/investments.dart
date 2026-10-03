@@ -655,6 +655,35 @@ abstract final class InvestmentRecords {
         );
       });
 
+  /// The history view of a stored trade record.
+  static InvestmentTrade readTrade(Map<String, Object?> json) => decoding(() {
+    if (json['version'] != version) throw const CodecException('version');
+    Money? money(String key) {
+      final value = json[key] as Map<String, Object?>?;
+      return value == null ? null : Money.fromJson(value);
+    }
+
+    final kind = json['kind']! as String;
+    final posting = json['postingId'] as String?;
+    final quantity = json['quantity'] as String?;
+    final cost = money('cost');
+    return InvestmentTrade(
+      id: PublicId.parse(json['id']! as String),
+      kind: switch (kind) {
+        'buy' || 'sell' || 'split' || 'dividend' => kind,
+        _ => throw const CodecException('trade'),
+      },
+      accountId: PublicId.parse(json['accountId']! as String),
+      instrumentId: PublicId.parse(json['instrumentId']! as String),
+      date: BusinessDate.parse(json['date']! as String),
+      postingId: posting == null ? null : PublicId.parse(posting),
+      quantity: quantity == null ? null : ShareQuantity.parse(quantity),
+      gross: money('gross'),
+      cash: cost == null ? money('net') : -cost,
+      realized: money('realized'),
+    );
+  });
+
   /// Replays buys and sells into the open lots, oldest first. Every sell
   /// rewrites the lots it lists, so a lot's version counts its changes.
   static List<InvestmentHoldingLot> openLots(
@@ -734,6 +763,46 @@ abstract final class InvestmentRecords {
         ),
     ];
   });
+}
+
+/// One recorded trade, as the trade history screen lists it.
+final class InvestmentTrade {
+  const InvestmentTrade({
+    required this.id,
+    required this.kind,
+    required this.accountId,
+    required this.instrumentId,
+    required this.date,
+    this.postingId,
+    this.quantity,
+    this.gross,
+    this.cash,
+    this.realized,
+  });
+
+  final PublicId id;
+
+  /// `buy`, `sell`, `split` or `dividend`.
+  final String kind;
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final BusinessDate date;
+
+  /// The cash posting; a split has none.
+  final PublicId? postingId;
+
+  /// Shares bought or sold.
+  final ShareQuantity? quantity;
+
+  /// Price times quantity, or the dividend before tax and fees.
+  final Money? gross;
+
+  /// The change in cash: negative for a buy, the net received for a sell
+  /// or a dividend.
+  final Money? cash;
+
+  /// Proceeds less the cost of the shares sold, for a sell.
+  final Money? realized;
 }
 
 final class _LotState {

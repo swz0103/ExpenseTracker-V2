@@ -160,6 +160,38 @@ void main() {
     );
   });
 
+  test('card screens list holds, statement lines and credit', () async {
+    await cards.setTerms(
+      SetCardTerms(
+        operation: op(),
+        cardId: card,
+        expectedVersion: 1,
+        closingDay: 25,
+        dueDay: 10,
+        limit: ntd(50000),
+      ),
+    );
+    final held = PublicId.generate();
+    await cards.authorize(
+      AuthorizeCardCharge(
+        operation: op(),
+        chargeId: held,
+        cardId: card,
+        authorizedOn: purchaseDay,
+        amount: ntd(800),
+      ),
+    );
+    await post(settled: 1200, fee: 30);
+    final pending = ledger.pendingCharges(card);
+    expect([for (final charge in pending) charge.id], [held]);
+    final items = ledger.statementItems(card, close);
+    expect([for (final c in items.charges) c.settledAmount], [ntd(1200)]);
+    expect(items.installments, isEmpty);
+    expect(items.payments, isEmpty);
+    // 50000 less 1230 posted and 800 still held.
+    expect(ledger.availableCredit(card), ntd(47970));
+  });
+
   test('paying the bill is a transfer, not new spending', () async {
     await post(settled: 5000);
     await cards.pay(
