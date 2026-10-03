@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// Packages written for the new architecture. A test there must say which
-/// failure it expects; `throwsA(anything)` passes for a crash too.
+/// Every package: a test must say which failure it expects;
+/// `throwsA(anything)` passes for a crash too (health check G1-15).
 const strictPackages = [
   'apps/expense_tracker',
   'infrastructure/backup_security',
@@ -15,8 +15,22 @@ const strictPackages = [
   'infrastructure/ledger_vault',
   'infrastructure/market_adapters',
   'infrastructure/storage_sqlcipher',
+  'packages/accounts',
+  'packages/amount_input',
   'packages/app_core',
   'packages/bookkeeping',
+  'packages/budgets',
+  'packages/categories',
+  'packages/credit_cards',
+  'packages/data_exchange',
+  'packages/foundation_values',
+  'packages/investments',
+  'packages/ledger',
+  'packages/market_data',
+  'packages/merchants',
+  'packages/recurring_transactions',
+  'packages/reports',
+  'packages/tags',
 ];
 
 final _vague = RegExp(r'throwsA\(\s*(anything|isA<(Object|Exception)>\(\))');
