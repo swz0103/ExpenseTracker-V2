@@ -54,7 +54,14 @@ void main() {
 
   test('a failing step leaves the module at its previous version', () {
     open([v1]).close();
-    expect(() => open([v1, v2, ['NOT SQL']]), throwsA(isA<SqliteException>()));
+    expect(
+      () => open([
+        v1,
+        v2,
+        ['NOT SQL'],
+      ]),
+      throwsA(isA<SqliteException>()),
+    );
     final store = open([v1, v2]);
     expect(store.moduleVersion('notes'), 2);
     store.close();

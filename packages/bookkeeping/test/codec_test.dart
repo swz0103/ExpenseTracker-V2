@@ -113,10 +113,7 @@ void main() {
       {...json, 'date': '2026-02-30'},
     ];
     for (final value in cases) {
-      expect(
-        () => PostingCodec.decode(value),
-        throwsA(isA<CodecException>()),
-      );
+      expect(() => PostingCodec.decode(value), throwsA(isA<CodecException>()));
     }
   });
 

@@ -141,9 +141,7 @@ abstract final class PostingCodec {
     );
     final date = BusinessDate.parse(json['date'] as String);
     switch (kind) {
-      case PostingKind.opening ||
-          PostingKind.income ||
-          PostingKind.expense:
+      case PostingKind.opening || PostingKind.income || PostingKind.expense:
         _keys(json, {...common, 'account', 'amount'});
         final amount = _money(json['amount']);
         final account = _readAccount(json['account'], workspace, amount);
