@@ -5,7 +5,7 @@
 定位：Android 優先、Flutter、Local-first 個人財務管理 App  
 配套文件：[Full Vision Baseline](full-vision-baseline.md)
 
-整合閱讀：[架構提案與已選方向](architecture-proposal.md) · [實作計畫](../delivery/implementation-plan.md)。D-001／D-002 為模組協調與業務套件方向；D-003 已採用 1A／2A／3A，本文件同步其呈現口徑、首批備份及交付順序。工程細節仍須驗證。
+整合閱讀：架構提案與已選方向 · 實作計畫。D-001／D-002 為模組協調與業務套件方向；D-003 已採用 1A／2A／3A，本文件同步其呈現口徑、首批備份及交付順序。工程細節仍須驗證。
 
 > **核心能力完整實作；未使用的進階能力保留正確的介面、資料邊界與遷移路徑。UI 保持簡潔。**
 >
@@ -500,7 +500,7 @@ Query／Index governance 的第一階段交付：列出重要查詢模式、量�
 
 第一條端到端驗證路徑為：建立帳戶與期初餘額 → 收入／支出 → 轉帳／退款 → 可核對的餘額與基本報表 → 備份 → 乾淨環境還原。這是提早驗證地基的路徑，不取代其他 CORE 的交付責任。具體功能順序可按依賴調整，整體框架變更仍須遵循 [RC-06](#module-extension-rules) 與 ADR。
 
-**D-003／3A 已選的順序**；具體工作單與通過條件見[實作計畫](../delivery/implementation-plan.md)，不是各 Optional 能力的預定日期。
+**D-003／3A 已選的順序**；具體工作單與通過條件見實作計畫，不是各 Optional 能力的預定日期。
 
 1. **規格與地基驗證**：先完成模型、接口及工程 ADR；再於後續實作階段驗證 Money／Time／ID／Workspace、跨模組 Unit of Work、migration／加密及最小雙路備份還原，通過相關 gate 才建立正式架構基線。
 2. **M1 日常記帳版本**：Account／Category／Tag／Merchant、收入支出、multi-leg／Transfer／Split／Refund／Revision、多幣別基礎、Audit、Search、基本 Reports／Projection、CSV／JSON 與必要 UI；密碼＋文字救援金鑰、真實乾淨環境還原、安全／隱私／Safe Mode 與 migration 是本批必要條件。
@@ -510,7 +510,7 @@ Query／Index governance 的第一階段交付：列出重要查詢模式、量�
 
 ### Freeze 前必須結案
 
-**決策方式調整**：使用者已選定 [1A 日常呈現口徑](architecture-proposal.md#choice-1)、[2A 首批備份解鎖範圍](architecture-proposal.md#choice-2)、[3A 分批交付](architecture-proposal.md#choice-3)，並要求先檢視實作安排。下列 ADR 的工程規格由助手整合與驗證，不再逐項變成使用者問卷。選項定案不代替安全、資料與架構 gate。
+**決策方式調整**：使用者已選定 1A 日常呈現口徑、2A 首批備份解鎖範圍、3A 分批交付，並要求先檢視實作安排。下列 ADR 的工程規格由助手整合與驗證，不再逐項變成使用者問卷。選項定案不代替安全、資料與架構 gate。
 
 - **FRAME-01**：完成並審查上述模組／資料／契約設計與代表情境，確認擴充接入方式及影響範圍；文件原則已確認不等於框架設計或驗證已完成。
 - **D-001（方向已選，驗證待完成）**：採用 [A＋](#a-plus-coordination)；模組主責、小型操作協調與統一提交為既定方向。具體接口、完整資料歸屬、operation ID 保存／還原相容規則與失敗驗證仍須完成，不以本項選定代替 ADR-01／ADR-07 的結案。
@@ -540,7 +540,7 @@ Query／Index governance 的第一階段交付：列出重要查詢模式、量�
 
 保留 FV／RC ID，不重新編號；刪除或取代決策時保留 superseded 記錄與新決策引用。升級 Optional 能力時，逐項確認資料 migration、Domain invariants、權限、備份、停用後資料可讀性、效能與測試，再由 reserved／implemented 升為 verified／enabled。每次變更註記來源、理由、影響與審查結果。
 
-本版整理來源為「重新開始記帳APP」的全部 170 題、完整 v0.9、減重 review 與本次後續明確決策。依後續指示已建立私人 [ExpenseTracker-V2](https://github.com/swz0103/ExpenseTracker-V2)，文件走分支／PR；環境狀態見[前置準備](../delivery/development-readiness.md)。兩份 Baseline 與配套文件一起保留於同一 `docs/` 目錄以維持引用，repository 建立不代表 Architecture Freeze。
+本版整理來源為「重新開始記帳APP」的全部 170 題、完整 v0.9、減重 review 與本次後續明確決策。依後續指示已建立私人 [ExpenseTracker-V2](https://github.com/swz0103/ExpenseTracker-V2)，文件走分支／PR；環境狀態見前置準備。兩份 Baseline 與配套文件一起保留於同一 `docs/` 目錄以維持引用，repository 建立不代表 Architecture Freeze。
 
 <a id="rc-23"></a>
 ## RC-23｜Backend、Secrets、Config、平台與降級
@@ -566,7 +566,7 @@ Android 優先但核心不綁 Android；SecureStorage、Biometrics、Calendar、
 
 **CORE 交付規範**：新 repository，main + feature／slice branches；禁止直接 push main。每個 PR／slice 必須有 acceptance criteria、測試結果、Architecture Gate、Migration Gate、Static Analysis、Security Check 與 exact commit SHA。私人 repository 已建立，當前交付為文件；沒有宣告任何程式 gate 已通過。
 
-**後續工作指示**：使用者已要求先建立新的 GitHub 專案，並先完成必要登入／準備。允許以私人 repository 與初始 README 保存專案，再將架構文件走分支／PR；不等待整體 Freeze 才建立 repository，但正式 Architecture Baseline 仍須通過既定 gate。建立與環境狀態見[前置準備](../delivery/development-readiness.md)。
+**後續工作指示**：使用者已要求先建立新的 GitHub 專案，並先完成必要登入／準備。允許以私人 repository 與初始 README 保存專案，再將架構文件走分支／PR；不等待整體 Freeze 才建立 repository，但正式 Architecture Baseline 仍須通過既定 gate。建立與環境狀態見前置準備。
 
 Release artifact 可追溯 commit、版本／build／channel、checksum、minimum version、migration level、rollback marker；App 更新檢查與 GitHub Release 使用一致的版本來源。確認對應平台／channel、artifact 完整性與簽章後才進正式安裝流程；migration 不相容時不能只降級 binary。具體簽章保管、更新交付與失敗復原流程在 ADR 中細化，測試升級與中斷情境。
 

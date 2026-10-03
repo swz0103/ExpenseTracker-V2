@@ -1,6 +1,6 @@
 # 雙解鎖備份 Envelope 原型
 
-依據使用者 [2A 決策](../../docs/architecture/full-vision-baseline.md#decision-product-delivery) 與 [BACKUP 驗收案例](../../docs/foundation/foundation-acceptance.md)。本原型驗證加密封裝，不是完整資料庫備份產品。
+依據使用者 [2A 決策](../../docs/architecture/full-vision-baseline.md#decision-product-delivery) 與 BACKUP 驗收案例。本原型驗證加密封裝，不是完整資料庫備份產品。
 
 ## 封裝設計
 

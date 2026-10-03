@@ -254,7 +254,9 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
         return;
       }
       if (uri.scheme == 'dart') {
-        if (production && !sdk.contains(text))
+        final extra =
+            (modules[owner.name]?['extraSdkLibraries'] as List?) ?? const [];
+        if (production && !sdk.contains(text) && !extra.contains(text))
           report(
             'platform-dependency',
             file.path,

@@ -87,7 +87,7 @@ class _HistoricalFxPanelState extends State<HistoricalFxPanel> {
     }
     final request = ++_request;
     final parts = _pair.split('/');
-    Currency currency(String code) => Currency(code, code == 'JPY' ? 0 : 2);
+    Currency currency(String code) => Currency.iso(code);
     setState(() {
       _loading = true;
       _result = null;

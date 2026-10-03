@@ -1,6 +1,6 @@
 # 正式撤銷交易
 
-範圍：M1-04、[FV-008](../architecture/full-vision-baseline.md#fv-008)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 [Foundation 契約](../foundation/foundation-contracts.md)。本批提供收入、支出、同幣／跨幣轉帳的完整反向入帳；一般欄位編輯、原子更正與替代、tombstone、信用卡跨期沖回仍依 [實作安排](../delivery/implementation-plan.md) 接續，未宣稱整個 M1-04 完成。
+範圍：M1-04、[FV-008](../architecture/full-vision-baseline.md#fv-008)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 [Foundation 契約](../foundation/foundation-contracts.md)。本批提供收入、支出、同幣／跨幣轉帳的完整反向入帳；一般欄位編輯、原子更正與替代、tombstone、信用卡跨期沖回仍依 實作安排 接續，未宣稱整個 M1-04 完成。
 
 ## 財務語意
 
@@ -30,8 +30,8 @@ manual-reversal-v1 加密保存未完成的日期／原因；凍結時保存原�
 
 ## 驗證狀態
 
-[完整 18 套件／846 個主機案例](../test-results/2026-09-28/reversals-host-2026-09-28.json)通過，新增 31 個案例；針對測試不重複計數。涵蓋所有寫入階段回滾、三個轉帳 legs、FX context、Max Money、封存歸屬、競爭請求、篡改還原、草稿凍結與重試、確認途中鎖定，以及 11 個升級真實程序退出點。
+完整 18 套件／846 個主機案例通過，新增 31 個案例；針對測試不重複計數。涵蓋所有寫入階段回滾、三個轉帳 legs、FX context、Max Money、封存歸屬、競爭請求、篡改還原、草稿凍結與重試、確認途中鎖定，以及 11 個升級真實程序退出點。
 
-[5,000 混合事件](../test-results/2026-09-28/reversals-scale-2026-09-28.json)包含既有部分退款、2,498 組原交易／撤銷、1,249 組跨幣轉帳與費用、4,996 次重送。獨立核對兩幣餘額、報表、有符號分類淨額、容量拒絕與全部分頁；刪除來源 DB／keys 後，密碼及救援文字各自乾淨還原且完整 bytes 一致。另有[4 個草稿真實程序退出點](../test-results/2026-09-28/reversals-process-2026-09-28.json)。
+5,000 混合事件包含既有部分退款、2,498 組原交易／撤銷、1,249 組跨幣轉帳與費用、4,996 次重送。獨立核對兩幣餘額、報表、有符號分類淨額、容量拒絕與全部分頁；刪除來源 DB／keys 後，密碼及救援文字各自乾淨還原且完整 bytes 一致。另有4 個草稿真實程序退出點。
 
 畫面測試曾誤等忙碌動畫結束，及未推進模擬時鐘的加密工作；修正測試等待方式，保留財務與隱私斷言。完整驗證分兩段固定來源：先完成 14 個未受影響套件；回查修正撤銷收據容量後，重新驗證 4 個上層套件。兩版各 282 個程式／相依檔案雜湊、兩檔差異及未計入的中斷測試明列證據。0.15.0+19 本機 ARM64 debug 封裝核對通過。雲端 workflow 停用，實機未執行，沒有合入 main 或正式發版。

@@ -1,6 +1,6 @@
 # 交易標籤與安全升級
 
-本批接續 [分類管理 PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)，實作 [M1-02](../delivery/implementation-plan.md) 的標籤使用流程。對應 [RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-011](../architecture/full-vision-baseline.md#fv-011)、[Q014](../architecture/full-vision-baseline.md#q014) 與 [Q053](../architecture/full-vision-baseline.md#q053)。完整 CORE 尚未結束；實際通過項目以[工作進度](../work-progress.md)及本批驗證證據為準。
+本批接續 [分類管理 PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)，實作 M1-02 的標籤使用流程。對應 [RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-011](../architecture/full-vision-baseline.md#fv-011)、[Q014](../architecture/full-vision-baseline.md#q014) 與 [Q053](../architecture/full-vision-baseline.md#q053)。完整 CORE 尚未結束；實際通過項目以工作進度及本批驗證證據為準。
 
 ## 使用流程
 
@@ -30,17 +30,17 @@
 
 目前 App 工作階段最多 32 帳戶、5,000 金融事件、256 分類／1,024 次分類變更，加上 256 標籤／1,024 次標籤變更；跨表仍受 50,000 列與 16 MiB 上限。標籤關聯納入實際 UTF-8 bytes 及列數計算，交易上限與總量上限先到者生效。有標籤的 receipt 使用獨立 4 KiB 上限容納最多 16 個引用，不放寬其他列的限制。
 
-以上為受限工作階段的明確範圍，不代表 M3 的 100k+ 容量承諾。正常、失敗、重試、既有帳本升級、雙憑證乾淨還原與 UI 均須有通過證據才交付。雲端依[額度政策](../delivery/ci-budget-policy.md)停用，主機測試不取代實機安全儲存／檔案選擇器／OS 驗收。
+以上為受限工作階段的明確範圍，不代表 M3 的 100k+ 容量承諾。正常、失敗、重試、既有帳本升級、雙憑證乾淨還原與 UI 均須有通過證據才交付。雲端依額度政策停用，主機測試不取代實機安全儲存／檔案選擇器／OS 驗收。
 
 ## 本機驗證證據
 
-[完整主機清單](../test-results/2026-09-27/transaction-tags-host-2026-09-27.json)：15 個套件、562 項獨有案例通過，含 54 項新增案例、格式／靜態分析、五個原生 worker 重建及實際套件依賴掃描。11 處升級中斷使用原生程序退出；App 另有 4 處例外注入，不能混稱同種測試。
+完整主機清單：15 個套件、562 項獨有案例通過，含 54 項新增案例、格式／靜態分析、五個原生 worker 重建及實際套件依賴掃描。11 處升級中斷使用原生程序退出；App 另有 4 處例外注入，不能混稱同種測試。
 
 兩個獨立大量資料情境依序執行，不能相加成單帳本容量：
 
-- [新 schema 6 混合資料](../test-results/2026-09-27/transaction-tags-scale-2026-09-27.json)：5,000 筆事件、4,999 筆分類分攤、9,998 個標籤引用、256 分類／768 次異動、256 標籤／1,024 次異動、5,003 次重送；完整 snapshot 10,842,638 bytes，總耗時 308.382 秒。
-- [已滿舊 schema 5 升級](../test-results/2026-09-27/transaction-tags-upgrade-scale-2026-09-27.json)：來源已含 5,000 筆事件及 4,999 筆分攤、256 分類／768 次異動，升級後逐表保留既有內容，再加滿標籤及歷史。事件容量已滿，因此此情境沒有補加標籤引用；snapshot 8,378,144 bytes，升級 36.872 秒、總耗時 297.825 秒。
+- 新 schema 6 混合資料：5,000 筆事件、4,999 筆分類分攤、9,998 個標籤引用、256 分類／768 次異動、256 標籤／1,024 次異動、5,003 次重送；完整 snapshot 10,842,638 bytes，總耗時 308.382 秒。
+- 已滿舊 schema 5 升級：來源已含 5,000 筆事件及 4,999 筆分攤、256 分類／768 次異動，升級後逐表保留既有內容，再加滿標籤及歷史。事件容量已滿，因此此情境沒有補加標籤引用；snapshot 8,378,144 bytes，升級 36.872 秒、總耗時 297.825 秒。
 
 兩情境均以獨立計算的餘額 509,600 最小貨幣單位核對，驗證容量拒絕、封存後重送、完整分頁與全部 snapshot bytes。移除測試來源 DB 及記憶體 vault keys 後，密碼／救援各自在新環境還原及重開；不依賴來源裝置的秘密。
 
-這些時間是 Windows 主機合成資料實測，不是 Android 效能承諾。雲端未執行，沒有操作手機；平台金鑰、檔案選擇器及整體使用流程仍待實機驗收。最新 APK 版本與 hash 另見[安裝包紀錄](../delivery/installable-preview.md)。
+這些時間是 Windows 主機合成資料實測，不是 Android 效能承諾。雲端未執行，沒有操作手機；平台金鑰、檔案選擇器及整體使用流程仍待實機驗收。最新 APK 版本與 hash 另見安裝包紀錄。

@@ -2,7 +2,7 @@
 
 純 Dart 共用值型別；不依賴 Flutter、資料庫或其他業務套件。目前包含 Money／Currency、PublicId／WorkspaceId／OperationId／OperationKey、BusinessDate／UtcInstant，以及 FxRate／FxObservation。
 
-Money 使用 BigInt 做運算並檢查 signed 64-bit 保存範圍；JSON 的 minorUnits 為字串。手動輸入超過精度拒絕；計算結果才可透過 quantize 採 half-away-from-zero-v1。分攤採 truncate-last-remainder-v1，前 n−1 份朝零截斷，最後一份吸收尾差。
+Money 使用 BigInt 做運算並檢查 signed 64-bit 保存範圍；JSON 的 minorUnits 為字串。手動輸入超過精度拒絕；計算結果才可透過 quantize 採 half-away-from-zero-v1。分攤採 largest-remainder-v1：每份先朝零截斷，剩下的最小單位依比例尾數由大到小各給一份，同分時前面優先；每份與精確比例相差不到一個最小單位。
 
 Currency 的三位大寫代碼只是 denomination 格式，不代表已核實 ISO 清單或支援市場。scale 工程上限 18，輸入文字上限 128 字元，單次分攤上限 10,000 份；超出拒絕，不靜默調整。正式資料入口需由版本化 reference data 提供幣別與 scale。股數／成本的通用 Decimal 尚待另一批實作。
 
@@ -14,7 +14,7 @@ dart analyze
 dart test --reporter expanded
 ```
 
-對應 [VAL-01～05](../../docs/foundation/foundation-acceptance.md)，涵蓋精確加總、幣別／scale 不相容、正負分攤、量化、溢位及 JSON round trip。此套件通過不等於 Ledger、Android 或備份 gate 通過。
+對應 VAL-01～05，涵蓋精確加總、幣別／scale 不相容、正負分攤、量化、溢位及 JSON round trip。此套件通過不等於 Ledger、Android 或備份 gate 通過。
 
 運算依據：[Dart BigInt](https://api.dart.dev/dart-core/BigInt-class.html)。
 

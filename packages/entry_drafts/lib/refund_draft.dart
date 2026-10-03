@@ -65,12 +65,12 @@ EntrySubmission _readRefundSubmission(
         expectedVersion: a[3] as int,
       ),
       amount: amount,
-      received: Money(currency, BigInt.parse(v[5] as String)),
+      received: Money(currency, parseMinorUnits(v[5] as String)),
       allocations: (v[6] as List).map((e) {
         final row = _list(e, 3);
         return Allocation(
           PublicId.parse(row[0] as String),
-          Money(amount.currency, BigInt.parse(row[2] as String)),
+          Money(amount.currency, parseMinorUnits(row[2] as String)),
           expectedCategoryVersion: row[1] as int,
         );
       }).toList(),

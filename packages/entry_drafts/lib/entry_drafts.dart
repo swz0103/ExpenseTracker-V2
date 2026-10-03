@@ -388,10 +388,10 @@ final class EntrySubmission {
           date: BusinessDate.parse(v[1] as String),
           source: source,
           destination: destination,
-          principal: Money(source.currency, BigInt.parse(v[4] as String)),
-          fee: Money(source.currency, BigInt.parse(v[5] as String)),
+          principal: Money(source.currency, parseMinorUnits(v[4] as String)),
+          fee: Money(source.currency, parseMinorUnits(v[5] as String)),
           received: crossCurrency
-              ? Money(destination.currency, BigInt.parse(v[6] as String))
+              ? Money(destination.currency, parseMinorUnits(v[6] as String))
               : null,
         ),
       );
@@ -399,7 +399,7 @@ final class EntrySubmission {
     final v = _list(value, 7);
     final a = _list(v[2], 4);
     final currency = Currency(a[1] as String, a[2] as int);
-    final amount = Money(currency, BigInt.parse(v[3] as String));
+    final amount = Money(currency, parseMinorUnits(v[3] as String));
     final kind = v[0];
     if (kind != 'income' && kind != 'expense') throw const FormatException();
     final factory = kind == 'income' ? Posting.income : Posting.expense;
@@ -418,7 +418,7 @@ final class EntrySubmission {
         final c = _list(e, split ? 3 : 2);
         return Allocation(
           PublicId.parse(c[0] as String),
-          split ? Money(currency, BigInt.parse(c[2] as String)) : amount,
+          split ? Money(currency, parseMinorUnits(c[2] as String)) : amount,
           expectedCategoryVersion: c[1] as int,
         );
       }).toList(),

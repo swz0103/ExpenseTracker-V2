@@ -46,7 +46,7 @@
 
 第一個 [host 配對原型](../../prototypes/storage_generation/README.md)採 SQLite 控制紀錄的單一 transaction 提交 attempt 狀態與目前參照，避免先刪目前檔再 rename 的空窗；key／payload 不寫入控制紀錄。這是固定非秘密 fixture 的機制證據，正式 metadata 保護、完整 Ledger schema 及 Android adapter 尚待接入。
 
-後續已加入 Ledger schema 3／snapshot format 2、Android slot adapter 與[加密控制紀錄原型](storage-control-protection.md)。財務摘要與參照在新模式以獨立控制 key 加密；原明文控制模式只保留給 fixture 相容測試。這些是指定機制的部分證據，完整平台、初始故障復原與正式連線契約仍未完成。
+後續已加入 Ledger schema 3／snapshot format 2、Android slot adapter 與加密控制紀錄原型。財務摘要與參照在新模式以獨立控制 key 加密；原明文控制模式只保留給 fixture 相容測試。這些是指定機制的部分證據，完整平台、初始故障復原與正式連線契約仍未完成。
 
 1. 取得儲存生命週期排他權，停止新業務操作與背景 DB 工作，等待既有 session 釋放。超時則中止切換；不能只在 UI 停用按鈕。
 2. 正式開啟還原前先處理先前未完成操作。驗證備份、以密碼或救援金鑰解鎖，建立全新的 slot 及加密目標世代。兩種解鎖方式均不需要來源裝置 key。
@@ -60,7 +60,7 @@
 
 ## 6. 中止後如何判斷
 
-目前 host 原型已補[有界等待與取消](storage-lock-wait.md)：預設等待 10 秒，取消只在取得排他權前生效，取得後維持 commit／recovery 判定。這不代表正式 App 連線租約與 Android 平台已驗收。
+目前 host 原型已補有界等待與取消：預設等待 10 秒，取消只在取得排他權前生效，取得後維持 commit／recovery 判定。這不代表正式 App 連線租約與 Android 平台已驗收。
 
 - 目前參照仍為舊世代，且與切換記錄一致：新世代尚未發布；驗證舊組合後可恢復舊 session。保留未提交世代與 slot，不誤報還原完成。
 - 目前參照已為新世代，且與切換記錄一致：核對新 DB／slot／來源操作；成功後延續已提交結果，清除記錄可重試，不回滾到舊資料。
@@ -78,7 +78,7 @@
 
 ## 8. 必須執行的驗收
 
-以下編號補充 [BACKUP-01～04 與 DATA-01](foundation-acceptance.md#資料演進與保護)，全部仍待實作與執行。
+以下編號補充 BACKUP-01～04 與 DATA-01，全部仍待實作與執行。
 
 - **KEY-01 初始化**：slot 寫入前／後、讀回失敗、DB 初始化中止；不得發布無 key 的 DB，重試不覆寫既有 slot。
 - **KEY-02 缺失與損壞**：已有 DB 卻遺失 key、slot 格式未知、key 不符、metadata 被截斷；均拒絕正常業務寫入且保留證據。

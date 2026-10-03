@@ -151,7 +151,7 @@ void main() {
       expect(facts, hasLength(1));
       expect(
         facts.single.plan.installments.last.projectedCharge.majorText,
-        '33.70',
+        '33.66',
       );
     } finally {
       await target.close();

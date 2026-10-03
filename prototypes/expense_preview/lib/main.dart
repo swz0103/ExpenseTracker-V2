@@ -1492,7 +1492,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
         workspace: _engine!.workspace,
         name: _name.text,
         kind: _kind,
-        currency: Currency(_currency, _currency == 'JPY' ? 0 : 2),
+        currency: Currency.iso(_currency),
         openedOn: BusinessDate.parse(_date.text),
       );
       final p = Posting.opening(
@@ -2685,10 +2685,7 @@ class _PreviewHomeState extends State<PreviewHome> with WidgetsBindingObserver {
             _field('繳款日（1–31）', _cardDueDay, length: 2),
             _field('額度（可留空）', _cardLimit, length: 24),
           ] else
-            _amountField(
-              '期初餘額',
-              Currency(_currency, _currency == 'JPY' ? 0 : 2),
-            ),
+            _amountField('期初餘額', Currency.iso(_currency)),
           _dateField(opening: true),
           _button('建立帳戶', _saveAccount),
           _back(),

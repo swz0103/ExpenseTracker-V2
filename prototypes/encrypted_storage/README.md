@@ -1,10 +1,10 @@
 # SQLCipher 加密儲存接入原型
 
-接續 [Ledger 驗證還原](../validated_restore/README.md)，對應[地基計畫](../../docs/delivery/implementation-plan.md)中的本機加密與可攜還原風險。這是候選接入路線的 Windows host 實測，尚未決議完整平台 ADR／Architecture Freeze。
+接續 [Ledger 驗證還原](../validated_restore/README.md)，對應地基計畫中的本機加密與可攜還原風險。這是候選接入路線的 Windows host 實測，尚未決議完整平台 ADR／Architecture Freeze。
 
 ## 路線與邊界
 
-2026-09-27 接續：加入[交易分類引用 schema 5 的加密暫存還原](../../docs/foundation/ledger-category-references.md)，密碼／救援分別在無來源 DB 的獨立程序驗證；同一帳本 5,000 事件及 7,498 分攤的完整還原通過。正式 schema 5 世代發布、session 容量及 App 入口仍待後續，原有預設加密入口不自動升級。
+2026-09-27 接續：加入交易分類引用 schema 5 的加密暫存還原，密碼／救援分別在無來源 DB 的獨立程序驗證；同一帳本 5,000 事件及 7,498 分攤的完整還原通過。正式 schema 5 世代發布、session 容量及 App 入口仍待後續，原有預設加密入口不自動升級。
 
 沿用已鎖定的 sqlite3 3.6.0，於本原型根目錄選擇 `hooks.user_defines.sqlite3.source: sqlcipher`。沒有另外安裝舊版 Flutter libs，也沒有商業授權碼或付費服務。套件的 hook 文件與原始碼提供此來源，下載成品會對照套件內的 SHA-256。
 

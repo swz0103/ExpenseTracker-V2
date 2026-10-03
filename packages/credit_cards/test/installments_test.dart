@@ -20,7 +20,7 @@ void main() {
     count: count,
   );
 
-  test('monthly schedule allocates principal and explicit fee with final remainder', () {
+  test('remainders go to the earliest installments', () {
     final parts = schedule().installments;
     expect(parts.map((part) => part.scheduledClose.toString()), [
       '2028-01-31',
@@ -28,11 +28,11 @@ void main() {
       '2028-03-31',
     ]);
     expect(parts.map((part) => part.principal.majorText), [
+      '33.34',
+      '33.34',
       '33.33',
-      '33.33',
-      '33.35',
     ]);
-    expect(parts.map((part) => part.fee.majorText), ['0.33', '0.33', '0.35']);
+    expect(parts.map((part) => part.fee.majorText), ['0.34', '0.34', '0.33']);
     expect(
       parts.fold<BigInt>(
         BigInt.zero,
@@ -93,7 +93,7 @@ void main() {
     final encoded = codec.encode(original);
     final decoded = codec.decode(encoded);
     expect(codec.encode(decoded), encoded);
-    expect(decoded.installments.last.projectedCharge.majorText, '33.70');
+    expect(decoded.installments.last.projectedCharge.majorText, '33.66');
     expect(
       () => codec.decode(encoded.replaceFirst('"format":1', '"format":2')),
       throwsFormatException,

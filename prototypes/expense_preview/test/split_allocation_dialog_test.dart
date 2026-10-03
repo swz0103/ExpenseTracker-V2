@@ -72,8 +72,8 @@ void main() {
         null,
       );
       await click(t, '預覽分配');
-      expect(find.text('3. 分類 3：TWD 3.34'), findsOneWidget);
-      expect(find.text('最後一項含尾差 TWD 0.01。'), findsOneWidget);
+      expect(find.text('1. 分類 1：TWD 3.34'), findsOneWidget);
+      expect(find.text('尾差 TWD 0.01 已分給比例尾數最大的項目。'), findsOneWidget);
       expect(result, null);
       await click(t, '取消');
       expect(result, null);
@@ -127,7 +127,7 @@ void main() {
       );
       await click(t, '預覽分配');
       await click(t, '套用分配');
-      expect(result!.map((m) => m.majorText), ['1.66', '3.33', '5.01']);
+      expect(result!.map((m) => m.majorText), ['1.67', '3.33', '5.00']);
     },
   );
   testWidgets(
@@ -144,10 +144,10 @@ void main() {
       await mode(t, '固定比例');
       await enter(t, '比例 16', '2');
       await click(t, '預覽分配');
-      await visible(t, find.text('16. 分類 16：TWD 1.30'));
+      await visible(t, find.text('16. 分類 16：TWD 1.17'));
       await click(t, '套用分配');
       expect(result!.length, 16);
-      expect(result!.last.majorText, '1.30');
+      expect(result!.last.majorText, '1.17');
       expect(
         result!.fold(BigInt.zero, (a, b) => a + b.minorUnits),
         BigInt.from(1000),

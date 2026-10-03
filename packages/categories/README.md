@@ -21,7 +21,7 @@ M1-02 的 Domain 子集，來源：[RC-05](../../docs/architecture/architecture-
 
 ## 尚未交付
 
-這不是完整分類 capability。[保存與可攜格式](../../docs/foundation/categories-persistence.md)已接入共用 UoW 的版本比較、operation receipt／Audit、分類歷史、schema 4／snapshot 3 與加密暫存雙路還原。完整升級協調器、schema 4 世代發布／session、交易引用、統一容量預檢與簡潔 UI 尚待接入，因此沒有在 App 開放分類按鈕。現有 Ledger 的 allocation category ID 仍是先前原型接口，持久流程仍拒絕未驗證的分類引用。
+這不是完整分類 capability。保存與可攜格式已接入共用 UoW 的版本比較、operation receipt／Audit、分類歷史、schema 4／snapshot 3 與加密暫存雙路還原。完整升級協調器、schema 4 世代發布／session、交易引用、統一容量預檢與簡潔 UI 尚待接入，因此沒有在 App 開放分類按鈕。現有 Ledger 的 allocation category ID 仍是先前原型接口，持久流程仍拒絕未驗證的分類引用。
 
 Application 必須在同一寫入 UoW 取得有效 catalog、檢查受影響列版本與引用，再保存結果；這個純值物件不提供併發鎖、DB CAS 或持久操作去重，這些由上述資料 adapter 與共用交易承接。根分類合併時的子項批次搬移、報表依原分類／目前分類的口徑與產品完整流程仍由後續功能驗收，不能以本套件測試冒充完成。
 

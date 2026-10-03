@@ -2,7 +2,7 @@
 
 2026-09-28 更新：下列保留原始單筆收支草稿批次紀錄。後續在同一加密 slot 接入[同幣轉帳](same-currency-transfers.md)、[跨幣轉帳](cross-currency-transfers.md)及[多分類拆分](split-entry-drafts.md)的獨立版本格式；目前正式帳本為 schema 9／snapshot 8。加密、凍結命令與備份 gate 原則繼續適用，具體證據依各批次區分。
 
-來源：[M1-02](../delivery/implementation-plan.md)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[Q072](../architecture/full-vision-baseline.md#q072)、[Q155](../architecture/full-vision-baseline.md#q155)。依賴 [安全複製收支](safe-posting-copy.md)／PR #48。
+來源：M1-02、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[Q072](../architecture/full-vision-baseline.md#q072)、[Q155](../architecture/full-vision-baseline.md#q155)。依賴 [安全複製收支](safe-posting-copy.md)／PR #48。
 
 ## 當期使用流程
 
@@ -42,7 +42,7 @@ manual-draft.pending 只寫密文並 flush、讀回核對，再以同目錄 rena
 
 ## 驗證與尚未完成範圍
 
-本批共 162 項相關案例與 4 次真實程序退出驗證通過。本機證據記錄於 [本批驗證清單](../test-results/2026-09-27/manual-entry-drafts-host-2026-09-27.json)，包括純模型、加密與失敗、引擎／升級、窄畫面操作，以及四個真正子程序退出位置。既有備份／還原與鎖定流程必須全 App 回歸。
+本批共 162 項相關案例與 4 次真實程序退出驗證通過。本機證據記錄於 本批驗證清單，包括純模型、加密與失敗、引擎／升級、窄畫面操作，以及四個真正子程序退出位置。既有備份／還原與鎖定流程必須全 App 回歸。
 
 本批只完成既定手動收入／支出草稿流程。完整 Financial Inbox、OCR／匯入 staging、通用表單狀態框架、多草稿、草稿跨裝置攜帶仍未宣稱完成；M1-02 其餘隱私／無障礙與 M1／M2／M3 後續 CORE 依實作計畫續行。Actions 與實機 gate 分開記錄，不合併 main。
 

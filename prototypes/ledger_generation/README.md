@@ -4,11 +4,11 @@
 
 ## 版本邊界
 
-最新 `categoryReferences: true` 接上 schema 4 → 5 同鎖安全備份與世代發布、收入／支出分類分攤、歷史讀取、工作階段實際 bytes／列數容量保護及完整備份還原；[路線與限制](../../docs/foundation/ledger-reference-upgrade.md)。這是明確選用的主機整合，App 預設仍走舊模式。
+最新 `categoryReferences: true` 接上 schema 4 → 5 同鎖安全備份與世代發布、收入／支出分類分攤、歷史讀取、工作階段實際 bytes／列數容量保護及完整備份還原；路線與限制。這是明確選用的主機整合，App 預設仍走舊模式。
 
-工作階段的分類命令、讀取與有界備份容量見[分類接口契約](../../docs/foundation/category-session.md)；應用層不需取得資料庫 handle。這一批仍未開放分類 UI。
+工作階段的分類命令、讀取與有界備份容量見分類接口契約；應用層不需取得資料庫 handle。這一批仍未開放分類 UI。
 
-2026-09-27 接續：明確 `categoryAware: true` 可使用 catalog 3／財務 schema 4，包含 schema 3 來源預檢、雙路持久安全備份、分類快照轉換與原子世代發布。詳見[升級路徑、故障與驗證](../../docs/foundation/ledger-category-upgrade.md)。App 預設行為維持以下 schema 3 路徑；新增能力仍是 host 整合，沒有自動開放分類 UI。
+2026-09-27 接續：明確 `categoryAware: true` 可使用 catalog 3／財務 schema 4，包含 schema 3 來源預檢、雙路持久安全備份、分類快照轉換與原子世代發布。詳見升級路徑、故障與驗證。App 預設行為維持以下 schema 3 路徑；新增能力仍是 host 整合，沒有自動開放分類 UI。
 
 - 舊路徑維持財務 schema 2、snapshot format 1，既有七張權威表與三個 module version 不變。
 - 新路徑明確指定 `StorageBinding`，使用財務 schema 3，新增 `storage_identity`，綁定 generation、slot、安裝 operation 與初始輸入摘要。schema 1／2 → 3 的升級在交易內完成；重開已存在的 schema 3 時只能核對，不能覆寫身份。
@@ -47,8 +47,8 @@ worker 必須先編譯再跑測試，避免 Windows SQLCipher DLL 被測試程�
 
 ## 未通過的 gate
 
-FixtureKeySlots 仍以明文 key 檔測試，**不得用於真實財務資料**。預設相容模式沿用明文控制紀錄；後續可明確提供 `CatalogProtection`，以獨立 key 加密控制 DB 和摘要。新增兩項密碼／救援新程序整合案例，連同原有 23 項共 25 項通過。身份、初始化中止與平台限制見[控制紀錄加密邊界](../../docs/foundation/storage-control-protection.md)；不能把舊模式摘要視為可公開 metadata。
+FixtureKeySlots 仍以明文 key 檔測試，**不得用於真實財務資料**。預設相容模式沿用明文控制紀錄；後續可明確提供 `CatalogProtection`，以獨立 key 加密控制 DB 和摘要。新增兩項密碼／救援新程序整合案例，連同原有 23 項共 25 項通過。身份、初始化中止與平台限制見控制紀錄加密邊界；不能把舊模式摘要視為可公開 metadata。
 
 尚未接入 Android Keystore slot adapter、App 持續連線與背景工作、等待超時／取消、舊世代清理、遺失 catalog 的救援、反回放、任意 active write 中斷的 hot journal 自動復原。未知 sidecar 仍停止並保留資料。程序退出不是實際斷電、磁碟滿或 Android OS kill 的證據。
 
-不將這 23 項案例換算成 BACKUP／KEY／Android 完整 gate 通過。裝置測試仍需可用 Android 目標；詳見[開發進度](../../docs/work-progress.md)。
+不將這 23 項案例換算成 BACKUP／KEY／Android 完整 gate 通過。裝置測試仍需可用 Android 目標；詳見開發進度。

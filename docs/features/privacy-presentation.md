@@ -32,11 +32,11 @@
 
 ## 驗證與未完成範圍
 
-本機驗證證據以 [privacy-presentation-host-2026-09-27.json](../test-results/2026-09-27/privacy-presentation-host-2026-09-27.json) 為準。涵蓋 profile 隔離、偏好重開、錯誤／未知值、鎖定競態、還原前後財務 snapshot 一致、可見與隱藏 semantics、保存失敗後重試及完整 App 回歸。
+本機驗證證據以 privacy-presentation-host-2026-09-27.json 為準。涵蓋 profile 隔離、偏好重開、錯誤／未知值、鎖定競態、還原前後財務 snapshot 一致、可見與隱藏 semantics、保存失敗後重試及完整 App 回歸。
 
 排版案例為 320／600 logical pixels、1／2／3.2 倍字體、長名稱及最大測試金額；驗證無 overflow、完整金額、操作標籤及 Android touch target guideline。實際 App 流程另以 360 × 740 驗證。這些是主機 widget 測試，不代替真實 TalkBack、裝置字體、對比與 reduced motion 驗收。
 
-仍須後續完成：全 App i18n 與共用表單、完整 Design System、minimal 模式、附件／搜尋／通知等新增表面的共用隱私策略。背景與 Recent Apps 預覽沿用既有保護，Android 實機 gate 待使用者回來；尚未實作的 Widget／Shortcut 不建立虛假入口。M1／M2／M3 其餘 CORE 仍依 [實作安排](../delivery/implementation-plan.md) 接續。
+仍須後續完成：全 App i18n 與共用表單、完整 Design System、minimal 模式、附件／搜尋／通知等新增表面的共用隱私策略。背景與 Recent Apps 預覽沿用既有保護，Android 實機 gate 待使用者回來；尚未實作的 Widget／Shortcut 不建立虛假入口。M1／M2／M3 其餘 CORE 仍依 實作安排 接續。
 
 ## 本機重現
 

@@ -111,6 +111,17 @@ void main() {
     expect(issues.length, 2);
     expect(issues.map((e) => e.line), [1, 2]);
   });
+  test('only a module that declares an extra SDK library may import it', () {
+    (modules['values']! as Map)['extraSdkLibraries'] = ['dart:io'];
+    policy();
+    write('packages/values/lib/values.dart', "import 'dart:io';");
+    write('packages/ledger/lib/ledger.dart', "import 'dart:io';");
+    final issues = checkWorkspace(root)
+        .where((e) => e.code == 'platform-dependency')
+        .toList();
+    expect(issues, hasLength(1));
+    expect(p.basename(issues.single.path), 'ledger.dart');
+  });
   test(
     'consumer cannot import a business implementation or undocumented entry',
     () {

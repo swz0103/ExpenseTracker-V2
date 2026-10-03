@@ -125,7 +125,7 @@ class _SplitAllocationDialogState extends State<SplitAllocationDialog> {
                 ),
               ),
           const SizedBox(height: 16),
-          const Text('依目前順序分配；每項取到最小貨幣單位，尾差加入最後一項。確認套用後才會更新草稿。'),
+          const Text('每項取到最小貨幣單位，尾差依比例尾數由大到小分配，同分時前面優先。確認套用後才會更新草稿。'),
           TextButton(onPressed: _preview, child: const Text('預覽分配')),
           if (_error != null) Semantics(liveRegion: true, child: Text(_error!)),
           if (_proposal != null) ...[
@@ -140,9 +140,10 @@ class _SplitAllocationDialogState extends State<SplitAllocationDialog> {
               ),
             if (_proposal!.remainderMinorUnits > BigInt.zero)
               Text(
-                '最後一項含尾差 '
+                '尾差 '
                 '${widget.total.currency.code} '
-                '${Money(widget.total.currency, _proposal!.remainderMinorUnits).majorText}。',
+                '${Money(widget.total.currency, _proposal!.remainderMinorUnits).majorText}'
+                ' 已分給比例尾數最大的項目。',
               ),
           ],
         ],

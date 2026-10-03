@@ -456,7 +456,7 @@ final class MarketDataGateway {
         );
       }
       final eur = Currency('EUR', 2);
-      final foreign = Currency(currency, currency == 'JPY' ? 0 : 2);
+      final foreign = Currency.iso(currency);
       final published = FxRate.parse(eur, foreign, decimal);
       final observation = FxObservation(
         rate: inverse ? published.inverse() : published,
@@ -623,7 +623,7 @@ final class MarketDataGateway {
         );
       }
       final eur = Currency('EUR', 2);
-      final foreign = Currency(currency, currency == 'JPY' ? 0 : 2);
+      final foreign = Currency.iso(currency);
       final published = FxRate.parse(eur, foreign, chosen.decimal!);
       final observation = FxObservation(
         rate: inverse ? published.inverse() : published,
@@ -700,7 +700,7 @@ BusinessDate _calendarDate(Object? value) {
   );
 }
 
-bool _validCurrency(Currency c) => c.scale == (c.code == 'JPY' ? 0 : 2);
+bool _validCurrency(Currency c) => c.scale == Currency.isoScale(c.code);
 
 BusinessDate _rocDate(Object? value) {
   if (value is! String || !RegExp(r'^[0-9]{7}$').hasMatch(value)) {

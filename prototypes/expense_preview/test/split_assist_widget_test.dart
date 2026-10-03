@@ -123,7 +123,7 @@ void main() {
             );
             expect(
               saved.fields.splits.map((r) => r.amount),
-              scenario == 'apply' ? ['3.33', '3.33', '3.34'] : ['2', '3', '5'],
+              scenario == 'apply' ? ['3.34', '3.33', '3.33'] : ['2', '3', '5'],
             );
             expect((await engine.entries()).length, 1);
             if (scenario == 'apply') {

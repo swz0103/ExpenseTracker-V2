@@ -249,7 +249,7 @@ abstract final class SimpleTransactionCodec {
         accountId: PublicId.parse(value['accountId'] as String),
         amount: Money(
           Currency(value['currency'] as String, value['scale'] as int),
-          BigInt.parse(value['minorUnits'] as String),
+          parseMinorUnits(value['minorUnits'] as String),
         ),
         note: value['note'] as String,
       );

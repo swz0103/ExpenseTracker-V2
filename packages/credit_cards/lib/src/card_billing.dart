@@ -116,7 +116,7 @@ final class CreditCardTermsCodec {
     );
     final limit = value['limitMinor'] == null
         ? null
-        : Money(currency, BigInt.parse(value['limitMinor'] as String));
+        : Money(currency, parseMinorUnits(value['limitMinor'] as String));
     final terms = CreditCardTerms(
       workspace: WorkspaceId.parse(value['workspace'] as String),
       cardId: PublicId.parse(value['cardId'] as String),
