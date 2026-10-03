@@ -6,7 +6,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final twd = Currency.iso('TWD');
+  final twd = Currency.of('TWD');
   final workspace = WorkspaceId(PublicId.generate());
   final day = BusinessDate(2026, 10, 3);
   Money ntd(int units) => Money(twd, BigInt.from(units));

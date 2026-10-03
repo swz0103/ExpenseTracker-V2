@@ -20,7 +20,7 @@ final class _Transport implements MarketTransport {
 void main() {
   final eur = Currency('EUR', 2);
   final usd = Currency('USD', 2);
-  final twd = Currency('TWD', 2);
+  final twd = Currency.of('TWD');
   final now = DateTime.utc(2026, 10, 1, 12);
 
   test(

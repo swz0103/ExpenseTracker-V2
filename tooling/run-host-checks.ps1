@@ -38,7 +38,7 @@ $checks = @(
     @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/ledger_vault'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
-    @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true },
+    @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true }
 )
 
 if ($Package.Count -eq 0) { throw 'Select at least one package, or all.' }

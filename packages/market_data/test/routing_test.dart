@@ -12,7 +12,7 @@ void main() {
     marketCode: 'TWSE',
     symbol: '2330',
     name: 'TSMC',
-    tradingCurrency: Currency('TWD', 2),
+    tradingCurrency: Currency.of('TWD'),
   );
   final asOf = BusinessDate(2026, 9, 30);
 
@@ -171,7 +171,7 @@ void main() {
       marketCode: 'TPEX',
       symbol: '6488',
       name: 'GlobalWafers',
-      tradingCurrency: Currency('TWD', 2),
+      tradingCurrency: Currency.of('TWD'),
     );
     expect(registry.stockCloseProviders(tpex), hasLength(1));
     expect(
@@ -185,7 +185,7 @@ void main() {
     expect(
       registry.fxProviders(
         Currency('USD', 2),
-        Currency('TWD', 2),
+        Currency.of('TWD'),
         historical: true,
       ),
       hasLength(1),

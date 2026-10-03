@@ -10,9 +10,9 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
-final usd = Currency.iso('USD');
-final jpy = Currency.iso('JPY');
+final twd = Currency.of('TWD');
+final usd = Currency.of('USD');
+final jpy = Currency.of('JPY');
 final day = BusinessDate(2026, 10, 1);
 
 Money money(Currency currency, int units) =>

@@ -119,7 +119,7 @@ final class MarketDataGateway {
     BusinessDate? requiredAsOf,
   }) async {
     if (instrument.marketCode != 'TWSE' ||
-        instrument.tradingCurrency != Currency('TWD', 2) ||
+        instrument.tradingCurrency != Currency.of('TWD') ||
         !_twseSymbolSupported(instrument)) {
       return const MarketResult(
         MarketState.unsupported,
@@ -184,7 +184,7 @@ final class MarketDataGateway {
     BusinessDate? requiredAsOf,
   }) async {
     if (instrument.marketCode != 'TPEX' ||
-        instrument.tradingCurrency != Currency('TWD', 2) ||
+        instrument.tradingCurrency != Currency.of('TWD') ||
         !_tpexSymbolSupported(instrument)) {
       return const MarketResult(
         MarketState.unsupported,
@@ -283,8 +283,8 @@ final class MarketDataGateway {
     required int lookbackDays,
     required bool exactWhenDated,
   }) async {
-    final direct = base == Currency('USD', 2) && quote == Currency('TWD', 2);
-    final inverse = base == Currency('TWD', 2) && quote == Currency('USD', 2);
+    final direct = base == Currency('USD', 2) && quote == Currency.of('TWD');
+    final inverse = base == Currency.of('TWD') && quote == Currency('USD', 2);
     if (!direct && !inverse) {
       return const MarketResult(
         MarketState.unsupported,
@@ -329,7 +329,7 @@ final class MarketDataGateway {
       }
       final published = FxRate.parse(
         Currency('USD', 2),
-        Currency('TWD', 2),
+        Currency.of('TWD'),
         chosen.decimal,
       );
       final observation = FxObservation(
@@ -418,7 +418,7 @@ final class MarketDataGateway {
         );
       }
       final eur = Currency('EUR', 2);
-      final foreign = Currency.iso(currency);
+      final foreign = Currency.of(currency);
       final published = FxRate.parse(eur, foreign, decimal);
       final observation = FxObservation(
         rate: inverse ? published.inverse() : published,
@@ -585,7 +585,7 @@ final class MarketDataGateway {
         );
       }
       final eur = Currency('EUR', 2);
-      final foreign = Currency.iso(currency);
+      final foreign = Currency.of(currency);
       final published = FxRate.parse(eur, foreign, chosen.decimal!);
       final observation = FxObservation(
         rate: inverse ? published.inverse() : published,
@@ -662,7 +662,7 @@ BusinessDate _calendarDate(Object? value) {
   );
 }
 
-bool _validCurrency(Currency c) => c.scale == Currency.isoScale(c.code);
+bool _validCurrency(Currency c) => c.scale == Currency.scaleOf(c.code);
 
 BusinessDate _rocDate(Object? value) {
   if (value is! String || !RegExp(r'^[0-9]{7}$').hasMatch(value)) {

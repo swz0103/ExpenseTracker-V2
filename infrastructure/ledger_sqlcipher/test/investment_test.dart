@@ -9,7 +9,7 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final usd = Currency.iso('USD');
+final usd = Currency.of('USD');
 final opened = BusinessDate(2026, 9, 1);
 
 Money cents(int units) => Money(usd, BigInt.from(units));

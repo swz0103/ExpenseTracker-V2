@@ -10,7 +10,7 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
+final twd = Currency.of('TWD');
 final august = BusinessDate(2026, 8, 15);
 
 Money ntd(int units) => Money(twd, BigInt.from(units));

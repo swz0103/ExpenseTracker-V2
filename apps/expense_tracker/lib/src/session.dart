@@ -91,7 +91,7 @@ final class AppSession extends ChangeNotifier {
   /// Completes once the example data is in place.
   Future<void> get ready => _seeding;
 
-  final twd = Currency.iso('TWD');
+  final twd = Currency.of('TWD');
 
   BusinessDate get today {
     final now = clock.now().value.toLocal();
@@ -205,7 +205,7 @@ final class AppSession extends ChangeNotifier {
 
   void _seed() {
     _seeding = () async {
-      Money ntd(int dollars) => Money(twd, BigInt.from(dollars * 100));
+      Money ntd(int dollars) => Money(twd, BigInt.from(dollars));
       await _books.openAccount(_open('示範：現金', AccountKind.cash, ntd(3000)));
       await _books.openAccount(_open('示範：薪轉戶', AccountKind.bank, ntd(52000)));
       final cash = accounts.firstWhere((a) => a.kind == AccountKind.cash);

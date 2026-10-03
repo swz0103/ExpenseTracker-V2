@@ -12,8 +12,8 @@ import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
-final usd = Currency.iso('USD');
+final twd = Currency.of('TWD');
+final usd = Currency.of('USD');
 final day = BusinessDate(2026, 10, 3);
 
 Money ntd(int units) => Money(twd, BigInt.from(units));

@@ -243,7 +243,7 @@ _ParsedBar _parseBar(Map<String, dynamic> raw) {
 }
 
 bool _supports(InvestmentInstrument instrument) {
-  if (instrument.tradingCurrency != Currency('TWD', 2) ||
+  if (instrument.tradingCurrency != Currency.of('TWD') ||
       (instrument.marketCode != 'TWSE' && instrument.marketCode != 'TPEX')) {
     return false;
   }

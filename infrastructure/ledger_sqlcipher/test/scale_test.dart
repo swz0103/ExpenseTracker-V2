@@ -18,7 +18,7 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('ledger-scale-');
     addTearDown(() => directory.deleteSync(recursive: true));
     final workspace = WorkspaceId(PublicId.generate());
-    final twd = Currency.iso('TWD');
+    final twd = Currency.of('TWD');
     Money ntd(int units) => Money(twd, BigInt.from(units));
     OperationKey op() =>
         OperationKey(workspace, OperationId(PublicId.generate()));

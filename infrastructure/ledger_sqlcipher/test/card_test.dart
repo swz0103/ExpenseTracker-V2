@@ -9,7 +9,7 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
+final twd = Currency.of('TWD');
 final opened = BusinessDate(2026, 9, 1);
 final purchaseDay = BusinessDate(2026, 10, 3);
 final close = BusinessDate(2026, 10, 25);

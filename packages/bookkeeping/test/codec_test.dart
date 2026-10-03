@@ -6,8 +6,8 @@ import 'package:test/test.dart';
 
 void main() {
   final workspace = WorkspaceId(PublicId.generate());
-  final twd = Currency.iso('TWD');
-  final usd = Currency.iso('USD');
+  final twd = Currency.of('TWD');
+  final usd = Currency.of('USD');
   final date = BusinessDate(2026, 10, 3);
   OperationKey key() =>
       OperationKey(workspace, OperationId(PublicId.generate()));

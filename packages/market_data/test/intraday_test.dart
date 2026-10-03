@@ -46,7 +46,7 @@ InvestmentInstrument twStock({
   marketCode: market,
   symbol: symbol,
   name: symbol,
-  tradingCurrency: Currency('TWD', 2),
+  tradingCurrency: Currency.of('TWD'),
 );
 
 void main() {

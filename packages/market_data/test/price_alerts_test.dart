@@ -4,7 +4,7 @@ import 'package:market_data/market_data.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final twd = Currency('TWD', 2);
+  final twd = Currency.of('TWD');
   late PriceAlert alert;
   late UtcInstant now;
 

@@ -20,7 +20,7 @@ void main() {
       codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
     );
     final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 3, 4)));
-    final twd = Currency.iso('TWD');
+    final twd = Currency.of('TWD');
 
     final (open, _) = await vault.create('correct horse battery');
     final session = vaultSession(open, clock: clock);

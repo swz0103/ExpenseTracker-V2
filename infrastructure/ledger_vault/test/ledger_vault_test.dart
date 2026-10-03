@@ -42,7 +42,7 @@ final class FakeDeviceKey implements DeviceKeyWrapper {
 void main() {
   late Directory directory;
   late LedgerVault vault;
-  final twd = Currency.iso('TWD');
+  final twd = Currency.of('TWD');
 
   setUp(() {
     directory = Directory.systemTemp.createTempSync('ledger-vault-');

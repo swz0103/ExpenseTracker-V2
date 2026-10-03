@@ -89,7 +89,7 @@ final class TwseStockCloseProvider implements StockCloseProvider {
   @override
   bool supportsStockClose(InvestmentInstrument instrument) =>
       instrument.marketCode == 'TWSE' &&
-      instrument.tradingCurrency == Currency('TWD', 2);
+      instrument.tradingCurrency == Currency.of('TWD');
 
   @override
   Future<MarketResult<StockClose>> stockClose(
@@ -116,7 +116,7 @@ final class TpexStockCloseProvider implements StockCloseProvider {
   @override
   bool supportsStockClose(InvestmentInstrument instrument) =>
       instrument.marketCode == 'TPEX' &&
-      instrument.tradingCurrency == Currency('TWD', 2);
+      instrument.tradingCurrency == Currency.of('TWD');
 
   @override
   Future<MarketResult<StockClose>> stockClose(
@@ -146,7 +146,7 @@ final class FugleIntradayStockProvider implements IntradayStockProvider {
     IntradayInterval interval,
   ) =>
       (instrument.marketCode == 'TWSE' || instrument.marketCode == 'TPEX') &&
-      instrument.tradingCurrency == Currency('TWD', 2);
+      instrument.tradingCurrency == Currency.of('TWD');
 
   @override
   Future<MarketResult<IntradayBar>> latestBar(
@@ -271,8 +271,8 @@ final class CbcUsdTwdReferenceFxProvider implements ReferenceFxProvider {
 
   @override
   bool supportsFx(Currency base, Currency quote, {required bool historical}) =>
-      (base == Currency('USD', 2) && quote == Currency('TWD', 2)) ||
-      (base == Currency('TWD', 2) && quote == Currency('USD', 2));
+      (base == Currency('USD', 2) && quote == Currency.of('TWD')) ||
+      (base == Currency.of('TWD') && quote == Currency('USD', 2));
 
   @override
   Future<MarketResult<ReferenceRate>> fxRate(

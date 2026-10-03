@@ -245,10 +245,10 @@ List<Object?> _series(Object? raw, int length) {
 
 String? _yahooSymbol(InvestmentInstrument instrument) {
   final currency = instrument.tradingCurrency;
-  if (instrument.marketCode == 'TWSE' && currency == Currency('TWD', 2)) {
+  if (instrument.marketCode == 'TWSE' && currency == Currency.of('TWD')) {
     return '${instrument.symbol}.TW';
   }
-  if (instrument.marketCode == 'TPEX' && currency == Currency('TWD', 2)) {
+  if (instrument.marketCode == 'TPEX' && currency == Currency.of('TWD')) {
     return '${instrument.symbol}.TWO';
   }
   if ({'XNAS', 'XNYS', 'ARCX'}.contains(instrument.marketCode) &&

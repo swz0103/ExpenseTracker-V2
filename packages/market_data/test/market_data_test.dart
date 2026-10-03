@@ -54,7 +54,7 @@ InvestmentInstrument instrument(
   marketCode: market,
   symbol: symbol,
   name: symbol,
-  tradingCurrency: Currency('TWD', 2),
+  tradingCurrency: Currency.of('TWD'),
 );
 
 void main() {
@@ -149,7 +149,7 @@ void main() {
       );
       final gateway = MarketDataGateway(transport: transport, clock: () => now);
       final usd = Currency('USD', 2);
-      final twd = Currency('TWD', 2);
+      final twd = Currency.of('TWD');
       final direct = await gateway.cbcUsdTwdRate(usd, twd);
       final inverse = await gateway.cbcUsdTwdRate(twd, usd);
       expect(direct.state, MarketState.available);
@@ -169,7 +169,7 @@ void main() {
     'CBC exact date, historical lookback and validation stay distinct',
     () async {
       final usd = Currency('USD', 2);
-      final twd = Currency('TWD', 2);
+      final twd = Currency.of('TWD');
       final gateway = MarketDataGateway(
         transport: FakeTransport(
           (_) async => const MarketResponse(200, cbcRows),
@@ -344,7 +344,7 @@ void main() {
       );
       expect((await wrong.fxRate(eur, usd)).state, MarketState.failed);
       expect(
-        (await gateway.fxRate(usd, Currency('TWD', 2))).state,
+        (await gateway.fxRate(usd, Currency.of('TWD'))).state,
         MarketState.unsupported,
       );
     },
@@ -495,7 +495,7 @@ void main() {
       expect(
         (await wrong.historicalFxRate(
           Currency('USD', 2),
-          Currency('TWD', 2),
+          Currency.of('TWD'),
           date: BusinessDate(2020, 1, 5),
         )).state,
         MarketState.unsupported,

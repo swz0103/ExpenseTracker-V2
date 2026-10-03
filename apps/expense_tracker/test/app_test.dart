@@ -14,9 +14,9 @@ void main() {
     final session = AppSession.preview(clock: clock);
     await session.ready;
     expect(session.accounts, hasLength(2));
-    expect(formatMoney(session.netWorth), '55,295.00');
+    expect(formatMoney(session.netWorth), '55,295');
     expect(session.recent, hasLength(5));
-    expect(formatMoney(session.monthTotal(2026, 10).expense), '205.00');
+    expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
   });
 
   test('a recorded expense lowers the balance and notifies', () async {
@@ -27,14 +27,14 @@ void main() {
     final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
     final amount = parseAmount(session.twd, '1,000');
     await session.record(CashFlow.expense, cash, amount, session.today);
-    expect(formatMoney(session.balanceOf(cash)), '2,295.00');
+    expect(formatMoney(session.balanceOf(cash)), '2,295');
     expect(notified, 1);
   });
 
   test('refused input is explained in words', () {
     Object? error;
     try {
-      parseAmount(Currency.iso('TWD'), '1.234');
+      parseAmount(Currency.of('TWD'), '1.234');
     } on MoneyException catch (e) {
       error = e;
     }

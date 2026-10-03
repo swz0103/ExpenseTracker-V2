@@ -49,7 +49,7 @@ void main() {
     final recovery = await startup.setUp(password);
     expect(recovery, isNotEmpty);
     final ready = startup.state as Ready;
-    final twd = Currency.iso('TWD');
+    final twd = Currency.of('TWD');
     await ready.session.openAccount(
       '現金',
       AccountKind.cash,

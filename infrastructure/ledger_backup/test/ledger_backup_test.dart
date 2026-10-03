@@ -11,7 +11,7 @@ import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
 const password = 'correct horse battery';
-final twd = Currency.iso('TWD');
+final twd = Currency.of('TWD');
 final day = BusinessDate(2026, 10, 3);
 final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
 

@@ -15,7 +15,7 @@ import 'package:test/test.dart';
 const password = 'correct horse battery';
 const principal = 'google-account-1';
 const day = Duration(days: 1);
-final twd = Currency.iso('TWD');
+final twd = Currency.of('TWD');
 final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
 
 void main() {
