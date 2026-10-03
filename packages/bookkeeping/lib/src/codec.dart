@@ -80,6 +80,7 @@ abstract final class PostingCodec {
     PostingKind.expense,
     PostingKind.transfer,
     PostingKind.reversal,
+    PostingKind.refund,
     PostingKind.investmentBuy,
     PostingKind.investmentSell,
     PostingKind.investmentDividend,
@@ -134,6 +135,15 @@ abstract final class PostingCodec {
           ...base,
           'original': encode(posting.reversedPosting!),
           'reason': posting.reversalReason,
+        };
+      case PostingKind.refund:
+        return {
+          ...base,
+          'account': _account(legs.single.account),
+          'originalId': posting.refundOf!.value,
+          'amount': (-posting.reportExpense).toJson(),
+          'received': legs.single.amount.toJson(),
+          'allocations': _allocations(posting.allocations),
         };
       case PostingKind.investmentBuy:
         final buy = posting.investmentBuy!;
@@ -252,6 +262,26 @@ abstract final class PostingCodec {
           date: date,
           original: decode(original),
           reason: json['reason'] as String,
+        );
+      case PostingKind.refund:
+        checkKeys(json, {
+          ...common,
+          'account',
+          'originalId',
+          'amount',
+          'received',
+          'allocations',
+        });
+        final received = _money(json['received']);
+        return Posting.refund(
+          id: id,
+          operation: operation,
+          date: date,
+          account: _readAccount(json['account'], workspace, received),
+          originalId: PublicId.parse(json['originalId'] as String),
+          amount: _money(json['amount']),
+          received: received,
+          allocations: _readAllocations(json['allocations']),
         );
       case PostingKind.investmentBuy ||
           PostingKind.investmentSell ||

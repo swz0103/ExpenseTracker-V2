@@ -185,6 +185,13 @@ final ledgerSchema = SchemaModule('ledger', [
     BEGIN SELECT RAISE(ABORT, 'trades are immutable'); END
     ''',
   ],
+  [
+    '''
+    ALTER TABLE ledger_postings
+    ADD COLUMN refund_of TEXT REFERENCES ledger_postings (id)
+    ''',
+    'CREATE INDEX ledger_postings_by_refund ON ledger_postings (refund_of)',
+  ],
 ]);
 
 /// Income and expense for one month in one currency, as reported totals.
@@ -435,6 +442,51 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
   }
 
   @override
+  Future<List<Posting>> refundsOf(PublicId expenseId) async {
+    final rows = _transaction.select(
+      'SELECT payload FROM ledger_postings WHERE refund_of = ? '
+      'ORDER BY date, id',
+      [expenseId.value],
+    );
+    return [for (final row in rows) _decodePosting(row['payload'])];
+  }
+
+  @override
+  Future<Money> balance(PublicId accountId, Currency currency) async {
+    final rows = _transaction.select(
+      'SELECT minor_units FROM ledger_balances WHERE account_id = ?',
+      [accountId.value],
+    );
+    return _balance(currency, rows);
+  }
+
+  @override
+  Future<bool> hasUnsettledItems(PublicId accountId) async {
+    final pending = _transaction.select(
+      'SELECT 1 FROM card_charges WHERE card_id = ? AND posting_id IS NULL',
+      [accountId.value],
+    );
+    if (pending.isNotEmpty) return true;
+    final funded = _transaction.select(
+      "SELECT payload FROM invest_registry WHERE type = 'account'",
+    );
+    for (final row in funded) {
+      final account = InvestmentRecords.readAccount(_json(row['payload']));
+      if (account.fundingCashAccountId != accountId) continue;
+      final instruments = _transaction.select(
+        'SELECT DISTINCT instrument_id FROM invest_trades WHERE account_id = ?',
+        [account.id.value],
+      );
+      for (final instrument in instruments) {
+        final id = PublicId.parse(instrument['instrument_id'] as String);
+        final trades = _readTrades(_transaction.select, account.id, id);
+        if (InvestmentRecords.openLots(trades).isNotEmpty) return true;
+      }
+    }
+    return false;
+  }
+
+  @override
   Future<BrokerIdentity?> broker(PublicId id) async {
     final json = _registry('broker', id);
     return json == null ? null : InvestmentRecords.readBroker(json);
@@ -649,8 +701,8 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
   Future<void> savePosting(Posting posting, PostingMetadata metadata) async {
     _transaction.execute(
       'INSERT INTO ledger_postings '
-      '(id, workspace, kind, date, payload, reversal_of) '
-      'VALUES (?, ?, ?, ?, ?, ?)',
+      '(id, workspace, kind, date, payload, reversal_of, refund_of) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         posting.id.value,
         posting.operation.workspace.toString(),
@@ -658,6 +710,7 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
         posting.date.toString(),
         jsonEncode(PostingCodec.encode(posting)),
         posting.reversalOf?.value,
+        posting.refundOf?.value,
       ],
     );
     for (var i = 0; i < posting.legs.length; i++) {
@@ -687,10 +740,12 @@ final class SqlBookkeeping implements CardTransaction, InvestmentTransaction {
     }
   }
 
-  /// A reversal subtracts the original's allocations in its own month.
+  /// A reversal or refund subtracts allocations in its own month.
   void _addToCategories(Posting posting) {
     final original = posting.reversedPosting ?? posting;
-    final sign = posting.reversedPosting == null ? BigInt.one : -BigInt.one;
+    final negative =
+        posting.reversedPosting != null || posting.kind == PostingKind.refund;
+    final sign = negative ? -BigInt.one : BigInt.one;
     final isIncome = original.kind == PostingKind.income;
     for (final allocation in posting.allocations) {
       final amount = allocation.amount;

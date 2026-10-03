@@ -68,6 +68,15 @@ abstract interface class BookkeepingTransaction implements WriteTransaction {
   /// it must be corrected through that record instead of a plain reversal.
   Future<bool> isLocked(PublicId postingId);
 
+  /// Refunds recorded against [expenseId], oldest first.
+  Future<List<Posting>> refundsOf(PublicId expenseId);
+
+  Future<Money> balance(PublicId accountId, Currency currency);
+
+  /// True while the account has pending card authorizations or funds an
+  /// investment account with open lots.
+  Future<bool> hasUnsettledItems(PublicId accountId);
+
   Future<void> saveAccount(Account account);
 
   Future<PostingMetadata> postingMetadata(PublicId postingId);
@@ -118,6 +127,12 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   Future<CommandOutcome<PublicId>> reversePosting(ReversePosting command) =>
       _runner.run(command, (t) => _guard(() => _reverse(t, command)));
+
+  Future<CommandOutcome<PublicId>> recordRefund(RecordRefund command) =>
+      _runner.run(command, (t) => _guard(() => _refund(t, command)));
+
+  Future<CommandOutcome<int>> closeAccount(CloseAccount command) =>
+      _runner.run(command, (t) => _guard(() => _close(t, command)));
 
   Future<CommandOutcome<int>> changeCatalog(ChangeCatalog command) =>
       _runner.run(command, (t) => _guard(() => _catalog(t, command)));
@@ -266,6 +281,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     if (await t.isLocked(original.id)) {
       throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
     }
+    if ((await t.refundsOf(original.id)).isNotEmpty) {
+      throw const AppFailure(FailureKind.rejected, 'posting.has-refunds');
+    }
     // A closed account must keep its zero balance.
     for (final leg in original.legs) {
       final account = await _account(t, leg.account.id);
@@ -282,6 +300,88 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     );
     await _savePosting(t, reversal, await t.postingMetadata(original.id));
     return reversal.id;
+  }
+
+  Future<PublicId> _refund(T t, RecordRefund command) async {
+    await _requireNewPosting(t, command.postingId);
+    final workspace = command.operation.workspace;
+    final original = await t.posting(command.originalId);
+    if (original == null || original.operation.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'posting.not-found');
+    }
+    if (original.kind != PostingKind.expense) {
+      throw const AppFailure(FailureKind.rejected, 'ledger.refundReference');
+    }
+    if (await t.isReversed(original.id)) {
+      throw const AppFailure(FailureKind.rejected, 'posting.already-reversed');
+    }
+    if (await t.isLocked(original.id)) {
+      throw const AppFailure(FailureKind.rejected, 'posting.owned-elsewhere');
+    }
+    // The remaining refund authority is replayed from earlier refunds.
+    var budget = RefundBudget(
+      originalId: original.id,
+      originalDate: original.date,
+      amount: original.reportExpense,
+      allocations: original.allocations,
+    );
+    for (final earlier in await t.refundsOf(original.id)) {
+      budget = budget.consume(
+        amount: -earlier.reportExpense,
+        date: earlier.date,
+        allocations: earlier.allocations,
+      );
+    }
+    final allocations = [
+      for (final share in command.allocations)
+        Allocation(
+          share.categoryId,
+          share.amount,
+          expectedCategoryVersion: share.expectedVersion,
+        ),
+    ];
+    budget.consume(
+      amount: command.amount,
+      date: command.date,
+      allocations: allocations,
+    );
+    final received = command.received ?? command.amount;
+    final posting = Posting.refund(
+      id: command.postingId,
+      operation: command.operation,
+      date: command.date,
+      account: await _postable(
+        t,
+        command.account,
+        workspace,
+        received.currency,
+        command.date,
+      ),
+      originalId: original.id,
+      amount: command.amount,
+      received: command.received,
+      allocations: allocations,
+    );
+    await _savePosting(t, posting, await t.postingMetadata(original.id));
+    return posting.id;
+  }
+
+  Future<int> _close(T t, CloseAccount command) async {
+    final workspace = command.operation.workspace;
+    final account = await _account(t, command.accountId);
+    final successorId = command.successorId;
+    final closed = account.close(
+      workspace: workspace,
+      expectedVersion: command.expectedVersion,
+      balanceAccountId: account.id,
+      currentBalance: await t.balance(account.id, account.currency),
+      hasUnsettledItems: await t.hasUnsettledItems(account.id),
+      date: command.date,
+      reason: command.reason,
+      successor: successorId == null ? null : await _account(t, successorId),
+    );
+    await _saveAccount(t, closed, 'account.closed');
+    return closed.version;
   }
 
   Future<Account> _account(T t, PublicId id) async {

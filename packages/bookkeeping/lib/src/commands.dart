@@ -260,3 +260,68 @@ final class ReversePosting extends PostingCommand {
     'reason': reason,
   };
 }
+
+/// Money returned for an earlier expense. [amount] is in the expense's
+/// currency and counts against what is left to refund; [received] is the
+/// cash that arrived when it differs in currency.
+final class RecordRefund extends PostingCommand {
+  RecordRefund({
+    required OperationKey operation,
+    required PublicId postingId,
+    required this.originalId,
+    required this.account,
+    required this.date,
+    required this.amount,
+    this.received,
+    this.allocations = const [],
+  }) : super(operation, postingId);
+
+  final PublicId originalId;
+  final AccountRef account;
+  final BusinessDate date;
+  final Money amount;
+  final Money? received;
+
+  /// Required when the expense had categories: how much of each comes back.
+  final List<CategoryShare> allocations;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'record-refund-v1',
+    'postingId': postingId.value,
+    'originalId': originalId.value,
+    'account': account.toJson(),
+    'date': date.toString(),
+    'amount': amount.toJson(),
+    'received': received?.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+  };
+}
+
+/// Closes an account whose balance is zero and has nothing pending.
+final class CloseAccount extends AccountCommand {
+  CloseAccount({
+    required OperationKey operation,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.date,
+    required this.reason,
+    this.successorId,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final int expectedVersion;
+  final BusinessDate date;
+  final String reason;
+  final PublicId? successorId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'close-account-v1',
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'date': date.toString(),
+    'reason': reason,
+    'successorId': successorId?.value,
+  };
+}
