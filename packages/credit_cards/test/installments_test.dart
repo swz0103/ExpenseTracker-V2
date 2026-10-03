@@ -20,7 +20,7 @@ void main() {
     count: count,
   );
 
-  test('monthly schedule spreads principal and fee remainders from the first', () {
+  test('remainders go to the earliest installments', () {
     final parts = schedule().installments;
     expect(parts.map((part) => part.scheduledClose.toString()), [
       '2028-01-31',
