@@ -67,7 +67,7 @@
 - [ ] 保留待 UI 接上：`amount_input`（4c 金額輸入）、`data_exchange`（CSV 匯入匯出）、`market_data`／`market_adapters`（行情）、`investments` 的 XIRR／績效、`reports` 的 MonthlyReport／AssetReport、`ledger` 的搜尋；接上時一併修 C 區與 G2-01、G2-02。
 
 ### E. 測試品質（測試檢查）
-- [ ] bookkeeping 套件自身測試太少：codec 沒測退款與投資種類、catalog codec 沒測、MemoryBookkeeping 沒有和 SQLCipher 版本對照。
+- [x] bookkeeping 套件自身測試太少：codec 測到退款與投資種類；catalog、卡片、投資紀錄的 codec 有來回測試；MemoryBookkeeping 和 SQLCipher 跑同一串 200 筆指令對照。
 - [ ] 錯誤只斷言型別不斷言代碼：tags、merchants、ledger、credit_cards、backup_security、storage_sqlcipher 的改寫保護。
 - [ ] 不會失敗的測試：信用卡帳期一律 31 日結帳、預算 maxSelections 永遠達不到、tombstone 測試、market_adapters 常數測試、ledger_vault workspace 自比、bookkeeping 月報對照複製正式邏輯、規模測試吞掉沖銷錯誤。
 - [ ] 缺少的測試：資料庫 migration（帶資料從舊版升級）、posting 與 migration 中途被殺行程（G5-03、G6-09）、Drive 錯誤對應與分頁（假 Drive 要更像真的）、`IoDriveTransport`（G5-09、G8-16）、備份 invalidContent／unsupportedVersion、還原失敗時清掉暫存、`Account.restore` 規則、重疊寫入的 StateError、完整功能的備份來回（G5-05）、拒絕案例表格（G5-06）。
