@@ -137,9 +137,7 @@ final class Keyring {
     if (epochs is! List || epochs.isEmpty || epochs.length > _maxBackupEpochs) {
       throw const KeyringException(KeyringError.invalidFormat);
     }
-    final deviceSlots = [
-      for (final device in devices) _readDevice(device),
-    ];
+    final deviceSlots = [for (final device in devices) _readDevice(device)];
     if (deviceSlots.map((slot) => slot.id).toSet().length !=
         deviceSlots.length) {
       throw const KeyringException(KeyringError.invalidFormat);
