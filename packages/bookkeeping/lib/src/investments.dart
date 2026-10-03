@@ -293,11 +293,12 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       fee: command.fee,
       tax: command.tax,
     );
+    final settles = _settlement(command.tradedOn, command.settlesOn);
     final posting = Posting.investmentBuy(
       id: command.postingId,
       operation: command.operation,
-      date: command.tradedOn,
-      account: await _cash(t, command, currency, command.tradedOn),
+      date: settles,
+      account: await _cash(t, command, currency, settles),
       investmentBuyId: preview.id,
       gross: preview.gross,
       fee: preview.fee,
@@ -357,11 +358,12 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       tax: command.tax,
       lots: lots,
     );
+    final settles = _settlement(command.tradedOn, command.settlesOn);
     final posting = Posting.investmentSell(
       id: command.postingId,
       operation: command.operation,
-      date: command.tradedOn,
-      account: await _cash(t, command, currency, command.tradedOn),
+      date: settles,
+      account: await _cash(t, command, currency, settles),
       investmentSellId: preview.id,
       gross: preview.gross,
       fee: preview.fee,
@@ -438,6 +440,14 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       'net': preview.netCashCredit.toJson(),
     });
     return posting.id;
+  }
+
+  BusinessDate _settlement(BusinessDate tradedOn, BusinessDate? settlesOn) {
+    if (settlesOn == null) return tradedOn;
+    if (settlesOn.compareTo(tradedOn) < 0) {
+      throw const AppFailure(FailureKind.rejected, 'investment.settlement');
+    }
+    return settlesOn;
   }
 
   /// Sells and splits record the lots they changed, so nothing may be

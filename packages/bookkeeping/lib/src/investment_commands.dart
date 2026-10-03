@@ -147,6 +147,7 @@ final class BuyInvestment extends _Trade {
     required this.gross,
     required this.fee,
     required this.tax,
+    this.settlesOn,
   }) : super(operation);
 
   final PublicId buyId;
@@ -162,6 +163,10 @@ final class BuyInvestment extends _Trade {
   final Money fee;
   final Money tax;
 
+  /// When the cash moves, for example two exchange days after a Taiwan
+  /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
+  final BusinessDate? settlesOn;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'buy-investment-v1',
@@ -175,6 +180,7 @@ final class BuyInvestment extends _Trade {
     'gross': gross.toJson(),
     'fee': fee.toJson(),
     'tax': tax.toJson(),
+    'settlesOn': settlesOn?.toString(),
   };
 }
 
@@ -191,6 +197,7 @@ final class SellInvestment extends _Trade {
     required this.gross,
     required this.fee,
     required this.tax,
+    this.settlesOn,
   }) : super(operation);
 
   final PublicId sellId;
@@ -203,6 +210,10 @@ final class SellInvestment extends _Trade {
   final Money gross;
   final Money fee;
   final Money tax;
+
+  /// When the cash moves, for example two exchange days after a Taiwan
+  /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
+  final BusinessDate? settlesOn;
 
   @override
   Map<String, Object?> get fields => {
@@ -217,6 +228,7 @@ final class SellInvestment extends _Trade {
     'gross': gross.toJson(),
     'fee': fee.toJson(),
     'tax': tax.toJson(),
+    'settlesOn': settlesOn?.toString(),
   };
 }
 

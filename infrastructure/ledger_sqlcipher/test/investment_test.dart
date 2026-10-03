@@ -17,6 +17,8 @@ Money cents(int units) => Money(usd, BigInt.from(units));
 Matcher fails(FailureKind kind, String diagnostic) =>
     throwsA(AppFailure(kind, diagnostic));
 
+final settlement = BusinessDate(2026, 10, 5);
+
 void main() {
   late Directory directory;
   late File file;
@@ -107,6 +109,7 @@ void main() {
     int fee = 0,
     OperationKey? operation,
     BusinessDate? on,
+    BusinessDate? settles,
   }) async {
     final outcome = await invest.buy(
       BuyInvestment(
@@ -121,6 +124,7 @@ void main() {
         gross: cents(gross),
         fee: cents(fee),
         tax: cents(0),
+        settlesOn: settles,
       ),
     );
     return outcome.value;
@@ -236,6 +240,18 @@ void main() {
       through: BusinessDate(2026, 12, 31),
     )['USD']!;
     expect(year.dividends, cents(700));
+  });
+
+  test('cash settles later; the lot dates from the trade', () async {
+    final posting = await buy('10', '150', 150000, settles: settlement);
+    final cash = ledger.postings(bank).singleWhere((p) => p.id == posting);
+    expect(cash.date, settlement);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.acquiredOn, BusinessDate(2026, 10, 1));
+    await expectLater(
+      buy('1', '150', 15000, settles: BusinessDate(2026, 9, 30)),
+      fails(FailureKind.rejected, 'investment.settlement'),
+    );
   });
 
   test('only a bank or cash account settles trades', () async {

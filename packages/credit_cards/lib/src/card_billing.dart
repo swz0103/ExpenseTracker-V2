@@ -483,26 +483,9 @@ final class CardStatement {
 }
 
 /// The day a payment is really due: [dueOn], or the next banking day when
-/// it falls on a weekend or one of [holidays] (feature audit G-10).
-/// [workdays] are weekend days banks open to make up for a holiday.
-/// Taiwan's calendar changes every year, so both are passed in.
-BusinessDate paymentDueOn(
-  BusinessDate dueOn, {
-  Set<BusinessDate> holidays = const {},
-  Set<BusinessDate> workdays = const {},
-}) {
-  var day = DateTime.utc(dueOn.year, dueOn.month, dueOn.day);
-  for (var i = 0; i < 60; i++) {
-    final date = BusinessDate(day.year, day.month, day.day);
-    final weekend =
-        day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
-    if (workdays.contains(date) || (!weekend && !holidays.contains(date))) {
-      return date;
-    }
-    day = day.add(const Duration(days: 1));
-  }
-  throw const CreditCardException(CreditCardError.invalidInput);
-}
+/// it falls on a weekend or holiday (feature audit G-10).
+BusinessDate paymentDueOn(BusinessDate dueOn, BankingCalendar calendar) =>
+    calendar.onOrAfter(dueOn);
 
 void _checkOwner(
   CreditCardTerms terms,

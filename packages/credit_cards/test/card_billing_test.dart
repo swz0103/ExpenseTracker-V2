@@ -584,29 +584,14 @@ void main() {
   });
 
   test('a due date on a weekend or holiday moves to the next banking day', () {
-    // 2026-10-10 is a Saturday and National Day.
-    expect(
-      paymentDueOn(BusinessDate(2026, 10, 10)),
-      BusinessDate(2026, 10, 12),
-    );
-    expect(
-      paymentDueOn(
-        BusinessDate(2026, 10, 9),
-        holidays: {BusinessDate(2026, 10, 9)},
-      ),
-      BusinessDate(2026, 10, 12),
-    );
-    expect(
-      paymentDueOn(
-        BusinessDate(2026, 10, 10),
-        workdays: {BusinessDate(2026, 10, 10)},
-      ),
-      BusinessDate(2026, 10, 10),
-    );
-    expect(
-      paymentDueOn(BusinessDate(2026, 10, 14)),
-      BusinessDate(2026, 10, 14),
-    );
+    // 2026-10-10 is a Saturday; the Friday before is a holiday.
+    final calendar = BankingCalendar(holidays: {BusinessDate(2026, 10, 9)});
+    for (final day in [9, 10, 11, 12]) {
+      final due = paymentDueOn(BusinessDate(2026, 10, day), calendar);
+      expect(due, BusinessDate(2026, 10, 12));
+    }
+    final open = paymentDueOn(BusinessDate(2026, 10, 14), calendar);
+    expect(open, BusinessDate(2026, 10, 14));
   });
 
   test('the minimum due is 10% of spending plus installments and fees', () {
