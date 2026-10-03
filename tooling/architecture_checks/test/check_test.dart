@@ -195,6 +195,10 @@ const text = "import 'dart:ui';";
     package('infrastructure/new_adapter', 'new_adapter');
     expect(codes(), contains('unregistered-runtime'));
   });
+  test('new app cannot skip registration', () {
+    package('apps/new_app', 'new_app');
+    expect(codes(), contains('unregistered-runtime'));
+  });
   test('runtime cannot add an unapproved local dependency', () {
     package('prototypes/storage', 'storage');
     runtimeModules['storage'] = {

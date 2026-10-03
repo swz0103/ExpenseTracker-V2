@@ -42,6 +42,7 @@ $checks = @(
     @{ Path = 'prototypes/encrypted_storage'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/storage_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/generation_worker.dart' },
     @{ Path = 'prototypes/ledger_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/ledger_worker.dart' },
+    @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true },
     @{ Path = 'prototypes/android_foundation'; Dirs = @('lib', 'test', 'integration_test'); Flutter = $true },
     @{ Path = 'prototypes/expense_preview'; Dirs = @('lib', 'test', 'tool'); Flutter = $true }
 )
@@ -73,6 +74,12 @@ foreach ($check in $selected) {
     try {
         $isFlutter = $check.ContainsKey('Flutter')
         $driver = if ($isFlutter) { $Flutter } else { $Dart }
+        if (-not (Test-Path 'pubspec.lock')) {
+            # A new package: resolve once and print the lock to commit.
+            Invoke-CheckCommand $driver @('pub', 'get')
+            Get-Content 'pubspec.lock'
+            throw "$($check.Path) has no pubspec.lock; commit the lock printed above."
+        }
         $pubArguments = @('pub', 'get', '--enforce-lockfile')
         if ($Offline) { $pubArguments += '--offline' }
         Invoke-CheckCommand $driver $pubArguments

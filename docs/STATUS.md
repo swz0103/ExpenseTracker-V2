@@ -17,6 +17,14 @@
 - 預覽版與正式版發佈前，必須先通過同一 commit 的完整驗證；只有發佈步驟持有寫入權限。
 - 移除未使用的 `transaction_boundary` 原型、兩條手動 workflow、未使用的 Twelve Data 憑證畫面，以及過期文件。
 
+## 階段 4 進行中
+
+- [x] 4a `apps/expense_tracker` 骨架：帳戶、記一筆、本月三個分頁，只透過 `AppSession` 走 `bookkeeping` 指令；錯誤訊息依 `AppFailure` 代碼顯示中文說明；內建繁中字型子集。
+- [x] 4a 網頁預覽：CI 建置 Flutter web（CanvasKit 不走 CDN），放在 `refs/previews/web`，發佈成私人網頁，改 UI 不必先裝到手機。
+- [ ] 4b Android 平台設定與 SQLCipher 接線（金鑰來自 `backup_security`）。
+- [ ] 4c 金額輸入狀態機、分類／標籤選擇、信用卡與投資畫面。
+- [ ] 4d l10n、懶載入、拆除舊 `prototypes/expense_preview`。
+
 ## 階段 3 已完成
 
 - [x] 3a 帳戶與收支：`packages/bookkeeping`（開戶含期初餘額、改名、封存／重新啟用、收入、支出、跨幣別轉帳含手續費、沖銷）＋ `infrastructure/ledger_sqlcipher`（帳戶、分錄、餘額、月報投影表，與事件同交易更新）。300 筆亂數指令的對照測試：投影餘額＝domain `rebuildBalance`，月報＝分錄加總，重開後仍一致。`storage_sqlcipher` 支援模組各自的 migration。

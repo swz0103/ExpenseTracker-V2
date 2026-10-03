@@ -1,0 +1,63 @@
+name: V2 web preview
+
+# Builds the new app for the browser and stores the build under
+# refs/previews/web (not a branch), where it is picked up and published as a
+# private page. Nothing here signs, releases or touches main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/web-preview.yml'
+      - 'apps/**'
+      - 'packages/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/web-preview.yml'
+      - 'apps/**'
+      - 'packages/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Only builds from this repository may write the preview ref.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Build for the browser
+        working-directory: apps/expense_tracker
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          # Bundle CanvasKit so the page needs no Google CDN.
+          flutter build web --release --no-web-resources-cdn --no-source-maps
+      - name: Store the build under refs/previews/web
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/preview"
+          cp -r apps/expense_tracker/build/web "$out"
+          cd "$out"
+          git init -q
+          git config user.name 'web-preview'
+          git config user.email 'web-preview@users.noreply.github.com'
+          git add -A
+          git commit -q -m "Web preview of $SOURCE_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:refs/previews/web

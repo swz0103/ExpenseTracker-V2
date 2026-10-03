@@ -100,10 +100,10 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
     }
   }
 
-  for (final folder in ['packages', 'infrastructure', 'prototypes']) {
+  for (final folder in ['apps', 'packages', 'infrastructure', 'prototypes']) {
     final location = p.join(root, folder);
     final type = FileSystemEntity.typeSync(location, followLinks: false);
-    if (type == FileSystemEntityType.notFound && folder == 'infrastructure') {
+    if (type == FileSystemEntityType.notFound && folder != 'packages') {
       continue;
     }
     if (type == FileSystemEntityType.link) {

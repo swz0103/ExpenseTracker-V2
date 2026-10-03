@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - 'apps/**'
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - 'apps/**'
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
@@ -110,6 +112,8 @@ jobs:
       - shell: pwsh
         run: |
           flutter config --no-analytics
+          ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tooling/run-host-checks.ps1 -Package prototypes/android_foundation
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tooling/run-host-checks.ps1 -Package prototypes/expense_preview
