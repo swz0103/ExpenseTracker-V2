@@ -119,8 +119,9 @@ void main() {
     final (open, _) = await vault.create(password);
     await openAccount(open);
     final events = open.store.eventCount;
+    await open.updateKeys(await open.keys.addDevice('phone-1', device));
+    expect(open.keys.keyring.deviceIds, ['phone-1']);
     open.close();
-    await vault.save(await open.keys.addDevice('phone-1', device));
 
     final unlocked = await vault.unlockWithDevice('phone-1', device);
     expect(unlocked.store.eventCount, events);

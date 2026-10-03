@@ -52,7 +52,7 @@ void main() {
   Account account(PublicId id) =>
       ledger.accounts(workspace).singleWhere((a) => a.id == id);
 
-  AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+  AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('ledger-cards-');

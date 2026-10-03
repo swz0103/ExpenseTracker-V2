@@ -167,7 +167,7 @@
     },
     "expense_tracker": {
       "directory": "apps/expense_tracker",
-      "dependencies": ["accounts", "app_core", "bookkeeping", "foundation_values", "ledger"]
+      "dependencies": ["accounts", "app_core", "backup_security", "bookkeeping", "foundation_values", "ledger", "ledger_sqlcipher", "ledger_vault"]
     },
     "market_adapters": {
       "directory": "infrastructure/market_adapters",
@@ -188,48 +188,6 @@
       "directory": "infrastructure/storage_sqlcipher",
       "publicEntrypoints": ["storage_sqlcipher.dart"],
       "dependencies": ["app_core", "foundation_values"]
-    },
-    "cloud_backup_probe": {
-      "directory": "prototypes/cloud_backup",
-      "publicEntrypoints": ["cloud_backup.dart", "cloud_backup_history.dart", "cloud_backup_manual_flow.dart", "cloud_backup_schedule.dart", "google_drive_adapter.dart", "google_drive_http.dart", "cloud_backup_work.dart"],
-      "dependencies": ["backup_envelope_probe", "encrypted_storage_probe", "persistent_jobs_probe"]
-    },
-    "persistent_jobs_probe": {
-      "directory": "prototypes/persistent_jobs",
-      "publicEntrypoints": ["persistent_jobs.dart"],
-      "dependencies": ["encrypted_storage_probe"]
-    },
-    "expense_preview": {
-      "directory": "prototypes/expense_preview",
-        "dependencies": ["amount_input", "entry_drafts", "data_exchange", "tags", "merchants", "accounts", "categories", "budgets", "recurring_transactions", "credit_cards", "investments", "market_adapters", "market_data", "foundation_values", "ledger", "reports", "android_foundation", "ledger_generation_probe", "storage_generation_probe", "backup_envelope_probe", "cloud_backup_probe", "validated_restore_probe", "encrypted_storage_probe", "persistent_jobs_probe"]
-    },
-    "android_foundation": {
-      "directory": "prototypes/android_foundation",
-      "dependencies": ["accounts", "foundation_values", "ledger", "modular_persistence_probe", "encrypted_storage_probe", "validated_restore_probe", "ledger_generation_probe", "storage_generation_probe"]
-    },
-    "ledger_generation_probe": {
-      "directory": "prototypes/ledger_generation",
-      "dependencies": ["budgets", "recurring_transactions", "credit_cards", "investments", "tags", "merchants", "categories", "data_exchange", "accounts", "foundation_values", "ledger", "reports", "modular_persistence_probe", "backup_envelope_probe", "validated_restore_probe", "encrypted_storage_probe", "storage_generation_probe"]
-    },
-    "storage_generation_probe": {
-      "directory": "prototypes/storage_generation",
-      "dependencies": ["foundation_values", "encrypted_storage_probe"]
-    },
-    "validated_restore_probe": {
-      "directory": "prototypes/validated_restore",
-      "dependencies": ["backup_envelope_probe", "modular_persistence_probe", "foundation_values", "ledger"]
-    },
-    "modular_persistence_probe": {
-      "directory": "prototypes/modular_persistence",
-      "dependencies": ["budgets", "recurring_transactions", "credit_cards", "investments", "tags", "merchants", "categories", "accounts", "foundation_values", "ledger"]
-    },
-    "encrypted_storage_probe": {
-      "directory": "prototypes/encrypted_storage",
-      "dependencies": ["accounts", "foundation_values", "ledger", "modular_persistence_probe", "validated_restore_probe", "backup_envelope_probe"]
-    },
-    "backup_envelope_probe": {
-      "directory": "prototypes/backup_envelope",
-      "dependencies": []
     }
   }
 }

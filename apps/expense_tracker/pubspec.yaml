@@ -13,16 +13,27 @@ dependencies:
     path: ../../packages/accounts
   app_core:
     path: ../../packages/app_core
+  backup_security:
+    path: ../../infrastructure/backup_security
   bookkeeping:
     path: ../../packages/bookkeeping
   foundation_values:
     path: ../../packages/foundation_values
   ledger:
     path: ../../packages/ledger
+  ledger_sqlcipher:
+    path: ../../infrastructure/ledger_sqlcipher
+  ledger_vault:
+    path: ../../infrastructure/ledger_vault
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher
 
 flutter:
   uses-material-design: true

@@ -44,7 +44,7 @@ void main() {
     final invest = InvestmentBook(books);
     Account account(PublicId id) =>
         ledger.accounts(workspace).singleWhere((a) => a.id == id);
-    AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+    AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
     Future<PublicId> open(String name, AccountKind kind, Currency c) async {
       final id = PublicId.generate();
       await books.openAccount(

@@ -54,7 +54,7 @@ void main() {
   Account account(PublicId id) =>
       ledger.accounts(workspace).singleWhere((a) => a.id == id);
 
-  AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+  AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
 
   Future<PublicId> openAccount(
     String name,
@@ -178,24 +178,40 @@ void main() {
     );
   });
 
-  test('a stale account version is a conflict and writes nothing', () async {
-    final cash = await openAccount('現金', twd);
-    final stale = ref(cash);
+  test('a rename keeps prepared entries; a rules change does not', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final prepared = ref(cash);
     await books.renameAccount(
       RenameAccount(
         operation: op(),
         accountId: cash,
-        expectedVersion: stale.expectedVersion,
+        expectedVersion: account(cash).version,
         name: '錢包',
       ),
     );
+    await flow(CashFlow.expense, cash, money(twd, 100), account: prepared);
+    expect(ledger.balance(account(cash)), money(twd, 900));
+
+    for (final change in [
+      AccountStateChange.archive,
+      AccountStateChange.reactivate,
+    ]) {
+      await books.changeAccountState(
+        ChangeAccountState(
+          operation: op(),
+          accountId: cash,
+          expectedVersion: account(cash).version,
+          change: change,
+        ),
+      );
+    }
     final events = store.eventCount;
     await expectLater(
-      flow(CashFlow.expense, cash, money(twd, 100), account: stale),
+      flow(CashFlow.expense, cash, money(twd, 100), account: prepared),
       fails(FailureKind.conflict, 'account.versionConflict'),
     );
     expect(store.eventCount, events);
-    expect(ledger.balance(account(cash)), money(twd, 0));
+    expect(ledger.balance(account(cash)), money(twd, 900));
     expect(account(cash).name, '錢包');
   });
 

@@ -34,7 +34,7 @@ void main() {
   Account account(PublicId id) =>
       ledger.accounts(workspace).singleWhere((a) => a.id == id);
 
-  AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+  AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
 
   Future<PublicId> open(
     String name,
@@ -276,7 +276,7 @@ void main() {
         postingId: PublicId.generate(),
         reversalId: PublicId.generate(),
         accountId: cash,
-        expectedVersion: account(cash).version,
+        expectedVersion: account(cash).rulesVersion,
         amount: ntd(units),
       ),
     );

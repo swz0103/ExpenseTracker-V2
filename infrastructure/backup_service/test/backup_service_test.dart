@@ -75,12 +75,8 @@ void main() {
   Future<CloudUpload> backup(DateTime now) =>
       service.backupNow(keys: keys.unlocked, principal: principal, now: now);
 
-  Future<SyncReport> sync(DateTime now, {int keep = 2}) => service.sync(
-    drive: client,
-    principal: principal,
-    keep: keep,
-    now: now,
-  );
+  Future<SyncReport> sync(DateTime now, {int keep = 2}) =>
+      service.sync(drive: client, principal: principal, keep: keep, now: now);
 
   test('backups are due on schedule, upload and keep the newest', () async {
     expect(service.due(principal: principal, every: day, now: t0), isTrue);

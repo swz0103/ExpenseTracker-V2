@@ -6,7 +6,7 @@
 
 全專案健檢（189 項問題，P0 3 項）後決定：保留 `packages/` 的值物件與領域規則，重建儲存層、應用層與 UI。完整說明見 [ADR-0001](adr/0001-target-architecture.md)。
 
-**功能凍結**：重建完成前不加新功能，只修正錯誤。新程式碼不得新增對 `prototypes/` 的依賴。
+**功能凍結**：重建完成前不加新功能，只修正錯誤。舊 App 與 `prototypes/` 已移除，新 App 介面先拆成空殼，底層完成後再重做。
 
 ## 階段 0 已完成
 
@@ -30,14 +30,17 @@
 - [x] 預算（每月、可依分類／帳戶／標籤；合併過的分類算進合併後的分類，健檢 G1-13）與定期交易（只提議、每個到期日只能確認一次、可停用）。分錄轉報表事實只在 `reportFact` 一處定義（G1-01）。
 - [x] 股票分割（數量變、成本不變、可重播）；釋放不會入帳的信用卡授權。
 - [x] Google Drive 上傳佇列（`infrastructure/drive_backup`）：分塊續傳（session 存在資料庫，重開 App 也從 Drive 已收到的位置接著傳）、上傳完成核對大小與 SHA-256 後刪本機副本、失敗或卡住的上傳不擋新備份、可放棄／重試、過期 token 自動換一次、備份清單略過壞掉的項目（健檢 G8-03、G8-11、G8-14、G8-17、G8-22）。
+- [x] 備份服務（`infrastructure/backup_service`）：是否該備份、備份、上傳、保留最近 N 份（只依本機紀錄的時間，健檢 G8-07）、備份健康狀態、從 Drive 還原並核對備份 ID。
 
 ## 階段 4 進行中
 
 - [x] 4a `apps/expense_tracker` 骨架：帳戶、記一筆、本月三個分頁，只透過 `AppSession` 走 `bookkeeping` 指令；錯誤訊息依 `AppFailure` 代碼顯示中文說明；內建繁中字型子集。
 - [x] 4a 網頁預覽：CI 建置 Flutter web（CanvasKit 不走 CDN），放在 `refs/previews/web`，發佈成私人網頁，改 UI 不必先裝到手機。
-- [ ] 4b Android 平台設定與 SQLCipher 接線（金鑰來自 `backup_security`）。
+- [x] 4b-1 App 可接加密帳本：`ledger_vault`（金鑰檔＋SQLCipher 資料庫，密碼／救援碼／裝置金鑰解鎖）與 `vaultSession`；網頁預覽仍走記憶體。
+- [ ] 4b-2 Android 平台設定、Keystore 裝置金鑰、解鎖流程。
 - [ ] 4c 金額輸入狀態機、分類／標籤選擇、信用卡與投資畫面。
-- [ ] 4d l10n、懶載入、拆除舊 `prototypes/expense_preview`。
+- [x] 拆除舊 App（`prototypes/` 全部）與舊 Android 發佈流程；新 App 的 4a 畫面也先拆掉，只留空殼。
+- [ ] 4d l10n、懶載入。
 
 ## 階段 3 已完成
 

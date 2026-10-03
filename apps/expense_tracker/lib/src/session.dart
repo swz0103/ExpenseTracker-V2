@@ -6,22 +6,77 @@ import 'package:flutter/foundation.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
+/// Income and expense of one month in one currency.
+final class MonthSummary {
+  const MonthSummary(this.income, this.expense);
+
+  final Money income;
+  final Money expense;
+}
+
+/// What the screens read. The web preview reads memory; the phone reads
+/// the encrypted ledger.
+abstract interface class LedgerReads {
+  List<Account> accounts(WorkspaceId workspace);
+
+  Money balance(Account account);
+
+  /// Newest first.
+  List<Posting> recent(WorkspaceId workspace, int limit);
+
+  /// Totals for `YYYY-MM` in [currency], if anything was booked.
+  MonthSummary? month(WorkspaceId workspace, String month, Currency currency);
+}
+
+final class _MemoryReads implements LedgerReads {
+  _MemoryReads(this._store);
+
+  final MemoryBookkeeping _store;
+
+  @override
+  List<Account> accounts(WorkspaceId workspace) => _store.accounts(workspace);
+
+  @override
+  Money balance(Account account) => _store.balance(account);
+
+  @override
+  List<Posting> recent(WorkspaceId workspace, int limit) =>
+      _store.postings(workspace).take(limit).toList();
+
+  @override
+  MonthSummary? month(WorkspaceId workspace, String month, Currency currency) {
+    final total = _store.monthly(workspace, month)[currency.code];
+    return total == null ? null : MonthSummary(total.income, total.expense);
+  }
+}
+
 /// The app's single entry to bookkeeping. Screens read from it and send
 /// commands through it; it notifies listeners after every commit.
-///
-/// This first version keeps data in memory. The Android build will open the
-/// SQLCipher store behind the same calls.
 final class AppSession extends ChangeNotifier {
-  AppSession({required this.workspace, required this.clock})
-    : _store = MemoryBookkeeping() {
-    _books = Bookkeeping(_store);
+  AppSession({
+    required this.workspace,
+    required this.clock,
+    required Bookkeeping<BookkeepingTransaction> books,
+    required LedgerReads reads,
+  }) : _books = books,
+       _reads = reads;
+
+  /// Keeps everything in memory, for tests and the web preview.
+  factory AppSession.memory({required WorkspaceId workspace, Clock? clock}) {
+    final store = MemoryBookkeeping();
+    return AppSession(
+      workspace: workspace,
+      clock: clock ?? SystemClock(),
+      books: Bookkeeping(store),
+      reads: _MemoryReads(store),
+    );
   }
 
   /// A preview with a few example accounts and entries.
   factory AppSession.preview({Clock? clock}) {
-    final session = AppSession(
+    final session = AppSession.memory(
       workspace: WorkspaceId(PublicId.generate()),
-      clock: clock ?? SystemClock(),
+      clock: clock,
     );
     session._seed();
     return session;
@@ -29,8 +84,8 @@ final class AppSession extends ChangeNotifier {
 
   final WorkspaceId workspace;
   final Clock clock;
-  final MemoryBookkeeping _store;
-  late final Bookkeeping<MemoryBookkeepingTransaction> _books;
+  final Bookkeeping<BookkeepingTransaction> _books;
+  final LedgerReads _reads;
   Future<void> _seeding = Future.value();
 
   /// Completes once the example data is in place.
@@ -44,14 +99,14 @@ final class AppSession extends ChangeNotifier {
   }
 
   List<Account> get accounts =>
-      _store.accounts(workspace)..sort((a, b) => a.name.compareTo(b.name));
+      _reads.accounts(workspace)..sort((a, b) => a.name.compareTo(b.name));
 
   List<Account> get activeAccounts => [
     for (final account in accounts)
       if (account.state == AccountState.active) account,
   ];
 
-  Money balanceOf(Account account) => _store.balance(account);
+  Money balanceOf(Account account) => _reads.balance(account);
 
   Money get netWorth {
     var total = Money(twd, BigInt.zero);
@@ -63,7 +118,7 @@ final class AppSession extends ChangeNotifier {
     return total;
   }
 
-  List<Posting> get recent => _store.postings(workspace).take(30).toList();
+  List<Posting> get recent => _reads.recent(workspace, 30);
 
   Account? accountOf(PublicId id) {
     for (final account in accounts) {
@@ -72,10 +127,10 @@ final class AppSession extends ChangeNotifier {
     return null;
   }
 
-  MonthTotal monthTotal(int year, int month) {
+  MonthSummary monthTotal(int year, int month) {
     final key = '$year-${month.toString().padLeft(2, '0')}';
-    return _store.monthly(workspace, key)['TWD'] ??
-        MonthTotal(Money(twd, BigInt.zero), Money(twd, BigInt.zero));
+    return _reads.month(workspace, key, twd) ??
+        MonthSummary(Money(twd, BigInt.zero), Money(twd, BigInt.zero));
   }
 
   Future<void> openAccount(String name, AccountKind kind, Money? opening) =>
@@ -105,7 +160,7 @@ final class AppSession extends ChangeNotifier {
         operation: _operation(),
         postingId: PublicId.generate(),
         flow: flow,
-        account: AccountRef(account.id, account.version),
+        account: AccountRef(account.id, account.rulesVersion),
         date: date,
         amount: amount,
       ),
@@ -117,8 +172,8 @@ final class AppSession extends ChangeNotifier {
       RecordTransfer(
         operation: _operation(),
         postingId: PublicId.generate(),
-        source: AccountRef(from.id, from.version),
-        destination: AccountRef(to.id, to.version),
+        source: AccountRef(from.id, from.rulesVersion),
+        destination: AccountRef(to.id, to.rulesVersion),
         date: today,
         principal: amount,
       ),
@@ -164,7 +219,7 @@ final class AppSession extends ChangeNotifier {
             operation: _operation(),
             postingId: PublicId.generate(),
             flow: flow,
-            account: AccountRef(cash.id, cash.version),
+            account: AccountRef(cash.id, cash.rulesVersion),
             date: today,
             amount: ntd(units),
           ),

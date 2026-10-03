@@ -46,7 +46,7 @@ void main() {
   TradeTarget target() => TradeTarget(
     accountId: brokerage,
     instrumentId: apple,
-    funding: AccountRef(bank, account(bank).version),
+    funding: AccountRef(bank, account(bank).rulesVersion),
   );
 
   setUp(() async {

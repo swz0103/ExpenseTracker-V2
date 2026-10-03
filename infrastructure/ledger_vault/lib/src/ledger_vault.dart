@@ -30,9 +30,11 @@ final class VaultException implements Exception {
 
 /// An unlocked ledger: its keys and its open database.
 final class OpenVault {
-  OpenVault._(this.keys, this.store) : ledger = LedgerStore(store);
+  OpenVault._(this._vault, this._keys, this.store)
+    : ledger = LedgerStore(store);
 
-  final UnlockedKeyring keys;
+  final LedgerVault _vault;
+  UnlockedKeyring _keys;
   final SqlCipherStore store;
   final LedgerStore ledger;
   WorkspaceId? _fresh;
@@ -43,6 +45,15 @@ final class OpenVault {
     final first = store.journal(limit: 1);
     if (first.isNotEmpty) return first.single.workspace;
     return _fresh ??= WorkspaceId(PublicId.generate());
+  }
+
+  UnlockedKeyring get keys => _keys;
+
+  /// Stores a changed keyring, such as a new password or device, and uses
+  /// it from now on.
+  Future<void> updateKeys(UnlockedKeyring keys) async {
+    await _vault.save(keys);
+    _keys = keys;
   }
 
   void close() => store.close();
@@ -150,6 +161,6 @@ final class LedgerVault {
       StorageKey(keys.databaseKey),
       modules: [ledgerSchema, ...modules],
     );
-    return OpenVault._(keys, store);
+    return OpenVault._(this, keys, store);
   }
 }

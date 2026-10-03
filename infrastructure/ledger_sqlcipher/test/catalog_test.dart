@@ -91,7 +91,7 @@ void main() {
         operation: op(),
         postingId: PublicId.generate(),
         flow: flow,
-        account: AccountRef(cash, account.version),
+        account: AccountRef(cash, account.rulesVersion),
         date: day,
         amount: amount,
         allocations: shares,

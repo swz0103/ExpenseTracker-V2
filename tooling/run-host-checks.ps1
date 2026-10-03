@@ -30,10 +30,6 @@ $checks = @(
     @{ Path = 'packages/market_data'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/recurring_transactions'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
-    @{ Path = 'prototypes/persistent_jobs'; Dirs = @('lib', 'test') },
-    @{ Path = 'prototypes/cloud_backup'; Dirs = @('lib', 'test') },
-    @{ Path = 'prototypes/modular_persistence'; Dirs = @('lib', 'test') },
-    @{ Path = 'prototypes/backup_envelope'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/backup_security'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/market_adapters'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/drive_backup'; Dirs = @('lib', 'test') },
@@ -42,13 +38,7 @@ $checks = @(
     @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/ledger_vault'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
-    @{ Path = 'prototypes/validated_restore'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
-    @{ Path = 'prototypes/encrypted_storage'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
-    @{ Path = 'prototypes/storage_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/generation_worker.dart' },
-    @{ Path = 'prototypes/ledger_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/ledger_worker.dart' },
     @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true },
-    @{ Path = 'prototypes/android_foundation'; Dirs = @('lib', 'test', 'integration_test'); Flutter = $true },
-    @{ Path = 'prototypes/expense_preview'; Dirs = @('lib', 'test', 'tool'); Flutter = $true }
 )
 
 if ($Package.Count -eq 0) { throw 'Select at least one package, or all.' }

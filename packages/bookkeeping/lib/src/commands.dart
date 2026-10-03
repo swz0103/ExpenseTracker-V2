@@ -130,6 +130,9 @@ final class ChangeAccountState extends AccountCommand {
 }
 
 /// The account a posting touches, with the version the person saw.
+/// An account an entry posts to. [expectedVersion] is the account's
+/// `rulesVersion` when the entry was prepared, so renaming the account in
+/// between does not refuse the entry (health check G1-09).
 final class AccountRef {
   const AccountRef(this.id, this.expectedVersion);
 

@@ -91,12 +91,7 @@ jobs:
             'infrastructure/drive_backup',
             'infrastructure/backup_service',
             'infrastructure/ledger_backup',
-            'infrastructure/ledger_vault',
-            'prototypes/persistent_jobs', 'prototypes/cloud_backup',
-            'prototypes/modular_persistence',
-            'prototypes/backup_envelope', 'prototypes/validated_restore',
-            'prototypes/encrypted_storage', 'prototypes/storage_generation',
-            'prototypes/ledger_generation'
+            'infrastructure/ledger_vault'
           )
           foreach ($package in $packages) {
             ./tooling/run-host-checks.ps1 -Package $package
@@ -117,7 +112,3 @@ jobs:
         run: |
           flutter config --no-analytics
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tooling/run-host-checks.ps1 -Package prototypes/android_foundation
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tooling/run-host-checks.ps1 -Package prototypes/expense_preview

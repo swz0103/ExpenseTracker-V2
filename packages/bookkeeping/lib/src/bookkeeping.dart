@@ -535,7 +535,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     account.requirePosting(
       workspace: command.operation.workspace,
       currency: command.amount.currency,
-      expectedVersion: command.expectedVersion,
+      expectedRulesVersion: command.expectedVersion,
       date: account.openedOn,
     );
     final current = await t.openingOf(account.id);
@@ -603,7 +603,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     account.requirePosting(
       workspace: workspace,
       currency: currency,
-      expectedVersion: ref.expectedVersion,
+      expectedRulesVersion: ref.expectedVersion,
       date: date,
     );
     return _participant(account);
