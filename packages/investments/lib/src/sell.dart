@@ -16,6 +16,9 @@ enum InvestmentSellError {
   nonPositiveNet,
   staleLots,
   overflow,
+
+  /// Taiwan-listed shares trade in whole shares only (feature audit G-16).
+  fractionalShares,
 }
 
 final class InvestmentSellException implements Exception {
@@ -153,8 +156,13 @@ final class InvestmentSellPreview {
       }
       rethrow;
     }
-    if (calculatedGross != executedGross) {
+    // One unit either side of the quote is broker rounding (G-16).
+    if ((calculatedGross.minorUnits - executedGross.minorUnits).abs() >
+        BigInt.one) {
       throw const InvestmentSellException(InvestmentSellError.grossMismatch);
+    }
+    if (instrument.wholeSharesOnly && !quantity.isWhole) {
+      throw const InvestmentSellException(InvestmentSellError.fractionalShares);
     }
     final netUnits = executedGross.minorUnits - fee.minorUnits - tax.minorUnits;
     if (netUnits <= BigInt.zero) {

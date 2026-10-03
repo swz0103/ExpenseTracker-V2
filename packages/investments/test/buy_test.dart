@@ -113,14 +113,44 @@ void main() {
       () => buy(
         quantity: ShareQuantity.parse('0.001'),
         unitPrice: ShareUnitPrice.parse(usd, '0.01'),
-        gross: money('0.01'),
+        gross: money('0.02'),
       ),
       investmentError(InvestmentError.grossMismatch),
     );
     expect(
-      () => buy(gross: money('50.01')),
+      () => buy(gross: money('50.02')),
       investmentError(InvestmentError.grossMismatch),
     );
+  });
+
+  test('broker rounding of one unit is accepted; Taiwan trades whole', () {
+    expect(buy(gross: money('50.01')).gross, money('50.01'));
+    expect(buy(gross: money('49.99')).cashDebit, money('50.99'));
+    final listed = InvestmentInstrument(
+      id: PublicId.generate(),
+      kind: InstrumentKind.etf,
+      marketCode: 'TWSE',
+      symbol: '0050',
+      name: 'Synthetic ETF',
+      tradingCurrency: usd,
+    );
+    expect(
+      () => buy(
+        selectedInstrument: listed,
+        quantity: ShareQuantity.parse('1.5'),
+        unitPrice: ShareUnitPrice.parse(usd, '10'),
+        gross: money('15.00'),
+      ),
+      investmentError(InvestmentError.fractionalShares),
+    );
+    // An odd lot of 37 shares is still whole shares.
+    final oddLot = buy(
+      selectedInstrument: listed,
+      quantity: ShareQuantity.parse('37'),
+      unitPrice: ShareUnitPrice.parse(usd, '10'),
+      gross: money('370.00'),
+    );
+    expect(oddLot.quantity.isWhole, isTrue);
   });
 
   test(

@@ -237,7 +237,7 @@ void main() {
       Money.roundingPolicy,
     );
     expect(
-      () => sell(gross: money('120.01')),
+      () => sell(gross: money('120.02')),
       sellError(InvestmentSellError.grossMismatch),
     );
   });
