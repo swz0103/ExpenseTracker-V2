@@ -878,10 +878,9 @@ final class SqlBookkeeping
 
   @override
   Future<void> releaseCardCharge(PublicId chargeId) async {
-    _transaction.execute(
-      'UPDATE card_charges SET released = 1 WHERE id = ?',
-      [chargeId.value],
-    );
+    _transaction.execute('UPDATE card_charges SET released = 1 WHERE id = ?', [
+      chargeId.value,
+    ]);
   }
 
   @override

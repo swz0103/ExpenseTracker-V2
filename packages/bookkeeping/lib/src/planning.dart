@@ -1,8 +1,7 @@
 part of 'bookkeeping.dart';
 
 /// Budgets and recurring templates stored next to the ledger.
-abstract interface class PlanningTransaction
-    implements BookkeepingTransaction {
+abstract interface class PlanningTransaction implements BookkeepingTransaction {
   Future<BudgetPlan?> budget(PublicId id);
 
   Future<void> saveBudget(BudgetPlan plan);
