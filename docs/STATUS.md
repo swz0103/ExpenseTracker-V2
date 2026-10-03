@@ -61,7 +61,7 @@
 ### D. 架構與 CI
 - [x] 單一 isolate 擁有資料庫：開啟時取得 SQLite 獨占鎖，其他連線、isolate 或行程開同一個檔會得到 `inUse`（G7-10）；測試替身只能從 test/ 引用，架構檢查會擋（`testEntrypoints`，G7-16）。
 - [x] `web-preview` 建置時不把寫入 token 留在 git 設定，只有最後推送那一步能用；監看 `infrastructure/`（G9-14）。main 的 CI 改為排隊不取消（G9-09）。`.gitignore` 加 `*.apk`、`*.aab`（G9-20）。
-- [ ] 舊 Domain 套件加 lint、清掉 `throwsA(anything)`、inventory 對照檔案系統（G9-16、G1-15）。
+- [x] 舊 Domain 套件加 lint（和新套件同一份 analysis_options）、所有套件的測試都不准 `throwsA(anything)`、主機檢查清單和硬碟上的套件逐一對照（G9-16、G1-15）。
 - [ ] 重複的 catalog 程式合併（G1-12）；App 寫死 TWD、沒有分頁、字串進 l10n（G4-23、G4-22、G4-13）。
 - [x] 刪除已被取代的 `entry_drafts`（改用 `AppSession.begin()` 固定送出識別；備註規則測試移到 `ledger`）與 `investments` 的四個 preview codec（交易改存 `InvestmentRecords`）（G1-11、G2-20）。
 - [ ] 保留待 UI 接上：`amount_input`（4c 金額輸入）、`data_exchange`（CSV 匯入匯出）、`market_data`／`market_adapters`（行情）、`investments` 的 XIRR／績效、`reports` 的 MonthlyReport／AssetReport、`ledger` 的搜尋；接上時一併修 C 區與 G2-01、G2-02。
