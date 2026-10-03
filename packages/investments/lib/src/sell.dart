@@ -165,9 +165,8 @@ final class InvestmentSellPreview {
       throw const InvestmentSellException(InvestmentSellError.fractionalShares);
     }
     final netUnits = executedGross.minorUnits - fee.minorUnits - tax.minorUnits;
-    if (netUnits <= BigInt.zero) {
-      throw const InvestmentSellException(InvestmentSellError.nonPositiveNet);
-    }
+    // Fees can eat the whole sale, as when selling nearly worthless
+    // shares; the cash then moves the other way (health check G1-06).
     if (lots.isEmpty || lots.length > 10000) {
       throw const InvestmentSellException(InvestmentSellError.emptyLots);
     }

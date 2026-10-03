@@ -332,6 +332,51 @@ final class SplitInvestment extends _Registration {
   };
 }
 
+/// A stock dividend, capital reduction or reverse split, with any cash it
+/// pays: [newShares] for every [oldShares] (health check G2-16). Returns
+/// the action's id.
+final class RecordCorporateAction extends _Trade {
+  RecordCorporateAction({
+    required OperationKey operation,
+    required this.actionId,
+    required this.postingId,
+    required this.target,
+    required this.effectiveOn,
+    required this.newShares,
+    required this.oldShares,
+    this.cashInLieu,
+    this.capitalReturned,
+  }) : super(operation);
+
+  final PublicId actionId;
+
+  /// Used only when the action pays cash.
+  final PublicId postingId;
+  final TradeTarget target;
+  final BusinessDate effectiveOn;
+  final int newShares;
+  final int oldShares;
+
+  /// Paid for the fraction of a share a whole-share market cannot hold.
+  final Money? cashInLieu;
+
+  /// Paid back by a cash capital reduction.
+  final Money? capitalReturned;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'record-corporate-action-v1',
+    'actionId': actionId.value,
+    'postingId': postingId.value,
+    ...target.toJson(),
+    'effectiveOn': effectiveOn.toString(),
+    'newShares': newShares,
+    'oldShares': oldShares,
+    'cashInLieu': cashInLieu?.toJson(),
+    'capitalReturned': capitalReturned?.toJson(),
+  };
+}
+
 /// Removes a trade entered by mistake. Its cash posting, if any, is
 /// reversed on its own date and the holding is replayed without it. A
 /// dividend can always be voided; a buy, sell or split only while no later

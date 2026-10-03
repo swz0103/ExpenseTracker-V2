@@ -585,7 +585,9 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
             trade.date.compareTo(through) > 0) {
           continue;
         }
-        if (trade.kind == 'sell') add(realized, trade.realized!);
+        if (trade.kind == 'sell' || trade.kind == 'action') {
+          add(realized, trade.realized!);
+        }
         if (trade.kind == 'dividend') add(dividends, trade.cash!);
       }
     }

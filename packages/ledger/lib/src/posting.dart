@@ -292,17 +292,18 @@ final class Posting {
         _settle(operation, account, cashCredit, settled);
     _sameCurrency(cashCredit, [gross, fee, tax]);
     _positive(gross);
+    // A sale whose fees exceed its proceeds debits cash (G1-06); one that
+    // nets exactly zero moves no cash and has no posting.
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
-        cashCredit.minorUnits <= BigInt.zero) {
+        cashCredit.minorUnits == BigInt.zero) {
       throw const LedgerException(LedgerError.invalidAmount);
     }
     if (id == investmentSellId) {
       throw const LedgerException(LedgerError.duplicateIdentity);
     }
     final expectedCredit = gross.minorUnits - fee.minorUnits - tax.minorUnits;
-    if (expectedCredit <= BigInt.zero ||
-        expectedCredit != cashCredit.minorUnits) {
+    if (expectedCredit != cashCredit.minorUnits) {
       throw const LedgerException(LedgerError.investmentSellMismatch);
     }
     return Posting._(

@@ -72,15 +72,17 @@ void main() {
     expect(row.funding.id, cashId);
   });
 
-  test('rejects guessed net and nonpositive payout', () {
+  test('rejects guessed net; everything withheld pays nothing', () {
     expect(
       () => dividend(net: usdMoney('8.26')),
       error(InvestmentDividendError.netMismatch),
     );
     expect(
       () => dividend(net: usdMoney('0.00')),
-      error(InvestmentDividendError.invalidInput),
+      error(InvestmentDividendError.netMismatch),
     );
+    final withheld = dividend(tax: usdMoney('9.75'), net: usdMoney('0.00'));
+    expect(withheld.netCashCredit, usdMoney('0.00'));
     expect(
       () => dividend(tax: usdMoney('10.00')),
       error(InvestmentDividendError.netMismatch),

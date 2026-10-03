@@ -402,6 +402,57 @@ void main() {
     expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 89337));
   });
 
+  test('fees can eat a sale and tax a whole dividend', () async {
+    await buy('10', '1', 1000);
+    await sell('10', '0.01', 10);
+    expect(ledger.balance(account(bank)), cents(1000000 - 1000 - 90));
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(300),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(0),
+      ),
+    );
+    expect(ledger.balance(account(bank)), cents(1000000 - 1000 - 90));
+    final latest = ledger.tradeHistory(brokerage).first;
+    expect(latest.kind, 'dividend');
+    expect(latest.postingId, isNull);
+    expect(latest.cash, cents(0));
+  });
+
+  test('a reverse split with returned capital replays', () async {
+    await buy('10', '150', 150000);
+    await invest.corporateAction(
+      RecordCorporateAction(
+        operation: op(),
+        actionId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        effectiveOn: BusinessDate(2026, 10, 10),
+        newShares: 1,
+        oldShares: 2,
+        capitalReturned: cents(1000),
+      ),
+    );
+    expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 1000));
+    store.close();
+    open();
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '5');
+    expect(lot.remainingCost, cents(149000));
+    expect(ledger.tradeHistory(brokerage).first.kind, 'action');
+    await expectLater(
+      buy('1', '150', 15000, on: BusinessDate(2026, 10, 5)),
+      fails(FailureKind.rejected, 'investment.backdated'),
+    );
+  });
+
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(
