@@ -219,6 +219,17 @@ const text = "import 'dart:ui';";
     );
     expect(codes(), contains('private-import'));
   });
+  test('test doubles are importable from tests only', () {
+    (modules['values']! as Map)['testEntrypoints'] = ['testing.dart'];
+    policy();
+    write('packages/values/lib/testing.dart', '');
+    const fake = "import 'package:values/testing.dart';";
+    write('packages/ledger/test/ledger_test.dart', fake);
+    expect(codes(), isNot(contains('test-only-import')));
+    write('prototypes/app/lib/app.dart', fake);
+    expect(codes(), contains('test-only-import'));
+  });
+
   test('new app cannot skip registration', () {
     package('apps/new_app', 'new_app');
     expect(codes(), contains('unregistered-runtime'));

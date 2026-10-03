@@ -26,7 +26,9 @@
     "app_core": {
       "directory": "packages/app_core",
       "publicEntrypoints": [
-        "app_core.dart",
+        "app_core.dart"
+      ],
+      "testEntrypoints": [
         "testing.dart"
       ],
       "dependencies": [
@@ -147,7 +149,8 @@
     },
     "drive_backup": {
       "directory": "infrastructure/drive_backup",
-      "publicEntrypoints": ["drive_backup.dart", "testing.dart"],
+      "publicEntrypoints": ["drive_backup.dart"],
+      "testEntrypoints": ["testing.dart"],
       "dependencies": ["storage_sqlcipher"]
     },
     "ledger_backup": {

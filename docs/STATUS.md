@@ -59,7 +59,7 @@
 - [ ] 解析錯誤：指數、浮點、代號白名單、TPEx（G2-06、G2-07、G2-09、G2-15）；匯率沒有時效上限（G2-10、G1-17）；效能（G2-03、G2-13、G2-14）；Yahoo 的 ADR-06（G2-17、G9-12）；其他（G2-22、G2-23、G2-26）。
 
 ### D. 架構與 CI
-- [ ] 單一 isolate 擁有資料庫（G7-10）；測試替身不放 lib 或禁止 App 引用（G7-16）。
+- [ ] 單一 isolate 擁有資料庫（G7-10）。（測試替身只能從 test/ 引用，架構檢查會擋：`testEntrypoints`，G7-16 已完成）
 - [x] `web-preview` 建置時不把寫入 token 留在 git 設定，只有最後推送那一步能用；監看 `infrastructure/`（G9-14）。main 的 CI 改為排隊不取消（G9-09）。`.gitignore` 加 `*.apk`、`*.aab`（G9-20）。
 - [ ] 舊 Domain 套件加 lint、清掉 `throwsA(anything)`、inventory 對照檔案系統（G9-16、G1-15）。
 - [ ] 重複的 catalog 程式合併（G1-12）；App 寫死 TWD、沒有分頁、字串進 l10n（G4-23、G4-22、G4-13）。
