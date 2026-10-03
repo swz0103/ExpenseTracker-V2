@@ -43,6 +43,22 @@ void main() {
     }
   });
 
+  test('buying again after a dividend still has one certain return', () {
+    // Flows change sign three times, but their running total only once.
+    final result = calculateInvestmentXirr(
+      currency: usd,
+      flows: [
+        flow(2023, '-100.00'),
+        flow(2024, '3.00'),
+        flow(2025, '-50.00'),
+        flow(2026, '180.00'),
+      ],
+    );
+    expect(result.status, InvestmentXirrStatus.available);
+    expect(result.annualRate!, greaterThan(0.05));
+    expect(result.annualRate!, lessThan(0.15));
+  });
+
   test('non-monotone cash flows with two plausible roots stay ambiguous', () {
     final result = calculateInvestmentXirr(
       currency: usd,
@@ -144,11 +160,17 @@ void main() {
   });
 
   test('a root on the documented upper boundary remains available', () {
-    // 2024-01-01 through 2028-01-01 is exactly 1461 days = 4 ACT/365.25
+    // 2024-01-01 through 2027-12-31 is exactly 1460 days = 4 ACT/365
     // years. 1001^4 therefore places ln(1 + rate) on the upper boundary.
     final result = calculateInvestmentXirr(
       currency: usd,
-      flows: [flow(2024, '-0.01'), flow(2028, '10040060040.01')],
+      flows: [
+        flow(2024, '-0.01'),
+        InvestmentCashFlow(
+          BusinessDate(2027, 12, 31),
+          Money.parse(usd, '10040060040.01'),
+        ),
+      ],
     );
     expect(result.status, InvestmentXirrStatus.available);
     expect(result.annualRate!, closeTo(1000, 1e-6));

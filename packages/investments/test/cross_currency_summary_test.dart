@@ -215,4 +215,36 @@ void main() {
     expect(result.remainingCost, isNull);
     expect(result.marketValue, isNull);
   });
+
+  test('booked costs keep their own rates; only value is at today', () {
+    final original = InvestmentPortfolioSummary.calculate([
+      position(
+        currency: usd,
+        cost: '10',
+        price: '12',
+        realized: '1',
+        dividends: '0.5',
+      ),
+    ]);
+    final result = CrossCurrencyInvestmentSummary.convert(
+      original: original,
+      reportingCurrency: twd,
+      valuationDate: date,
+      observations: [input(rate(usd, twd, '32', date))],
+      booked: {
+        usd: BookedInvestmentValues(
+          remainingCost: Money.parse(twd, '300'),
+          realizedResult: Money.parse(twd, '31'),
+          netDividends: Money.parse(twd, '15.5'),
+        ),
+      },
+    );
+    final row = result.rows[usd]!;
+    expect(row.bookedCost, isTrue);
+    expect(row.remainingCost, Money.parse(twd, '300'));
+    expect(row.marketValue, Money.parse(twd, '384'));
+    expect(row.unrealizedResult, Money.parse(twd, '84'));
+    expect(row.totalReturn, Money.parse(twd, '130.5'));
+    expect(result.totalReturn, Money.parse(twd, '130.5'));
+  });
 }

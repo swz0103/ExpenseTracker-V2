@@ -29,9 +29,12 @@ final class InvestmentXirrResult {
   final double? annualRate;
 }
 
-/// Calendar-day XIRR using ACT/365.25 and a bounded search on ln(1 + rate).
-/// A single sign-changing root is required; ambiguous or missing roots are
-/// reported instead of selecting an arbitrary answer.
+/// Calendar-day XIRR on ACT/365, as spreadsheets and brokers compute it
+/// (health check G2-21), with a bounded search on ln(1 + rate). A single
+/// root is required: it is certain when the flows, or their running total,
+/// change sign once (Norstrom's criterion), which covers the usual buys,
+/// dividends, more buys and a final value (G2-02). Otherwise ambiguous or
+/// missing roots are reported instead of selecting an arbitrary answer.
 InvestmentXirrResult calculateInvestmentXirr({
   required Currency currency,
   required List<InvestmentCashFlow> flows,
@@ -66,7 +69,7 @@ InvestmentXirrResult calculateInvestmentXirr({
       (
         byDate[date]!.toDouble(),
         DateTime.utc(date.year, date.month, date.day).difference(first).inDays /
-            365.25,
+            365,
       ),
   ];
 
@@ -90,6 +93,20 @@ InvestmentXirrResult calculateInvestmentXirr({
     }
     previousFlowSign = currentFlowSign;
   }
+  // The running total changing sign once also proves a unique root.
+  var running = BigInt.zero;
+  var previousRunningSign = 0;
+  var runningSignChanges = 0;
+  for (final date in dates) {
+    running += byDate[date]!;
+    final current = running.sign;
+    if (current == 0) continue;
+    if (previousRunningSign != 0 && current != previousRunningSign) {
+      runningSignChanges++;
+    }
+    previousRunningSign = current;
+  }
+  final certain = flowSignChanges == 1 || runningSignChanges == 1;
 
   // Divide all discounted terms by the largest exponential factor. This does
   // not change the root's sign and avoids overflow for long-lived portfolios.
@@ -148,7 +165,7 @@ InvestmentXirrResult calculateInvestmentXirr({
   if (distinctExact.length + brackets.length > 1) {
     return const InvestmentXirrResult(InvestmentXirrStatus.multipleRoots);
   }
-  if (flowSignChanges > 1) {
+  if (!certain) {
     return const InvestmentXirrResult(InvestmentXirrStatus.ambiguousRoots);
   }
   if (distinctExact.isNotEmpty) {
