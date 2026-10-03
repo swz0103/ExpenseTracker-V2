@@ -20,9 +20,10 @@
 ## 階段 2 進行中
 
 - [x] 2a `packages/app_core`：指令依序執行（不因忙碌失敗）、操作日誌與業務寫入同交易、交易性 outbox、型別化錯誤、可注入時鐘，以及 `MemoryStore` 參考實作。
-- [ ] 2b `packages/storage_sqlcipher`：單一 SQLCipher 資料庫、WAL、事件日誌與投影表，實作 `app_core` 介面並通過同一組行為測試。
-- [ ] 2c 行程終止測試器進 CI；10 萬筆事件基準測試。
-- [ ] 2d `packages/backup_security`：金鑰階層與輪替。
+- [x] 2b `infrastructure/storage_sqlcipher`：單一 SQLCipher 資料庫（WAL、`synchronous=FULL`）、只能新增的事件日誌、不可改的操作日誌與 outbox，實作 `app_core` 介面並通過同一組行為測試；錯誤金鑰、未加密函式庫、較新 schema 都會拒絕開啟。
+- [x] 2c-1 SIGKILL 行程終止測試進 CI（固定亂數種子，8 輪，驗證完整性與「事件數＝操作數」）。
+- [ ] 2c-2 10 萬筆事件基準測試；投影表隨領域模組遷入時再加。
+- [ ] 2d `infrastructure/backup_security`：金鑰階層與輪替。
 
 ## 階段 1 已完成
 

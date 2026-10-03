@@ -17,7 +17,7 @@ void main() {
         .map((m) => m.group(1)!)
         .toSet();
     final covered = RegExp(
-      r"(?:-Package |')((?:packages|prototypes|tooling)/[a-z_]+)'?",
+      r"(?:-Package |')((?:packages|infrastructure|prototypes|tooling)/[a-z_]+)'?",
     ).allMatches(workflow).map((m) => m.group(1)!).toSet();
     expect(covered, registered);
 
@@ -32,6 +32,7 @@ void main() {
       containsAll([
         '.github/workflows/**',
         'architecture/**',
+        'infrastructure/**',
         'packages/**',
         'prototypes/**',
         'tooling/**',

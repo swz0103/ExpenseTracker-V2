@@ -142,6 +142,11 @@
     }
   },
   "runtimeModules": {
+    "storage_sqlcipher": {
+      "directory": "infrastructure/storage_sqlcipher",
+      "publicEntrypoints": ["storage_sqlcipher.dart"],
+      "dependencies": ["app_core", "foundation_values"]
+    },
     "cloud_backup_probe": {
       "directory": "prototypes/cloud_backup",
       "publicEntrypoints": ["cloud_backup.dart", "cloud_backup_history.dart", "cloud_backup_manual_flow.dart", "cloud_backup_schedule.dart", "google_drive_adapter.dart", "google_drive_http.dart", "cloud_backup_work.dart"],

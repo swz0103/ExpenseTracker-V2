@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/**'
       - 'architecture/**'
+      - 'infrastructure/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
@@ -15,6 +16,7 @@ on:
     paths:
       - '.github/workflows/**'
       - 'architecture/**'
+      - 'infrastructure/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
@@ -81,6 +83,7 @@ jobs:
       - shell: pwsh
         run: |
           $packages = @(
+            'infrastructure/storage_sqlcipher',
             'prototypes/persistent_jobs', 'prototypes/cloud_backup',
             'prototypes/modular_persistence',
             'prototypes/backup_envelope', 'prototypes/validated_restore',

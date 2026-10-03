@@ -11,7 +11,7 @@
 
 保留 `packages/` 的值物件與領域規則，以及備份加密元件；重建儲存、應用與 UI。
 
-1. **分層**：UI（`apps/expense_tracker`）→ Application（`packages/app_core`）→ Domain（純 Dart，禁止 `dart:io`）。Infrastructure（`storage_sqlcipher`、`backup_security`、`cloud_drive`、`market_adapters`）依賴 Domain 型別、實作 Application 定義的介面。
+1. **分層**：UI（`apps/expense_tracker`）→ Application（`packages/app_core`）→ Domain（純 Dart，禁止 `dart:io`）。Infrastructure（`infrastructure/` 下：`storage_sqlcipher`、`backup_security`、`cloud_drive`、`market_adapters`）依賴 Domain 型別、實作 Application 定義的介面。
 2. **儲存**：單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、月報、卡片帳單、持倉等投影表與事件在同一交易內更新並建索引。寫入只驗證受影響範圍，取消 5,000 筆上限。崩潰復原交給 SQLite。
 3. **更正**：所有金錢事件都可用「反向事件加替代事件」修正，撤銷有自己的生效日；投資批次由事件重播得出。
 4. **冪等**：單一操作日誌記錄每個指令的 OperationKey，存在帳本內、跟著備份走；另有交易性 outbox 給雲端備份與提醒。
