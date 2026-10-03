@@ -130,6 +130,7 @@ final class TagCatalog {
     if (_rows.containsKey(id)) {
       throw const TagException(TagError.duplicate);
     }
+    _unique(id, name);
     return _replace(
       Tag.restore(id: id, workspace: workspace, name: name, version: 1),
     );
@@ -142,7 +143,21 @@ final class TagCatalog {
     required String name,
   }) {
     final row = _mutable(workspace, id, expectedVersion);
+    _unique(id, name);
     return _change(row, name: name);
+  }
+
+  /// Two live tags with one name would split every report in two
+  /// (feature audit G-19).
+  void _unique(PublicId self, String name) {
+    final key = nameKey(name);
+    for (final row in _rows.values) {
+      if (row.id != self &&
+          row.replacementId == null &&
+          nameKey(row.name) == key) {
+        throw const TagException(TagError.duplicate);
+      }
+    }
   }
 
   TagCatalog setArchived({
@@ -228,12 +243,8 @@ final class TagCatalog {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty ||
-      result.length > 100 ||
-      RegExp(r'[\x00-\x1f\x7f]').hasMatch(result)) {
-    throw const TagException(TagError.invalidInput);
-  }
+  final result = cleanName(value);
+  if (result == null) throw const TagException(TagError.invalidInput);
   return result;
 }
 

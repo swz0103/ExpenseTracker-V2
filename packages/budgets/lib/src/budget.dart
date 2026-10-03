@@ -15,6 +15,7 @@ final class BudgetPlan {
     Set<PublicId> accountIds = const {},
     Set<PublicId> tagIds = const {},
     this.warningPercent = 80,
+    this.repeats = false,
   }) : accountIds = Set.unmodifiable(accountIds),
        tagIds = Set.unmodifiable(tagIds) {
     if (version < 1 ||
@@ -34,6 +35,24 @@ final class BudgetPlan {
   final Set<PublicId> accountIds;
   final Set<PublicId> tagIds;
   final int warningPercent;
+
+  /// Applies to [month] and every later month, so a monthly budget is set
+  /// once (feature audit G-12).
+  final bool repeats;
+
+  /// This plan as it applies to [other], for a repeating plan.
+  BudgetPlan forMonth(ReportMonth other) => BudgetPlan(
+    id: id,
+    workspace: workspace,
+    month: other,
+    limit: limit,
+    version: version,
+    categoryId: categoryId,
+    accountIds: accountIds,
+    tagIds: tagIds,
+    warningPercent: warningPercent,
+    repeats: repeats,
+  );
 }
 
 /// The same classified report effect used by monthly reports, with its saved

@@ -442,26 +442,28 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     return reportFact(posting, metadata, account: account);
   }
 
-  /// Every budget for [month] with what was spent against it. Merged
-  /// categories count toward the category they were merged into.
+  /// Every budget for [month] with what was spent against it: budgets
+  /// set for that month, and repeating budgets that started by then.
+  /// Merged categories count toward the category they were merged into.
   List<BudgetResult> budgetStatus(WorkspaceId workspace, ReportMonth month) {
     final rows = _store.select(
-      'SELECT payload FROM plan_budgets WHERE workspace = ? AND month = ? '
+      'SELECT payload FROM plan_budgets WHERE workspace = ? AND month <= ? '
       'ORDER BY id',
       [workspace.toString(), _month(month)],
     );
+    final plans = [
+      for (final row in rows)
+        BudgetPlanCodec().decode(row['payload']! as String),
+    ];
     final catalog = CategoryCatalog.restore(workspace, categories(workspace));
     final facts = [
       for (final fact in monthlyFacts(workspace, month))
         BudgetFact(workspace: workspace, report: _canonical(fact, catalog)),
     ];
     return [
-      for (final row in rows)
-        evaluateBudget(
-          BudgetPlanCodec().decode(row['payload']! as String),
-          facts,
-          categories: catalog,
-        ),
+      for (final plan in plans)
+        if (_month(plan.month) == _month(month) || plan.repeats)
+          evaluateBudget(plan.forMonth(month), facts, categories: catalog),
     ];
   }
 

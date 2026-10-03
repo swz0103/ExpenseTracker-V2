@@ -11,9 +11,37 @@ void main() {
   TagCatalog initial() =>
       TagCatalog.empty(ws)
           .create(workspace: ws, id: id, name: '  旅行  ')
-          .create(workspace: ws, id: target, name: '旅行');
+          .create(workspace: ws, id: target, name: '出差');
+  test('names are unique ignoring width and case', () {
+    expect(
+      () => initial().create(
+        workspace: ws,
+        id: PublicId.generate(),
+        name: '旅行',
+      ),
+      fails(TagError.duplicate),
+    );
+    expect(
+      () => initial().rename(
+        workspace: ws,
+        id: target,
+        expectedVersion: 1,
+        name: ' 旅行 ',
+      ),
+      fails(TagError.duplicate),
+    );
+    final merged = initial().merge(
+      workspace: ws,
+      sourceId: id,
+      expectedSourceVersion: 1,
+      targetId: target,
+      expectedTargetVersion: 1,
+    );
+    // A merged-away tag no longer holds its name.
+    merged.create(workspace: ws, id: PublicId.generate(), name: '旅行');
+  });
   test(
-    'flat identities are independent even with equal names and immutable views',
+    'flat identities stay independent through renames and views stay immutable',
     () {
       final first = initial(),
           renamed = first.rename(

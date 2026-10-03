@@ -289,16 +289,12 @@ final class MerchantCatalog {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty ||
-      result.length > 100 ||
-      RegExp(r'[\x00-\x1f\x7f]').hasMatch(result)) {
-    throw const MerchantException(MerchantError.invalidInput);
-  }
+  final result = cleanName(value);
+  if (result == null) throw const MerchantException(MerchantError.invalidInput);
   return result;
 }
 
-String _key(String value) => value.trim().toLowerCase();
+String _key(String value) => nameKey(value);
 
 List<String> _aliases(Iterable<String> input) {
   final values = input.map(_name).toList();

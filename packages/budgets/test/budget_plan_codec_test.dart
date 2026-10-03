@@ -35,13 +35,23 @@ void main() {
     expect(restored.accountIds, {accountA, accountB});
     expect(restored.tagIds, {tag});
     expect(restored.warningPercent, 75);
+    expect(restored.repeats, isFalse);
+    final monthly = BudgetPlan(
+      id: plan.id,
+      workspace: workspace,
+      month: ReportMonth(2028, 2),
+      limit: plan.limit,
+      repeats: true,
+    );
+    expect(codec.decode(codec.encode(monthly)).repeats, isTrue);
     expect(codec.encode(restored), encoded);
   });
 
   test('unknown or missing fields and future formats fail closed', () {
     final original = jsonDecode(codec.encode(plan)) as Map<String, dynamic>;
     for (final mutation in [
-      {...original, 'format': 2},
+      {...original, 'format': BudgetPlanCodec.formatVersion + 1},
+      {...original, 'repeats': 'yes'},
       {...original, 'unrecognized': true},
       {...original}..remove('warningPercent'),
       {...original, 'month': 13},

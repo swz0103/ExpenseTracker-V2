@@ -19,6 +19,7 @@ final class SetBudget implements Command<int> {
     this.accountIds = const {},
     this.tagIds = const {},
     this.warningPercent = 80,
+    this.repeats = false,
   });
 
   @override
@@ -34,6 +35,9 @@ final class SetBudget implements Command<int> {
   final Set<PublicId> tagIds;
   final int warningPercent;
 
+  /// The budget applies to [month] and every later month.
+  final bool repeats;
+
   @override
   String get input => jsonEncode({
     'command': 'set-budget-v1',
@@ -45,6 +49,7 @@ final class SetBudget implements Command<int> {
     'accountIds': ([for (final id in accountIds) id.value]..sort()),
     'tagIds': ([for (final id in tagIds) id.value]..sort()),
     'warningPercent': warningPercent,
+    'repeats': repeats,
   });
 
   @override

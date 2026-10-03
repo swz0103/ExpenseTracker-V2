@@ -20,7 +20,7 @@ void main() {
     count: count,
   );
 
-  test('remainders go to the earliest installments', () {
+  test('the whole remainder goes into the first installment', () {
     final parts = schedule().installments;
     expect(parts.map((part) => part.scheduledClose.toString()), [
       '2028-01-31',
@@ -28,11 +28,11 @@ void main() {
       '2028-03-31',
     ]);
     expect(parts.map((part) => part.principal.majorText), [
-      '33.34',
-      '33.34',
+      '33.35',
+      '33.33',
       '33.33',
     ]);
-    expect(parts.map((part) => part.fee.majorText), ['0.34', '0.34', '0.33']);
+    expect(parts.map((part) => part.fee.majorText), ['0.35', '0.33', '0.33']);
     expect(
       parts.fold<BigInt>(
         BigInt.zero,

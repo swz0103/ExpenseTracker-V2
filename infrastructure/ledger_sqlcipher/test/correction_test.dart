@@ -84,7 +84,11 @@ void main() {
     return outcome.value;
   }
 
-  Future<PublicId> correct(PublicId original, int units) async {
+  Future<PublicId> correct(
+    PublicId original,
+    int units, {
+    BusinessDate? date,
+  }) async {
     final outcome = await books.correctCashFlow(
       CorrectCashFlow(
         operation: op(),
@@ -92,7 +96,7 @@ void main() {
         originalId: original,
         reversalId: PublicId.generate(),
         account: ref(),
-        date: august,
+        date: date ?? august,
         amount: ntd(units),
         allocations: [CategoryShare(food, 1, ntd(units))],
       ),
@@ -158,5 +162,28 @@ void main() {
       fails(FailureKind.rejected, 'note.unchanged'),
     );
     expect(ledger.note(lunch).text, '和同事午餐');
+  });
+
+  test('a correction to another month leaves the old month empty', () async {
+    final rent = await expense(1500);
+    await correct(rent, 1500, date: BusinessDate(2026, 9, 1));
+    expect(ledger.monthly(workspace, '2026-08')['TWD']!.expense, ntd(0));
+    expect(ledger.monthly(workspace, '2026-09')['TWD']!.expense, ntd(1500));
+  });
+
+  test('the note moves to the corrected entry', () async {
+    final lunch = await expense(120);
+    await books.setNote(
+      SetNote(
+        operation: op(),
+        postingId: lunch,
+        expectedRevision: 0,
+        text: '同事代墊，待收',
+      ),
+    );
+    final fixed = await correct(lunch, 150);
+    final note = ledger.note(fixed);
+    expect(note.text, '同事代墊，待收');
+    expect(note.revision, 1);
   });
 }

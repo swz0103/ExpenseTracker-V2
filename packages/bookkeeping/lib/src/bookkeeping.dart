@@ -441,6 +441,11 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       replacement,
       await _metadata(t, workspace, command.tags, command.merchant),
     );
+    // The note travels with the entry it describes (feature audit G-15).
+    final note = await t.noteOf(original.id);
+    if (note.text.isNotEmpty) {
+      await _saveNote(t, workspace, replacement.id, EntryNote(1, note.text));
+    }
     return replacement.id;
   }
 
@@ -455,18 +460,27 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       command.expectedRevision,
       command.text,
     ).apply(await t.noteOf(command.postingId));
-    await t.saveNote(command.postingId, note);
+    await _saveNote(t, command.operation.workspace, command.postingId, note);
+    return note.revision;
+  }
+
+  Future<void> _saveNote(
+    T t,
+    WorkspaceId workspace,
+    PublicId postingId,
+    EntryNote note,
+  ) async {
+    await t.saveNote(postingId, note);
     await t.appendEvent(
       id: PublicId.generate(),
-      workspace: command.operation.workspace,
+      workspace: workspace,
       kind: 'posting.noted',
       payload: jsonEncode({
-        'postingId': command.postingId.value,
+        'postingId': postingId.value,
         'revision': note.revision,
         'text': note.text,
       }),
     );
-    return note.revision;
   }
 
   /// Reverses a posting its card or trade owns, on the posting's own date.

@@ -56,12 +56,11 @@ final class CardInstallmentSchedule {
   final int closingDay;
   final int count;
 
-  /// Largest-remainder split: leftover minor units go to the earliest
-  /// installments, one each.
+  /// Equal installments rounded down; the whole remainder goes into the
+  /// first one, as Taiwan card issuers bill it (feature audit G-23).
   List<CardInstallment> get installments {
-    final weights = List<BigInt>.filled(count, BigInt.one);
-    final principals = principal.allocate(weights);
-    final fees = fixedFee.allocate(weights);
+    final principals = _splitFirst(principal, count);
+    final fees = _splitFirst(fixedFee, count);
     return List.unmodifiable(
       List.generate(count, (index) {
         final month = DateTime.utc(
@@ -83,6 +82,15 @@ final class CardInstallmentSchedule {
       }),
     );
   }
+}
+
+List<Money> _splitFirst(Money total, int count) {
+  final each = total.minorUnits ~/ BigInt.from(count);
+  final first = total.minorUnits - each * BigInt.from(count - 1);
+  return [
+    Money(total.currency, first),
+    for (var i = 1; i < count; i++) Money(total.currency, each),
+  ];
 }
 
 final class CardInstallment {

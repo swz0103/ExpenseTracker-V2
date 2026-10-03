@@ -298,9 +298,8 @@ final class Account {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty || result.length > 100)
-    throw const AccountException(AccountError.invalidInput);
+  final result = cleanName(value);
+  if (result == null) throw const AccountException(AccountError.invalidInput);
   return result;
 }
 

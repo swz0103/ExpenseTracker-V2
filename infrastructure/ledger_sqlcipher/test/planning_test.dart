@@ -248,4 +248,32 @@ void main() {
     expect(open(), isFalse);
     expect(ledger.balance(ledger.accounts(workspace).single), ntd(-990));
   });
+
+  test('a repeating budget applies to every later month', () async {
+    final food = await category('餐飲');
+    Future<void> budget(PublicId id, {required bool repeats}) async {
+      await planning.setBudget(
+        SetBudget(
+          operation: op(),
+          budgetId: id,
+          expectedVersion: 0,
+          month: october,
+          limit: ntd(8000),
+          categoryId: food,
+          repeats: repeats,
+        ),
+      );
+    }
+
+    final monthly = PublicId.generate();
+    await budget(monthly, repeats: true);
+    await budget(PublicId.generate(), repeats: false);
+    await spend(3000, food);
+    expect(ledger.budgetStatus(workspace, october), hasLength(2));
+    expect(ledger.budgetStatus(workspace, ReportMonth(2026, 9)), isEmpty);
+    final december = ledger.budgetStatus(workspace, ReportMonth(2026, 12));
+    expect(december.single.plan.id, monthly);
+    expect(december.single.plan.month.month, 12);
+    expect(december.single.spent, ntd(0));
+  });
 }

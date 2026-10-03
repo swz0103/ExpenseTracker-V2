@@ -74,6 +74,7 @@ final class PlanningBook<T extends PlanningTransaction> {
         accountIds: command.accountIds,
         tagIds: command.tagIds,
         warningPercent: command.warningPercent,
+        repeats: command.repeats,
       );
     } on FormatException {
       throw const AppFailure(FailureKind.rejected, 'budget.invalid');

@@ -377,7 +377,7 @@ void main() {
       BusinessDate(2026, 11, 25),
       BusinessDate(2026, 12, 25),
     ]);
-    expect(plan.map((i) => i.principal), [ntd(3334), ntd(3334), ntd(3333)]);
+    expect(plan.map((i) => i.principal), [ntd(3335), ntd(3333), ntd(3333)]);
     await expectLater(
       cards.planInstallments(
         PlanInstallments(
