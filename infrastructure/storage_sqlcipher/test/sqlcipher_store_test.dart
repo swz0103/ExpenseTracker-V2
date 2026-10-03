@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:app_core/app_core.dart';
@@ -239,6 +240,23 @@ void main() {
     expect(store.eventCount, 0);
   });
 
+  test('only one connection, isolate or process owns the file', () async {
+    final store = SqlCipherStore.open(file, storageKey);
+    expect(
+      () => SqlCipherStore.open(file, storageKey),
+      throwsA(const StorageUnavailable(StorageProblem.inUse)),
+    );
+    final port = ReceivePort();
+    await Isolate.spawn(_openElsewhere, [
+      port.sendPort,
+      file.path,
+      storageKey.hex,
+    ]);
+    expect(await port.first, StorageProblem.inUse.name);
+    store.close();
+    SqlCipherStore.open(file, storageKey).close();
+  });
+
   test('a killed writer never leaves a torn or unjournaled commit', () async {
     final suffix = Platform.isWindows ? '.exe' : '';
     final worker = File('.dart_tool/worker/bundle/bin/crash_worker$suffix');
@@ -270,4 +288,16 @@ void main() {
       store.close();
     }
   });
+}
+
+/// Opens the store from another isolate and reports why it could not.
+void _openElsewhere(List<Object> message) {
+  final reply = message[0] as SendPort;
+  final file = File(message[1] as String);
+  try {
+    SqlCipherStore.open(file, StorageKey.fromHex(message[2] as String)).close();
+    reply.send(null);
+  } on StorageUnavailable catch (error) {
+    reply.send(error.problem.name);
+  }
 }
