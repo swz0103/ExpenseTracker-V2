@@ -378,6 +378,15 @@ void main() {
       BusinessDate(2026, 12, 25),
     ]);
     expect(plan.map((i) => i.principal), [ntd(3335), ntd(3333), ntd(3333)]);
+    // Each statement bills one installment; the card still owes the rest.
+    final october = ledger.statement(card, purchaseDay);
+    expect(october.purchases, ntd(0));
+    expect(october.installmentsDue, ntd(3335));
+    expect(october.remainingDue, ntd(3335));
+    final november = ledger.statement(card, BusinessDate(2026, 11, 10));
+    expect(november.carriedOver, ntd(3335));
+    expect(november.installmentsDue, ntd(3333));
+    expect(ledger.balance(account(card)), ntd(-10001));
     await expectLater(
       cards.planInstallments(
         PlanInstallments(

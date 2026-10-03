@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:foundation_values/foundation_values.dart';
 
+import 'installments.dart';
+
 enum CreditCardError {
   invalidInput,
   workspaceMismatch,
@@ -293,6 +295,7 @@ final class CardStatement {
     required this.cycle,
     required this.carriedOver,
     required this.purchases,
+    required this.installmentsDue,
     required this.refunds,
     required this.fees,
     required this.payments,
@@ -306,7 +309,12 @@ final class CardStatement {
     required CardCycle cycle,
     required Iterable<CardCharge> charges,
     required Iterable<CardPayment> payments,
+    Iterable<CardInstallmentSchedule> plans = const [],
   }) {
+    // A purchase paid in installments is billed one installment per
+    // statement, not in full (feature audit G-01).
+    final planned = {for (final plan in plans) plan.purchaseEventId: plan};
+    var installmentsDue = Money(terms.currency, BigInt.zero);
     var purchases = Money(terms.currency, BigInt.zero);
     var refunds = Money(terms.currency, BigInt.zero);
     var fees = Money(terms.currency, BigInt.zero);
@@ -358,16 +366,36 @@ final class CardStatement {
       if (!events.add(charge.ledgerEventId!)) {
         throw const CreditCardException(CreditCardError.duplicateIdentity);
       }
+      final plan = charge.kind == CardChargeKind.purchase
+          ? planned[charge.ledgerEventId]
+          : null;
+      if (plan != null) {
+        if (plan.cardId != terms.cardId ||
+            plan.principal != charge.settledAmount) {
+          throw const CreditCardException(CreditCardError.invalidInput);
+        }
+        for (final part in plan.installments) {
+          final charged = part.principal + part.fee;
+          if (part.scheduledClose == cycle.closesOn) {
+            installmentsDue += charged;
+          } else if (part.scheduledClose.compareTo(cycle.startsAfter) <= 0) {
+            carried += charged;
+          }
+        }
+      }
       if (charge.postedOn!.compareTo(cycle.startsAfter) <= 0) {
-        carried += charge.kind == CardChargeKind.purchase
-            ? charge.settledAmount!
-            : -charge.settledAmount!;
+        if (plan == null) {
+          carried += charge.kind == CardChargeKind.purchase
+              ? charge.settledAmount!
+              : -charge.settledAmount!;
+        }
         carried += charge.fee!;
         continue;
       }
       if (!cycle.includes(charge.postedOn!)) continue;
       if (charge.kind == CardChargeKind.purchase) {
-        purchases += charge.settledAmount!;
+        // A planned purchase is billed through installmentsDue above.
+        if (plan == null) purchases += charge.settledAmount!;
       } else {
         refunds += charge.settledAmount!;
       }
@@ -387,10 +415,11 @@ final class CardStatement {
         carried -= payment.amount;
       }
     }
-    final net = carried + purchases - refunds + fees - paid;
+    final net = carried + purchases + installmentsDue - refunds + fees - paid;
     return CardStatement._(
       cycle: cycle,
       carriedOver: carried,
+      installmentsDue: installmentsDue,
       purchases: purchases,
       refunds: refunds,
       fees: fees,
@@ -410,6 +439,10 @@ final class CardStatement {
   /// Unpaid balance from earlier statements; negative for a credit.
   final Money carriedOver;
   final Money purchases;
+
+  /// The installments of planned purchases that fall in this statement,
+  /// fees included.
+  final Money installmentsDue;
   final Money refunds;
   final Money fees;
   final Money payments;

@@ -374,6 +374,10 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
       'SELECT payload FROM card_payments WHERE card_id = ? AND voided = 0',
       [cardId.value],
     );
+    final plans = _store.select(
+      'SELECT payload FROM card_installment_plans WHERE card_id = ?',
+      [cardId.value],
+    );
     return CardStatement.calculate(
       terms: terms,
       cycle: terms.scheduledCycleFor(date),
@@ -384,6 +388,12 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
       payments: [
         for (final row in payments)
           CardRecords.readPayment(_json(row['payload'])),
+      ],
+      plans: [
+        for (final row in plans)
+          const CardInstallmentScheduleCodec().decode(
+            row['payload']! as String,
+          ),
       ],
     );
   }

@@ -14,11 +14,8 @@ void main() {
           .create(workspace: ws, id: target, name: '出差');
   test('names are unique ignoring width and case', () {
     expect(
-      () => initial().create(
-        workspace: ws,
-        id: PublicId.generate(),
-        name: '旅行',
-      ),
+      () =>
+          initial().create(workspace: ws, id: PublicId.generate(), name: '旅行'),
       fails(TagError.duplicate),
     );
     expect(
