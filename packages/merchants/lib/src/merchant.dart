@@ -77,29 +77,10 @@ final class MerchantCatalog {
           throw const MerchantException(MerchantError.missing);
       }
     }
-    // Resolve all chains iteratively in O(n), including an untrusted long
-    // history. The derived index is disposable and never changes saved IDs.
-    final canonical = <PublicId, PublicId>{};
-    for (final id in rows.keys) {
-      if (canonical.containsKey(id)) continue;
-      final path = <PublicId>{};
-      var cursor = id;
-      while (!canonical.containsKey(cursor)) {
-        if (!path.add(cursor)) {
-          throw const MerchantException(MerchantError.replacementCycle);
-        }
-        final next = rows[cursor]!.replacementId;
-        if (next == null) {
-          canonical[cursor] = cursor;
-          break;
-        }
-        cursor = next;
-      }
-      final resolved = canonical[cursor]!;
-      for (final member in path) {
-        canonical[member] = resolved;
-      }
-    }
+    final canonical = resolveRedirects({
+      for (final row in rows.values) row.id: row.replacementId,
+    });
+    if (canonical == null) throw const MerchantException(MerchantError.replacementCycle);
     return MerchantCatalog._(
       workspace,
       Map.unmodifiable(rows),
