@@ -155,6 +155,9 @@ void main() {
     expect(october.income, money(twd, 9900));
     expect(november.income, money(twd, -9900));
     expect(ledger.postings(cash), hasLength(2));
+    final recent = ledger.recentPostings(workspace, limit: 1);
+    expect(recent.single.kind, PostingKind.reversal);
+    expect(ledger.recentPostings(workspace), hasLength(2));
   });
 
   test('a posting can be reversed only once, and never a reversal', () async {

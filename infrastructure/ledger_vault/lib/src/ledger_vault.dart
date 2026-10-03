@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:backup_security/backup_security.dart';
+import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 
@@ -34,6 +35,15 @@ final class OpenVault {
   final UnlockedKeyring keys;
   final SqlCipherStore store;
   final LedgerStore ledger;
+  WorkspaceId? _fresh;
+
+  /// The workspace of the ledger's first event, or a new one for an empty
+  /// ledger; it becomes permanent with the first command.
+  WorkspaceId get workspace {
+    final first = store.journal(limit: 1);
+    if (first.isNotEmpty) return first.single.workspace;
+    return _fresh ??= WorkspaceId(PublicId.generate());
+  }
 
   void close() => store.close();
 }

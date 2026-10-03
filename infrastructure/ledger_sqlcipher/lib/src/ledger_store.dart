@@ -321,6 +321,16 @@ final class LedgerStore implements UnitOfWork<SqlBookkeeping> {
     return [for (final row in rows) _decodePosting(row['payload'])];
   }
 
+  /// The newest postings in [workspace], newest first.
+  List<Posting> recentPostings(WorkspaceId workspace, {int limit = 30}) {
+    final rows = _store.select(
+      'SELECT payload FROM ledger_postings WHERE workspace = ? '
+      'ORDER BY date DESC, id DESC LIMIT ?',
+      [workspace.toString(), limit],
+    );
+    return [for (final row in rows) _decodePosting(row['payload'])];
+  }
+
   List<Category> categories(WorkspaceId workspace) => [
     for (final json in _catalog('category', workspace))
       CatalogCodec.readCategory(json),

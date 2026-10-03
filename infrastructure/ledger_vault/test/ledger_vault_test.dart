@@ -51,8 +51,8 @@ void main() {
 
   tearDown(() => directory.deleteSync(recursive: true));
 
-  Future<void> openAccount(OpenVault open) async {
-    final workspace = WorkspaceId(PublicId.generate());
+  Future<void> openAccount(OpenVault open, [WorkspaceId? workspace]) async {
+    workspace ??= WorkspaceId(PublicId.generate());
     await Bookkeeping(open.ledger).openAccount(
       OpenAccount(
         operation: OperationKey(workspace, OperationId(PublicId.generate())),
@@ -74,7 +74,9 @@ void main() {
       fails(VaultProblem.missing),
     );
     final (open, recovery) = await vault.create(password);
-    await openAccount(open);
+    final workspace = open.workspace;
+    expect(open.workspace, workspace);
+    await openAccount(open, workspace);
     final events = open.store.eventCount;
     open.close();
     expect(vault.exists, isTrue);
@@ -86,6 +88,7 @@ void main() {
 
     final again = await vault.unlockWithPassword(password);
     expect(again.store.eventCount, events);
+    expect(again.workspace, workspace);
     again.close();
     final recovered = await vault.unlockWithRecovery(recovery);
     expect(recovered.store.eventCount, events);

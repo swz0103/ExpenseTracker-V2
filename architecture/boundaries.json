@@ -148,7 +148,7 @@
     "ledger_vault": {
       "directory": "infrastructure/ledger_vault",
       "publicEntrypoints": ["ledger_vault.dart"],
-      "dependencies": ["backup_security", "ledger_sqlcipher", "storage_sqlcipher"]
+      "dependencies": ["backup_security", "foundation_values", "ledger_sqlcipher", "storage_sqlcipher"]
     },
     "backup_service": {
       "directory": "infrastructure/backup_service",

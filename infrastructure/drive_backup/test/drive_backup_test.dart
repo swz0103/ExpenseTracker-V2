@@ -305,11 +305,17 @@ void main() {
     }
     // Edited Drive properties do not change which ones are kept.
     drive.files[ids[0]]!.properties['createdAt'] = '2030-01-01T00:00:00Z';
-    drive.files['elsewhere'] = FakeFile('elsewhere', 'other', {
-      'format': driveBackupFormat,
-      'backupId': 'other',
-      'createdAt': '2020-01-01T00:00:00Z',
-    }, [1], '0' * 64);
+    drive.files['elsewhere'] = FakeFile(
+      'elsewhere',
+      'other',
+      {
+        'format': driveBackupFormat,
+        'backupId': 'other',
+        'createdAt': '2020-01-01T00:00:00Z',
+      },
+      [1],
+      '0' * 64,
+    );
 
     final now = DateTime.utc(2026, 10, 5);
     final removed = await queue.prune(
