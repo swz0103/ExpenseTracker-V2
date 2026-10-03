@@ -750,6 +750,20 @@ final class SqlBookkeeping
   }
 
   @override
+  Future<(PublicId, BusinessDate)?> confirmationOf(PublicId postingId) async {
+    final rows = _transaction.select(
+      'SELECT template_id, due_date FROM plan_recurring_confirmed '
+      'WHERE posting_id = ?',
+      [postingId.value],
+    );
+    if (rows.isEmpty) return null;
+    return (
+      PublicId.parse(rows.single['template_id']! as String),
+      BusinessDate.parse(rows.single['due_date']! as String),
+    );
+  }
+
+  @override
   Future<EntryNote> noteOf(PublicId postingId) async =>
       _readNote(_transaction.select, postingId);
 

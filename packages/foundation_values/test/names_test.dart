@@ -15,7 +15,8 @@ void main() {
   test('full-width and case differences compare equal', () {
     expect(nameKey('７－ＥＬＥＶＥＮ'), nameKey('7-eleven'));
     expect(nameKey('全聯　福利中心'), nameKey('全聯 福利中心'));
-    expect(nameKey('  Costco   好市多 '), 'costco 好市多');
+    expect(nameKey('  Costco 好市多 '), 'costco 好市多');
+    expect(nameKey('Seven  Shop'), isNot(nameKey('Seven Shop')));
     expect(nameKey('餐飲'), isNot(nameKey('餐廳')));
   });
 }

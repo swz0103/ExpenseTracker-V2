@@ -14,7 +14,11 @@ final class RecurringTemplate {
     required this.unit,
     required this.every,
     this.version = 1,
-  }) {
+    this.lastDate,
+    this.categoryId,
+    Set<PublicId> tagIds = const {},
+    this.merchantId,
+  }) : tagIds = Set.unmodifiable(tagIds) {
     if (label.trim().isEmpty ||
         label != label.trim() ||
         label.runes.length > 120 ||
@@ -22,7 +26,9 @@ final class RecurringTemplate {
         every < 1 ||
         every > 999 ||
         version < 1 ||
-        amount.minorUnits == BigInt.zero) {
+        amount.minorUnits == BigInt.zero ||
+        tagIds.length > 16 ||
+        (lastDate != null && lastDate!.compareTo(firstDate) < 0)) {
       throw const FormatException('Invalid recurring template');
     }
   }
@@ -36,6 +42,15 @@ final class RecurringTemplate {
   final RecurrenceUnit unit;
   final int every;
   final int version;
+
+  /// The last day an occurrence may fall on, for a plan with an end such
+  /// as a six-year insurance policy; null runs on.
+  final BusinessDate? lastDate;
+
+  /// Defaults offered when an occurrence is confirmed (feature audit G-03).
+  final PublicId? categoryId;
+  final Set<PublicId> tagIds;
+  final PublicId? merchantId;
 }
 
 final class RecurringCandidate {
@@ -70,7 +85,9 @@ List<RecurringCandidate> dueCandidates(
   final result = <RecurringCandidate>[];
   while (true) {
     final date = _occurrence(template, index);
-    if (date == null || date.compareTo(through) > 0) break;
+    if (date == null || date.compareTo(through) > 0 || _ended(template, date)) {
+      break;
+    }
     if (date.compareTo(after) > 0) {
       if (result.length == maxCandidates) {
         throw StateError('Candidate limit exceeded');
@@ -85,8 +102,15 @@ List<RecurringCandidate> dueCandidates(
 /// Confirms a selected day belongs to the current template without scanning
 /// every occurrence since its start date.
 bool isScheduledDate(RecurringTemplate template, BusinessDate date) {
-  if (date.compareTo(template.firstDate) < 0) return false;
+  if (date.compareTo(template.firstDate) < 0 || _ended(template, date)) {
+    return false;
+  }
   return _occurrence(template, _initialIndex(template, date)) == date;
+}
+
+bool _ended(RecurringTemplate template, BusinessDate date) {
+  final last = template.lastDate;
+  return last != null && date.compareTo(last) > 0;
 }
 
 int _initialIndex(RecurringTemplate template, BusinessDate after) {

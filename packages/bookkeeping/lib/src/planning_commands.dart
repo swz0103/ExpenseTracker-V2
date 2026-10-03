@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:app_core/app_core.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:reports/reports.dart';
 
@@ -73,6 +74,10 @@ final class SaveRecurring implements Command<int> {
     required this.unit,
     required this.every,
     this.active = true,
+    this.lastDate,
+    this.categoryId,
+    this.tagIds = const {},
+    this.merchantId,
   });
 
   @override
@@ -91,6 +96,14 @@ final class SaveRecurring implements Command<int> {
   /// False stops further proposals; confirmed postings stay.
   final bool active;
 
+  /// The last day an occurrence may fall on; null runs on.
+  final BusinessDate? lastDate;
+
+  /// Defaults offered when an occurrence is confirmed.
+  final PublicId? categoryId;
+  final Set<PublicId> tagIds;
+  final PublicId? merchantId;
+
   @override
   String get input => jsonEncode({
     'command': 'save-recurring-v1',
@@ -103,6 +116,10 @@ final class SaveRecurring implements Command<int> {
     'unit': unit.name,
     'every': every,
     'active': active,
+    'lastDate': lastDate?.toString(),
+    'categoryId': categoryId?.value,
+    'tagIds': [for (final id in tagIds) id.value]..sort(),
+    'merchantId': merchantId?.value,
   });
 
   @override
@@ -113,7 +130,9 @@ final class SaveRecurring implements Command<int> {
 }
 
 /// Records one proposed occurrence as a real posting. Each due date of a
-/// template can be confirmed once. Returns the posting id.
+/// template can be confirmed once. The amount, date and classification may
+/// differ from the template, for example this month's electricity bill.
+/// Returns the posting id.
 final class ConfirmRecurring extends PostingCommand {
   ConfirmRecurring({
     required OperationKey operation,
@@ -122,12 +141,26 @@ final class ConfirmRecurring extends PostingCommand {
     required this.expectedTemplateVersion,
     required this.dueDate,
     required this.account,
+    this.amount,
+    this.date,
+    this.allocations = const [],
+    this.tags = const [],
+    this.merchant,
   }) : super(operation, postingId);
 
   final PublicId templateId;
   final int expectedTemplateVersion;
   final BusinessDate dueDate;
   final AccountRef account;
+
+  /// The actual amount, positive; the template's when null.
+  final Money? amount;
+
+  /// The day it was paid; the due date when null.
+  final BusinessDate? date;
+  final List<CategoryShare> allocations;
+  final List<TagSelection> tags;
+  final MerchantSelection? merchant;
 
   @override
   Map<String, Object?> get fields => {
@@ -137,5 +170,18 @@ final class ConfirmRecurring extends PostingCommand {
     'expectedTemplateVersion': expectedTemplateVersion,
     'dueDate': dueDate.toString(),
     'account': account.toJson(),
+    'amount': amount?.toJson(),
+    'date': date?.toString(),
+    'allocations': [for (final share in allocations) share.toJson()],
+    'tags': [
+      for (final tag in tags)
+        {'id': tag.id.value, 'expectedVersion': tag.expectedVersion},
+    ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
+    'merchant': merchant == null
+        ? null
+        : {
+            'id': merchant!.id.value,
+            'expectedVersion': merchant!.expectedVersion,
+          },
   };
 }

@@ -431,6 +431,13 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       reversalOperation: _secondary(command.operation, command.reversalId),
       reason: command.reason,
     );
+    // A corrected recurring entry still confirms its due date, so the
+    // occurrence is not proposed again (feature audit G-03).
+    final planning = switch (t) {
+      final PlanningTransaction planning => planning,
+      _ => null,
+    };
+    final confirmed = await planning?.confirmationOf(original.id);
     await _savePosting(
       t,
       correction.reversal,
@@ -441,6 +448,24 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
       replacement,
       await _metadata(t, workspace, command.tags, command.merchant),
     );
+    if (planning != null && confirmed != null) {
+      final (templateId, dueDate) = confirmed;
+      await planning.saveConfirmation(
+        templateId,
+        dueDate,
+        replacement.id,
+      );
+      await t.appendEvent(
+        id: PublicId.generate(),
+        workspace: workspace,
+        kind: 'recurring.confirmed',
+        payload: jsonEncode({
+          'templateId': templateId.value,
+          'dueDate': dueDate.toString(),
+          'postingId': replacement.id.value,
+        }),
+      );
+    }
     // The note travels with the entry it describes (feature audit G-15).
     final note = await t.noteOf(original.id);
     if (note.text.isNotEmpty) {

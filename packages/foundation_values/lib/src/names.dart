@@ -15,9 +15,10 @@ String? cleanName(String value, {int max = 100}) {
 }
 
 /// The form two names are compared in: full-width letters, digits and
-/// punctuation become half-width, the ideographic space becomes a space,
-/// runs of spaces collapse and letters are lower case. So "７－ＥＬＥＶＥＮ"
-/// and "7-eleven" are the same name (feature audit G-19).
+/// punctuation become half-width, the ideographic space becomes a space
+/// and letters are lower case; inner spacing and punctuation stay as typed.
+/// So "７－ＥＬＥＶＥＮ" and "7-eleven" are the same name (feature audit
+/// G-19).
 String nameKey(String value) {
   final buffer = StringBuffer();
   for (final rune in value.trim().runes) {
@@ -29,8 +30,7 @@ String nameKey(String value) {
       buffer.writeCharCode(rune);
     }
   }
-  return buffer.toString().replaceAll(_spaces, ' ').toLowerCase();
+  return buffer.toString().toLowerCase();
 }
 
 final _control = RegExp(r'[\x00-\x1f\x7f]');
-final _spaces = RegExp(r' {2,}');

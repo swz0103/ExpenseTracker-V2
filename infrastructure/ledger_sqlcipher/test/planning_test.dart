@@ -276,4 +276,59 @@ void main() {
     expect(december.single.plan.month.month, 12);
     expect(december.single.spent, ntd(0));
   });
+
+  test('a confirmation takes the real amount and keeps its date', () async {
+    final power = await category('電費');
+    final bill = PublicId.generate();
+    await planning.saveRecurring(
+      SaveRecurring(
+        operation: op(),
+        templateId: bill,
+        expectedVersion: 0,
+        accountId: cash,
+        label: '電費',
+        amount: ntd(-1500),
+        firstDate: BusinessDate(2026, 10, 5),
+        unit: RecurrenceUnit.month,
+        every: 2,
+        categoryId: power,
+      ),
+    );
+    final outcome = await planning.confirm(
+      ConfirmRecurring(
+        operation: op(),
+        postingId: PublicId.generate(),
+        templateId: bill,
+        expectedTemplateVersion: 1,
+        dueDate: BusinessDate(2026, 10, 5),
+        account: AccountRef(cash, 1),
+        amount: ntd(1832),
+        date: BusinessDate(2026, 10, 7),
+        allocations: [CategoryShare(power, 1, ntd(1832))],
+      ),
+    );
+    final totals = ledger.categoryTotals(workspace, '2026-10');
+    expect(totals[(power, 'TWD')]!.expense, ntd(1832));
+
+    // Correcting the amount keeps the due date confirmed.
+    await books.correctCashFlow(
+      CorrectCashFlow(
+        operation: op(),
+        replacementId: PublicId.generate(),
+        originalId: outcome.value,
+        reversalId: PublicId.generate(),
+        account: AccountRef(cash, 1),
+        date: BusinessDate(2026, 10, 7),
+        amount: ntd(1830),
+        allocations: [CategoryShare(power, 1, ntd(1830))],
+      ),
+    );
+    final open = ledger.dueRecurring(
+      workspace,
+      after: BusinessDate(2026, 9, 30),
+      through: BusinessDate(2026, 10, 31),
+    );
+    expect(open, isEmpty);
+    expect(ledger.balance(ledger.accounts(workspace).single), ntd(-1830));
+  });
 }

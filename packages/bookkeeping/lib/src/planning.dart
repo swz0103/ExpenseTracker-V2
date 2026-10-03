@@ -22,6 +22,9 @@ abstract interface class PlanningTransaction implements BookkeepingTransaction {
     BusinessDate dueDate,
     PublicId postingId,
   );
+
+  /// The template and due date [postingId] confirmed, if it did.
+  Future<(PublicId, BusinessDate)?> confirmationOf(PublicId postingId);
 }
 
 /// Budget and recurring commands. Budgets are read models over the same
@@ -115,6 +118,10 @@ final class PlanningBook<T extends PlanningTransaction> {
         unit: command.unit,
         every: command.every,
         version: command.expectedVersion + 1,
+        lastDate: command.lastDate,
+        categoryId: command.categoryId,
+        tagIds: command.tagIds,
+        merchantId: command.merchantId,
       );
     } on FormatException {
       throw const AppFailure(FailureKind.rejected, 'recurring.invalid');
@@ -155,32 +162,46 @@ final class PlanningBook<T extends PlanningTransaction> {
     if (command.account.id != template.accountId) {
       throw const AppFailure(FailureKind.rejected, 'recurring.account');
     }
-    final amount = template.amount;
-    final expense = amount.minorUnits.isNegative;
-    final value = expense ? -amount : amount;
+    final expense = template.amount.minorUnits.isNegative;
+    final value =
+        command.amount ?? (expense ? -template.amount : template.amount);
+    final date = command.date ?? command.dueDate;
     final account = await _books._postable(
       t,
       command.account,
       workspace,
       value.currency,
-      command.dueDate,
+      date,
+    );
+    final flow = expense ? CashFlow.expense : CashFlow.income;
+    final allocations = await _books._allocations(
+      t,
+      workspace,
+      flow,
+      command.allocations,
     );
     final posting = expense
         ? Posting.expense(
             id: command.postingId,
             operation: command.operation,
-            date: command.dueDate,
+            date: date,
             account: account,
             amount: value,
+            allocations: allocations,
           )
         : Posting.income(
             id: command.postingId,
             operation: command.operation,
-            date: command.dueDate,
+            date: date,
             account: account,
             amount: value,
+            allocations: allocations,
           );
-    await _books._savePosting(t, posting, PostingMetadata.none);
+    await _books._savePosting(
+      t,
+      posting,
+      await _books._metadata(t, workspace, command.tags, command.merchant),
+    );
     await t.saveConfirmation(template.id, command.dueDate, posting.id);
     await t.appendEvent(
       id: PublicId.generate(),
