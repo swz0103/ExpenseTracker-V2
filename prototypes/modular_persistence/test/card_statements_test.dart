@@ -7,6 +7,7 @@ import 'package:ledger/ledger.dart';
 import 'package:modular_persistence_probe/card_statements_adapter.dart';
 import 'package:modular_persistence_probe/database.dart';
 import 'package:modular_persistence_probe/fixture_allocation.dart';
+import 'package:modular_persistence_probe/notes_adapter.dart';
 import 'package:modular_persistence_probe/workflows.dart';
 import 'package:test/test.dart';
 
@@ -240,5 +241,22 @@ void main() {
     await expectLater(validateCardStatementFacts(db), throwsFormatException);
     await registerPostedCardCharge(db, workspace, purchase.id, card.id);
     await validateCardStatementFacts(db);
+  });
+
+  // Regression for G7-03: a note adds a second receipt for the same event ID.
+  test('a note on a card purchase keeps card validation working', () async {
+    final purchase = Posting.expense(
+      id: PublicId.generate(),
+      operation: operation(),
+      date: BusinessDate(2026, 2, 20),
+      account: ref(card),
+      amount: Money.parse(twd, '10'),
+    );
+    await flows.post(purchase);
+    await registerPostedCardCharge(db, workspace, purchase.id, card.id);
+    await NotesAdapter(db)
+        .revise(operation(), NoteChange(purchase.id, 0, 'shared dinner'));
+    await validateCardStatementFacts(db);
+    expect(await unallocatedCardPayments(db, workspace, card.id), isEmpty);
   });
 }

@@ -31,6 +31,7 @@ void main() {
       push['paths'],
       containsAll([
         '.github/workflows/**',
+        'architecture/**',
         'packages/**',
         'prototypes/**',
         'tooling/**',

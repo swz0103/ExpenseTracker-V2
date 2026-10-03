@@ -19,9 +19,12 @@ void main() {
     expect(confirmation['type'], 'boolean');
 
     final jobs = yaml['jobs'] as YamlMap;
-    expect(jobs, hasLength(1));
+    expect(jobs, hasLength(2));
+    final validate = jobs['validate'] as YamlMap;
+    expect(validate['if'], contains("github.ref_name == 'main'"));
+    expect(validate['uses'], './.github/workflows/integration-validation.yml');
     final job = jobs['build-and-release'] as YamlMap;
-    expect(job['if'], contains("github.ref_name == 'main'"));
+    expect(job['needs'], 'validate');
     expect(job['environment'], 'android-production');
     expect(job['runs-on'], 'ubuntu-latest');
     expect(job['timeout-minutes'], lessThanOrEqualTo(55));

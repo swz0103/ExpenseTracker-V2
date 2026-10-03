@@ -16,8 +16,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  # The whole validation set must pass for this exact SHA before signing.
+  validate:
     if: github.ref_name == 'main' && inputs.confirm_signed_release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/integration-validation.yml
+
+  build-and-release:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 55
     environment: android-production
@@ -26,6 +33,8 @@ jobs:
         working-directory: prototypes/expense_preview
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.5'

@@ -9,22 +9,33 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-preview-release
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  # The whole validation set (architecture, domain, storage, Flutter host)
+  # must pass for this exact SHA before anything is built or published.
+  validate:
     if: github.ref_name == 'main' && inputs.confirm_preview
+    uses: ./.github/workflows/integration-validation.yml
+
+  build:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
       run:
         working-directory: prototypes/expense_preview
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      asset: ${{ steps.release.outputs.asset }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.5'
@@ -40,14 +51,34 @@ jobs:
           "$sdkmanager_path" "cmake;3.22.1"
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
-      - name: Verify presentation and host behavior
+      - name: Materialize stable preview signing key
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_PREVIEW_KEY_ALIAS }}
+        shell: bash
         run: |
-          dart format --output=none --set-exit-if-changed lib test tool
-          flutter analyze --no-pub
-          flutter test --no-pub --reporter expanded
+          set -euo pipefail
+          # Without a stable key every preview is signed differently and the
+          # update can only be installed after uninstalling (ledger lost).
+          for value in "$KEYSTORE_BASE64" "$STORE_PASSWORD" "$KEY_ALIAS"; do
+            if [[ -z "$value" ]]; then
+              echo "ANDROID_PREVIEW_* secrets are required; refusing an unstable signature." >&2
+              exit 1
+            fi
+          done
+          store="$RUNNER_TEMP/expense-v2-preview.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$store"
+          test -s "$store"
+          echo "store=$store" >> "$GITHUB_OUTPUT"
       - name: Build installable ARM64 preview
         env:
           GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+          V2_PREVIEW_STORE_FILE: ${{ steps.signing.outputs.store }}
+          V2_PREVIEW_STORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_STORE_PASSWORD }}
+          V2_PREVIEW_KEY_ALIAS: ${{ secrets.ANDROID_PREVIEW_KEY_ALIAS }}
+          V2_PREVIEW_KEY_PASSWORD: ${{ secrets.ANDROID_PREVIEW_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -75,17 +106,42 @@ jobs:
           這是 Android ARM64 可安裝預發版，來源提交：${GITHUB_SHA}。
 
           - App ID：dev.expensetracker.preview
-          - 以 CI 隔離的開發簽章簽署，可直接側載測試
+          - 以固定的預覽簽章金鑰簽署，之後的預覽版可直接覆蓋安裝
           - 不會覆蓋舊版 com.wzet.app
           - 正式商店發行仍需使用者持有的長期 release signing key
 
           請同時下載 SHA-256 檔案核對完整性。安裝前先備份既有測試帳本。
           EOF
+      - name: Remove signing key from runner
+        if: always()
+        shell: bash
+        run: rm -f -- "$RUNNER_TEMP/expense-v2-preview.jks"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: preview-release
+          path: |
+            prototypes/expense_preview/${{ steps.release.outputs.asset }}
+            prototypes/expense_preview/${{ steps.release.outputs.asset }}.sha256
+            prototypes/expense_preview/release-notes.md
+          if-no-files-found: error
+          retention-days: 3
+
+  # Only this job can write to the repository, and it runs no build tooling.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: preview-release
       - name: Publish GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_ASSET: ${{ steps.release.outputs.asset }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_ASSET: ${{ needs.build.outputs.asset }}
         shell: bash
         run: |
           set -euo pipefail

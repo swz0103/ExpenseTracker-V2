@@ -1,9 +1,0 @@
-name: transaction_boundary_probe
-description: Host SQLite transaction and restart validation; not production Ledger.
-publish_to: none
-environment:
-  sdk: '>=3.13.0 <4.0.0'
-dependencies:
-  sqlite3: 3.6.0
-dev_dependencies:
-  test: 1.32.0

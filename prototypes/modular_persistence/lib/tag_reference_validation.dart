@@ -6,6 +6,27 @@ import 'package:foundation_values/foundation_values.dart';
 import 'database.dart';
 import 'tags_adapter.dart';
 
+/// A correction stores each leg's posting receipt inside
+/// `['correction-event-v1', original, reversal, replacement, role, posting]`.
+/// Reference validators check the inner posting; validated_restore checks the
+/// correction link itself. Without this, an edited tagged or merchant-linked
+/// entry made every later backup capture fail.
+List<Object?> unwrapCorrectionReceipt(
+  ProbeDatabase db,
+  List<Object?> input,
+  Exception invalid,
+) {
+  if (input.first != 'correction-event-v1') return input;
+  if (!db.correctionsAware ||
+      input.length != 6 ||
+      input[4] is! String ||
+      !const ['reversal', 'replacement'].contains(input[4]) ||
+      input[5] is! List ||
+      (input[5] as List).isEmpty)
+    throw invalid;
+  return (input[5] as List).cast<Object?>();
+}
+
 /// Verify metadata at posting time, then bind exact original IDs/versions to
 /// the same receipt as the financial event. A merge never rewrites those IDs.
 Future<Set<(String, String)>> validateTagReferences(ProbeDatabase db) async {
@@ -62,6 +83,7 @@ Future<Set<(String, String)>> validateTagReferences(ProbeDatabase db) async {
     // Note revisions reference the same event but never consume attribution.
     // Their exact receipt and history are checked by the note validator.
     if (db.notesAware && input.first == 'note-v1') continue;
+    input = unwrapCorrectionReceipt(db, input, const InvalidTagHistory());
     // Metadata commands may share a public ID with a different module.
     if (input.first == 'merchant-v1' && db.merchantsAware) continue;
     if (input.first == 'merchant-post-v1' && db.merchantsAware) {

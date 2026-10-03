@@ -36,7 +36,6 @@ $checks = @(
     @{ Path = 'prototypes/encrypted_storage'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/restore_worker.dart' },
     @{ Path = 'prototypes/storage_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/generation_worker.dart' },
     @{ Path = 'prototypes/ledger_generation'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/ledger_worker.dart' },
-    @{ Path = 'prototypes/transaction_boundary'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/worker.dart' },
     @{ Path = 'prototypes/android_foundation'; Dirs = @('lib', 'test', 'integration_test'); Flutter = $true },
     @{ Path = 'prototypes/expense_preview'; Dirs = @('lib', 'test', 'tool'); Flutter = $true }
 )

@@ -12,6 +12,17 @@ fun requiredReleaseEnvironment(name: String): String =
     providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
         ?: error("$name is required when v2EnableReleaseSigning=true")
 
+// Downloadable previews must keep one signing identity across releases, or
+// Android refuses the update and the user has to uninstall (losing the ledger
+// and its keys). CI supplies this stable preview key; local debug builds
+// without it keep the default debug key.
+val previewStoreFile = providers.environmentVariable("V2_PREVIEW_STORE_FILE").orNull
+    ?.takeIf { it.isNotBlank() }
+
+fun requiredPreviewEnvironment(name: String): String =
+    providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+        ?: error("$name is required when V2_PREVIEW_STORE_FILE is set")
+
 val releaseApplicationId =
     if (releaseSigningEnabled) requiredReleaseEnvironment("V2_RELEASE_APPLICATION_ID") else null
 
@@ -43,6 +54,16 @@ android {
     }
 
     signingConfigs {
+        if (previewStoreFile != null) {
+            create("v2Preview") {
+                storeFile = file(previewStoreFile)
+                storePassword = requiredPreviewEnvironment("V2_PREVIEW_STORE_PASSWORD")
+                keyAlias = requiredPreviewEnvironment("V2_PREVIEW_KEY_ALIAS")
+                keyPassword = requiredPreviewEnvironment("V2_PREVIEW_KEY_PASSWORD")
+                enableV1Signing = false
+                enableV2Signing = true
+            }
+        }
         if (releaseSigningEnabled) {
             create("v2Release") {
                 storeFile = file(requiredReleaseEnvironment("V2_RELEASE_STORE_FILE"))
@@ -57,6 +78,9 @@ android {
 
     buildTypes {
         getByName("debug") {
+            if (previewStoreFile != null) {
+                signingConfig = signingConfigs.getByName("v2Preview")
+            }
             if (syntheticValidation) {
                 applicationIdSuffix = ".synthetic"
                 manifestPlaceholders["v2AppLabel"] = "記帳 V2 合成測試"

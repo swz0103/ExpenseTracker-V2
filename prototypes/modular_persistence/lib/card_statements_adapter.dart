@@ -866,9 +866,16 @@ Future<void> _requireReceipt(
   String ws,
   String eventId,
 ) async {
+  // Notes and other metadata commands share the event ID as result_id; only
+  // the financial posting receipt counts (same rule as validated_restore).
   final receipts = await db
       .customSelect(
-        'SELECT operation_id FROM receipts WHERE workspace=? AND result_id=?',
+        '''SELECT r.operation_id FROM receipts r JOIN audit a
+        ON a.workspace=r.workspace AND a.operation_id=r.operation_id
+        WHERE r.workspace=? AND r.result_id=?
+        AND a.kind NOT LIKE 'category.%' AND a.kind NOT LIKE 'tag.%'
+        AND a.kind NOT LIKE 'merchant.%' AND a.kind!='ledger.note'
+        AND a.kind!='ledger.tombstone' ''',
         variables: [Variable.withString(ws), Variable.withString(eventId)],
       )
       .get();

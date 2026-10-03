@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - 'architecture/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
@@ -13,17 +14,23 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/**'
+      - 'architecture/**'
       - 'packages/**'
       - 'prototypes/**'
       - 'tooling/**'
   workflow_dispatch:
+  # Release workflows call this first so a release only ships a SHA whose
+  # whole validation set passed in the same run.
+  workflow_call:
 
 permissions:
   contents: read
 
+# Pushes to one ref supersede each other; release and manual runs never get
+# cancelled by a later push.
 concurrency:
-  group: v2-integration-validation-${{ github.ref }}
-  cancel-in-progress: true
+  group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   architecture:
@@ -77,7 +84,7 @@ jobs:
             'prototypes/modular_persistence',
             'prototypes/backup_envelope', 'prototypes/validated_restore',
             'prototypes/encrypted_storage', 'prototypes/storage_generation',
-            'prototypes/ledger_generation', 'prototypes/transaction_boundary'
+            'prototypes/ledger_generation'
           )
           foreach ($package in $packages) {
             ./tooling/run-host-checks.ps1 -Package $package
