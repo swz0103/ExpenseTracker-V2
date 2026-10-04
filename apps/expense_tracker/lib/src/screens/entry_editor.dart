@@ -101,6 +101,9 @@ class _EntryEditorState extends State<EntryEditor> {
         : _expenseCategories;
     final today = _date == widget.book.today ? '（今天）' : '';
     final problem = _problem;
+    final amountStyle = text.headlineMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -124,21 +127,27 @@ class _EntryEditorState extends State<EntryEditor> {
           const SizedBox(height: 20),
           Panel(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _amount,
-              autofocus: true,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(9),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(r'$ ', style: amountStyle),
+                IntrinsicWidth(
+                  child: TextField(
+                    controller: _amount,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(9),
+                    ],
+                    style: amountStyle,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '0',
+                    ),
+                  ),
+                ),
               ],
-              style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                prefixText: r'$ ',
-                hintText: '0',
-              ),
             ),
           ),
           const SizedBox(height: 20),
