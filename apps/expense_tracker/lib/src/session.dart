@@ -1,7 +1,6 @@
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
-import 'package:bookkeeping/memory.dart';
 import 'package:flutter/foundation.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
@@ -28,8 +27,8 @@ final class Submission {
   final PublicId secondId;
 }
 
-/// What the screens read. The web preview reads memory; the phone reads
-/// the encrypted ledger.
+/// What the screens read: the encrypted ledger on the phone
+/// (`vault_session.dart`), memory in the web preview (`preview.dart`).
 abstract interface class LedgerReads {
   List<Account> accounts(WorkspaceId workspace);
 
@@ -40,28 +39,6 @@ abstract interface class LedgerReads {
 
   /// Totals for `YYYY-MM` in [currency], if anything was booked.
   MonthSummary? month(WorkspaceId workspace, String month, Currency currency);
-}
-
-final class _MemoryReads implements LedgerReads {
-  _MemoryReads(this._store);
-
-  final MemoryBookkeeping _store;
-
-  @override
-  List<Account> accounts(WorkspaceId workspace) => _store.accounts(workspace);
-
-  @override
-  Money balance(Account account) => _store.balance(account);
-
-  @override
-  List<Posting> recent(WorkspaceId workspace, int limit) =>
-      _store.postings(workspace).take(limit).toList();
-
-  @override
-  MonthSummary? month(WorkspaceId workspace, String month, Currency currency) {
-    final total = _store.monthly(workspace, month)[currency.code];
-    return total == null ? null : MonthSummary(total.income, total.expense);
-  }
 }
 
 /// The app's single entry to bookkeeping. Screens read from it and send
@@ -75,35 +52,10 @@ final class AppSession extends ChangeNotifier {
   }) : _books = books,
        _reads = reads;
 
-  /// Keeps everything in memory, for tests and the web preview.
-  factory AppSession.memory({required WorkspaceId workspace, Clock? clock}) {
-    final store = MemoryBookkeeping();
-    return AppSession(
-      workspace: workspace,
-      clock: clock ?? SystemClock(),
-      books: Bookkeeping(store),
-      reads: _MemoryReads(store),
-    );
-  }
-
-  /// A preview with a few example accounts and entries.
-  factory AppSession.preview({Clock? clock}) {
-    final session = AppSession.memory(
-      workspace: WorkspaceId(PublicId.generate()),
-      clock: clock,
-    );
-    session._seed();
-    return session;
-  }
-
   final WorkspaceId workspace;
   final Clock clock;
   final Bookkeeping<BookkeepingTransaction> _books;
   final LedgerReads _reads;
-  Future<void> _seeding = Future.value();
-
-  /// Completes once the example data is in place.
-  Future<void> get ready => _seeding;
 
   final twd = Currency.of('TWD');
 
@@ -225,49 +177,10 @@ final class AppSession extends ChangeNotifier {
       OperationKey(workspace, OperationId(PublicId.generate()));
 
   Future<void> _run(Future<Object?> Function() command) async {
-    await _seeding;
     try {
       await command();
     } finally {
       notifyListeners();
     }
   }
-
-  void _seed() {
-    _seeding = () async {
-      Money ntd(int dollars) => Money(twd, BigInt.from(dollars));
-      await _books.openAccount(_open('示範：現金', AccountKind.cash, ntd(3000)));
-      await _books.openAccount(_open('示範：薪轉戶', AccountKind.bank, ntd(52000)));
-      final cash = accounts.firstWhere((a) => a.kind == AccountKind.cash);
-      for (final (flow, units) in [
-        (CashFlow.expense, 120),
-        (CashFlow.expense, 85),
-        (CashFlow.income, 500),
-      ]) {
-        await _books.recordCashFlow(
-          RecordCashFlow(
-            operation: _operation(),
-            postingId: PublicId.generate(),
-            flow: flow,
-            account: AccountRef(cash.id, cash.rulesVersion),
-            date: today,
-            amount: ntd(units),
-          ),
-        );
-      }
-      notifyListeners();
-    }();
-  }
-
-  OpenAccount _open(String name, AccountKind kind, Money opening) =>
-      OpenAccount(
-        operation: _operation(),
-        accountId: PublicId.generate(),
-        name: name,
-        kind: kind,
-        currency: twd,
-        openedOn: BusinessDate(today.year, 1, 1),
-        openingBalance: opening,
-        openingPostingId: PublicId.generate(),
-      );
 }

@@ -4,6 +4,7 @@ import 'package:accounts/accounts.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 import 'package:test/test.dart';
 
@@ -177,5 +178,84 @@ void main() {
     expect(adopted.keys.databaseKey, open.keys.databaseKey);
     adopted.close();
     await expectLater(vault.adopt(header), fails(VaultProblem.alreadyExists));
+  });
+
+  test('the workspace is stored, not guessed from the events', () async {
+    final (open, _) = await vault.create(password);
+    final workspace = open.workspace;
+    open.close();
+    final again = await vault.unlockWithPassword(password);
+    addTearDown(again.close);
+    expect(again.workspace, workspace);
+  });
+
+  group('restore', () {
+    late OpenVault source;
+    late LedgerVault target;
+
+    setUp(() async {
+      final from = LedgerVault(
+        Directory('${directory.path}/source'),
+        codec: codec,
+      );
+      final created = await from.create(password);
+      source = created.$1;
+      await openAccount(source, source.workspace);
+      target = LedgerVault(Directory('${directory.path}/target'), codec: codec);
+    });
+
+    tearDown(() => source.close());
+
+    Future<void> copy(LedgerStore staging) async {
+      await LedgerReplay.copy(from: source.store, to: staging);
+    }
+
+    test('a checked copy becomes the ledger', () async {
+      final restored = await target.restore(source.keys, copy);
+      expect(restored.workspace, source.workspace);
+      expect(projectionRows(restored.store), projectionRows(source.store));
+      restored.close();
+      expect(target.exists, isTrue);
+      final files = target.directory.listSync();
+      final names = files.map((file) => file.uri.pathSegments.last);
+      expect(names, unorderedEquals(['keyring.json', 'ledger.db']));
+    });
+
+    test('a failure part way leaves no ledger and can be retried', () async {
+      await expectLater(
+        target.restore(source.keys, (staging) async {
+          await copy(staging);
+          throw StateError('connection lost');
+        }),
+        throwsStateError,
+      );
+      expect(target.exists, isFalse);
+      expect(target.directory.listSync(), isEmpty);
+
+      final restored = await target.restore(source.keys, copy);
+      restored.close();
+      final reopened = await target.unlockWithPassword(password);
+      addTearDown(reopened.close);
+      expect(reopened.workspace, source.workspace);
+    });
+
+    test('a ledger of two workspaces is refused', () async {
+      await openAccount(source);
+      await expectLater(
+        target.restore(source.keys, copy),
+        fails(VaultProblem.ambiguousWorkspace),
+      );
+      expect(target.exists, isFalse);
+      expect(target.directory.listSync(), isEmpty);
+    });
+
+    test('an existing ledger is never replaced', () async {
+      final (open, _) = await target.create(password);
+      open.close();
+      await expectLater(
+        target.restore(source.keys, copy),
+        fails(VaultProblem.alreadyExists),
+      );
+    });
   });
 }

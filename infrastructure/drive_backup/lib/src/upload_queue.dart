@@ -413,7 +413,9 @@ final class CloudUploadQueue {
       switch (e.failure) {
         case DriveFailure.authenticationRequired:
           return UploadRun(UploadResult.signInRequired, backupId: id);
-        case DriveFailure.permissionDenied || DriveFailure.quotaExceeded:
+        case DriveFailure.permissionDenied ||
+            DriveFailure.quotaExceeded ||
+            DriveFailure.damaged:
           await _fail(id, e.failure.name, now);
           return UploadRun(
             UploadResult.failed,

@@ -344,7 +344,52 @@ void main() {
     await client.trash(listing.files.first.id);
     expect((await client.listBackups()).files, hasLength(2));
     final newest = listing.files[1];
-    expect(await client.download(newest.id), drive.files[newest.id]!.bytes);
+    final target = File('${directory.path}/download');
+    await client.downloadTo(newest, target);
+    expect(target.readAsBytesSync(), drive.files[newest.id]!.bytes);
+  });
+
+  test('a download streams in ranges and checks size and SHA-256', () async {
+    final file = backupFile();
+    final bytes = file.readAsBytesSync();
+    final upload = await enqueue(file);
+    await run();
+    final id = queue.get(upload.backupId)!.driveFileId!;
+    final remote = (await client.file(id))!;
+    final target = File('${directory.path}/restore');
+
+    await client.downloadTo(
+      remote,
+      target,
+      chunkSize: CloudUploadQueue.quantum,
+    );
+    expect(target.readAsBytesSync(), bytes);
+    expect(drive.downloads, 5);
+
+    // Content that does not match Drive's checksum is refused and the
+    // partial file removed.
+    final stored = drive.files[id]!;
+    drive.files[id] = FakeFile(
+      id,
+      stored.name,
+      stored.properties,
+      [...stored.bytes.take(bytes.length - 1), stored.bytes.last ^ 1],
+      stored.sha256,
+    );
+    await expectLater(
+      client.downloadTo(remote, target, chunkSize: CloudUploadQueue.quantum),
+      throwsA(const DriveException(DriveFailure.damaged)),
+    );
+    expect(target.existsSync(), isFalse);
+
+    // A file larger than allowed is refused before any request.
+    final before = drive.requests.length;
+    await expectLater(
+      client.downloadTo(remote, target, maxBytes: bytes.length - 1),
+      throwsA(const DriveException(DriveFailure.damaged)),
+    );
+    expect(drive.requests.length, before);
+    expect(target.existsSync(), isFalse);
   });
 
   test('prune keeps the newest backups by local time only', () async {

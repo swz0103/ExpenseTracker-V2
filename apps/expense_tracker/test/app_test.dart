@@ -2,8 +2,8 @@ import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:expense_tracker/src/app.dart';
 import 'package:expense_tracker/src/format.dart';
+import 'package:expense_tracker/src/preview.dart';
 import 'package:expense_tracker/src/problems.dart';
-import 'package:expense_tracker/src/session.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
 
@@ -11,8 +11,7 @@ void main() {
   final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 3, 4)));
 
   test('the preview seeds example accounts and entries', () async {
-    final session = AppSession.preview(clock: clock);
-    await session.ready;
+    final session = await previewSession(clock: clock);
     expect(session.accounts, hasLength(2));
     expect(formatMoney(session.netWorth), '55,295');
     expect(session.recent, hasLength(5));
@@ -20,8 +19,7 @@ void main() {
   });
 
   test('a recorded expense lowers the balance and notifies', () async {
-    final session = AppSession.preview(clock: clock);
-    await session.ready;
+    final session = await previewSession(clock: clock);
     var notified = 0;
     session.addListener(() => notified++);
     final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
@@ -45,8 +43,7 @@ void main() {
   });
 
   test('undo keeps the entry in its own month', () async {
-    final session = AppSession.preview(clock: clock);
-    await session.ready;
+    final session = await previewSession(clock: clock);
     final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
     await session.record(
       session.begin(),
@@ -74,8 +71,8 @@ void main() {
   });
 
   testWidgets('the shell starts', (tester) async {
-    final session = AppSession.preview(clock: clock);
-    await tester.runAsync(() => session.ready);
+    final seeded = await tester.runAsync(() => previewSession(clock: clock));
+    final session = seeded!;
     await tester.pumpWidget(ExpenseApp(session: session));
     expect(find.text('記帳本 V2：介面重建中'), findsOneWidget);
   });

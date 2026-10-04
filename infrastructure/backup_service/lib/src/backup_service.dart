@@ -30,6 +30,14 @@ final class BackupHealth {
   final String? problem;
 }
 
+/// Where a restore goes. It is given the unlocked keys and a function that
+/// replays the backup into an empty staging ledger, and decides when that
+/// ledger becomes the real one; `LedgerVault.restore` is the device's.
+typedef RestoreTarget<R> = Future<R> Function(UnlockedKeyring, RestoreFill);
+
+/// Replays the backup into [staging].
+typedef RestoreFill = Future<void> Function(LedgerStore staging);
+
 /// What one scheduled pass did.
 final class ScheduledPass {
   const ScheduledPass({this.backup, this.sync, this.problem});
@@ -253,32 +261,33 @@ final class BackupService {
   /// Restores a backup file already on this device, for example one
   /// copied over by the user when Drive is unavailable. The file's own
   /// authenticated header identifies it.
-  Future<BackupHeader> restoreFile({
+  Future<(R, BackupHeader)> restoreFile<R>({
     required File file,
     required Future<UnlockedKeyring> Function(Keyring keyring) unlock,
-    required LedgerStore into,
+    required RestoreTarget<R> into,
   }) async {
     final header = await LedgerBackup.readHeader(file);
     final keys = await unlock(header.keyring);
-    return LedgerBackup.restore(file: file, keys: keys, into: into);
+    return _replay(file, keys, into);
   }
 
-  /// Downloads [file] and restores it into the empty ledger [into].
+  /// Downloads [file] in pieces, checked against Drive's size and SHA-256,
+  /// and restores it through [into].
   ///
   /// The backup id in the file's Drive properties must match the id in the
   /// backup header, which the restore authenticates; a file swapped for
   /// another genuine backup is refused (G8-07). [unlock] opens the keyring
   /// carried in the header, with the password or the recovery code.
-  Future<BackupHeader> restore({
+  Future<(R, BackupHeader)> restore<R>({
     required DriveClient drive,
     required DriveFile file,
     required Future<UnlockedKeyring> Function(Keyring keyring) unlock,
-    required LedgerStore into,
+    required RestoreTarget<R> into,
   }) async {
     await staging.create(recursive: true);
     final local = File('${staging.path}/restore-${PublicId.generate().value}');
     try {
-      await local.writeAsBytes(await drive.download(file.id), flush: true);
+      await drive.downloadTo(file, local);
       final header = await LedgerBackup.readHeader(local);
       if (header.backupId.value != file.backupId) {
         throw const BackupException(
@@ -287,9 +296,25 @@ final class BackupService {
         );
       }
       final keys = await unlock(header.keyring);
-      return await LedgerBackup.restore(file: local, keys: keys, into: into);
+      return await _replay(local, keys, into);
     } finally {
       if (await local.exists()) await local.delete();
     }
+  }
+
+  static Future<(R, BackupHeader)> _replay<R>(
+    File file,
+    UnlockedKeyring keys,
+    RestoreTarget<R> into,
+  ) async {
+    BackupHeader? header;
+    final result = await into(keys, (staging) async {
+      header = await LedgerBackup.restore(
+        file: file,
+        keys: keys,
+        into: staging,
+      );
+    });
+    return (result, header!);
   }
 }

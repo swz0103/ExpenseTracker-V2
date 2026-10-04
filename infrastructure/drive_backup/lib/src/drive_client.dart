@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:cryptography/cryptography.dart';
 
 import 'drive_http.dart';
 
@@ -26,6 +29,10 @@ enum DriveFailure {
   /// The request may have been applied; read the state back before
   /// repeating it.
   uncertain,
+
+  /// A download did not match the file's size or SHA-256, or the file is
+  /// larger than allowed.
+  damaged,
 }
 
 final class DriveException implements Exception {
@@ -185,13 +192,61 @@ final class DriveClient {
     throw const DriveException(DriveFailure.unavailable);
   }
 
-  Future<List<int>> download(String id, {int maxBytes = 512 << 20}) async {
-    final response = await _send(
-      'GET',
-      _fileUri(id).replace(queryParameters: const {'alt': 'media'}),
-      maxResponseBytes: maxBytes,
+  /// Downloads [file] into [target] in ranged pieces of [chunkSize], so
+  /// memory stays at one piece whatever the file size (health check H-02).
+  /// The size and, when Drive reports it, the SHA-256 must match; on any
+  /// failure [target] is deleted and nothing else is touched.
+  Future<void> downloadTo(
+    DriveFile file,
+    File target, {
+    int chunkSize = 8 << 20,
+    int maxBytes = 512 << 20,
+  }) async {
+    if (chunkSize <= 0) throw ArgumentError.value(chunkSize, 'chunkSize');
+    final length = file.byteLength;
+    if (length <= 0 || length > maxBytes) {
+      throw const DriveException(DriveFailure.damaged);
+    }
+    final uri = _fileUri(file.id).replace(
+      queryParameters: const {'alt': 'media'},
     );
-    return response.body;
+    final sink = Sha256().newHashSink();
+    final out = await target.open(mode: FileMode.write);
+    var completed = false;
+    try {
+      for (var offset = 0; offset < length; offset += chunkSize) {
+        final end = offset + chunkSize < length ? offset + chunkSize : length;
+        final response = await _send(
+          'GET',
+          uri,
+          headers: {'range': 'bytes=$offset-${end - 1}'},
+          maxResponseBytes: end - offset,
+        );
+        final whole = response.statusCode == 200 && offset == 0;
+        if ((response.statusCode != 206 && !whole) ||
+            response.body.length != end - offset) {
+          throw const DriveException(DriveFailure.damaged);
+        }
+        sink.add(response.body);
+        await out.writeFrom(response.body);
+        if (whole) break;
+      }
+      await out.flush();
+      sink.close();
+      final hash = await sink.hash();
+      final hex = [
+        for (final byte in hash.bytes) byte.toRadixString(16).padLeft(2, '0'),
+      ].join();
+      final expected = file.sha256;
+      if (await out.length() != length ||
+          (expected != null && expected != hex)) {
+        throw const DriveException(DriveFailure.damaged);
+      }
+      completed = true;
+    } finally {
+      await out.close();
+      if (!completed && await target.exists()) await target.delete();
+    }
   }
 
   /// Moves the file to the Drive trash.
