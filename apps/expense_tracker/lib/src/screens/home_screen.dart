@@ -99,13 +99,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const SizedBox(height: 10),
       Row(
         children: [
-          Expanded(
-            child: _Stat('本月支出', book.monthTotal(EntryKind.expense)),
-          ),
+          Expanded(child: _Stat('本月支出', book.monthTotal(EntryKind.expense))),
           const SizedBox(width: 10),
-          Expanded(
-            child: _Stat('本月收入', book.monthTotal(EntryKind.income)),
-          ),
+          Expanded(child: _Stat('本月收入', book.monthTotal(EntryKind.income))),
         ],
       ),
       const SizedBox(height: 12),
@@ -239,11 +235,7 @@ class _Action extends StatelessWidget {
 }
 
 /// Shows [children] in a sheet from the bottom.
-Future<void> _sheet(
-  BuildContext context,
-  String title,
-  List<Widget> children,
-) {
+Future<void> _sheet(BuildContext context, String title, List<Widget> children) {
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Palette.card,
@@ -516,7 +508,6 @@ class _Sparkline extends CustomPainter {
   @override
   bool shouldRepaint(_Sparkline old) => old.values != values;
 }
-
 
 /// The amount a full-height bar stands for. One very large day, such as
 /// rent, is capped near the next largest so the other days stay readable;
