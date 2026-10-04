@@ -270,12 +270,12 @@ final class PriceAlertCheckpointCodec {
     final price = raw['lastPrice'];
     final provider = raw['lastProviderId'];
     final notified = raw['lastNotifiedAt'];
-    if (relation != null && relation is! String ||
-        date != null && date is! String ||
-        instant != null && instant is! String ||
-        price != null && price is! String ||
-        provider != null && provider is! String ||
-        notified != null && notified is! String) {
+    if (relation is! String? ||
+        date is! String? ||
+        instant is! String? ||
+        price is! String? ||
+        provider is! String? ||
+        notified is! String?) {
       throw const FormatException('Invalid price alert checkpoint');
     }
     return PriceAlertCheckpoint(
