@@ -1,0 +1,33 @@
+name: Supply chain
+
+# Known vulnerabilities and licenses of every locked dependency (code audit
+# M-02). Runs when a lockfile changes, and weekly, because new advisories
+# appear without any change here.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/pubspec.lock'
+      - '.github/workflows/supply-chain.yml'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      # v2.6.0
+      - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc
+        with:
+          scan-args: |-
+            --licenses
+            --recursive
+            ./

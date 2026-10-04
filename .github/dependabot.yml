@@ -1,0 +1,23 @@
+# Monthly, grouped update proposals (code audit M-02). Each package keeps
+# its own lockfile; the lockfile consistency test fails until all of them
+# move together.
+version: 2
+updates:
+  - package-ecosystem: pub
+    directories:
+      - /packages/*
+      - /infrastructure/*
+      - /tooling/*
+      - /apps/*
+    schedule:
+      interval: monthly
+    groups:
+      dart:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
