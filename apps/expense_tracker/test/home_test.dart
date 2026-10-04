@@ -4,6 +4,7 @@ import 'package:expense_tracker/src/home/day_card.dart';
 import 'package:expense_tracker/src/home/holdings_card.dart';
 import 'package:expense_tracker/src/home/home_demo.dart';
 import 'package:expense_tracker/src/home/home_page.dart';
+import 'package:expense_tracker/src/home/month_card.dart';
 import 'package:expense_tracker/src/shell.dart';
 import 'package:expense_tracker/src/theme.dart';
 import 'package:flutter/material.dart';
@@ -51,6 +52,11 @@ void main() {
     expect(signed(1200), '+1,200');
     expect(signed(-5), '-5');
     expect(percent(1, 8), '+12.5%');
+  });
+
+  test('the month-end estimate does not repeat rent', () {
+    expect(monthEstimate([12500, 300, 500, 400], 30), 13700 + 400 * 26);
+    expect(monthEstimate([], 30), 0);
   });
 
   test('one huge day does not shrink the rest of the week', () {

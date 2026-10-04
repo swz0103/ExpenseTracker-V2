@@ -24,7 +24,7 @@ HomeData demoHome(ChartData charts, int year, int month, int day) {
   return HomeData(
     today: today,
     month: charts.months.last,
-    budget: 30000,
+    budget: 40000,
     days: charts.days.last,
     categories: charts.categories.last,
     lastMonth: last,

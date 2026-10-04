@@ -38,10 +38,7 @@ class _MonthCardState extends State<MonthCard> {
     final month = data.month;
     final spent = month.expense;
     final used = (spent * 100 / data.budget).round();
-    final elapsed = data.days.length;
-    final estimate = elapsed == 0
-        ? 0
-        : (spent / elapsed * data.daysInMonth).round();
+    final estimate = monthEstimate(data.days, data.daysInMonth);
     final muted = text.bodySmall?.copyWith(color: Palette.muted);
     final gap = groupDigits((estimate - data.budget).abs());
     final pace = estimate > data.budget
@@ -197,7 +194,7 @@ class PacePainter extends CustomPainter {
       totals.add(running);
     }
     final spent = running;
-    final estimate = days.isEmpty ? 0 : spent * length ~/ days.length;
+    final estimate = monthEstimate(days, length);
     final top = [budget, spent, if (open) estimate].reduce(max) * 1.08;
     final bottom = size.height - (open ? 16 : 2);
     double x(int day) => size.width * day / length;
@@ -300,6 +297,16 @@ class PacePainter extends CustomPainter {
   @override
   bool shouldRepaint(PacePainter old) =>
       old.open != open || old.day != day || old.days != days;
+}
+
+/// Spent so far plus a typical (median) day for each day left, so one
+/// large payment such as rent is not repeated over the rest of the month.
+int monthEstimate(List<int> days, int length) {
+  if (days.isEmpty) return 0;
+  final sorted = [...days]..sort();
+  final typical = sorted[sorted.length ~/ 2];
+  final spent = days.fold(0, (a, b) => a + b);
+  return spent + typical * (length - days.length);
 }
 
 void _dashed(Canvas canvas, Offset from, Offset to, Paint paint) {
