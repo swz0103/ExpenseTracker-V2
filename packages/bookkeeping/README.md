@@ -11,3 +11,4 @@
 - 也包含：分類／標籤／商家、退款、結清、期初替換、備註、更正、刪除（`Bookkeeping`）；信用卡（`CardBook`）；投資（`InvestmentBook`）；預算與定期交易（`PlanningBook`）。
 - `reportFact` 是分錄轉成月報／預算事實的唯一定義。
 - `package:bookkeeping/memory.dart`：記憶體版實作，供預覽與測試。
+- 原始碼依指令分組：`bookkeeping.dart`（對外指令與共用寫入）、`account_handlers.dart`、`entry_handlers.dart`、`correction_handlers.dart`、`catalog_handlers.dart`（以私有 extension 實作），卡片、投資、計畫各自一個檔。
