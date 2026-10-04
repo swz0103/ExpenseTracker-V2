@@ -29,10 +29,8 @@ class SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Palette.muted,
-      letterSpacing: 1,
-    );
+    final style = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Palette.muted, letterSpacing: 1);
     final note = trailing;
     return Row(
       children: [

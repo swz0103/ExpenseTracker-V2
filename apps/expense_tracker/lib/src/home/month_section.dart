@@ -207,10 +207,7 @@ class PacePainter extends CustomPainter {
       ..lineTo(end.dx, bottom)
       ..lineTo(0, bottom)
       ..close();
-    canvas.drawPath(
-      area,
-      Paint()..color = Palette.ink.withValues(alpha: 0.04),
-    );
+    canvas.drawPath(area, Paint()..color = Palette.ink.withValues(alpha: 0.04));
     canvas.drawPath(
       line,
       Paint()
