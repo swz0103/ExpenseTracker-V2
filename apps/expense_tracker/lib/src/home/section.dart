@@ -16,7 +16,13 @@ class Section extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
       child: child,
     );
-    return onTap == null ? body : InkWell(onTap: onTap, child: body);
+    if (onTap == null) return body;
+    return InkWell(
+      onTap: onTap,
+      hoverColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: body,
+    );
   }
 }
 
