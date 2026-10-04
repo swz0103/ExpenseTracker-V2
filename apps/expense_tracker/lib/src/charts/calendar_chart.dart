@@ -52,11 +52,7 @@ class _CalendarChartState extends State<CalendarChart> {
               child: AmountFigure('本月支出', month.expense, ChartColors.expense),
             ),
             Expanded(
-              child: AmountFigure(
-                '日均',
-                average,
-                theme.colorScheme.onSurface,
-              ),
+              child: AmountFigure('日均', average, theme.colorScheme.onSurface),
             ),
           ],
         ),

@@ -12,5 +12,10 @@ Future<void> main() async {
   final session = await previewSession();
   final today = session.today;
   final charts = demoCharts(today.year, today.month, today.day);
-  runApp(ExpenseApp(session: session, home: ChartGallery(data: charts)));
+  runApp(
+    ExpenseApp(
+      session: session,
+      home: ChartGallery(data: charts),
+    ),
+  );
 }

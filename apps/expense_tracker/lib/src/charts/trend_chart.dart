@@ -47,9 +47,7 @@ class _TrendChartState extends State<TrendChart> {
     final series = switch (_mode) {
       _Mode.flow => [
         _Series('收入', ChartColors.income, [for (final m in months) m.income]),
-        _Series('支出', ChartColors.expense, [
-          for (final m in months) m.expense,
-        ]),
+        _Series('支出', ChartColors.expense, [for (final m in months) m.expense]),
       ],
       _Mode.worth => [
         _Series('淨資產', ChartColors.netWorth, [

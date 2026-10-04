@@ -25,9 +25,7 @@ class ExpenseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
-      home:
-          home ??
-          const Scaffold(body: Center(child: Text('記帳本 V2：介面重建中'))),
+      home: home ?? const Scaffold(body: Center(child: Text('記帳本 V2：介面重建中'))),
     );
   }
 }

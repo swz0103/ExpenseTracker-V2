@@ -85,9 +85,7 @@ class _DonutChartState extends State<DonutChart> {
 
 /// The ring's radii in a box of [size]; the selected slice reaches out
 /// to [lifted].
-({Offset centre, double inner, double outer, double lifted}) _ring(
-  Size size,
-) {
+({Offset centre, double inner, double outer, double lifted}) _ring(Size size) {
   final outer = min(size.width, size.height) / 2 - 12;
   return (
     centre: size.center(Offset.zero),
