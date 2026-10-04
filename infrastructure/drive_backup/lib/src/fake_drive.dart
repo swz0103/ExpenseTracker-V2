@@ -189,7 +189,9 @@ final class FakeDrive implements DriveTransport {
     }
     if (uri.queryParameters['alt'] == 'media') {
       final range = request.headers['range'];
-      if (range == null) return DriveResponse(statusCode: 200, body: file.bytes);
+      if (range == null) {
+        return DriveResponse(statusCode: 200, body: file.bytes);
+      }
       final match = RegExp(r'^bytes=(\d+)-(\d+)$').firstMatch(range)!;
       final start = int.parse(match[1]!);
       final last = int.parse(match[2]!);

@@ -207,9 +207,8 @@ final class DriveClient {
     if (length <= 0 || length > maxBytes) {
       throw const DriveException(DriveFailure.damaged);
     }
-    final uri = _fileUri(file.id).replace(
-      queryParameters: const {'alt': 'media'},
-    );
+    final uri = _fileUri(file.id)
+        .replace(queryParameters: const {'alt': 'media'});
     final sink = Sha256().newHashSink();
     final out = await target.open(mode: FileMode.write);
     var completed = false;

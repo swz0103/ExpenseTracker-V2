@@ -114,6 +114,7 @@ final class AppSession extends ChangeNotifier {
     AccountKind kind, {
     Money? opening,
     Currency? currency,
+    BusinessDate? openedOn,
   }) => _run(
     () => _books.openAccount(
       OpenAccount(
@@ -122,7 +123,7 @@ final class AppSession extends ChangeNotifier {
         name: name,
         kind: kind,
         currency: currency ?? opening?.currency ?? twd,
-        openedOn: today,
+        openedOn: openedOn ?? today,
         openingBalance: opening,
         openingPostingId: opening == null ? null : submission.secondId,
       ),

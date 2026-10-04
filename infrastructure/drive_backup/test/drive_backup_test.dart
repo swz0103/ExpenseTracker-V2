@@ -369,13 +369,10 @@ void main() {
     // Content that does not match Drive's checksum is refused and the
     // partial file removed.
     final stored = drive.files[id]!;
-    drive.files[id] = FakeFile(
-      id,
-      stored.name,
-      stored.properties,
-      [...stored.bytes.take(bytes.length - 1), stored.bytes.last ^ 1],
-      stored.sha256,
-    );
+    drive.files[id] = FakeFile(id, stored.name, stored.properties, [
+      ...stored.bytes.take(bytes.length - 1),
+      stored.bytes.last ^ 1,
+    ], stored.sha256);
     await expectLater(
       client.downloadTo(remote, target, chunkSize: CloudUploadQueue.quantum),
       throwsA(const DriveException(DriveFailure.damaged)),

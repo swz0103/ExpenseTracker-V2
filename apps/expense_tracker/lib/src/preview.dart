@@ -27,17 +27,20 @@ Future<AppSession> previewSession({Clock? clock}) async {
     clock: clock,
   );
   Money ntd(int dollars) => Money(session.twd, BigInt.from(dollars));
+  final yearStart = BusinessDate(session.today.year, 1, 1);
   await session.openAccount(
     session.begin(),
     '示範：現金',
     AccountKind.cash,
     opening: ntd(3000),
+    openedOn: yearStart,
   );
   await session.openAccount(
     session.begin(),
     '示範：薪轉戶',
     AccountKind.bank,
     opening: ntd(52000),
+    openedOn: yearStart,
   );
   final cash = session.accounts.firstWhere((a) => a.kind == AccountKind.cash);
   final today = session.today;

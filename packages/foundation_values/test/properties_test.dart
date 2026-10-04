@@ -53,7 +53,7 @@ void main() {
     for (var round = 0; round < 1000; round++) {
       final a = rate(twd, usd);
       final b = rate(usd, jpy);
-      final c = rate(jpy, twd);
+      final c = rate(jpy, eur);
       final left = a.then(b).then(c);
       final right = a.then(b.then(c));
       expect(

@@ -160,7 +160,7 @@
     },
     "expense_tracker": {
       "directory": "apps/expense_tracker",
-      "dependencies": ["accounts", "app_core", "backup_security", "bookkeeping", "foundation_values", "ledger", "ledger_sqlcipher", "ledger_vault"]
+      "dependencies": ["accounts", "app_core", "backup_security", "bookkeeping", "foundation_values", "ledger", "ledger_sqlcipher", "ledger_vault", "reports"]
     },
     "market_adapters": {
       "directory": "infrastructure/market_adapters",
