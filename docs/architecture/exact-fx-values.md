@@ -1,6 +1,6 @@
 # 精確 FX 值型別與觀測日期
 
-範圍：[工程規格第 2 節](../foundation/foundation-contracts.md#2-值型別與序列化)、[RC-04](architecture-baseline-v1.0-rc1.md#rc-04) 的計算地基。`foundation_values` 新增 `FxRate`／`FxObservation`，不改 Ledger schema、備份格式或 UI；尚非跨幣轉帳與行情能力完成。
+範圍：[RC-04](architecture-baseline-v1.0-rc1.md#rc-04) 的計算地基。`foundation_values` 新增 `FxRate`／`FxObservation`，不改 Ledger schema、備份格式或 UI；尚非跨幣轉帳與行情能力完成。
 
 ## 表示與換算
 

@@ -1,8 +1,8 @@
 # Google Drive 雲端備份設定
 
-> 現況（2026-10-03）：
-> - 已完成並測試：上傳、續傳、保留份數、還原的底層（`infrastructure/drive_backup`、`backup_service`）。
-> - 尚未完成：Google 登入與排程，要等 Android 平台接線（STATUS 4b-2）才接上，所以目前的 App 還不能連 Drive。
+> 現況（2026-10-04）：
+> - 已完成並測試：上傳、續傳、保留份數、排程、還原的底層（`infrastructure/drive_backup`、`backup_service`）。
+> - 尚未完成：Google 登入，要等 Android 平台接線（STATUS 4b-2）才接上，所以目前的 App 還不能連 Drive。
 
 ## 權限
 

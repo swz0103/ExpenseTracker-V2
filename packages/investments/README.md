@@ -1,17 +1,13 @@
-# 投資買入業務規則（M3-01 子項）
+# investments
 
-此套件驗證股票／ETF 買入提案。目前尚未接入 App，也不寫入 Ledger、持倉 lot、餘額、操作收據或備份；不能據此宣稱 M3-01 完成。
+股票與 ETF 的規則，只依賴 `foundation_values`。所有預覽都不寫入帳本；保存在 `bookkeeping` 的 `InvestmentBook`。
 
-券商與投資帳戶採獨立身分。投資帳戶連結既有現金或銀行帳戶 ID；正式提交前，App 必須重新核對帳戶所屬工作空間、類型、啟用狀態、幣別與版本。標的代號必須連同市場識別，不能取代穩定的標的 ID。
+- 身分：`BrokerIdentity`、`InvestmentAccount`（連結交割的現金或銀行帳戶）、`InvestmentInstrument`（市場＋代號，穩定 ID）。
+- 數量與價格是十進位文字，不經過 `double`；台股股數只收整數（零股也是整數股）。
+- `InvestmentBuyPreview`／`InvestmentSellPreview`：成交價金與數量×價格比對，容許券商捨入差 1 個最小單位；賣出用 FIFO 或平均成本，同一持股只能用一種。淨額可以是 0 或負數。
+- `InvestmentDividendPreview`：含預扣稅、手續費、二代健保補充保費。
+- `StockSplitPreview`、`CorporateActionPreview`：分割、反向分割、配股、減資（畸零股與退還股款以現金處理，先沖減成本）。
+- `TaiwanTradeCharges`、`taiwanSettlementDate`、`supplementaryPremium`：台股手續費（折扣、最低 20 元）、證交稅、T+2、補充保費試算。
+- 績效：`InvestmentPerformance`、`InvestmentPortfolioSummary`（同幣別合計，缺報價就不給市值）、`CrossCurrencyInvestmentSummary`（成本、已實現、股利用當時入帳的台幣值，只有市值用今日匯率）、`calculateInvestmentXirr`（ACT/365）。
 
-股數與每股價格使用最多 12 位小數的正數文字，不經過 `double`。精確乘積只在結算幣別的小單位邊界依既有 `half-away-from-zero-v1` 規則捨入一次。使用者須明確輸入券商實際成交總額，並與此計算結果一致；費用與稅分別輸入同幣別非負金額，零也須明示。預覽列出成交額、費、稅、單次現金扣款及預計取得的 lot。此處的取得現金成本並非特定稅制的成本基礎判定。
-
-資金帳戶、標的、價格、費用或稅幣別不一致時拒絕，絕不暗中換匯。若券商採不同結算捨入方式或跨幣收費，未來須另訂明確規則並保存換算事實；不得默默改動使用者輸入的股數或價格以通過驗證。
-
-後續整合須為 Ledger 增加投資專用、非日常消費的現金移動。買入不得借用 `Posting.expense`，以免混入一般消費。取得 lot、現金扣款、稽核與操作收據必須在同一資料庫交易提交；相同操作 ID 與相同內容重試應回傳原結果，不同內容沿用該 ID 應拒絕，任一部分失敗應整批回滾。已提交資料還須接入版本化加密備份、密碼及救援文字還原、升級、簡潔 UI、實機與雲端 gate。
-
-## M3-05 多持倉摘要純業務層
-
-`InvestmentPortfolioSummary.calculate` 接收逐一由 `InvestmentPerformance.calculate` 算出的結果，以及對應投資帳戶、標的 ID 和交易幣別。相同帳戶／標的重複輸入或聲明幣別不符會拒絕。摘要只在每個幣別內合計剩餘成本、已實現結果和淨股息；該幣別任一開放持倉缺可用報價時，市值、未實現及總報酬均為 `null`，並回報缺價持倉數。已平倉標的不需要報價。沒有跨幣總計、猜測匯率或部分市值偽裝總額。
-
-此計算在記憶體中對最多一萬筆持倉線性掃描，沒有網路、儲存或 App 依賴；呼叫端仍需先從已提交資料建立單一持倉績效，且只在行情狀態可用時傳入估值。缺價與溢位會明確傳回或拒絕，不改動任何入帳事實。
+績效與 XIRR 尚未接到 App（見 `docs/STATUS.md`）。

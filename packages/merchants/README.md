@@ -1,9 +1,9 @@
-# Merchants
+# merchants
 
-獨立商家身份及基本別名的 Domain：UUID／workspace、不可變名稱及版本、封存／啟用、明確合併、別名增刪與候選查找。只依賴 foundation_values，沒有金額、資料庫或平台依賴。
+商家與別名的規則，只依賴 `foundation_values`。
 
-基本比對只裁切首尾空白並做 Dart 的無語系小寫轉換，不移除標點、不壓縮內部空白、不做近似文字或 Unicode 正規化。候選保留歧義，沒有自動選擇、合併或入帳。合併後沿來源名稱／別名找出有效 canonical ID；來源歷史身份及別名不改寫，封存目標不出現在新選擇。
+- 商家可以同名（例如不同分店），用 ID 區分；每個商家最多 16 個別名。
+- 比對只去掉首尾空白並轉小寫；有歧義時回傳所有候選，不自動選。
+- 封存、合併與分類相同：保留來源與去向，舊交易不改寫，合併鏈用 `resolveRedirects`。
 
-每商家最多 16 個別名，名稱／別名至多 100 個 UTF-16 code units；控制字元及同一商家重複正規化別名拒絕。這是目前具體 Domain 邊界，不是整個 M3 的資料容量承諾。
-
-15 項 Domain 回歸與 15 項架構規則測試通過。完整交易流程已接入保存、備份、升級及 UI，驗證範圍與尚未通過的 gate 見[商家接入進度](../../docs/features/transaction-merchants.md)。
+保存與指令在 `bookkeeping`（`changeCatalog`）。
