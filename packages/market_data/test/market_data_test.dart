@@ -11,32 +11,33 @@ const twseRows = '''[
   {"Date":"1150929","Code":"2317","Name":"鴻海","ClosingPrice":"--"}
 ]''';
 
-const ecbCsv = '''KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE
-EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2026-09-29,1.12345
-''';
-
-const historicalEcbCsv = '''KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE
-EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-03,1.12345
-EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-01,
-EXR.D.USD.EUR.SP00.A,D,USD,EUR,SP00,A,2020-01-02,1.00001
-''';
-
 const tpexRows = '''[
-  {"Date":"1150929","SecuritiesCompanyCode":"6488","CompanyName":"環球晶","Close":"410.50"},
-  {"Date":"1150929","SecuritiesCompanyCode":"006201","CompanyName":"元大富櫃50","Close":"46.00"},
-  {"Date":"1150929","SecuritiesCompanyCode":"5351","CompanyName":"鈺創","Close":"--"}
+  {"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"410.50"},
+  {"Date":"1150929","SecuritiesCompanyCode":"00679B","Close":"28.10"}
 ]''';
 
-const cbcRows = '''[
-  {"日期":"20260925","NTD_USD":"31.750"},
-  {"日期":"20260929","NTD_USD":"31.876"},
-  {"日期":"20260930","NTD_USD":"31.852"}
-]''';
+/// The shape of Bank of Taiwan's board: buy side, then sell side, each
+/// with cash, spot and seven forward columns.
+String board(List<String> rows) {
+  final days = [10, 30, 60, 90, 120, 150, 180];
+  final side = ['匯率', '現金', '即期', for (final d in days) '遠期$d天'];
+  final header = ['\uFEFF幣別', ...side, ...side].join(',');
+  return [header, ...rows].join('\r\n');
+}
+
+String boardRow(String code, String cashBuy, String spotBuy, String spotSell) {
+  final forwards = List.filled(7, '0.00000').join(',');
+  final buy = ['本行買入', cashBuy, spotBuy, forwards];
+  final sell = ['本行賣出', '32.15500', spotSell, forwards];
+  return [code, ...buy, ...sell].join(',');
+}
 
 final class FakeTransport implements MarketTransport {
   FakeTransport(this.handle);
+
   final Future<MarketResponse> Function(Uri) handle;
   final requests = <Uri>[];
+
   @override
   Future<MarketResponse> get(Uri uri) {
     requests.add(uri);
@@ -45,8 +46,8 @@ final class FakeTransport implements MarketTransport {
 }
 
 InvestmentInstrument instrument(
-  String symbol,
-  InstrumentKind kind, {
+  String symbol, {
+  InstrumentKind kind = InstrumentKind.stock,
   String market = 'TWSE',
 }) => InvestmentInstrument(
   id: PublicId.generate(),
@@ -61,514 +62,173 @@ void main() {
   late DateTime now;
   setUp(() => now = DateTime.utc(2026, 9, 30, 4));
 
-  test(
-    'TWSE exact decimal, ROC date, stock and ETF share one snapshot',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, twseRows),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      final stock = await gateway.stockClose(
-        instrument('2330', InstrumentKind.stock),
-      );
-      final etf = await gateway.stockClose(
-        instrument('0050', InstrumentKind.etf),
-      );
-      expect(stock.state, MarketState.available);
-      expect(stock.value!.decimalPrice, '1234.50');
-      expect(stock.value!.asOf.toString(), '2026-09-29');
-      expect(stock.value!.fetchedAt.value, now);
-      expect(StockClose.provider, 'twse-stock-day-all');
-      expect(etf.value!.decimalPrice, '62.75');
-      expect(transport.requests, [MarketDataGateway.twseUri]);
-    },
+  MarketDataGateway gateway(FakeTransport transport) => MarketDataGateway(
+    transport: transport,
+    clock: () => now,
   );
 
-  test('TPEx stock and ETF parse exact latest closing snapshot', () async {
+  test('TWSE and TPEx closes are exact and share one snapshot each', () async {
+    String rows(Uri uri) =>
+        uri == MarketDataGateway.twseUri ? twseRows : tpexRows;
     final transport = FakeTransport(
-      (_) async => const MarketResponse(200, tpexRows),
+      (uri) async => MarketResponse(200, rows(uri)),
     );
-    final gateway = MarketDataGateway(transport: transport, clock: () => now);
-    final stock = await gateway.tpexStockClose(
-      instrument('6488', InstrumentKind.stock, market: 'TPEX'),
+    final market = gateway(transport);
+    final tsmc = await market.stockClose(instrument('2330'));
+    final etf = await market.stockClose(
+      instrument('0050', kind: InstrumentKind.etf),
     );
-    final etf = await gateway.tpexStockClose(
-      instrument('006201', InstrumentKind.etf, market: 'TPEX'),
+    final otc = await market.stockClose(instrument('6488', market: 'TPEX'));
+    final bond = await market.stockClose(
+      instrument('00679B', kind: InstrumentKind.etf, market: 'TPEX'),
     );
-    expect(stock.state, MarketState.available);
-    expect(stock.value!.decimalPrice, '410.50');
-    expect(stock.value!.asOf, BusinessDate(2026, 9, 29));
-    expect(etf.value!.decimalPrice, '46.00');
-    expect(transport.requests, [MarketDataGateway.tpexUri]);
+    expect(tsmc.state, MarketState.available);
+    expect(tsmc.value!.decimalPrice, '1234.50');
+    expect(tsmc.value!.asOf, BusinessDate(2026, 9, 29));
+    expect(tsmc.value!.fetchedAt.value, now);
+    expect(etf.value!.decimalPrice, '62.75');
+    expect(otc.value!.decimalPrice, '410.50');
+    expect(bond.value!.decimalPrice, '28.10');
+    expect(transport.requests, [
+      MarketDataGateway.twseUri,
+      MarketDataGateway.tpexUri,
+    ]);
   });
 
-  test(
-    'TPEx fails closed for missing, unsupported and malformed data',
-    () async {
-      final gateway = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(200, tpexRows),
-        ),
-        clock: () => now,
-      );
-      expect(
-        (await gateway.tpexStockClose(
-          instrument('5351', InstrumentKind.stock, market: 'TPEX'),
-        )).state,
-        MarketState.missing,
-      );
-      expect(
-        (await gateway.tpexStockClose(instrument('6488', InstrumentKind.stock)))
-            .state,
-        MarketState.unsupported,
-      );
-      for (final body in [
-        '[{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":410.5}]',
-        '[{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"1"},'
-            '{"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"2"}]',
-      ]) {
-        final malformed = MarketDataGateway(
-          transport: FakeTransport((_) async => MarketResponse(200, body)),
-          clock: () => now,
-        );
-        expect(
-          (await malformed.tpexStockClose(
-            instrument('6488', InstrumentKind.stock, market: 'TPEX'),
-          )).state,
-          MarketState.failed,
-        );
-      }
-    },
-  );
-
-  test(
-    'CBC USD/TWD direct and inverse preserve exact observed ratio',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, cbcRows),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      final usd = Currency('USD', 2);
-      final twd = Currency.of('TWD');
-      final direct = await gateway.cbcUsdTwdRate(usd, twd);
-      final inverse = await gateway.cbcUsdTwdRate(twd, usd);
-      expect(direct.state, MarketState.available);
-      expect(direct.value!.observation.asOf, BusinessDate(2026, 9, 30));
-      expect(direct.value!.observation.rate.numerator, BigInt.from(7963));
-      expect(direct.value!.observation.rate.denominator, BigInt.from(250));
-      expect(direct.value!.observation.source, 'cbc-usd-twd-daily-close');
-      expect(direct.value!.derivedInverse, isFalse);
-      expect(inverse.value!.observation.rate.numerator, BigInt.from(250));
-      expect(inverse.value!.observation.rate.denominator, BigInt.from(7963));
-      expect(inverse.value!.derivedInverse, isTrue);
-      expect(transport.requests, [MarketDataGateway.cbcUsdTwdUri]);
-    },
-  );
-
-  test(
-    'CBC exact date, historical lookback and validation stay distinct',
-    () async {
-      final usd = Currency('USD', 2);
-      final twd = Currency.of('TWD');
-      final gateway = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(200, cbcRows),
-        ),
-        clock: () => now,
-      );
-      expect(
-        (await gateway.cbcUsdTwdRate(
-          usd,
-          twd,
-          requiredAsOf: BusinessDate(2026, 9, 28),
-        )).state,
-        MarketState.missing,
-      );
-      final historical = await gateway.historicalCbcUsdTwdRate(
-        usd,
-        twd,
-        date: BusinessDate(2026, 9, 28),
-      );
-      expect(historical.state, MarketState.stale);
-      expect(historical.value!.observation.asOf, BusinessDate(2026, 9, 25));
-      expect(
-        (await gateway.cbcUsdTwdRate(Currency('EUR', 2), twd)).state,
-        MarketState.unsupported,
-      );
-      expect(
-        () => gateway.historicalCbcUsdTwdRate(
-          usd,
-          twd,
-          date: BusinessDate(2026, 9, 30),
-          lookbackDays: 8,
-        ),
-        throwsRangeError,
-      );
-
-      final malformed = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(
-            200,
-            '[{"日期":"20260930","NTD_USD":"31.8"},'
-            '{"日期":"20260929","NTD_USD":"31.9"}]',
-          ),
-        ),
-        clock: () => now,
-      );
-      expect(
-        (await malformed.cbcUsdTwdRate(usd, twd)).state,
-        MarketState.failed,
-      );
-
-      // An added provider field must not become an outage (G2-23).
-      final extended = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(
-            200,
-            '[{"日期":"20260930","NTD_USD":"31.8","備註":""}]',
-          ),
-        ),
-        clock: () => now,
-      );
-      final rate = await extended.cbcUsdTwdRate(usd, twd);
-      expect(rate.state, MarketState.available);
-    },
-  );
-
-  test(
-    'TWSE missing price, absent symbol, unsupported market, stale date',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, twseRows),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      expect(
-        (await gateway.stockClose(instrument('2317', InstrumentKind.stock)))
-            .state,
-        MarketState.missing,
-      );
-      expect(
-        (await gateway.stockClose(instrument('2454', InstrumentKind.stock)))
-            .state,
-        MarketState.missing,
-      );
-      expect(
-        (await gateway.stockClose(
-          instrument('2330', InstrumentKind.stock, market: 'TPEX'),
-        )).state,
-        MarketState.unsupported,
-      );
-      final stale = await gateway.stockClose(
-        instrument('2330', InstrumentKind.stock),
-        requiredAsOf: BusinessDate(2026, 9, 30),
-      );
-      expect(stale.state, MarketState.stale);
-      expect(stale.value!.asOf.toString(), '2026-09-29');
-      expect(transport.requests.length, 1);
-    },
-  );
-
-  test('malformed and duplicate TWSE rows fail closed', () async {
-    for (final body in [
-      '[{"Code":"2330","Date":"1150230","ClosingPrice":"1"}]',
-      '[{"Code":"2330","Date":"1150929","ClosingPrice":1.2}]',
-      '[{"Code":"2330","Date":"1150929","ClosingPrice":"1,23.4"}]',
-      '[{"Code":"2330","Date":"1150929","ClosingPrice":"2"},'
-          '{"Code":"2330","Date":"1150929","ClosingPrice":"3"}]',
+  test('no trade, not listed and unsupported are told apart', () async {
+    final market = gateway(
+      FakeTransport((_) async => const MarketResponse(200, twseRows)),
+    );
+    expect(
+      (await market.stockClose(instrument('2317'))).state,
+      MarketState.missing,
+    );
+    expect(
+      (await market.stockClose(instrument('9999'))).state,
+      MarketState.missing,
+    );
+    for (final odd in [
+      instrument('AAPL', market: 'XNAS'),
+      instrument('12345'),
+      instrument('0050'),
     ]) {
-      final gateway = MarketDataGateway(
-        transport: FakeTransport((_) async => MarketResponse(200, body)),
-        clock: () => now,
-      );
       expect(
-        (await gateway.stockClose(instrument('2330', InstrumentKind.stock)))
-            .state,
-        MarketState.failed,
+        (await market.stockClose(odd)).state,
+        MarketState.unsupported,
+        reason: odd.symbol,
       );
     }
   });
 
-  test(
-    'ECB exact EUR base rate and derived inverse preserve exact ratio',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, ecbCsv),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      final eur = Currency('EUR', 2);
-      final usd = Currency('USD', 2);
-      final direct = await gateway.fxRate(eur, usd);
-      final inverse = await gateway.fxRate(usd, eur);
-      expect(direct.state, MarketState.available);
-      expect(direct.value!.observation.rate.numerator, BigInt.from(22469));
-      expect(direct.value!.observation.rate.denominator, BigInt.from(20000));
-      expect(direct.value!.observation.asOf.toString(), '2026-09-29');
-      expect(direct.value!.observation.source, ReferenceRate.provider);
-      expect(direct.value!.derivedInverse, isFalse);
-      expect(inverse.value!.observation.rate.numerator, BigInt.from(20000));
-      expect(inverse.value!.observation.rate.denominator, BigInt.from(22469));
-      expect(inverse.value!.derivedInverse, isTrue);
-      expect(transport.requests.length, 1);
-      expect(
-        transport.requests.single.path,
-        '/service/data/EXR/D.USD.EUR.SP00.A',
-      );
-      expect(
-        transport.requests.single.queryParameters['lastNObservations'],
-        '1',
-      );
-    },
-  );
-
-  test(
-    'ECB requested day is exact; empty, wrong series and unsupported pair',
-    () async {
-      final eur = Currency('EUR', 2);
-      final usd = Currency('USD', 2);
-      final date = BusinessDate(2026, 9, 30);
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, ecbCsv),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      expect(
-        (await gateway.fxRate(eur, usd, requiredAsOf: date)).state,
-        MarketState.missing,
-      );
-      expect(
-        transport.requests.single.queryParameters['startPeriod'],
-        date.toString(),
-      );
-      final missing = MarketDataGateway(
-        transport: FakeTransport((_) async => const MarketResponse(404, '')),
-        clock: () => now,
-      );
-      expect(
-        (await missing.fxRate(eur, usd, requiredAsOf: date)).state,
-        MarketState.missing,
-      );
-      final wrong = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(
-            200,
-            'FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\nD,GBP,EUR,SP00,A,2026-09-29,1.2\n',
-          ),
-        ),
-        clock: () => now,
-      );
-      expect((await wrong.fxRate(eur, usd)).state, MarketState.failed);
-      expect(
-        (await gateway.fxRate(usd, Currency.of('TWD'))).state,
-        MarketState.unsupported,
-      );
-    },
-  );
-
-  test(
-    'cooldown, cache expiration, provider failure and stale fallback',
-    () async {
-      var fails = false;
-      final transport = FakeTransport(
-        (_) async => fails
-            ? const MarketResponse(503, '')
-            : const MarketResponse(200, twseRows),
-      );
-      final gateway = MarketDataGateway(
-        transport: transport,
-        clock: () => now,
-        cacheTtl: const Duration(minutes: 1),
-        requestCooldown: const Duration(minutes: 2),
-      );
-      final stock = instrument('2330', InstrumentKind.stock);
-      expect((await gateway.stockClose(stock)).state, MarketState.available);
-      now = now.add(const Duration(minutes: 1));
-      expect((await gateway.stockClose(stock)).state, MarketState.stale);
-      expect(transport.requests.length, 1);
-      now = now.add(const Duration(minutes: 2));
-      fails = true;
-      final stale = await gateway.stockClose(stock);
-      expect(stale.state, MarketState.stale);
-      expect(stale.value!.fetchedAt.value, DateTime.utc(2026, 9, 30, 4));
-      expect(transport.requests.length, 2);
-    },
-  );
-
-  test('single-flight lookup and no-data throttling', () async {
-    final completer = Completer<MarketResponse>();
-    final transport = FakeTransport((_) => completer.future);
-    final gateway = MarketDataGateway(transport: transport, clock: () => now);
-    final a = gateway.stockClose(instrument('2330', InstrumentKind.stock));
-    final b = gateway.stockClose(instrument('0050', InstrumentKind.etf));
-    await Future<void>.delayed(Duration.zero);
-    expect(transport.requests.length, 1);
-    completer.complete(const MarketResponse(429, ''));
-    expect((await a).state, MarketState.throttled);
-    expect((await b).state, MarketState.throttled);
+  test('an old close is stale; a failed refresh keeps the last one', () async {
+    var fail = false;
+    final transport = FakeTransport(
+      (_) async => fail
+          ? const MarketResponse(503, '')
+          : const MarketResponse(200, twseRows),
+    );
+    final market = gateway(transport);
     expect(
-      (await gateway.stockClose(instrument('2330', InstrumentKind.stock)))
-          .state,
-      MarketState.throttled,
+      (await market.stockClose(instrument('2330'))).state,
+      MarketState.available,
     );
-    expect(transport.requests.length, 1);
+
+    // Within the cache time no new request is made.
+    now = now.add(const Duration(minutes: 10));
+    await market.stockClose(instrument('2330'));
+    expect(transport.requests, hasLength(1));
+
+    // Days later the refresh fails: the last close is kept, marked stale,
+    // and the next attempt waits a minute.
+    now = now.add(const Duration(days: 5));
+    fail = true;
+    final kept = await market.stockClose(instrument('2330'));
+    expect(kept.state, MarketState.stale);
+    expect(kept.value!.decimalPrice, '1234.50');
+    await market.stockClose(instrument('2330'));
+    expect(transport.requests, hasLength(2));
+
+    // Once the provider answers again, the snapshot's date decides.
+    fail = false;
+    now = now.add(const Duration(minutes: 2));
+    final old = await market.stockClose(instrument('2330'));
+    expect(old.state, MarketState.stale);
+    expect(transport.requests, hasLength(3));
   });
 
-  test(
-    'another ECB series waits for the host cooldown instead of failing',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, ecbCsv),
-      );
-      final waited = <Duration>[];
-      final gateway = MarketDataGateway(
-        transport: transport,
-        clock: () => now,
-        wait: (delay) async => waited.add(delay),
+  test('concurrent lookups share one request', () async {
+    final release = Completer<void>();
+    final transport = FakeTransport((_) async {
+      await release.future;
+      return const MarketResponse(200, twseRows);
+    });
+    final market = gateway(transport);
+    final both = Future.wait([
+      market.stockClose(instrument('2330')),
+      market.stockClose(instrument('0050', kind: InstrumentKind.etf)),
+    ]);
+    release.complete();
+    final states = [for (final result in await both) result.state];
+    expect(states, everyElement(MarketState.available));
+    expect(transport.requests, hasLength(1));
+  });
+
+  test('a bad snapshot or a duplicated symbol fails closed', () async {
+    for (final body in [
+      '{"not":"a list"}',
+      '[{"Date":"115","Code":"2330","ClosingPrice":"1"}]',
+      '[{"Date":"1150929","Code":"2330","ClosingPrice":"1e3"}]',
+      '[{"Date":"1150929","Code":"2330","ClosingPrice":"1"},'
+          '{"Date":"1150929","Code":"2330","ClosingPrice":"2"}]',
+    ]) {
+      final market = gateway(
+        FakeTransport((_) async => MarketResponse(200, body)),
       );
       expect(
-        (await gateway.fxRate(Currency('EUR', 2), Currency('USD', 2))).state,
-        MarketState.available,
+        (await market.stockClose(instrument('2330'))).state,
+        MarketState.failed,
+        reason: body,
       );
-      await gateway.fxRate(Currency('EUR', 2), Currency('JPY', 0));
-      expect(waited, [const Duration(seconds: 10)]);
-      expect(transport.requests.length, 2);
-    },
-  );
+    }
+  });
 
-  test(
-    'historical ECB selects latest published observation and marks gap stale',
-    () async {
-      final transport = FakeTransport(
-        (_) async => const MarketResponse(200, historicalEcbCsv),
-      );
-      final gateway = MarketDataGateway(transport: transport, clock: () => now);
-      final result = await gateway.historicalFxRate(
-        Currency('USD', 2),
-        Currency('EUR', 2),
-        date: BusinessDate(2020, 1, 5),
-      );
-      expect(result.state, MarketState.stale);
-      expect(result.reason, contains('predates'));
-      expect(result.value!.observation.asOf, BusinessDate(2020, 1, 3));
-      expect(result.value!.observation.retrievedAt.value, now);
-      expect(result.value!.observation.source, ReferenceRate.provider);
-      expect(result.value!.derivedInverse, isTrue);
-      expect(result.value!.observation.rate.numerator, BigInt.from(20000));
-      expect(result.value!.observation.rate.denominator, BigInt.from(22469));
-      final uri = transport.requests.single;
-      expect(uri.path, '/service/data/EXR/D.USD.EUR.SP00.A');
-      expect(uri.queryParameters['startPeriod'], '2019-12-29');
-      expect(uri.queryParameters['endPeriod'], '2020-01-05');
-      expect(uri.queryParameters, isNot(contains('lastNObservations')));
-    },
-  );
-
-  test('historical exact date is available even when years old', () async {
-    final gateway = MarketDataGateway(
-      transport: FakeTransport(
-        (_) async => const MarketResponse(200, historicalEcbCsv),
+  test('the bank board gives exact rates for the currencies used', () async {
+    now = DateTime.utc(2026, 9, 30, 17); // 01:00 on 1 October in Taipei.
+    final transport = FakeTransport(
+      (_) async => MarketResponse(
+        200,
+        board([
+          boardRow('USD', '31.48500', '31.83500', '31.98500'),
+          boardRow('JPY', '0.20570', '0.21250', '0.21750'),
+          boardRow('THB', '0.00000', '0.95870', '1.00870'),
+          boardRow('ZAR', '0.00000', '1.77000', '1.85000'),
+        ]),
       ),
-      clock: () => now,
     );
-    final result = await gateway.historicalFxRate(
-      Currency('EUR', 2),
-      Currency('USD', 2),
-      date: BusinessDate(2020, 1, 3),
-    );
+    final result = await gateway(transport).bankRates();
     expect(result.state, MarketState.available);
-    expect(result.value!.observation.asOf, BusinessDate(2020, 1, 3));
-    expect(result.value!.derivedInverse, isFalse);
+    final rates = result.value!;
+    expect(rates.asOf, BusinessDate(2026, 10, 1));
+    final usd = rates[Currency.of('USD')]!;
+    final hundred = Money(Currency.of('USD'), BigInt.from(10000));
+    // Valued at the spot buying rate; whole NT$, rounded half up.
+    expect(usd.valuation!.convert(hundred).minorUnits, BigInt.from(3184));
+    expect(usd.spotSell!.convert(hundred).minorUnits, BigInt.from(3199));
+    expect(rates[Currency.of('THB')]!.cashBuy, isNull);
+    expect(rates[Currency.of('THB')]!.valuation, isNotNull);
+    // A currency this app does not use is skipped.
+    expect(rates.rates.keys, {'USD', 'JPY', 'THB'});
   });
 
-  test(
-    'historical gap, outside-range and unsupported pair fail honestly',
-    () async {
-      final empty = MarketDataGateway(
-        transport: FakeTransport((_) async => const MarketResponse(404, '')),
-        clock: () => now,
-      );
-      expect(
-        (await empty.historicalFxRate(
-          Currency('EUR', 2),
-          Currency('USD', 2),
-          date: BusinessDate(2020, 1, 5),
-        )).state,
-        MarketState.missing,
-      );
-      final wrong = MarketDataGateway(
-        transport: FakeTransport(
-          (_) async => const MarketResponse(200, historicalEcbCsv),
-        ),
-        clock: () => now,
-      );
-      expect(
-        (await wrong.historicalFxRate(
-          Currency('EUR', 2),
-          Currency('USD', 2),
-          date: BusinessDate(2020, 1, 5),
-          lookbackDays: 1,
-        )).state,
-        MarketState.failed,
-      );
-      expect(
-        (await wrong.historicalFxRate(
-          Currency('USD', 2),
-          Currency.of('TWD'),
-          date: BusinessDate(2020, 1, 5),
-        )).state,
-        MarketState.unsupported,
-      );
-      expect(
-        () => wrong.historicalFxRate(
-          Currency('EUR', 2),
-          Currency('USD', 2),
-          date: BusinessDate(2020, 1, 5),
-          lookbackDays: 8,
-        ),
-        throwsRangeError,
-      );
-    },
-  );
-
-  test(
-    'historical provider failure preserves dated cache only as stale',
-    () async {
-      var fails = false;
-      final transport = FakeTransport(
-        (_) async => fails
-            ? const MarketResponse(503, '')
-            : const MarketResponse(200, historicalEcbCsv),
-      );
-      final gateway = MarketDataGateway(
-        transport: transport,
-        clock: () => now,
-        cacheTtl: const Duration(minutes: 1),
-        requestCooldown: Duration.zero,
-      );
-      final eur = Currency('EUR', 2);
-      final usd = Currency('USD', 2);
-      final date = BusinessDate(2020, 1, 3);
-      expect(
-        (await gateway.historicalFxRate(eur, usd, date: date)).state,
-        MarketState.available,
-      );
-      now = now.add(const Duration(minutes: 2));
-      fails = true;
-      final stale = await gateway.historicalFxRate(eur, usd, date: date);
-      expect(stale.state, MarketState.stale);
-      expect(stale.value!.observation.asOf, date);
-      expect(
-        stale.value!.observation.retrievedAt.value,
-        DateTime.utc(2026, 9, 30, 4),
-      );
-      expect(transport.requests.length, 2);
-
-      final noCache = MarketDataGateway(
-        transport: FakeTransport((_) async => const MarketResponse(503, '')),
-        clock: () => now,
-      );
-      expect(
-        (await noCache.historicalFxRate(eur, usd, date: date)).state,
-        MarketState.failed,
-      );
-    },
-  );
+  test('a page that is not the board, or fails, is refused', () async {
+    for (final response in [
+      const MarketResponse(200, '<html>maintenance</html>'),
+      MarketResponse(200, board(['USD,本行買入,31.4,31.8'])),
+      const MarketResponse(500, ''),
+    ]) {
+      final market = gateway(FakeTransport((_) async => response));
+      final result = await market.bankRates();
+      expect(result.state, MarketState.failed, reason: response.body);
+    }
+  });
 }

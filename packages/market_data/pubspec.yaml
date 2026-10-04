@@ -1,5 +1,5 @@
 name: market_data
-description: Official TWSE daily close and ECB daily reference-rate adapters.
+description: TWSE and TPEx daily closes and Bank of Taiwan board rates.
 version: 0.1.0
 publish_to: none
 environment:

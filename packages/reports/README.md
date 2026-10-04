@@ -1,8 +1,8 @@
 # reports
 
-報表的計算，依賴 `foundation_values` 與 `ledger`。輸入是 `bookkeeping` 的 `reportFact` 產生的事實。
+報表用的共用型別，依賴 `foundation_values` 與 `ledger`：
 
-- `MonthlyReport`：每月依幣別的收入、支出，以及分類、商家、帳戶小計。
-- `AssetReport`：依幣別合計各帳戶餘額，可排除不計入淨資產的帳戶；不做跨幣別總計。
+- `ReportMonth`：不受時區影響的日曆月份。
+- `MonthlyFact`、`CategoryAllocation`：一筆分錄對報表的影響，由 `bookkeeping` 的 `reportFact` 產生；預算與 `ledger_sqlcipher` 的月報、分類合計都用它。
 
-App 目前直接讀 `ledger_sqlcipher` 的月報投影；這兩個報表尚未接到畫面（見 `docs/STATUS.md`）。
+報表數字由 `ledger_sqlcipher` 的投影表直接查詢，不另外在記憶體裡重算。

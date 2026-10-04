@@ -8,6 +8,4 @@
 - `InvestmentDividendPreview`：含預扣稅、手續費、二代健保補充保費。
 - `StockSplitPreview`、`CorporateActionPreview`：分割、反向分割、配股、減資（畸零股與退還股款以現金處理，先沖減成本）。
 - `TaiwanTradeCharges`、`taiwanSettlementDate`、`supplementaryPremium`：台股手續費（折扣、最低 20 元）、證交稅、T+2、補充保費試算。
-- 績效：`InvestmentPerformance`、`InvestmentPortfolioSummary`（同幣別合計，缺報價就不給市值）、`CrossCurrencyInvestmentSummary`（成本、已實現、股利用當時入帳的台幣值，只有市值用今日匯率）、`calculateInvestmentXirr`（ACT/365）。
 
-績效與 XIRR 尚未接到 App（見 `docs/STATUS.md`）。

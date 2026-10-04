@@ -14,7 +14,7 @@
 - **投資**：買賣（FIFO／平均成本）、股利（補充保費、除息日）、分割、配股、減資、作廢；台股手續費、證交稅與 T+2 試算；複委託台幣交割。
 - **預算、定期交易**：每月沿用的預算；定期交易每期確認一次，可改實際金額。
 - **金鑰與備份**：密碼、救援碼、裝置金鑰三種解鎖；備份 v2（分塊加密、還原時重播驗證）；Drive 續傳上傳、分代保留、排程與健康狀態。
-- **行情**：TWSE、TPEx 日終、ECB／CBC／Frankfurter 參考匯率；盤中來源只作選用（Yahoo 需使用者手動開啟，見 ADR-06）。
+- **行情**：TWSE、TPEx 每日收盤與臺灣銀行牌告匯率，各一個來源（ADR-06）。
 - **測試與 CI**：所有套件同一份嚴格 lint；記憶體版與 SQLCipher 版對照、重播、升級、強制結束、拒絕案例、完整備份來回、1 萬筆規模測試都在 CI。
 
 ## 程式碼審查（2026-10-04，外部審查 main@51c5255）後續
@@ -27,8 +27,8 @@
 - [x] M-04 App 的合計以台幣為準，無法估值的帳戶與筆數另列。
 - [x] M-01 `LedgerStore`、`Bookkeeping` 依領域拆檔，對外 API 不變。
 - [x] M-03 測試確保各套件 lockfile 的相同依賴版本一致（未改用 pub workspace：無法在不跑 pub 的情況下安全轉換）。
-- [x] M-02 每週 OSV 弱點與授權掃描；Dependabot 每月分組更新。
-- [x] P3 分攤、匯率組合、帳單週期的 property tests；規模與基準測試數字存成 CI artifact。
+- [x] M-02 每週 OSV 弱點與授權掃描（Dependabot 後來拿掉：一個人用只會製造 PR）。
+- [x] P3 分攤、匯率組合、帳單週期的 property tests（benchmark 存檔後來拿掉：已有門檻值擋退化）。
 - 不做：C-03 舊資料匯入（使用者決定當新 App）；CodeQL（不支援 Dart）；mutation testing、完整 SBOM（個人 App 投入產出比低）。
 - [ ] H-04 main 分支保護與 required checks（使用者在 GitHub 設定）。
 - [ ] H-01、H-03、H-05 Android 平台、簽章發佈與真機失敗矩陣（併入下方「Android 與真機」）。
@@ -39,7 +39,7 @@
 
 - [ ] 4c 金額輸入、分類／標籤選擇、信用卡與投資畫面。
 - [ ] 4d l10n（字串移到語系檔）、懶載入、清單分頁；App 不再寫死 TWD（G4-23、G4-22、G4-13）。
-- [ ] 接上已寫好的模組：`amount_input`、`data_exchange`（CSV 匯入匯出）、`market_data`／`market_adapters`、`investments` 的績效與 XIRR、`reports` 的 MonthlyReport／AssetReport、`ledger` 的搜尋；備份排程的定時器。
+- [ ] 接上已寫好的模組：`amount_input`、`data_exchange`（電子發票匯入、CSV 匯出）、`market_data`／`market_adapters`（收盤價、牌告匯率）；備份排程的定時器。
 
 ### Android 與真機（最後做）
 

@@ -95,18 +95,6 @@ jobs:
             ./tooling/run-host-checks.ps1 -Package $package
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-        env:
-          # Scale and benchmark tests write their numbers here, kept as an
-          # artifact so runs can be compared over time.
-          BENCHMARK_DIR: ${{ runner.temp }}/benchmarks
-      # v7.0.1
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: benchmarks
-          path: ${{ runner.temp }}/benchmarks
-          if-no-files-found: ignore
-          retention-days: 90
 
   flutter-host:
     runs-on: ubuntu-latest
