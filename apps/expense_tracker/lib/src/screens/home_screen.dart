@@ -434,8 +434,7 @@ class _Allocation extends CustomPainter {
   bool shouldRepaint(_Allocation old) => old.values != values;
 }
 
-Color holdingColor(int index) =>
-    Palette.series[index % Palette.series.length];
+Color holdingColor(int index) => Palette.series[index % Palette.series.length];
 
 class _HoldingRow extends StatelessWidget {
   const _HoldingRow(this.holding, this.index);

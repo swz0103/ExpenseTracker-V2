@@ -68,8 +68,7 @@ class AccountsScreen extends StatelessWidget {
           children: [
             for (final (i, (name, value)) in parts.indexed)
               _Legend(_splitColor(i), name, groupDigits(value)),
-            if (debt < 0)
-              _Legend(Palette.warn, '負債', groupDigits(-debt)),
+            if (debt < 0) _Legend(Palette.warn, '負債', groupDigits(-debt)),
           ],
         ),
         const SizedBox(height: 12),
@@ -164,10 +163,8 @@ class _GroupHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Palette.muted,
-      letterSpacing: 1,
-    );
+    final style = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Palette.muted, letterSpacing: 1);
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 4),
       child: Row(
@@ -212,10 +209,7 @@ class _AccountRow extends StatelessWidget {
             const SizedBox(width: 14),
             Text(name, style: text.bodyLarge),
             const SizedBox(width: 8),
-            Text(
-              note,
-              style: text.bodySmall?.copyWith(color: Palette.muted),
-            ),
+            Text(note, style: text.bodySmall?.copyWith(color: Palette.muted)),
             const Spacer(),
             Text(
               dollars(balance),
