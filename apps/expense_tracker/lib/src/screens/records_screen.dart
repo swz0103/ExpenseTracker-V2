@@ -4,9 +4,10 @@ import '../book.dart';
 import '../charts/chart_data.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
+import 'home_screen.dart' show DailyBars;
 
-/// Every entry of a month, newest day first; the filter button narrows
-/// it to one kind.
+/// Every entry of a month, newest day first, under a bar for each day.
+/// Tap a bar to see only that day; the filter button narrows by kind.
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key, required this.book});
 
@@ -19,6 +20,7 @@ class RecordsScreen extends StatefulWidget {
 class _RecordsScreenState extends State<RecordsScreen> {
   late var _month = (widget.book.today.year, widget.book.today.month);
   var _filter = 0;
+  int? _day;
 
   static const _filters = ['全部', '支出', '收入', '轉帳'];
 
@@ -73,7 +75,12 @@ class _RecordsScreenState extends State<RecordsScreen> {
         ),
       ),
     );
-    if (picked != null) setState(() => _month = picked);
+    if (picked != null) {
+      setState(() {
+        _month = picked;
+        _day = null;
+      });
+    }
   }
 
   @override
@@ -84,9 +91,18 @@ class _RecordsScreenState extends State<RecordsScreen> {
       listenable: book,
       builder: (context, _) {
         final (year, month) = _month;
+        final today = book.today;
+        final current = year == today.year && month == today.month;
+        final length = DateTime.utc(year, month + 1, 0).day;
+        final spent = [
+          for (var d = 1; d <= (current ? today.day : length); d++)
+            book.total(DateTime.utc(year, month, d), EntryKind.expense),
+        ];
+        final day = _day;
         final groups = [
           for (final date in book.datesIn(year, month))
-            (date, book.on(date).where(_shows).toList()),
+            if (day == null || date.day == day)
+              (date, book.on(date).where(_shows).toList()),
         ].where((group) => group.$2.isNotEmpty).toList();
         final kind = _filter == 0 ? '' : _filters[_filter];
         return Padding(
@@ -113,15 +129,35 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   ),
                 ],
               ),
-              if (_filter != 0)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InputChip(
-                    label: Text('只看$kind'),
-                    onDeleted: () => setState(() => _filter = 0),
-                    backgroundColor: Palette.wash,
-                    side: BorderSide.none,
-                  ),
+              SizedBox(
+                height: 72,
+                child: DailyBars(
+                  days: spent,
+                  length: length,
+                  month: month,
+                  selected: day ?? 0,
+                  onSelect: (picked) => setState(() => _day = picked),
+                ),
+              ),
+              if (_filter != 0 || day != null)
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (_filter != 0)
+                      InputChip(
+                        label: Text('只看$kind'),
+                        onDeleted: () => setState(() => _filter = 0),
+                        backgroundColor: Palette.wash,
+                        side: BorderSide.none,
+                      ),
+                    if (day != null)
+                      InputChip(
+                        label: Text('只看 $month/$day'),
+                        onDeleted: () => setState(() => _day = null),
+                        backgroundColor: Palette.wash,
+                        side: BorderSide.none,
+                      ),
+                  ],
                 ),
               Expanded(
                 child: groups.isEmpty

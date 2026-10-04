@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'charts/chart_data.dart';
+
 /// Which way money moves in an entry.
 enum EntryKind { expense, income, transfer }
 
@@ -71,13 +73,15 @@ final class Book extends ChangeNotifier {
     required List<Holding> holdings,
     required List<int> investHistory,
     required List<String> reminders,
+    required List<MonthPoint> history,
   }) : _days = {
          for (final e in days.entries) e.key: [...e.value],
        },
        accounts = List.unmodifiable(accounts),
        holdings = List.unmodifiable(holdings),
        investHistory = List.unmodifiable(investHistory),
-       reminders = List.unmodifiable(reminders);
+       reminders = List.unmodifiable(reminders),
+       history = List.unmodifiable(history);
 
   /// Midnight UTC of the current day; every date in the book is too.
   final DateTime today;
@@ -93,6 +97,9 @@ final class Book extends ChangeNotifier {
 
   /// Things still to record, such as a card bill not yet paid.
   final List<String> reminders;
+
+  /// Income, spending and net worth of recent months, this one last.
+  final List<MonthPoint> history;
 
   /// Newest first.
   List<Entry> on(DateTime date) => List.unmodifiable(_days[date] ?? const []);
@@ -145,6 +152,24 @@ final class Book extends ChangeNotifier {
       for (final e in on(date))
         if (e.kind == EntryKind.expense && e.category == category) (date, e),
   ];
+
+  /// Average spending on each weekday, Monday first, over every day the
+  /// book covers up to today.
+  List<int> get weekdayAverages {
+    final sums = List.filled(7, 0);
+    final counts = List.filled(7, 0);
+    if (_days.isEmpty) return sums;
+    final first = _days.keys.reduce((a, b) => a.isBefore(b) ? a : b);
+    var date = first;
+    while (!date.isAfter(today)) {
+      sums[date.weekday - 1] += total(date, EntryKind.expense);
+      counts[date.weekday - 1]++;
+      date = DateTime.utc(date.year, date.month, date.day + 1);
+    }
+    return [
+      for (var i = 0; i < 7; i++) counts[i] == 0 ? 0 : sums[i] ~/ counts[i],
+    ];
+  }
 
   int get daysInMonth => DateTime.utc(today.year, today.month + 1, 0).day;
 

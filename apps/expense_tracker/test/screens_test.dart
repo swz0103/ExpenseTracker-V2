@@ -120,6 +120,26 @@ void main() {
     await tester.tapAt(tester.getTopLeft(rows) + const Offset(10, 5));
     await tester.pumpAndSettle();
     expect(find.textContaining('台積電 2330', findRichText: true), findsOne);
+
+    for (final (chip, figure) in const [
+      ('累計', '10/4 累計'),
+      ('收支', '10月　收入'),
+      ('週間', '平日平均'),
+      ('市值', '10/4 市值'),
+    ]) {
+      await tester.tap(find.text(chip));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(figure, findRichText: true), findsOne);
+    }
+  });
+
+  test('history ends on the accounts and weekdays average out', () {
+    final demo = book();
+    final worth =
+        demo.accounts.fold(0, (sum, a) => sum + a.balance) + demo.investValue;
+    expect(demo.history.last.netWorth, worth);
+    expect(demo.weekdayAverages, hasLength(7));
+    expect(demo.weekdayAverages.every((v) => v > 0), isTrue);
   });
 
   testWidgets('records filter by kind and reports open from more', (

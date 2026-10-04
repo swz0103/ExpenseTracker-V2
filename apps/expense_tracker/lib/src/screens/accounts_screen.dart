@@ -4,13 +4,22 @@ import '../book.dart';
 import '../charts/chart_data.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
+import '../ui/mini_charts.dart';
+import 'home_screen.dart' show signed;
 
-/// Net worth with what it is made of, then every account as a tile, two
-/// to a row.
-class AccountsScreen extends StatelessWidget {
+/// Net worth, how it moved over the year and what it is made of, then
+/// every account as a tile, two to a row.
+class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key, required this.book});
 
   final Book book;
+
+  @override
+  State<AccountsScreen> createState() => _AccountsScreenState();
+}
+
+class _AccountsScreenState extends State<AccountsScreen> {
+  int? _month;
 
   static const _groups = [
     ('現金與存款', {'現金', '銀行', '電子票證'}),
@@ -20,6 +29,7 @@ class AccountsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final book = widget.book;
     final text = Theme.of(context).textTheme;
     final muted = text.bodySmall?.copyWith(color: Palette.muted);
     final stocks = book.investValue;
@@ -53,7 +63,13 @@ class AccountsScreen extends StatelessWidget {
           dollars(worth),
           style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 6),
+        _WorthTrend(
+          history: book.history,
+          selected: _month,
+          onSelect: (index) => setState(() => _month = index),
+        ),
+        const SizedBox(height: 16),
         SizedBox(
           height: 10,
           width: double.infinity,
@@ -97,6 +113,62 @@ class AccountsScreen extends StatelessWidget {
               onTap: () => comingSoon(context, '投資'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Net worth at each month end, with the chosen month's change written
+/// over the line.
+class _WorthTrend extends StatelessWidget {
+  const _WorthTrend({
+    required this.history,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<MonthPoint> history;
+  final int? selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (history.isEmpty) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: Palette.muted);
+    final last = history.length - 1;
+    final picked = (selected ?? last).clamp(0, last);
+    final shown = history[picked];
+    final before = picked == 0 ? shown : history[picked - 1];
+    final change = shown.netWorth - before.netWorth;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            style: muted,
+            children: [
+              TextSpan(text: '${shown.year}/${shown.month} 月底　比上月 '),
+              TextSpan(
+                text: signed(change),
+                style: TextStyle(
+                  color: change < 0 ? Palette.warn : Palette.clay,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 96,
+          child: LineChart(
+            values: [for (final m in history) m.netWorth],
+            selected: picked,
+            labels: {0: history.first.label, last: history.last.label},
+            onSelect: onSelect,
+          ),
         ),
       ],
     );

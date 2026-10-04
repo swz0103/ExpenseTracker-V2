@@ -7,6 +7,7 @@ import '../charts/chart_data.dart';
 import '../charts/chart_parts.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
+import '../ui/mini_charts.dart';
 
 /// The first screen: this month against income and budget, what is still
 /// to record, one chart that switches between days, categories and
@@ -21,13 +22,16 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-enum _View { days, categories, holdings }
+enum _View { days, pace, categories, months, weekdays, holdings, worth }
 
 class _HomeScreenState extends State<HomeScreen> {
   var _view = _View.days;
   late int _day = widget.book.today.day;
   String? _category;
   int? _holding;
+  int? _month;
+  int? _weekday;
+  int? _worth;
 
   /// Below this height the entries would be squeezed out, so the whole
   /// page scrolls instead.
@@ -165,6 +169,126 @@ class _HomeScreenState extends State<HomeScreen> {
             _category = name == _category ? null : name;
           }),
         );
+      case _View.pace:
+        final days = book.monthDays;
+        final length = book.daysInMonth;
+        final month = book.today.month;
+        final totals = <int>[];
+        var running = 0;
+        for (final amount in days) {
+          running += amount;
+          totals.add(running);
+        }
+        final last = max(1, totals.length);
+        final day = _day.clamp(1, last);
+        final even = [
+          for (var d = 1; d <= length; d++) book.budget * d ~/ length,
+        ];
+        final at = totals.isEmpty ? 0 : totals[day - 1];
+        final ahead = at - even[day - 1];
+        final gap = groupDigits(ahead.abs());
+        info = TextSpan(
+          children: [
+            TextSpan(text: '$month/$day 累計 '),
+            TextSpan(text: groupDigits(at), style: strong),
+            TextSpan(
+              text: ahead > 0 ? '　比預算線多 $gap' : '　比預算線少 $gap',
+              style: TextStyle(color: ahead > 0 ? Palette.warn : Palette.clay),
+            ),
+          ],
+        );
+        chart = LineChart(
+          values: totals,
+          slots: length,
+          reference: even,
+          fromZero: true,
+          selected: day - 1,
+          labels: {0: '$month/1', length - 1: '$month/$length'},
+          onSelect: (index) => setState(() => _day = index + 1),
+        );
+      case _View.months:
+        final history = book.history;
+        final recent = history.sublist(max(0, history.length - 6));
+        final last = recent.length - 1;
+        final picked = (_month ?? last).clamp(0, last);
+        final shown = recent[picked];
+        info = TextSpan(
+          children: [
+            TextSpan(text: '${shown.month}月　收入 '),
+            TextSpan(text: groupDigits(shown.income), style: strong),
+            const TextSpan(text: '　支出 '),
+            TextSpan(text: groupDigits(shown.expense), style: strong),
+            TextSpan(
+              text: '　結餘 ${signed(shown.net)}',
+              style: TextStyle(
+                color: shown.net < 0 ? Palette.warn : Palette.clay,
+              ),
+            ),
+          ],
+        );
+        chart = ColumnChart(
+          series: [
+            [for (final m in recent) m.income],
+            [for (final m in recent) m.expense],
+          ],
+          colors: const [Palette.clay, Palette.peach],
+          labels: [for (final m in recent) m.label],
+          selected: picked,
+          onSelect: (index) => setState(() => _month = index),
+        );
+      case _View.weekdays:
+        final averages = book.weekdayAverages;
+        final picked = _weekday;
+        final weekend = (averages[5] + averages[6]) ~/ 2;
+        final weekday = averages.take(5).fold(0, (a, b) => a + b) ~/ 5;
+        info = picked == null
+            ? TextSpan(
+                children: [
+                  const TextSpan(text: '平日平均 '),
+                  TextSpan(text: groupDigits(weekday), style: strong),
+                  const TextSpan(text: '　週末平均 '),
+                  TextSpan(text: groupDigits(weekend), style: strong),
+                ],
+              )
+            : TextSpan(
+                children: [
+                  TextSpan(text: '週${weekdayNames[picked]}平均 '),
+                  TextSpan(text: groupDigits(averages[picked]), style: strong),
+                  const TextSpan(text: '　近兩個月'),
+                ],
+              );
+        chart = ColumnChart(
+          series: [averages],
+          colors: const [Palette.clay],
+          labels: weekdayNames,
+          selected: picked,
+          onSelect: (index) => setState(() {
+            _weekday = index == _weekday ? null : index;
+          }),
+        );
+      case _View.worth:
+        final values = book.investHistory;
+        final last = values.length - 1;
+        final picked = (_worth ?? last).clamp(0, last);
+        final date = book.today.subtract(Duration(days: last - picked));
+        final change = values[picked] - values.first;
+        info = TextSpan(
+          children: [
+            TextSpan(text: '${date.month}/${date.day} 市值 '),
+            TextSpan(text: groupDigits(values[picked]), style: strong),
+            const TextSpan(text: '　比起點 '),
+            TextSpan(
+              text: signed(change),
+              style: TextStyle(color: gainColor(change)),
+            ),
+          ],
+        );
+        chart = LineChart(
+          values: values,
+          selected: picked,
+          labels: {0: '${values.length} 天前', last: '今天'},
+          onSelect: (index) => setState(() => _worth = index),
+        );
       case _View.holdings:
         final holdings = book.holdings;
         final value = book.investValue;
@@ -224,22 +348,29 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            for (final (view, label) in const [
-              (_View.days, '每日'),
-              (_View.categories, '分類'),
-              (_View.holdings, '投資'),
-            ])
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: _Chip(
-                  label,
-                  selected: view == _view,
-                  onTap: () => setState(() => _view = view),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final (view, label) in const [
+                (_View.days, '每日'),
+                (_View.pace, '累計'),
+                (_View.categories, '分類'),
+                (_View.months, '收支'),
+                (_View.weekdays, '週間'),
+                (_View.holdings, '投資'),
+                (_View.worth, '市值'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _Chip(
+                    label,
+                    selected: view == _view,
+                    onTap: () => setState(() => _view = view),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         FittedBox(

@@ -38,6 +38,19 @@ Book demoBook(ChartData charts, int year, int month, int day) {
     }
   }
   final value = _holdings.fold(0, (sum, h) => sum + h.value);
+  // The chart demo's net worth, moved so this month ends on the accounts.
+  final worth = _accounts.fold(value, (sum, a) => sum + a.balance);
+  final shift = worth - charts.months.last.netWorth;
+  final history = [
+    for (final m in charts.months)
+      MonthPoint(
+        m.year,
+        m.month,
+        income: m.income,
+        expense: m.expense,
+        netWorth: m.netWorth + shift,
+      ),
+  ];
   return Book(
     today: today,
     budget: 40000,
@@ -46,6 +59,7 @@ Book demoBook(ChartData charts, int year, int month, int day) {
     holdings: _holdings,
     investHistory: _walk(value, 60, year * 100 + month),
     reminders: ['玉山信用卡帳單 $month/15 待繳', '定期：Spotify $month/10'],
+    history: history,
   );
 }
 
