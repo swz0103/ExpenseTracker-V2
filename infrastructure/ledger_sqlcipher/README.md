@@ -3,6 +3,7 @@
 基礎設施層（ADR-0001）：`bookkeeping` 各個儲存介面的 SQLCipher 實作，加上給畫面讀的查詢。
 
 - `ledgerSchema`：`ledger` 模組的 migration。已發佈的步驟永遠不改，只能在末尾新增（目前 11 步）。
+- 原始碼依領域分檔（同一個 library 的 part）：`schema.dart`（migration）、`ledger_store.dart`（核心讀取）、`card_queries.dart`、`investment_queries.dart`、`report_queries.dart`（各領域查詢，以 extension 掛在 `LedgerStore` 上）、`sql_bookkeeping.dart`（寫入交易）。
 - `LedgerStore`：寫入交易提供 `SqlBookkeeping`。投影表（餘額、月報、分類月報、帳單、持股、預算、定期交易）和事件在同一交易更新。
 - 查詢：
   - 帳戶、餘額、逐筆餘額（`runningBalance`）、最近分錄、是否已沖銷（`reversedBy`）；
