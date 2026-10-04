@@ -5,8 +5,8 @@ import '../charts/chart_data.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
 
-/// Net worth with what it is made of, then the accounts grouped as plain
-/// rows on the page.
+/// Net worth with what it is made of, then every account as a tile, two
+/// to a row.
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key, required this.book});
 
@@ -71,29 +71,33 @@ class AccountsScreen extends StatelessWidget {
             if (debt < 0) _Legend(Palette.warn, '負債', groupDigits(-debt)),
           ],
         ),
-        const SizedBox(height: 12),
-        for (final (name, kinds) in _groups) ...[
-          _GroupHeading(
-            name,
-            sum(linesOf(kinds)) + (name == '投資' ? stocks : 0),
-          ),
-          for (final line in linesOf(kinds))
-            _AccountRow(
-              icon: accountIcon(line.kind),
-              name: line.name,
-              note: line.kind,
-              balance: line.balance,
-              onTap: () => comingSoon(context, line.name),
-            ),
-          if (name == '投資')
-            _AccountRow(
+        const SizedBox(height: 20),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.55,
+          children: [
+            for (final (_, kinds) in _groups)
+              for (final line in linesOf(kinds))
+                _AccountTile(
+                  icon: accountIcon(line.kind),
+                  name: line.name,
+                  note: line.kind,
+                  balance: line.balance,
+                  onTap: () => comingSoon(context, line.name),
+                ),
+            _AccountTile(
               icon: Icons.trending_up,
               name: '股票市值',
               note: '${book.holdings.length} 檔',
               balance: stocks,
               onTap: () => comingSoon(context, '投資'),
             ),
-        ],
+          ],
+        ),
       ],
     );
   }
@@ -155,31 +159,8 @@ class _Legend extends StatelessWidget {
   }
 }
 
-class _GroupHeading extends StatelessWidget {
-  const _GroupHeading(this.name, this.total);
-
-  final String name;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: Palette.muted, letterSpacing: 1);
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 4),
-      child: Row(
-        children: [
-          Text(name, style: style),
-          const Spacer(),
-          Text(groupDigits(total), style: style),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({
+class _AccountTile extends StatelessWidget {
+  const _AccountTile({
     required this.icon,
     required this.name,
     required this.note,
@@ -196,29 +177,42 @@ class _AccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Palette.line)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: Palette.clay),
-            const SizedBox(width: 14),
-            Text(name, style: text.bodyLarge),
-            const SizedBox(width: 8),
-            Text(note, style: text.bodySmall?.copyWith(color: Palette.muted)),
-            const Spacer(),
-            Text(
-              dollars(balance),
-              style: text.bodyLarge?.copyWith(
-                color: balance < 0 ? Palette.warn : Palette.ink,
-                fontWeight: FontWeight.w600,
+    return Material(
+      color: Palette.wash,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 18, color: Palette.clay),
+                  const SizedBox(width: 6),
+                  Text(
+                    note,
+                    style: text.bodySmall?.copyWith(color: Palette.muted),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const Spacer(),
+              Text(name, style: text.bodyMedium),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  dollars(balance),
+                  style: text.titleMedium?.copyWith(
+                    color: balance < 0 ? Palette.warn : Palette.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

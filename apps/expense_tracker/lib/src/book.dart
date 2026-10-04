@@ -126,6 +126,27 @@ final class Book extends ChangeNotifier {
       [for (final date in datesIn(today.year, today.month)) total(date, kind)]
           .fold(0, (sum, v) => sum + v);
 
+  /// This month's spending by category, largest first.
+  List<(String, int)> get monthCategories {
+    final totals = <String, int>{};
+    for (final date in datesIn(today.year, today.month)) {
+      for (final e in on(date)) {
+        if (e.kind != EntryKind.expense) continue;
+        totals[e.category] = (totals[e.category] ?? 0) + e.amount;
+      }
+    }
+    return [
+      for (final MapEntry(:key, :value) in totals.entries) (key, value),
+    ]..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+
+  /// This month's spending in [category], newest first, with its dates.
+  List<(DateTime, Entry)> monthEntriesIn(String category) => [
+    for (final date in datesIn(today.year, today.month))
+      for (final e in on(date))
+        if (e.kind == EntryKind.expense && e.category == category) (date, e),
+  ];
+
   int get daysInMonth => DateTime.utc(today.year, today.month + 1, 0).day;
 
   int get investValue => holdings.fold(0, (sum, h) => sum + h.value);

@@ -102,6 +102,26 @@ void main() {
     expect(find.text('房租'), findsOneWidget);
   });
 
+  testWidgets('the chart switches to categories and holdings', (tester) async {
+    await show(tester);
+    const name = '_RowsPainter';
+    final rows = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter.runtimeType.toString() == name,
+    );
+    await tester.tap(find.text('分類'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getTopLeft(rows) + const Offset(10, 5));
+    await tester.pumpAndSettle();
+    expect(find.text('居家・本月'), findsOneWidget);
+    expect(find.text('房租'), findsOneWidget);
+
+    await tester.tap(find.text('投資'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getTopLeft(rows) + const Offset(10, 5));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('台積電 2330', findRichText: true), findsOne);
+  });
+
   testWidgets('records filter by kind and reports open from more', (
     tester,
   ) async {

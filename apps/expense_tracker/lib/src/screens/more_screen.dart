@@ -30,10 +30,11 @@ class MoreScreen extends StatelessWidget {
         const ScreenHeader(title: '更多'),
         const SizedBox(height: 8),
         GridView.count(
-          crossAxisCount: 4,
+          crossAxisCount: 5,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 16,
+          mainAxisSpacing: 4,
+          childAspectRatio: 0.9,
           children: [
             for (final (icon, name) in _items)
               InkWell(
@@ -49,8 +50,8 @@ class MoreScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconTile(icon, size: 48),
-                    const SizedBox(height: 6),
+                    IconTile(icon, size: 36),
+                    const SizedBox(height: 4),
                     Text(name, style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),

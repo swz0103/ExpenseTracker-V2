@@ -158,9 +158,12 @@ class PillTabs extends StatelessWidget {
 
 /// One entry as a list row: icon, title, where and how, amount.
 class EntryRow extends StatelessWidget {
-  const EntryRow(this.entry, {super.key});
+  const EntryRow(this.entry, {super.key, this.date});
 
   final Entry entry;
+
+  /// Shown before the details when the list spans several days.
+  final DateTime? date;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +171,8 @@ class EntryRow extends StatelessWidget {
     final detail = entry.kind == EntryKind.transfer
         ? '${entry.account} → ${entry.toAccount}'
         : [if (entry.place.isNotEmpty) entry.place, entry.account].join('・');
+    final day = date;
+    final when = day == null ? '' : '${day.month}/${day.day}・';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -180,7 +185,7 @@ class EntryRow extends StatelessWidget {
               children: [
                 Text(entry.title, style: text.bodyMedium),
                 Text(
-                  detail,
+                  '$when$detail',
                   style: text.bodySmall?.copyWith(color: Palette.muted),
                 ),
               ],

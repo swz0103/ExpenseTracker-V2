@@ -10,25 +10,25 @@ abstract final class Palette {
   static const line = Color(0xFFE4E7DC);
 
   /// Sage tiles and selected backgrounds.
-  static const wash = Color(0xFFEAF0E2);
+  static const wash = Color(0xFFE3EBDB);
 
   /// The accent: buttons, icons, the selected tab, income.
-  static const clay = Color(0xFF668F5A);
+  static const clay = Color(0xFF3D6B47);
 
   /// Income.
-  static const olive = Color(0xFF668F5A);
+  static const olive = Color(0xFF3D6B47);
 
   /// Warnings, overspending and market gains (red for up in Taiwan).
   static const warn = Color(0xFFB8613F);
 
   /// Light bars and other quiet data.
-  static const peach = Color(0xFFCADBB9);
+  static const peach = Color(0xFFB4C9A3);
 
   /// Data colours, in the order categories and holdings take them.
   static const series = [
-    Color(0xFF668F5A),
-    Color(0xFF9DB886),
-    Color(0xFFC9D7AE),
+    Color(0xFF3D6B47),
+    Color(0xFF7D9F69),
+    Color(0xFFB4C9A3),
     Color(0xFF8F7D5C),
     Color(0xFFBCA77E),
     Color(0xFF5E7C6E),
