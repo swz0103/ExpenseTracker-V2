@@ -9,7 +9,7 @@ dependencies:
     path: ../../packages/app_core
   foundation_values:
     path: ../../packages/foundation_values
-  sqlite3: 3.6.0
+  sqlite3: 3.7.0
 dev_dependencies:
   test: 1.32.0
 hooks:
