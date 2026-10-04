@@ -276,7 +276,7 @@ final class RecordDividend extends _Trade {
   final BusinessDate? exDividendOn;
 
   /// Taiwan's NHI supplementary premium withheld from the dividend; see
-  /// `TaiwanTradeCharges.supplementaryPremium`.
+  /// `supplementaryPremium`, which uses the rates of the payment date.
   final Money? healthPremium;
 
   /// The amount credited in the funding account's currency, for a foreign

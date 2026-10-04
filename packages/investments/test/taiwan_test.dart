@@ -24,16 +24,45 @@ void main() {
 
   test('sell tax depends on the instrument and day trading', () {
     final charges = TaiwanTradeCharges();
-    Money tax(InstrumentKind kind, {bool dayTrade = false}) => charges.sellTax(
+    Money tax(
+      InstrumentKind kind, {
+      bool dayTrade = false,
+      BusinessDate? on,
+    }) => charges.sellTax(
       ntd(100000),
       shares('1000'),
       kind: kind,
+      tradedOn: on ?? BusinessDate(2026, 10, 5),
       dayTrade: dayTrade,
     );
     expect(tax(InstrumentKind.stock), ntd(300));
     expect(tax(InstrumentKind.stock, dayTrade: true), ntd(150));
     expect(tax(InstrumentKind.etf), ntd(100));
     expect(tax(InstrumentKind.etf, dayTrade: true), ntd(100));
+  });
+
+  test('rates follow the trade date, not today', () {
+    final charges = TaiwanTradeCharges();
+    Money dayTrade(BusinessDate on) => charges.sellTax(
+      ntd(100000),
+      shares('1000'),
+      kind: InstrumentKind.stock,
+      tradedOn: on,
+      dayTrade: true,
+    );
+    expect(dayTrade(BusinessDate(2017, 4, 27)), ntd(300));
+    expect(dayTrade(BusinessDate(2017, 4, 28)), ntd(150));
+    expect(dayTrade(BusinessDate(2027, 12, 31)), ntd(150));
+    expect(dayTrade(BusinessDate(2028, 1, 3)), ntd(300));
+    expect(
+      () => dayTrade(BusinessDate(2015, 12, 31)),
+      fails(InvestmentError.invalidInput),
+    );
+    final premium2020 = supplementaryPremium(
+      ntd(30000),
+      paidOn: BusinessDate(2020, 8, 1),
+    );
+    expect(premium2020, ntd(573));
   });
 
   test('bad inputs are refused', () {
@@ -53,10 +82,10 @@ void main() {
   });
 
   test('the NHI premium applies from NT\$20,000, up to NT\$10 million', () {
-    expect(supplementaryPremium(ntd(19999)), ntd(0));
-    expect(supplementaryPremium(ntd(20000)), ntd(422));
-    expect(supplementaryPremium(ntd(12345678)), ntd(211000));
-    expect(supplementaryPremium(ntd(30000), basisPoints: 200), ntd(600));
+    final paidOn = BusinessDate(2026, 8, 1);
+    expect(supplementaryPremium(ntd(19999), paidOn: paidOn), ntd(0));
+    expect(supplementaryPremium(ntd(20000), paidOn: paidOn), ntd(422));
+    expect(supplementaryPremium(ntd(12345678), paidOn: paidOn), ntd(211000));
   });
 
   test('trades settle two exchange days later', () {
