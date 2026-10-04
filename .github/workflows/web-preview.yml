@@ -52,7 +52,8 @@ jobs:
           flutter config --no-analytics
           flutter pub get --enforce-lockfile
           # Bundle CanvasKit so the page needs no Google CDN.
-          flutter build web --release --no-web-resources-cdn --no-source-maps
+          flutter build web --release --no-web-resources-cdn --no-source-maps \
+            -t lib/main_preview.dart
       - name: Store the build under refs/previews/web
         env:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}

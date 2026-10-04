@@ -84,6 +84,9 @@ final class FakeDrive implements DriveTransport {
   final files = <String, FakeFile>{};
   final _sessions = <String, _Session>{};
   final faults = <Fault>[];
+
+  /// Ranged download requests answered.
+  var downloads = 0;
   final requests = <DriveRequest>[];
 
   /// Raw rows added to every listing, for malformed entries.
@@ -185,7 +188,19 @@ final class FakeDrive implements DriveTransport {
       return _json(200, {'id': id});
     }
     if (uri.queryParameters['alt'] == 'media') {
-      return DriveResponse(statusCode: 200, body: file.bytes);
+      final range = request.headers['range'];
+      if (range == null) {
+        return DriveResponse(statusCode: 200, body: file.bytes);
+      }
+      final match = RegExp(r'^bytes=(\d+)-(\d+)$').firstMatch(range)!;
+      final start = int.parse(match[1]!);
+      final last = int.parse(match[2]!);
+      final end = last + 1 < file.bytes.length ? last + 1 : file.bytes.length;
+      downloads++;
+      return DriveResponse(
+        statusCode: 206,
+        body: file.bytes.sublist(start, end),
+      );
     }
     return _json(200, file.toJson());
   }

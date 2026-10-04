@@ -25,6 +25,8 @@ dependencies:
     path: ../../infrastructure/ledger_sqlcipher
   ledger_vault:
     path: ../../infrastructure/ledger_vault
+  reports:
+    path: ../../packages/reports
 
 dev_dependencies:
   flutter_test:

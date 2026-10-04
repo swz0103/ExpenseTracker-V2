@@ -72,6 +72,14 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
+  /// Restores straight into [target], as a test stand-in for the vault.
+  RestoreTarget<SqlCipherStore> into(SqlCipherStore target) {
+    return (keys, fill) async {
+      await fill(LedgerStore(target));
+      return target;
+    };
+  }
+
   Future<CloudUpload> backup(DateTime now) =>
       service.backupNow(keys: keys.unlocked, principal: principal, now: now);
 
@@ -128,11 +136,11 @@ void main() {
     final target = open();
     addTearDown(target.close);
 
-    final header = await service.restore(
+    final (_, header) = await service.restore(
       drive: client,
       file: listing.files.single,
       unlock: (keyring) => codec.unlockWithPassword(keyring, password),
-      into: LedgerStore(target),
+      into: into(target),
     );
     expect(header.events, store.eventCount);
     expect(projectionRows(target), projectionRows(store));
@@ -155,15 +163,18 @@ void main() {
       oldest.bytes,
       oldest.sha256,
     );
+    // Drive's own size and checksum describe the swapped content, so only
+    // the backup id can tell.
+    final swapped = (await client.file(newest.id))!;
     final target = open();
     addTearDown(target.close);
 
     await expectLater(
       service.restore(
         drive: client,
-        file: listing.files.first,
+        file: swapped,
         unlock: (keyring) => codec.unlockWithPassword(keyring, password),
-        into: LedgerStore(target),
+        into: into(target),
       ),
       throwsA(
         isA<BackupException>().having(
@@ -208,7 +219,7 @@ void main() {
         drive: client,
         file: listing.files.single,
         unlock: (keyring) => codec.unlockWithPassword(keyring, 'wrong one!'),
-        into: LedgerStore(target),
+        into: into(target),
       ),
       throwsA(const KeyringException(KeyringError.wrongSecret)),
     );
@@ -311,10 +322,10 @@ void main() {
     upload.file.copySync(copy.path);
     final target = open();
     addTearDown(target.close);
-    final header = await service.restoreFile(
+    final (_, header) = await service.restoreFile(
       file: copy,
       unlock: (keyring) => codec.unlockWithPassword(keyring, password),
-      into: LedgerStore(target),
+      into: into(target),
     );
     expect(header.backupId.value, upload.backupId);
     expect(projectionRows(target), projectionRows(store));

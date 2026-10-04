@@ -6,7 +6,8 @@
   - 分塊續傳（Content-Range、308）；
   - token 被拒時自動換一次；
   - 網址只接受 `*.googleapis.com`；
-  - 備份清單會略過壞掉的項目並計數。
+  - 備份清單會略過壞掉的項目並計數；
+  - `downloadTo`：用 Range 分段下載寫入檔案，核對大小與 SHA-256，不符就刪掉暫存檔（`DriveFailure.damaged`）。
 - `CloudUploadQueue`（`cloud` schema 模組）：
   - session 存在資料庫，重開 App 會從 Drive 已收到的位置接著傳；
   - 上傳完成並核對大小與 SHA-256 後刪掉本機副本；
