@@ -124,40 +124,32 @@ extension ReportQueries on LedgerStore {
   }
 
   /// Report facts for one month, in date order: the same facts monthly
-  /// reports and budgets use.
+  /// reports and budgets use. One query reads each posting with its tags,
+  /// merchant, home value and, for a refund or its reversal, the account
+  /// of the refunded entry.
   List<MonthlyFact> monthlyFacts(WorkspaceId workspace, ReportMonth month) {
-    final rows = _store.select(
-      'SELECT id, payload FROM ledger_postings WHERE workspace = ? '
-      'AND date BETWEEN ? AND ? ORDER BY date, id',
-      [workspace.toString(), '${month.first}', '${month.last}'],
-    );
+    final rows = _store.select(_monthlyFactsSql, [
+      workspace.toString(),
+      '${month.first}',
+      '${month.last}',
+    ]);
     return [
       for (final row in rows)
-        _fact(
+        reportFact(
           _decodePosting(row['payload']),
-          metadata(PublicId.parse(row['id']! as String)),
+          PostingMetadata(
+            tags: [
+              for (final tag in ((row['tags'] as String?) ?? '').split(','))
+                if (tag.isNotEmpty) PublicId.parse(tag),
+            ],
+            merchantId: _id(row['merchant']),
+            homeValue: row['home'] == null
+                ? null
+                : Money.fromJson(_json(row['home'])),
+          ),
+          account: _id(row['refunded']),
         ),
     ];
-  }
-
-  MonthlyFact _fact(Posting posting, PostingMetadata metadata) {
-    var refunded = posting.refundOf;
-    final reversed = posting.reversalOf;
-    if (reversed != null) {
-      final rows = _store.select(
-        'SELECT refund_of FROM ledger_postings WHERE id = ?',
-        [reversed.value],
-      );
-      final original = rows.single['refund_of'] as String?;
-      if (original != null) refunded = PublicId.parse(original);
-    }
-    if (refunded == null) return reportFact(posting, metadata);
-    final legs = _store.select(
-      'SELECT account_id FROM ledger_legs WHERE posting_id = ? AND leg = 0',
-      [refunded.value],
-    );
-    final account = PublicId.parse(legs.single['account_id']! as String);
-    return reportFact(posting, metadata, account: account);
   }
 
   /// Every budget for [month] with what was spent against it: budgets
@@ -257,3 +249,23 @@ extension ReportQueries on LedgerStore {
     };
   }
 }
+
+PublicId? _id(Object? value) =>
+    value == null ? null : PublicId.parse(value as String);
+
+const _monthlyFactsSql = '''
+  SELECT p.payload,
+    (SELECT group_concat(t.tag_id) FROM ledger_posting_tags t
+      WHERE t.posting_id = p.id) AS tags,
+    m.merchant_id AS merchant,
+    h.value AS home,
+    (SELECT l.account_id FROM ledger_legs l
+      WHERE l.posting_id = COALESCE(r.refund_of, p.refund_of) AND l.leg = 0)
+      AS refunded
+  FROM ledger_postings p
+  LEFT JOIN ledger_posting_merchants m ON m.posting_id = p.id
+  LEFT JOIN ledger_posting_home h ON h.posting_id = p.id
+  LEFT JOIN ledger_postings r ON r.id = p.reversal_of
+  WHERE p.workspace = ? AND p.date BETWEEN ? AND ?
+  ORDER BY p.date, p.id
+''';
