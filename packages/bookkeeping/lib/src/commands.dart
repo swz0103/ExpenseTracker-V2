@@ -267,6 +267,35 @@ final class RecordCashFlow extends PostingCommand {
   };
 }
 
+/// Brings an account to the balance its bank or wallet shows, booking the
+/// difference as income or expense on [date] (the old app's 餘額校正). The
+/// difference is worked out inside the write, so an entry booked in between
+/// is never counted twice. Credit cards use `AdjustCard` instead.
+final class AdjustBalance extends PostingCommand {
+  AdjustBalance({
+    required OperationKey operation,
+    required PublicId postingId,
+    required this.account,
+    required this.date,
+    required this.target,
+  }) : super(operation, postingId);
+
+  final AccountRef account;
+  final BusinessDate date;
+
+  /// The balance the account should have, in its currency.
+  final Money target;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'adjust-balance-v1',
+    'postingId': postingId.value,
+    'account': account.toJson(),
+    'date': date.toString(),
+    'target': target.toJson(),
+  };
+}
+
 final class RecordTransfer extends PostingCommand {
   RecordTransfer({
     required OperationKey operation,

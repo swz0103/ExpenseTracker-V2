@@ -48,6 +48,27 @@ extension _Entries<T extends BookkeepingTransaction> on Bookkeeping<T> {
     return posting.id;
   }
 
+  Future<PublicId> _adjustBalance(T t, AdjustBalance command) async {
+    final target = command.target;
+    final current = await t.balance(command.account.id, target.currency);
+    final difference = target - current;
+    if (difference.minorUnits == BigInt.zero) {
+      throw const AppFailure(FailureKind.rejected, 'balance.unchanged');
+    }
+    final short = difference.minorUnits.isNegative;
+    return _cashFlow(
+      t,
+      RecordCashFlow(
+        operation: command.operation,
+        postingId: command.postingId,
+        flow: short ? CashFlow.expense : CashFlow.income,
+        account: command.account,
+        date: command.date,
+        amount: short ? -difference : difference,
+      ),
+    );
+  }
+
   Future<PublicId> _transfer(T t, RecordTransfer command) async {
     await _requireNewPosting(t, command.postingId);
     final workspace = command.operation.workspace;

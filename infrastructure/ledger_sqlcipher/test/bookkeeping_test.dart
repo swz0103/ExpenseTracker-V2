@@ -62,6 +62,7 @@ void main() {
     String name,
     Currency currency, {
     Money? opening,
+    AccountKind kind = AccountKind.bank,
   }) async {
     final id = PublicId.generate();
     await books.openAccount(
@@ -69,7 +70,7 @@ void main() {
         operation: op(),
         accountId: id,
         name: name,
-        kind: AccountKind.bank,
+        kind: kind,
         currency: currency,
         openedOn: day,
         openingBalance: opening,
@@ -600,5 +601,52 @@ void main() {
     store.close();
     open();
     verify();
+  });
+
+  test('an advance is money owed, not spending, and repays in part', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 5000));
+    final friend = await openAccount('小明', twd, kind: AccountKind.receivable);
+    Future<void> move(PublicId from, PublicId to, int units) =>
+        books.recordTransfer(
+          RecordTransfer(
+            operation: op(),
+            postingId: PublicId.generate(),
+            source: ref(from),
+            destination: ref(to),
+            date: day,
+            principal: money(twd, units),
+          ),
+        );
+    await move(cash, friend, 1200);
+    await move(friend, cash, 500);
+    expect(ledger.balance(account(friend)), money(twd, 700));
+    expect(ledger.balance(account(cash)), money(twd, 4300));
+    final month = ledger.monthly(workspace, '2026-10')[twd.code];
+    expect(month?.expense.minorUnits ?? BigInt.zero, BigInt.zero);
+  });
+
+  test('a balance is adjusted to what the bank shows', () async {
+    final bank = await openAccount('銀行', twd, opening: money(twd, 5000));
+    Future<void> adjust(int units) => books.adjustBalance(
+      AdjustBalance(
+        operation: op(),
+        postingId: PublicId.generate(),
+        account: ref(bank),
+        date: day,
+        target: money(twd, units),
+      ),
+    );
+    await adjust(4950);
+    expect(ledger.balance(account(bank)), money(twd, 4950));
+    var month = ledger.monthly(workspace, '2026-10')[twd.code]!;
+    expect(month.expense, money(twd, 50));
+    await expectLater(
+      adjust(4950),
+      fails(FailureKind.rejected, 'balance.unchanged'),
+    );
+    await adjust(5010);
+    expect(ledger.balance(account(bank)), money(twd, 5010));
+    month = ledger.monthly(workspace, '2026-10')[twd.code]!;
+    expect(month.income, money(twd, 60));
   });
 }
