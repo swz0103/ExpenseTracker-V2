@@ -598,4 +598,131 @@ void main() {
       fails(FailureKind.rejected, 'card.released'),
     );
   });
+
+  test('every card refusal names its reason and changes nothing', () async {
+    // Health check G5-06: a refused command writes no event and leaves
+    // every projection row as it was.
+    Future<void> rejects(
+      Future<Object?> Function() command,
+      FailureKind kind,
+      String code,
+    ) async {
+      final events = store.eventCount;
+      final rows = projectionRows(store);
+      await expectLater(command(), fails(kind, code));
+      expect(store.eventCount, events);
+      expect(projectionRows(store), rows);
+    }
+
+    AuthorizeCardCharge hold(PublicId chargeId, {Money? amount}) {
+      return AuthorizeCardCharge(
+        operation: op(),
+        chargeId: chargeId,
+        cardId: card,
+        authorizedOn: purchaseDay,
+        amount: amount ?? ntd(500),
+      );
+    }
+
+    final bare = await open('沒條款的卡', AccountKind.creditCard);
+    final held = PublicId.generate();
+    await cards.authorize(hold(held));
+    final posted = PublicId.generate();
+    await post(chargeId: posted);
+    final planned = PublicId.generate();
+    await post(chargeId: planned, settled: 3000);
+    await cards.planInstallments(
+      PlanInstallments(
+        operation: op(),
+        chargeId: planned,
+        count: 3,
+        fixedFee: ntd(0),
+      ),
+    );
+    final onBare = PublicId.generate();
+    await cards.post(
+      PostCardCharge(
+        operation: op(),
+        chargeId: onBare,
+        postingId: PublicId.generate(),
+        card: ref(bare),
+        postedOn: purchaseDay,
+        settledAmount: ntd(800),
+        fee: ntd(0),
+      ),
+    );
+    final usd = Currency.of('USD');
+    final elsewhere = WorkspaceId(PublicId.generate());
+
+    await rejects(
+      () => cards.authorize(hold(held)),
+      FailureKind.conflict,
+      'card.charge-exists',
+    );
+    await rejects(
+      () => cards.authorize(
+        hold(PublicId.generate(), amount: Money(usd, BigInt.from(100))),
+      ),
+      FailureKind.rejected,
+      'card.currencyMismatch',
+    );
+    await rejects(
+      () => cards.authorize(
+        AuthorizeCardCharge(
+          operation: OperationKey(elsewhere, OperationId(PublicId.generate())),
+          chargeId: PublicId.generate(),
+          cardId: card,
+          authorizedOn: purchaseDay,
+          amount: ntd(500),
+        ),
+      ),
+      FailureKind.rejected,
+      'card.workspaceMismatch',
+    );
+    await rejects(
+      () => cards.release(
+        ReleaseAuthorization(operation: op(), chargeId: posted, cardId: card),
+      ),
+      FailureKind.rejected,
+      'card.not-pending',
+    );
+    await rejects(
+      () => cards.post(
+        PostCardCharge(
+          operation: op(),
+          chargeId: held,
+          postingId: PublicId.generate(),
+          card: ref(bare),
+          postedOn: purchaseDay,
+          settledAmount: ntd(500),
+          fee: ntd(0),
+        ),
+      ),
+      FailureKind.rejected,
+      'card.cardMismatch',
+    );
+    await rejects(
+      () => cards.planInstallments(
+        PlanInstallments(
+          operation: op(),
+          chargeId: onBare,
+          count: 3,
+          fixedFee: ntd(0),
+        ),
+      ),
+      FailureKind.rejected,
+      'card.no-terms',
+    );
+    await rejects(
+      () => cards.voidCharge(
+        VoidCardCharge(
+          operation: op(),
+          chargeId: planned,
+          reversalId: PublicId.generate(),
+        ),
+      ),
+      FailureKind.rejected,
+      'card.has-installments',
+    );
+  });
 }
