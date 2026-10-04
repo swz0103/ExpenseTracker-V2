@@ -1,5 +1,5 @@
-/// Encrypted single-file storage: append-only event journal, operation
-/// journal and outbox, all committed in one SQLCipher transaction.
+/// Encrypted single-file storage: the append-only event journal and the
+/// operation journal, committed together in one SQLCipher transaction.
 library;
 
 export 'src/sqlcipher_store.dart';

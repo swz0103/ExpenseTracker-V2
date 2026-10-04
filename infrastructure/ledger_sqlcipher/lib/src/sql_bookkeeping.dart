@@ -17,9 +17,6 @@ final class SqlBookkeeping
       _transaction.recordOperation(operation);
 
   @override
-  Future<void> enqueue(OutboxMessage message) => _transaction.enqueue(message);
-
-  @override
   Future<void> appendEvent({
     required PublicId id,
     required WorkspaceId workspace,

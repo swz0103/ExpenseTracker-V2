@@ -7,14 +7,11 @@ import 'unit_of_work.dart';
 /// commits nothing, and overlapping writes are a programming error.
 final class MemoryStore implements UnitOfWork<MemoryTransaction> {
   final _operations = <OperationKey, RecordedOperation>{};
-  final _outbox = <OutboxMessage>[];
   final _events = <String>[];
   bool _writing = false;
   int _commits = 0;
 
   List<String> get events => List.unmodifiable(_events);
-
-  List<OutboxMessage> get outbox => List.unmodifiable(_outbox);
 
   int get commits => _commits;
 
@@ -28,7 +25,6 @@ final class MemoryStore implements UnitOfWork<MemoryTransaction> {
     try {
       final result = await body(transaction);
       _operations.addAll(transaction._operations);
-      _outbox.addAll(transaction._outbox);
       _events.addAll(transaction._events);
       _commits++;
       return result;
@@ -44,7 +40,6 @@ final class MemoryTransaction implements WriteTransaction {
 
   final MemoryStore _store;
   final _operations = <OperationKey, RecordedOperation>{};
-  final _outbox = <OutboxMessage>[];
   final _events = <String>[];
   bool _open = true;
 
@@ -68,12 +63,6 @@ final class MemoryTransaction implements WriteTransaction {
       throw StateError('Operation recorded twice.');
     }
     _operations[operation.key] = operation;
-  }
-
-  @override
-  Future<void> enqueue(OutboxMessage message) async {
-    _requireOpen();
-    _outbox.add(message);
   }
 
   void _requireOpen() {

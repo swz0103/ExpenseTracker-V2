@@ -1,9 +1,8 @@
 # data_exchange
 
-簡易收支的 JSON／CSV 交換格式（`expensetracker-v2-simple-transactions`），依賴 `foundation_values`、`accounts`、`ledger`。
+檔案匯入匯出，只依賴 `foundation_values`。
 
-- `SimpleTransactionCodec`：JSON 與 CSV 互轉。每筆有來源工作空間、來源交易 ID、日期、帳戶、收入或支出、金額（整數最小單位）與備註。CSV 備註用 JSON 字串，逗號、換行、中文都能來回。
-- 來源 ID 重複、混合工作空間、日期或金額錯誤、未知欄位或版本、超過 5,000 筆或 24 MiB，整份拒絕。
-- `SimpleImportPreview.prepare`：使用者對應帳戶後，逐列檢查帳戶、幣別、狀態與日期，並按幣別合計；不寫入帳本。
+- `parseEInvoices`：讀財政部電子發票平台下載的「消費明細」CSV。欄位依表頭找，不依順序；同一張發票的品項加總、品名去重；作廢的發票略過。任何一列讀不懂就整份停下，並指出第幾行。發票號碼可以用來跳過已記過的發票。
+- `readCsv`／`writeCsv`：CSV 讀寫。寫出時帶 BOM、使用 CRLF，Excel 打開不會亂碼；逗號、引號、換行都會正確加上引號。
 
-這不是備份格式：轉帳、退款、更正、分類等完整歷史只在加密備份裡。App 尚未接上匯入匯出（見 `docs/STATUS.md`）。
+App 要匯出明細時，自己組好欄位（日期、類型、帳戶、分類、金額、備註），再交給 `writeCsv`。

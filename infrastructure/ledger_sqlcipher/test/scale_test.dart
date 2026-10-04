@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -143,14 +142,6 @@ void main() {
       'replay ${replay.elapsed.inMilliseconds} ms, '
       '${store.eventCount} events',
     );
-    _record('ledger_scale', {
-      'commands': _commands,
-      'writeMs': write.elapsed.inMilliseconds,
-      'p95Us': p95.inMicroseconds,
-      'readsUs': read.elapsedMicroseconds,
-      'replayMs': replay.elapsed.inMilliseconds,
-      'events': store.eventCount,
-    });
     expect(reversals, greaterThan(100));
     expect(month, isNotEmpty);
     expect(byCategory, isNotEmpty);
@@ -160,14 +151,4 @@ void main() {
     expect(read.elapsed, lessThan(const Duration(milliseconds: 200)));
     expect(replay.elapsed, lessThan(const Duration(seconds: 60)));
   }, timeout: const Timeout(Duration(minutes: 5)));
-}
-
-/// Keeps the numbers as a CI artifact when `BENCHMARK_DIR` is set, so runs
-/// can be compared over time (code audit P3).
-void _record(String name, Map<String, int> metrics) {
-  final directory = Platform.environment['BENCHMARK_DIR'];
-  if (directory == null || directory.isEmpty) return;
-  File('$directory/$name.json')
-    ..createSync(recursive: true)
-    ..writeAsStringSync(jsonEncode(metrics));
 }

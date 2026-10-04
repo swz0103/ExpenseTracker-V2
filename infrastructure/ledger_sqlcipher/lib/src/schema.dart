@@ -274,4 +274,20 @@ final ledgerSchema = SchemaModule('ledger', [
     ) STRICT, WITHOUT ROWID
     ''',
   ],
+  [
+    // Lookups that scanned whole tables: whether a posting belongs to a
+    // card or a trade (checked before every reversal or correction), card
+    // refunds of a purchase, and the recurring entry a posting confirmed.
+    'CREATE INDEX card_charges_by_posting ON card_charges (posting_id)',
+    'CREATE INDEX card_payments_by_posting ON card_payments (posting_id)',
+    'CREATE INDEX invest_trades_by_posting ON invest_trades (posting_id)',
+    '''
+    CREATE INDEX card_charges_by_original
+      ON card_charges (json_extract(payload, '\$.originalChargeId'))
+    ''',
+    '''
+    CREATE INDEX plan_recurring_confirmed_by_posting
+      ON plan_recurring_confirmed (posting_id)
+    ''',
+  ],
 ]);

@@ -23,7 +23,6 @@ final class _State {
 
   _State.copy(_State other)
     : operations = Map.of(other.operations),
-      outbox = List.of(other.outbox),
       events = List.of(other.events),
       accounts = Map.of(other.accounts),
       postings = Map.of(other.postings),
@@ -35,7 +34,6 @@ final class _State {
       merchants = Map.of(other.merchants);
 
   Map<OperationKey, RecordedOperation> operations = {};
-  List<OutboxMessage> outbox = [];
   List<String> events = [];
   Map<PublicId, Account> accounts = {};
   Map<PublicId, Posting> postings = {};
@@ -136,10 +134,6 @@ final class MemoryBookkeepingTransaction implements BookkeepingTransaction {
     }
     _live.operations[operation.key] = operation;
   }
-
-  @override
-  Future<void> enqueue(OutboxMessage message) async =>
-      _live.outbox.add(message);
 
   @override
   Future<void> appendEvent({

@@ -174,6 +174,9 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
   Future<CommandOutcome<PublicId>> recordCashFlow(RecordCashFlow command) =>
       _runner.run(command, (t) => _guard(() => _cashFlow(t, command)));
 
+  Future<CommandOutcome<PublicId>> adjustBalance(AdjustBalance command) =>
+      _runner.run(command, (t) => _guard(() => _adjustBalance(t, command)));
+
   Future<CommandOutcome<PublicId>> recordTransfer(RecordTransfer command) =>
       _runner.run(command, (t) => _guard(() => _transfer(t, command)));
 

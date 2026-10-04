@@ -1,5 +1,5 @@
 name: data_exchange
-description: Versioned interchange staging for ExpenseTracker V2 transactions.
+description: E-invoice CSV import and CSV export helpers.
 version: 0.1.0
 publish_to: none
 environment:

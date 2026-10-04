@@ -10,6 +10,16 @@ enum AccountKind {
 
   /// A loan; its balance is negative while money is owed.
   loan,
+
+  /// Money someone owes you, such as a bill you paid for a friend (代墊).
+  /// Paying for them is a transfer into this account, not spending; their
+  /// repayment is a transfer out of it, in part or in full, and what is
+  /// never repaid is written off as an expense from it.
+  receivable,
+
+  /// Something valued by hand, such as a fund whose price is not fetched;
+  /// its value is kept current with `AdjustBalance`.
+  manual,
 }
 
 enum AccountState { active, archived, closed }

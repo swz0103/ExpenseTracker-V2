@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_core/app_core.dart';
@@ -95,14 +94,6 @@ void main() {
       'integrity ${check.inMilliseconds} ms, '
       'file ${megabytes.toStringAsFixed(1)} MiB',
     );
-    _record('storage_bench', {
-      'writeMs': write.elapsed.inMilliseconds,
-      'p95Us': p95.inMicroseconds,
-      'tailUs': tail.inMicroseconds,
-      'reopenMs': reopen.inMilliseconds,
-      'integrityMs': check.inMilliseconds,
-      'fileKiB': file.lengthSync() ~/ 1024,
-    });
     expect(integrity, 'ok');
     // Generous ceilings: they catch a lost index or an accidental full scan,
     // not normal CI noise.
@@ -111,14 +102,4 @@ void main() {
     expect(tail, lessThan(const Duration(milliseconds: 100)));
     expect(reopen, lessThan(const Duration(seconds: 3)));
   });
-}
-
-/// Keeps the numbers as a CI artifact when `BENCHMARK_DIR` is set, so runs
-/// can be compared over time (code audit P3).
-void _record(String name, Map<String, int> metrics) {
-  final directory = Platform.environment['BENCHMARK_DIR'];
-  if (directory == null || directory.isEmpty) return;
-  File('$directory/$name.json')
-    ..createSync(recursive: true)
-    ..writeAsStringSync(jsonEncode(metrics));
 }

@@ -5,36 +5,35 @@ import 'dart:typed_data';
 
 import 'package:market_data/market_data.dart';
 
-/// Android/desktop transport with a finite response budget and no redirects.
+/// Android and desktop transport: HTTPS to the three known hosts only, no
+/// redirects, a ten-second budget per phase and a capped body.
 final class IoMarketTransport implements MarketTransport {
   const IoMarketTransport();
 
-  static const maximumResponseBytes = marketResponseLimit;
+  static final hosts = {
+    MarketDataGateway.twseUri.host,
+    MarketDataGateway.tpexUri.host,
+    MarketDataGateway.bankRatesUri.host,
+  };
 
   @override
   Future<MarketResponse> get(Uri uri) async {
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
+    if (uri.scheme != 'https' || !hosts.contains(uri.host)) {
+      throw ArgumentError.value(uri, 'uri', 'Not a market data host');
+    }
+    const timeout = Duration(seconds: 10);
+    final client = HttpClient()..connectionTimeout = timeout;
     try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
+      final request = await client.getUrl(uri).timeout(timeout);
       request.followRedirects = false;
-      request.headers.set(
-        HttpHeaders.acceptHeader,
-        'application/json, text/csv',
-      );
-      request.headers.set(
-        HttpHeaders.userAgentHeader,
-        'ExpenseTracker-V2/market-data',
-      );
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
+      const accept = 'application/json, text/csv';
+      request.headers.set(HttpHeaders.acceptHeader, accept);
+      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
+      final response = await request.close().timeout(timeout);
       final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
+      await for (final chunk in response.timeout(timeout)) {
         bytes.add(chunk);
-        if (bytes.length > maximumResponseBytes) {
+        if (bytes.length > marketResponseLimit) {
           throw const FormatException('Market response too large');
         }
       }
@@ -45,145 +44,5 @@ final class IoMarketTransport implements MarketTransport {
     } finally {
       client.close(force: true);
     }
-  }
-}
-
-final class IoFugleMarketTransport implements FugleMarketTransport {
-  const IoFugleMarketTransport();
-
-  static const maximumResponseBytes = fugleResponseLimit;
-
-  @override
-  Future<MarketResponse> get(Uri uri, {required String apiKey}) async {
-    if (uri.scheme != 'https' ||
-        uri.host != 'api.fugle.tw' ||
-        !uri.path.startsWith('/marketdata/v1.0/stock/')) {
-      throw ArgumentError('Untrusted Fugle URI');
-    }
-    _validateApiKey(apiKey);
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
-      request.headers.set('X-API-KEY', apiKey);
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.add(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Fugle response too large');
-        }
-      }
-      return MarketResponse(
-        response.statusCode,
-        utf8.decode(bytes.takeBytes()),
-      );
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
-
-final class IoTwelveDataTransport implements TwelveDataTransport {
-  const IoTwelveDataTransport();
-
-  static const maximumResponseBytes = twelveDataResponseLimit;
-
-  @override
-  Future<MarketResponse> get(Uri uri, {required String apiKey}) async {
-    if (uri.scheme != 'https' ||
-        uri.host != 'api.twelvedata.com' ||
-        uri.path != '/time_series') {
-      throw ArgumentError('Untrusted Twelve Data URI');
-    }
-    _validateKey(apiKey);
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
-      request.headers.set(HttpHeaders.authorizationHeader, 'apikey $apiKey');
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.add(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Twelve Data response too large');
-        }
-      }
-      return MarketResponse(
-        response.statusCode,
-        utf8.decode(bytes.takeBytes()),
-      );
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
-
-final class IoYahooChartTransport implements YahooChartTransport {
-  const IoYahooChartTransport();
-
-  static const maximumResponseBytes = yahooChartResponseLimit;
-
-  @override
-  Future<MarketResponse> get(Uri uri) async {
-    if (uri.scheme != 'https' ||
-        uri.host != 'query1.finance.yahoo.com' ||
-        !uri.path.startsWith('/v8/finance/chart/')) {
-      throw ArgumentError('Untrusted Yahoo Chart URI');
-    }
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(const Duration(seconds: 10));
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'ExpenseTracker-V2');
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.add(chunk);
-        if (bytes.length > maximumResponseBytes) {
-          throw const FormatException('Yahoo Chart response too large');
-        }
-      }
-      return MarketResponse(
-        response.statusCode,
-        utf8.decode(bytes.takeBytes()),
-      );
-    } finally {
-      client.close(force: true);
-    }
-  }
-}
-
-/// Keys go into a request header, so only printable ASCII is sent.
-void _validateApiKey(String value) => _requireHeaderSafe(value, 'Fugle');
-
-void _validateKey(String value) => _requireHeaderSafe(value, 'Twelve Data');
-
-void _requireHeaderSafe(String value, String provider) {
-  if (value.isEmpty ||
-      value.length > 512 ||
-      !RegExp(r'^[\x21-\x7E]+$').hasMatch(value)) {
-    throw ArgumentError('Invalid $provider API key');
   }
 }

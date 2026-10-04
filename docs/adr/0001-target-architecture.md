@@ -14,7 +14,7 @@
 1. **分層**：UI（`apps/expense_tracker`）→ Application（`packages/app_core`）→ Domain（純 Dart，禁止 `dart:io`）。Infrastructure（`infrastructure/` 下：`storage_sqlcipher`、`backup_security`、`cloud_drive`、`market_adapters`）依賴 Domain 型別、實作 Application 定義的介面。
 2. **儲存**：單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、月報、卡片帳單、持倉等投影表與事件在同一交易內更新並建索引。寫入只驗證受影響範圍，取消 5,000 筆上限。崩潰復原交給 SQLite。
 3. **更正**：所有金錢事件都可用「反向事件加替代事件」修正，撤銷有自己的生效日；投資批次由事件重播得出。
-4. **冪等**：單一操作日誌記錄每個指令的 OperationKey，存在帳本內、跟著備份走；另有交易性 outbox 給雲端備份與提醒。
+4. **冪等**：單一操作日誌記錄每個指令的 OperationKey，存在帳本內、跟著備份走。（原本規劃的交易性 outbox 沒有用到，已於 2026-10-04 移除。）
 5. **金鑰**：每個資料庫一把隨機 DEK，分別由主密碼（Argon2id）、需生物辨識的 Keystore 金鑰、救援金鑰包裝；備份金鑰可輪替；密碼先做 Unicode 正規化。
 6. **備份 v2**：分塊串流格式，manifest 驗證備份 ID、時間與帳本身分；擷取永遠成功，驗證結果另成健康報告，只在還原時嚴格擋下；Drive 可續傳上傳。
 7. **schema 歸零**：1.0 前把 24 個版本收斂成 v1 基準；舊格式只保留在 `legacy_import`，用來匯入現有帳本與舊備份。
@@ -28,4 +28,4 @@
 
 - 沒有舊資料要搬：使用者確認當成新 App，第 7 點的 `legacy_import` 與舊備份匯入不做，舊 App 已整個移除。
 - Infrastructure 的實際套件：`storage_sqlcipher`、`ledger_sqlcipher`、`ledger_vault`、`backup_security`、`ledger_backup`、`drive_backup`、`backup_service`、`market_adapters`。
-- 帳本 schema 從 1 開始重新編號，目前 11 步。
+- 帳本 schema 從 1 開始重新編號，目前 12 步。

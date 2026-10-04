@@ -104,10 +104,9 @@ final class StoredEvent {
 
 final _kindPattern = RegExp(r'^[a-z][a-z0-9.\-]{0,63}$');
 final _modulePattern = RegExp(r'^[a-z][a-z0-9_]{0,31}$');
-const _outboxPage = 'SELECT * FROM outbox ORDER BY seq LIMIT ?';
 
 /// One encrypted SQLite database in WAL mode holding the append-only event
-/// journal, the operation journal and the outbox.
+/// journal and the operation journal.
 ///
 /// SQLite owns crash recovery: an interrupted transaction is rolled back by
 /// SQLite itself on the next open, never treated as tampering.
@@ -206,19 +205,6 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
     return rows.map(_event).toList();
   }
 
-  /// Committed outbox messages in commit order.
-  List<OutboxMessage> pendingOutbox({int limit = 50}) {
-    _requireOpen();
-    final rows = _db.select(_outboxPage, [limit]);
-    return rows.map(_message).toList();
-  }
-
-  /// Removes a delivered outbox message.
-  void acknowledge(PublicId id) {
-    _requireOpen();
-    _db.execute('DELETE FROM outbox WHERE id = ?', [id.value]);
-  }
-
   @override
   Future<R> write<R>(
     Future<R> Function(SqlTransaction transaction) body,
@@ -263,14 +249,6 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
       id: PublicId.parse(row['id'] as String),
       workspace: WorkspaceId.parse(row['workspace'] as String),
       kind: row['kind'] as String,
-      payload: row['payload'] as String,
-    );
-  }
-
-  static OutboxMessage _message(Row row) {
-    return OutboxMessage(
-      id: PublicId.parse(row['id'] as String),
-      topic: row['topic'] as String,
       payload: row['payload'] as String,
     );
   }
@@ -450,16 +428,6 @@ final class SqlTransaction implements WriteTransaction {
       operation.key.operation.toString(),
       operation.input,
       operation.result,
-    ]);
-  }
-
-  @override
-  Future<void> enqueue(OutboxMessage message) async {
-    _requireOpen();
-    _db.execute('INSERT INTO outbox (id, topic, payload) VALUES (?, ?, ?)', [
-      message.id.value,
-      message.topic,
-      message.payload,
     ]);
   }
 

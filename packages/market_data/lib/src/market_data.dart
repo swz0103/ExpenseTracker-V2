@@ -4,17 +4,21 @@ import 'dart:convert';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
 
-/// The provider date is distinct from the fetch time. Every value is
-/// informational; a broker execution or bank conversion must use actual terms.
-enum MarketState { available, stale, missing, unsupported, failed, throttled }
+/// Every value here is informational. What was actually traded or
+/// converted is what the user books.
+enum MarketState { available, stale, missing, unsupported, failed }
 
 final class MarketResult<T> {
   const MarketResult(this.state, {this.value, this.reason});
+
   final MarketState state;
   final T? value;
+
+  /// Why the value is not [MarketState.available]; not for display.
   final String? reason;
 }
 
+/// One day's closing price from TWSE or TPEx.
 final class StockClose {
   const StockClose({
     required this.symbol,
@@ -22,29 +26,56 @@ final class StockClose {
     required this.asOf,
     required this.fetchedAt,
   });
-  static const provider = 'twse-stock-day-all';
+
   final String symbol;
 
-  /// Exact positive TWD price per share; never a binary floating-point number.
+  /// Exact positive NT$ price per share, as published; never a double.
   final String decimalPrice;
   final BusinessDate asOf;
   final UtcInstant fetchedAt;
 }
 
-final class ReferenceRate {
-  const ReferenceRate({
-    required this.observation,
-    required this.derivedInverse,
+/// Bank of Taiwan's board rates for one currency, in NT$ per unit. A rate
+/// the bank does not quote, such as cash for some currencies, is null.
+final class BankRate {
+  const BankRate({
+    required this.currency,
+    this.cashBuy,
+    this.cashSell,
+    this.spotBuy,
+    this.spotSell,
   });
-  static const provider = 'ecb-exr-daily';
-  final FxObservation observation;
 
-  /// True when the requested non-EUR/EUR rate is the inverse of ECB's EUR base.
-  final bool derivedInverse;
+  final Currency currency;
+  final FxRate? cashBuy;
+  final FxRate? cashSell;
+  final FxRate? spotBuy;
+  final FxRate? spotSell;
+
+  /// What the bank pays for this currency in an account: the value of a
+  /// foreign-currency balance in NT$.
+  FxRate? get valuation => spotBuy ?? cashBuy;
+}
+
+/// The day's board, one row per quoted currency.
+final class BankRates {
+  BankRates({
+    required this.asOf,
+    required this.fetchedAt,
+    required Map<String, BankRate> rates,
+  }) : rates = Map.unmodifiable(rates);
+
+  /// The Taipei date the board was fetched on; the bank publishes daily.
+  final BusinessDate asOf;
+  final UtcInstant fetchedAt;
+  final Map<String, BankRate> rates;
+
+  BankRate? operator [](Currency currency) => rates[currency.code];
 }
 
 final class MarketResponse {
   const MarketResponse(this.statusCode, this.body);
+
   final int statusCode;
   final String body;
 }
@@ -53,82 +84,26 @@ abstract interface class MarketTransport {
   Future<MarketResponse> get(Uri uri);
 }
 
-/// Largest response body accepted from this provider, in bytes.
+/// Largest response body accepted, in characters. TPEx's daily snapshot is
+/// over 2 MiB.
 const marketResponseLimit = 8 * 1024 * 1024;
 
-final class _Snapshot {
-  _Snapshot(this.body, this.fetchedAt);
-  final String body;
-  final UtcInstant fetchedAt;
-
-  /// Rows by symbol, decoded once per fetched snapshot rather than once per
-  /// holding (health check G2-03).
-  final _indexes = <String, _SymbolIndex>{};
-
-  _SymbolIndex index(String market, String key) =>
-      _indexes[key] ??= _SymbolIndex.parse(body, market, key);
-}
-
-final class _SymbolIndex {
-  _SymbolIndex(this.rows, this.duplicates);
-
-  factory _SymbolIndex.parse(String body, String market, String key) {
-    final decoded = jsonDecode(body);
-    if (decoded is! List) throw FormatException('Expected $market rows');
-    final rows = <String, Map<String, dynamic>>{};
-    final duplicates = <String>{};
-    for (final row in decoded) {
-      if (row is! Map<String, dynamic>) {
-        throw FormatException('Invalid $market row');
-      }
-      final symbol = row[key];
-      if (symbol is! String) continue;
-      if (rows.containsKey(symbol)) duplicates.add(symbol);
-      rows[symbol] = row;
-    }
-    return _SymbolIndex(rows, duplicates);
-  }
-
-  final Map<String, Map<String, dynamic>> rows;
-  final Set<String> duplicates;
-
-  /// The row for [symbol]; a symbol listed twice is unusable.
-  Map<String, dynamic>? row(String market, String symbol) {
-    if (duplicates.contains(symbol)) {
-      throw FormatException('Duplicate $market symbol');
-    }
-    return rows[symbol];
-  }
-}
-
-final class _Fetch {
-  const _Fetch(this.snapshot, this.state, [this.reason]);
-  final _Snapshot? snapshot;
-  final MarketState state;
-  final String? reason;
-}
-
-final class _EcbRow {
-  const _EcbRow(this.asOf, this.decimal);
-  final BusinessDate asOf;
-  final String? decimal;
-}
-
-/// A single official source per route. Shared snapshot cache prevents one HTTP
-/// request per holding, and cooldown prevents repeated requests on failures.
+/// Daily closing prices (TWSE, TPEx) and Bank of Taiwan board rates: one
+/// free source each, no account needed. A snapshot is fetched once and
+/// shared by every holding; requests in flight are shared, and a failure
+/// is not retried for [retryAfter], falling back to the last snapshot as
+/// stale.
 final class MarketDataGateway {
   MarketDataGateway({
     required MarketTransport transport,
     DateTime Function()? clock,
     this.cacheTtl = const Duration(minutes: 20),
-    this.requestCooldown = const Duration(seconds: 10),
+    this.retryAfter = const Duration(minutes: 1),
     this.maximumObservationAge = const Duration(days: 4),
-    Future<void> Function(Duration delay)? wait,
   }) : _transport = transport,
-       _clock = clock ?? DateTime.now,
-       _wait = wait ?? Future<void>.delayed {
+       _clock = clock ?? DateTime.now {
     if (cacheTtl <= Duration.zero ||
-        requestCooldown < Duration.zero ||
+        retryAfter < Duration.zero ||
         maximumObservationAge < Duration.zero) {
       throw ArgumentError('Invalid market data time policy');
     }
@@ -142,343 +117,87 @@ final class MarketDataGateway {
     'www.tpex.org.tw',
     '/openapi/v1/tpex_mainboard_daily_close_quotes',
   );
-  static final cbcUsdTwdUri = Uri.https(
-    'cpx.cbc.gov.tw',
-    '/api/OpenData/FTDOpenData_Day',
-  );
+  static final bankRatesUri = Uri.https('rate.bot.com.tw', '/xrt/flcsv/0/day');
+
   final MarketTransport _transport;
   final DateTime Function() _clock;
   final Duration cacheTtl;
-  final Duration requestCooldown;
+  final Duration retryAfter;
   final Duration maximumObservationAge;
-  final Map<Uri, _Snapshot> _cache = {};
-  final Future<void> Function(Duration delay) _wait;
+  final _cache = <Uri, _Snapshot>{};
+  final _failedAt = <Uri, DateTime>{};
+  final _pending = <Uri, Future<_Fetch>>{};
 
-  /// When each resource was last requested; asking again sooner is
-  /// throttled.
-  final Map<Uri, DateTime> _lastAttempt = {};
-
-  /// When each host may next be asked. Another series on the same host
-  /// waits its turn instead of failing (health check G2-13).
-  final Map<String, DateTime> _hostFree = {};
-  final Map<Uri, Future<_Fetch>> _pending = {};
-
+  /// The latest close of a TWSE or TPEx stock or ETF traded in NT$.
   Future<MarketResult<StockClose>> stockClose(
-    InvestmentInstrument instrument, {
-    BusinessDate? requiredAsOf,
-  }) async {
-    if (instrument.marketCode != 'TWSE' ||
-        instrument.tradingCurrency != Currency.of('TWD') ||
-        !_twseSymbolSupported(instrument)) {
+    InvestmentInstrument instrument,
+  ) async {
+    final (uri, codeKey, priceKey) = switch (instrument.marketCode) {
+      'TWSE' => (twseUri, 'Code', 'ClosingPrice'),
+      'TPEX' => (tpexUri, 'SecuritiesCompanyCode', 'Close'),
+      _ => (null, '', ''),
+    };
+    if (uri == null ||
+        instrument.tradingCurrency != _twd ||
+        !_symbol(instrument).hasMatch(instrument.symbol)) {
       return const MarketResult(
         MarketState.unsupported,
-        reason: 'Only TWSE TWD listed stocks and ETFs are supported',
+        reason: 'Only TWSE and TPEx stocks and ETFs in NT\$',
       );
     }
-    final fetched = await _fetch(twseUri);
-    if (fetched.snapshot == null) {
-      return MarketResult(fetched.state, reason: fetched.reason);
-    }
-    try {
-      final rows = fetched.snapshot!.index('TWSE', 'Code');
-      final match = rows.row('TWSE', instrument.symbol);
-      if (match == null)
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'Symbol absent from latest TWSE snapshot',
-        );
-      final asOf = _rocDate(match['Date']);
-      final price = _positiveDecimal(match['ClosingPrice']);
-      if (price == null)
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'TWSE has no closing trade price for this symbol',
-        );
-      final quote = StockClose(
-        symbol: instrument.symbol,
-        decimalPrice: price,
-        asOf: asOf,
-        fetchedAt: fetched.snapshot!.fetchedAt,
-      );
-      final stale =
-          fetched.state == MarketState.stale || _isStale(asOf, requiredAsOf);
-      return MarketResult(
-        stale ? MarketState.stale : MarketState.available,
-        value: quote,
-        reason: stale
-            ? fetched.reason ?? 'Observation is older than requested'
-            : null,
-      );
-    } on FormatException {
-      return const MarketResult(
-        MarketState.failed,
-        reason: 'Invalid TWSE response',
-      );
-    }
-  }
-
-  Future<MarketResult<StockClose>> tpexStockClose(
-    InvestmentInstrument instrument, {
-    BusinessDate? requiredAsOf,
-  }) async {
-    if (instrument.marketCode != 'TPEX' ||
-        instrument.tradingCurrency != Currency.of('TWD') ||
-        !_tpexSymbolSupported(instrument)) {
-      return const MarketResult(
-        MarketState.unsupported,
-        reason: 'Only TPEx TWD listed stocks and ETFs are supported',
-      );
-    }
-    final fetched = await _fetch(tpexUri);
-    if (fetched.snapshot == null) {
-      return MarketResult(fetched.state, reason: fetched.reason);
-    }
-    try {
-      final rows = fetched.snapshot!.index('TPEx', 'SecuritiesCompanyCode');
-      final match = rows.row('TPEx', instrument.symbol);
-      if (match == null) {
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'Symbol absent from latest TPEx snapshot',
-        );
-      }
-      final asOf = _rocDate(match['Date']);
-      final price = _positiveDecimal(match['Close']);
-      if (price == null) {
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'TPEx has no closing trade price for this symbol',
-        );
-      }
-      final quote = StockClose(
-        symbol: instrument.symbol,
-        decimalPrice: price,
-        asOf: asOf,
-        fetchedAt: fetched.snapshot!.fetchedAt,
-      );
-      final stale =
-          fetched.state == MarketState.stale || _isStale(asOf, requiredAsOf);
-      return MarketResult(
-        stale ? MarketState.stale : MarketState.available,
-        value: quote,
-        reason: stale
-            ? fetched.reason ?? 'Observation is older than requested'
-            : null,
-      );
-    } on FormatException {
-      return const MarketResult(
-        MarketState.failed,
-        reason: 'Invalid TPEx response',
-      );
-    }
-  }
-
-  Future<MarketResult<ReferenceRate>> cbcUsdTwdRate(
-    Currency base,
-    Currency quote, {
-    BusinessDate? requiredAsOf,
-  }) => _cbcUsdTwdRate(
-    base,
-    quote,
-    requestedDate: requiredAsOf,
-    lookbackDays: 0,
-    exactWhenDated: true,
-  );
-
-  Future<MarketResult<ReferenceRate>> historicalCbcUsdTwdRate(
-    Currency base,
-    Currency quote, {
-    required BusinessDate date,
-    int lookbackDays = 7,
-  }) {
-    if (lookbackDays < 0 || lookbackDays > 7) {
-      throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
-    }
-    return _cbcUsdTwdRate(
-      base,
-      quote,
-      requestedDate: date,
-      lookbackDays: lookbackDays,
-      exactWhenDated: false,
-    );
-  }
-
-  Future<MarketResult<ReferenceRate>> _cbcUsdTwdRate(
-    Currency base,
-    Currency quote, {
-    required BusinessDate? requestedDate,
-    required int lookbackDays,
-    required bool exactWhenDated,
-  }) async {
-    final direct = base == Currency('USD', 2) && quote == Currency.of('TWD');
-    final inverse = base == Currency.of('TWD') && quote == Currency('USD', 2);
-    if (!direct && !inverse) {
-      return const MarketResult(
-        MarketState.unsupported,
-        reason: 'CBC route supports USD/TWD and its exact inverse',
-      );
-    }
-    final fetched = await _fetch(cbcUsdTwdUri);
-    if (fetched.snapshot == null) {
-      return MarketResult(fetched.state, reason: fetched.reason);
-    }
-    try {
-      final rows = _cbcRows(fetched.snapshot!.body);
-      _CbcRow? chosen;
-      if (requestedDate == null) {
-        if (rows.isNotEmpty) chosen = rows.last;
-      } else {
-        final requested = DateTime.utc(
-          requestedDate.year,
-          requestedDate.month,
-          requestedDate.day,
-        );
-        final earliest = requested.subtract(Duration(days: lookbackDays));
-        for (final row in rows) {
-          final value = DateTime.utc(
-            row.asOf.year,
-            row.asOf.month,
-            row.asOf.day,
-          );
-          if (!value.isAfter(requested) && !value.isBefore(earliest)) {
-            chosen = row;
-          }
-        }
-        if (exactWhenDated && chosen?.asOf != requestedDate) chosen = null;
-      }
-      if (chosen == null) {
-        return MarketResult(
-          MarketState.missing,
-          reason: exactWhenDated
-              ? 'CBC has no rate on the requested date'
-              : 'CBC has no rate within the historical window',
-        );
-      }
-      final published = FxRate.parse(
-        Currency('USD', 2),
-        Currency.of('TWD'),
-        chosen.decimal,
-      );
-      final observation = FxObservation(
-        rate: inverse ? published.inverse() : published,
-        source: 'cbc-usd-twd-daily-close',
-        asOf: chosen.asOf,
-        retrievedAt: fetched.snapshot!.fetchedAt,
-      );
-      final stale =
-          fetched.state == MarketState.stale ||
-          (requestedDate == null
-              ? _isStale(chosen.asOf, null)
-              : chosen.asOf != requestedDate);
-      return MarketResult(
-        stale ? MarketState.stale : MarketState.available,
-        value: ReferenceRate(observation: observation, derivedInverse: inverse),
-        reason: stale
-            ? fetched.reason ?? 'CBC observation predates requested date'
-            : null,
-      );
-    } on FormatException {
-      return const MarketResult(
-        MarketState.failed,
-        reason: 'Invalid CBC response',
-      );
-    } on FxException {
-      return const MarketResult(MarketState.failed, reason: 'Invalid CBC rate');
-    }
-  }
-
-  /// ECB publishes EUR-base reference rates. Supported quote currencies are
-  /// intentionally explicit; no cross-rate or non-ECB source is synthesized.
-  Future<MarketResult<ReferenceRate>> fxRate(
-    Currency base,
-    Currency quote, {
-    BusinessDate? requiredAsOf,
-  }) async {
-    const supported = {'USD', 'JPY', 'GBP', 'CHF'};
-    final direct = base.code == 'EUR' && supported.contains(quote.code);
-    final inverse = quote.code == 'EUR' && supported.contains(base.code);
-    if ((!direct && !inverse) ||
-        !_validCurrency(base) ||
-        !_validCurrency(quote)) {
-      return const MarketResult(
-        MarketState.unsupported,
-        reason: 'ECB route supports EUR against USD, JPY, GBP or CHF',
-      );
-    }
-    final currency = direct ? quote.code : base.code;
-    final params = <String, String>{'format': 'csvdata', 'detail': 'dataonly'};
-    if (requiredAsOf == null) {
-      params['lastNObservations'] = '1';
-    } else {
-      params['startPeriod'] = requiredAsOf.toString();
-      params['endPeriod'] = requiredAsOf.toString();
-    }
-    final uri = Uri.https(
-      'data-api.ecb.europa.eu',
-      '/service/data/EXR/D.$currency.EUR.SP00.A',
-      params,
-    );
     final fetched = await _fetch(uri);
-    if (fetched.snapshot == null) {
+    final snapshot = fetched.snapshot;
+    if (snapshot == null) {
       return MarketResult(fetched.state, reason: fetched.reason);
     }
     try {
-      final rows = _ecbRows(fetched.snapshot!.body, currency);
-      if (rows.isEmpty)
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'ECB returned no observation',
-        );
-      if (rows.length != 1)
-        throw const FormatException('Multiple ECB observations');
-      final asOf = rows.single.asOf;
-      final decimal = rows.single.decimal;
-      if (decimal == null)
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'ECB has no numeric reference rate',
-        );
-      if (requiredAsOf != null && asOf != requiredAsOf) {
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'ECB has no rate on the requested date',
-        );
+      final row = snapshot.row(codeKey, instrument.symbol);
+      if (row == null) {
+        return const MarketResult(MarketState.missing, reason: 'Not listed');
       }
-      final eur = Currency('EUR', 2);
-      final foreign = Currency.of(currency);
-      final published = FxRate.parse(eur, foreign, decimal);
-      final observation = FxObservation(
-        rate: inverse ? published.inverse() : published,
-        source: ReferenceRate.provider,
+      final price = _positiveDecimal(row[priceKey]);
+      if (price == null) {
+        return const MarketResult(MarketState.missing, reason: 'No trade');
+      }
+      final asOf = _rocDate(row['Date']);
+      final close = StockClose(
+        symbol: instrument.symbol,
+        decimalPrice: price,
         asOf: asOf,
-        retrievedAt: fetched.snapshot!.fetchedAt,
+        fetchedAt: snapshot.fetchedAt,
       );
-      final stale =
-          fetched.state == MarketState.stale || _isStale(asOf, requiredAsOf);
+      final stale = fetched.state == MarketState.stale || _old(asOf);
       return MarketResult(
         stale ? MarketState.stale : MarketState.available,
-        value: ReferenceRate(observation: observation, derivedInverse: inverse),
-        reason: stale
-            ? fetched.reason ?? 'Observation is older than requested'
-            : null,
+        value: close,
+        reason: stale ? fetched.reason ?? 'Old observation' : null,
       );
     } on FormatException {
-      return const MarketResult(
-        MarketState.failed,
-        reason: 'Invalid ECB response',
-      );
-    } on FxException {
-      return const MarketResult(MarketState.failed, reason: 'Invalid ECB rate');
+      return const MarketResult(MarketState.failed, reason: 'Bad snapshot');
     }
   }
 
-  bool _isStale(BusinessDate asOf, BusinessDate? requiredAsOf) {
-    if (requiredAsOf != null) return asOf != requiredAsOf;
-    final date = DateTime.utc(asOf.year, asOf.month, asOf.day);
-    final today = _clock().toUtc();
-    final todayDate = DateTime.utc(today.year, today.month, today.day);
-    final age = todayDate.difference(date);
-    return age.isNegative || age > maximumObservationAge;
+  /// Today's Bank of Taiwan board.
+  Future<MarketResult<BankRates>> bankRates() async {
+    final fetched = await _fetch(bankRatesUri);
+    final snapshot = fetched.snapshot;
+    if (snapshot == null) {
+      return MarketResult(fetched.state, reason: fetched.reason);
+    }
+    try {
+      final rates = snapshot.bankRates ??= _parseBankRates(snapshot);
+      return MarketResult(fetched.state, value: rates, reason: fetched.reason);
+    } on FormatException {
+      return const MarketResult(MarketState.failed, reason: 'Bad board');
+    } on FxException {
+      return const MarketResult(MarketState.failed, reason: 'Bad rate');
+    }
+  }
+
+  bool _old(BusinessDate asOf) {
+    final today = _taipeiDate(_clock());
+    final age = _epochDay(today) - _epochDay(asOf);
+    return age < 0 || age > maximumObservationAge.inDays;
   }
 
   Future<_Fetch> _fetch(Uri uri) {
@@ -491,29 +210,11 @@ final class MarketDataGateway {
     }
     final inFlight = _pending[uri];
     if (inFlight != null) return inFlight;
-    final last = _lastAttempt[uri];
-    if (last != null &&
-        !now.isBefore(last) &&
-        now.difference(last) < requestCooldown) {
-      return Future.value(
-        _Fetch(
-          cached,
-          cached == null ? MarketState.throttled : MarketState.stale,
-          'Request cooldown is active',
-        ),
-      );
+    final failed = _failedAt[uri];
+    if (failed != null && now.difference(failed) < retryAfter) {
+      return Future.value(_fallback(cached, 'Retrying later'));
     }
-    _lastAttempt[uri] = now;
-    final free = _hostFree[uri.host];
-    var delay = free == null || !free.isAfter(now)
-        ? Duration.zero
-        : free.difference(now);
-    if (delay > requestCooldown) delay = requestCooldown;
-    _hostFree[uri.host] = now.add(delay).add(requestCooldown);
-    final ready = delay == Duration.zero ? Future<void>.value() : _wait(delay);
-    final future = ready.then(
-      (_) => _request(uri, cached, UtcInstant(now.add(delay))),
-    );
+    final future = _request(uri, cached, UtcInstant(now));
     _pending[uri] = future;
     return future.whenComplete(() => _pending.remove(uri));
   }
@@ -521,292 +222,161 @@ final class MarketDataGateway {
   Future<_Fetch> _request(Uri uri, _Snapshot? prior, UtcInstant now) async {
     try {
       final response = await _transport.get(uri);
-      if (response.statusCode == 404 || response.statusCode == 204) {
-        return const _Fetch(
-          null,
-          MarketState.missing,
-          'Provider has no observation',
-        );
+      if (response.statusCode == 200 &&
+          response.body.length <= marketResponseLimit) {
+        final snapshot = _Snapshot(response.body, now);
+        _cache[uri] = snapshot;
+        _failedAt.remove(uri);
+        return _Fetch(snapshot, MarketState.available);
       }
-      if (response.statusCode == 429) {
-        return _Fetch(
-          prior,
-          prior == null ? MarketState.throttled : MarketState.stale,
-          'Provider rate limit',
-        );
-      }
-      if (response.statusCode != 200 ||
-          response.body.length > marketResponseLimit) {
-        return _Fetch(
-          prior,
-          prior == null ? MarketState.failed : MarketState.stale,
-          'Provider request failed',
-        );
-      }
-      final snapshot = _Snapshot(response.body, now);
-      _cache[uri] = snapshot;
-      if (_cache.length > 32) _cache.remove(_cache.keys.first);
-      return _Fetch(snapshot, MarketState.available);
-    } catch (_) {
-      return _Fetch(
-        prior,
-        prior == null ? MarketState.failed : MarketState.stale,
-        'Provider request failed',
-      );
+    } on Object {
+      // A network failure is reported like a bad status below.
     }
+    _failedAt[uri] = now.value;
+    return _fallback(prior, 'Request failed');
   }
 
-  /// Historical ECB reference rate for [date]. A prior observation within a
-  /// bounded window is returned as stale, never as the requested day's rate.
-  /// This supports weekends/holidays without fabricating a published quote.
-  Future<MarketResult<ReferenceRate>> historicalFxRate(
-    Currency base,
-    Currency quote, {
-    required BusinessDate date,
-    int lookbackDays = 7,
-  }) async {
-    if (lookbackDays < 0 || lookbackDays > 7) {
-      throw RangeError.range(lookbackDays, 0, 7, 'lookbackDays');
-    }
-    const supported = {'USD', 'JPY', 'GBP', 'CHF'};
-    final direct = base.code == 'EUR' && supported.contains(quote.code);
-    final inverse = quote.code == 'EUR' && supported.contains(base.code);
-    if ((!direct && !inverse) ||
-        !_validCurrency(base) ||
-        !_validCurrency(quote)) {
-      return const MarketResult(
-        MarketState.unsupported,
-        reason: 'ECB route supports EUR against USD, JPY, GBP or CHF',
-      );
-    }
-    final currency = direct ? quote.code : base.code;
-    final requested = DateTime.utc(date.year, date.month, date.day);
-    final first = requested.subtract(Duration(days: lookbackDays));
-    if (first.year < 1) {
-      throw RangeError('Historical lookup precedes supported calendar');
-    }
-    final start = BusinessDate(first.year, first.month, first.day);
-    final uri = Uri.https(
-      'data-api.ecb.europa.eu',
-      '/service/data/EXR/D.$currency.EUR.SP00.A',
-      {
-        'format': 'csvdata',
-        'detail': 'dataonly',
-        'startPeriod': start.toString(),
-        'endPeriod': date.toString(),
-      },
-    );
-    final fetched = await _fetch(uri);
-    if (fetched.snapshot == null) {
-      return MarketResult(fetched.state, reason: fetched.reason);
-    }
-    try {
-      final rows = _ecbRows(fetched.snapshot!.body, currency);
-      _EcbRow? chosen;
-      for (final row in rows) {
-        if (row.asOf.compareTo(start) < 0 || row.asOf.compareTo(date) > 0) {
-          throw const FormatException(
-            'ECB observation outside requested range',
-          );
-        }
-        if (row.decimal != null &&
-            (chosen == null || row.asOf.compareTo(chosen.asOf) > 0)) {
-          chosen = row;
-        }
-      }
-      if (chosen == null) {
-        return const MarketResult(
-          MarketState.missing,
-          reason: 'ECB has no rate within the historical window',
-        );
-      }
-      final eur = Currency('EUR', 2);
-      final foreign = Currency.of(currency);
-      final published = FxRate.parse(eur, foreign, chosen.decimal!);
-      final observation = FxObservation(
-        rate: inverse ? published.inverse() : published,
-        source: ReferenceRate.provider,
-        asOf: chosen.asOf,
-        retrievedAt: fetched.snapshot!.fetchedAt,
-      );
-      final stale = fetched.state == MarketState.stale || chosen.asOf != date;
-      return MarketResult(
-        stale ? MarketState.stale : MarketState.available,
-        value: ReferenceRate(observation: observation, derivedInverse: inverse),
-        reason: stale
-            ? fetched.reason ?? 'ECB observation predates requested date'
-            : null,
-      );
-    } on FormatException {
-      return const MarketResult(
-        MarketState.failed,
-        reason: 'Invalid ECB response',
-      );
-    } on FxException {
-      return const MarketResult(MarketState.failed, reason: 'Invalid ECB rate');
-    }
-  }
-}
-
-bool _twseSymbolSupported(InvestmentInstrument instrument) {
-  final symbol = instrument.symbol;
-  return switch (instrument.kind) {
-    InstrumentKind.stock => _stockSymbol.hasMatch(symbol),
-    InstrumentKind.etf => _etfSymbol.hasMatch(symbol),
-  };
-}
-
-/// Ordinary and preferred shares (2881A); bond, leveraged and inverse ETFs
-/// (00679B, 00631L, 00632R) too (health check G2-09).
-final _stockSymbol = RegExp(r'^[1-9][0-9]{3}[A-Z]?$');
-final _etfSymbol = RegExp(r'^00[0-9]{2,4}[A-Z]?$');
-
-bool _tpexSymbolSupported(InvestmentInstrument instrument) =>
-    _twseSymbolSupported(instrument);
-
-final class _CbcRow {
-  const _CbcRow(this.asOf, this.decimal);
-
-  final BusinessDate asOf;
-  final String decimal;
-}
-
-List<_CbcRow> _cbcRows(String body) {
-  final decoded = jsonDecode(body);
-  if (decoded is! List) throw const FormatException('Expected CBC rows');
-  final result = <_CbcRow>[];
-  BusinessDate? prior;
-  for (final raw in decoded) {
-    if (raw is! Map<String, dynamic>) {
-      throw const FormatException('Invalid CBC row');
-    }
-    final asOf = _calendarDate(raw['日期']);
-    final decimal = _positiveDecimal(raw['NTD_USD']);
-    if (decimal == null) throw const FormatException('Missing CBC rate');
-    if (prior != null && asOf.compareTo(prior) <= 0) {
-      throw const FormatException('CBC dates must be unique and ascending');
-    }
-    result.add(_CbcRow(asOf, decimal));
-    prior = asOf;
-  }
-  return result;
-}
-
-BusinessDate _calendarDate(Object? value) {
-  if (value is! String || !RegExp(r'^[0-9]{8}$').hasMatch(value)) {
-    throw const FormatException('Invalid calendar date');
-  }
-  return BusinessDate(
-    int.parse(value.substring(0, 4)),
-    int.parse(value.substring(4, 6)),
-    int.parse(value.substring(6, 8)),
+  static _Fetch _fallback(_Snapshot? prior, String reason) => _Fetch(
+    prior,
+    prior == null ? MarketState.failed : MarketState.stale,
+    reason,
   );
+
+  BankRates _parseBankRates(_Snapshot snapshot) {
+    final body = snapshot.body.replaceFirst('\uFEFF', '');
+    final lines = [
+      for (final line in const LineSplitter().convert(body))
+        if (line.trim().isNotEmpty) line,
+    ];
+    if (lines.isEmpty || !lines.first.startsWith('幣別')) {
+      throw const FormatException('Not a Bank of Taiwan board');
+    }
+    final rates = <String, BankRate>{};
+    for (final line in lines.skip(1)) {
+      final cells = [for (final cell in line.split(',')) cell.trim()];
+      // Columns: code, 本行買入, cash, spot, 7 forwards, 本行賣出, cash,
+      // spot, 7 forwards.
+      if (cells.length < 14 || cells[1] != '本行買入' || cells[11] != '本行賣出') {
+        throw const FormatException('Unexpected board row');
+      }
+      // A currency this app does not offer is skipped.
+      if (!Currency.supported.contains(cells[0])) continue;
+      final currency = Currency.of(cells[0]);
+      if (currency == _twd || rates.containsKey(currency.code)) {
+        throw const FormatException('Unexpected board currency');
+      }
+      FxRate? rate(int column) {
+        final decimal = _positiveDecimal(cells[column]);
+        return decimal == null ? null : FxRate.parse(currency, _twd, decimal);
+      }
+
+      rates[currency.code] = BankRate(
+        currency: currency,
+        cashBuy: rate(2),
+        cashSell: rate(12),
+        spotBuy: rate(3),
+        spotSell: rate(13),
+      );
+    }
+    return BankRates(
+      asOf: _taipeiDate(snapshot.fetchedAt.value),
+      fetchedAt: snapshot.fetchedAt,
+      rates: rates,
+    );
+  }
 }
 
-bool _validCurrency(Currency c) => c.scale == Currency.scaleOf(c.code);
+final class _Fetch {
+  const _Fetch(this.snapshot, this.state, [this.reason]);
+
+  final _Snapshot? snapshot;
+  final MarketState state;
+  final String? reason;
+}
+
+/// One fetched body, decoded at most once per use: rows by symbol for
+/// the exchanges, the parsed board for the bank.
+final class _Snapshot {
+  _Snapshot(this.body, this.fetchedAt);
+
+  final String body;
+  final UtcInstant fetchedAt;
+  Map<String, Map<String, Object?>>? _rows;
+  BankRates? bankRates;
+
+  /// The row for [symbol]; a symbol listed twice makes the snapshot
+  /// unusable for it.
+  Map<String, Object?>? row(String key, String symbol) {
+    final rows = _rows ??= _index(key);
+    final row = rows[symbol];
+    if (identical(row, _duplicate)) {
+      throw const FormatException('Duplicate symbol');
+    }
+    return row;
+  }
+
+  Map<String, Map<String, Object?>> _index(String key) {
+    final decoded = jsonDecode(body);
+    if (decoded is! List) throw const FormatException('Expected rows');
+    final rows = <String, Map<String, Object?>>{};
+    for (final row in decoded) {
+      if (row is! Map<String, Object?>) {
+        throw const FormatException('Invalid row');
+      }
+      final symbol = row[key];
+      if (symbol is! String) continue;
+      rows[symbol] = rows.containsKey(symbol) ? _duplicate : row;
+    }
+    return rows;
+  }
+}
+
+const Map<String, Object?> _duplicate = {};
+
+final _twd = Currency.of('TWD');
+
+/// Ordinary and preferred shares (2881A); ETFs including bond, leveraged
+/// and inverse ones (00679B, 00631L, 00632R).
+RegExp _symbol(InvestmentInstrument instrument) => switch (instrument.kind) {
+  InstrumentKind.stock => RegExp(r'^[1-9][0-9]{3}[A-Z]?$'),
+  InstrumentKind.etf => RegExp(r'^00[0-9]{2,4}[A-Z]?$'),
+};
+
+BusinessDate _taipeiDate(DateTime instant) {
+  final local = instant.toUtc().add(const Duration(hours: 8));
+  return BusinessDate(local.year, local.month, local.day);
+}
+
+int _epochDay(BusinessDate date) {
+  final instant = DateTime.utc(date.year, date.month, date.day);
+  return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+}
 
 BusinessDate _rocDate(Object? value) {
   if (value is! String || !RegExp(r'^[0-9]{7}$').hasMatch(value)) {
     throw const FormatException('Invalid ROC date');
   }
-  final year = int.parse(value.substring(0, 3)) + 1911;
   return BusinessDate(
-    year,
+    int.parse(value.substring(0, 3)) + 1911,
     int.parse(value.substring(3, 5)),
     int.parse(value.substring(5, 7)),
   );
 }
 
+/// Decimal text with optional thousands separators; null for "no value"
+/// markers and zero.
 String? _positiveDecimal(Object? value) {
   if (value is! String) throw const FormatException('Expected decimal text');
   final text = value.trim();
-  if (text.isEmpty || text == '--' || text == 'X') return null;
-  if (text.length > 128 ||
-      !RegExp(r'^(?:[0-9]+|[1-9][0-9]{0,2}(?:,[0-9]{3})+)(\.[0-9]{1,12})?$')
-          .hasMatch(text)) {
+  if (text.isEmpty || text == '--' || text == 'X' || text == '-') return null;
+  if (text.length > 64 || !_decimal.hasMatch(text)) {
     throw const FormatException('Invalid decimal');
   }
   final clean = text.replaceAll(',', '');
-  final parts = clean.split('.');
-  if (BigInt.parse(parts.join()) <= BigInt.zero) return null;
+  if (BigInt.parse(clean.replaceAll('.', '')) == BigInt.zero) return null;
   return clean;
 }
 
-List<_EcbRow> _ecbRows(String body, String currency) {
-  final rows = _csvRows(body);
-  if (rows.isEmpty) return const [];
-  final headers = rows.first;
-  final indexes = <String, int>{};
-  for (var i = 0; i < headers.length; i++) {
-    if (indexes.containsKey(headers[i])) {
-      throw const FormatException('Duplicate ECB column');
-    }
-    indexes[headers[i]] = i;
-  }
-  for (final key in [
-    'FREQ',
-    'CURRENCY',
-    'CURRENCY_DENOM',
-    'EXR_TYPE',
-    'EXR_SUFFIX',
-    'TIME_PERIOD',
-    'OBS_VALUE',
-  ]) {
-    if (!indexes.containsKey(key)) {
-      throw const FormatException('ECB column missing');
-    }
-  }
-  final observations = <_EcbRow>[];
-  final dates = <BusinessDate>{};
-  for (final row in rows.skip(1)) {
-    if (row.length != headers.length ||
-        row[indexes['FREQ']!] != 'D' ||
-        row[indexes['CURRENCY']!] != currency ||
-        row[indexes['CURRENCY_DENOM']!] != 'EUR' ||
-        row[indexes['EXR_TYPE']!] != 'SP00' ||
-        row[indexes['EXR_SUFFIX']!] != 'A') {
-      throw const FormatException('Wrong ECB series');
-    }
-    final date = BusinessDate.parse(row[indexes['TIME_PERIOD']!]);
-    if (!dates.add(date)) throw const FormatException('Duplicate ECB date');
-    observations.add(
-      _EcbRow(date, _positiveDecimal(row[indexes['OBS_VALUE']!])),
-    );
-  }
-  return observations;
-}
-
-List<List<String>> _csvRows(String input) {
-  final result = <List<String>>[];
-  var row = <String>[];
-  var field = StringBuffer();
-  var quoted = false;
-  for (var i = 0; i < input.length; i++) {
-    final ch = input[i];
-    if (ch == '"') {
-      if (quoted && i + 1 < input.length && input[i + 1] == '"') {
-        field.write('"');
-        i++;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (ch == ',' && !quoted) {
-      row.add(field.toString());
-      field = StringBuffer();
-    } else if ((ch == '\n' || ch == '\r') && !quoted) {
-      if (ch == '\r' && i + 1 < input.length && input[i + 1] == '\n') i++;
-      row.add(field.toString());
-      field = StringBuffer();
-      if (row.any((cell) => cell.isNotEmpty)) result.add(row);
-      row = <String>[];
-    } else {
-      field.write(ch);
-    }
-  }
-  if (quoted) throw const FormatException('Unclosed CSV quote');
-  if (row.isNotEmpty || field.isNotEmpty) {
-    row.add(field.toString());
-    if (row.any((cell) => cell.isNotEmpty)) result.add(row);
-  }
-  return result;
-}
+final _decimal = RegExp(
+  r'^(?:[0-9]+|[1-9][0-9]{0,2}(?:,[0-9]{3})+)(?:\.[0-9]{1,12})?$',
+);

@@ -1,6 +1,6 @@
-# 精確 FX 值型別與觀測日期
+# 精確匯率值型別
 
-範圍：[RC-04](architecture-baseline-v1.0-rc1.md#rc-04) 的計算地基。`foundation_values` 新增 `FxRate`／`FxObservation`，不改 Ledger schema、備份格式或 UI；尚非跨幣轉帳與行情能力完成。
+範圍：`foundation_values` 的 `FxRate`，跨幣轉帳、外幣估值與牌告匯率都用它。
 
 ## 表示與換算
 
@@ -20,12 +20,4 @@
 
 rate JSON v1 保存兩邊 code／scale 與字串 numerator／denominator，不保存 binary float；未知版本／欄位、數字型 ratio 或不合法幣別拒絕。數值正規化後可穩定比較與序列化。率本身尚未量化，業務保存換算結果時仍須另外記錄 `FxRate.roundingPolicy`，不可把這份值型別 JSON 當作完整 Audit。
 
-`FxObservation` 分開保存 rate、短來源識別、實際 `asOf` 業務日期與 `retrievedAt` UTC 瞬間。`rateFor(requested)` 預設只接受同日；使用 last-known 必須明確傳入 `allowEarlier`，較新的觀測永遠不能冒充較舊的請求日。這源自 [provider 初查](provider-feasibility.md)遇到的「HTTP 200 但回覆較早日期」，測試使用合成值。
-
-`allowEarlier` 不代表已通過時效或交易日檢查。允許多舊、週末／假日、來源優先次序與 UI 過期狀態屬於下一層策略；不得因回傳 rate 就移除原觀測日期。來源字串通過格式不代表來源已核實，也沒有建立網路 adapter。
-
-## 驗證
-
-18 項新增案例、連同原有 17 項共 35 項通過：極小小數、反向／交叉比率、三種以上 scale、正負 tie、int64 邊界與溢位、actual principals、跨 scale 拒絕、資源上限、超過 2^53 的 JSON、未知格式與日期策略。另以 11,552 組合成比例／金額核對結果距精確值不超過半個 minor unit，正負結果對稱。靜態分析通過，完整依賴回歸以 PR CI 為準。
-
-待完成：Ledger 跨幣 posting、Conversion reference／Audit 保存、provider 無損解析、取價與過期策略、投資 Decimal、正式資料 migration／備份與 Android 驗收。不把 pure-Dart 測試標為 M1-03 完成。
+報價日期由使用的地方保存：牌告匯率的 `BankRates.asOf`，以及入帳時記下的台幣約當（`PostingMetadata.homeValue`）。

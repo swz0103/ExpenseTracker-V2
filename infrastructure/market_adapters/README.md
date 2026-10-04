@@ -1,3 +1,3 @@
 # market_adapters
 
-`market_data` 的 dart:io HTTP 傳輸層：不跟隨轉址、回應大小有上限、每個供應商只接受自己的網址，API 金鑰只能是可列印 ASCII。目前 App 尚未接上行情，見 `docs/STATUS.md` C 區。
+`market_data` 的 dart:io 傳輸層：只連 TWSE、TPEx、臺灣銀行三個主機的 HTTPS，不跟隨轉址，每個階段 10 秒逾時，回應有大小上限。
