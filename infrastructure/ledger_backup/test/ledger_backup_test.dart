@@ -7,6 +7,7 @@ import 'package:bookkeeping/bookkeeping.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_backup/ledger_backup.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:ledger_sqlcipher/testing.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
@@ -136,6 +137,18 @@ void main() {
     final target = await restore(file);
     expect(projectionRows(target), projectionRows(source));
     expect(target.operationCount, source.operationCount);
+    expect(target.integrityCheck(), 'ok');
+  });
+
+  test('every event kind survives a backup and restore', () async {
+    // Cards, statements, installments, trades, corporate actions, home
+    // values, corrections, notes and plans in one ledger (G5-05).
+    await EveryEventKind(workspace).fill(LedgerStore(source));
+    final file = await backup(chunkSize: 64);
+    final target = await restore(file);
+    expect(target.eventCount, source.eventCount);
+    expect(target.operationCount, source.operationCount);
+    expect(projectionRows(target), projectionRows(source));
     expect(target.integrityCheck(), 'ok');
   });
 

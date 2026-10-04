@@ -83,4 +83,33 @@ void main() {
     final seqs = [for (final row in rows) row['seq']];
     expect(seqs, [before[0]['seq'], before[1]['seq'], 3]);
   });
+
+  test('step 11 keeps postings and starts with no home values', () async {
+    final old = openAt(10);
+    await old.write((t) async {
+      t.execute(
+        'INSERT INTO ledger_postings (id, workspace, kind, date, payload) '
+        "VALUES ('p1', 'w', 'cashFlow', '2026-10-01', '{}')",
+      );
+    });
+    final before = old.select('SELECT * FROM ledger_postings');
+    old.close();
+
+    final store = SqlCipherStore.open(file, key, modules: [ledgerSchema]);
+    addTearDown(store.close);
+    expect(store.moduleVersion('ledger'), ledgerSchema.migrations.length);
+    expect(store.select('SELECT * FROM ledger_postings'), before);
+    expect(store.select('SELECT * FROM ledger_posting_home'), isEmpty);
+    await store.write((t) async {
+      t.execute("INSERT INTO ledger_posting_home VALUES ('p1', '{}')");
+    });
+    // A home value needs its posting.
+    await expectLater(
+      store.write((t) async {
+        t.execute("INSERT INTO ledger_posting_home VALUES ('p9', '{}')");
+      }),
+      throwsA(isA<SqliteException>()),
+    );
+    expect(store.integrityCheck(), 'ok');
+  });
 }

@@ -170,6 +170,7 @@
     "ledger_sqlcipher": {
       "directory": "infrastructure/ledger_sqlcipher",
       "publicEntrypoints": ["ledger_sqlcipher.dart"],
+      "testEntrypoints": ["testing.dart"],
       "dependencies": ["accounts", "app_core", "bookkeeping", "budgets", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "recurring_transactions", "reports", "storage_sqlcipher", "tags"]
     },
     "backup_security": {
