@@ -24,17 +24,14 @@ void main() {
 
   test('sell tax depends on the instrument and day trading', () {
     final charges = TaiwanTradeCharges();
-    Money tax(
-      InstrumentKind kind, {
-      bool dayTrade = false,
-      BusinessDate? on,
-    }) => charges.sellTax(
-      ntd(100000),
-      shares('1000'),
-      kind: kind,
-      tradedOn: on ?? BusinessDate(2026, 10, 5),
-      dayTrade: dayTrade,
-    );
+    Money tax(InstrumentKind kind, {bool dayTrade = false, BusinessDate? on}) =>
+        charges.sellTax(
+          ntd(100000),
+          shares('1000'),
+          kind: kind,
+          tradedOn: on ?? BusinessDate(2026, 10, 5),
+          dayTrade: dayTrade,
+        );
     expect(tax(InstrumentKind.stock), ntd(300));
     expect(tax(InstrumentKind.stock, dayTrade: true), ntd(150));
     expect(tax(InstrumentKind.etf), ntd(100));

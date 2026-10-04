@@ -163,13 +163,16 @@ void main() {
       oldest.bytes,
       oldest.sha256,
     );
+    // Drive's own size and checksum describe the swapped content, so only
+    // the backup id can tell.
+    final swapped = (await client.file(newest.id))!;
     final target = open();
     addTearDown(target.close);
 
     await expectLater(
       service.restore(
         drive: client,
-        file: listing.files.first,
+        file: swapped,
         unlock: (keyring) => codec.unlockWithPassword(keyring, password),
         into: into(target),
       ),
