@@ -316,9 +316,8 @@ class _Chip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: selected ? Palette.card : Palette.ink,
-          ),
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: selected ? Palette.card : Palette.ink),
         ),
       ),
     );
@@ -636,9 +635,10 @@ class _RowsPainter extends CustomPainter {
           middle + bar / 2,
           Radius.circular(bar / 2),
         ),
-        Paint()..color = picked || selected == null && i == 0
-            ? Palette.clay
-            : Palette.peach,
+        Paint()
+          ..color = picked || selected == null && i == 0
+              ? Palette.clay
+              : Palette.peach,
       );
       paintText(
         canvas,

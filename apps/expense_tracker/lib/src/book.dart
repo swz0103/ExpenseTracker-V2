@@ -135,9 +135,8 @@ final class Book extends ChangeNotifier {
         totals[e.category] = (totals[e.category] ?? 0) + e.amount;
       }
     }
-    return [
-      for (final MapEntry(:key, :value) in totals.entries) (key, value),
-    ]..sort((a, b) => b.$2.compareTo(a.$2));
+    return [for (final MapEntry(:key, :value) in totals.entries) (key, value)]
+      ..sort((a, b) => b.$2.compareTo(a.$2));
   }
 
   /// This month's spending in [category], newest first, with its dates.
