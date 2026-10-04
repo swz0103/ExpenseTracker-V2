@@ -85,6 +85,20 @@ void main() {
     expect(find.text(dollars(before + 180)), findsOneWidget);
   });
 
+  testWidgets('a tapped bar shows its day below', (tester) async {
+    await show(tester);
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('房租'), findsNothing);
+    const name = '_BarsPainter';
+    final bars = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter.runtimeType.toString() == name,
+    );
+    await tester.tapAt(tester.getTopLeft(bars) + const Offset(3, 40));
+    await tester.pumpAndSettle();
+    expect(find.text('10/1 週四'), findsOneWidget);
+    expect(find.text('房租'), findsOneWidget);
+  });
+
   testWidgets('records filter by kind and reports open from more', (
     tester,
   ) async {

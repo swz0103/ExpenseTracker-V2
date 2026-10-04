@@ -8,9 +8,11 @@ import '../charts/chart_parts.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
 
-/// The first screen: this month's spending and income, a bar for each
-/// day, quick ways to record, reminders, investments and today's entries.
-class HomeScreen extends StatelessWidget {
+/// The first screen, sized to fit a phone without scrolling: this
+/// month's totals, quick ways to record, reminders and investments on
+/// top, then a bar for each day over that day's entries. Tapping a bar
+/// shows its day below; only the entries scroll.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.book, required this.onRecord});
 
   final Book book;
@@ -19,94 +21,163 @@ class HomeScreen extends StatelessWidget {
   final ValueChanged<EntryKind> onRecord;
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late int _day = widget.book.today.day;
+
+  /// Below this height the entries would be squeezed out, so the whole
+  /// page scrolls instead.
+  static const _compact = 560.0;
+
+  @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final muted = text.bodyMedium?.copyWith(color: Palette.muted);
+    final book = widget.book;
     return ListenableBuilder(
       listenable: book,
-      builder: (context, _) {
-        final today = book.on(book.today);
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            ScreenHeader(
-              title: '${book.today.month} 月',
-              onTitleTap: () => comingSoon(context, '切換月份'),
-              actions: [
-                IconButton(
-                  tooltip: '搜尋',
-                  onPressed: () => comingSoon(context, '搜尋'),
-                  icon: const Icon(Icons.search),
-                ),
-                IconButton(
-                  tooltip: '提醒',
-                  onPressed: () => comingSoon(context, '提醒'),
-                  icon: const Icon(Icons.notifications_none),
-                ),
-              ],
-            ),
-            Text('今天也要好好記帳！', style: muted),
-            const SizedBox(height: 16),
-            Row(
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final top = _top(context);
+          final day = _dayHeader(context);
+          final entries = _entries(context);
+          const padding = EdgeInsets.symmetric(horizontal: 16);
+          if (constraints.maxHeight < _compact) {
+            return ListView(
+              padding: padding,
+              children: [...top, day, ...entries],
+            );
+          }
+          return Padding(
+            padding: padding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                ...top,
+                day,
                 Expanded(
-                  child: _Stat('本月支出', book.monthTotal(EntryKind.expense)),
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    children: entries,
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _Stat('本月收入', book.monthTotal(EntryKind.income)),
-                ),
               ],
             ),
-            const SizedBox(height: 20),
-            DailyBars(
-              days: book.monthDays,
-              length: book.daysInMonth,
-              month: book.today.month,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _Action(Icons.payments_outlined, '支出', () {
-                  onRecord(EntryKind.expense);
-                }),
-                _Action(Icons.savings_outlined, '收入', () {
-                  onRecord(EntryKind.income);
-                }),
-                _Action(Icons.swap_horiz, '轉帳', () {
-                  onRecord(EntryKind.transfer);
-                }),
-                _Action(Icons.qr_code_scanner, '掃描', () {
-                  comingSoon(context, '掃描發票');
-                }),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (book.reminders.isNotEmpty) ...[
-              _Reminders(book.reminders),
-              const SizedBox(height: 12),
-            ],
-            _Investments(book),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Text('今天', style: text.titleSmall),
-                const Spacer(),
-                Text(shortDay(book.today), style: text.bodySmall),
-              ],
-            ),
-            const SizedBox(height: 4),
-            if (today.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('今天還沒有記帳', style: muted),
-              ),
-            for (final entry in today) EntryRow(entry),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
+  }
+
+  DateTime get _date {
+    final today = widget.book.today;
+    return DateTime.utc(today.year, today.month, _day);
+  }
+
+  List<Widget> _top(BuildContext context) {
+    final book = widget.book;
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: Palette.muted);
+    return [
+      ScreenHeader(
+        title: '${book.today.month} 月',
+        onTitleTap: () => comingSoon(context, '切換月份'),
+        actions: [
+          IconButton(
+            tooltip: '搜尋',
+            onPressed: () => comingSoon(context, '搜尋'),
+            icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            tooltip: '提醒',
+            onPressed: () => comingSoon(context, '提醒'),
+            icon: const Icon(Icons.notifications_none),
+          ),
+        ],
+      ),
+      Text('今天也要好好記帳！', style: muted),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _Stat('本月支出', book.monthTotal(EntryKind.expense)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Stat('本月收入', book.monthTotal(EntryKind.income)),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _Action(Icons.payments_outlined, '支出', () {
+            widget.onRecord(EntryKind.expense);
+          }),
+          _Action(Icons.savings_outlined, '收入', () {
+            widget.onRecord(EntryKind.income);
+          }),
+          _Action(Icons.swap_horiz, '轉帳', () {
+            widget.onRecord(EntryKind.transfer);
+          }),
+          _Action(Icons.qr_code_scanner, '掃描', () {
+            comingSoon(context, '掃描發票');
+          }),
+        ],
+      ),
+      const SizedBox(height: 10),
+      if (book.reminders.isNotEmpty) ...[
+        _Reminders(book.reminders),
+        const SizedBox(height: 8),
+      ],
+      _Investments(book),
+      const SizedBox(height: 12),
+      DailyBars(
+        days: book.monthDays,
+        length: book.daysInMonth,
+        month: book.today.month,
+        selected: _day,
+        onSelect: (day) => setState(() => _day = day),
+      ),
+    ];
+  }
+
+  Widget _dayHeader(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final date = _date;
+    final spent = widget.book.total(date, EntryKind.expense);
+    final title = date == widget.book.today ? '今天' : shortDay(date);
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 2),
+      child: Row(
+        children: [
+          Text(title, style: text.titleSmall),
+          const Spacer(),
+          Text(
+            '支出 ${groupDigits(spent)}',
+            style: text.bodySmall?.copyWith(color: Palette.muted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _entries(BuildContext context) {
+    final entries = widget.book.on(_date);
+    if (entries.isNotEmpty) {
+      return [for (final entry in entries) EntryRow(entry)];
+    }
+    final text = Theme.of(context).textTheme;
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Text(
+          '這天沒有記帳',
+          style: text.bodyMedium?.copyWith(color: Palette.muted),
+        ),
+      ),
+    ];
   }
 }
 
@@ -121,14 +192,19 @@ class _Stat extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Panel(
       color: Palette.wash,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: text.bodySmall?.copyWith(color: Palette.muted)),
-          const SizedBox(height: 6),
-          Text(
-            dollars(amount),
-            style: text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              dollars(amount),
+              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -149,11 +225,11 @@ class _Action extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(4),
         child: Column(
           children: [
-            IconTile(icon, size: 48),
-            const SizedBox(height: 6),
+            IconTile(icon, size: 42),
+            const SizedBox(height: 4),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
@@ -162,6 +238,33 @@ class _Action extends StatelessWidget {
   }
 }
 
+/// Shows [children] in a sheet from the bottom.
+Future<void> _sheet(
+  BuildContext context,
+  String title,
+  List<Widget> children,
+) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Palette.card,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// One line, 「尚有 2 筆待記」; tap to see them.
 class _Reminders extends StatelessWidget {
   const _Reminders(this.items);
 
@@ -170,100 +273,79 @@ class _Reminders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: Palette.muted);
     return Panel(
       color: Palette.wash,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      onTap: () => _sheet(context, '待記', [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text('・$item'),
+          ),
+      ]),
       child: Row(
         children: [
+          const Icon(Icons.edit_note, size: 22, color: Palette.clay),
+          const SizedBox(width: 8),
+          Text('尚有 ${items.length} 筆待記', style: text.bodyMedium),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('尚有 ${items.length} 筆待記', style: text.titleSmall),
-                const SizedBox(height: 6),
-                for (final item in items)
-                  Text(
-                    '・$item',
-                    style: text.bodySmall?.copyWith(color: Palette.muted),
-                  ),
-              ],
+            child: Text(
+              items.first,
+              style: muted,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Icon(Icons.edit_note, size: 40, color: Palette.peach),
+          const Icon(Icons.chevron_right, size: 18, color: Palette.muted),
         ],
       ),
     );
   }
 }
 
-class _Investments extends StatefulWidget {
+/// Total market value with a small trend; tap for the holdings.
+class _Investments extends StatelessWidget {
   const _Investments(this.book);
 
   final Book book;
 
   @override
-  State<_Investments> createState() => _InvestmentsState();
-}
-
-class _InvestmentsState extends State<_Investments> {
-  var _open = false;
-
-  @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final muted = text.bodySmall?.copyWith(color: Palette.muted);
-    final book = widget.book;
     final value = book.investValue;
     final cost = book.holdings.fold(0, (sum, h) => sum + h.cost);
     final change = book.holdings.fold(0, (sum, h) => sum + h.change);
     final gain = value - cost;
-    final summary =
-        '${percent(gain, cost)}（${signed(gain)}）　今日 ${signed(change)}';
+    final summary = '${percent(gain, cost)}　今日 ${signed(change)}';
     return Panel(
-      onTap: () => setState(() => _open = !_open),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      onTap: () => _sheet(context, '持股', [
+        for (final h in book.holdings) _HoldingRow(h),
+      ]),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('投資總資產', style: muted),
-                    const SizedBox(height: 4),
-                    Text(
-                      dollars(value),
-                      style: text.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      summary,
-                      style: muted?.copyWith(color: gainColor(gain)),
-                    ),
-                  ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('投資總資產', style: muted),
+                Text(
+                  dollars(value),
+                  style: text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              SizedBox(
-                width: 110,
-                height: 48,
-                child: CustomPaint(painter: _Sparkline(book.investHistory)),
-              ),
-            ],
+                Text(summary, style: muted?.copyWith(color: gainColor(gain))),
+              ],
+            ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: _open
-                ? Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      for (final h in book.holdings) _HoldingRow(h),
-                    ],
-                  )
-                : const SizedBox(width: double.infinity),
+          SizedBox(
+            width: 96,
+            height: 40,
+            child: CustomPaint(painter: _Sparkline(book.investHistory)),
           ),
         ],
       ),
@@ -302,6 +384,68 @@ class _HoldingRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A bar for each day of the month. Tap or drag across them to choose a
+/// day; the chosen one is drawn in the accent.
+class DailyBars extends StatelessWidget {
+  const DailyBars({
+    super.key,
+    required this.days,
+    required this.length,
+    required this.month,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  /// Spending on each day so far, the 1st first.
+  final List<int> days;
+
+  /// Days in the month.
+  final int length;
+  final int month;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  void _pick(Offset at, double width) {
+    final day = (at.dx / width * length).floor() + 1;
+    final last = max(1, days.length);
+    final known = day.clamp(1, last);
+    if (known != selected) onSelect(known);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Theme.of(context).textTheme.labelSmall!;
+    return SizedBox(
+      height: 96,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return GestureDetector(
+            onTapDown: (d) => _pick(d.localPosition, width),
+            onHorizontalDragUpdate: (d) => _pick(d.localPosition, width),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, grow, _) => CustomPaint(
+                size: Size.infinite,
+                painter: _BarsPainter(
+                  days: days,
+                  length: length,
+                  month: month,
+                  selected: selected,
+                  grow: grow,
+                  label: label,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -373,70 +517,6 @@ class _Sparkline extends CustomPainter {
   bool shouldRepaint(_Sparkline old) => old.values != values;
 }
 
-/// A bar for each day of the month; tap or drag to read a day.
-class DailyBars extends StatefulWidget {
-  const DailyBars({
-    super.key,
-    required this.days,
-    required this.length,
-    required this.month,
-  });
-
-  /// Spending on each day so far, the 1st first.
-  final List<int> days;
-
-  /// Days in the month.
-  final int length;
-  final int month;
-
-  @override
-  State<DailyBars> createState() => _DailyBarsState();
-}
-
-class _DailyBarsState extends State<DailyBars> {
-  int? _day;
-
-  void _pick(Offset at, double width) {
-    final day = (at.dx / width * widget.length).floor() + 1;
-    final last = max(1, widget.days.length);
-    final known = day.clamp(1, last);
-    if (known != _day) setState(() => _day = known);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = Theme.of(context).textTheme.labelSmall!;
-    return SizedBox(
-      height: 150,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          return GestureDetector(
-            onTapDown: (d) => _pick(d.localPosition, width),
-            onHorizontalDragUpdate: (d) => _pick(d.localPosition, width),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeOutCubic,
-              builder: (context, grow, _) => CustomPaint(
-                size: Size.infinite,
-                painter: _BarsPainter(
-                  days: widget.days,
-                  length: widget.length,
-                  month: widget.month,
-                  selected: _day ?? widget.days.length,
-                  showTip: _day != null,
-                  grow: grow,
-                  label: label,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 /// The amount a full-height bar stands for. One very large day, such as
 /// rent, is capped near the next largest so the other days stay readable;
@@ -454,7 +534,6 @@ class _BarsPainter extends CustomPainter {
     required this.length,
     required this.month,
     required this.selected,
-    required this.showTip,
     required this.grow,
     required this.label,
   });
@@ -463,14 +542,13 @@ class _BarsPainter extends CustomPainter {
   final int length;
   final int month;
   final int selected;
-  final bool showTip;
   final double grow;
   final TextStyle label;
 
   @override
   void paint(Canvas canvas, Size size) {
     const labels = 18.0;
-    const top = 26.0;
+    const top = 4.0;
     final bottom = size.height - labels;
     final scale = barScale(days);
     final slot = size.width / length;
@@ -518,28 +596,9 @@ class _BarsPainter extends CustomPainter {
         anchor: const Offset(0.5, 1),
       );
     }
-    if (!showTip || selected < 1 || selected > days.length) return;
-    final tip = '$month/$selected  ${dollars(days[selected - 1])}';
-    final painter = layoutText(tip, label.copyWith(color: Palette.card));
-    final width = painter.width + 16;
-    final centre = slot * (selected - 0.5);
-    final left = (centre - width / 2).clamp(0.0, size.width - width);
-    final box = RRect.fromLTRBR(
-      left,
-      0,
-      left + width,
-      painter.height + 8,
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(box, Paint()..color = Palette.ink);
-    painter.paint(canvas, Offset(left + 8, 4));
-    painter.dispose();
   }
 
   @override
   bool shouldRepaint(_BarsPainter old) =>
-      old.selected != selected ||
-      old.showTip != showTip ||
-      old.grow != grow ||
-      old.days != days;
+      old.selected != selected || old.grow != grow || old.days != days;
 }
