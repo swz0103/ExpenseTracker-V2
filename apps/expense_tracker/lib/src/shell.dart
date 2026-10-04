@@ -185,9 +185,8 @@ class _NotYet extends StatelessWidget {
     return Center(
       child: Text(
         '$name畫面製作中',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Palette.muted,
-        ),
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(color: Palette.muted),
       ),
     );
   }

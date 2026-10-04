@@ -58,15 +58,10 @@ class _HoldingsCardState extends State<HoldingsCard> {
             const SizedBox(height: 4),
             Text(
               groupDigits(value),
-              style: text.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w300,
-              ),
+              style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w300),
             ),
             const SizedBox(height: 2),
-            Text(
-              '未實現 $gain',
-              style: muted,
-            ),
+            Text('未實現 $gain', style: muted),
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {

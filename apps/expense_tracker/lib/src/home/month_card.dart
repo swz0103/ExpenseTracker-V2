@@ -26,7 +26,8 @@ class _MonthCardState extends State<MonthCard> {
   void _scrub(Offset position, double width) {
     final days = widget.data.daysInMonth;
     final day = (position.dx / width * days).ceil().clamp(1, days);
-    final known = day.clamp(1, max(1, widget.data.days.length));
+    final last = max(1, widget.data.days.length);
+    final known = day.clamp(1, last);
     if (known != _day) setState(() => _day = known);
   }
 
@@ -78,10 +79,7 @@ class _MonthCardState extends State<MonthCard> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                '預算 ${groupDigits(data.budget)}・已用 $used%',
-                style: muted,
-              ),
+              Text('預算 ${groupDigits(data.budget)}・已用 $used%', style: muted),
               const SizedBox(height: 16),
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
@@ -94,9 +92,7 @@ class _MonthCardState extends State<MonthCard> {
                       final width = constraints.maxWidth;
                       void scrub(Offset at) => _scrub(at, width);
                       return GestureDetector(
-                        onTapDown: _open
-                            ? (d) => scrub(d.localPosition)
-                            : null,
+                        onTapDown: _open ? (d) => scrub(d.localPosition) : null,
                         onHorizontalDragUpdate: _open
                             ? (d) => scrub(d.localPosition)
                             : null,

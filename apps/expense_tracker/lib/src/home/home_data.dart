@@ -96,9 +96,8 @@ final class DayEntries {
   final DateTime date;
   final List<Entry> entries;
 
-  int get spent => entries
-      .where((e) => !e.income)
-      .fold(0, (sum, e) => sum + e.amount);
+  int get spent =>
+      entries.where((e) => !e.income).fold(0, (sum, e) => sum + e.amount);
 }
 
 const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
