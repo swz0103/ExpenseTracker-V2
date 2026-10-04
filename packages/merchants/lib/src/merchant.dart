@@ -80,7 +80,9 @@ final class MerchantCatalog {
     final canonical = resolveRedirects({
       for (final row in rows.values) row.id: row.replacementId,
     });
-    if (canonical == null) throw const MerchantException(MerchantError.replacementCycle);
+    if (canonical == null) {
+      throw const MerchantException(MerchantError.replacementCycle);
+    }
     return MerchantCatalog._(
       workspace,
       Map.unmodifiable(rows),

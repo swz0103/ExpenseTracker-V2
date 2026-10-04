@@ -101,7 +101,9 @@ final class CategoryCatalog {
     final canonical = resolveRedirects({
       for (final row in rows.values) row.id: row.replacementId,
     });
-    if (canonical == null) throw const CategoryException(CategoryError.replacementCycle);
+    if (canonical == null) {
+      throw const CategoryException(CategoryError.replacementCycle);
+    }
     return CategoryCatalog._(
       workspace,
       Map.unmodifiable(rows),
