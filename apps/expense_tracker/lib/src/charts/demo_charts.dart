@@ -1,7 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/painting.dart';
-
+import '../theme.dart';
 import 'chart_data.dart';
 
 /// A year of made-up spending for the preview, ending on the given day.
@@ -39,13 +38,14 @@ ChartData demoCharts(int year, int month, int day, {int count = 12}) {
 
 const _rent = 12000;
 
-const _colors = {
-  '餐飲': Color(0xFFE07A5F),
-  '居家': Color(0xFF81B29A),
-  '交通': Color(0xFF3D85C6),
-  '購物': Color(0xFFE9B949),
-  '娛樂': Color(0xFF9C6ADE),
-  '醫療': Color(0xFFE5989B),
+/// The demo's category colours, also used by the home screen's entries.
+final demoCategoryColors = {
+  '居家': Palette.series[0],
+  '餐飲': Palette.series[1],
+  '交通': Palette.series[2],
+  '娛樂': Palette.series[3],
+  '購物': Palette.series[4],
+  '醫療': Palette.series[5],
 };
 
 /// Typical monthly amounts, varied a little each month.
@@ -81,7 +81,7 @@ List<CategorySlice> _categories(Random random, int month, double share) {
     // Rent is paid in full on the 1st, even early in the month.
     amount = typical == _rent ? _rent : (amount * share).round();
     if (amount > 0) {
-      final color = _colors[category]!;
+      final color = demoCategoryColors[category]!;
       (children[category] ??= []).add(CategorySlice(item, amount, color));
     }
   }
@@ -90,7 +90,7 @@ List<CategorySlice> _categories(Random random, int month, double share) {
       CategorySlice(
         name,
         items.fold(0, (sum, item) => sum + item.amount),
-        _colors[name]!,
+        demoCategoryColors[name]!,
         children: items..sort((a, b) => b.amount.compareTo(a.amount)),
       ),
   ];

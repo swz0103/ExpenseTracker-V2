@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/painting.dart';
 
+import '../theme.dart';
+
 /// What the charts draw, in whole NT$. Charts only show money; the exact
 /// amounts stay in the ledger.
 final class ChartData {
@@ -66,12 +68,11 @@ final class CategorySlice {
   final List<CategorySlice> children;
 }
 
-/// Colours shared by the charts, close to the old app's.
+/// Colours shared by the charts.
 abstract final class ChartColors {
-  static const income = Color(0xFF4B7A45);
-  static const expense = Color(0xFFC1502E);
-  static const netWorth = Color(0xFF5B6B52);
-  static const accent = Color(0xFF7C5FA3);
+  static const income = Palette.olive;
+  static const expense = Palette.clay;
+  static const netWorth = Color(0xFF6F8088);
 }
 
 /// `1234567` → `1,234,567`.
