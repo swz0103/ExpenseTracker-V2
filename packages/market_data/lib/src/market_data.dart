@@ -259,12 +259,9 @@ final class MarketDataGateway {
       if (cells.length < 14 || cells[1] != '本行買入' || cells[11] != '本行賣出') {
         throw const FormatException('Unexpected board row');
       }
-      final Currency currency;
-      try {
-        currency = Currency.of(cells[0]);
-      } on MoneyException {
-        continue; // A currency this app does not use.
-      }
+      // A currency this app does not offer is skipped.
+      if (!Currency.supported.contains(cells[0])) continue;
+      final currency = Currency.of(cells[0]);
       if (currency == _twd || rates.containsKey(currency.code)) {
         throw const FormatException('Unexpected board currency');
       }
