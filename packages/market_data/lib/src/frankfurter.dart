@@ -83,9 +83,7 @@ final class FrankfurterReferenceFxGateway {
       }
       // The exact digits, exponent included: 6.14e-05 is not 6.14
       // (health check G2-06).
-      final number = RegExp(
-        r'"rate"\s*:\s*([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)',
-      ).firstMatch(response.body)?[1];
+      final number = _exactRate.firstMatch(response.body)?[1];
       if (number == null) {
         throw const FormatException('Missing exact Frankfurter rate');
       }
@@ -169,9 +167,7 @@ int _ageInDays(BusinessDate date, DateTime now) => DateTime.utc(
 /// A JSON number such as `6.14e-05` as plain decimal text, `0.0000614`,
 /// without passing through a double.
 String plainDecimal(String number) {
-  final match = RegExp(
-    r'^([0-9]+)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$',
-  ).firstMatch(number);
+  final match = _jsonNumber.firstMatch(number);
   if (match == null) throw const FormatException('Invalid decimal');
   final whole = match[1]!;
   final fraction = match[2] ?? '';
@@ -190,3 +186,8 @@ String plainDecimal(String number) {
   final head = integer.isEmpty ? '0' : integer;
   return rest.isEmpty ? head : '$head.$rest';
 }
+
+final _exactRate = RegExp(
+  r'"rate"\s*:\s*([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)',
+);
+final _jsonNumber = RegExp(r'^([0-9]+)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$');

@@ -132,8 +132,8 @@ final class BackupService {
       }
       final result = report?.last.result;
       final problem = switch (result) {
-        null || UploadResult.idle || UploadResult.uploaded =>
-          _waiting(principal) ? _problems[principal] : null,
+        null || UploadResult.uploaded => null,
+        UploadResult.idle => _waiting(principal) ? _problems[principal] : null,
         final UploadResult other => 'upload ${other.name}',
       };
       _remember(principal, problem);
