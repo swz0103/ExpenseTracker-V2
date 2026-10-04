@@ -3,19 +3,20 @@ import 'package:flutter/material.dart';
 import '../charts/chart_data.dart';
 import '../theme.dart';
 import 'home_data.dart';
+import 'section.dart';
 
 /// Where this month's money went, as one thin strip split by category.
 /// Tap a piece to see its amount, last month's, and what it was spent on.
-class CategoryCard extends StatefulWidget {
-  const CategoryCard({super.key, required this.data});
+class CategorySection extends StatefulWidget {
+  const CategorySection({super.key, required this.data});
 
   final HomeData data;
 
   @override
-  State<CategoryCard> createState() => _CategoryCardState();
+  State<CategorySection> createState() => _CategorySectionState();
 }
 
-class _CategoryCardState extends State<CategoryCard> {
+class _CategorySectionState extends State<CategorySection> {
   int? _selected;
 
   @override
@@ -25,74 +26,79 @@ class _CategoryCardState extends State<CategoryCard> {
     final total = slices.fold(0, (sum, s) => sum + s.amount);
     final muted = text.bodySmall?.copyWith(color: Palette.muted);
     final selected = _selected;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('花在哪裡', style: muted),
-            const SizedBox(height: 14),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final pieces = stripPieces([
-                  for (final s in slices) s.amount,
-                ], width);
-                return GestureDetector(
-                  onTapUp: (details) {
-                    final x = details.localPosition.dx;
-                    for (final (i, (left, right)) in pieces.indexed) {
-                      if (x >= left - 1 && x <= right + 1) {
-                        setState(() => _selected = i == _selected ? null : i);
-                        return;
-                      }
+    return Section(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeading('花在哪裡', trailing: '${slices.length} 類'),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final pieces = stripPieces([
+                for (final s in slices) s.amount,
+              ], width);
+              return GestureDetector(
+                onTapUp: (details) {
+                  final x = details.localPosition.dx;
+                  for (final (i, (left, right)) in pieces.indexed) {
+                    if (x >= left - 1 && x <= right + 1) {
+                      setState(() => _selected = i == _selected ? null : i);
+                      return;
                     }
-                  },
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(end: selected == null ? 0.0 : 1.0),
-                    duration: const Duration(milliseconds: 250),
-                    builder: (context, focus, _) => CustomPaint(
-                      size: Size(width, 28),
-                      painter: _StripPainter(
-                        slices: slices,
-                        pieces: pieces,
-                        selected: selected,
-                        focus: focus,
-                      ),
+                  }
+                },
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: selected == null ? 0.0 : 1.0),
+                  duration: const Duration(milliseconds: 250),
+                  builder: (context, focus, _) => CustomPaint(
+                    size: Size(width, 20),
+                    painter: _StripPainter(
+                      slices: slices,
+                      pieces: pieces,
+                      selected: selected,
+                      focus: focus,
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.topLeft,
+              children: [...previous, if (current != null) current],
             ),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              layoutBuilder: (current, previous) => Stack(
-                alignment: Alignment.topLeft,
-                children: [...previous, if (current != null) current],
-              ),
-              child: selected == null
-                  ? Text(
-                      [
-                        for (final s in slices.take(3))
-                          '${s.name} ${(s.amount * 100 / total).round()}%',
-                      ].join('　'),
-                      key: const ValueKey('summary'),
-                      style: muted,
-                    )
-                  : _Detail(
-                      key: ValueKey(selected),
-                      slice: slices[selected],
-                      total: total,
-                      last: widget.data.lastMonth[slices[selected].name],
-                    ),
-            ),
-          ],
-        ),
+            child: selected == null
+                ? Text(
+                    [
+                      for (final s in slices.take(3))
+                        '${s.name} ${(s.amount * 100 / total).round()}%',
+                    ].join('　'),
+                    key: const ValueKey('summary'),
+                    style: muted,
+                  )
+                : _Detail(
+                    key: ValueKey(selected),
+                    slice: slices[selected],
+                    total: total,
+                    last: widget.data.lastMonth[slices[selected].name],
+                  ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// One ink in fading strengths, largest category darkest, so the strip
+/// stays quiet; only a tapped piece takes the accent.
+Color stripTone(int index) {
+  const strengths = [0.72, 0.5, 0.36, 0.26, 0.19, 0.14, 0.1];
+  final strength = strengths[index.clamp(0, strengths.length - 1)];
+  return Palette.ink.withValues(alpha: strength);
 }
 
 /// The left and right edge of each piece of a strip [width] wide, with a
@@ -134,10 +140,11 @@ class _StripPainter extends CustomPainter {
     final middle = size.height / 2;
     for (final (i, (left, right)) in pieces.indexed) {
       final picked = i == selected;
-      final half = 5 + (picked ? 6 * focus : 0);
-      final color = picked || selected == null
-          ? slices[i].color
-          : slices[i].color.withValues(alpha: 1 - 0.7 * focus);
+      final half = 3 + (picked ? 4 * focus : 0);
+      final tone = stripTone(i);
+      final color = picked
+          ? Color.lerp(tone, Palette.clay, focus)!
+          : tone.withValues(alpha: tone.a * (1 - 0.6 * focus));
       canvas.drawRRect(
         RRect.fromLTRBR(
           left,

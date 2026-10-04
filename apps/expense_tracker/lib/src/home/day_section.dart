@@ -6,20 +6,21 @@ import '../charts/chart_data.dart';
 import '../charts/chart_parts.dart';
 import '../theme.dart';
 import 'home_data.dart';
+import 'section.dart';
 
 /// The last seven days as dots sized by spending, and the entries of the
 /// chosen day (today at first). Only the first few entries show until
 /// asked for more.
-class DayCard extends StatefulWidget {
-  const DayCard({super.key, required this.data});
+class DaySection extends StatefulWidget {
+  const DaySection({super.key, required this.data});
 
   final HomeData data;
 
   @override
-  State<DayCard> createState() => _DayCardState();
+  State<DaySection> createState() => _DaySectionState();
 }
 
-class _DayCardState extends State<DayCard> {
+class _DaySectionState extends State<DaySection> {
   late int _day = widget.data.week.length - 1;
   var _all = false;
 
@@ -32,66 +33,60 @@ class _DayCardState extends State<DayCard> {
     final day = week[_day];
     final muted = text.bodySmall?.copyWith(color: Palette.muted);
     final entries = _all ? day.entries : day.entries.take(_shown).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(dayLabel(day.date), style: muted),
-                const Spacer(),
-                Text('支出 ${groupDigits(day.spent)}', style: muted),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                return GestureDetector(
-                  onTapUp: (details) {
-                    final column = details.localPosition.dx ~/ (width / 7);
-                    final index = column.clamp(0, week.length - 1);
-                    if (index == _day) return;
-                    setState(() {
-                      _day = index;
-                      _all = false;
-                    });
-                  },
-                  child: CustomPaint(
-                    size: Size(width, 64),
-                    painter: _WeekPainter(
-                      spent: [for (final d in week) d.spent],
-                      dates: [for (final d in week) d.date],
-                      selected: _day,
-                      label: text.labelSmall!,
-                    ),
+    return Section(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeading(
+            dayLabel(day.date),
+            trailing: '支出 ${groupDigits(day.spent)}',
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              return GestureDetector(
+                onTapUp: (details) {
+                  final column = details.localPosition.dx ~/ (width / 7);
+                  final index = column.clamp(0, week.length - 1);
+                  if (index == _day) return;
+                  setState(() {
+                    _day = index;
+                    _all = false;
+                  });
+                },
+                child: CustomPaint(
+                  size: Size(width, 64),
+                  painter: _WeekPainter(
+                    spent: [for (final d in week) d.spent],
+                    dates: [for (final d in week) d.date],
+                    selected: _day,
+                    label: text.labelSmall!,
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            if (day.entries.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text('這天沒有記帳', style: muted),
-              ),
-            for (final (i, entry) in entries.indexed) ...[
-              if (i > 0) const Divider(),
-              _EntryRow(entry),
-            ],
-            if (!_all && day.entries.length > _shown)
-              TextButton(
-                onPressed: () => setState(() => _all = true),
-                style: TextButton.styleFrom(
-                  foregroundColor: Palette.muted,
-                  padding: EdgeInsets.zero,
                 ),
-                child: Text('顯示全部 ${day.entries.length} 筆'),
-              ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          if (day.entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text('這天沒有記帳', style: muted),
+            ),
+          for (final (i, entry) in entries.indexed) ...[
+            if (i > 0) const Divider(),
+            _EntryRow(entry),
           ],
-        ),
+          if (!_all && day.entries.length > _shown)
+            TextButton(
+              onPressed: () => setState(() => _all = true),
+              style: TextButton.styleFrom(
+                foregroundColor: Palette.muted,
+                padding: EdgeInsets.zero,
+              ),
+              child: Text('顯示全部 ${day.entries.length} 筆'),
+            ),
+        ],
       ),
     );
   }
@@ -112,15 +107,6 @@ class _EntryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: entry.color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +162,7 @@ class _WeekPainter extends CustomPainter {
       } else {
         final share = min(1.0, amount / scale);
         final radius = max(3.0, largest * sqrt(share));
-        final color = picked ? Palette.clay : const Color(0xFFDDD3C5);
+        final color = picked ? Palette.ink : const Color(0xFFDDD5CA);
         canvas.drawCircle(centre, radius, Paint()..color = color);
       }
       final name = weekdayNames[dates[i].weekday - 1];

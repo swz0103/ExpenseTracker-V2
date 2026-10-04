@@ -6,20 +6,21 @@ import '../charts/chart_data.dart';
 import '../charts/chart_parts.dart';
 import '../theme.dart';
 import 'home_data.dart';
+import 'section.dart';
 
 /// This month at a glance: what was spent against the budget, and a
 /// small pace line. Tap to open the line, drag along it to read any day,
 /// and see income, balance and a month-end estimate.
-class MonthCard extends StatefulWidget {
-  const MonthCard({super.key, required this.data});
+class MonthSection extends StatefulWidget {
+  const MonthSection({super.key, required this.data});
 
   final HomeData data;
 
   @override
-  State<MonthCard> createState() => _MonthCardState();
+  State<MonthSection> createState() => _MonthSectionState();
 }
 
-class _MonthCardState extends State<MonthCard> {
+class _MonthSectionState extends State<MonthSection> {
   var _open = false;
   int? _day;
 
@@ -44,102 +45,85 @@ class _MonthCardState extends State<MonthCard> {
     final pace = estimate > data.budget
         ? '照目前速度，月底會超出預算 $gap'
         : '照目前速度，月底還剩 $gap';
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => setState(() {
-          _open = !_open;
-          _day = null;
-        }),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text('${month.month}月支出', style: muted),
-                  const Spacer(),
-                  Icon(
-                    _open ? Icons.expand_less : Icons.expand_more,
-                    size: 18,
-                    color: Palette.muted,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                groupDigits(spent),
-                style: text.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text('預算 ${groupDigits(data.budget)}・已用 $used%', style: muted),
-              const SizedBox(height: 16),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  height: _open ? 132 : 48,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      void scrub(Offset at) => _scrub(at, width);
-                      return GestureDetector(
-                        onTapDown: _open ? (d) => scrub(d.localPosition) : null,
-                        onHorizontalDragUpdate: _open
-                            ? (d) => scrub(d.localPosition)
-                            : null,
-                        child: CustomPaint(
-                          size: Size.infinite,
-                          painter: PacePainter(
-                            days: data.days,
-                            length: data.daysInMonth,
-                            budget: data.budget,
-                            open: _open,
-                            day: _day,
-                            month: month.month,
-                            label: text.labelSmall!,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              if (_open) ...[
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    _Figure('收入', month.income, Palette.olive),
-                    _Figure('結餘', month.net, Palette.ink),
-                    _Figure(
-                      '月底預估',
-                      estimate,
-                      estimate > data.budget ? Palette.clay : Palette.ink,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(pace, style: muted),
-              ],
-            ],
+    final left = data.budget - spent;
+    return Section(
+      onTap: () => setState(() {
+        _open = !_open;
+        _day = null;
+      }),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeading(
+            '${month.month}月支出',
+            trailing: left >= 0
+                ? '預算剩 ${groupDigits(left)}'
+                : '超出 ${groupDigits(-left)}',
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            groupDigits(spent),
+            style: text.displaySmall?.copyWith(
+              fontWeight: FontWeight.w300,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: _open ? 132 : 36,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  void scrub(Offset at) => _scrub(at, width);
+                  return GestureDetector(
+                    onTapDown: _open ? (d) => scrub(d.localPosition) : null,
+                    onHorizontalDragUpdate: _open
+                        ? (d) => scrub(d.localPosition)
+                        : null,
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: PacePainter(
+                        days: data.days,
+                        length: data.daysInMonth,
+                        budget: data.budget,
+                        open: _open,
+                        day: _day,
+                        month: month.month,
+                        label: text.labelSmall!,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          if (_open) ...[
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _Figure('收入', month.income),
+                _Figure('結餘', month.net),
+                _Figure('月底預估', estimate),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('已用預算 $used%。$pace', style: muted),
+          ],
+        ],
       ),
     );
   }
 }
 
 class _Figure extends StatelessWidget {
-  const _Figure(this.label, this.amount, this.color);
+  const _Figure(this.label, this.amount);
 
   final String label;
   final int amount;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -152,10 +136,7 @@ class _Figure extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             groupDigits(amount),
-            style: text.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w400,
-            ),
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w400),
           ),
         ],
       ),
@@ -228,7 +209,7 @@ class PacePainter extends CustomPainter {
       ..close();
     canvas.drawPath(
       area,
-      Paint()..color = Palette.clay.withValues(alpha: 0.08),
+      Paint()..color = Palette.ink.withValues(alpha: 0.04),
     );
     canvas.drawPath(
       line,
@@ -239,7 +220,7 @@ class PacePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round,
     );
     final ahead = spent > budget * totals.length / length;
-    final dot = ahead ? Palette.clay : Palette.olive;
+    final dot = ahead ? Palette.clay : Palette.ink;
     canvas.drawCircle(end, 3.5, Paint()..color = dot);
 
     if (!open) return;
@@ -248,8 +229,8 @@ class PacePainter extends CustomPainter {
       end,
       Offset(size.width, y(estimate)),
       Paint()
-        ..color = Palette.clay.withValues(alpha: 0.5)
-        ..strokeWidth = 1.2,
+        ..color = Palette.muted.withValues(alpha: 0.7)
+        ..strokeWidth = 1,
     );
     final muted = label.copyWith(color: Palette.muted);
     paintText(

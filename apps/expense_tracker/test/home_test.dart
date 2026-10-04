@@ -1,10 +1,10 @@
 import 'package:expense_tracker/src/charts/demo_charts.dart';
-import 'package:expense_tracker/src/home/category_card.dart';
-import 'package:expense_tracker/src/home/day_card.dart';
-import 'package:expense_tracker/src/home/holdings_card.dart';
+import 'package:expense_tracker/src/home/category_section.dart';
+import 'package:expense_tracker/src/home/day_section.dart';
+import 'package:expense_tracker/src/home/holdings_section.dart';
 import 'package:expense_tracker/src/home/home_demo.dart';
 import 'package:expense_tracker/src/home/home_page.dart';
-import 'package:expense_tracker/src/home/month_card.dart';
+import 'package:expense_tracker/src/home/month_section.dart';
 import 'package:expense_tracker/src/shell.dart';
 import 'package:expense_tracker/src/theme.dart';
 import 'package:flutter/material.dart';
@@ -44,11 +44,7 @@ void main() {
     expect(pieces[2].$2 - pieces[2].$1, closeTo(3, 0.001));
   });
 
-  test('dots add up to the whole', () {
-    final counts = waffleCounts([412, 286, 158, 97, 61], 100);
-    expect(total(counts), 100);
-    expect(counts.first, 41);
-    expect(waffleCounts([0, 0], 100), [0, 0]);
+  test('gains read with a sign', () {
     expect(signed(1200), '+1,200');
     expect(signed(-5), '-5');
     expect(percent(1, 8), '+12.5%');
@@ -86,12 +82,12 @@ void main() {
     expect(find.text('月底預估'), findsOneWidget);
 
     final strip = painted('_StripPainter');
-    await tester.tapAt(tester.getTopLeft(strip) + const Offset(5, 14));
+    await tester.tapAt(tester.getTopLeft(strip) + const Offset(5, 10));
     await tester.pumpAndSettle();
     expect(find.textContaining('上月'), findsOneWidget);
 
-    final dots = painted('_DotsPainter');
-    await tester.tapAt(tester.getTopLeft(dots) + const Offset(4, 4));
+    expect(find.text('2330'), findsNothing);
+    await tester.tap(find.text('投資'));
     await tester.pumpAndSettle();
     expect(find.text('2330'), findsOneWidget);
 

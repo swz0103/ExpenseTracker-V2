@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import 'category_card.dart';
-import 'day_card.dart';
-import 'holdings_card.dart';
+import 'category_section.dart';
+import 'day_section.dart';
+import 'holdings_section.dart';
 import 'home_data.dart';
-import 'month_card.dart';
+import 'month_section.dart';
 
-/// The first screen: this month, investments and the day's entries. Each
-/// card shows a little and opens up when tapped.
+/// The first screen, one quiet page: this month, where it went,
+/// investments and the day's entries. Each part shows little and opens
+/// up when tapped.
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.data});
 
@@ -15,8 +16,9 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const rule = Divider(indent: 24, endIndent: 24);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
         Center(
           child: ConstrainedBox(
@@ -24,13 +26,12 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                MonthCard(data: data),
-                const SizedBox(height: 12),
-                CategoryCard(data: data),
-                const SizedBox(height: 12),
-                HoldingsCard(data: data),
-                const SizedBox(height: 12),
-                DayCard(data: data),
+                MonthSection(data: data),
+                CategorySection(data: data),
+                rule,
+                HoldingsSection(data: data),
+                rule,
+                DaySection(data: data),
               ],
             ),
           ),
