@@ -9,16 +9,13 @@ import '../theme.dart';
 import '../ui/kit.dart';
 
 /// The first screen, sized to fit a phone without scrolling: this
-/// month's totals, quick ways to record, reminders and investments on
-/// top, then a bar for each day over that day's entries. Tapping a bar
+/// month's spending against income and the investments on top, then a
+/// bar for each day over that day's entries. Tapping a bar
 /// shows its day below; only the entries scroll.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.book, required this.onRecord});
+  const HomeScreen({super.key, required this.book});
 
   final Book book;
-
-  /// Opens the editor for a new entry of this kind.
-  final ValueChanged<EntryKind> onRecord;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -96,39 +93,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       Text('今天也要好好記帳！', style: muted),
-      const SizedBox(height: 10),
-      Row(
-        children: [
-          Expanded(child: _Stat('本月支出', book.monthTotal(EntryKind.expense))),
-          const SizedBox(width: 10),
-          Expanded(child: _Stat('本月收入', book.monthTotal(EntryKind.income))),
-        ],
-      ),
       const SizedBox(height: 12),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _Action(Icons.payments_outlined, '支出', () {
-            widget.onRecord(EntryKind.expense);
-          }),
-          _Action(Icons.savings_outlined, '收入', () {
-            widget.onRecord(EntryKind.income);
-          }),
-          _Action(Icons.swap_horiz, '轉帳', () {
-            widget.onRecord(EntryKind.transfer);
-          }),
-          _Action(Icons.qr_code_scanner, '掃描', () {
-            comingSoon(context, '掃描發票');
-          }),
-        ],
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _MonthPanel(
+                expense: book.monthTotal(EntryKind.expense),
+                income: book.monthTotal(EntryKind.income),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: _InvestPanel(book)),
+          ],
+        ),
       ),
       const SizedBox(height: 10),
       if (book.reminders.isNotEmpty) ...[
         _Reminders(book.reminders),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
       ],
-      _Investments(book),
-      const SizedBox(height: 12),
       DailyBars(
         days: book.monthDays,
         length: book.daysInMonth,
@@ -174,63 +159,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ];
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.amount);
-
-  final String label;
-  final int amount;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Panel(
-      color: Palette.wash,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: text.bodySmall?.copyWith(color: Palette.muted)),
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              dollars(amount),
-              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Action extends StatelessWidget {
-  const _Action(this.icon, this.label, this.onTap);
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          children: [
-            IconTile(icon, size: 42),
-            const SizedBox(height: 4),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -297,9 +225,136 @@ class _Reminders extends StatelessWidget {
   }
 }
 
-/// Total market value with a small trend; tap for the holdings.
-class _Investments extends StatelessWidget {
-  const _Investments(this.book);
+/// Spending as a share of income, drawn as a ring.
+class _MonthPanel extends StatelessWidget {
+  const _MonthPanel({required this.expense, required this.income});
+
+  final int expense;
+  final int income;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final muted = text.bodySmall?.copyWith(color: Palette.muted);
+    final share = income == 0 ? 1.0 : expense / income;
+    final over = share > 1;
+    return Panel(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('本月收支', style: muted),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox.square(
+                dimension: 52,
+                child: CustomPaint(
+                  painter: _Ring(share, over: over),
+                  child: Center(
+                    child: Text(
+                      '${(share * 100).round()}%',
+                      style: text.labelMedium?.copyWith(
+                        color: over ? Palette.warn : Palette.ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Figure('支出', expense, Palette.ink),
+                    const SizedBox(height: 2),
+                    _Figure('收入', income, Palette.clay),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Figure extends StatelessWidget {
+  const _Figure(this.label, this.amount, this.color);
+
+  final String label;
+  final int amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: text.bodySmall?.copyWith(color: Palette.muted),
+            ),
+            TextSpan(
+              text: groupDigits(amount),
+              style: text.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Ring extends CustomPainter {
+  _Ring(this.share, {required this.over});
+
+  final double share;
+  final bool over;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const width = 6.0;
+    final rect = (Offset.zero & size).deflate(width / 2);
+    canvas.drawArc(
+      rect,
+      0,
+      2 * pi,
+      false,
+      Paint()
+        ..color = Palette.wash
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width,
+    );
+    canvas.drawArc(
+      rect,
+      -pi / 2,
+      2 * pi * share.clamp(0.0, 1.0),
+      false,
+      Paint()
+        ..color = over ? Palette.warn : Palette.clay
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = width,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Ring old) => old.share != share || old.over != over;
+}
+
+/// Market value, the gain, and a bar split by holding; tap for details.
+class _InvestPanel extends StatelessWidget {
+  const _InvestPanel(this.book);
 
   final Book book;
 
@@ -311,33 +366,39 @@ class _Investments extends StatelessWidget {
     final cost = book.holdings.fold(0, (sum, h) => sum + h.cost);
     final change = book.holdings.fold(0, (sum, h) => sum + h.change);
     final gain = value - cost;
-    final summary = '${percent(gain, cost)}　今日 ${signed(change)}';
     return Panel(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(12),
       onTap: () => _sheet(context, '持股', [
-        for (final h in book.holdings) _HoldingRow(h),
+        for (final (i, h) in book.holdings.indexed) _HoldingRow(h, i),
       ]),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('投資總資產', style: muted),
-                Text(
-                  dollars(value),
-                  style: text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(summary, style: muted?.copyWith(color: gainColor(gain))),
-              ],
+          Text('投資', style: muted),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              dollars(value),
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${percent(gain, cost)}　今日 ${signed(change)}',
+              style: muted?.copyWith(color: gainColor(gain)),
+            ),
+          ),
+          const Spacer(),
           SizedBox(
-            width: 96,
-            height: 40,
-            child: CustomPaint(painter: _Sparkline(book.investHistory)),
+            height: 8,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _Allocation([for (final h in book.holdings) h.value]),
+            ),
           ),
         ],
       ),
@@ -345,10 +406,42 @@ class _Investments extends StatelessWidget {
   }
 }
 
+/// Holdings side by side in one thin bar, in the data colours.
+class _Allocation extends CustomPainter {
+  _Allocation(this.values);
+
+  final List<int> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = values.fold(0, (sum, v) => sum + v);
+    if (total == 0) return;
+    canvas.clipRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(4)),
+    );
+    var left = 0.0;
+    for (final (i, value) in values.indexed) {
+      final width = size.width * value / total;
+      canvas.drawRect(
+        Rect.fromLTWH(left, 0, width - 1.5, size.height),
+        Paint()..color = holdingColor(i),
+      );
+      left += width;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Allocation old) => old.values != values;
+}
+
+Color holdingColor(int index) =>
+    Palette.series[index % Palette.series.length];
+
 class _HoldingRow extends StatelessWidget {
-  const _HoldingRow(this.holding);
+  const _HoldingRow(this.holding, this.index);
 
   final Holding holding;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
@@ -358,6 +451,15 @@ class _HoldingRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
+          Container(
+            width: 10,
+            height: 10,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: holdingColor(index),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
           Text(holding.name, style: text.bodyMedium),
           const SizedBox(width: 6),
           Text(holding.code, style: muted),
@@ -456,58 +558,10 @@ String percent(int part, int whole) {
 
 /// Taiwan's market colours: red for up, green for down.
 Color gainColor(int value) => value > 0
-    ? const Color(0xFFD0603F)
+    ? Palette.warn
     : value < 0
     ? Palette.olive
     : Palette.muted;
-
-class _Sparkline extends CustomPainter {
-  _Sparkline(this.values);
-
-  final List<int> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.length < 2) return;
-    final high = values.reduce(max);
-    final low = values.reduce(min);
-    final span = max(1, high - low);
-    Offset at(int i) => Offset(
-      size.width * i / (values.length - 1),
-      size.height - 4 - (size.height - 8) * (values[i] - low) / span,
-    );
-    final line = Path()..moveTo(at(0).dx, at(0).dy);
-    for (var i = 1; i < values.length; i++) {
-      line.lineTo(at(i).dx, at(i).dy);
-    }
-    final rising = values.last >= values.first;
-    final color = gainColor(rising ? 1 : -1);
-    final area = Path.from(line)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      area,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0)],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_Sparkline old) => old.values != values;
-}
 
 /// The amount a full-height bar stands for. One very large day, such as
 /// rent, is capped near the next largest so the other days stay readable;

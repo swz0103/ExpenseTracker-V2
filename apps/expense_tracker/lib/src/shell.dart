@@ -55,7 +55,7 @@ class _AppShellState extends State<AppShell> {
         child: IndexedStack(
           index: _tab,
           children: [
-            HomeScreen(book: book, onRecord: _record),
+            HomeScreen(book: book),
             RecordsScreen(book: book),
             AccountsScreen(book: book),
             MoreScreen(reports: widget.reports),

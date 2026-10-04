@@ -250,7 +250,7 @@ class _EntryEditorState extends State<EntryEditor> {
             Text(
               problem,
               textAlign: TextAlign.center,
-              style: text.bodySmall?.copyWith(color: Palette.clay),
+              style: text.bodySmall?.copyWith(color: Palette.warn),
             ),
             const SizedBox(height: 8),
           ],

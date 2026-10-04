@@ -17,6 +17,10 @@ class ExpenseApp extends StatelessWidget {
       title: '記帳本',
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
+      // Phones show no scroll bar; on the web one would cover the amounts.
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        scrollbars: false,
+      ),
       home: home ?? const Scaffold(body: Center(child: Text('記帳本 V2：介面重建中'))),
     );
   }

@@ -5,7 +5,8 @@ import '../charts/chart_data.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
 
-/// Every entry of a month, newest day first, filtered by kind.
+/// Every entry of a month, newest day first; the filter button narrows
+/// it to one kind.
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key, required this.book});
 
@@ -27,6 +28,30 @@ class _RecordsScreenState extends State<RecordsScreen> {
     3 => entry.kind == EntryKind.transfer,
     _ => true,
   };
+
+  Future<void> _pickFilter() async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Palette.card,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('篩選')),
+            for (final (i, label) in _filters.indexed)
+              ListTile(
+                title: Text(label),
+                trailing: i == _filter
+                    ? const Icon(Icons.check, color: Palette.clay)
+                    : null,
+                onTap: () => Navigator.of(context).pop(i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _filter = picked);
+  }
 
   Future<void> _pickMonth() async {
     final picked = await showModalBottomSheet<(int, int)>(
@@ -80,17 +105,24 @@ class _RecordsScreenState extends State<RecordsScreen> {
                   ),
                   IconButton(
                     tooltip: '篩選',
-                    onPressed: () => comingSoon(context, '篩選'),
-                    icon: const Icon(Icons.tune),
+                    onPressed: _pickFilter,
+                    icon: Icon(
+                      Icons.tune,
+                      color: _filter == 0 ? null : Palette.clay,
+                    ),
                   ),
                 ],
               ),
-              PillTabs(
-                labels: _filters,
-                selected: _filter,
-                onChanged: (index) => setState(() => _filter = index),
-              ),
-              const SizedBox(height: 8),
+              if (_filter != 0)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InputChip(
+                    label: Text('只看$kind'),
+                    onDeleted: () => setState(() => _filter = 0),
+                    backgroundColor: Palette.wash,
+                    side: BorderSide.none,
+                  ),
+                ),
               Expanded(
                 child: groups.isEmpty
                     ? Center(

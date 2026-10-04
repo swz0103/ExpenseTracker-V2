@@ -1,35 +1,38 @@
 import 'package:flutter/material.dart';
 
-/// Cream paper, white panels, soft peach tiles and one terracotta
-/// accent, after the ExpenseTracker V2 mock-ups.
+/// Warm off-white paper, white panels, soft sage tiles and one warm
+/// green accent.
 abstract final class Palette {
-  static const paper = Color(0xFFFBF6F1);
+  static const paper = Color(0xFFF6F4EC);
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF3E3631);
-  static const muted = Color(0xFF9C9189);
-  static const line = Color(0xFFF0E6DC);
+  static const ink = Color(0xFF2F3A33);
+  static const muted = Color(0xFF8A9187);
+  static const line = Color(0xFFE4E7DC);
 
-  /// Peach tiles and selected backgrounds.
-  static const wash = Color(0xFFFCEEE3);
+  /// Sage tiles and selected backgrounds.
+  static const wash = Color(0xFFEAF0E2);
 
-  /// The accent: buttons, icons, the selected tab.
-  static const clay = Color(0xFFD9845A);
+  /// The accent: buttons, icons, the selected tab, income.
+  static const clay = Color(0xFF668F5A);
 
   /// Income.
-  static const olive = Color(0xFF6E9A5B);
+  static const olive = Color(0xFF668F5A);
+
+  /// Warnings, overspending and market gains (red for up in Taiwan).
+  static const warn = Color(0xFFB8613F);
 
   /// Light bars and other quiet data.
-  static const peach = Color(0xFFF4CDB4);
+  static const peach = Color(0xFFCADBB9);
 
-  /// Data colours, in the order categories take them.
+  /// Data colours, in the order categories and holdings take them.
   static const series = [
-    Color(0xFFE28B5F),
-    Color(0xFFF0B48C),
-    Color(0xFFC9A27E),
-    Color(0xFFB98568),
-    Color(0xFFE9C9A6),
-    Color(0xFFD9A48A),
-    Color(0xFFF3D7BF),
+    Color(0xFF668F5A),
+    Color(0xFF9DB886),
+    Color(0xFFC9D7AE),
+    Color(0xFF8F7D5C),
+    Color(0xFFBCA77E),
+    Color(0xFF5E7C6E),
+    Color(0xFFDCE3C8),
   ];
 }
 

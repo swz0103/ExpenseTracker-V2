@@ -71,7 +71,7 @@ final class CategorySlice {
 /// Colours shared by the charts.
 abstract final class ChartColors {
   static const income = Palette.olive;
-  static const expense = Palette.clay;
+  static const expense = Palette.warn;
   static const netWorth = Color(0xFF6F8088);
 }
 

@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/book.dart';
+import 'package:expense_tracker/src/charts/chart_data.dart';
 import 'package:expense_tracker/src/charts/demo_charts.dart';
 import 'package:expense_tracker/src/demo_book.dart';
 import 'package:expense_tracker/src/screens/home_screen.dart';
@@ -65,9 +66,11 @@ void main() {
   testWidgets('an expense recorded from home shows up at once', (tester) async {
     final demo = await show(tester);
     final before = demo.monthTotal(EntryKind.expense);
-    expect(find.text(dollars(before)), findsOneWidget);
+    Finder spent(int amount) =>
+        find.textContaining(groupDigits(amount), findRichText: true);
+    expect(spent(before), findsOneWidget);
 
-    await tester.tap(find.text('支出'));
+    await tester.tap(find.byTooltip('記一筆'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('儲存'));
     await tester.pump();
@@ -82,7 +85,7 @@ void main() {
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
     expect(find.text('已記下'), findsOneWidget);
-    expect(find.text(dollars(before + 180)), findsOneWidget);
+    expect(spent(before + 180), findsOneWidget);
   });
 
   testWidgets('a tapped bar shows its day below', (tester) async {
@@ -106,8 +109,11 @@ void main() {
     await tester.tap(find.text('記錄'));
     await tester.pumpAndSettle();
     expect(find.text('房租'), findsOneWidget);
+    await tester.tap(find.byTooltip('篩選'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('收入'));
     await tester.pumpAndSettle();
+    expect(find.text('只看收入'), findsOneWidget);
     expect(find.text('房租'), findsNothing);
     expect(find.text('薪資'), findsOneWidget);
 
