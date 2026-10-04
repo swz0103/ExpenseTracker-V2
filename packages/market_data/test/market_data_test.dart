@@ -62,10 +62,8 @@ void main() {
   late DateTime now;
   setUp(() => now = DateTime.utc(2026, 9, 30, 4));
 
-  MarketDataGateway gateway(FakeTransport transport) => MarketDataGateway(
-    transport: transport,
-    clock: () => now,
-  );
+  MarketDataGateway gateway(FakeTransport transport) =>
+      MarketDataGateway(transport: transport, clock: () => now);
 
   test('TWSE and TPEx closes are exact and share one snapshot each', () async {
     String rows(Uri uri) =>
