@@ -1,5 +1,7 @@
 # 交易標籤與安全升級
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 本批接續 [分類管理 PR #45](https://github.com/swz0103/ExpenseTracker-V2/pull/45)，實作 M1-02 的標籤使用流程。對應 [RC-05](../architecture/architecture-baseline-v1.0-rc1.md#rc-05)、[FV-011](../architecture/full-vision-baseline.md#fv-011)、[Q014](../architecture/full-vision-baseline.md#q014) 與 [Q053](../architecture/full-vision-baseline.md#q053)。完整 CORE 尚未結束；實際通過項目以工作進度及本批驗證證據為準。
 
 ## 使用流程

@@ -46,7 +46,7 @@ InvestmentInstrument twStock({
   marketCode: market,
   symbol: symbol,
   name: symbol,
-  tradingCurrency: Currency('TWD', 2),
+  tradingCurrency: Currency.of('TWD'),
 );
 
 void main() {
@@ -78,6 +78,32 @@ void main() {
       expect(request.$2, 'secret-key');
     },
   );
+
+  test('an OTC series from TPEx and a bond ETF symbol are accepted', () async {
+    final body = oneMinuteResponse
+        .replaceAll('"exchange":"TWSE"', '"exchange":"TPEx"')
+        .replaceAll('"market":"TSE"', '"market":"OTC"')
+        .replaceAll('"symbol":"2330"', '"symbol":"00679B"');
+    final gateway = FugleIntradayGateway(
+      apiKeySource: () async => 'key',
+      transport: FakeFugleTransport((_, _) async => MarketResponse(200, body)),
+      clock: () => DateTime.utc(2026, 9, 30, 1, 2),
+    );
+    final bond = InvestmentInstrument(
+      id: PublicId.generate(),
+      kind: InstrumentKind.etf,
+      marketCode: 'TPEX',
+      symbol: '00679B',
+      name: '00679B',
+      tradingCurrency: Currency.of('TWD'),
+    );
+    final result = await gateway.latestBar(
+      bond,
+      interval: IntradayInterval.oneMinute,
+    );
+    expect(result.state, MarketState.available);
+    expect(result.value!.close, '1322.5');
+  });
 
   test('five-minute route marks an older real observation stale', () async {
     final body = oneMinuteResponse

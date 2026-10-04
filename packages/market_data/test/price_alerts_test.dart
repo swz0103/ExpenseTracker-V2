@@ -4,7 +4,7 @@ import 'package:market_data/market_data.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final twd = Currency('TWD', 2);
+  final twd = Currency.of('TWD');
   late PriceAlert alert;
   late UtcInstant now;
 
@@ -76,27 +76,31 @@ void main() {
     }
   });
 
-  test(
-    'cooldown suppresses a second crossing while retaining new relation',
-    () {
-      final checkpoint = PriceAlertCheckpoint(
-        lastRelation: PriceRelation.below,
-        lastNotifiedAt: UtcInstant(
-          now.value.subtract(const Duration(hours: 1)),
-        ),
-      );
-      final evaluation = evaluatePriceAlert(
-        alert: alert,
-        checkpoint: checkpoint,
-        result: _result('1600', BusinessDate(2026, 10, 1)),
-        providerId: StockClose.provider,
-        now: now,
-      );
-      expect(evaluation.notification, isNull);
-      expect(evaluation.reason, 'Alert is cooling down');
-      expect(evaluation.checkpoint.lastRelation, PriceRelation.above);
-    },
-  );
+  test('a crossing during cooldown alerts once the cooldown ends', () {
+    final checkpoint = PriceAlertCheckpoint(
+      lastRelation: PriceRelation.below,
+      lastNotifiedAt: UtcInstant(now.value.subtract(const Duration(hours: 1))),
+    );
+    final evaluation = evaluatePriceAlert(
+      alert: alert,
+      checkpoint: checkpoint,
+      result: _result('1600', BusinessDate(2026, 10, 1)),
+      providerId: StockClose.provider,
+      now: now,
+    );
+    expect(evaluation.notification, isNull);
+    expect(evaluation.reason, 'Alert is cooling down');
+    expect(evaluation.checkpoint.lastRelation, PriceRelation.below);
+    final later = evaluatePriceAlert(
+      alert: alert,
+      checkpoint: evaluation.checkpoint,
+      result: _result('1610', BusinessDate(2026, 10, 2)),
+      providerId: StockClose.provider,
+      now: UtcInstant(now.value.add(const Duration(days: 2))),
+    );
+    expect(later.notification, isNotNull);
+    expect(later.checkpoint.lastRelation, PriceRelation.above);
+  });
 
   test('below alert crosses in the opposite direction with exact decimals', () {
     final below = PriceAlert(

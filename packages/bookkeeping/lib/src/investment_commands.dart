@@ -147,6 +147,8 @@ final class BuyInvestment extends _Trade {
     required this.gross,
     required this.fee,
     required this.tax,
+    this.settlesOn,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId buyId;
@@ -162,6 +164,14 @@ final class BuyInvestment extends _Trade {
   final Money fee;
   final Money tax;
 
+  /// When the cash moves, for example two exchange days after a Taiwan
+  /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
+  final BusinessDate? settlesOn;
+
+  /// What moved on the funding account when it is in another currency,
+  /// as with TWD settlement of a foreign trade (feature audit G-06).
+  final Money? settledAmount;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'buy-investment-v1',
@@ -175,6 +185,8 @@ final class BuyInvestment extends _Trade {
     'gross': gross.toJson(),
     'fee': fee.toJson(),
     'tax': tax.toJson(),
+    'settlesOn': settlesOn?.toString(),
+    'settledAmount': settledAmount?.toJson(),
   };
 }
 
@@ -191,6 +203,8 @@ final class SellInvestment extends _Trade {
     required this.gross,
     required this.fee,
     required this.tax,
+    this.settlesOn,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId sellId;
@@ -203,6 +217,14 @@ final class SellInvestment extends _Trade {
   final Money gross;
   final Money fee;
   final Money tax;
+
+  /// When the cash moves, for example two exchange days after a Taiwan
+  /// trade (`taiwanSettlementDate`); the trade date when null (G-07).
+  final BusinessDate? settlesOn;
+
+  /// What moved on the funding account when it is in another currency,
+  /// as with TWD settlement of a foreign trade (feature audit G-06).
+  final Money? settledAmount;
 
   @override
   Map<String, Object?> get fields => {
@@ -217,6 +239,8 @@ final class SellInvestment extends _Trade {
     'gross': gross.toJson(),
     'fee': fee.toJson(),
     'tax': tax.toJson(),
+    'settlesOn': settlesOn?.toString(),
+    'settledAmount': settledAmount?.toJson(),
   };
 }
 
@@ -232,6 +256,9 @@ final class RecordDividend extends _Trade {
     required this.withholdingTax,
     required this.fee,
     required this.net,
+    this.exDividendOn,
+    this.healthPremium,
+    this.settledAmount,
   }) : super(operation);
 
   final PublicId dividendId;
@@ -241,7 +268,20 @@ final class RecordDividend extends _Trade {
   final Money gross;
   final Money withholdingTax;
   final Money fee;
+
+  /// What arrived: gross less tax, fee and [healthPremium].
   final Money net;
+
+  /// The ex-dividend date, on or before [paidOn] (feature audit G-13).
+  final BusinessDate? exDividendOn;
+
+  /// Taiwan's NHI supplementary premium withheld from the dividend; see
+  /// `TaiwanTradeCharges.supplementaryPremium`.
+  final Money? healthPremium;
+
+  /// The amount credited in the funding account's currency, for a foreign
+  /// dividend paid out in TWD (feature audit G-06).
+  final Money? settledAmount;
 
   @override
   Map<String, Object?> get fields => {
@@ -254,5 +294,141 @@ final class RecordDividend extends _Trade {
     'withholdingTax': withholdingTax.toJson(),
     'fee': fee.toJson(),
     'net': net.toJson(),
+    'exDividendOn': exDividendOn?.toString(),
+    'healthPremium': healthPremium?.toJson(),
+    'settledAmount': settledAmount?.toJson(),
+  };
+}
+
+/// A forward split, for example 4-for-1. Quantities change, cost does not,
+/// and no cash moves. Returns the number of lots changed.
+final class SplitInvestment extends _Registration {
+  SplitInvestment({
+    required OperationKey operation,
+    required this.splitId,
+    required this.accountId,
+    required this.instrumentId,
+    required this.effectiveOn,
+    required this.newShares,
+    required this.oldShares,
+  }) : super(operation);
+
+  final PublicId splitId;
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final BusinessDate effectiveOn;
+  final int newShares;
+  final int oldShares;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'split-investment-v1',
+    'splitId': splitId.value,
+    'accountId': accountId.value,
+    'instrumentId': instrumentId.value,
+    'effectiveOn': effectiveOn.toString(),
+    'newShares': newShares,
+    'oldShares': oldShares,
+  };
+}
+
+/// A stock dividend, capital reduction or reverse split, with any cash it
+/// pays: [newShares] for every [oldShares] (health check G2-16). Returns
+/// the action's id.
+final class RecordCorporateAction extends _Trade {
+  RecordCorporateAction({
+    required OperationKey operation,
+    required this.actionId,
+    required this.postingId,
+    required this.target,
+    required this.effectiveOn,
+    required this.newShares,
+    required this.oldShares,
+    this.cashInLieu,
+    this.capitalReturned,
+  }) : super(operation);
+
+  final PublicId actionId;
+
+  /// Used only when the action pays cash.
+  final PublicId postingId;
+  final TradeTarget target;
+  final BusinessDate effectiveOn;
+  final int newShares;
+  final int oldShares;
+
+  /// Paid for the fraction of a share a whole-share market cannot hold.
+  final Money? cashInLieu;
+
+  /// Paid back by a cash capital reduction.
+  final Money? capitalReturned;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'record-corporate-action-v1',
+    'actionId': actionId.value,
+    'postingId': postingId.value,
+    ...target.toJson(),
+    'effectiveOn': effectiveOn.toString(),
+    'newShares': newShares,
+    'oldShares': oldShares,
+    'cashInLieu': cashInLieu?.toJson(),
+    'capitalReturned': capitalReturned?.toJson(),
+  };
+}
+
+/// Removes a trade entered by mistake. Its cash posting, if any, is
+/// reversed on its own date and the holding is replayed without it. A
+/// dividend can always be voided; a buy, sell or split only while no later
+/// buy, sell or split of the same holding depends on it. Returns the
+/// trade id.
+final class VoidInvestmentTrade extends _Trade {
+  VoidInvestmentTrade({
+    required OperationKey operation,
+    required this.accountId,
+    required this.instrumentId,
+    required this.tradeId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final PublicId tradeId;
+
+  /// The reversal posting, when the trade moved cash.
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-investment-trade-v1',
+    'accountId': accountId.value,
+    'instrumentId': instrumentId.value,
+    'tradeId': tradeId.value,
+    'reversalId': reversalId.value,
+  };
+}
+
+enum InvestmentRecordType { broker, account, instrument }
+
+/// Renames a broker, investment account or instrument. Ids, trades and
+/// versions stay as they are, so prepared trades remain valid. Returns 1.
+final class RenameInvestmentRecord extends _Registration {
+  RenameInvestmentRecord({
+    required OperationKey operation,
+    required this.type,
+    required this.id,
+    required this.name,
+  }) : super(operation);
+
+  final InvestmentRecordType type;
+  final PublicId id;
+  final String name;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'rename-investment-record-v1',
+    'type': type.name,
+    'id': id.value,
+    'name': name,
   };
 }

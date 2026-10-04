@@ -1,5 +1,7 @@
 # 救援憑證沿用與 BackupProfile 契約
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 對應[資料演進契約](data-evolution-contract.md#5-升級前安全備份)、[RC-14](../architecture/architecture-baseline-v1.0-rc1.md#rc-14)、[RC-15](../architecture/architecture-baseline-v1.0-rc1.md#rc-15)與使用者選定的密碼／文字救援 2A。這次只完成明確沿用救援憑證的封裝與 Ledger 入口；正式設定檔保存、啟用流程、背景備份與完整輪替仍未實作。
 
 ## 已實作的最小能力

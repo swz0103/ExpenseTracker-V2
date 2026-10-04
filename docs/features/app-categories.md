@@ -1,5 +1,7 @@
 # App 分類與 V2 帳本升級
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 後續版本新增[交易標籤與 schema 6](transaction-tags.md)；本文保留分類接入時 schema 5 的範圍與驗證證據，現在的 App 目標格式及最新開發包以工作進度為準。
 
 本批接續 分類引用與世代升級，屬於 M1-02 的分類子集。Tag、Merchant、交易拆分編輯及其他 M1／M2／M3 CORE 仍待實作；本批不代表 M1 完成。

@@ -6,7 +6,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final twd = Currency.iso('TWD');
+  final twd = Currency.of('TWD');
   final workspace = WorkspaceId(PublicId.generate());
   final day = BusinessDate(2026, 10, 3);
   Money ntd(int units) => Money(twd, BigInt.from(units));
@@ -76,6 +76,51 @@ void main() {
     expect(store.balance(account(wallet)), ntd(2000));
     expect(store.monthly(workspace, '2026-10')['TWD']!.expense, ntd(0));
     expect(store.postings(workspace), hasLength(4));
+  });
+
+  test('dates outside 2000 to 2099 are refused as typos', () async {
+    final bank = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: bank,
+        name: '老帳戶',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: earliestBookingDate,
+      ),
+    );
+    Future<void> spend(BusinessDate date) => books.recordCashFlow(
+      RecordCashFlow(
+        operation: op(),
+        postingId: PublicId.generate(),
+        flow: CashFlow.expense,
+        account: AccountRef(bank, 1),
+        date: date,
+        amount: ntd(100),
+      ),
+    );
+    for (final date in [BusinessDate(1999, 12, 31), BusinessDate(2100, 1, 1)]) {
+      await expectLater(
+        spend(date),
+        throwsA(const AppFailure(FailureKind.rejected, 'date.out-of-range')),
+      );
+    }
+    await spend(earliestBookingDate);
+    await spend(latestBookingDate);
+    await expectLater(
+      books.openAccount(
+        OpenAccount(
+          operation: op(),
+          accountId: PublicId.generate(),
+          name: '太早',
+          kind: AccountKind.cash,
+          currency: twd,
+          openedOn: BusinessDate(1990, 1, 1),
+        ),
+      ),
+      throwsA(const AppFailure(FailureKind.rejected, 'date.out-of-range')),
+    );
   });
 
   test('a failed command leaves nothing behind', () async {

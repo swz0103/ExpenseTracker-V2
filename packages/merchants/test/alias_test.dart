@@ -16,7 +16,8 @@ void main() {
         expectedVersion: catalog.get(id).version,
         alias: alias,
       );
-  final error = throwsA(isA<MerchantException>());
+  Matcher error(MerchantError code) =>
+      throwsA(isA<MerchantException>().having((e) => e.code, 'code', code));
 
   test('alias input and all exported views are immutable', () {
     final names = ['  SEVEN  ', '7-11'];
@@ -65,7 +66,7 @@ void main() {
       expect(catalog.resolve(a).id, a);
       expect(
         () => merged.requireSelection(workspace: ws, id: a, expectedVersion: 3),
-        error,
+        error(MerchantError.unavailable),
       );
       merged.requireSelection(workspace: ws, id: b, expectedVersion: 2);
     },
@@ -118,7 +119,7 @@ void main() {
           expectedVersion: 3,
           alias: 'shop',
         ),
-        error,
+        error(MerchantError.missing),
       );
       expect(
         () => next.addAlias(
@@ -127,7 +128,7 @@ void main() {
           expectedVersion: 2,
           alias: 'NEW',
         ),
-        error,
+        error(MerchantError.versionConflict),
       );
       expect(
         () => first.removeAlias(
@@ -136,15 +137,22 @@ void main() {
           expectedVersion: 2,
           alias: 'SHOP',
         ),
-        error,
+        error(MerchantError.workspaceMismatch),
       );
     },
   );
 
   test('duplicate and malformed aliases fail without changing a catalog', () {
     final catalog = add(initial(), a, 'SHOP');
-    for (final alias in ['', ' ', 'x' * 101, 'x\ny', 'shop', '便利商店甲']) {
-      expect(() => add(catalog, a, alias), error, reason: alias);
+    for (final (alias, code) in [
+      ('', MerchantError.invalidInput),
+      (' ', MerchantError.invalidInput),
+      ('x' * 101, MerchantError.invalidInput),
+      ('x\ny', MerchantError.invalidInput),
+      ('shop', MerchantError.duplicate),
+      ('便利商店甲', MerchantError.duplicate),
+    ]) {
+      expect(() => add(catalog, a, alias), error(code), reason: alias);
     }
     expect(catalog.get(a).version, 2);
     expect(catalog.get(a).aliases, ['SHOP']);
@@ -156,7 +164,7 @@ void main() {
         version: 1,
         aliases: ['SHOP', ' shop '],
       ),
-      error,
+      error(MerchantError.duplicate),
     );
     expect(
       () => Merchant.restore(
@@ -166,7 +174,7 @@ void main() {
         version: 1,
         aliases: ['\u0000'],
       ),
-      error,
+      error(MerchantError.invalidInput),
     );
   });
 
@@ -178,7 +186,7 @@ void main() {
         full = add(full, a, 'Alias $i');
       }
       expect(full.get(a).aliases.length, 16);
-      expect(() => add(full, a, 'Alias 17'), error);
+      expect(() => add(full, a, 'Alias 17'), error(MerchantError.invalidInput));
       final removed = full.removeAlias(
         workspace: ws,
         id: a,
@@ -221,7 +229,7 @@ void main() {
         expectedVersion: 2,
         alias: 'NEW',
       ),
-      error,
+      error(MerchantError.workspaceMismatch),
     );
     final merged = catalog.merge(
       workspace: ws,
@@ -237,7 +245,7 @@ void main() {
         expectedVersion: 3,
         alias: 'NEW',
       ),
-      error,
+      error(MerchantError.unavailable),
     );
     expect(
       () => merged.removeAlias(
@@ -246,7 +254,7 @@ void main() {
         expectedVersion: 3,
         alias: 'SHOP',
       ),
-      error,
+      error(MerchantError.unavailable),
     );
   });
 }

@@ -1,5 +1,7 @@
 # 金額遮罩與基本無障礙
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 範圍：M1-02 的帳戶餘額、交易列表及基本操作回饋。依據 [RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[RC-15](../architecture/architecture-baseline-v1.0-rc1.md#rc-15)、[Full Vision Q047](../architecture/full-vision-baseline.md#q047)、[Q095](../architecture/full-vision-baseline.md#q095)。這是既定完整 Privacy Presentation 的第一個可驗證使用流程，不代表 RC-15 或全部無障礙 gate 完成。
 
 後續補強：[鎖定時取消確認窗、下拉與操作選單](lock-transient-routes.md)，涵蓋退場中的浮層及確認回呼工作階段保護。

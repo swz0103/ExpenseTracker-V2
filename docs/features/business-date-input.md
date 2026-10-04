@@ -1,5 +1,7 @@
 # 共用日期輸入與繁體中文月曆
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-27，依賴 [PR #52](https://github.com/swz0103/ExpenseTracker-V2/pull/52) 的背景鎖定保護。對應 M1-02、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md)、[Full Vision Q048](../architecture/full-vision-baseline.md#q048) 與 [Q155](../architecture/full-vision-baseline.md#q155)。本批是既有日常錄入的共用元件，不宣稱全部 M1 或設計系統完成。
 
 ## 可用行為

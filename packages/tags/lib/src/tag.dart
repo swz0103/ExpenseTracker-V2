@@ -66,29 +66,10 @@ final class TagCatalog {
         if (target == null) throw const TagException(TagError.missing);
       }
     }
-    // Resolve all chains iteratively in O(n), including an untrusted long
-    // history. The derived index is disposable and never changes saved IDs.
-    final canonical = <PublicId, PublicId>{};
-    for (final id in rows.keys) {
-      if (canonical.containsKey(id)) continue;
-      final path = <PublicId>{};
-      var cursor = id;
-      while (!canonical.containsKey(cursor)) {
-        if (!path.add(cursor)) {
-          throw const TagException(TagError.replacementCycle);
-        }
-        final next = rows[cursor]!.replacementId;
-        if (next == null) {
-          canonical[cursor] = cursor;
-          break;
-        }
-        cursor = next;
-      }
-      final resolved = canonical[cursor]!;
-      for (final member in path) {
-        canonical[member] = resolved;
-      }
-    }
+    final canonical = resolveRedirects({
+      for (final row in rows.values) row.id: row.replacementId,
+    });
+    if (canonical == null) throw const TagException(TagError.replacementCycle);
     return TagCatalog._(
       workspace,
       Map.unmodifiable(rows),
@@ -130,6 +111,7 @@ final class TagCatalog {
     if (_rows.containsKey(id)) {
       throw const TagException(TagError.duplicate);
     }
+    _unique(id, name);
     return _replace(
       Tag.restore(id: id, workspace: workspace, name: name, version: 1),
     );
@@ -142,7 +124,21 @@ final class TagCatalog {
     required String name,
   }) {
     final row = _mutable(workspace, id, expectedVersion);
+    _unique(id, name);
     return _change(row, name: name);
+  }
+
+  /// Two live tags with one name would split every report in two
+  /// (feature audit G-19).
+  void _unique(PublicId self, String name) {
+    final key = nameKey(name);
+    for (final row in _rows.values) {
+      if (row.id != self &&
+          row.replacementId == null &&
+          nameKey(row.name) == key) {
+        throw const TagException(TagError.duplicate);
+      }
+    }
   }
 
   TagCatalog setArchived({
@@ -228,12 +224,8 @@ final class TagCatalog {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty ||
-      result.length > 100 ||
-      RegExp(r'[\x00-\x1f\x7f]').hasMatch(result)) {
-    throw const TagException(TagError.invalidInput);
-  }
+  final result = cleanName(value);
+  if (result == null) throw const TagException(TagError.invalidInput);
   return result;
 }
 

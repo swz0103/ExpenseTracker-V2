@@ -73,3 +73,52 @@ final class UtcInstant implements Comparable<UtcInstant> {
   @override
   int get hashCode => value.hashCode;
 }
+
+/// Which days banks and the stock exchange are open: weekdays, except
+/// [holidays], plus weekend [workdays] that make up for a holiday.
+/// Taiwan's calendar is published yearly, so it is supplied, not built in
+/// (feature audit G-07, G-10).
+final class BankingCalendar {
+  BankingCalendar({
+    Set<BusinessDate> holidays = const {},
+    Set<BusinessDate> workdays = const {},
+  }) : holidays = Set.unmodifiable(holidays),
+       workdays = Set.unmodifiable(workdays);
+
+  final Set<BusinessDate> holidays;
+  final Set<BusinessDate> workdays;
+
+  bool isOpen(BusinessDate date) {
+    if (workdays.contains(date)) return true;
+    final weekday = DateTime.utc(date.year, date.month, date.day).weekday;
+    return weekday != DateTime.saturday &&
+        weekday != DateTime.sunday &&
+        !holidays.contains(date);
+  }
+
+  /// [date] when open, otherwise the next open day.
+  BusinessDate onOrAfter(BusinessDate date) {
+    var day = date;
+    for (var i = 0; i < 60; i++) {
+      if (isOpen(day)) return day;
+      day = _next(day);
+    }
+    throw StateError('No open day within 60 days of $date.');
+  }
+
+  /// The [count]th open day after [date], as in T+2 settlement.
+  BusinessDate addOpenDays(BusinessDate date, int count) {
+    if (count < 0) throw ArgumentError.value(count, 'count');
+    var day = date;
+    for (var left = count; left > 0;) {
+      day = onOrAfter(_next(day));
+      left--;
+    }
+    return day;
+  }
+
+  static BusinessDate _next(BusinessDate date) {
+    final next = DateTime.utc(date.year, date.month, date.day + 1);
+    return BusinessDate(next.year, next.month, next.day);
+  }
+}

@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final ws = WorkspaceId(PublicId.generate()),
       usd = Currency('USD', 2),
@@ -74,7 +76,7 @@ void main() {
       expect(() => r.legs.clear(), throwsUnsupportedError);
     }
   });
-  test('self-reference, wrong workspace/date, opening/refund/reversal and invalid reason reject', () {
+  test('self-reference, wrong workspace or date, nested reversal reject', () {
     final p = Posting.expense(
       id: PublicId.generate(),
       operation: op(),
@@ -82,34 +84,82 @@ void main() {
       account: x,
       amount: amount,
     );
-    for (final make in [
-      () => rev(p, id: p.id),
-      () => rev(p, key: op(WorkspaceId(PublicId.generate()))),
-      () => rev(p, when: BusinessDate(2026, 9, 27)),
-      () => rev(p, reason: ' bad '),
-      () => rev(p, reason: '字' * 257),
-      () => rev(rev(p)),
-      () => rev(
-        Posting.opening(
-          id: PublicId.generate(),
-          operation: op(),
-          date: date,
-          account: x,
-          amount: amount,
-        ),
+    for (final (make, code) in [
+      (() => rev(p, id: p.id), LedgerError.reversalReference),
+      (
+        () => rev(p, key: op(WorkspaceId(PublicId.generate()))),
+        LedgerError.workspaceMismatch,
       ),
-      () => rev(
-        Posting.refund(
-          id: PublicId.generate(),
-          operation: op(),
-          date: date,
-          account: x,
-          originalId: p.id,
-          amount: amount,
-        ),
+      (
+        () => rev(p, when: BusinessDate(2026, 9, 27)),
+        LedgerError.reversalReference,
       ),
+      (() => rev(p, reason: ' bad '), LedgerError.reversalReference),
+      (() => rev(p, reason: '字' * 257), LedgerError.reversalReference),
+      (() => rev(rev(p)), LedgerError.reversalReference),
     ])
-      expect(make, throwsA(isA<LedgerException>()));
+      expect(make, fails(code));
     expect(rev(p, reason: '字' * 256).reversalReason!.length, 256);
+  });
+  test('an opening or a refund can be reversed exactly', () {
+    final opening = Posting.opening(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      amount: amount,
+    );
+    final expense = Posting.expense(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      amount: amount,
+    );
+    final refund = Posting.refund(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      originalId: expense.id,
+      amount: amount,
+    );
+    for (final original in [opening, refund]) {
+      final reversal = rev(original);
+      expect(reversal.reportExpense, -original.reportExpense);
+      expect(rebuildBalance(x, [original, reversal]).minorUnits, BigInt.zero);
+    }
+  });
+  test('investment cash is reversed only by voiding its trade', () {
+    Money m(int units) => Money(usd, BigInt.from(units));
+    final buy = Posting.investmentBuy(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      account: x,
+      investmentBuyId: PublicId.generate(),
+      gross: m(1000),
+      fee: m(5),
+      tax: m(0),
+      cashDebit: m(1005),
+    );
+    expect(
+      () => rev(buy),
+      throwsA(
+        isA<LedgerException>().having(
+          (e) => e.code,
+          'code',
+          LedgerError.reversalReference,
+        ),
+      ),
+    );
+    final voided = Posting.reversal(
+      id: PublicId.generate(),
+      operation: op(),
+      date: date,
+      original: buy,
+      tradeVoid: true,
+    );
+    expect(rebuildBalance(x, [buy, voided]), Money(usd, BigInt.zero));
   });
 }

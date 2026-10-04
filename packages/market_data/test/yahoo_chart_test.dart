@@ -49,7 +49,7 @@ InvestmentInstrument instrument({
   marketCode: market,
   symbol: symbol,
   name: symbol,
-  tradingCurrency: Currency(currency, 2),
+  tradingCurrency: Currency.of(currency),
 );
 
 void main() {
@@ -81,6 +81,27 @@ void main() {
       expect(uri.queryParameters['range'], '1d');
     },
   );
+
+  test('float noise in Yahoo prices is rounded to a real price', () async {
+    final noisy = response
+        .replaceFirst('[1320, 1322]', '[1320, 154.1999969482422]')
+        .replaceFirst('[1325.5, 1326]', '[1325.5, 154.4000244140625]')
+        .replaceFirst('[1315, 1320]', '[1315, 154.0999755859375]')
+        .replaceFirst('[1322.5, 1324]', '[1322.5, 154.3000030517578]');
+    final gateway = YahooChartIntradayGateway(
+      transport: FakeYahooTransport((_) async => MarketResponse(200, noisy)),
+      clock: () =>
+          DateTime.fromMillisecondsSinceEpoch(1790730180 * 1000, isUtc: true),
+    );
+    final result = await gateway.latestBar(
+      instrument(),
+      interval: IntradayInterval.oneMinute,
+    );
+    expect(result.state, MarketState.available);
+    expect(result.value!.close, '154.3');
+    expect(result.value!.high, '154.4');
+    expect(result.value!.low, '154.1');
+  });
 
   test('throttle and wrong series remain distinct failures', () async {
     final throttled = YahooChartIntradayGateway(

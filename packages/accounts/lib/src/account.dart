@@ -1,6 +1,16 @@
 import 'package:foundation_values/foundation_values.dart';
 
-enum AccountKind { cash, bank, creditCard }
+enum AccountKind {
+  cash,
+  bank,
+  creditCard,
+
+  /// Stored value such as LINE Pay Money or JKOPAY (feature audit G-20b).
+  eWallet,
+
+  /// A loan; its balance is negative while money is owed.
+  loan,
+}
 
 enum AccountState { active, archived, closed }
 
@@ -33,6 +43,7 @@ final class Account {
     required this.openedOn,
     required this.includeInNetWorth,
     required this.version,
+    required this.rulesVersion,
     required this.state,
     this.closedOn,
     this.closingReason,
@@ -56,6 +67,7 @@ final class Account {
     openedOn: openedOn,
     includeInNetWorth: includeInNetWorth,
     version: 1,
+    rulesVersion: 1,
     state: AccountState.active,
   );
 
@@ -69,12 +81,15 @@ final class Account {
     required BusinessDate openedOn,
     required bool includeInNetWorth,
     required int version,
+    required int rulesVersion,
     required AccountState state,
     BusinessDate? closedOn,
     String? closingReason,
     PublicId? successorId,
   }) {
     if (version < 1 ||
+        rulesVersion < 1 ||
+        rulesVersion > version ||
         (closedOn != null && closedOn.compareTo(openedOn) < 0) ||
         (state == AccountState.closed && closedOn == null) ||
         (closedOn == null && (closingReason != null || successorId != null)) ||
@@ -94,6 +109,7 @@ final class Account {
       openedOn: openedOn,
       includeInNetWorth: includeInNetWorth,
       version: version,
+      rulesVersion: rulesVersion,
       state: state,
       closedOn: closedOn,
       closingReason: closingReason,
@@ -108,20 +124,32 @@ final class Account {
   final Currency currency;
   final BusinessDate openedOn;
   final bool includeInNetWorth;
+
+  /// Bumped by every change, for edits of the account itself.
   final int version;
+
+  /// Bumped only when the rules for postings change (archive, close,
+  /// reactivate), so a prepared entry survives a rename (health check
+  /// G1-09).
+  final int rulesVersion;
   final AccountState state;
   final BusinessDate? closedOn;
   final String? closingReason;
   final PublicId? successorId;
 
   /// Application must read this state in the same UoW as the Ledger write.
+  /// [expectedRulesVersion] is the [rulesVersion] the entry was prepared
+  /// against; renames and other edits do not invalidate it.
   void requirePosting({
     required WorkspaceId workspace,
     required Currency currency,
-    required int expectedVersion,
+    required int expectedRulesVersion,
     required BusinessDate date,
   }) {
-    _check(workspace, expectedVersion);
+    if (workspace != this.workspace)
+      throw const AccountException(AccountError.workspaceMismatch);
+    if (expectedRulesVersion != rulesVersion)
+      throw const AccountException(AccountError.versionConflict);
     if (this.currency != currency)
       throw const AccountException(AccountError.currencyMismatch);
     if (state != AccountState.active)
@@ -146,6 +174,36 @@ final class Account {
   }) {
     _check(workspace, expectedVersion);
     return _copy(includeInNetWorth: included);
+  }
+
+  /// Moves the opening date earlier, so entries from before the account
+  /// was set up in the app can be recorded. Later dates are refused: an
+  /// existing entry could fall before them.
+  Account moveOpening({
+    required WorkspaceId workspace,
+    required int expectedVersion,
+    required BusinessDate openedOn,
+  }) {
+    _check(workspace, expectedVersion);
+    if (state == AccountState.closed)
+      throw const AccountException(AccountError.unavailable);
+    if (openedOn.compareTo(this.openedOn) > 0)
+      throw const AccountException(AccountError.invalidDate);
+    return Account._(
+      id: id,
+      workspace: workspace,
+      name: name,
+      kind: kind,
+      currency: currency,
+      openedOn: openedOn,
+      includeInNetWorth: includeInNetWorth,
+      version: version + 1,
+      rulesVersion: rulesVersion,
+      state: state,
+      closedOn: closedOn,
+      closingReason: closingReason,
+      successorId: successorId,
+    );
   }
 
   Account archive({
@@ -204,6 +262,7 @@ final class Account {
       openedOn: openedOn,
       includeInNetWorth: includeInNetWorth,
       version: version + 1,
+      rulesVersion: rulesVersion + 1,
       state: AccountState.closed,
       closedOn: date,
       closingReason: reason.trim(),
@@ -240,6 +299,7 @@ final class Account {
         openedOn: openedOn,
         includeInNetWorth: includeInNetWorth ?? this.includeInNetWorth,
         version: version + 1,
+        rulesVersion: state == null ? rulesVersion : rulesVersion + 1,
         state: state ?? this.state,
         closedOn: closedOn,
         closingReason: closingReason,
@@ -248,9 +308,8 @@ final class Account {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty || result.length > 100)
-    throw const AccountException(AccountError.invalidInput);
+  final result = cleanName(value);
+  if (result == null) throw const AccountException(AccountError.invalidInput);
   return result;
 }
 

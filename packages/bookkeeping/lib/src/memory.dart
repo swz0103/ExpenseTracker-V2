@@ -29,6 +29,7 @@ final class _State {
       postings = Map.of(other.postings),
       order = List.of(other.order),
       metadata = Map.of(other.metadata),
+      notes = Map.of(other.notes),
       categories = Map.of(other.categories),
       tags = Map.of(other.tags),
       merchants = Map.of(other.merchants);
@@ -40,6 +41,7 @@ final class _State {
   Map<PublicId, Posting> postings = {};
   List<PublicId> order = [];
   Map<PublicId, PostingMetadata> metadata = {};
+  Map<PublicId, EntryNote> notes = {};
   Map<PublicId, Category> categories = {};
   Map<PublicId, Tag> tags = {};
   Map<PublicId, Merchant> merchants = {};
@@ -169,6 +171,27 @@ final class MemoryBookkeepingTransaction implements BookkeepingTransaction {
     for (final id in _live.order)
       if (_live.postings[id]!.refundOf == expenseId) _live.postings[id]!,
   ];
+
+  @override
+  Future<Posting?> openingOf(PublicId accountId) async {
+    for (final id in _live.order) {
+      final posting = _live.postings[id]!;
+      if (posting.kind == PostingKind.opening &&
+          posting.legs.single.account.id == accountId &&
+          !await isReversed(posting.id)) {
+        return posting;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<EntryNote> noteOf(PublicId postingId) async =>
+      _live.notes[postingId] ?? const EntryNote(0, '');
+
+  @override
+  Future<void> saveNote(PublicId postingId, EntryNote note) async =>
+      _live.notes[postingId] = note;
 
   @override
   Future<Money> balance(PublicId accountId, Currency currency) async =>

@@ -5,12 +5,14 @@ import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
+import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
-final usd = Currency.iso('USD');
+final twd = Currency.of('TWD');
+final usd = Currency.of('USD');
 final day = BusinessDate(2026, 10, 1);
 
 Money ntd(int units) => Money(twd, BigInt.from(units));
@@ -34,7 +36,7 @@ void main() {
   Account account(PublicId id) =>
       ledger.accounts(workspace).singleWhere((a) => a.id == id);
 
-  AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+  AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
 
   Future<PublicId> open(
     String name,
@@ -198,6 +200,14 @@ void main() {
     );
     expect(ledger.balance(account(dollars)), Money(usd, BigInt.from(100)));
     expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(0));
+
+    // The refund's TWD amounts belong to the TWD expense's account, not to
+    // the dollar account the money reached (G6-18); so does its reversal.
+    final refundFact = ledger
+        .monthlyFacts(workspace, ReportMonth(2026, 10))
+        .singleWhere((f) => f.kind == PostingKind.refund);
+    expect(refundFact.accountId, cash);
+    expect(refundFact.expense, ntd(-3200));
   });
 
   test('only an empty, settled account can be closed', () async {
@@ -247,5 +257,48 @@ void main() {
       close(card),
       fails(FailureKind.rejected, 'account.unsettledItems'),
     );
+  });
+
+  test('a reversed refund gives its amount back to the limit', () async {
+    final dinner = await expense(1000);
+    final wrong = await refund(dinner, 900);
+    await expectLater(
+      refund(dinner, 200),
+      fails(FailureKind.rejected, 'ledger.refundLimit'),
+    );
+    await books.reversePosting(
+      ReversePosting(
+        operation: op(),
+        reversalId: PublicId.generate(),
+        originalId: wrong,
+        date: BusinessDate(2026, 10, 10),
+      ),
+    );
+    await refund(dinner, 200);
+    expect(ledger.balance(account(cash)), ntd(10000 - 1000 + 200));
+    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(800));
+    final reversal = ledger
+        .monthlyFacts(workspace, ReportMonth(2026, 10))
+        .singleWhere((f) => f.kind == PostingKind.reversal);
+    expect(reversal.accountId, cash);
+    expect(reversal.expense, ntd(900));
+  });
+
+  test('replacing the opening balance reverses the old one', () async {
+    Future<void> setOpening(int units) => books.setOpeningBalance(
+      SetOpeningBalance(
+        operation: op(),
+        postingId: PublicId.generate(),
+        reversalId: PublicId.generate(),
+        accountId: cash,
+        expectedVersion: account(cash).rulesVersion,
+        amount: ntd(units),
+      ),
+    );
+    await setOpening(12500);
+    expect(ledger.balance(account(cash)), ntd(12500));
+    await setOpening(-300);
+    expect(ledger.balance(account(cash)), ntd(-300));
+    expect(ledger.monthly(workspace, '2026-10'), isEmpty);
   });
 }

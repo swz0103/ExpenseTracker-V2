@@ -178,9 +178,17 @@ final class FxObservation {
   final BusinessDate asOf;
   final UtcInstant retrievedAt;
 
-  /// Older observations require an explicit caller policy; future ones never match.
-  FxRate rateFor(BusinessDate requested, {bool allowEarlier = false}) {
-    if (asOf != requested && !(allowEarlier && asOf.compareTo(requested) < 0)) {
+  /// Older observations require an explicit caller policy, and then at
+  /// most [maxEarlierDays] old (health check G2-10); future ones never
+  /// match.
+  FxRate rateFor(
+    BusinessDate requested, {
+    bool allowEarlier = false,
+    int maxEarlierDays = 7,
+  }) {
+    if (asOf == requested) return rate;
+    final age = _epochDay(requested) - _epochDay(asOf);
+    if (!allowEarlier || age < 0 || age > maxEarlierDays) {
       throw const FxException(FxError.dateMismatch);
     }
     return rate;
@@ -217,4 +225,9 @@ final class FxObservation {
       throw const FxException(FxError.invalidInput);
     }
   }
+}
+
+int _epochDay(BusinessDate date) {
+  final instant = DateTime.utc(date.year, date.month, date.day);
+  return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
 }

@@ -40,6 +40,8 @@
 
 因此目前沒有選定同時符合免帳號、1–5 分鐘、正式穩定 API 與可供 App 使用授權的台股來源。官方 TWSE／TPEx OpenAPI 繼續只作日終基準；不使用未文件化的網站內部 JSON、HTML 抓取或把重複日終輪詢標成即時。1–5 分鐘 controller、路由、退避與提醒仍保留 provider-neutral，待未來確認合規來源即可接入。
 
+2026-10-04 決策（G2-17、G9-12）：Yahoo Chart adapter 只保留為**使用者手動開啟**的個人用途選項。App 預設不註冊、不排第一，也不作背景提醒的唯一來源；開啟前須顯示「非正式公開 API，可能延遲、限流、變更或停止」聲明。舊的 expense_preview 原型（曾預設註冊 Yahoo）已移除。
+
 ## FX：Frankfurter v2，明確指定資料來源
 
 候選路由：USD/TWD 先評估 RBA；EUR/USD、USD/JPY 先評估 ECB。傳 `providers` 並保存實際回覆日期。官方 v2 不需 API key，預設會混合多來源；本案選擇明確來源來維持可追溯性。[官方 v2 契約](https://frankfurter.dev/)。

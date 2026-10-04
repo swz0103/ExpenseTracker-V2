@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final workspace = WorkspaceId(PublicId.generate());
   final usd = Currency('USD', 2);
@@ -295,6 +297,9 @@ void main() {
     expect(() => sale(fee: money('-1')), error(LedgerError.invalidAmount));
     expect(() => sale(tax: money('-1')), error(LedgerError.invalidAmount));
     expect(() => sale(credit: money('0')), error(LedgerError.invalidAmount));
+    // Fees larger than the proceeds take cash out (G1-06).
+    final costly = sale(fee: money('51'), credit: money('-1'));
+    expect(rebuildBalance(a, [costly]), money('-1'));
     expect(
       () => sale(credit: money('48.99')),
       error(LedgerError.investmentSellMismatch),
@@ -445,10 +450,7 @@ void main() {
         rebuildBalance(a, [max, positive, negative]),
         Money(usd, Money.maxMinorUnits),
       );
-      expect(
-        () => rebuildBalance(a, [max, positive]),
-        throwsA(isA<MoneyException>()),
-      );
+      expect(() => rebuildBalance(a, [max, positive]), overflows);
     },
   );
 }

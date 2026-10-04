@@ -1,5 +1,7 @@
 # 交易活動查閱
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28：由 [退款 PR #58](https://github.com/swz0103/ExpenseTracker-V2/pull/58) 的 `d7b63bf3b7b5b7bb1ba2cc459a92dac9230962cc` 接續。對應 [Full Vision FV-008](../architecture/full-vision-baseline.md#fv-008)、[Q160 交易明細](../architecture/full-vision-baseline.md#q160)、[RC-02](../architecture/architecture-baseline-v1.0-rc1.md#rc-02)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 與 M1-04。
 
 ## 使用流程

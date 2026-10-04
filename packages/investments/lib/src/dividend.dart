@@ -80,7 +80,7 @@ final class InvestmentDividendPreview {
     if (gross.minorUnits <= BigInt.zero ||
         withholdingTax.minorUnits < BigInt.zero ||
         fee.minorUnits < BigInt.zero ||
-        reportedNet.minorUnits <= BigInt.zero ||
+        reportedNet.minorUnits < BigInt.zero ||
         id == broker.id ||
         id == account.id ||
         id == instrument.id ||
@@ -91,7 +91,8 @@ final class InvestmentDividendPreview {
     }
     final netUnits =
         gross.minorUnits - withholdingTax.minorUnits - fee.minorUnits;
-    if (netUnits <= BigInt.zero || netUnits != reportedNet.minorUnits) {
+    // Everything withheld leaves nothing to pay out (health check G1-06).
+    if (netUnits != reportedNet.minorUnits) {
       throw const InvestmentDividendException(
         InvestmentDividendError.netMismatch,
       );

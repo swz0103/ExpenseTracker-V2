@@ -1,5 +1,7 @@
 # 鎖定時取消確認窗與選單
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 範圍：M1-02／[RC-15](../architecture/architecture-baseline-v1.0-rc1.md#rc-15)及[隱私呈現](privacy-presentation.md)。修正 App 進入背景時仍開啟的確認窗、帳戶下拉與操作選單；不改金融資料模型。
 
 ## 問題與行為

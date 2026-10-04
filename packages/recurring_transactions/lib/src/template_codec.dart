@@ -7,7 +7,7 @@ import 'recurrence.dart';
 /// Canonical, bounded payload for a future authoritative template revision.
 /// Persisted rows and portable snapshots must both validate this contract.
 final class RecurringTemplateCodec {
-  static const formatVersion = 1;
+  static const formatVersion = 2;
   static const maxBytes = 4096;
   static const _keys = {
     'format',
@@ -20,6 +20,10 @@ final class RecurringTemplateCodec {
     'unit',
     'every',
     'version',
+    'lastDate',
+    'categoryId',
+    'tagIds',
+    'merchantId',
   };
 
   String encode(RecurringTemplate template) {
@@ -34,6 +38,10 @@ final class RecurringTemplateCodec {
       'unit': template.unit.name,
       'every': template.every,
       'version': template.version,
+      'lastDate': template.lastDate?.toString(),
+      'categoryId': template.categoryId?.value,
+      'tagIds': [for (final id in template.tagIds) id.value]..sort(),
+      'merchantId': template.merchantId?.value,
     });
     if (utf8.encode(value).length > maxBytes) {
       throw const FormatException('Recurring template exceeds size limit');
@@ -62,7 +70,11 @@ final class RecurringTemplateCodec {
         decoded['firstDate'] is! String ||
         decoded['unit'] is! String ||
         decoded['every'] is! int ||
-        decoded['version'] is! int) {
+        decoded['version'] is! int ||
+        decoded['tagIds'] is! List ||
+        (decoded['lastDate'] != null && decoded['lastDate'] is! String) ||
+        (decoded['categoryId'] != null && decoded['categoryId'] is! String) ||
+        (decoded['merchantId'] != null && decoded['merchantId'] is! String)) {
       throw const FormatException('Invalid recurring template fields');
     }
     final amount = decoded['amount'];
@@ -93,10 +105,26 @@ final class RecurringTemplateCodec {
       unit: unit,
       every: decoded['every'] as int,
       version: decoded['version'] as int,
+      lastDate: _date(decoded['lastDate']),
+      categoryId: _id(decoded['categoryId']),
+      tagIds: {
+        for (final tag in decoded['tagIds'] as List)
+          if (tag is String)
+            PublicId.parse(tag)
+          else
+            throw const FormatException('Invalid recurring tag'),
+      },
+      merchantId: _id(decoded['merchantId']),
     );
     if (encode(template) != value) {
       throw const FormatException('Noncanonical recurring template');
     }
     return template;
   }
+
+  static BusinessDate? _date(Object? value) =>
+      value == null ? null : BusinessDate.parse(value as String);
+
+  static PublicId? _id(Object? value) =>
+      value == null ? null : PublicId.parse(value as String);
 }

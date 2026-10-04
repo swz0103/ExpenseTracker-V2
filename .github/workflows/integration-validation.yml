@@ -10,7 +10,6 @@ on:
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
-      - 'prototypes/**'
       - 'tooling/**'
   pull_request:
     branches: [main]
@@ -20,7 +19,6 @@ on:
       - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
-      - 'prototypes/**'
       - 'tooling/**'
   workflow_dispatch:
   # Release workflows call this first so a release only ships a SHA whose
@@ -30,11 +28,11 @@ on:
 permissions:
   contents: read
 
-# Pushes to one ref supersede each other; release and manual runs never get
-# cancelled by a later push.
+# Pushes to one ref queue instead of cancelling, so every commit on main
+# keeps a result (G9-09); release and manual runs run on their own.
 concurrency:
   group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 jobs:
   architecture:
@@ -63,7 +61,7 @@ jobs:
             'packages/bookkeeping',
             'packages/accounts',
             'packages/categories', 'packages/tags', 'packages/merchants',
-            'packages/entry_drafts', 'packages/amount_input',
+            'packages/amount_input',
             'packages/ledger', 'packages/reports', 'packages/budgets',
             'packages/credit_cards', 'packages/investments',
             'packages/market_data',
@@ -88,11 +86,10 @@ jobs:
           $packages = @(
             'infrastructure/storage_sqlcipher', 'infrastructure/backup_security',
             'infrastructure/ledger_sqlcipher', 'infrastructure/market_adapters',
-            'prototypes/persistent_jobs', 'prototypes/cloud_backup',
-            'prototypes/modular_persistence',
-            'prototypes/backup_envelope', 'prototypes/validated_restore',
-            'prototypes/encrypted_storage', 'prototypes/storage_generation',
-            'prototypes/ledger_generation'
+            'infrastructure/drive_backup',
+            'infrastructure/backup_service',
+            'infrastructure/ledger_backup',
+            'infrastructure/ledger_vault'
           )
           foreach ($package in $packages) {
             ./tooling/run-host-checks.ps1 -Package $package
@@ -113,7 +110,3 @@ jobs:
         run: |
           flutter config --no-analytics
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tooling/run-host-checks.ps1 -Package prototypes/android_foundation
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tooling/run-host-checks.ps1 -Package prototypes/expense_preview

@@ -2,15 +2,43 @@ import 'package:tags/tags.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:test/test.dart';
 
+Matcher fails(TagError code) =>
+    throwsA(isA<TagException>().having((e) => e.code, 'code', code));
+
 void main() {
   final ws = WorkspaceId(PublicId.generate());
   final id = PublicId.generate(), target = PublicId.generate();
   TagCatalog initial() =>
       TagCatalog.empty(ws)
           .create(workspace: ws, id: id, name: '  旅行  ')
-          .create(workspace: ws, id: target, name: '旅行');
+          .create(workspace: ws, id: target, name: '出差');
+  test('names are unique ignoring width and case', () {
+    expect(
+      () =>
+          initial().create(workspace: ws, id: PublicId.generate(), name: '旅行'),
+      fails(TagError.duplicate),
+    );
+    expect(
+      () => initial().rename(
+        workspace: ws,
+        id: target,
+        expectedVersion: 1,
+        name: ' 旅行 ',
+      ),
+      fails(TagError.duplicate),
+    );
+    final merged = initial().merge(
+      workspace: ws,
+      sourceId: id,
+      expectedSourceVersion: 1,
+      targetId: target,
+      expectedTargetVersion: 1,
+    );
+    // A merged-away tag no longer holds its name.
+    merged.create(workspace: ws, id: PublicId.generate(), name: '旅行');
+  });
   test(
-    'flat identities are independent even with equal names and immutable views',
+    'flat identities stay independent through renames and views stay immutable',
     () {
       final first = initial(),
           renamed = first.rename(
@@ -34,7 +62,7 @@ void main() {
     );
     expect(
       () => a.requireSelection(workspace: ws, id: id, expectedVersion: 2),
-      throwsA(isA<TagException>()),
+      fails(TagError.unavailable),
     );
     final b = a.setArchived(
       workspace: ws,
@@ -44,7 +72,7 @@ void main() {
     );
     expect(
       () => b.requireSelection(workspace: ws, id: id, expectedVersion: 1),
-      throwsA(isA<TagException>()),
+      fails(TagError.versionConflict),
     );
     b.requireSelection(workspace: ws, id: id, expectedVersion: 3);
   });
@@ -60,7 +88,7 @@ void main() {
     expect(a.resolve(id).id, target);
     expect(
       () => a.rename(workspace: ws, id: id, expectedVersion: 2, name: '新'),
-      throwsA(isA<TagException>()),
+      fails(TagError.unavailable),
     );
     expect(
       () => initial().merge(
@@ -70,7 +98,7 @@ void main() {
         targetId: target,
         expectedTargetVersion: 2,
       ),
-      throwsA(isA<TagException>()),
+      fails(TagError.versionConflict),
     );
   });
   test('workspace, missing target and cycles cannot be restored', () {
@@ -82,7 +110,7 @@ void main() {
         expectedVersion: 1,
         name: 'X',
       ),
-      throwsA(isA<TagException>()),
+      fails(TagError.workspaceMismatch),
     );
     expect(
       () => TagCatalog.restore(ws, [
@@ -95,7 +123,7 @@ void main() {
           replacementId: target,
         ),
       ]),
-      throwsA(isA<TagException>()),
+      fails(TagError.missing),
     );
     expect(
       () => TagCatalog.restore(ws, [
@@ -116,7 +144,7 @@ void main() {
           replacementId: id,
         ),
       ]),
-      throwsA(isA<TagException>()),
+      fails(TagError.replacementCycle),
     );
   });
   test('invalid names and exhausted revisions fail without changing state', () {
@@ -128,7 +156,7 @@ void main() {
           expectedVersion: 1,
           name: name,
         ),
-        throwsA(isA<TagException>()),
+        fails(TagError.invalidInput),
       );
     }
     expect(
@@ -138,7 +166,7 @@ void main() {
         expectedVersion: 1,
         name: 'a\nb',
       ),
-      throwsA(isA<TagException>()),
+      fails(TagError.invalidInput),
     );
     final c = TagCatalog.restore(ws, [
       Tag.restore(
@@ -155,7 +183,7 @@ void main() {
         expectedVersion: 9223372036854775807,
         name: 'b',
       ),
-      throwsA(isA<TagException>()),
+      fails(TagError.versionConflict),
     );
   });
   test('long historical merge chains resolve iteratively without changing original IDs', () {

@@ -237,7 +237,7 @@ void main() {
       Money.roundingPolicy,
     );
     expect(
-      () => sell(gross: money('120.01')),
+      () => sell(gross: money('120.02')),
       sellError(InvestmentSellError.grossMismatch),
     );
   });
@@ -261,14 +261,9 @@ void main() {
         () => sell(tax: money('-0.01')),
         sellError(InvestmentSellError.invalidInput),
       );
-      expect(
-        () => sell(fee: money('121')),
-        sellError(InvestmentSellError.nonPositiveNet),
-      );
-      expect(
-        () => sell(fee: money('119.50')),
-        sellError(InvestmentSellError.nonPositiveNet),
-      );
+      // Fees can take the whole sale or more (G1-06).
+      expect(sell(fee: money('121')).netCashCredit, money('-1.50'));
+      expect(sell(fee: money('119.50')).netCashCredit, money('0'));
       expect(() => sell(lots: []), sellError(InvestmentSellError.emptyLots));
     },
   );

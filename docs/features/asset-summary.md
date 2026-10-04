@@ -1,5 +1,7 @@
 # M1-05：現金與銀行資產摘要
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 首頁從同一工作階段已重建的 Ledger 帳戶餘額計算摘要；這是唯讀結果，沒有第二份持久餘額或投影。此批對應 [RC-13](../architecture/architecture-baseline-v1.0-rc1.md#rc-13) 基本資產讀取子集，較完整的資產與估值願景見 [FV-049](../architecture/full-vision-baseline.md#fv-049)。
 
 - 只納入目前支援的現金與銀行帳戶，尊重帳戶的 `includeInNetWorth` 設定。封存但仍有餘額的帳戶不因無法新入帳而消失；被明確排除的帳戶另顯示數量。

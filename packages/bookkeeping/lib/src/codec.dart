@@ -27,6 +27,7 @@ abstract final class AccountCodec {
     'openedOn': account.openedOn.toString(),
     'includeInNetWorth': account.includeInNetWorth,
     'accountVersion': account.version,
+    'rulesVersion': account.rulesVersion,
     'state': account.state.name,
     'closedOn': account.closedOn?.toString(),
     'closingReason': account.closingReason,
@@ -44,6 +45,7 @@ abstract final class AccountCodec {
       'openedOn',
       'includeInNetWorth',
       'accountVersion',
+      'rulesVersion',
       'state',
       'closedOn',
       'closingReason',
@@ -61,6 +63,7 @@ abstract final class AccountCodec {
       openedOn: BusinessDate.parse(json['openedOn'] as String),
       includeInNetWorth: json['includeInNetWorth'] as bool,
       version: json['accountVersion'] as int,
+      rulesVersion: json['rulesVersion'] as int,
       state: AccountState.values.byName(json['state'] as String),
       closedOn: closedOn == null ? null : BusinessDate.parse(closedOn),
       closingReason: json['closingReason'] as String?,
@@ -129,6 +132,7 @@ abstract final class PostingCodec {
           'principal': (-legs[0].amount).toJson(),
           'received': legs[1].amount.toJson(),
           'fee': fee.isEmpty ? null : (-fee.single.amount).toJson(),
+          'allocations': _allocations(posting.allocations),
         };
       case PostingKind.reversal:
         return {
@@ -155,6 +159,7 @@ abstract final class PostingCodec {
           'fee': buy.fee.toJson(),
           'tax': buy.tax.toJson(),
           'cash': buy.cashDebit.toJson(),
+          'settled': _settled(posting),
         };
       case PostingKind.investmentSell:
         final sell = posting.investmentSell!;
@@ -166,6 +171,7 @@ abstract final class PostingCodec {
           'fee': sell.fee.toJson(),
           'tax': sell.tax.toJson(),
           'cash': sell.cashCredit.toJson(),
+          'settled': _settled(posting),
         };
       case PostingKind.investmentDividend:
         final dividend = posting.investmentDividend!;
@@ -177,6 +183,7 @@ abstract final class PostingCodec {
           'fee': dividend.fee.toJson(),
           'tax': dividend.withholdingTax.toJson(),
           'cash': dividend.cashCredit.toJson(),
+          'settled': _settled(posting),
         };
     }
   }
@@ -233,6 +240,7 @@ abstract final class PostingCodec {
           'principal',
           'received',
           'fee',
+          'allocations',
         });
         final principal = _money(json['principal']);
         final received = _money(json['received']);
@@ -246,6 +254,7 @@ abstract final class PostingCodec {
           principal: principal,
           received: received,
           fee: fee,
+          allocations: _readAllocations(json['allocations']),
         );
       case PostingKind.reversal:
         checkKeys(json, {...common, 'original', 'reason'});
@@ -260,6 +269,8 @@ abstract final class PostingCodec {
           date: date,
           original: decode(original),
           reason: json['reason'] as String,
+          // Stored investment reversals were written by a trade void.
+          tradeVoid: true,
         );
       case PostingKind.refund:
         checkKeys(json, {
@@ -292,9 +303,17 @@ abstract final class PostingCodec {
           'fee',
           'tax',
           'cash',
+          'settled',
         });
         final cash = _money(json['cash']);
-        final account = _readAccount(json['account'], workspace, cash);
+        final settled = json['settled'] == null
+            ? null
+            : _money(json['settled']);
+        final account = _readAccount(
+          json['account'],
+          workspace,
+          settled ?? cash,
+        );
         final trade = PublicId.parse(json['tradeId'] as String);
         final gross = _money(json['gross']);
         final fee = _money(json['fee']);
@@ -310,6 +329,7 @@ abstract final class PostingCodec {
             fee: fee,
             tax: tax,
             cashDebit: cash,
+            settled: settled,
           ),
           PostingKind.investmentSell => Posting.investmentSell(
             id: id,
@@ -321,6 +341,7 @@ abstract final class PostingCodec {
             fee: fee,
             tax: tax,
             cashCredit: cash,
+            settled: settled,
           ),
           _ => Posting.investmentDividend(
             id: id,
@@ -332,10 +353,19 @@ abstract final class PostingCodec {
             withholdingTax: tax,
             fee: fee,
             cashCredit: cash,
+            settled: settled,
           ),
         };
     }
   });
+
+  /// The converted amount on the account, for a trade settled in another
+  /// currency (feature audit G-06).
+  static Map<String, Object?>? _settled(Posting posting) {
+    if (posting.conversion == null) return null;
+    final moved = posting.legs.single.amount;
+    return (moved.minorUnits.isNegative ? -moved : moved).toJson();
+  }
 
   static List<Map<String, Object?>> _allocations(List<Allocation> list) => [
     for (final allocation in list)

@@ -47,6 +47,15 @@ final class CommandRunner<T extends WriteTransaction> {
     return result;
   }
 
+  /// Runs [job] in the same queue as commands, after every command already
+  /// queued and before any queued later. Use it for work that needs the
+  /// store to itself, such as a backup; [job] opens its own transaction.
+  Future<R> exclusive<R>(Future<R> Function() job) {
+    final result = _tail.then((_) => job());
+    _tail = result.then<void>((_) {}, onError: (_) {});
+    return result;
+  }
+
   Future<CommandOutcome<R>> _execute<R>(
     Command<R> command,
     Future<R> Function(T transaction) handler,

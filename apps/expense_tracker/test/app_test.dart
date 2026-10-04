@@ -1,49 +1,82 @@
 import 'package:app_core/app_core.dart';
+import 'package:bookkeeping/bookkeeping.dart';
 import 'package:expense_tracker/src/app.dart';
+import 'package:expense_tracker/src/format.dart';
+import 'package:expense_tracker/src/problems.dart';
 import 'package:expense_tracker/src/session.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
 
 void main() {
-  AppSession session() => AppSession.preview(
-    clock: FixedClock(UtcInstant(DateTime.utc(2026, 10, 3, 4))),
-  );
+  final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 3, 4)));
 
-  testWidgets('accounts show example balances', (tester) async {
-    final preview = session();
-    await tester.runAsync(() => preview.ready);
-    await tester.pumpWidget(ExpenseApp(session: preview));
-    await tester.pump();
-    expect(find.text('示範：現金'), findsOneWidget);
-    expect(find.text('3,295.00'), findsOneWidget);
-    expect(find.text('NT\$ 55,295.00'), findsOneWidget);
+  test('the preview seeds example accounts and entries', () async {
+    final session = AppSession.preview(clock: clock);
+    await session.ready;
+    expect(session.accounts, hasLength(2));
+    expect(formatMoney(session.netWorth), '55,295');
+    expect(session.recent, hasLength(5));
+    expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
   });
 
-  testWidgets('recording an expense updates the balance', (tester) async {
-    final preview = session();
-    await tester.runAsync(() => preview.ready);
-    await tester.pumpWidget(ExpenseApp(session: preview));
-    await tester.pump();
-    await tester.tap(find.text('記一筆'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('record-amount')), '1,000');
-    await tester.tap(find.byKey(const Key('record-save')));
-    await tester.pumpAndSettle();
-    expect(find.text('2,295.00'), findsOneWidget);
-    expect(find.text('NT\$ 54,295.00'), findsOneWidget);
+  test('a recorded expense lowers the balance and notifies', () async {
+    final session = AppSession.preview(clock: clock);
+    await session.ready;
+    var notified = 0;
+    session.addListener(() => notified++);
+    final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
+    final amount = parseAmount(session.twd, '1,000');
+    final submission = session.begin();
+    Future<void> save() => session.record(
+      submission,
+      CashFlow.expense,
+      cash,
+      amount,
+      session.today,
+    );
+    await save();
+    expect(formatMoney(session.balanceOf(cash)), '2,295');
+    expect(notified, 1);
+
+    // A retry of the same submission replays it instead of booking twice.
+    await save();
+    expect(formatMoney(session.balanceOf(cash)), '2,295');
+    expect(session.recent, hasLength(6));
   });
 
-  testWidgets('a bad amount explains itself', (tester) async {
-    final preview = session();
-    await tester.runAsync(() => preview.ready);
-    await tester.pumpWidget(ExpenseApp(session: preview));
-    await tester.pump();
-    await tester.tap(find.text('記一筆'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('record-amount')), '1.234');
-    await tester.tap(find.byKey(const Key('record-save')));
-    await tester.pumpAndSettle();
-    expect(find.text('金額的小數位數太多。'), findsOneWidget);
+  test('undo keeps the entry in its own month', () async {
+    final session = AppSession.preview(clock: clock);
+    await session.ready;
+    final cash = session.accounts.firstWhere((a) => a.name == '示範：現金');
+    await session.record(
+      session.begin(),
+      CashFlow.expense,
+      cash,
+      Money(session.twd, BigInt.from(400)),
+      BusinessDate(2026, 9, 20),
+    );
+    final entry = session.recent.firstWhere(
+      (p) => p.date == BusinessDate(2026, 9, 20),
+    );
+    await session.reverse(session.begin(), entry);
+    expect(formatMoney(session.monthTotal(2026, 9).expense), '0');
+    expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
+  });
+
+  test('refused input is explained in words', () {
+    Object? error;
+    try {
+      parseAmount(Currency.of('TWD'), '1.5');
+    } on MoneyException catch (e) {
+      error = e;
+    }
+    expect(describeProblem(error!), '金額的小數位數太多。');
+  });
+
+  testWidgets('the shell starts', (tester) async {
+    final session = AppSession.preview(clock: clock);
+    await tester.runAsync(() => session.ready);
+    await tester.pumpWidget(ExpenseApp(session: session));
+    expect(find.text('記帳本 V2：介面重建中'), findsOneWidget);
   });
 }

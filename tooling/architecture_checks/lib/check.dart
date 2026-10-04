@@ -183,7 +183,10 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
         );
       }
     }
-    for (final value in module['publicEntrypoints'] as List? ?? []) {
+    for (final value in [
+      ...module['publicEntrypoints'] as List? ?? [],
+      ...module['testEntrypoints'] as List? ?? [],
+    ]) {
       final path = value as String;
       final target = p.normalize(p.join(owner.directory, 'lib', path));
       if (!p.isWithin(p.join(owner.directory, 'lib'), target) ||
@@ -303,15 +306,28 @@ List<BoundaryIssue> checkWorkspace(Directory directory) {
         }
         final targetName = parts.first;
         final library = parts.skip(1).join('/');
+        // Runtime modules that declare entrypoints get the same protection.
+        final entrypoints = registered[targetName]?['publicEntrypoints'];
+        final testOnly = registered[targetName]?['testEntrypoints'];
+        final forTests = testOnly is List && testOnly.contains(library);
         if (targetName != owner.name &&
-            modules.containsKey(targetName) &&
-            !(modules[targetName]!['publicEntrypoints'] as List).contains(
-              library,
-            )) {
+            entrypoints is List &&
+            !entrypoints.contains(library) &&
+            !forTests) {
           report(
             'private-import',
             file.path,
             'Use a public entrypoint of $targetName.',
+            line,
+          );
+        }
+        // Test doubles never reach shipped code (health check G7-16).
+        final inTests = p.isWithin(p.join(owner.directory, 'test'), file.path);
+        if (forTests && !inTests) {
+          report(
+            'test-only-import',
+            file.path,
+            '$library of $targetName is for tests only.',
             line,
           );
         }

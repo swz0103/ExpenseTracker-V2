@@ -9,8 +9,9 @@ Android 優先、Flutter、local-first 的個人財務管理 App。
 ## 結構
 
 - `packages/`：業務套件（金額值物件、帳本、信用卡、投資、預算等），是要沿用的核心。
-- `prototypes/expense_preview/`：目前可安裝的 App。
-- `prototypes/` 其餘：目前 App 實際使用的儲存、備份、雲端實作，將在重建中搬入正式套件。
+- `infrastructure/`：加密資料庫、帳本投影、金鑰、備份格式、Google Drive 上傳等執行層。
+- `apps/expense_tracker/`：新 App（Flutter）。
+- 舊 App 與 `prototypes/` 已整個移除（2026-10-03，要查舊程式請看 git 歷史）；新 App 在 `apps/expense_tracker/`，介面重建中。
 - `tooling/`：架構邊界檢查與本機檢查腳本。
 - `docs/`：產品需求、資料與備份契約、功能規格。
 

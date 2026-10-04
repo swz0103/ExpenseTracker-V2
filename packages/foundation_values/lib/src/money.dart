@@ -19,7 +19,7 @@ final class MoneyException implements Exception {
   String toString() => 'MoneyException(${code.name})';
 }
 
-/// A denomination. Use [Currency.iso] for the ISO 4217 minor units.
+/// A denomination. Use [Currency.of] for the app's currencies.
 final class Currency {
   Currency(this.code, this.scale) {
     if (!RegExp(r'^[A-Z]{3}$').hasMatch(code) || scale < 0 || scale > 18) {
@@ -27,45 +27,38 @@ final class Currency {
     }
   }
 
-  /// The ISO 4217 denomination for [code]. Use this instead of guessing a
-  /// scale; only the reference table below decides minor units.
-  factory Currency.iso(String code) => Currency(code, isoScale(code));
+  /// The denomination for [code] with the decimals people use day to day.
+  /// Never guess a scale; only this table decides it.
+  factory Currency.of(String code) => Currency(code, scaleOf(code));
 
-  /// ISO 4217 minor units: listed codes use 0 or 3 decimals, all others 2.
-  static int isoScale(String code) {
-    if (_zeroDecimal.contains(code)) return 0;
-    if (_threeDecimal.contains(code)) return 3;
-    return 2;
-  }
+  /// Bumped whenever a scale in the table changes. Stored money carries
+  /// its own scale, so a change needs a migration of stored amounts.
+  static const tableVersion = 2;
 
-  static const _zeroDecimal = {
-    'BIF',
-    'CLP',
-    'DJF',
-    'GNF',
-    'ISK',
+  /// The currencies the app offers, most used first (health check G1-08).
+  static const supported = [
+    'TWD',
+    'USD',
     'JPY',
-    'KMF',
+    'EUR',
+    'CNY',
+    'HKD',
     'KRW',
-    'PYG',
-    'RWF',
-    'UGX',
-    'UYI',
-    'VND',
-    'VUV',
-    'XAF',
-    'XOF',
-    'XPF',
-  };
-  static const _threeDecimal = {
-    'BHD',
-    'IQD',
-    'JOD',
-    'KWD',
-    'LYD',
-    'OMR',
-    'TND',
-  };
+    'GBP',
+    'AUD',
+    'CAD',
+    'SGD',
+    'CHF',
+    'NZD',
+    'THB',
+  ];
+
+  /// New Taiwan dollars, yen and won are written without decimals; the
+  /// rest use 2. Codes outside [supported], such as exchange-rate quotes,
+  /// also use 2.
+  static int scaleOf(String code) => _whole.contains(code) ? 0 : 2;
+
+  static const _whole = {'TWD', 'JPY', 'KRW'};
 
   final String code;
   final int scale;

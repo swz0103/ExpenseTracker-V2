@@ -1,5 +1,7 @@
 # 資料庫與金鑰生命週期契約
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 狀態：階段 0 的工程契約草稿；尚未實作，不構成 Architecture Freeze 或安全 gate 通過。
 
 追溯：[工程規格第 7 節](foundation-contracts.md#7-migration-與備份契約)、[RC-14](../architecture/architecture-baseline-v1.0-rc1.md#rc-14)、[Full Vision Q118](../architecture/full-vision-baseline.md#q118)、[Q119](../architecture/full-vision-baseline.md#q119)、[Q120](../architecture/full-vision-baseline.md#q120)。沿用使用者選定 2A 的密碼與文字救援路徑；QR、完整輪替管理與定期健康檢查仍延後。

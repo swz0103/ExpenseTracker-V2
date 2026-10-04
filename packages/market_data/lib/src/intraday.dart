@@ -146,11 +146,13 @@ final class FugleIntradayGateway {
     IntradayInterval interval,
   ) {
     final raw = jsonDecode(body);
+    // An OTC series comes from TPEx (health check G2-15).
+    final listed = instrument.marketCode == 'TWSE';
     if (raw is! Map<String, dynamic> ||
         raw['symbol'] != instrument.symbol ||
         raw['timeframe']?.toString() != '${interval.minutes}' ||
-        raw['exchange'] != 'TWSE' ||
-        raw['market'] != (instrument.marketCode == 'TWSE' ? 'TSE' : 'OTC')) {
+        raw['exchange'] != (listed ? 'TWSE' : 'TPEx') ||
+        raw['market'] != (listed ? 'TSE' : 'OTC')) {
       throw const FormatException('Wrong Fugle series');
     }
     final data = raw['data'];
@@ -243,17 +245,20 @@ _ParsedBar _parseBar(Map<String, dynamic> raw) {
 }
 
 bool _supports(InvestmentInstrument instrument) {
-  if (instrument.tradingCurrency != Currency('TWD', 2) ||
+  if (instrument.tradingCurrency != Currency.of('TWD') ||
       (instrument.marketCode != 'TWSE' && instrument.marketCode != 'TPEX')) {
     return false;
   }
   return switch (instrument.kind) {
-    InstrumentKind.stock => RegExp(
-      r'^[1-9][0-9]{3}$',
-    ).hasMatch(instrument.symbol),
-    InstrumentKind.etf => RegExp(r'^00[0-9]{2,4}$').hasMatch(instrument.symbol),
+    InstrumentKind.stock => _stockSymbol.hasMatch(instrument.symbol),
+    InstrumentKind.etf => _etfSymbol.hasMatch(instrument.symbol),
   };
 }
+
+/// Ordinary and preferred shares (2881A); bond, leveraged and inverse ETFs
+/// (00679B, 00631L, 00632R) too (health check G2-09).
+final _stockSymbol = RegExp(r'^[1-9][0-9]{3}[A-Z]?$');
+final _etfSymbol = RegExp(r'^00[0-9]{2,4}[A-Z]?$');
 
 void _validateApiKey(String value) {
   if (value.isEmpty ||

@@ -18,6 +18,10 @@ enum StorageProblem {
 
   /// The file was written by a newer schema than this build understands.
   newerSchema,
+
+  /// Another connection, isolate or process already has the file open;
+  /// only one may own a ledger at a time (health check G7-10).
+  inUse,
 }
 
 final class StorageUnavailable implements Exception {
@@ -157,6 +161,38 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
     return cipher.isEmpty ? result : 'cipher integrity failure';
   }
 
+  /// Every event in commit order, across workspaces. Replay and backup
+  /// read the journal through this, a page at a time.
+  List<StoredEvent> journal({int afterSeq = 0, int limit = 500}) {
+    _requireOpen();
+    final rows = _db.select(
+      'SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?',
+      [afterSeq, limit],
+    );
+    return rows.map(_event).toList();
+  }
+
+  /// Recorded operations ordered by key, a page at a time.
+  List<RecordedOperation> operations({int offset = 0, int limit = 500}) {
+    _requireOpen();
+    final rows = _db.select(
+      'SELECT * FROM operations ORDER BY workspace, operation_id '
+      'LIMIT ? OFFSET ?',
+      [limit, offset],
+    );
+    return [
+      for (final row in rows)
+        RecordedOperation(
+          key: OperationKey(
+            WorkspaceId.parse(row['workspace'] as String),
+            OperationId.parse(row['operation_id'] as String),
+          ),
+          input: row['input'] as String,
+          result: row['result'] as String,
+        ),
+    ];
+  }
+
   List<StoredEvent> events(
     WorkspaceId workspace, {
     int afterSeq = 0,
@@ -250,15 +286,35 @@ final class SqlCipherStore implements UnitOfWork<SqlTransaction> {
       // hex is exactly 64 hex digits; no user text reaches this statement.
       db.execute('PRAGMA key = "x\'${key.hex}\'"');
       db.select('SELECT count(*) FROM sqlite_master');
-    } catch (_) {
+    } on SqliteException catch (error) {
       // Never rethrow: the original error may quote the key statement.
+      if (error.resultCode == _busy) {
+        throw const StorageUnavailable(StorageProblem.inUse);
+      }
+      throw const StorageUnavailable(StorageProblem.wrongKey);
+    } catch (_) {
       throw const StorageUnavailable(StorageProblem.wrongKey);
     }
     db.select('PRAGMA journal_mode = WAL');
     db.execute('PRAGMA synchronous = FULL');
     db.execute('PRAGMA foreign_keys = ON');
     db.execute('PRAGMA temp_store = MEMORY');
+    // Hold the file for as long as this connection is open, so a second
+    // isolate or process cannot write past this one's queue and checks.
+    try {
+      db.execute('PRAGMA locking_mode = EXCLUSIVE');
+      db.execute('BEGIN EXCLUSIVE');
+      db.execute('COMMIT');
+    } on SqliteException catch (error) {
+      if (error.resultCode == _busy) {
+        throw const StorageUnavailable(StorageProblem.inUse);
+      }
+      rethrow;
+    }
   }
+
+  /// SQLITE_BUSY.
+  static const _busy = 5;
 
   /// Applied version of a feature module, or 0 if it was never installed.
   int moduleVersion(String name) {

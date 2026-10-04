@@ -12,7 +12,7 @@ void main() {
     marketCode: 'TWSE',
     symbol: '2330',
     name: 'TSMC',
-    tradingCurrency: Currency('TWD', 2),
+    tradingCurrency: Currency.of('TWD'),
   );
   final asOf = BusinessDate(2026, 9, 30);
 
@@ -131,26 +131,34 @@ void main() {
     ]);
   });
 
-  test('FX cross-check includes rate date and inversion derivation', () async {
+  test('FX cross-check tolerates rate noise, not real gaps', () async {
     final eur = Currency('EUR', 2);
     final usd = Currency('USD', 2);
-    final first = _FxProvider('fx-a', [
-      MarketResult(
-        MarketState.available,
-        value: _rate(eur, usd, '1.1', asOf, inverse: false),
-      ),
-    ]);
-    final second = _FxProvider('fx-b', [
-      MarketResult(
-        MarketState.available,
-        value: _rate(eur, usd, '1.1', asOf, inverse: true),
-      ),
-    ]);
-    final result = await MarketDataRouter(
-      MarketProviderRegistry([first, second]),
-    ).crossCheckFxRate(eur, usd, requiredAsOf: asOf);
-    expect(result.conflict, isTrue);
-    expect(result.items.map((item) => item.provider.id), ['fx-a', 'fx-b']);
+    Future<bool> conflict(String other, {BusinessDate? otherDate}) async {
+      final first = _FxProvider('fx-a', [
+        MarketResult(
+          MarketState.available,
+          value: _rate(eur, usd, '1.1', asOf, inverse: false),
+        ),
+      ]);
+      final second = _FxProvider('fx-b', [
+        MarketResult(
+          MarketState.available,
+          value: _rate(eur, usd, other, otherDate ?? asOf, inverse: true),
+        ),
+      ]);
+      final result = await MarketDataRouter(
+        MarketProviderRegistry([first, second]),
+      ).crossCheckFxRate(eur, usd, requiredAsOf: asOf);
+      expect(result.items.map((item) => item.provider.id), ['fx-a', 'fx-b']);
+      return result.conflict;
+    }
+
+    expect(await conflict('1.1'), isFalse);
+    expect(await conflict('1.1033'), isFalse);
+    expect(await conflict('1.12'), isTrue);
+    final dayBefore = BusinessDate(asOf.year, asOf.month, asOf.day - 1);
+    expect(await conflict('1.1', otherDate: dayBefore), isTrue);
   });
 
   test('official adapters register as independent capabilities', () {
@@ -171,7 +179,7 @@ void main() {
       marketCode: 'TPEX',
       symbol: '6488',
       name: 'GlobalWafers',
-      tradingCurrency: Currency('TWD', 2),
+      tradingCurrency: Currency.of('TWD'),
     );
     expect(registry.stockCloseProviders(tpex), hasLength(1));
     expect(
@@ -185,7 +193,7 @@ void main() {
     expect(
       registry.fxProviders(
         Currency('USD', 2),
-        Currency('TWD', 2),
+        Currency.of('TWD'),
         historical: true,
       ),
       hasLength(1),

@@ -44,7 +44,7 @@ final class SimpleImportPreview {
         target.requirePosting(
           workspace: destinationWorkspace,
           currency: source.amount.currency,
-          expectedVersion: target.version,
+          expectedRulesVersion: target.rulesVersion,
           date: source.date,
         );
       } on AccountException catch (error) {

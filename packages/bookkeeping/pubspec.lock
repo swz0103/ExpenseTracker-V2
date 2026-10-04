@@ -55,6 +55,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  budgets:
+    dependency: "direct main"
+    description:
+      path: "../budgets"
+      relative: true
+    source: path
+    version: "0.1.0"
   categories:
     dependency: "direct main"
     description:
@@ -265,6 +272,20 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.1"
+  recurring_transactions:
+    dependency: "direct main"
+    description:
+      path: "../recurring_transactions"
+      relative: true
+    source: path
+    version: "0.1.0"
+  reports:
+    dependency: "direct main"
+    description:
+      path: "../reports"
+      relative: true
+    source: path
+    version: "0.1.0"
   shelf:
     dependency: transitive
     description:

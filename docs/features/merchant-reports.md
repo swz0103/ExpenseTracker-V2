@@ -1,5 +1,7 @@
 # M1-05：歷史商家月報
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 商家月報沿用 [逐幣別月收支](monthly-reports.md) 的 Ledger 事件與權威收支影響值，對應 [RC-13](../architecture/architecture-baseline-v1.0-rc1.md#rc-13) 的基本報表子集；完整願景見 [FV-091](../architecture/full-vision-baseline.md#fv-091)。沒有新的資料表、持久投影、備份格式或資料升級。
 
 - 依交易儲存時的商家 **ID** 歸屬。後續改名、封存或合併，只影響畫面名稱及狀態，不改寫舊交易的分組；合併後的舊商家與目標商家仍可分別查核。

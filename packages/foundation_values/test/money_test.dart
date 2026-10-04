@@ -172,12 +172,19 @@ void main() {
       error(MoneyError.invalidInput),
     );
   });
-  test('ISO registry decides minor units', () {
-    expect(Currency.iso('TWD').scale, 2);
-    expect(Currency.iso('USD'), Currency('USD', 2));
-    expect(Currency.iso('JPY').scale, 0);
-    expect(Currency.iso('KRW').scale, 0);
-    expect(Currency.iso('KWD').scale, 3);
+  test('the currency table decides decimals', () {
+    expect(Currency.of('TWD').scale, 0);
+    expect(Currency.of('USD'), Currency('USD', 2));
+    expect(Currency.of('JPY').scale, 0);
+    expect(Currency.of('KRW').scale, 0);
+    expect(Currency.of('EUR').scale, 2);
+    expect(Currency.supported.first, 'TWD');
+    expect(Currency.supported.toSet(), hasLength(Currency.supported.length));
+    expect(
+      () => Money.parse(Currency.of('TWD'), '12.5'),
+      error(MoneyError.precision),
+    );
+    expect(Money.parse(Currency.of('TWD'), '1200').majorText, '1200');
   });
   test('persisted minor units are parsed strictly', () {
     expect(parseMinorUnits('0'), BigInt.zero);

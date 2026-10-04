@@ -9,13 +9,15 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final usd = Currency.iso('USD');
+final usd = Currency.of('USD');
 final opened = BusinessDate(2026, 9, 1);
 
 Money cents(int units) => Money(usd, BigInt.from(units));
 
 Matcher fails(FailureKind kind, String diagnostic) =>
     throwsA(AppFailure(kind, diagnostic));
+
+final settlement = BusinessDate(2026, 10, 5);
 
 void main() {
   late Directory directory;
@@ -46,7 +48,7 @@ void main() {
   TradeTarget target() => TradeTarget(
     accountId: brokerage,
     instrumentId: apple,
-    funding: AccountRef(bank, account(bank).version),
+    funding: AccountRef(bank, account(bank).rulesVersion),
   );
 
   setUp(() async {
@@ -107,6 +109,7 @@ void main() {
     int fee = 0,
     OperationKey? operation,
     BusinessDate? on,
+    BusinessDate? settles,
   }) async {
     final outcome = await invest.buy(
       BuyInvestment(
@@ -121,6 +124,7 @@ void main() {
         gross: cents(gross),
         fee: cents(fee),
         tax: cents(0),
+        settlesOn: settles,
       ),
     );
     return outcome.value;
@@ -196,6 +200,263 @@ void main() {
     expect(ledger.monthly(workspace, '2026-11'), isEmpty);
   });
 
+  test('investment screens list accounts, trades and income', () async {
+    await buy('10', '150', 150000);
+    await buy('5', '160', 80000, on: BusinessDate(2026, 10, 5));
+    await sell('12', '170', 204000);
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(700),
+      ),
+    );
+    final accounts = ledger.investmentAccounts(workspace);
+    expect([for (final account in accounts) account.name], ['美股']);
+    expect(ledger.instrument(apple)!.symbol, 'AAPL');
+    expect(ledger.positions(brokerage), [apple]);
+    final history = ledger.tradeHistory(brokerage, instrumentId: apple);
+    final kinds = [for (final trade in history) trade.kind];
+    expect(kinds, ['dividend', 'sell', 'buy', 'buy']);
+    expect(history.last.cash, cents(-150000));
+    // 203900 net less the cost of 10 + 2 shares (150000 + 32000).
+    expect(history[1].realized, cents(21900));
+    final october = ledger.investmentIncome(
+      workspace,
+      from: BusinessDate(2026, 10, 1),
+      through: BusinessDate(2026, 10, 31),
+    )['USD']!;
+    expect(october.realized, cents(21900));
+    expect(october.dividends, cents(0));
+    final year = ledger.investmentIncome(
+      workspace,
+      from: BusinessDate(2026, 1, 1),
+      through: BusinessDate(2026, 12, 31),
+    )['USD']!;
+    expect(year.dividends, cents(700));
+  });
+
+  test('cash settles later; the lot dates from the trade', () async {
+    final posting = await buy('10', '150', 150000, settles: settlement);
+    final cash = ledger.postings(bank).singleWhere((p) => p.id == posting);
+    expect(cash.date, settlement);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.acquiredOn, BusinessDate(2026, 10, 1));
+    await expectLater(
+      buy('1', '150', 15000, settles: BusinessDate(2026, 9, 30)),
+      fails(FailureKind.rejected, 'investment.settlement'),
+    );
+  });
+
+  test('a foreign trade can settle in NT dollars', () async {
+    final twd = Currency.of('TWD');
+    Money ntd(int units) => Money(twd, BigInt.from(units));
+    final local = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: local,
+        name: '台幣交割',
+        kind: AccountKind.bank,
+        currency: twd,
+        openedOn: opened,
+        openingBalance: ntd(1000000),
+        openingPostingId: PublicId.generate(),
+      ),
+    );
+    final broker = PublicId.generate();
+    await invest.registerBroker(
+      RegisterBroker(operation: op(), brokerId: broker, name: '複委託券商'),
+    );
+    final subBrokerage = PublicId.generate();
+    await invest.openAccount(
+      OpenInvestmentAccount(
+        operation: op(),
+        accountId: subBrokerage,
+        brokerId: broker,
+        fundingAccountId: local,
+        name: '複委託',
+      ),
+    );
+    TradeTarget there() => TradeTarget(
+      accountId: subBrokerage,
+      instrumentId: apple,
+      funding: AccountRef(local, account(local).rulesVersion),
+    );
+    Future<void> buyThere(Money? settled) => invest.buy(
+      BuyInvestment(
+        operation: op(),
+        buyId: PublicId.generate(),
+        lotId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: there(),
+        tradedOn: BusinessDate(2026, 10, 1),
+        quantity: '10',
+        unitPrice: '150',
+        gross: cents(150000),
+        fee: cents(0),
+        tax: cents(0),
+        settledAmount: settled,
+      ),
+    );
+    await expectLater(
+      buyThere(null),
+      fails(FailureKind.rejected, 'investment.currencyMismatch'),
+    );
+    await buyThere(ntd(48150));
+    expect(ledger.balance(account(local)), ntd(1000000 - 48150));
+    final lot = ledger.holdings(subBrokerage, apple).single;
+    expect(lot.remainingCost, cents(150000));
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: there(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(700),
+        settledAmount: ntd(224),
+      ),
+    );
+    expect(ledger.balance(account(local)), ntd(1000000 - 48150 + 224));
+  });
+
+  test('only a bank or cash account settles trades', () async {
+    final wallet = PublicId.generate();
+    await books.openAccount(
+      OpenAccount(
+        operation: op(),
+        accountId: wallet,
+        name: '電子錢包',
+        kind: AccountKind.eWallet,
+        currency: usd,
+        openedOn: opened,
+      ),
+    );
+    final broker = PublicId.generate();
+    await invest.registerBroker(
+      RegisterBroker(operation: op(), brokerId: broker, name: '另一家'),
+    );
+    await expectLater(
+      invest.openAccount(
+        OpenInvestmentAccount(
+          operation: op(),
+          accountId: PublicId.generate(),
+          brokerId: broker,
+          fundingAccountId: wallet,
+          name: '錢包投資',
+        ),
+      ),
+      fails(FailureKind.rejected, 'investment.funding'),
+    );
+  });
+
+  test('dividends add up per year with premium and ex-date', () async {
+    await buy('10', '150', 150000);
+    Future<void> dividend(
+      BusinessDate paidOn, {
+      BusinessDate? exDate,
+      int premium = 0,
+    }) => invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: paidOn,
+        gross: cents(30000),
+        withholdingTax: cents(0),
+        fee: cents(10),
+        net: cents(30000 - 10 - premium),
+        exDividendOn: exDate,
+        healthPremium: cents(premium),
+      ),
+    );
+    await dividend(
+      BusinessDate(2026, 11, 15),
+      exDate: BusinessDate(2026, 10, 20),
+      premium: 633,
+    );
+    await dividend(BusinessDate(2026, 12, 15));
+    await dividend(BusinessDate(2027, 1, 15));
+    await expectLater(
+      dividend(BusinessDate(2027, 2, 1), exDate: BusinessDate(2027, 2, 2)),
+      fails(FailureKind.rejected, 'investment.ex-date'),
+    );
+    await expectLater(
+      dividend(BusinessDate(2027, 2, 1), premium: -5),
+      fails(FailureKind.rejected, 'investment.premium'),
+    );
+    final year = ledger.dividendSummary(workspace, 2026).single;
+    expect(year.instrumentId, apple);
+    expect(year.payments, 2);
+    expect(year.gross, cents(60000));
+    expect(year.fee, cents(20));
+    expect(year.healthPremium, cents(633));
+    expect(year.net, cents(60000 - 20 - 633));
+    expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 89337));
+  });
+
+  test('fees can eat a sale and tax a whole dividend', () async {
+    await buy('10', '1', 1000);
+    await sell('10', '0.01', 10);
+    expect(ledger.balance(account(bank)), cents(1000000 - 1000 - 90));
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(300),
+        withholdingTax: cents(300),
+        fee: cents(0),
+        net: cents(0),
+      ),
+    );
+    expect(ledger.balance(account(bank)), cents(1000000 - 1000 - 90));
+    final latest = ledger.tradeHistory(brokerage).first;
+    expect(latest.kind, 'dividend');
+    expect(latest.postingId, isNull);
+    expect(latest.cash, cents(0));
+  });
+
+  test('a reverse split with returned capital replays', () async {
+    await buy('10', '150', 150000);
+    await invest.corporateAction(
+      RecordCorporateAction(
+        operation: op(),
+        actionId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: target(),
+        effectiveOn: BusinessDate(2026, 10, 10),
+        newShares: 1,
+        oldShares: 2,
+        capitalReturned: cents(1000),
+      ),
+    );
+    expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 1000));
+    store.close();
+    open();
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '5');
+    expect(lot.remainingCost, cents(149000));
+    expect(ledger.tradeHistory(brokerage).first.kind, 'action');
+    await expectLater(
+      buy('1', '150', 15000, on: BusinessDate(2026, 10, 5)),
+      fails(FailureKind.rejected, 'investment.backdated'),
+    );
+  });
+
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(
@@ -266,6 +527,182 @@ void main() {
         ),
       ),
       fails(FailureKind.conflict, 'investment.exists'),
+    );
+  });
+
+  test('a split multiplies shares, keeps cost and replays', () async {
+    await buy('10', '150', 150000);
+    final changed = await invest.split(
+      SplitInvestment(
+        operation: op(),
+        splitId: PublicId.generate(),
+        accountId: brokerage,
+        instrumentId: apple,
+        effectiveOn: BusinessDate(2026, 10, 10),
+        newShares: 4,
+        oldShares: 1,
+      ),
+    );
+    expect(changed.value, 1);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '40');
+    expect(lot.remainingCost, cents(150000));
+    await sell('40', '40', 160000);
+    expect(ledger.holdings(brokerage, apple), isEmpty);
+  });
+
+  test('a mistaken trade is voided and the holding replayed', () async {
+    Future<void> buyAs(PublicId id, String quantity, int gross) async {
+      await invest.buy(
+        BuyInvestment(
+          operation: op(),
+          buyId: id,
+          lotId: PublicId.generate(),
+          postingId: PublicId.generate(),
+          target: target(),
+          tradedOn: BusinessDate(2026, 10, 1),
+          quantity: quantity,
+          unitPrice: '100',
+          gross: cents(gross),
+          fee: cents(0),
+          tax: cents(0),
+        ),
+      );
+    }
+
+    Future<CommandOutcome<PublicId>> voidTrade(PublicId id) => invest.voidTrade(
+      VoidInvestmentTrade(
+        operation: op(),
+        accountId: brokerage,
+        instrumentId: apple,
+        tradeId: id,
+        reversalId: PublicId.generate(),
+      ),
+    );
+
+    final first = PublicId.generate();
+    final second = PublicId.generate();
+    await buyAs(first, '10', 100000);
+    await buyAs(second, '5', 50000);
+    final dividend = PublicId.generate();
+    await invest.dividend(
+      RecordDividend(
+        operation: op(),
+        dividendId: dividend,
+        postingId: PublicId.generate(),
+        target: target(),
+        paidOn: BusinessDate(2026, 11, 15),
+        gross: cents(1000),
+        withholdingTax: cents(0),
+        fee: cents(0),
+        net: cents(1000),
+      ),
+    );
+
+    // The older buy has a later buy after it; dividends never block.
+    await expectLater(
+      voidTrade(first),
+      fails(FailureKind.rejected, 'investment.trade-in-use'),
+    );
+    await voidTrade(second);
+    await voidTrade(dividend);
+    final lot = ledger.holdings(brokerage, apple).single;
+    expect(lot.remainingQuantity.toString(), '10');
+    expect(ledger.balance(account(bank)), cents(1000000 - 100000));
+    await expectLater(
+      voidTrade(second),
+      fails(FailureKind.notFound, 'investment.not-found'),
+    );
+    await voidTrade(first);
+    expect(ledger.holdings(brokerage, apple), isEmpty);
+    expect(ledger.balance(account(bank)), cents(1000000));
+  });
+
+  test('a holding keeps the cost method of its first sell', () async {
+    await buy('10', '150', 150000);
+    await sell('3', '160', 48000);
+    await expectLater(
+      invest.sell(
+        SellInvestment(
+          operation: op(),
+          sellId: PublicId.generate(),
+          postingId: PublicId.generate(),
+          target: target(),
+          tradedOn: BusinessDate(2026, 10, 21),
+          costMethod: InvestmentCostMethod.averageCost,
+          quantity: '1',
+          unitPrice: '160',
+          gross: cents(16000),
+          fee: cents(0),
+          tax: cents(0),
+        ),
+      ),
+      fails(FailureKind.rejected, 'investment.cost-method'),
+    );
+  });
+
+  test('brokers, accounts and instruments can be renamed', () async {
+    final prepared = target();
+    await invest.rename(
+      RenameInvestmentRecord(
+        operation: op(),
+        type: InvestmentRecordType.instrument,
+        id: apple,
+        name: 'Apple Inc.',
+      ),
+    );
+    await invest.rename(
+      RenameInvestmentRecord(
+        operation: op(),
+        type: InvestmentRecordType.account,
+        id: brokerage,
+        name: '美股帳戶',
+      ),
+    );
+    await expectLater(
+      invest.rename(
+        RenameInvestmentRecord(
+          operation: op(),
+          type: InvestmentRecordType.broker,
+          id: PublicId.generate(),
+          name: 'x',
+        ),
+      ),
+      fails(FailureKind.notFound, 'investment.not-found'),
+    );
+    // A trade prepared before the renames still goes through.
+    await invest.buy(
+      BuyInvestment(
+        operation: op(),
+        buyId: PublicId.generate(),
+        lotId: PublicId.generate(),
+        postingId: PublicId.generate(),
+        target: prepared,
+        tradedOn: BusinessDate(2026, 10, 1),
+        quantity: '1',
+        unitPrice: '100',
+        gross: cents(10000),
+        fee: cents(0),
+        tax: cents(0),
+      ),
+    );
+    store.close();
+    open();
+    expect(ledger.holdings(brokerage, apple), hasLength(1));
+  });
+
+  test('trades stay in date order around sells', () async {
+    await buy('10', '150', 150000);
+    await buy('5', '160', 80000, on: BusinessDate(2026, 10, 30));
+    // On the 20th only the first lot was held.
+    await expectLater(
+      sell('12', '170', 204000),
+      fails(FailureKind.rejected, 'investment.oversell'),
+    );
+    await sell('3', '160', 48000);
+    await expectLater(
+      buy('1', '150', 15000, on: BusinessDate(2026, 10, 10)),
+      fails(FailureKind.rejected, 'investment.backdated'),
     );
   });
 }

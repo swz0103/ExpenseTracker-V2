@@ -98,28 +98,11 @@ final class CategoryCatalog {
         }
       }
     }
-    // Resolve all chains iteratively in O(n), including an untrusted long
-    // history. The derived index is disposable and never changes saved IDs.
-    final canonical = <PublicId, PublicId>{};
-    for (final id in rows.keys) {
-      if (canonical.containsKey(id)) continue;
-      final path = <PublicId>{};
-      var cursor = id;
-      while (!canonical.containsKey(cursor)) {
-        if (!path.add(cursor)) {
-          throw const CategoryException(CategoryError.replacementCycle);
-        }
-        final next = rows[cursor]!.replacementId;
-        if (next == null) {
-          canonical[cursor] = cursor;
-          break;
-        }
-        cursor = next;
-      }
-      final resolved = canonical[cursor]!;
-      for (final member in path) {
-        canonical[member] = resolved;
-      }
+    final canonical = resolveRedirects({
+      for (final row in rows.values) row.id: row.replacementId,
+    });
+    if (canonical == null) {
+      throw const CategoryException(CategoryError.replacementCycle);
     }
     return CategoryCatalog._(
       workspace,
@@ -168,6 +151,7 @@ final class CategoryCatalog {
     if (_rows.containsKey(id)) {
       throw const CategoryException(CategoryError.duplicate);
     }
+    _unique(id, name, kind, parentId);
     return _replace(
       Category.restore(
         id: id,
@@ -180,6 +164,26 @@ final class CategoryCatalog {
     );
   }
 
+  /// Two live categories with one name under one parent would split every
+  /// report in two (feature audit G-19).
+  void _unique(
+    PublicId self,
+    String name,
+    CategoryKind kind,
+    PublicId? parentId,
+  ) {
+    final key = nameKey(name);
+    for (final row in _rows.values) {
+      if (row.id != self &&
+          row.replacementId == null &&
+          row.kind == kind &&
+          row.parentId == parentId &&
+          nameKey(row.name) == key) {
+        throw const CategoryException(CategoryError.duplicate);
+      }
+    }
+  }
+
   CategoryCatalog rename({
     required WorkspaceId workspace,
     required PublicId id,
@@ -187,6 +191,7 @@ final class CategoryCatalog {
     required String name,
   }) {
     final row = _mutable(workspace, id, expectedVersion);
+    _unique(id, name, row.kind, row.parentId);
     return _change(row, name: name);
   }
 
@@ -307,12 +312,8 @@ final class CategoryCatalog {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty ||
-      result.length > 100 ||
-      RegExp(r'[\x00-\x1f\x7f]').hasMatch(result)) {
-    throw const CategoryException(CategoryError.invalidInput);
-  }
+  final result = cleanName(value);
+  if (result == null) throw const CategoryException(CategoryError.invalidInput);
   return result;
 }
 

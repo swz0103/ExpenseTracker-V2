@@ -245,10 +245,10 @@ List<Object?> _series(Object? raw, int length) {
 
 String? _yahooSymbol(InvestmentInstrument instrument) {
   final currency = instrument.tradingCurrency;
-  if (instrument.marketCode == 'TWSE' && currency == Currency('TWD', 2)) {
+  if (instrument.marketCode == 'TWSE' && currency == Currency.of('TWD')) {
     return '${instrument.symbol}.TW';
   }
-  if (instrument.marketCode == 'TPEX' && currency == Currency('TWD', 2)) {
+  if (instrument.marketCode == 'TPEX' && currency == Currency.of('TWD')) {
     return '${instrument.symbol}.TWO';
   }
   if ({'XNAS', 'XNYS', 'ARCX'}.contains(instrument.marketCode) &&
@@ -259,11 +259,20 @@ String? _yahooSymbol(InvestmentInstrument instrument) {
   return null;
 }
 
+/// Yahoo sends float32-derived doubles such as 154.3000030517578. No
+/// market quotes finer than 0.0001, so the noise is rounded away there
+/// (health check G2-07).
 String _price(Object? value) {
-  if (value is! num && value is! String) {
+  final String text;
+  if (value is num) {
+    if (!value.isFinite) throw const FormatException('Invalid Yahoo price');
+    final fixed = value.toStringAsFixed(4);
+    text = fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  } else if (value is String) {
+    text = value;
+  } else {
     throw const FormatException('Expected Yahoo price');
   }
-  final text = value.toString();
   if (!RegExp(r'^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,12})?$').hasMatch(text)) {
     throw const FormatException('Invalid Yahoo price');
   }

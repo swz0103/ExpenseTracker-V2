@@ -2,3 +2,4 @@
 library;
 
 export 'src/ledger_store.dart';
+export 'src/replay.dart';

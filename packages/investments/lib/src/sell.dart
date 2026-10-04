@@ -16,6 +16,9 @@ enum InvestmentSellError {
   nonPositiveNet,
   staleLots,
   overflow,
+
+  /// Taiwan-listed shares trade in whole shares only (feature audit G-16).
+  fractionalShares,
 }
 
 final class InvestmentSellException implements Exception {
@@ -153,16 +156,22 @@ final class InvestmentSellPreview {
       }
       rethrow;
     }
-    if (calculatedGross != executedGross) {
+    // One unit either side of the quote is broker rounding (G-16).
+    if ((calculatedGross.minorUnits - executedGross.minorUnits).abs() >
+        BigInt.one) {
       throw const InvestmentSellException(InvestmentSellError.grossMismatch);
     }
-    final netUnits = executedGross.minorUnits - fee.minorUnits - tax.minorUnits;
-    if (netUnits <= BigInt.zero) {
-      throw const InvestmentSellException(InvestmentSellError.nonPositiveNet);
+    if (instrument.wholeSharesOnly && !quantity.isWhole) {
+      throw const InvestmentSellException(InvestmentSellError.fractionalShares);
     }
+    final netUnits = executedGross.minorUnits - fee.minorUnits - tax.minorUnits;
+    // Fees can eat the whole sale, as when selling nearly worthless
+    // shares; the cash then moves the other way (health check G1-06).
     if (lots.isEmpty || lots.length > 10000) {
       throw const InvestmentSellException(InvestmentSellError.emptyLots);
     }
+    // Same-day lots are ordered by lot id: ids are UUIDv7, so this is the
+    // order they were bought in, and it does not depend on input order.
     final ordered = List<InvestmentHoldingLot>.of(lots)..sort(_compareLots);
     final ids = <PublicId>{};
     var totalQuantity = BigInt.zero;

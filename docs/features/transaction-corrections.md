@@ -1,5 +1,7 @@
 # 財務更正與替代：實作契約（進行中）
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 本批接續[交易備註 PR #61](https://github.com/swz0103/ExpenseTracker-V2/pull/61)，屬於 M1-04 的下一個流程；依據 [FV-008](../architecture/full-vision-baseline.md#fv-008)、[RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03) 及[財務契約](../foundation/foundation-contracts.md)。此文件固定操作、已實作範圍與尚待驗證的 gate。
 
 2026-09-28 進度：Ledger 提案、SQLite 原子保存、可攜 snapshot 及 schema 13 加密 generation 已實作。`event_corrections` 以原事件、反向事件及替代事件建立唯一關聯；兩筆金融收據、audit 與關聯在同一個交易內提交，收據另外保留相同三個 ID 與各自角色。重送核對完整關聯，獨立做過的撤銷不得被收編；還原拒絕缺漏關聯、孤兒、角色、種類、日期及 audit 不一致。Ledger session 已能執行及重送更正，並在提交前檢查事件／關聯容量；12 → 13 使用 staged generation upgrade，升級前安全副本由密碼與救援金鑰分別驗證，中途失敗保留舊 generation 並可重試。schema 13 備份已由兩種憑證各自乾淨還原；這些測試使用合成資料。

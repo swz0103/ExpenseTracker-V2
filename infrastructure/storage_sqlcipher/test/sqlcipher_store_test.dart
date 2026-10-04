@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:app_core/app_core.dart';
@@ -190,13 +192,36 @@ void main() {
     store.close();
     final database = raw();
     addTearDown(database.close);
+    // The raw connection really reads the store, so a refusal below comes
+    // from the triggers, not from a wrong key.
+    expect(database.select('SELECT COUNT(*) AS n FROM events').single['n'], 1);
     for (final statement in _rewrites) {
       expect(
         () => database.execute(statement),
-        throwsA(isA<SqliteException>()),
+        throwsA(
+          isA<SqliteException>().having(
+            (e) => e.message,
+            'message',
+            anyOf(contains('append-only'), contains('immutable')),
+          ),
+        ),
         reason: statement,
       );
     }
+    expect(database.select('SELECT COUNT(*) AS n FROM events').single['n'], 1);
+    final operations = database.select('SELECT COUNT(*) AS n FROM operations');
+    expect(operations.single['n'], 1);
+  });
+
+  test('overlapping writes and closing mid-write are refused', () async {
+    final store = open();
+    addTearDown(store.close);
+    final release = Completer<void>();
+    final first = store.write((_) => release.future);
+    await expectLater(store.write((_) async {}), throwsA(isA<StateError>()));
+    expect(store.close, throwsA(isA<StateError>()));
+    release.complete();
+    await first;
   });
 
   test('an invalid event kind is rejected before writing', () async {
@@ -213,6 +238,23 @@ void main() {
       throwsArgumentError,
     );
     expect(store.eventCount, 0);
+  });
+
+  test('only one connection, isolate or process owns the file', () async {
+    final store = SqlCipherStore.open(file, storageKey);
+    expect(
+      () => SqlCipherStore.open(file, storageKey),
+      throwsA(const StorageUnavailable(StorageProblem.inUse)),
+    );
+    final port = ReceivePort();
+    await Isolate.spawn(_openElsewhere, [
+      port.sendPort,
+      file.path,
+      storageKey.hex,
+    ]);
+    expect(await port.first, StorageProblem.inUse.name);
+    store.close();
+    SqlCipherStore.open(file, storageKey).close();
   });
 
   test('a killed writer never leaves a torn or unjournaled commit', () async {
@@ -246,4 +288,16 @@ void main() {
       store.close();
     }
   });
+}
+
+/// Opens the store from another isolate and reports why it could not.
+void _openElsewhere(List<Object> message) {
+  final reply = message[0] as SendPort;
+  final file = File(message[1] as String);
+  try {
+    SqlCipherStore.open(file, StorageKey.fromHex(message[2] as String)).close();
+    reply.send(null);
+  } on StorageUnavailable catch (error) {
+    reply.send(error.problem.name);
+  }
 }

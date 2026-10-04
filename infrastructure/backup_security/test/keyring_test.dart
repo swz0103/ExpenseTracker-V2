@@ -223,9 +223,14 @@ void main() {
     ];
     for (final value in cases) {
       final text = value is String ? value : jsonEncode(value);
+      // Only another format version is unsupported; anything else is
+      // malformed.
+      final newer = value is Map && value['version'] == 2;
       expect(
         () => Keyring.parse(text),
-        throwsA(isA<KeyringException>()),
+        _fails(
+          newer ? KeyringError.unsupportedVersion : KeyringError.invalidFormat,
+        ),
         reason: text.length > 60 ? text.substring(0, 60) : text,
       );
     }

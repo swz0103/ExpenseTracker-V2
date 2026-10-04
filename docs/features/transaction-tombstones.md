@@ -1,5 +1,7 @@
 # 一般交易刪除與 Tombstone：實作契約（進行中）
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 本批接續[財務更正 PR #63](https://github.com/swz0103/ExpenseTracker-V2/pull/63)，完成 M1-04 尚缺的一般刪除規則。依據 [RC-03](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[FV-008](../architecture/full-vision-baseline.md#fv-008) 及[財務契約第 5 節](../foundation/foundation-contracts.md#5-財務規則與狀態轉移)。本文件是待實作與驗證的契約，不是完成聲明。
 
 2026-09-28 保存與加密檢查點：schema 14 建立唯一 `event_tombstones`，單一 SQLite transaction 寫入 marker、收據與 audit；相同命令需三者匹配才重送。帳戶有效餘額從權威 legs 排除 tombstone，原事件仍在歷史。既有退款、撤銷、更正來源讀取拒絕已刪除原事件；反向次序的撤銷／更正依賴亦拒絕刪除。收入／支出與跨幣轉帳、來源事實變更、三處寫入故障及重送已做合成資料定向驗證。可攜 snapshot format 13 保存 marker 並逐項比對原事件、完整財務事實、收據、audit、原因及操作；舊 schema 13 可升到空 marker 的 schema 14。加密 LedgerStore 已接上容量預檢、有效列表、歷史單筆、活動、雙憑證乾淨還原及事前安全備份的 staged 13→14 升級，失敗保留舊 generation。本機保存層 **60**、可攜還原 **106**、加密 generation **240**、SQLCipher **34** 項與相關分析、架構邊界檢查通過；證據見保存檢查點。App schema 14 的草稿、確認與歷史入口、四處真實行程退出及 5,000 筆容量與雙路乾淨還原亦已通過主機檢查；大量資料接續測試曾為分段診斷而中斷，完整過程見量測結果。預設 App 仍使用 schema 12，雲端與實機 gate 尚未通過；不能開放使用者資料或宣稱 M1-04 完成。

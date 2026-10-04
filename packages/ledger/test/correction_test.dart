@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final ws = WorkspaceId(PublicId.generate());
   final usd = Currency('USD', 2);
@@ -123,19 +125,19 @@ void main() {
     );
     expect(
       () => make(reversalId: replacement.id),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.correctionReference),
     );
     expect(
       () => make(reversalOperation: replacement.operation),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.correctionReference),
     );
     expect(
       () => make(reversalOperation: original.operation),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.correctionReference),
     );
     expect(
       () => make(reversalOperation: op(WorkspaceId(PublicId.generate()))),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.workspaceMismatch),
     );
     expect(
       () => make(
@@ -147,7 +149,7 @@ void main() {
           amount: Money.parse(usd, '7'),
         ),
       ),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.correctionReference),
     );
     expect(
       () => make(
@@ -159,7 +161,7 @@ void main() {
           amount: Money.parse(usd, '10'),
         ),
       ),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.correctionReference),
     );
   });
 }

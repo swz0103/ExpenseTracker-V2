@@ -4,15 +4,17 @@ import 'dart:math';
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:categories/categories.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
+import 'package:reports/reports.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
-final usd = Currency.iso('USD');
-final jpy = Currency.iso('JPY');
+final twd = Currency.of('TWD');
+final usd = Currency.of('USD');
+final jpy = Currency.of('JPY');
 final day = BusinessDate(2026, 10, 1);
 
 Money money(Currency currency, int units) =>
@@ -54,7 +56,7 @@ void main() {
   Account account(PublicId id) =>
       ledger.accounts(workspace).singleWhere((a) => a.id == id);
 
-  AccountRef ref(PublicId id) => AccountRef(id, account(id).version);
+  AccountRef ref(PublicId id) => AccountRef(id, account(id).rulesVersion);
 
   Future<PublicId> openAccount(
     String name,
@@ -145,6 +147,103 @@ void main() {
     expect(october.expense, money(twd, 1500));
   });
 
+  test('a received-currency fee is booked with its category', () async {
+    final twdBank = await openAccount('台幣', twd, opening: money(twd, 500000));
+    final usdBank = await openAccount('美元', usd);
+    final fees = PublicId.generate();
+    await books.changeCatalog(
+      ChangeCatalog(
+        operation: op(),
+        catalog: CatalogType.category,
+        change: CreateEntry(fees, '手續費', kind: CategoryKind.expense),
+      ),
+    );
+    await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(twdBank),
+        destination: ref(usdBank),
+        date: day,
+        principal: money(twd, 320000),
+        received: money(usd, 10000),
+        fee: money(usd, 1500),
+        feeAllocations: [CategoryShare(fees, 1, money(usd, 1500))],
+      ),
+    );
+    expect(ledger.balance(account(twdBank)), money(twd, 180000));
+    expect(ledger.balance(account(usdBank)), money(usd, 8500));
+    final october = ledger.monthly(workspace, '2026-10');
+    expect(october['USD']!.expense, money(usd, 1500));
+    final byCategory = ledger.categoryTotals(workspace, '2026-10');
+    expect(byCategory[(fees, 'USD')]!.expense, money(usd, 1500));
+  });
+
+  test('foreign entries count at their booked home value', () async {
+    final twdBank = await openAccount('台幣', twd, opening: money(twd, 500000));
+    final usdBank = await openAccount('美元', usd);
+    await books.recordTransfer(
+      RecordTransfer(
+        operation: op(),
+        postingId: PublicId.generate(),
+        source: ref(twdBank),
+        destination: ref(usdBank),
+        date: day,
+        principal: money(twd, 3200),
+        received: money(usd, 10000),
+      ),
+    );
+    Future<void> foreign(CashFlow flow, int cents, int? home) =>
+        books.recordCashFlow(
+          RecordCashFlow(
+            operation: op(),
+            postingId: PublicId.generate(),
+            flow: flow,
+            account: ref(usdBank),
+            date: day,
+            amount: money(usd, cents),
+            homeValue: home == null ? null : money(twd, home),
+          ),
+        );
+    await foreign(CashFlow.expense, 2500, 810);
+    await foreign(CashFlow.income, 1000, 330);
+    await foreign(CashFlow.expense, 100, null);
+    await expectLater(
+      books.recordCashFlow(
+        RecordCashFlow(
+          operation: op(),
+          postingId: PublicId.generate(),
+          flow: CashFlow.expense,
+          account: ref(twdBank),
+          date: day,
+          amount: money(twd, 100),
+          homeValue: money(twd, 100),
+        ),
+      ),
+      fails(FailureKind.rejected, 'posting.home-value'),
+    );
+
+    final october = ledger.homeMonthly(workspace, ReportMonth(2026, 10));
+    expect(october.total.expense, money(twd, 810));
+    expect(october.total.income, money(twd, 330));
+    expect(october.unvalued, 1);
+
+    // 100 dollars cost 3,200; 25 left at the average, 10 came in at 330,
+    // and 1 more left at the average again.
+    expect(ledger.homeBalance(account(usdBank)), money(twd, 2698));
+    final eur = Currency.of('EUR');
+    await openAccount('歐元', eur, opening: money(eur, 5000));
+    final unknown = ledger.netWorth(workspace);
+    expect(unknown.total, money(twd, 496800 + 2698));
+    expect([for (final a in unknown.unvalued) a.name], ['歐元']);
+    // A euro at 35 dollars that day.
+    Money atTheDay(Money amount, BusinessDate date) =>
+        Money(twd, amount.minorUnits * BigInt.from(35) ~/ BigInt.from(100));
+    final valued = ledger.netWorth(workspace, rate: atTheDay);
+    expect(valued.total, money(twd, 496800 + 2698 + 1750));
+    expect(valued.unvalued, isEmpty);
+  });
+
   test('a reversal negates the original on its own date', () async {
     final cash = await openAccount('現金', twd);
     final income = await flow(CashFlow.income, cash, money(twd, 9900));
@@ -155,6 +254,28 @@ void main() {
     expect(october.income, money(twd, 9900));
     expect(november.income, money(twd, -9900));
     expect(ledger.postings(cash), hasLength(2));
+    final recent = ledger.recentPostings(workspace, limit: 1);
+    expect(recent.single.kind, PostingKind.reversal);
+    expect(ledger.recentPostings(workspace), hasLength(2));
+  });
+
+  test('each entry shows the balance after it and its reversal', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final income = await flow(CashFlow.income, cash, money(twd, 500));
+    await flow(
+      CashFlow.expense,
+      cash,
+      money(twd, 200),
+      date: BusinessDate(2026, 10, 5),
+    );
+    final reversal = await reverse(income, date: BusinessDate(2026, 10, 9));
+    final lines = ledger.runningBalance(account(cash));
+    final after = [for (final (_, balance) in lines) balance];
+    final expected = [1000, 1500, 1300, 800];
+    expect(after, [for (final units in expected) money(twd, units)]);
+    expect(lines.last.$1.id, reversal);
+    expect(ledger.reversedBy(income), reversal);
+    expect(ledger.reversedBy(reversal), isNull);
   });
 
   test('a posting can be reversed only once, and never a reversal', () async {
@@ -175,25 +296,88 @@ void main() {
     );
   });
 
-  test('a stale account version is a conflict and writes nothing', () async {
-    final cash = await openAccount('現金', twd);
-    final stale = ref(cash);
+  test('a rename keeps prepared entries; a rules change does not', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final prepared = ref(cash);
     await books.renameAccount(
       RenameAccount(
         operation: op(),
         accountId: cash,
-        expectedVersion: stale.expectedVersion,
+        expectedVersion: account(cash).version,
         name: '錢包',
       ),
     );
+    await flow(CashFlow.expense, cash, money(twd, 100), account: prepared);
+    expect(ledger.balance(account(cash)), money(twd, 900));
+
+    for (final change in [
+      AccountStateChange.archive,
+      AccountStateChange.reactivate,
+    ]) {
+      await books.changeAccountState(
+        ChangeAccountState(
+          operation: op(),
+          accountId: cash,
+          expectedVersion: account(cash).version,
+          change: change,
+        ),
+      );
+    }
     final events = store.eventCount;
     await expectLater(
-      flow(CashFlow.expense, cash, money(twd, 100), account: stale),
+      flow(CashFlow.expense, cash, money(twd, 100), account: prepared),
       fails(FailureKind.conflict, 'account.versionConflict'),
     );
     expect(store.eventCount, events);
-    expect(ledger.balance(account(cash)), money(twd, 0));
+    expect(ledger.balance(account(cash)), money(twd, 900));
     expect(account(cash).name, '錢包');
+  });
+
+  test('the opening date can move earlier, with its balance', () async {
+    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
+    final september = BusinessDate(2026, 9, 20);
+    await expectLater(
+      flow(CashFlow.expense, cash, money(twd, 100), date: september),
+      fails(FailureKind.rejected, 'account.invalidDate'),
+    );
+    Future<CommandOutcome<int>> move(BusinessDate to) =>
+        books.changeOpeningDate(
+          ChangeOpeningDate(
+            operation: op(),
+            accountId: cash,
+            expectedVersion: account(cash).version,
+            openedOn: to,
+            reversalId: PublicId.generate(),
+            postingId: PublicId.generate(),
+          ),
+        );
+    await expectLater(
+      move(BusinessDate(2026, 10, 2)),
+      fails(FailureKind.rejected, 'account.invalidDate'),
+    );
+    await move(BusinessDate(2026, 9, 1));
+    expect(account(cash).openedOn, BusinessDate(2026, 9, 1));
+    await flow(CashFlow.expense, cash, money(twd, 100), date: september);
+    expect(ledger.balance(account(cash)), money(twd, 900));
+    final openings = [
+      for (final p in ledger.postings(cash))
+        if (p.kind == PostingKind.opening) p.date,
+    ];
+    expect(openings, [day, BusinessDate(2026, 9, 1)]..sort());
+  });
+
+  test('net worth inclusion can be changed', () async {
+    final cash = await openAccount('家人', twd);
+    await books.setNetWorthInclusion(
+      SetNetWorthInclusion(
+        operation: op(),
+        accountId: cash,
+        expectedVersion: account(cash).version,
+        included: false,
+      ),
+    );
+    expect(account(cash).includeInNetWorth, isFalse);
+    expect(account(cash).rulesVersion, 1);
   });
 
   test('archived accounts refuse postings until reactivated', () async {
@@ -293,8 +477,9 @@ void main() {
       final stale = random.nextInt(10) == 0;
       final version = AccountRef(
         target,
-        stale ? current.version - 1 : current.version,
+        stale ? current.rulesVersion - 1 : current.rulesVersion,
       );
+      final edit = stale ? current.version - 1 : current.version;
       final date = BusinessDate(2026, 9 + random.nextInt(3), 1 + i % 28);
       final units = 1 + random.nextInt(20000);
       try {
@@ -343,7 +528,7 @@ void main() {
               RenameAccount(
                 operation: op(),
                 accountId: target,
-                expectedVersion: version.expectedVersion,
+                expectedVersion: edit,
                 name: '帳戶 $i',
               ),
             );
@@ -352,7 +537,7 @@ void main() {
               ChangeAccountState(
                 operation: op(),
                 accountId: target,
-                expectedVersion: version.expectedVersion,
+                expectedVersion: edit,
                 change: current.state == AccountState.active
                     ? AccountStateChange.archive
                     : AccountStateChange.reactivate,

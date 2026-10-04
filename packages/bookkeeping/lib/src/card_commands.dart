@@ -47,6 +47,7 @@ final class SetCardTerms extends _IntResult {
     required this.closingDay,
     required this.dueDay,
     this.limit,
+    this.effectiveFrom,
   }) : super(operation);
 
   final PublicId cardId;
@@ -57,6 +58,10 @@ final class SetCardTerms extends _IntResult {
   final int dueDay;
   final Money? limit;
 
+  /// The first close on the new days; earlier statements keep their
+  /// dates. Null applies the days to the whole card (feature audit G-08).
+  final BusinessDate? effectiveFrom;
+
   @override
   Map<String, Object?> get fields => {
     'command': 'set-card-terms-v1',
@@ -65,6 +70,37 @@ final class SetCardTerms extends _IntResult {
     'closingDay': closingDay,
     'dueDay': dueDay,
     'limit': limit?.toJson(),
+    'effectiveFrom': effectiveFrom?.toString(),
+  };
+}
+
+/// Records the issuer's actual closing and due dates for one statement,
+/// or with null dates returns it to the schedule. Returns the terms
+/// version.
+final class OverrideCardCycle extends _IntResult {
+  OverrideCardCycle({
+    required OperationKey operation,
+    required this.cardId,
+    required this.expectedVersion,
+    required this.scheduledClose,
+    this.closesOn,
+    this.dueOn,
+  }) : super(operation);
+
+  final PublicId cardId;
+  final int expectedVersion;
+  final BusinessDate scheduledClose;
+  final BusinessDate? closesOn;
+  final BusinessDate? dueOn;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'override-card-cycle-v1',
+    'cardId': cardId.value,
+    'expectedVersion': expectedVersion,
+    'scheduledClose': scheduledClose.toString(),
+    'closesOn': closesOn?.toString(),
+    'dueOn': dueOn?.toString(),
   };
 }
 
@@ -108,6 +144,7 @@ final class PostCardCharge extends _IdResult {
     this.allocations = const [],
     this.tags = const [],
     this.merchant,
+    this.foreignAmount,
   }) : super(operation);
 
   final PublicId chargeId;
@@ -116,6 +153,10 @@ final class PostCardCharge extends _IdResult {
   final BusinessDate postedOn;
   final Money settledAmount;
   final Money fee;
+
+  /// The merchant's amount in its own currency, for a foreign charge; a
+  /// foreign authorization supplies it otherwise (feature audit G-09).
+  final Money? foreignAmount;
 
   /// Empty, or shares adding up to settled amount plus fee.
   final List<CategoryShare> allocations;
@@ -138,6 +179,7 @@ final class PostCardCharge extends _IdResult {
     ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
     'merchant': merchant?.id.value,
     'merchantVersion': merchant?.expectedVersion,
+    'foreignAmount': foreignAmount?.toJson(),
   };
 }
 
@@ -196,5 +238,157 @@ final class PlanInstallments extends _IntResult {
     'chargeId': chargeId.value,
     'count': count,
     'fixedFee': fixedFee.toJson(),
+  };
+}
+
+/// Drops a pending authorization that will never post, for example a
+/// cancelled hold. Returns the charge id.
+final class ReleaseAuthorization extends _IdResult {
+  ReleaseAuthorization({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.cardId,
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId cardId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'release-authorization-v1',
+    'chargeId': chargeId.value,
+    'cardId': cardId.value,
+  };
+}
+
+/// A merchant credit for a posted purchase, booked on the card: it lowers
+/// the card balance, the statement and the original spending. Returns the
+/// refund posting id.
+final class RefundCardCharge extends _IdResult {
+  RefundCardCharge({
+    required OperationKey operation,
+    required this.refundChargeId,
+    required this.postingId,
+    required this.originalChargeId,
+    required this.card,
+    required this.postedOn,
+    required this.amount,
+    this.allocations = const [],
+    this.foreignAmount,
+  }) : super(operation);
+
+  final PublicId refundChargeId;
+  final PublicId postingId;
+  final PublicId originalChargeId;
+  final AccountRef card;
+  final BusinessDate postedOn;
+  final Money amount;
+
+  /// Empty, or the categories the credit goes back to.
+  final List<CategoryShare> allocations;
+
+  /// Required for a foreign purchase: the amount returned in its currency.
+  final Money? foreignAmount;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'refund-card-charge-v1',
+    'refundChargeId': refundChargeId.value,
+    'postingId': postingId.value,
+    'originalChargeId': originalChargeId.value,
+    'card': card.toJson(),
+    'postedOn': postedOn.toString(),
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+    'foreignAmount': foreignAmount?.toJson(),
+  };
+}
+
+/// Removes a posted charge or card refund entered by mistake: its posting
+/// is reversed on its own date and it leaves the statement. A purchase
+/// with active refunds or an installment plan cannot be voided. Returns
+/// the reversal posting id.
+final class VoidCardCharge extends _IdResult {
+  VoidCardCharge({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-card-charge-v1',
+    'chargeId': chargeId.value,
+    'reversalId': reversalId.value,
+  };
+}
+
+/// Removes a card payment entered by mistake: the transfer is reversed on
+/// its own date and the payment leaves the statement. Returns the reversal
+/// posting id.
+final class VoidCardPayment extends _IdResult {
+  VoidCardPayment({
+    required OperationKey operation,
+    required this.paymentId,
+    required this.reversalId,
+  }) : super(operation);
+
+  final PublicId paymentId;
+  final PublicId reversalId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'void-card-payment-v1',
+    'paymentId': paymentId.value,
+    'reversalId': reversalId.value,
+  };
+}
+
+/// What the issuer itself put on the card.
+enum CardAdjustment {
+  /// An annual fee, late fee or interest: spending.
+  fee,
+
+  /// Cashback or a waived fee: income.
+  credit,
+}
+
+/// Books a fee or credit from the issuer on the card, for example the
+/// annual fee or cashback (health check G6-12).
+final class AdjustCard extends _IdResult {
+  AdjustCard({
+    required OperationKey operation,
+    required this.chargeId,
+    required this.postingId,
+    required this.card,
+    required this.postedOn,
+    required this.kind,
+    required this.amount,
+    this.allocations = const [],
+  }) : super(operation);
+
+  final PublicId chargeId;
+  final PublicId postingId;
+  final AccountRef card;
+  final BusinessDate postedOn;
+  final CardAdjustment kind;
+  final Money amount;
+
+  /// Expense categories for a fee, income categories for a credit.
+  final List<CategoryShare> allocations;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'adjust-card-v1',
+    'chargeId': chargeId.value,
+    'postingId': postingId.value,
+    'card': card.toJson(),
+    'postedOn': postedOn.toString(),
+    'kind': kind.name,
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
   };
 }

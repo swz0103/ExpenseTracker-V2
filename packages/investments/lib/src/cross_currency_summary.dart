@@ -21,6 +21,21 @@ final class PortfolioFxInput {
   final bool derivedInverse;
 }
 
+/// Cost, realized result and dividends of one currency's holdings already
+/// in the reporting currency at the rates of their own dates (health check
+/// G2-01), for example from TWD-settled trades or booked home values.
+final class BookedInvestmentValues {
+  const BookedInvestmentValues({
+    required this.remainingCost,
+    required this.realizedResult,
+    required this.netDividends,
+  });
+
+  final Money remainingCost;
+  final Money realizedResult;
+  final Money netDividends;
+}
+
 final class ConvertedInvestmentCurrencySummary {
   const ConvertedInvestmentCurrencySummary({
     required this.original,
@@ -33,9 +48,14 @@ final class ConvertedInvestmentCurrencySummary {
     required this.marketValue,
     required this.unrealizedResult,
     required this.totalReturn,
+    this.bookedCost = false,
   });
 
   final InvestmentCurrencySummary original;
+
+  /// True when cost, realized result and dividends are at their historical
+  /// rates; otherwise they are converted at the valuation date's rate.
+  final bool bookedCost;
   final PortfolioFxState state;
   final FxObservation? observation;
   final bool derivedInverse;
@@ -71,7 +91,17 @@ final class CrossCurrencyInvestmentSummary {
     required BusinessDate valuationDate,
     required Iterable<PortfolioFxInput> observations,
     bool allowEarlier = false,
+    Map<Currency, BookedInvestmentValues> booked = const {},
   }) {
+    for (final values in booked.values) {
+      if (values.remainingCost.currency != reportingCurrency ||
+          values.realizedResult.currency != reportingCurrency ||
+          values.netDividends.currency != reportingCurrency) {
+        throw const CrossCurrencyPortfolioException(
+          CrossCurrencyPortfolioError.invalidRate,
+        );
+      }
+    }
     final candidates = <Currency, (PortfolioFxInput, bool)>{};
     for (final input in observations) {
       final observation = input.observation;
@@ -137,24 +167,37 @@ final class CrossCurrencyInvestmentSummary {
           usable = null;
         }
       }
+      Money? convert(Money? amount) =>
+          amount == null ? null : usable?.convert(amount);
+      final history = booked[currency];
+      final marketValue = convert(row.marketValue);
+      final cost = history?.remainingCost ?? convert(row.remainingCost);
+      final realized = history?.realizedResult ?? convert(row.realizedResult);
+      final dividends = history?.netDividends ?? convert(row.netDividends);
+      // Historical amounts keep their own rates; only the market value is
+      // at the valuation date's rate (health check G2-01).
+      Money? unrealized;
+      Money? total;
+      if (history == null) {
+        unrealized = convert(row.unrealizedResult);
+        total = convert(row.totalReturn);
+      } else if (marketValue != null) {
+        unrealized = marketValue - history.remainingCost;
+        total = unrealized + history.realizedResult + history.netDividends;
+      }
       rows[currency] = ConvertedInvestmentCurrencySummary(
         original: row,
         state: state,
         observation: candidate?.$1.observation,
         derivedInverse:
             (candidate?.$1.derivedInverse ?? false) || (candidate?.$2 ?? false),
-        remainingCost: usable?.convert(row.remainingCost),
-        realizedResult: usable?.convert(row.realizedResult),
-        netDividends: usable?.convert(row.netDividends),
-        marketValue: row.marketValue == null
-            ? null
-            : usable?.convert(row.marketValue!),
-        unrealizedResult: row.unrealizedResult == null
-            ? null
-            : usable?.convert(row.unrealizedResult!),
-        totalReturn: row.totalReturn == null
-            ? null
-            : usable?.convert(row.totalReturn!),
+        remainingCost: cost,
+        realizedResult: realized,
+        netDividends: dividends,
+        marketValue: marketValue,
+        unrealizedResult: unrealized,
+        totalReturn: total,
+        bookedCost: history != null,
       );
     }
 

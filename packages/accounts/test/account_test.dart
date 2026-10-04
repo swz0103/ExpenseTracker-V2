@@ -41,7 +41,7 @@ void main() {
     account.requirePosting(
       workspace: workspace,
       currency: usd,
-      expectedVersion: 1,
+      expectedRulesVersion: 1,
       date: date,
     );
     final renamed = account.rename(
@@ -51,7 +51,15 @@ void main() {
     );
     expect(account.name, 'Bank');
     expect(renamed.version, 2);
+    expect(renamed.rulesVersion, 1);
     expect(renamed.id, account.id);
+    // An entry prepared before the rename still posts (G1-09).
+    renamed.requirePosting(
+      workspace: workspace,
+      currency: usd,
+      expectedRulesVersion: 1,
+      date: date,
+    );
   });
   test('VAL-06 rejects cross-workspace participation and mutation', () {
     final account = open();
@@ -59,7 +67,7 @@ void main() {
       () => account.requirePosting(
         workspace: otherWorkspace,
         currency: usd,
-        expectedVersion: 1,
+        expectedRulesVersion: 1,
         date: date,
       ),
       error(AccountError.workspaceMismatch),
@@ -79,7 +87,7 @@ void main() {
       () => account.requirePosting(
         workspace: workspace,
         currency: usd,
-        expectedVersion: 1,
+        expectedRulesVersion: 1,
         date: date,
       ),
       error(AccountError.versionConflict),
@@ -99,7 +107,7 @@ void main() {
       () => account.requirePosting(
         workspace: workspace,
         currency: Currency('USD', 3),
-        expectedVersion: 1,
+        expectedRulesVersion: 1,
         date: date,
       ),
       error(AccountError.currencyMismatch),
@@ -108,7 +116,7 @@ void main() {
       () => account.requirePosting(
         workspace: workspace,
         currency: usd,
-        expectedVersion: 1,
+        expectedRulesVersion: 1,
         date: BusinessDate(2026, 9, 25),
       ),
       error(AccountError.invalidDate),
@@ -120,7 +128,7 @@ void main() {
       () => archived.requirePosting(
         workspace: workspace,
         currency: usd,
-        expectedVersion: 2,
+        expectedRulesVersion: 2,
         date: date,
       ),
       error(AccountError.unavailable),
@@ -132,7 +140,7 @@ void main() {
     active.requirePosting(
       workspace: workspace,
       currency: usd,
-      expectedVersion: 3,
+      expectedRulesVersion: 3,
       date: date,
     );
   });
@@ -165,7 +173,7 @@ void main() {
       () => closed.requirePosting(
         workspace: workspace,
         currency: usd,
-        expectedVersion: 2,
+        expectedRulesVersion: 2,
         date: date,
       ),
       error(AccountError.unavailable),
@@ -209,11 +217,57 @@ void main() {
     );
     expect(excluded.includeInNetWorth, isFalse);
     expect(account.includeInNetWorth, isTrue);
+    expect(excluded.version, 2);
+    expect(excluded.rulesVersion, 1);
     excluded.requirePosting(
       workspace: workspace,
       currency: usd,
-      expectedVersion: 2,
+      expectedRulesVersion: 1,
       date: date,
     );
+  });
+  test('restore refuses state no transition could produce', () {
+    Account restore({
+      int version = 3,
+      int rulesVersion = 2,
+      AccountState state = AccountState.closed,
+      BusinessDate? closedOn,
+      String? closingReason = 'moved bank',
+      PublicId? successorId,
+      PublicId? id,
+    }) {
+      final ownId = id ?? PublicId.generate();
+      return Account.restore(
+        id: ownId,
+        workspace: workspace,
+        name: 'Bank',
+        kind: AccountKind.bank,
+        currency: usd,
+        openedOn: date,
+        includeInNetWorth: true,
+        version: version,
+        rulesVersion: rulesVersion,
+        state: state,
+        closedOn: closedOn ?? BusinessDate(2026, 10, 1),
+        closingReason: closingReason,
+        successorId: successorId,
+      );
+    }
+
+    final valid = restore();
+    expect(valid.rulesVersion, 2);
+    final self = PublicId.generate();
+    final cases = <String, Account Function()>{
+      'version 0': () => restore(version: 0, rulesVersion: 0),
+      'rules newer than version': () => restore(version: 2, rulesVersion: 3),
+      'closed before opening': () =>
+          restore(closedOn: BusinessDate(2026, 9, 1)),
+      'closed without a reason': () => restore(closingReason: null),
+      'blank reason': () => restore(closingReason: '  '),
+      'its own successor': () => restore(id: self, successorId: self),
+    };
+    for (final MapEntry(:key, :value) in cases.entries) {
+      expect(value, error(AccountError.invalidInput), reason: key);
+    }
   });
 }

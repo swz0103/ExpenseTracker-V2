@@ -35,13 +35,23 @@ void main() {
     expect(restored.accountIds, {accountA, accountB});
     expect(restored.tagIds, {tag});
     expect(restored.warningPercent, 75);
+    expect(restored.repeats, isFalse);
+    final monthly = BudgetPlan(
+      id: plan.id,
+      workspace: workspace,
+      month: ReportMonth(2028, 2),
+      limit: plan.limit,
+      repeats: true,
+    );
+    expect(codec.decode(codec.encode(monthly)).repeats, isTrue);
     expect(codec.encode(restored), encoded);
   });
 
   test('unknown or missing fields and future formats fail closed', () {
     final original = jsonDecode(codec.encode(plan)) as Map<String, dynamic>;
     for (final mutation in [
-      {...original, 'format': 2},
+      {...original, 'format': BudgetPlanCodec.formatVersion + 1},
+      {...original, 'repeats': 'yes'},
       {...original, 'unrecognized': true},
       {...original}..remove('warningPercent'),
       {...original, 'month': 13},
@@ -69,17 +79,22 @@ void main() {
       () => codec.decode(' ' * (BudgetPlanCodec.maxBytes + 1)),
       throwsFormatException,
     );
-    expect(
-      () => codec.decode(
-        jsonEncode({
-          ...original,
-          'accountIds': List.filled(
-            BudgetPlanCodec.maxSelections + 1,
-            accountA.value,
-          ),
-        }),
-      ),
-      throwsFormatException,
-    );
+    List<String> ids(int count) =>
+        [for (var i = 0; i < count; i++) PublicId.generate().value]..sort();
+    // The most selections fit in the byte limit on both lists ...
+    final full = jsonEncode({
+      ...original,
+      'accountIds': ids(BudgetPlanCodec.maxSelections),
+      'tagIds': ids(BudgetPlanCodec.maxSelections),
+    });
+    expect(utf8.encode(full).length, lessThan(BudgetPlanCodec.maxBytes));
+    expect(codec.decode(full).accountIds, hasLength(150));
+    // ... so one more is refused by the selection bound, not by size.
+    final over = jsonEncode({
+      ...original,
+      'accountIds': ids(BudgetPlanCodec.maxSelections + 1),
+    });
+    expect(utf8.encode(over).length, lessThan(BudgetPlanCodec.maxBytes));
+    expect(() => codec.decode(over), throwsFormatException);
   });
 }

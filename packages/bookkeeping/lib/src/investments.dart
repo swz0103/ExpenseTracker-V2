@@ -25,6 +25,9 @@ abstract interface class InvestmentTransaction
   );
 
   Future<void> saveTrade(Map<String, Object?> trade);
+
+  /// Leaves the trade out of [trades] from now on. Trade records stay.
+  Future<void> voidTrade(PublicId tradeId);
 }
 
 /// Buy, sell and dividend commands. Each commits the trade record and its
@@ -54,6 +57,222 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<CommandOutcome<PublicId>> dividend(RecordDividend command) =>
       _runner.run(command, (t) => _guard(() => _dividend(t, command)));
 
+  Future<CommandOutcome<int>> split(SplitInvestment command) =>
+      _runner.run(command, (t) => _guard(() => _split(t, command)));
+
+  Future<CommandOutcome<PublicId>> corporateAction(
+    RecordCorporateAction command,
+  ) => _runner.run(command, (t) => _guard(() => _action(t, command)));
+
+  Future<CommandOutcome<int>> rename(RenameInvestmentRecord command) =>
+      _runner.run(command, (t) => _guard(() => _rename(t, command)));
+
+  /// Stores the renamed record under the same id; the event repeats the
+  /// registration with the new name, which replay stores the same way.
+  Future<int> _rename(T t, RenameInvestmentRecord command) async {
+    final workspace = command.operation.workspace;
+    switch (command.type) {
+      case InvestmentRecordType.broker:
+        final current = await _found(t.broker(command.id), workspace);
+        final broker = BrokerIdentity(
+          id: current.id,
+          workspace: current.workspace,
+          name: command.name,
+        );
+        await t.saveBroker(broker);
+        await _event(t, workspace, 'investment.broker-registered', {
+          'broker': InvestmentRecords.broker(broker),
+        });
+      case InvestmentRecordType.account:
+        final current = await _found(
+          t.investmentAccount(command.id),
+          workspace,
+        );
+        final account = InvestmentAccount(
+          id: current.id,
+          workspace: current.workspace,
+          brokerId: current.brokerId,
+          fundingCashAccountId: current.fundingCashAccountId,
+          name: command.name,
+          expectedVersion: current.expectedVersion,
+        );
+        await t.saveInvestmentAccount(account);
+        await _event(t, workspace, 'investment.account-opened', {
+          'account': InvestmentRecords.account(account),
+        });
+      case InvestmentRecordType.instrument:
+        final current = await t.instrument(command.id);
+        if (current == null) {
+          throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+        }
+        final instrument = InvestmentInstrument(
+          id: current.id,
+          kind: current.kind,
+          marketCode: current.marketCode,
+          symbol: current.symbol,
+          name: command.name,
+          tradingCurrency: current.tradingCurrency,
+        );
+        await t.saveInstrument(instrument);
+        await _event(t, workspace, 'investment.listed', {
+          'instrument': InvestmentRecords.instrument(instrument),
+        });
+    }
+    return 1;
+  }
+
+  Future<CommandOutcome<PublicId>> voidTrade(VoidInvestmentTrade command) =>
+      _runner.run(command, (t) => _guard(() => _void(t, command)));
+
+  Future<PublicId> _void(T t, VoidInvestmentTrade command) async {
+    final workspace = command.operation.workspace;
+    final account = await _found(
+      t.investmentAccount(command.accountId),
+      workspace,
+    );
+    final trades = await t.trades(account.id, command.instrumentId);
+    final index = trades.indexWhere((trade) {
+      return trade['id'] == command.tradeId.value;
+    });
+    if (index < 0) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    final trade = trades[index];
+    // Later sells and splits record the lots they changed, so only the
+    // newest one can go; dividends never touch lots.
+    final later = trades.skip(index + 1);
+    if (trade['kind'] != 'dividend' &&
+        later.any((other) => other['kind'] != 'dividend')) {
+      throw const AppFailure(FailureKind.rejected, 'investment.trade-in-use');
+    }
+    final postingId = trade['postingId'] as String?;
+    if (postingId != null) {
+      await _books._reverseOwned(
+        t,
+        command.operation,
+        command.reversalId,
+        PublicId.parse(postingId),
+      );
+    }
+    await t.voidTrade(command.tradeId);
+    await _event(t, workspace, 'investment.voided', {
+      'tradeId': command.tradeId.value,
+    });
+    return command.tradeId;
+  }
+
+  Future<PublicId> _action(T t, RecordCorporateAction command) async {
+    final context = await _context(t, command.operation, command.target);
+    final currency = context.instrument.tradingCurrency;
+    await _books._requireNewPosting(t, command.postingId);
+    final trades = await t.trades(context.account.id, context.instrument.id);
+    _requireInOrder(trades, command.effectiveOn);
+    final lots = _heldOn(
+      InvestmentRecords.openLots(trades),
+      command.effectiveOn,
+    );
+    if (lots.isEmpty) {
+      throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
+    }
+    final preview = CorporateActionPreview.create(
+      id: command.actionId,
+      operation: command.operation,
+      effectiveOn: command.effectiveOn,
+      account: context.account,
+      instrument: context.instrument,
+      newShares: command.newShares,
+      oldShares: command.oldShares,
+      lots: lots,
+      cashInLieu: command.cashInLieu,
+      capitalReturned: command.capitalReturned,
+    );
+    final zero = Money(currency, BigInt.zero);
+    final posting = preview.cash.minorUnits == BigInt.zero
+        ? null
+        : Posting.investmentSell(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.effectiveOn,
+            account: await _cash(t, command, currency, command.effectiveOn),
+            investmentSellId: preview.id,
+            gross: preview.cash,
+            fee: zero,
+            tax: zero,
+            cashCredit: preview.cash,
+          );
+    await _record(t, command.operation, posting, {
+      'kind': 'action',
+      'id': preview.id.value,
+      'accountId': context.account.id.value,
+      'instrumentId': context.instrument.id.value,
+      'postingId': posting?.id.value,
+      'date': command.effectiveOn.toString(),
+      'newShares': command.newShares,
+      'oldShares': command.oldShares,
+      'net': preview.cash.toJson(),
+      'realized': preview.realized.toJson(),
+      'lots': [
+        for (final change in preview.lots)
+          {
+            'lotId': change.before.id.value,
+            'units': '${change.afterUnits}',
+            'remainingCost': change.afterCost.toJson(),
+          },
+      ],
+    });
+    return preview.id;
+  }
+
+  Future<int> _split(T t, SplitInvestment command) async {
+    final workspace = command.operation.workspace;
+    final account = await _found(
+      t.investmentAccount(command.accountId),
+      workspace,
+    );
+    final instrument = await t.instrument(command.instrumentId);
+    if (instrument == null) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    final trades = await t.trades(account.id, instrument.id);
+    _requireInOrder(trades, command.effectiveOn);
+    final lots = _heldOn(
+      InvestmentRecords.openLots(trades),
+      command.effectiveOn,
+    );
+    final preview = StockSplitPreview.create(
+      id: command.splitId,
+      operation: command.operation,
+      effectiveOn: command.effectiveOn,
+      broker: await _found(t.broker(account.brokerId), workspace),
+      account: account,
+      instrument: instrument,
+      newShares: command.newShares,
+      oldShares: command.oldShares,
+      lots: lots,
+    );
+    final record = <String, Object?>{
+      'version': InvestmentRecords.version,
+      'kind': 'split',
+      'id': preview.id.value,
+      'accountId': account.id.value,
+      'instrumentId': instrument.id.value,
+      'postingId': null,
+      'date': command.effectiveOn.toString(),
+      'newShares': command.newShares,
+      'oldShares': command.oldShares,
+      'lots': [
+        for (final change in preview.lots)
+          {
+            'lotId': change.before.id.value,
+            'quantity': change.afterQuantity.toString(),
+          },
+      ],
+    };
+    await t.saveTrade(record);
+    await _event(t, workspace, 'investment.traded', record);
+    return preview.lots.length;
+  }
+
   Future<int> _broker(T t, RegisterBroker command) async {
     if (await t.broker(command.brokerId) != null) {
       throw const AppFailure(FailureKind.conflict, 'investment.exists');
@@ -78,7 +297,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     final broker = await _found(t.broker(command.brokerId), workspace);
     final funding = await _books._account(t, command.fundingAccountId);
     if (funding.workspace != workspace ||
-        funding.kind == AccountKind.creditCard ||
+        !const {AccountKind.bank, AccountKind.cash}.contains(funding.kind) ||
         funding.state != AccountState.active) {
       throw const AppFailure(FailureKind.rejected, 'investment.funding');
     }
@@ -118,9 +337,18 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   Future<PublicId> _buy(T t, BuyInvestment command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
+    _requireInOrder(
+      await t.trades(context.account.id, context.instrument.id),
+      command.tradedOn,
+    );
     final preview = InvestmentBuyPreview.create(
       id: command.buyId,
       lotId: command.lotId,
@@ -136,16 +364,18 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       fee: command.fee,
       tax: command.tax,
     );
+    final settles = _settlement(command.tradedOn, command.settlesOn);
     final posting = Posting.investmentBuy(
       id: command.postingId,
       operation: command.operation,
-      date: command.tradedOn,
-      account: await _cash(t, command, currency, command.tradedOn),
+      date: settles,
+      account: await _cash(t, command, currency, settles),
       investmentBuyId: preview.id,
       gross: preview.gross,
       fee: preview.fee,
       tax: preview.tax,
       cashDebit: preview.cashDebit,
+      settled: command.settledAmount,
     );
     final lot = preview.lot;
     await _record(t, command.operation, posting, {
@@ -167,13 +397,27 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   Future<PublicId> _sell(T t, SellInvestment command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     final currency = context.instrument.tradingCurrency;
     await _books._requireNewPosting(t, command.postingId);
     final trades = await t.trades(context.account.id, context.instrument.id);
-    final lots = InvestmentRecords.openLots(trades);
+    _requireInOrder(trades, command.tradedOn);
+    final lots = _heldOn(InvestmentRecords.openLots(trades), command.tradedOn);
     if (lots.isEmpty) {
       throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
+    }
+    // One holding keeps one cost method, or its basis stops adding up
+    // (health check G2-25).
+    for (final trade in trades) {
+      if (trade['kind'] == 'sell' &&
+          trade['costMethod'] != command.costMethod.name) {
+        throw const AppFailure(FailureKind.rejected, 'investment.cost-method');
+      }
     }
     final preview = InvestmentSellPreview.create(
       id: command.sellId,
@@ -191,23 +435,29 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       tax: command.tax,
       lots: lots,
     );
-    final posting = Posting.investmentSell(
-      id: command.postingId,
-      operation: command.operation,
-      date: command.tradedOn,
-      account: await _cash(t, command, currency, command.tradedOn),
-      investmentSellId: preview.id,
-      gross: preview.gross,
-      fee: preview.fee,
-      tax: preview.tax,
-      cashCredit: preview.netCashCredit,
-    );
+    final settles = _settlement(command.tradedOn, command.settlesOn);
+    final account = await _cash(t, command, currency, settles);
+    // A sale whose fees take exactly all of it moves no cash (G1-06).
+    final posting = preview.netCashCredit.minorUnits == BigInt.zero
+        ? null
+        : Posting.investmentSell(
+            id: command.postingId,
+            operation: command.operation,
+            date: settles,
+            account: account,
+            investmentSellId: preview.id,
+            gross: preview.gross,
+            fee: preview.fee,
+            tax: preview.tax,
+            cashCredit: preview.netCashCredit,
+            settled: command.settledAmount,
+          );
     await _record(t, command.operation, posting, {
       'kind': 'sell',
       'id': preview.id.value,
       'accountId': context.account.id.value,
       'instrumentId': context.instrument.id.value,
-      'postingId': posting.id.value,
+      'postingId': posting?.id.value,
       'date': command.tradedOn.toString(),
       'costMethod': preview.costMethod.name,
       'quantity': preview.quantity.toString(),
@@ -228,12 +478,27 @@ final class InvestmentBook<T extends InvestmentTransaction> {
           },
       ],
     });
-    return posting.id;
+    return posting?.id ?? preview.id;
   }
 
   Future<PublicId> _dividend(T t, RecordDividend command) async {
-    final context = await _context(t, command.operation, command.target);
+    final context = await _context(
+      t,
+      command.operation,
+      command.target,
+      settled: command.settledAmount,
+    );
     await _books._requireNewPosting(t, command.postingId);
+    final exDate = command.exDividendOn;
+    if (exDate != null && exDate.compareTo(command.paidOn) > 0) {
+      throw const AppFailure(FailureKind.rejected, 'investment.ex-date');
+    }
+    final none = Money(command.fee.currency, BigInt.zero);
+    final premium = command.healthPremium ?? none;
+    if (premium.currency != command.fee.currency ||
+        premium.minorUnits.isNegative) {
+      throw const AppFailure(FailureKind.rejected, 'investment.premium');
+    }
     final preview = InvestmentDividendPreview.create(
       id: command.dividendId,
       operation: command.operation,
@@ -244,41 +509,78 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       funding: context.funding,
       gross: command.gross,
       withholdingTax: command.withholdingTax,
-      fee: command.fee,
+      fee: command.fee + premium,
       reportedNet: command.net,
     );
     final currency = context.instrument.tradingCurrency;
-    final posting = Posting.investmentDividend(
-      id: command.postingId,
-      operation: command.operation,
-      date: command.paidOn,
-      account: await _cash(t, command, currency, command.paidOn),
-      investmentDividendId: preview.id,
-      gross: preview.gross,
-      withholdingTax: preview.withholdingTax,
-      fee: preview.fee,
-      cashCredit: preview.netCashCredit,
-    );
+    final account = await _cash(t, command, currency, command.paidOn);
+    // Everything withheld: nothing is paid out (G1-06).
+    final posting = preview.netCashCredit.minorUnits == BigInt.zero
+        ? null
+        : Posting.investmentDividend(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.paidOn,
+            account: account,
+            investmentDividendId: preview.id,
+            gross: preview.gross,
+            withholdingTax: preview.withholdingTax,
+            fee: preview.fee,
+            cashCredit: preview.netCashCredit,
+            settled: command.settledAmount,
+          );
     await _record(t, command.operation, posting, {
       'kind': 'dividend',
       'id': preview.id.value,
       'accountId': context.account.id.value,
       'instrumentId': context.instrument.id.value,
-      'postingId': posting.id.value,
+      'postingId': posting?.id.value,
       'date': command.paidOn.toString(),
       'gross': preview.gross.toJson(),
       'withholdingTax': preview.withholdingTax.toJson(),
-      'fee': preview.fee.toJson(),
+      'fee': command.fee.toJson(),
+      'healthPremium': premium.toJson(),
+      'exDate': exDate?.toString(),
       'net': preview.netCashCredit.toJson(),
     });
-    return posting.id;
+    return posting?.id ?? preview.id;
   }
+
+  BusinessDate _settlement(BusinessDate tradedOn, BusinessDate? settlesOn) {
+    if (settlesOn == null) return tradedOn;
+    if (settlesOn.compareTo(tradedOn) < 0) {
+      throw const AppFailure(FailureKind.rejected, 'investment.settlement');
+    }
+    return settlesOn;
+  }
+
+  /// Sells and splits record the lots they changed, so nothing may be
+  /// booked before the latest of them; void the later ones first
+  /// (health check G2-05).
+  void _requireInOrder(List<Map<String, Object?>> trades, BusinessDate date) {
+    for (final trade in trades) {
+      if (const {'sell', 'split', 'action'}.contains(trade['kind']) &&
+          BusinessDate.parse(trade['date']! as String).compareTo(date) > 0) {
+        throw const AppFailure(FailureKind.rejected, 'investment.backdated');
+      }
+    }
+  }
+
+  /// Only lots bought by [date] can be sold or split on it.
+  List<InvestmentHoldingLot> _heldOn(
+    List<InvestmentHoldingLot> lots,
+    BusinessDate date,
+  ) => [
+    for (final lot in lots)
+      if (lot.acquiredOn.compareTo(date) <= 0) lot,
+  ];
 
   Future<_TradeContext> _context(
     T t,
     OperationKey operation,
-    TradeTarget target,
-  ) async {
+    TradeTarget target, {
+    Money? settled,
+  }) async {
     final workspace = operation.workspace;
     final account = await _found(
       t.investmentAccount(target.accountId),
@@ -292,6 +594,13 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       throw const AppFailure(FailureKind.rejected, 'investment.funding');
     }
     final cash = await _books._account(t, target.funding.id);
+    // Settled in another currency, the broker converts: the trade itself is
+    // still in the instrument's currency (feature audit G-06).
+    if (settled != null &&
+        (settled.currency != cash.currency ||
+            cash.currency.code == instrument.tradingCurrency.code)) {
+      throw const AppFailure(FailureKind.rejected, 'investment.settlement');
+    }
     return _TradeContext(
       broker: await _found(t.broker(account.brokerId), workspace),
       account: account,
@@ -299,7 +608,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
       funding: FundingCashAccount(
         id: cash.id,
         workspace: cash.workspace,
-        currency: cash.currency,
+        currency: settled == null ? cash.currency : instrument.tradingCurrency,
         expectedVersion: target.funding.expectedVersion,
       ),
     );
@@ -312,17 +621,18 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     Currency currency,
     BusinessDate date,
   ) {
-    final target = switch (command) {
-      BuyInvestment(:final target) => target,
-      SellInvestment(:final target) => target,
-      RecordDividend(:final target) => target,
+    final (target, settled) = switch (command) {
+      BuyInvestment trade => (trade.target, trade.settledAmount),
+      SellInvestment trade => (trade.target, trade.settledAmount),
+      RecordDividend trade => (trade.target, trade.settledAmount),
+      RecordCorporateAction trade => (trade.target, null),
       _ => throw StateError('Not a trade.'),
     };
     return _books._postable(
       t,
       target.funding,
       command.operation.workspace,
-      currency,
+      settled?.currency ?? currency,
       date,
     );
   }
@@ -330,12 +640,14 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   Future<void> _record(
     T t,
     OperationKey operation,
-    Posting posting,
+    Posting? posting,
     Map<String, Object?> trade,
   ) async {
     final record = {'version': InvestmentRecords.version, ...trade};
     // The posting first: the trade row refers to it.
-    await _books._savePosting(t, posting, PostingMetadata.none);
+    if (posting != null) {
+      await _books._savePosting(t, posting, PostingMetadata.none);
+    }
     await t.saveTrade(record);
     await _event(t, operation.workspace, 'investment.traded', record);
   }
@@ -468,6 +780,35 @@ abstract final class InvestmentRecords {
         );
       });
 
+  /// The history view of a stored trade record.
+  static InvestmentTrade readTrade(Map<String, Object?> json) => decoding(() {
+    if (json['version'] != version) throw const CodecException('version');
+    Money? money(String key) {
+      final value = json[key] as Map<String, Object?>?;
+      return value == null ? null : Money.fromJson(value);
+    }
+
+    final kind = json['kind']! as String;
+    final posting = json['postingId'] as String?;
+    final quantity = json['quantity'] as String?;
+    final cost = money('cost');
+    return InvestmentTrade(
+      id: PublicId.parse(json['id']! as String),
+      kind: switch (kind) {
+        'buy' || 'sell' || 'split' || 'dividend' || 'action' => kind,
+        _ => throw const CodecException('trade'),
+      },
+      accountId: PublicId.parse(json['accountId']! as String),
+      instrumentId: PublicId.parse(json['instrumentId']! as String),
+      date: BusinessDate.parse(json['date']! as String),
+      postingId: posting == null ? null : PublicId.parse(posting),
+      quantity: quantity == null ? null : ShareQuantity.parse(quantity),
+      gross: money('gross'),
+      cash: cost == null ? money('net') : -cost,
+      realized: money('realized'),
+    );
+  });
+
   /// Replays buys and sells into the open lots, oldest first. Every sell
   /// rewrites the lots it lists, so a lot's version counts its changes.
   static List<InvestmentHoldingLot> openLots(
@@ -512,6 +853,43 @@ abstract final class InvestmentRecords {
               version: lot.version + 1,
             );
           }
+        case 'split':
+          for (final change in trade['lots']! as List) {
+            final entry = change as Map<String, Object?>;
+            final id = entry['lotId']! as String;
+            final lot = lots[id] ?? (throw const CodecException('lot'));
+            final quantity = ShareQuantity.parse(entry['quantity']! as String);
+            final scale = BigInt.from(10).pow(12 - quantity.scale);
+            lots[id] = _LotState(
+              accountId: lot.accountId,
+              instrumentId: lot.instrumentId,
+              acquiredOn: lot.acquiredOn,
+              units: quantity.coefficient * scale,
+              cost: lot.cost,
+              version: lot.version + 1,
+            );
+          }
+        case 'action':
+          for (final change in trade['lots']! as List) {
+            final entry = change as Map<String, Object?>;
+            final id = entry['lotId']! as String;
+            final lot = lots[id] ?? (throw const CodecException('lot'));
+            final units = BigInt.parse(entry['units']! as String);
+            if (units == BigInt.zero) {
+              lots.remove(id);
+              continue;
+            }
+            lots[id] = _LotState(
+              accountId: lot.accountId,
+              instrumentId: lot.instrumentId,
+              acquiredOn: lot.acquiredOn,
+              units: units,
+              cost: Money.fromJson(
+                entry['remainingCost']! as Map<String, Object?>,
+              ),
+              version: lot.version + 1,
+            );
+          }
         case 'dividend':
           break;
         default:
@@ -531,6 +909,46 @@ abstract final class InvestmentRecords {
         ),
     ];
   });
+}
+
+/// One recorded trade, as the trade history screen lists it.
+final class InvestmentTrade {
+  const InvestmentTrade({
+    required this.id,
+    required this.kind,
+    required this.accountId,
+    required this.instrumentId,
+    required this.date,
+    this.postingId,
+    this.quantity,
+    this.gross,
+    this.cash,
+    this.realized,
+  });
+
+  final PublicId id;
+
+  /// `buy`, `sell`, `split`, `dividend` or `action` (a corporate action).
+  final String kind;
+  final PublicId accountId;
+  final PublicId instrumentId;
+  final BusinessDate date;
+
+  /// The cash posting; a split has none.
+  final PublicId? postingId;
+
+  /// Shares bought or sold.
+  final ShareQuantity? quantity;
+
+  /// Price times quantity, or the dividend before tax and fees.
+  final Money? gross;
+
+  /// The change in cash: negative for a buy, the net received for a sell
+  /// or a dividend.
+  final Money? cash;
+
+  /// Proceeds less the cost of the shares sold, for a sell.
+  final Money? realized;
 }
 
 final class _LotState {

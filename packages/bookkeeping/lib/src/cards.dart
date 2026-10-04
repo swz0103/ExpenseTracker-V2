@@ -11,7 +11,25 @@ abstract interface class CardTransaction implements BookkeepingTransaction {
 
   Future<void> saveCardCharge(CardCharge charge);
 
+  /// The refunds credited against [purchaseId], voided ones left out.
+  Future<List<CardCharge>> cardRefunds(PublicId purchaseId);
+
+  /// True once a pending authorization was released without posting.
+  Future<bool> isReleased(PublicId chargeId);
+
+  Future<void> releaseCardCharge(PublicId chargeId);
+
+  /// Takes a posted charge off the statement once its posting has been
+  /// reversed; [isReleased] then reports true for it.
+  Future<void> voidCardCharge(PublicId chargeId);
+
   Future<void> saveCardPayment(CardPayment payment);
+
+  Future<CardPayment?> cardPayment(PublicId paymentId);
+
+  Future<bool> isPaymentVoided(PublicId paymentId);
+
+  Future<void> voidCardPayment(PublicId paymentId);
 
   Future<CardInstallmentSchedule?> installmentPlan(PublicId purchaseEventId);
 
@@ -30,11 +48,17 @@ final class CardBook<T extends CardTransaction> {
   Future<CommandOutcome<int>> setTerms(SetCardTerms command) =>
       _runner.run(command, (t) => _guard(() => _setTerms(t, command)));
 
+  Future<CommandOutcome<int>> overrideCycle(OverrideCardCycle command) =>
+      _runner.run(command, (t) => _guard(() => _overrideCycle(t, command)));
+
   Future<CommandOutcome<PublicId>> authorize(AuthorizeCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _authorize(t, command)));
 
   Future<CommandOutcome<PublicId>> post(PostCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _post(t, command)));
+
+  Future<CommandOutcome<PublicId>> release(ReleaseAuthorization command) =>
+      _runner.run(command, (t) => _guard(() => _release(t, command)));
 
   Future<CommandOutcome<PublicId>> pay(PayCard command) =>
       _runner.run(command, (t) => _guard(() => _pay(t, command)));
@@ -42,23 +66,235 @@ final class CardBook<T extends CardTransaction> {
   Future<CommandOutcome<int>> planInstallments(PlanInstallments command) =>
       _runner.run(command, (t) => _guard(() => _plan(t, command)));
 
+  Future<CommandOutcome<PublicId>> refund(RefundCardCharge command) =>
+      _runner.run(command, (t) => _guard(() => _refund(t, command)));
+
+  Future<CommandOutcome<PublicId>> adjust(AdjustCard command) =>
+      _runner.run(command, (t) => _guard(() => _adjust(t, command)));
+
+  Future<CommandOutcome<PublicId>> voidCharge(VoidCardCharge command) =>
+      _runner.run(command, (t) => _guard(() => _voidCharge(t, command)));
+
+  Future<CommandOutcome<PublicId>> voidPayment(VoidCardPayment command) =>
+      _runner.run(command, (t) => _guard(() => _voidPayment(t, command)));
+
+  Future<PublicId> _refund(T t, RefundCardCharge command) async {
+    final workspace = command.operation.workspace;
+    final card = await _card(t, command.card.id, command.operation);
+    final original = await t.cardCharge(command.originalChargeId);
+    if (original == null || original.cardId != card.id) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (original.kind != CardChargeKind.purchase ||
+        !original.isPosted ||
+        await t.isReleased(original.id)) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-posted');
+    }
+    if (await t.cardCharge(command.refundChargeId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'card.charge-exists');
+    }
+    if (command.amount.currency != card.currency) {
+      throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
+    }
+    // A local credit returns the purchase, never its fee; a foreign one is
+    // limited in its own currency (feature audit G-09).
+    final foreign = original.foreignAmount;
+    final asked = command.foreignAmount;
+    if ((foreign == null) != (asked == null) ||
+        (foreign != null && foreign.currency != asked!.currency)) {
+      throw const AppFailure(FailureKind.rejected, 'card.foreign-amount');
+    }
+    final left = refundableOf(original, await t.cardRefunds(original.id));
+    if (command.amount.minorUnits > left.local.minorUnits ||
+        (asked != null && asked.minorUnits > left.foreign!.minorUnits)) {
+      throw const AppFailure(FailureKind.rejected, 'ledger.refundLimit');
+    }
+    final postingId = await _books._refund(
+      t,
+      RecordRefund(
+        operation: command.operation,
+        postingId: command.postingId,
+        originalId: original.ledgerEventId!,
+        account: command.card,
+        date: command.postedOn,
+        amount: command.amount,
+        allocations: command.allocations,
+      ),
+      owned: true,
+    );
+    final pending = CardCharge.pending(
+      id: command.refundChargeId,
+      workspace: workspace,
+      cardId: card.id,
+      kind: CardChargeKind.refund,
+      authorizedOn: command.postedOn,
+      authorizedAmount: command.amount,
+      originalChargeId: original.id,
+    );
+    final credit = pending.post(
+      postedOn: command.postedOn,
+      settledAmount: command.amount,
+      fee: Money(card.currency, BigInt.zero),
+      ledgerEventId: postingId,
+      foreignAmount: asked,
+    );
+    await t.saveCardCharge(credit);
+    await _event(t, workspace, 'card.posted', _charge(credit));
+    return postingId;
+  }
+
+  Future<PublicId> _adjust(T t, AdjustCard command) async {
+    final workspace = command.operation.workspace;
+    final card = await _card(t, command.card.id, command.operation);
+    await _books._requireNewPosting(t, command.postingId);
+    if (await t.cardCharge(command.chargeId) != null) {
+      throw const AppFailure(FailureKind.conflict, 'card.charge-exists');
+    }
+    if (command.amount.currency != card.currency) {
+      throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
+    }
+    final fee = command.kind == CardAdjustment.fee;
+    final account = await _books._postable(
+      t,
+      command.card,
+      workspace,
+      command.amount.currency,
+      command.postedOn,
+      card: true,
+    );
+    final allocations = await _books._allocations(
+      t,
+      workspace,
+      fee ? CashFlow.expense : CashFlow.income,
+      command.allocations,
+    );
+    final posting = fee
+        ? Posting.expense(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.postedOn,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          )
+        : Posting.income(
+            id: command.postingId,
+            operation: command.operation,
+            date: command.postedOn,
+            account: account,
+            amount: command.amount,
+            allocations: allocations,
+          );
+    await _books._savePosting(t, posting, PostingMetadata.none);
+    final pending = CardCharge.pending(
+      id: command.chargeId,
+      workspace: workspace,
+      cardId: card.id,
+      kind: fee ? CardChargeKind.fee : CardChargeKind.credit,
+      authorizedOn: command.postedOn,
+      authorizedAmount: command.amount,
+    );
+    final adjustment = pending.post(
+      postedOn: command.postedOn,
+      settledAmount: command.amount,
+      fee: Money(card.currency, BigInt.zero),
+      ledgerEventId: posting.id,
+    );
+    await t.saveCardCharge(adjustment);
+    await _event(t, workspace, 'card.posted', _charge(adjustment));
+    return posting.id;
+  }
+
+  Future<PublicId> _voidCharge(T t, VoidCardCharge command) async {
+    final workspace = command.operation.workspace;
+    final charge = await t.cardCharge(command.chargeId);
+    if (charge == null || charge.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (!charge.isPosted) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-posted');
+    }
+    if (await t.isReleased(charge.id)) {
+      throw const AppFailure(FailureKind.conflict, 'card.voided');
+    }
+    if (charge.kind == CardChargeKind.purchase &&
+        await t.installmentPlan(charge.ledgerEventId!) != null) {
+      throw const AppFailure(FailureKind.rejected, 'card.has-installments');
+    }
+    final reversal = await _books._reverseOwned(
+      t,
+      command.operation,
+      command.reversalId,
+      charge.ledgerEventId!,
+    );
+    await t.voidCardCharge(charge.id);
+    await _event(t, workspace, 'card.voided', {'chargeId': charge.id.value});
+    return reversal;
+  }
+
+  Future<PublicId> _voidPayment(T t, VoidCardPayment command) async {
+    final workspace = command.operation.workspace;
+    final payment = await t.cardPayment(command.paymentId);
+    if (payment == null || payment.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'card.payment-not-found');
+    }
+    if (await t.isPaymentVoided(payment.id)) {
+      throw const AppFailure(FailureKind.conflict, 'card.voided');
+    }
+    final reversal = await _books._reverseOwned(
+      t,
+      command.operation,
+      command.reversalId,
+      payment.ledgerEventId,
+    );
+    await t.voidCardPayment(payment.id);
+    await _event(t, workspace, 'card.payment-voided', {
+      'paymentId': payment.id.value,
+    });
+    return reversal;
+  }
+
   Future<int> _setTerms(T t, SetCardTerms command) async {
     final card = await _card(t, command.cardId, command.operation);
     final current = await t.cardTerms(card.id);
     if ((current?.version ?? 0) != command.expectedVersion) {
       throw const AppFailure(FailureKind.conflict, 'card.versionConflict');
     }
-    final terms = CreditCardTerms(
-      workspace: card.workspace,
-      cardId: card.id,
-      currency: card.currency,
-      closingDay: command.closingDay,
-      dueDay: command.dueDay,
-      limit: command.limit,
-      version: command.expectedVersion + 1,
+    final terms = current == null
+        ? CreditCardTerms(
+            workspace: card.workspace,
+            cardId: card.id,
+            currency: card.currency,
+            closingDay: command.closingDay,
+            dueDay: command.dueDay,
+            limit: command.limit,
+          )
+        : current.reschedule(
+            closingDay: command.closingDay,
+            dueDay: command.dueDay,
+            from: command.effectiveFrom,
+            limit: command.limit,
+          );
+    return _saveTerms(t, terms);
+  }
+
+  Future<int> _overrideCycle(T t, OverrideCardCycle command) async {
+    final card = await _card(t, command.cardId, command.operation);
+    final current = await _terms(t, card.id);
+    if (current.version != command.expectedVersion) {
+      throw const AppFailure(FailureKind.conflict, 'card.versionConflict');
+    }
+    final terms = current.overrideCycle(
+      scheduledClose: command.scheduledClose,
+      closesOn: command.closesOn,
+      dueOn: command.dueOn,
     );
+    return _saveTerms(t, terms);
+  }
+
+  Future<int> _saveTerms(T t, CreditCardTerms terms) async {
     await t.saveCardTerms(terms);
-    await _event(t, card.workspace, 'card.terms-set', {
+    await _event(t, terms.workspace, 'card.terms-set', {
       'terms': const CreditCardTermsCodec().encode(terms),
     });
     return terms.version;
@@ -85,10 +321,29 @@ final class CardBook<T extends CardTransaction> {
     return charge.id;
   }
 
+  Future<PublicId> _release(T t, ReleaseAuthorization command) async {
+    final card = await _card(t, command.cardId, command.operation);
+    final charge = await t.cardCharge(command.chargeId);
+    if (charge == null || charge.cardId != card.id) {
+      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
+    }
+    if (charge.isPosted || await t.isReleased(charge.id)) {
+      throw const AppFailure(FailureKind.rejected, 'card.not-pending');
+    }
+    await t.releaseCardCharge(charge.id);
+    await _event(t, card.workspace, 'card.released', {
+      'chargeId': charge.id.value,
+    });
+    return charge.id;
+  }
+
   Future<PublicId> _post(T t, PostCardCharge command) async {
     final workspace = command.operation.workspace;
     final card = await _card(t, command.card.id, command.operation);
     await _books._requireNewPosting(t, command.postingId);
+    if (await t.isReleased(command.chargeId)) {
+      throw const AppFailure(FailureKind.rejected, 'card.released');
+    }
     final pending =
         await t.cardCharge(command.chargeId) ??
         CardCharge.pending(
@@ -107,6 +362,7 @@ final class CardBook<T extends CardTransaction> {
       settledAmount: command.settledAmount,
       fee: command.fee,
       ledgerEventId: command.postingId,
+      foreignAmount: command.foreignAmount,
     );
     final total = command.settledAmount + command.fee;
     final account = await _books._postable(
@@ -115,6 +371,7 @@ final class CardBook<T extends CardTransaction> {
       workspace,
       total.currency,
       command.postedOn,
+      card: true,
     );
     final posting = Posting.expense(
       id: command.postingId,
@@ -146,7 +403,7 @@ final class CardBook<T extends CardTransaction> {
     final workspace = command.operation.workspace;
     final card = await _card(t, command.card.id, command.operation);
     final terms = await _terms(t, card.id);
-    final cycle = terms.scheduledCycleFor(command.statementClose);
+    final cycle = terms.cycleFor(command.statementClose);
     if (cycle.closesOn != command.statementClose) {
       throw const AppFailure(FailureKind.rejected, 'card.statement-close');
     }
@@ -168,6 +425,7 @@ final class CardBook<T extends CardTransaction> {
         workspace,
         command.amount.currency,
         command.postedOn,
+        card: true,
       ),
       principal: command.amount,
     );
@@ -198,14 +456,15 @@ final class CardBook<T extends CardTransaction> {
       throw const AppFailure(FailureKind.conflict, 'card.plan-exists');
     }
     final terms = await _terms(t, charge.cardId);
+    final first = terms.cycleFor(charge.postedOn!).scheduledClose;
     final plan = CardInstallmentSchedule(
       purchaseEventId: charge.ledgerEventId!,
       workspace: charge.workspace,
       cardId: charge.cardId,
       principal: charge.settledAmount!,
       fixedFee: command.fixedFee,
-      firstScheduledClose: terms.scheduledCycleFor(charge.postedOn!).closesOn,
-      closingDay: terms.closingDay,
+      firstScheduledClose: first,
+      closingDay: terms.closingDayOn(first),
       count: command.count,
     );
     await t.saveInstallmentPlan(plan);
@@ -267,6 +526,7 @@ abstract final class CardRecords {
     'settledAmount': charge.settledAmount?.toJson(),
     'fee': charge.fee?.toJson(),
     'ledgerEventId': charge.ledgerEventId?.value,
+    'foreignAmount': charge.foreignAmount?.toJson(),
   };
 
   static CardCharge readCharge(Map<String, Object?> json) => decoding(() {
@@ -283,6 +543,7 @@ abstract final class CardRecords {
       'settledAmount',
       'fee',
       'ledgerEventId',
+      'foreignAmount',
     });
     if (json['version'] != version) throw const CodecException('version');
     final original = json['originalChargeId'] as String?;
@@ -299,7 +560,8 @@ abstract final class CardRecords {
     if (event == null) {
       if (json['postedOn'] != null ||
           json['settledAmount'] != null ||
-          json['fee'] != null) {
+          json['fee'] != null ||
+          json['foreignAmount'] != null) {
         throw const CodecException('pending');
       }
       return pending;
@@ -309,6 +571,9 @@ abstract final class CardRecords {
       settledAmount: _readMoney(json['settledAmount']),
       fee: _readMoney(json['fee']),
       ledgerEventId: PublicId.parse(event),
+      foreignAmount: json['foreignAmount'] == null
+          ? null
+          : _readMoney(json['foreignAmount']),
     );
   });
 

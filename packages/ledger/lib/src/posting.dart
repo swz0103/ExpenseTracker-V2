@@ -28,8 +28,6 @@ enum LedgerError {
   reversalReference,
   reversalDependency,
   correctionReference,
-  tombstoneReference,
-  tombstoneDependency,
   investmentBuyMismatch,
   investmentSellMismatch,
   investmentDividendMismatch,
@@ -237,11 +235,10 @@ final class Posting {
     required Money fee,
     required Money tax,
     required Money cashDebit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, fee);
-    _participation(operation, account, tax);
-    _participation(operation, account, cashDebit);
+    final (moved, conversion) = _settle(operation, account, cashDebit, settled);
+    _sameCurrency(cashDebit, [gross, fee, tax]);
     _positive(gross);
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
@@ -261,9 +258,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentBuy,
-      legs: [LedgerLeg._(account, -cashDebit, LegRole.principal)],
+      legs: [LedgerLeg._(account, -moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentBuy: InvestmentBuyCashDetails._(
         buyId: investmentBuyId,
         gross: gross,
@@ -286,23 +284,28 @@ final class Posting {
     required Money fee,
     required Money tax,
     required Money cashCredit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, fee);
-    _participation(operation, account, tax);
-    _participation(operation, account, cashCredit);
+    final (moved, conversion) = _settle(
+      operation,
+      account,
+      cashCredit,
+      settled,
+    );
+    _sameCurrency(cashCredit, [gross, fee, tax]);
     _positive(gross);
+    // A sale whose fees exceed its proceeds debits cash (G1-06); one that
+    // nets exactly zero moves no cash and has no posting.
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
-        cashCredit.minorUnits <= BigInt.zero) {
+        cashCredit.minorUnits == BigInt.zero) {
       throw const LedgerException(LedgerError.invalidAmount);
     }
     if (id == investmentSellId) {
       throw const LedgerException(LedgerError.duplicateIdentity);
     }
     final expectedCredit = gross.minorUnits - fee.minorUnits - tax.minorUnits;
-    if (expectedCredit <= BigInt.zero ||
-        expectedCredit != cashCredit.minorUnits) {
+    if (expectedCredit != cashCredit.minorUnits) {
       throw const LedgerException(LedgerError.investmentSellMismatch);
     }
     return Posting._(
@@ -310,9 +313,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentSell,
-      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      legs: [LedgerLeg._(account, moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentSell: InvestmentSellCashDetails._(
         sellId: investmentSellId,
         gross: gross,
@@ -335,11 +339,15 @@ final class Posting {
     required Money withholdingTax,
     required Money fee,
     required Money cashCredit,
+    Money? settled,
   }) {
-    _participation(operation, account, gross);
-    _participation(operation, account, withholdingTax);
-    _participation(operation, account, fee);
-    _participation(operation, account, cashCredit);
+    final (moved, conversion) = _settle(
+      operation,
+      account,
+      cashCredit,
+      settled,
+    );
+    _sameCurrency(cashCredit, [gross, withholdingTax, fee]);
     _positive(gross);
     if (withholdingTax.minorUnits < BigInt.zero ||
         fee.minorUnits < BigInt.zero ||
@@ -360,9 +368,10 @@ final class Posting {
       operation: operation,
       date: date,
       kind: PostingKind.investmentDividend,
-      legs: [LedgerLeg._(account, cashCredit, LegRole.principal)],
+      legs: [LedgerLeg._(account, moved, LegRole.principal)],
       reportIncome: Money(account.currency, BigInt.zero),
       reportExpense: Money(account.currency, BigInt.zero),
+      conversion: conversion,
       investmentDividend: InvestmentDividendCashDetails._(
         dividendId: investmentDividendId,
         gross: gross,
@@ -412,18 +421,31 @@ final class Posting {
 
   /// Retains the original and negates every cash/report effect exactly.
   /// Persistence revalidates the original and its dependent events atomically.
+  /// An opening or a refund can be reversed too, so a wrong opening balance
+  /// or a refund booked against the wrong expense has a correction path; a
+  /// reversed refund gives its amount back to the original's refund limit.
+  /// Investment cash postings are reversed only when their trade is voided:
+  /// [tradeVoid] says the caller removes the trade in the same transaction.
   factory Posting.reversal({
     required PublicId id,
     required OperationKey operation,
     required BusinessDate date,
     required Posting original,
     String reason = '',
+    bool tradeVoid = false,
   }) {
-    if (![
-          PostingKind.income,
-          PostingKind.expense,
-          PostingKind.transfer,
-        ].contains(original.kind) ||
+    final allowed = switch (original.kind) {
+      PostingKind.opening ||
+      PostingKind.income ||
+      PostingKind.expense ||
+      PostingKind.transfer ||
+      PostingKind.refund => true,
+      PostingKind.investmentBuy ||
+      PostingKind.investmentSell ||
+      PostingKind.investmentDividend => tradeVoid,
+      PostingKind.reversal => false,
+    };
+    if (!allowed ||
         id == original.id ||
         date.compareTo(original.date) < 0 ||
         reason != reason.trim() ||
@@ -460,6 +482,7 @@ final class Posting {
     required Money principal,
     Money? received,
     Money? fee,
+    List<Allocation> allocations = const [],
   }) {
     final incoming = received ?? principal;
     _participation(operation, source, principal);
@@ -472,12 +495,18 @@ final class Posting {
     if ((!cross && incoming != principal) ||
         (cross && source.currency.code == destination.currency.code))
       throw const LedgerException(LedgerError.currencyMismatch);
+    // The fee is paid from the source, or taken from what arrives when it
+    // is in the destination currency (feature audit G-17).
     final charge = fee ?? Money(source.currency, BigInt.zero);
-    if (charge.currency != principal.currency)
-      throw const LedgerException(LedgerError.currencyMismatch);
+    final payer = charge.currency == principal.currency
+        ? source
+        : charge.currency == incoming.currency
+        ? destination
+        : throw const LedgerException(LedgerError.currencyMismatch);
     if (charge.minorUnits < BigInt.zero)
       throw const LedgerException(LedgerError.invalidAmount);
-    principal + charge;
+    if (payer == source) principal + charge;
+    _allocations(charge, allocations);
     return Posting._(
       id: id,
       operation: operation,
@@ -487,11 +516,12 @@ final class Posting {
         LedgerLeg._(source, -principal, LegRole.principal),
         LedgerLeg._(destination, incoming, LegRole.principal),
         if (charge.minorUnits != BigInt.zero)
-          LedgerLeg._(source, -charge, LegRole.fee),
+          LedgerLeg._(payer, -charge, LegRole.fee),
       ],
-      reportIncome: Money(source.currency, BigInt.zero),
+      reportIncome: Money(charge.currency, BigInt.zero),
       reportExpense: charge,
       conversion: cross ? ActualConversion(principal, incoming) : null,
+      allocations: allocations,
     );
   }
 
@@ -524,6 +554,34 @@ void _participation(
     throw const LedgerException(LedgerError.currencyMismatch);
 }
 
+/// What moves on [account] for a trade's [cash]: the cash itself, or
+/// [settled] in the account's currency when the broker converted it, as
+/// Taiwan's sub-brokerage does for TWD settlement (feature audit G-06).
+(Money, ActualConversion?) _settle(
+  OperationKey operation,
+  PostingAccount account,
+  Money cash,
+  Money? settled,
+) {
+  if (settled == null) {
+    _participation(operation, account, cash);
+    return (cash, null);
+  }
+  _participation(operation, account, settled);
+  _positive(settled);
+  _positive(cash);
+  if (settled.currency.code == cash.currency.code)
+    throw const LedgerException(LedgerError.currencyMismatch);
+  return (settled, ActualConversion(cash, settled));
+}
+
+void _sameCurrency(Money cash, List<Money> parts) {
+  for (final part in parts) {
+    if (part.currency != cash.currency)
+      throw const LedgerException(LedgerError.currencyMismatch);
+  }
+}
+
 void _positive(Money amount) {
   if (amount.minorUnits <= BigInt.zero)
     throw const LedgerException(LedgerError.invalidAmount);
@@ -548,10 +606,12 @@ void _allocations(Money amount, List<Allocation> allocations) {
 Money rebuildBalance(PostingAccount account, Iterable<Posting> committed) {
   var total = BigInt.zero;
   final identities = <PublicId>{};
+  final operations = <OperationKey>{};
   for (final posting in committed) {
     if (posting.operation.workspace != account.workspace)
       throw const LedgerException(LedgerError.workspaceMismatch);
-    if (!identities.add(posting.id))
+    // A retried command must never be counted twice, even under a new id.
+    if (!identities.add(posting.id) || !operations.add(posting.operation))
       throw const LedgerException(LedgerError.duplicateIdentity);
     for (final leg in posting.legs.where(
       (leg) => leg.account.id == account.id,

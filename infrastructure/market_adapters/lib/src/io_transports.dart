@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:market_data/market_data.dart';
 
@@ -30,14 +31,17 @@ final class IoMarketTransport implements MarketTransport {
       final response = await request.close().timeout(
         const Duration(seconds: 10),
       );
-      final bytes = <int>[];
+      final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
+        bytes.add(chunk);
         if (bytes.length > maximumResponseBytes) {
           throw const FormatException('Market response too large');
         }
       }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
+      return MarketResponse(
+        response.statusCode,
+        utf8.decode(bytes.takeBytes()),
+      );
     } finally {
       client.close(force: true);
     }
@@ -70,14 +74,17 @@ final class IoFugleMarketTransport implements FugleMarketTransport {
       final response = await request.close().timeout(
         const Duration(seconds: 10),
       );
-      final bytes = <int>[];
+      final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
+        bytes.add(chunk);
         if (bytes.length > maximumResponseBytes) {
           throw const FormatException('Fugle response too large');
         }
       }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
+      return MarketResponse(
+        response.statusCode,
+        utf8.decode(bytes.takeBytes()),
+      );
     } finally {
       client.close(force: true);
     }
@@ -110,14 +117,17 @@ final class IoTwelveDataTransport implements TwelveDataTransport {
       final response = await request.close().timeout(
         const Duration(seconds: 10),
       );
-      final bytes = <int>[];
+      final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
+        bytes.add(chunk);
         if (bytes.length > maximumResponseBytes) {
           throw const FormatException('Twelve Data response too large');
         }
       }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
+      return MarketResponse(
+        response.statusCode,
+        utf8.decode(bytes.takeBytes()),
+      );
     } finally {
       client.close(force: true);
     }
@@ -148,14 +158,17 @@ final class IoYahooChartTransport implements YahooChartTransport {
       final response = await request.close().timeout(
         const Duration(seconds: 10),
       );
-      final bytes = <int>[];
+      final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
-        bytes.addAll(chunk);
+        bytes.add(chunk);
         if (bytes.length > maximumResponseBytes) {
           throw const FormatException('Yahoo Chart response too large');
         }
       }
-      return MarketResponse(response.statusCode, utf8.decode(bytes));
+      return MarketResponse(
+        response.statusCode,
+        utf8.decode(bytes.takeBytes()),
+      );
     } finally {
       client.close(force: true);
     }

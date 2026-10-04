@@ -34,6 +34,10 @@ final class Merchant {
         (replacementId != null && !archived)) {
       throw const MerchantException(MerchantError.invalidInput);
     }
+    // addAlias refuses an alias equal to the name; restore must agree.
+    if (aliases.any((alias) => _key(alias) == _key(this.name))) {
+      throw const MerchantException(MerchantError.duplicate);
+    }
   }
 
   final PublicId id;
@@ -73,28 +77,11 @@ final class MerchantCatalog {
           throw const MerchantException(MerchantError.missing);
       }
     }
-    // Resolve all chains iteratively in O(n), including an untrusted long
-    // history. The derived index is disposable and never changes saved IDs.
-    final canonical = <PublicId, PublicId>{};
-    for (final id in rows.keys) {
-      if (canonical.containsKey(id)) continue;
-      final path = <PublicId>{};
-      var cursor = id;
-      while (!canonical.containsKey(cursor)) {
-        if (!path.add(cursor)) {
-          throw const MerchantException(MerchantError.replacementCycle);
-        }
-        final next = rows[cursor]!.replacementId;
-        if (next == null) {
-          canonical[cursor] = cursor;
-          break;
-        }
-        cursor = next;
-      }
-      final resolved = canonical[cursor]!;
-      for (final member in path) {
-        canonical[member] = resolved;
-      }
+    final canonical = resolveRedirects({
+      for (final row in rows.values) row.id: row.replacementId,
+    });
+    if (canonical == null) {
+      throw const MerchantException(MerchantError.replacementCycle);
     }
     return MerchantCatalog._(
       workspace,
@@ -285,16 +272,12 @@ final class MerchantCatalog {
 }
 
 String _name(String value) {
-  final result = value.trim();
-  if (result.isEmpty ||
-      result.length > 100 ||
-      RegExp(r'[\x00-\x1f\x7f]').hasMatch(result)) {
-    throw const MerchantException(MerchantError.invalidInput);
-  }
+  final result = cleanName(value);
+  if (result == null) throw const MerchantException(MerchantError.invalidInput);
   return result;
 }
 
-String _key(String value) => value.trim().toLowerCase();
+String _key(String value) => nameKey(value);
 
 List<String> _aliases(Iterable<String> input) {
   final values = input.map(_name).toList();

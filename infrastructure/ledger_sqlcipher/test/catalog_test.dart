@@ -10,7 +10,7 @@ import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:test/test.dart';
 
-final twd = Currency.iso('TWD');
+final twd = Currency.of('TWD');
 final day = BusinessDate(2026, 10, 1);
 
 Money ntd(int units) => Money(twd, BigInt.from(units));
@@ -91,7 +91,7 @@ void main() {
         operation: op(),
         postingId: PublicId.generate(),
         flow: flow,
-        account: AccountRef(cash, account.version),
+        account: AccountRef(cash, account.rulesVersion),
         date: day,
         amount: amount,
         allocations: shares,

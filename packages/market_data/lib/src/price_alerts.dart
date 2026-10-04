@@ -207,8 +207,17 @@ PriceAlertEvaluation _evaluateObservation({
   final lastNotified = checkpoint.lastNotifiedAt?.value;
   if (lastNotified != null &&
       now.value.difference(lastNotified) < alert.cooldown) {
+    // The crossing stays pending: once the cooldown ends, a price still
+    // past the target alerts (health check G2-26).
     return PriceAlertEvaluation(
-      checkpoint: next,
+      checkpoint: PriceAlertCheckpoint(
+        lastRelation: checkpoint.lastRelation,
+        lastObservationDate: observedOn,
+        lastObservationAt: observedAt,
+        lastPrice: decimalPrice,
+        lastProviderId: providerId,
+        lastNotifiedAt: checkpoint.lastNotifiedAt,
+      ),
       reason: 'Alert is cooling down',
     );
   }
@@ -261,12 +270,12 @@ final class PriceAlertCheckpointCodec {
     final price = raw['lastPrice'];
     final provider = raw['lastProviderId'];
     final notified = raw['lastNotifiedAt'];
-    if (relation != null && relation is! String ||
-        date != null && date is! String ||
-        instant != null && instant is! String ||
-        price != null && price is! String ||
-        provider != null && provider is! String ||
-        notified != null && notified is! String) {
+    if (relation is! String? ||
+        date is! String? ||
+        instant is! String? ||
+        price is! String? ||
+        provider is! String? ||
+        notified is! String?) {
       throw const FormatException('Invalid price alert checkpoint');
     }
     return PriceAlertCheckpoint(

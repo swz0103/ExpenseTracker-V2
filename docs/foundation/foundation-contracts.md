@@ -1,5 +1,7 @@
 # Foundation Contracts — 第一版工程規格
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 狀態：階段 0 工程規格草稿；不是實作完成或 Architecture Freeze。  
 依據：[rc1](../architecture/architecture-baseline-v1.0-rc1.md)、[A＋與業務套件](../architecture/architecture-baseline-v1.0-rc1.md#a-plus-coordination)、實作安排。
 

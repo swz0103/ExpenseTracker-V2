@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final ws = WorkspaceId(PublicId.generate()), currency = Currency('USD', 2);
   final account = PostingAccount(
@@ -37,12 +39,18 @@ void main() {
   );
   test('income uses the same exact sum currency and duplicate constraints as expense', () {
     final id = PublicId.generate();
-    for (final proposal in [
-      [Allocation(id, money('9'))],
-      [Allocation(id, money('5')), Allocation(id, money('5'))],
-      [Allocation(id, Money.parse(Currency('EUR', 2), '10'))],
+    for (final (proposal, code) in [
+      ([Allocation(id, money('9'))], LedgerError.allocationMismatch),
+      (
+        [Allocation(id, money('5')), Allocation(id, money('5'))],
+        LedgerError.duplicateIdentity,
+      ),
+      (
+        [Allocation(id, Money.parse(Currency('EUR', 2), '10'))],
+        LedgerError.currencyMismatch,
+      ),
     ]) {
-      expect(() => income(proposal), throwsA(isA<LedgerException>()));
+      expect(() => income(proposal), fails(code));
     }
     expect(
       () => Allocation(id, money('10'), expectedCategoryVersion: 0),

@@ -1,5 +1,7 @@
 # 同幣轉帳、來源手續費與可恢復送出
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 2026-09-28，依賴 [PR #53](https://github.com/swz0103/ExpenseTracker-V2/pull/53) 的共用日期輸入。對應 M1-03、[RC-03 Ledger](../architecture/architecture-baseline-v1.0-rc1.md#rc-03)、[RC-04 Money／FX](../architecture/architecture-baseline-v1.0-rc1.md#rc-04) 及 [Full Vision FV-047 結構化費用](../architecture/full-vision-baseline.md#fv-047)。這是 M1-03 的同幣部分，跨幣與實際匯率仍須接續；M1／M2／M3 未全部完成。
 
 ## 財務行為與介面

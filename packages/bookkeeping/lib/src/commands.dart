@@ -106,6 +106,60 @@ final class RenameAccount extends AccountCommand {
   };
 }
 
+/// Includes the account in net worth or leaves it out, for example a
+/// family member's account kept here. Returns the new version.
+final class SetNetWorthInclusion extends AccountCommand {
+  SetNetWorthInclusion({
+    required OperationKey operation,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.included,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final int expectedVersion;
+  final bool included;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-net-worth-inclusion-v1',
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'included': included,
+  };
+}
+
+/// Moves the opening date earlier so older entries can be recorded. An
+/// opening balance moves with it: reversed on its old date and booked
+/// again on the new one, using [reversalId] and [postingId]. Returns the
+/// new account version.
+final class ChangeOpeningDate extends AccountCommand {
+  ChangeOpeningDate({
+    required OperationKey operation,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.openedOn,
+    required this.reversalId,
+    required this.postingId,
+  }) : super(operation);
+
+  final PublicId accountId;
+  final int expectedVersion;
+  final BusinessDate openedOn;
+  final PublicId reversalId;
+  final PublicId postingId;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'change-opening-date-v1',
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'openedOn': openedOn.toString(),
+    'reversalId': reversalId.value,
+    'postingId': postingId.value,
+  };
+}
+
 enum AccountStateChange { archive, reactivate }
 
 final class ChangeAccountState extends AccountCommand {
@@ -130,6 +184,9 @@ final class ChangeAccountState extends AccountCommand {
 }
 
 /// The account a posting touches, with the version the person saw.
+/// An account an entry posts to. [expectedVersion] is the account's
+/// `rulesVersion` when the entry was prepared, so renaming the account in
+/// between does not refuse the entry (health check G1-09).
 final class AccountRef {
   const AccountRef(this.id, this.expectedVersion);
 
@@ -170,6 +227,7 @@ final class RecordCashFlow extends PostingCommand {
     this.allocations = const [],
     this.tags = const [],
     this.merchant,
+    this.homeValue,
   }) : super(operation, postingId);
 
   final CashFlow flow;
@@ -181,6 +239,10 @@ final class RecordCashFlow extends PostingCommand {
   final List<CategoryShare> allocations;
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
+
+  /// For a foreign-currency amount: what it was worth in [homeCurrency]
+  /// that day, counted in reports, budgets and net worth (G-11).
+  final Money? homeValue;
 
   @override
   Map<String, Object?> get fields => {
@@ -201,6 +263,7 @@ final class RecordCashFlow extends PostingCommand {
             'id': merchant!.id.value,
             'expectedVersion': merchant!.expectedVersion,
           },
+    'homeValue': homeValue?.toJson(),
   };
 }
 
@@ -214,6 +277,7 @@ final class RecordTransfer extends PostingCommand {
     required this.principal,
     this.received,
     this.fee,
+    this.feeAllocations = const [],
   }) : super(operation, postingId);
 
   final AccountRef source;
@@ -221,7 +285,13 @@ final class RecordTransfer extends PostingCommand {
   final BusinessDate date;
   final Money principal;
   final Money? received;
+
+  /// In the source currency, or in the destination currency when the
+  /// receiving side charged it (feature audit G-17).
   final Money? fee;
+
+  /// Expense categories for the fee.
+  final List<CategoryShare> feeAllocations;
 
   @override
   Map<String, Object?> get fields => {
@@ -233,6 +303,7 @@ final class RecordTransfer extends PostingCommand {
     'principal': principal.toJson(),
     'received': received?.toJson(),
     'fee': fee?.toJson(),
+    'feeAllocations': [for (final share in feeAllocations) share.toJson()],
   };
 }
 
@@ -323,5 +394,180 @@ final class CloseAccount extends AccountCommand {
     'date': date.toString(),
     'reason': reason,
     'successorId': successorId?.value,
+  };
+}
+
+/// Replaces an account's opening balance. Returns the new opening posting.
+final class SetOpeningBalance extends PostingCommand {
+  SetOpeningBalance({
+    required OperationKey operation,
+    required PublicId postingId,
+    required this.reversalId,
+    required this.accountId,
+    required this.expectedVersion,
+    required this.amount,
+  }) : super(operation, postingId);
+
+  /// Used only when an earlier opening has to be reversed.
+  final PublicId reversalId;
+  final PublicId accountId;
+  final int expectedVersion;
+  final Money amount;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-opening-balance-v1',
+    'postingId': postingId.value,
+    'reversalId': reversalId.value,
+    'accountId': accountId.value,
+    'expectedVersion': expectedVersion,
+    'amount': amount.toJson(),
+  };
+}
+
+/// Sets the note on a posting. Returns the note's new revision; revision 0
+/// means the posting never had a note.
+final class SetNote extends AccountCommand {
+  SetNote({
+    required OperationKey operation,
+    required this.postingId,
+    required this.expectedRevision,
+    required this.text,
+  }) : super(operation);
+
+  final PublicId postingId;
+  final int expectedRevision;
+  final String text;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'set-note-v1',
+    'postingId': postingId.value,
+    'expectedRevision': expectedRevision,
+    'text': text,
+  };
+}
+
+/// Fixes an income or expense: the original is reversed on its own date
+/// and a replacement is recorded, in one transaction, so reports for the
+/// original month are corrected rather than offset in a later month.
+/// Returns the replacement posting's id.
+final class CorrectCashFlow extends PostingCommand {
+  CorrectCashFlow({
+    required OperationKey operation,
+    required PublicId replacementId,
+    required this.originalId,
+    required this.reversalId,
+    required this.account,
+    required this.date,
+    required this.amount,
+    this.allocations = const [],
+    this.tags = const [],
+    this.merchant,
+    this.reason = '',
+    this.homeValue,
+  }) : super(operation, replacementId);
+
+  final PublicId originalId;
+  final PublicId reversalId;
+  final AccountRef account;
+  final BusinessDate date;
+  final Money amount;
+  final List<CategoryShare> allocations;
+  final List<TagSelection> tags;
+  final MerchantSelection? merchant;
+  final String reason;
+  final Money? homeValue;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'correct-cash-flow-v1',
+    'replacementId': postingId.value,
+    'originalId': originalId.value,
+    'reversalId': reversalId.value,
+    'account': account.toJson(),
+    'date': date.toString(),
+    'amount': amount.toJson(),
+    'allocations': [for (final share in allocations) share.toJson()],
+    'tags': [
+      for (final tag in tags)
+        {'id': tag.id.value, 'expectedVersion': tag.expectedVersion},
+    ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}')),
+    'merchant': merchant == null
+        ? null
+        : {
+            'id': merchant!.id.value,
+            'expectedVersion': merchant!.expectedVersion,
+          },
+    'reason': reason,
+    'homeValue': homeValue?.toJson(),
+  };
+}
+
+/// Replaces a transfer with a corrected one: the original is reversed on
+/// its own date and the replacement booked (feature audit G-15b).
+final class CorrectTransfer extends PostingCommand {
+  CorrectTransfer({
+    required OperationKey operation,
+    required PublicId replacementId,
+    required this.originalId,
+    required this.reversalId,
+    required this.source,
+    required this.destination,
+    required this.date,
+    required this.principal,
+    this.received,
+    this.fee,
+    this.feeAllocations = const [],
+    this.reason = '',
+  }) : super(operation, replacementId);
+
+  final PublicId originalId;
+  final PublicId reversalId;
+  final AccountRef source;
+  final AccountRef destination;
+  final BusinessDate date;
+  final Money principal;
+  final Money? received;
+  final Money? fee;
+  final List<CategoryShare> feeAllocations;
+  final String reason;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'correct-transfer-v1',
+    'replacementId': postingId.value,
+    'originalId': originalId.value,
+    'reversalId': reversalId.value,
+    'source': source.toJson(),
+    'destination': destination.toJson(),
+    'date': date.toString(),
+    'principal': principal.toJson(),
+    'received': received?.toJson(),
+    'fee': fee?.toJson(),
+    'feeAllocations': [for (final share in feeAllocations) share.toJson()],
+    'reason': reason,
+  };
+}
+
+/// Removes a posting from balances and reports by reversing it on its own
+/// date. The original and the reversal stay in the journal.
+final class DeletePosting extends PostingCommand {
+  DeletePosting({
+    required OperationKey operation,
+    required PublicId reversalId,
+    required this.originalId,
+    this.reason = '',
+  }) : super(operation, reversalId);
+
+  final PublicId originalId;
+  final String reason;
+
+  @override
+  Map<String, Object?> get fields => {
+    'command': 'delete-posting-v1',
+    'reversalId': postingId.value,
+    'originalId': originalId.value,
+    'reason': reason,
   };
 }

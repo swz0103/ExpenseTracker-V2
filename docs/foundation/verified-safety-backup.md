@@ -1,5 +1,7 @@
 # 持久安全備份限定原型
 
+> 這是舊版 App（`prototypes/`，已於 2026-10-03 移除）時期的規格，留作行為對照。新架構以 [ADR-0001](../adr/0001-target-architecture.md) 與 [STATUS.md](../STATUS.md) 為準。
+
 對應[資料演進契約](data-evolution-contract.md)的來源預檢與備份步驟。此原型只接受已驗證的 Ledger schema 3 世代，不執行 schema 升級，也不宣稱完成 EVOL-01～08。
 
 ## 實際行為

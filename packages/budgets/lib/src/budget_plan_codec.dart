@@ -8,9 +8,12 @@ import 'budget.dart';
 /// Strict, versioned representation for one authoritative budget plan.
 /// Persistence and portable backup must use the same decoded contract.
 final class BudgetPlanCodec {
-  static const formatVersion = 1;
+  static const formatVersion = 2;
   static const maxBytes = 16384;
-  static const maxSelections = 1000;
+
+  /// Low enough that a plan using every selection on both lists still
+  /// fits in [maxBytes], so this bound is reachable on its own.
+  static const maxSelections = 150;
 
   static const _keys = {
     'format',
@@ -24,6 +27,7 @@ final class BudgetPlanCodec {
     'accountIds',
     'tagIds',
     'warningPercent',
+    'repeats',
   };
 
   String encode(BudgetPlan plan) {
@@ -45,6 +49,7 @@ final class BudgetPlanCodec {
       'accountIds': accountIds,
       'tagIds': tagIds,
       'warningPercent': plan.warningPercent,
+      'repeats': plan.repeats,
     });
     if (utf8.encode(value).length > maxBytes) {
       throw const FormatException('Budget plan exceeds size limit');
@@ -72,6 +77,7 @@ final class BudgetPlanCodec {
         decoded['month'] is! int ||
         decoded['version'] is! int ||
         decoded['warningPercent'] is! int ||
+        decoded['repeats'] is! bool ||
         decoded['categoryId'] != null && decoded['categoryId'] is! String) {
       throw const FormatException('Invalid budget plan fields');
     }
@@ -100,6 +106,7 @@ final class BudgetPlanCodec {
       accountIds: accounts,
       tagIds: tags,
       warningPercent: decoded['warningPercent'] as int,
+      repeats: decoded['repeats'] as bool,
     );
   }
 

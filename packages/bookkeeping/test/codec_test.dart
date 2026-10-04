@@ -6,8 +6,8 @@ import 'package:test/test.dart';
 
 void main() {
   final workspace = WorkspaceId(PublicId.generate());
-  final twd = Currency.iso('TWD');
-  final usd = Currency.iso('USD');
+  final twd = Currency.of('TWD');
+  final usd = Currency.of('USD');
   final date = BusinessDate(2026, 10, 3);
   OperationKey key() =>
       OperationKey(workspace, OperationId(PublicId.generate()));
@@ -46,6 +46,18 @@ void main() {
     expect(decoded.name, '錢包');
     expect(decoded.state, AccountState.archived);
     expect(decoded.version, 2);
+    for (final kind in AccountKind.values) {
+      final account = Account.open(
+        id: PublicId.generate(),
+        workspace: workspace,
+        name: kind.name,
+        kind: kind,
+        currency: twd,
+        openedOn: date,
+      );
+      final json = AccountCodec.encode(account);
+      expect(AccountCodec.decode(json).kind, kind);
+    }
   });
 
   test('every supported posting kind round trips', () {
@@ -91,6 +103,17 @@ void main() {
         received: money(usd, 10000),
         fee: money(twd, 1500),
       ),
+      Posting.transfer(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        source: cash,
+        destination: account(usd),
+        principal: money(twd, 320000),
+        received: money(usd, 10000),
+        fee: money(usd, 50),
+        allocations: [Allocation(PublicId.generate(), money(usd, 50))],
+      ),
       Posting.reversal(
         id: PublicId.generate(),
         operation: key(),
@@ -98,7 +121,51 @@ void main() {
         original: income,
         reason: '重複記錄',
       ),
+      Posting.refund(
+        id: PublicId.generate(),
+        operation: key(),
+        date: BusinessDate(2026, 10, 6),
+        account: account(usd),
+        originalId: PublicId.generate(),
+        amount: money(twd, 3200),
+        received: money(usd, 100),
+      ),
+      Posting.investmentBuy(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentBuyId: PublicId.generate(),
+        gross: money(twd, 10000),
+        fee: money(twd, 20),
+        tax: money(twd, 0),
+        cashDebit: money(twd, 10020),
+      ),
+      Posting.investmentSell(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentSellId: PublicId.generate(),
+        gross: money(twd, 12000),
+        fee: money(twd, 20),
+        tax: money(twd, 36),
+        cashCredit: money(twd, 11944),
+      ),
+      Posting.investmentDividend(
+        id: PublicId.generate(),
+        operation: key(),
+        date: date,
+        account: cash,
+        investmentDividendId: PublicId.generate(),
+        gross: money(twd, 500),
+        withholdingTax: money(twd, 50),
+        fee: money(twd, 10),
+        cashCredit: money(twd, 440),
+      ),
     ];
+    final kinds = {for (final posting in postings) posting.kind};
+    expect(kinds, PostingKind.values.toSet());
     for (final posting in postings) {
       expectSame(posting, roundTrip(posting));
     }

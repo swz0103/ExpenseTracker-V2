@@ -9,6 +9,9 @@ enum InvestmentError {
   grossMismatch,
   duplicateIdentity,
   overflow,
+
+  /// Taiwan-listed shares trade in whole shares only (feature audit G-16).
+  fractionalShares,
 }
 
 final class InvestmentException implements Exception {
@@ -83,6 +86,9 @@ final class InvestmentInstrument {
   final PublicId id;
   final InstrumentKind kind;
   final String marketCode;
+
+  /// Shares on Taiwan exchanges are traded whole, odd lots included.
+  bool get wholeSharesOnly => marketCode == 'TWSE' || marketCode == 'TPEX';
   final String symbol;
   final String name;
   final Currency tradingCurrency;
@@ -117,6 +123,9 @@ final class ShareQuantity {
   final _PositiveDecimal _decimal;
   BigInt get coefficient => _decimal.coefficient;
   int get scale => _decimal.scale;
+
+  /// No fraction of a share.
+  bool get isWhole => coefficient % BigInt.from(10).pow(scale) == BigInt.zero;
   @override
   String toString() => _decimal.input;
   @override
@@ -258,8 +267,14 @@ final class InvestmentBuyPreview {
       }
       rethrow;
     }
-    if (calculatedGross != executedGross) {
+    // Brokers round the gross their own way; one unit either side is
+    // accepted (feature audit G-16).
+    if ((calculatedGross.minorUnits - executedGross.minorUnits).abs() >
+        BigInt.one) {
       throw const InvestmentException(InvestmentError.grossMismatch);
+    }
+    if (instrument.wholeSharesOnly && !quantity.isWhole) {
+      throw const InvestmentException(InvestmentError.fractionalShares);
     }
     final debitUnits =
         executedGross.minorUnits + fee.minorUnits + tax.minorUnits;

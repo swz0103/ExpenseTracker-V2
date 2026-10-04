@@ -9,12 +9,14 @@ on:
     paths:
       - '.github/workflows/web-preview.yml'
       - 'apps/**'
+      - 'infrastructure/**'
       - 'packages/**'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/web-preview.yml'
       - 'apps/**'
+      - 'infrastructure/**'
       - 'packages/**'
   workflow_dispatch:
 
@@ -35,6 +37,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # The build runs package hooks; keep the write token out of
+          # .git/config so only the final push step can use it (G9-14).
+          persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.5'

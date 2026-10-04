@@ -2,6 +2,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:test/test.dart';
 
+import 'fails.dart';
+
 void main() {
   final ws = WorkspaceId(PublicId.generate()),
       original = PublicId.generate(),
@@ -40,7 +42,7 @@ void main() {
       expect(full.allocations, isEmpty);
       expect(
         () => full.consume(amount: m('0.01'), date: date, allocations: []),
-        throwsA(isA<LedgerException>()),
+        fails(LedgerError.refundLimit),
       );
       expect(budget().remaining, m('10'));
     },
@@ -48,19 +50,19 @@ void main() {
   test(
     'amount, category, version, duplicate, date and denomination limits reject',
     () {
-      for (final rows in [
-        [a(category, '7')],
-        [a(category, '2', version: 2)],
-        [a(PublicId.generate(), '2')],
-        [a(category, '1'), a(category, '1')],
-        <Allocation>[],
+      for (final (rows, code) in [
+        ([a(category, '7')], LedgerError.refundLimit),
+        ([a(category, '2', version: 2)], LedgerError.refundReference),
+        ([a(PublicId.generate(), '2')], LedgerError.refundReference),
+        ([a(category, '1'), a(category, '1')], LedgerError.duplicateIdentity),
+        (<Allocation>[], LedgerError.refundReference),
       ]) {
         final amount = rows.isEmpty
             ? m('2')
             : rows.fold(m('0'), (Money sum, r) => sum + r.amount);
         expect(
           () => budget().consume(amount: amount, date: date, allocations: rows),
-          throwsA(isA<LedgerException>()),
+          fails(code),
         );
       }
       expect(
@@ -69,7 +71,7 @@ void main() {
           date: BusinessDate(2026, 8, 31),
           allocations: [a(category, '2')],
         ),
-        throwsA(isA<LedgerException>()),
+        fails(LedgerError.refundReference),
       );
       expect(
         () => budget().consume(
@@ -77,12 +79,16 @@ void main() {
           date: date,
           allocations: [],
         ),
-        throwsA(isA<LedgerException>()),
+        fails(LedgerError.currencyMismatch),
       );
-      for (final n in ['0', '-1', '11']) {
+      for (final (n, code) in [
+        ('0', LedgerError.invalidAmount),
+        ('-1', LedgerError.invalidAmount),
+        ('11', LedgerError.refundLimit),
+      ]) {
         expect(
           () => budget().consume(amount: m(n), date: date, allocations: []),
-          throwsA(isA<LedgerException>()),
+          fails(code),
         );
       }
     },
@@ -129,9 +135,9 @@ void main() {
     );
     expect(
       () => make(PublicId.generate(), m('3')),
-      throwsA(isA<LedgerException>()),
+      fails(LedgerError.currencyMismatch),
     );
-    expect(() => make(original, m('2')), throwsA(isA<LedgerException>()));
+    expect(() => make(original, m('2')), fails(LedgerError.refundReference));
     expect(make(PublicId.generate(), m('2')).conversion, isNull);
   });
 }
