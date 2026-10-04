@@ -1,7 +1,6 @@
 import 'money.dart';
-import 'time.dart';
 
-enum FxError { invalidInput, precision, currencyMismatch, dateMismatch }
+enum FxError { invalidInput, precision, currencyMismatch }
 
 final class FxException implements Exception {
   const FxException(this.code);
@@ -157,77 +156,4 @@ final class FxRate {
       denominator == other.denominator;
   @override
   int get hashCode => Object.hash(base, quote, numerator, denominator);
-}
-
-/// Observation date and retrieval time are distinct; request date is never
-/// substituted for the provider's date. This value does not validate a provider.
-final class FxObservation {
-  FxObservation({
-    required this.rate,
-    required this.source,
-    required this.asOf,
-    required this.retrievedAt,
-  }) {
-    if (source.length > 96 ||
-        !RegExp(r'^[a-z0-9][a-z0-9._:-]*$').hasMatch(source)) {
-      throw const FxException(FxError.invalidInput);
-    }
-  }
-  final FxRate rate;
-  final String source;
-  final BusinessDate asOf;
-  final UtcInstant retrievedAt;
-
-  /// Older observations require an explicit caller policy, and then at
-  /// most [maxEarlierDays] old (health check G2-10); future ones never
-  /// match.
-  FxRate rateFor(
-    BusinessDate requested, {
-    bool allowEarlier = false,
-    int maxEarlierDays = 7,
-  }) {
-    if (asOf == requested) return rate;
-    final age = _epochDay(requested) - _epochDay(asOf);
-    if (!allowEarlier || age < 0 || age > maxEarlierDays) {
-      throw const FxException(FxError.dateMismatch);
-    }
-    return rate;
-  }
-
-  Map<String, Object> toJson() => {
-    'version': 1,
-    'rate': rate.toJson(),
-    'source': source,
-    'asOf': asOf.toString(),
-    'retrievedAt': retrievedAt.toString(),
-  };
-
-  factory FxObservation.fromJson(Map<String, Object?> json) {
-    const fields = {'version', 'rate', 'source', 'asOf', 'retrievedAt'};
-    if (json.length != fields.length ||
-        json.keys.any((key) => !fields.contains(key)) ||
-        json['version'] is! int ||
-        json['version'] != 1 ||
-        json['rate'] is! Map<String, Object?> ||
-        json['source'] is! String ||
-        json['asOf'] is! String ||
-        json['retrievedAt'] is! String) {
-      throw const FxException(FxError.invalidInput);
-    }
-    try {
-      return FxObservation(
-        rate: FxRate.fromJson(json['rate'] as Map<String, Object?>),
-        source: json['source'] as String,
-        asOf: BusinessDate.parse(json['asOf'] as String),
-        retrievedAt: UtcInstant.parse(json['retrievedAt'] as String),
-      );
-    } on FormatException {
-      throw const FxException(FxError.invalidInput);
-    }
-  }
-}
-
-int _epochDay(BusinessDate date) {
-  final instant = DateTime.utc(date.year, date.month, date.day);
-  return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
 }
