@@ -5,6 +5,7 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
+import 'package:reports/reports.dart';
 
 import 'session.dart';
 
@@ -32,8 +33,18 @@ final class _SqlReads implements LedgerReads {
       _ledger.recentPostings(workspace, limit: limit);
 
   @override
-  MonthSummary? month(WorkspaceId workspace, String month, Currency currency) {
-    final total = _ledger.monthly(workspace, month)[currency.code];
-    return total == null ? null : MonthSummary(total.income, total.expense);
+  MonthSummary month(WorkspaceId workspace, int year, int month) {
+    final home = _ledger.homeMonthly(workspace, ReportMonth(year, month));
+    return MonthSummary(
+      home.total.income,
+      home.total.expense,
+      unvalued: home.unvalued,
+    );
+  }
+
+  @override
+  NetWorth netWorth(WorkspaceId workspace) {
+    final (:total, :unvalued) = _ledger.netWorth(workspace);
+    return NetWorth(total, unvalued);
   }
 }

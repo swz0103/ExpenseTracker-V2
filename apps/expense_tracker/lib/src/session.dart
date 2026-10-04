@@ -5,12 +5,25 @@ import 'package:flutter/foundation.dart';
 import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 
-/// Income and expense of one month in one currency.
+/// Income and expense of one month in the home currency (NT$). A foreign
+/// entry counts at its NT$ value when booked; entries without one are
+/// left out and counted in [unvalued], so a screen can say the total is
+/// partial instead of showing a wrong one (code audit M-04).
 final class MonthSummary {
-  const MonthSummary(this.income, this.expense);
+  const MonthSummary(this.income, this.expense, {this.unvalued = 0});
 
   final Money income;
   final Money expense;
+  final int unvalued;
+}
+
+/// Net worth in the home currency, and the included accounts that could
+/// not be valued and are left out of [total].
+final class NetWorth {
+  const NetWorth(this.total, this.unvalued);
+
+  final Money total;
+  final List<Account> unvalued;
 }
 
 /// The identity of one user action: its operation key and the ids it
@@ -37,8 +50,10 @@ abstract interface class LedgerReads {
   /// Newest first.
   List<Posting> recent(WorkspaceId workspace, int limit);
 
-  /// Totals for `YYYY-MM` in [currency], if anything was booked.
-  MonthSummary? month(WorkspaceId workspace, String month, Currency currency);
+  /// Home-currency totals of one month.
+  MonthSummary month(WorkspaceId workspace, int year, int month);
+
+  NetWorth netWorth(WorkspaceId workspace);
 }
 
 /// The app's single entry to bookkeeping. Screens read from it and send
@@ -71,15 +86,8 @@ final class AppSession extends ChangeNotifier {
 
   Money balanceOf(Account account) => _reads.balance(account);
 
-  Money get netWorth {
-    var total = Money(twd, BigInt.zero);
-    for (final account in accounts) {
-      if (account.currency == twd && account.includeInNetWorth) {
-        total += balanceOf(account);
-      }
-    }
-    return total;
-  }
+  /// In the home currency; see [NetWorth].
+  NetWorth get netWorth => _reads.netWorth(workspace);
 
   List<Posting> get recent => _reads.recent(workspace, 30);
 
@@ -90,11 +98,9 @@ final class AppSession extends ChangeNotifier {
     return null;
   }
 
-  MonthSummary monthTotal(int year, int month) {
-    final key = '$year-${month.toString().padLeft(2, '0')}';
-    return _reads.month(workspace, key, twd) ??
-        MonthSummary(Money(twd, BigInt.zero), Money(twd, BigInt.zero));
-  }
+  /// In the home currency; see [MonthSummary].
+  MonthSummary monthTotal(int year, int month) =>
+      _reads.month(workspace, year, month);
 
   /// Identifies one user action. Take it when a form opens and pass the
   /// same one to every retry: a retry after an unclear result then returns

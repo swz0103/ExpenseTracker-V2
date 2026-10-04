@@ -1,3 +1,4 @@
+import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:expense_tracker/src/app.dart';
@@ -13,7 +14,7 @@ void main() {
   test('the preview seeds example accounts and entries', () async {
     final session = await previewSession(clock: clock);
     expect(session.accounts, hasLength(2));
-    expect(formatMoney(session.netWorth), '55,295');
+    expect(formatMoney(session.netWorth.total), '55,295');
     expect(session.recent, hasLength(5));
     expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
   });
@@ -58,6 +59,20 @@ void main() {
     await session.reverse(session.begin(), entry);
     expect(formatMoney(session.monthTotal(2026, 9).expense), '0');
     expect(formatMoney(session.monthTotal(2026, 10).expense), '205');
+  });
+
+  test('a foreign account is left out of NT\$ totals and listed', () async {
+    final session = await previewSession(clock: clock);
+    final usd = Currency.of('USD');
+    await session.openAccount(
+      session.begin(),
+      '美元帳戶',
+      AccountKind.bank,
+      opening: Money(usd, BigInt.from(10000)),
+    );
+    final worth = session.netWorth;
+    expect(formatMoney(worth.total), '55,295');
+    expect([for (final a in worth.unvalued) a.name], ['美元帳戶']);
   });
 
   test('refused input is explained in words', () {

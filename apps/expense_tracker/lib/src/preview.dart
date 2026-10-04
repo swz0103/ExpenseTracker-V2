@@ -66,9 +66,32 @@ final class _MemoryReads implements LedgerReads {
   List<Posting> recent(WorkspaceId workspace, int limit) =>
       _store.postings(workspace).take(limit).toList();
 
+  /// The preview books NT$ only; other currencies count as unvalued.
   @override
-  MonthSummary? month(WorkspaceId workspace, String month, Currency currency) {
-    final total = _store.monthly(workspace, month)[currency.code];
-    return total == null ? null : MonthSummary(total.income, total.expense);
+  MonthSummary month(WorkspaceId workspace, int year, int month) {
+    final key = '$year-${month.toString().padLeft(2, '0')}';
+    final totals = _store.monthly(workspace, key);
+    final home = totals[homeCurrency.code];
+    final zero = Money(homeCurrency, BigInt.zero);
+    return MonthSummary(
+      home?.income ?? zero,
+      home?.expense ?? zero,
+      unvalued: totals.keys.where((code) => code != homeCurrency.code).length,
+    );
+  }
+
+  @override
+  NetWorth netWorth(WorkspaceId workspace) {
+    var total = Money(homeCurrency, BigInt.zero);
+    final unvalued = <Account>[];
+    for (final account in _store.accounts(workspace)) {
+      if (!account.includeInNetWorth) continue;
+      if (account.currency == homeCurrency) {
+        total += _store.balance(account);
+      } else {
+        unvalued.add(account);
+      }
+    }
+    return NetWorth(total, unvalued);
   }
 }
