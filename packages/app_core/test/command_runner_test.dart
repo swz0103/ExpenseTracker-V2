@@ -71,15 +71,11 @@ void main() {
     await expectLater(
       runner.run(command, (transaction) async {
         transaction.append('partial');
-        await transaction.enqueue(
-          OutboxMessage(id: PublicId.generate(), topic: 't', payload: 'p'),
-        );
         throw const AppFailure(FailureKind.rejected, 'test.refused');
       }),
       throwsA(const AppFailure(FailureKind.rejected, 'test.refused')),
     );
     expect(store.events, isEmpty);
-    expect(store.outbox, isEmpty);
     final retry = await run(command);
     expect(retry.replayed, isFalse);
     expect(store.events, ['a']);
@@ -102,20 +98,6 @@ void main() {
     final next = run(_Append(key(), 'b'));
     await expectLater(failing, throwsA(isA<AppFailure>()));
     expect((await next).value, 1);
-  });
-
-  test('outbox messages appear only when their transaction commits', () async {
-    final message = OutboxMessage(
-      id: PublicId.generate(),
-      topic: 'backup.requested',
-      payload: '{}',
-    );
-    await runner.run(_Append(key(), 'a'), (transaction) async {
-      await transaction.enqueue(message);
-      expect(store.outbox, isEmpty);
-      return 0;
-    });
-    expect(store.outbox.single.id, message.id);
   });
 
   test('fixed clock moves only when advanced', () {

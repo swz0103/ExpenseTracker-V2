@@ -138,16 +138,12 @@ void main() {
     await expectLater(
       runner.run(failing, (transaction) async {
         append(transaction, 'partial');
-        await transaction.enqueue(
-          OutboxMessage(id: PublicId.generate(), topic: 't', payload: 'p'),
-        );
         throw const AppFailure(FailureKind.rejected, 'test.refused');
       }),
       throwsA(const AppFailure(FailureKind.rejected, 'test.refused')),
     );
     expect(store.eventCount, 1);
     expect(store.operationCount, 1);
-    expect(store.pendingOutbox(), isEmpty);
     expect((await run(runner, failing)).replayed, isFalse);
     expect(store.eventCount, 2);
   });
@@ -166,21 +162,11 @@ void main() {
   test('committed data survives reopening', () async {
     final store = open();
     final command = _Append(key(), 'kept');
-    final message = OutboxMessage(
-      id: PublicId.generate(),
-      topic: 'backup.requested',
-      payload: '{}',
-    );
-    await CommandRunner(store).run(command, (transaction) async {
-      await transaction.enqueue(message);
-      return append(transaction, 'kept');
-    });
+    final runner = CommandRunner(store);
+    await runner.run(command, (t) async => append(t, 'kept'));
     store.close();
     final reopened = open();
     expect(reopened.events(workspace).single.payload, '{"text":"kept"}');
-    expect(reopened.pendingOutbox().single.id, message.id);
-    reopened.acknowledge(message.id);
-    expect(reopened.pendingOutbox(), isEmpty);
     final retry = await run(CommandRunner(reopened), command);
     expect(retry.replayed, isTrue);
     expect(reopened.eventCount, 1);

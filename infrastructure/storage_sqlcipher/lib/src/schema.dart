@@ -56,4 +56,9 @@ const migrations = <List<String>>[
     ) STRICT, WITHOUT ROWID
     ''',
   ],
+  [
+    // Nothing ever used the outbox; the backup schedule reads the ledger
+    // directly.
+    'DROP TABLE outbox',
+  ],
 ];
