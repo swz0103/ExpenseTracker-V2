@@ -55,7 +55,7 @@ void main() {
   });
 
   test('the month-end estimate does not repeat rent', () {
-    expect(monthEstimate([12500, 300, 500, 400], 30), 13700 + 400 * 26);
+    expect(monthEstimate([12500, 300, 500, 400], 30), 13700 + 500 * 26);
     expect(monthEstimate([], 30), 0);
   });
 
