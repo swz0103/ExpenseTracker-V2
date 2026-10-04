@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 
+import 'book.dart';
+import 'screens/accounts_screen.dart';
+import 'screens/entry_editor.dart';
+import 'screens/home_screen.dart';
+import 'screens/more_screen.dart';
+import 'screens/records_screen.dart';
 import 'theme.dart';
 
-/// The app's frame, laid out like the old app: five places along the
-/// bottom (home, entries, add, accounts, reports) and the rest in a side
-/// menu. Screens not built yet say so.
+/// The app's frame: home, records, add, accounts and more along the
+/// bottom, as in the mock-ups.
 class AppShell extends StatefulWidget {
-  const AppShell({
-    super.key,
-    required this.title,
-    required this.home,
-    required this.reports,
-  });
+  const AppShell({super.key, required this.book, required this.reports});
 
-  final String title;
-  final Widget home;
+  final Book book;
 
-  /// Brings its own app bar.
+  /// The report screen, opened from 更多.
   final Widget reports;
 
   @override
@@ -27,73 +26,41 @@ class _AppShellState extends State<AppShell> {
   var _tab = 0;
 
   static const _tabs = [
-    (Icons.calendar_today_outlined, '首頁'),
-    (Icons.receipt_long_outlined, '明細'),
+    (Icons.home_outlined, '首頁'),
+    (Icons.receipt_long_outlined, '記錄'),
     (Icons.account_balance_wallet_outlined, '帳戶'),
-    (Icons.insights_outlined, '報表'),
+    (Icons.grid_view, '更多'),
   ];
 
-  static const _menu = [
-    (Icons.category_outlined, '分類'),
-    (Icons.savings_outlined, '預算'),
-    (Icons.event_repeat_outlined, '定期記帳'),
-    (Icons.show_chart, '股票'),
-    (Icons.currency_exchange, '匯率'),
-    (Icons.sell_outlined, '標籤'),
-  ];
-
-  void _later(String what) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('「$what」還在製作中')));
+  Future<void> _record(EntryKind kind) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => EntryEditor(book: widget.book, kind: kind),
+      ),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('已記下')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final titles = [widget.title, '明細', '帳戶', '報表'];
+    final book = widget.book;
     return Scaffold(
-      appBar: _tab == 3
-          ? null
-          : AppBar(
-              title: Text(
-                titles[_tab],
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-      drawer: Drawer(
-        backgroundColor: Palette.paper,
-        shape: const RoundedRectangleBorder(),
-        child: SafeArea(
-          child: ListView(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                child: Text(
-                  '記帳本',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              for (final (icon, name) in _menu)
-                ListTile(
-                  leading: Icon(icon, color: Palette.muted),
-                  title: Text(name),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _later(name);
-                  },
-                ),
-            ],
-          ),
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: _tab,
+          children: [
+            HomeScreen(book: book, onRecord: _record),
+            RecordsScreen(book: book),
+            AccountsScreen(book: book),
+            MoreScreen(reports: widget.reports),
+          ],
         ),
-      ),
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          widget.home,
-          const _NotYet('明細'),
-          const _NotYet('帳戶'),
-          widget.reports,
-        ],
       ),
       bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
@@ -103,7 +70,7 @@ class _AppShellState extends State<AppShell> {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 60,
+            height: 62,
             child: Row(
               children: [
                 for (final (i, (icon, name)) in _tabs.indexed) ...[
@@ -112,10 +79,11 @@ class _AppShellState extends State<AppShell> {
                       child: Center(
                         child: IconButton.filled(
                           tooltip: '記一筆',
-                          onPressed: () => _later('記一筆'),
+                          onPressed: () => _record(EntryKind.expense),
                           style: IconButton.styleFrom(
                             backgroundColor: Palette.clay,
                             foregroundColor: Palette.card,
+                            minimumSize: const Size(48, 48),
                           ),
                           icon: const Icon(Icons.add),
                         ),
@@ -154,7 +122,7 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Palette.ink : Palette.muted;
+    final color = selected ? Palette.clay : Palette.muted;
     return InkResponse(
       onTap: onTap,
       child: Column(
@@ -170,23 +138,6 @@ class _TabButton extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NotYet extends StatelessWidget {
-  const _NotYet(this.name);
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        '$name畫面製作中',
-        style: Theme.of(context).textTheme.bodyMedium
-            ?.copyWith(color: Palette.muted),
       ),
     );
   }

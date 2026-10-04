@@ -3,9 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'src/app.dart';
 import 'src/charts/chart_gallery.dart';
 import 'src/charts/demo_charts.dart';
-import 'src/home/home_data.dart';
-import 'src/home/home_demo.dart';
-import 'src/home/home_page.dart';
+import 'src/demo_book.dart';
 import 'src/preview.dart';
 import 'src/shell.dart';
 
@@ -17,13 +15,11 @@ Future<void> main() async {
   final today = session.today;
   final (year, month, day) = (today.year, today.month, today.day);
   final charts = demoCharts(year, month, day);
-  final home = demoHome(charts, year, month, day);
   runApp(
     ExpenseApp(
       session: session,
       home: AppShell(
-        title: dayLabel(home.today),
-        home: HomePage(data: home),
+        book: demoBook(charts, year, month, day),
         reports: ChartGallery(data: charts),
       ),
     ),

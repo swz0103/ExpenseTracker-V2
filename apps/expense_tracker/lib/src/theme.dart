@@ -1,30 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Warm, light and quiet: paper backgrounds, ink text, hairlines instead
-/// of shadows, and a few muted earth colours for data.
+/// Cream paper, white panels, soft peach tiles and one terracotta
+/// accent, after the ExpenseTracker V2 mock-ups.
 abstract final class Palette {
-  static const paper = Color(0xFFF6F2EB);
-  static const card = Color(0xFFFCFAF6);
-  static const ink = Color(0xFF3B3631);
-  static const muted = Color(0xFF8E867B);
-  static const line = Color(0xFFE6DFD4);
-  static const wash = Color(0xFFEFE9DF);
+  static const paper = Color(0xFFFBF6F1);
+  static const card = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF3E3631);
+  static const muted = Color(0xFF9C9189);
+  static const line = Color(0xFFF0E6DC);
 
-  /// Spending, and the one accent.
-  static const clay = Color(0xFFA9634A);
+  /// Peach tiles and selected backgrounds.
+  static const wash = Color(0xFFFCEEE3);
 
-  /// Income and gains.
-  static const olive = Color(0xFF6F7C57);
+  /// The accent: buttons, icons, the selected tab.
+  static const clay = Color(0xFFD9845A);
 
-  /// Data colours, in the order categories and holdings take them.
+  /// Income.
+  static const olive = Color(0xFF6E9A5B);
+
+  /// Light bars and other quiet data.
+  static const peach = Color(0xFFF4CDB4);
+
+  /// Data colours, in the order categories take them.
   static const series = [
-    Color(0xFFA9634A),
-    Color(0xFFC9A273),
-    Color(0xFF7E8664),
-    Color(0xFF9E8C79),
-    Color(0xFFBC8D84),
-    Color(0xFF6F8088),
-    Color(0xFFD7BE97),
+    Color(0xFFE28B5F),
+    Color(0xFFF0B48C),
+    Color(0xFFC9A27E),
+    Color(0xFFB98568),
+    Color(0xFFE9C9A6),
+    Color(0xFFD9A48A),
+    Color(0xFFF3D7BF),
   ];
 }
 
@@ -71,7 +76,7 @@ ThemeData appTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderRadius: BorderRadius.all(Radius.circular(16)),
         side: BorderSide(color: Palette.line),
       ),
     ),

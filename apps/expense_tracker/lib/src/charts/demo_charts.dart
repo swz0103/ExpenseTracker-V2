@@ -18,7 +18,7 @@ ChartData demoCharts(int year, int month, int day, {int count = 12}) {
     final share = current ? day / length : 1.0;
     final slices = _categories(random, first.month, share);
     final expense = slices.fold(0, (sum, slice) => sum + slice.amount);
-    var income = current && day < 5 ? 0 : 52000 + random.nextInt(3000);
+    var income = 52000 + random.nextInt(3000);
     if (first.month == 2) income += 78000;
     netWorth += income - expense;
     months.add(
