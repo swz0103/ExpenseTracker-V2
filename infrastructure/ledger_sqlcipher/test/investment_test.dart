@@ -392,6 +392,10 @@ void main() {
       dividend(BusinessDate(2027, 2, 1), exDate: BusinessDate(2027, 2, 2)),
       fails(FailureKind.rejected, 'investment.ex-date'),
     );
+    await expectLater(
+      dividend(BusinessDate(2027, 2, 1), premium: -5),
+      fails(FailureKind.rejected, 'investment.premium'),
+    );
     final year = ledger.dividendSummary(workspace, 2026).single;
     expect(year.instrumentId, apple);
     expect(year.payments, 2);

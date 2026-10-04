@@ -334,4 +334,99 @@ void main() {
     expect(open, isEmpty);
     expect(ledger.balance(ledger.accounts(workspace).single), ntd(-1830));
   });
+
+  test('every planning refusal names its reason and changes nothing', () async {
+    // Health check G5-06: a refused command writes no event and leaves
+    // every projection row as it was.
+    Future<void> rejects(
+      Future<Object?> Function() command,
+      FailureKind kind,
+      String code,
+    ) async {
+      final events = store.eventCount;
+      final rows = projectionRows(store);
+      await expectLater(command(), fails(kind, code));
+      expect(store.eventCount, events);
+      expect(projectionRows(store), rows);
+    }
+
+    final salary = PublicId.generate();
+    await books.changeCatalog(
+      ChangeCatalog(
+        operation: op(),
+        catalog: CatalogType.category,
+        change: CreateEntry(salary, '薪水', kind: CategoryKind.income),
+      ),
+    );
+    SetBudget budget({required int limit, PublicId? categoryId}) {
+      return SetBudget(
+        operation: op(),
+        budgetId: PublicId.generate(),
+        expectedVersion: 0,
+        month: october,
+        limit: ntd(limit),
+        categoryId: categoryId,
+      );
+    }
+
+    SaveRecurring template({
+      int expectedVersion = 0,
+      int every = 1,
+      Money? amount,
+    }) {
+      return SaveRecurring(
+        operation: op(),
+        templateId: PublicId.generate(),
+        expectedVersion: expectedVersion,
+        accountId: cash,
+        label: '房租',
+        amount: amount ?? ntd(-12000),
+        firstDate: BusinessDate(2026, 10, 5),
+        unit: RecurrenceUnit.month,
+        every: every,
+      );
+    }
+
+    await rejects(
+      () => planning.setBudget(budget(limit: 0)),
+      FailureKind.rejected,
+      'budget.invalid',
+    );
+    await rejects(
+      () => planning.setBudget(budget(limit: 5000, categoryId: salary)),
+      FailureKind.rejected,
+      'budget.category-kind',
+    );
+    await rejects(
+      () => planning.saveRecurring(template(expectedVersion: 2)),
+      FailureKind.conflict,
+      'recurring.versionConflict',
+    );
+    await rejects(
+      () => planning.saveRecurring(
+        template(amount: Money(Currency.of('USD'), BigInt.from(-100))),
+      ),
+      FailureKind.rejected,
+      'recurring.account',
+    );
+    await rejects(
+      () => planning.saveRecurring(template(every: 0)),
+      FailureKind.rejected,
+      'recurring.invalid',
+    );
+    await rejects(
+      () => books.openAccount(
+        OpenAccount(
+          operation: op(),
+          accountId: cash,
+          name: '另一個現金',
+          kind: AccountKind.cash,
+          currency: twd,
+          openedOn: BusinessDate(2026, 1, 1),
+        ),
+      ),
+      FailureKind.conflict,
+      'account.exists',
+    );
+  });
 }
