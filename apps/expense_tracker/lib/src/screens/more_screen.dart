@@ -40,9 +40,8 @@ class MoreScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
                   if (name == '報表') {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => reports),
-                    );
+                    Navigator.of(context)
+                        .push(MaterialPageRoute<void>(builder: (_) => reports));
                   } else {
                     comingSoon(context, name);
                   }

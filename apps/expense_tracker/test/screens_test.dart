@@ -62,9 +62,7 @@ void main() {
     return demo;
   }
 
-  testWidgets('an expense recorded from home shows up at once', (
-    tester,
-  ) async {
+  testWidgets('an expense recorded from home shows up at once', (tester) async {
     final demo = await show(tester);
     final before = demo.monthTotal(EntryKind.expense);
     expect(find.text(dollars(before)), findsOneWidget);

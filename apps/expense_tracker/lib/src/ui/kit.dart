@@ -45,12 +45,7 @@ IconData accountIcon(String kind) =>
 
 /// A line icon on a soft peach square, the app's basic mark.
 class IconTile extends StatelessWidget {
-  const IconTile(
-    this.icon, {
-    super.key,
-    this.size = 40,
-    this.selected = false,
-  });
+  const IconTile(this.icon, {super.key, this.size = 40, this.selected = false});
 
   final IconData icon;
   final double size;
@@ -172,10 +167,7 @@ class EntryRow extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final detail = entry.kind == EntryKind.transfer
         ? '${entry.account} → ${entry.toAccount}'
-        : [
-            if (entry.place.isNotEmpty) entry.place,
-            entry.account,
-          ].join('・');
+        : [if (entry.place.isNotEmpty) entry.place, entry.account].join('・');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -224,9 +216,8 @@ class ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.headlineSmall?.copyWith(
-      fontWeight: FontWeight.w600,
-    );
+    final style = Theme.of(context).textTheme.headlineSmall
+        ?.copyWith(fontWeight: FontWeight.w600);
     return SizedBox(
       height: 56,
       child: Row(

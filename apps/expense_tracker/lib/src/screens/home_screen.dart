@@ -248,9 +248,7 @@ class _InvestmentsState extends State<_Investments> {
               SizedBox(
                 width: 110,
                 height: 48,
-                child: CustomPaint(
-                  painter: _Sparkline(book.investHistory),
-                ),
+                child: CustomPaint(painter: _Sparkline(book.investHistory)),
               ),
             ],
           ),

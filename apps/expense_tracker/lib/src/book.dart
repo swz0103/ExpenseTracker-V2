@@ -71,7 +71,9 @@ final class Book extends ChangeNotifier {
     required List<Holding> holdings,
     required List<int> investHistory,
     required List<String> reminders,
-  }) : _days = {for (final e in days.entries) e.key: [...e.value]},
+  }) : _days = {
+         for (final e in days.entries) e.key: [...e.value],
+       },
        accounts = List.unmodifiable(accounts),
        holdings = List.unmodifiable(holdings),
        investHistory = List.unmodifiable(investHistory),
@@ -111,9 +113,8 @@ final class Book extends ChangeNotifier {
     });
   }
 
-  int total(DateTime date, EntryKind kind) => on(date)
-      .where((e) => e.kind == kind)
-      .fold(0, (sum, e) => sum + e.amount);
+  int total(DateTime date, EntryKind kind) =>
+      on(date).where((e) => e.kind == kind).fold(0, (sum, e) => sum + e.amount);
 
   /// Spending on each day of this month so far, the 1st first.
   List<int> get monthDays => [
@@ -121,9 +122,9 @@ final class Book extends ChangeNotifier {
       total(DateTime.utc(today.year, today.month, day), EntryKind.expense),
   ];
 
-  int monthTotal(EntryKind kind) => [
-    for (final date in datesIn(today.year, today.month)) total(date, kind),
-  ].fold(0, (sum, v) => sum + v);
+  int monthTotal(EntryKind kind) =>
+      [for (final date in datesIn(today.year, today.month)) total(date, kind)]
+          .fold(0, (sum, v) => sum + v);
 
   int get daysInMonth => DateTime.utc(today.year, today.month + 1, 0).day;
 

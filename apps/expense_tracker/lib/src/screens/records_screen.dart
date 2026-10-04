@@ -126,9 +126,8 @@ class _DayGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Palette.muted,
-    );
+    final style = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Palette.muted);
     final spent = entries
         .where((e) => e.kind == EntryKind.expense)
         .fold(0, (sum, e) => sum + e.amount);
