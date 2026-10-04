@@ -1,27 +1,13 @@
-# Foundation Values
+# foundation_values
 
-純 Dart 共用值型別；不依賴 Flutter、資料庫或其他業務套件。目前包含 Money／Currency、PublicId／WorkspaceId／OperationId／OperationKey、BusinessDate／UtcInstant，以及 FxRate／FxObservation。
+所有套件共用的值型別，純 Dart，不依賴其他套件（只用 `uuid`）。
 
-Money 使用 BigInt 做運算並檢查 signed 64-bit 保存範圍；JSON 的 minorUnits 為字串。手動輸入超過精度拒絕；計算結果才可透過 quantize 採 half-away-from-zero-v1。分攤採 largest-remainder-v1：每份先朝零截斷，剩下的最小單位依比例尾數由大到小各給一份，同分時前面優先；每份與精確比例相差不到一個最小單位。
-
-Currency 的三位大寫代碼只是 denomination 格式，不代表已核實 ISO 清單或支援市場。scale 工程上限 18，輸入文字上限 128 字元，單次分攤上限 10,000 份；超出拒絕，不靜默調整。正式資料入口需由版本化 reference data 提供幣別與 scale。股數／成本的通用 Decimal 尚待另一批實作。
-
-FxRate 用正 BigInt ratio 保存精確匯率，十進位解析／反向／交叉換算不先取捨；最後 convert 才沿 Money 的政策量化與檢查溢位。FxObservation 保存實際報價日期與取得時間，預設拒絕以舊值冒充當日值。JSON v1 只用字串保存分子分母，未知必要格式拒絕。詳見[精確 FX 契約](../../docs/architecture/exact-fx-values.md)，不是行情供應商或 Ledger 跨幣入帳實作。
-
-```sh
-dart pub get --enforce-lockfile
-dart analyze
-dart test --reporter expanded
-```
-
-對應 VAL-01～05，涵蓋精確加總、幣別／scale 不相容、正負分攤、量化、溢位及 JSON round trip。此套件通過不等於 Ledger、Android 或備份 gate 通過。
-
-運算依據：[Dart BigInt](https://api.dart.dev/dart-core/BigInt-class.html)。
-
-身份產生使用 [uuid 4.6.0](https://pub.dev/packages/uuid/versions/4.6.0)，接收端額外強制 UUID v7 與 RFC variant，正規化為小寫。OperationKey 包含 workspace；相同意圖重試須保留 ID，不可每次自動產生新 ID。生成樣本無重複不代表數學上不會碰撞，正式儲存仍需唯一鍵。
-
-BusinessDate 接受 0001～9999 的有效日曆日期，不附帶時區，不自動轉午夜。UtcInstant 嚴格文字格式只接受 Z 與最多六位小數；其他 offset 的輸入須明確解析後透過 DateTime 建構轉 UTC。無效日期／時間拒絕，不讓 DateTime 的自動進位掩蓋錯誤。IANA 時區資料與事件的當地時間 context 留待業務資料模型接入，沒有宣稱完整時區規則引擎。
-
-## 精確計算邊界
-
-Money.quantizeRatio 以主要幣別單位的有理數作最後取位，與 Money.quantize、FxRate.convert 共用 half-away-from-zero-v1。只接受正分母，分子／分母各限 4,096 bits，結果仍受有號 64-bit minor units 限制。手動輸入仍用嚴格 Money.parse；此接口不改 JSON 格式或匯率資料來源。
+- `Money`／`Currency`：BigInt 最小單位，檢查有號 64 位元範圍；JSON 的金額是字串。
+  - `Currency.of` 只接受 `Currency.supported` 裡的常用幣別；台幣、日圓、韓圓沒有小數。
+  - 手動輸入超過小數位就拒絕；計算結果才取位（`half-away-from-zero-v1`，`quantizeRatio`）。
+  - 分攤用最大餘數法（`largest-remainder-v1`），總和不差一分。
+- `PublicId`（UUID v7）、`WorkspaceId`、`OperationId`、`OperationKey`：重試同一個意圖要用同一個 key。
+- `BusinessDate`、`UtcInstant`：無效日期直接拒絕，不自動進位。`BankingCalendar` 處理假日順延。
+- `FxRate`：用正整數比例保存的精確匯率，換算到最後才取位。`FxObservation` 保存報價日期與取得時間；要用較早的報價必須明說，而且最多 7 天前（`rateFor`）。
+- `cleanName`／`nameKey`：名稱整理與比對（算字數、擋控制字元、統一全形半形與大小寫）。
+- `resolveRedirects`：分類、標籤、商家共用的合併鏈解析。

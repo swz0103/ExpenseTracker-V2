@@ -11,8 +11,12 @@
   - 投資：投資帳戶、商品、持有中的商品、持股、交易歷史、已實現損益與股利（`investmentIncome`）；
   - 定期交易：範本清單、到期的項目。
 - `LedgerReplay`：從事件日誌重建所有投影表；`projectionRows` 用來逐列比對。
+- `package:ledger_sqlcipher/testing.dart`（只供測試）：`EveryEventKind` 建一本用到每種事件的帳本，重播與備份測試共用。
+- `bin/posting_worker.dart`：給行程終止測試用，CI 會先編譯。
 - 測試：
-  - 300 筆亂數指令的對照測試；
+  - 記憶體版與 SQLCipher 版跑同一串亂數指令對照；
   - 從日誌重建，涵蓋每一種事件；
   - 帶資料從舊版本升級；
+  - 記帳或升級到一半被強制結束，重開後完整；
+  - 每種被拒絕的指令都不改任何資料；
   - 1 萬筆規模測試。
