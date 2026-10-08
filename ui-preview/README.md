@@ -1,0 +1,42 @@
+# 日々記帳 — ExpenseTracker V2 interactive UI preview
+
+A warm, compact Traditional Chinese bookkeeping interface. Static HTML, CSS and JavaScript live in `dist/`; there is no build or install step. This is an independent browser prototype based on ExpenseTracker-V2, not an Android or Flutter build. It retains the user's decisions in `INTERFACE_DECISIONS.md`.
+
+## Current interface
+
+- Overview: four aligned icon/label/amount columns for monthly income, net expense, dividends included in that income and surplus within the original 100px summary strip. Dividends use a coin-stack and incoming-arrow glyph. Card debt stays on account screens. The weekly calendar retains its activity tags without amounts under dates. Daily receipts use a compact three-column, two-row layout, with names and amounts grouped with small category icons above each amount. A single six-record page retains the normal 88px strip and 44px touch targets; horizontal swipe, keyboard arrows, and the page selector all operate the same page. Larger text can reflow without clipping. Inline holding charts, spending/budget, allocation and cash flow keep their existing layout.
+- Ledger: an opposing income/expense rail, compact app search, inline type/account/date filters, complete secondary conditions, individually editable/removable filter chips, and grouped transaction rows. Details share the composer's amount/date/account layout and omit empty notes. Delete remains left, edit right, with confirmation before deletion and recovery through the snackbar or settings.
+- Accounts: the approved two-column account list is restored within each account group. Each account opens its own page with visible figures. The small interactive waterfall covers four consecutive calendar weeks, including empty weeks, and ends at the current ledger balance. Only the selected net change appears, centered directly above its bar inside the existing 320 × 120 SVG; selecting a different week moves the amount to that bar. The bottom week axis and selection underline remain. Full dates, count and opening/closing balances stay in accessible labels. There is no overlay or change in chart dimensions, and native SVG tooltips are removed. The default small-change emphasis has an explicit “小額放大” control; “等比例” switches to a true common linear value axis without enlarging the SVG. The selected week survives scale changes. Card debt is clamped at zero after overpayment.
+- Reports: monthly net cash flow and changes from the previous month's net expense, including refunds. Current-month comparisons explicitly disclose partial-month versus previous full-month scope. Empty months do not claim savings.
+- Investments: unrealized and realized profit/loss, cost and market value, plus posted dividends for the selected month. Prices expose their source and date, support manual editing and TWSE-format JSON import, and reject stale, invalid or unmatched updates. The reference-data link opens the official public dataset; no automatic/live fetch is claimed. The overview combines only holdings with a common quote date and previous-close value. Each holding has an inline profit/loss bar with a shared scale and a visible floor for small changes.
+- Budgets: remaining/overspent amounts first, urgent categories first, a progress endpoint arrow and nearby 0/100 labels.
+- Recurring: due, upcoming, confirmed and paused groups; confirmed rows use the actual posting. Enable/disable switches live in a compact management subpage.
+- More: six arrow-free tools in one two-column grid, without group headings. Categories are a month-independent management grid with add, rename, icon/color editing and deactivate/reactivate; historical records and references survive changes.
+
+Income, gains and refunds share deep green `#315d47`; expense and losses share deep red `#8b403b`. Charts, amounts, composers, recurring/dividend forms and their calculators use the same semantic colors. Canvas and SVG marks read the CSS theme. Account and category identity colors remain distinct.
+
+TWD occupies a fixed column at the left of the amount region in create, edit and detail views, with a gap and aligned baseline; signs align to the digits' center. Amounts use a built-in calculator that never opens automatically. Calculators, calendars, accounts and categories use independent compact child dialogs. Calendars keep six rows; account options use three or four columns and category options four, with background-only selection. Transfer tiles retain their centered connecting arrow. Account fields show identity only, without balance or card-debt figures across all forms. The fourth composer mode is investment, with buy/sell/dividend actions, detached symbol selection and creation, and calculator-based share quantities. Explanatory captions and form notes are removed; data labels, dates, statuses and actionable errors remain. App fields and inline validation replace native browser form styling and validation bubbles.
+
+## Data and behavior
+
+Data is illustrative and stored per browser in localStorage. The demonstration date remains October 4, 2026. Existing data and versioned fixture migrations are preserved. The preview supports transaction editing/deletion/reversal, transfer and card payment, investment buys/sells and dividend posting, category management, budgets, recurring confirmation, CSV export, complete JSON download and confirmed demo reset.
+
+Monthly expense is expense less refunds; reversed transactions are excluded. Transfers conserve total balances and do not become income or expense. Investment principal changes cash and holdings without counting as income or expense. Trade edits, deletion and reversal recompute moving-average position cost in chronological order; invalid dependent sells fail atomically. Initial positions are retained for replay and historical quantity cutoffs. A newly created symbol uses its first purchase cost per share as a provisional reference price until a quote is available. Monthly dividend cash is separate from unrealized portfolio performance and historical fixture dividends. Account assets combine non-card balances and illustrative investments; card liabilities are shown separately.
+
+Formal encryption, automatic provider synchronization, live quotes, full billing cycles and the original Dart domain backend are not connected. Fonts are local Noto Sans TC subsets with system fallback and the bundled OFL license.
+
+Each page/account remembers its own month, search, filters, daily selection and scroll position. Browser and app Back close child sheets before parent dialogs, then restore the previous view. Form drafts persist locally across dismissal/reload and can be resumed or explicitly cleared; successful submission clears its own draft. Errors focus the relevant input/control, and save feedback can open the exact record. Dialog bodies respond to the visual viewport when the keyboard changes available height. Primary text uses relative units, long values can wrap, and reduced-motion preferences are respected.
+
+## Verification
+
+Run from the project root in the supported runtime:
+
+```sh
+node tests/app-experience.cjs
+node tests/waterfall-style.cjs
+git diff --check
+```
+
+The first command includes history/back/forward and nested sheet tests, persisted draft continuity, reversible deletion, independent filters/periods, realized-profit replay, dated price imports/manual decimal pricing, proportional chart bounds and swipe direction, along with category and investment consistency checks and the interaction, More-page, interface-consistency and design-refinement suites, plus app control audits, integrated chart touch/hover/focus selection, record layout content and inline validation blocking invalid mutations. The second rasterizes the production SVG and its CSS at 280, 320 and 390 pixels, including the original hit-area painting regression and click/hover/focus handlers. Tests use the runtime's `@napi-rs/canvas` and `sharp` dependencies. These are functional and chart-rendering checks, not real-device or browser layout screenshots. Native-font amount-fit checks cover 320/390/430px component widths. A compatible supervised browser is unavailable in this environment; physical keyboard, mobile gesture delivery and system 200% text remain to be verified on devices.
+
+Original source reference: `swz0103/ExpenseTracker-V2`, commit `b9b27c9d5936ca00704523b339ebd6eb1db47ec5`, including app/session and bookkeeping, account, card, budget, recurring and investment domain code.

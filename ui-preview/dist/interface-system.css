@@ -1,0 +1,296 @@
+/* Shared interface rules. Page layouts and the compact waterfall stay page-owned. */
+:root{
+  --ui-ink:#344638;--ui-muted:#74796c;--ui-positive:#315d47;--ui-negative:#8b403b;
+  --green:var(--ui-positive);--expense:var(--ui-negative);--accent:var(--ui-positive);
+  --ui-transfer:#52777e;--ui-investment:#76658a;--ui-danger:#914f44;
+  --ui-paper:#faf6ed;--ui-surface:#eee8dc;--ui-selected:#dce7d2;
+  --ui-control-radius:12px;--ui-panel-radius:18px;--ui-gap:12px;
+  --ui-heading:22px;--ui-section:17px;--ui-label:14px;--ui-caption:12px;
+  --ui-amount:28px;--ui-edit-amount:36px;
+}
+.utility-page{--utility-ink:var(--ui-ink);--utility-muted:var(--ui-muted);--utility-red:var(--ui-negative);--utility-green:var(--ui-positive)}
+/* Meaning overrides decoration: a loss must never inherit the green brand color. */
+.positive{color:var(--ui-positive)!important}
+.negative,.expense-amount{color:var(--ui-negative)!important}
+.performance-track .gain{background:var(--ui-positive)}
+.performance-track .loss{background:var(--ui-negative)}
+.comparison-income,.comparison-expense.refund,.income-dot,.activity-income,.activity-legend .income,.report-flow-rail>.income,.report-flow-rail>.refund,.holding-profit-plot>.gain,.report-driver-plot>.down{background:var(--ui-positive)}
+.comparison-expense,.expense-dot,.activity-expense,.activity-legend .expense,.report-flow-rail>.expense,.holding-profit-plot>.loss,.report-driver-plot>.up{background:var(--ui-negative)}
+#flow-income,.lf-type-grid>.lf-option[data-value="income"]{color:var(--ui-positive)}
+#flow-expense,.lf-type-grid>.lf-option[data-value="expense"],.routine-value>strong,.budget-edit-context>strong{color:var(--ui-negative)}
+#flow-expense.refund-amount{color:var(--ui-positive)}
+.budget-ruler.is-over .budget-fill,.budget-ruler.is-over .budget-pointer,.budget-ruler.is-over .budget-rate{fill:var(--ui-negative)}
+.budget-allocation.is-over .utility-track>i{background:var(--ui-negative)}
+#modal.utility-modal .utility-amount[data-tone="expense"] .currency-trigger>strong{color:var(--ui-negative)}
+#modal.utility-modal .utility-amount[data-tone="income"] .currency-trigger>strong{color:var(--ui-positive)}
+#modal.utility-modal .utility-amount[data-tone="neutral"] .currency-trigger>strong{color:var(--ui-ink)}
+#modal.utility-modal:not(.utility-reset) .modal-actions .primary{background:var(--ui-positive)}
+#modal.utility-modal:has(.utility-amount[data-tone="expense"]) .modal-actions .primary{background:var(--ui-negative)}
+.journal-icon{fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+
+/* One unboxed month control, always right-aligned in its heading. */
+.app-period,.home-heading .app-period,.account-detail-section-head .app-period{
+  display:inline-grid;grid-template-columns:44px auto 44px;align-items:center;gap:0;
+  flex:none;min-height:44px;margin:0;padding:0;border:0;border-radius:0;background:none;
+}
+.app-period>button,.home-heading .app-period>button,.account-detail-section-head .app-period>button{
+  display:grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;
+  border:0;border-radius:50%;background:transparent;color:#61745e;
+}
+.app-period>strong,.home-heading .app-period>strong,.account-detail-section-head .app-period>strong{
+  padding:0;font-size:17px;font-weight:600;line-height:24px;letter-spacing:-.025em;
+  white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ui-ink);text-align:center;
+}
+.app-period .month-chevron{width:8px;height:8px;border-width:1.7px}
+.app-period button:disabled{opacity:.3;cursor:default}
+.home-heading,.page-heading,.utility-heading,.accounts-heading{gap:8px;min-height:44px;margin-bottom:16px}
+.home-heading h1,.page-heading h1,.utility-heading h1,.accounts-heading h1,.account-detail-heading h1{font-size:var(--ui-heading);line-height:1.4;letter-spacing:0;font-weight:600}
+.home-heading-actions{gap:0}
+.home-heading-actions .icon-button,.topbar .icon-button{min-width:44px;width:44px;height:44px}
+.utility-heading.has-month{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:space-between}
+.utility-heading.has-month .app-period{margin-left:auto}
+.utility-heading.has-month-action .app-period{flex-basis:auto;margin-left:auto}
+.utility-title{flex:none}
+.utility-back{margin-left:-10px}
+.export-period .app-period{margin-right:-10px}
+.account-detail-section-head{gap:8px;flex-wrap:wrap}
+.account-detail-section-head .app-period{margin-left:auto}
+.account-detail-section-head h2,.dash-heading h2,.utility-section-head h2,.section-head h2{font-size:var(--ui-section);line-height:1.5}
+
+/* Currency has breathing room on the left; signs sit in the number's center. */
+.currency-figure{display:inline-flex;align-items:baseline;gap:12px;min-width:0;max-width:100%;font-variant-numeric:tabular-nums;letter-spacing:0}
+.currency-figure .currency-unit,.currency-unit{flex:none;font-size:12px;line-height:1.4;letter-spacing:.04em;font-weight:400;color:var(--ui-muted);white-space:nowrap}
+.currency-figure .currency-number{display:inline-flex;align-items:baseline;gap:2px;min-width:0;max-width:100%;color:inherit;letter-spacing:0}
+.currency-figure .currency-number>strong{min-width:0;font-size:var(--amount-size,var(--ui-amount));line-height:1.35;letter-spacing:-.035em;font-weight:600;color:inherit;overflow-wrap:anywhere;white-space:normal}
+.currency-figure .currency-sign{align-self:center;flex:none;font-size:calc(var(--amount-size,var(--ui-amount)) * .65);font-weight:500;line-height:1;color:inherit;letter-spacing:0}
+.home-summary-balance-value>.currency-figure{font-size:inherit;line-height:inherit;letter-spacing:0}
+.report-net .currency-figure,.portfolio-total .currency-figure,.utility-key-value>.currency-figure{--amount-size:28px}
+.utility-key-value>.currency-figure{display:inline-flex;margin-top:5px}
+.portfolio-total{align-items:center;gap:12px}
+.report-ring figcaption>.currency-figure{display:inline-flex;--amount-size:17px;gap:7px;justify-content:center;margin-top:3px}
+.report-ring figcaption .currency-unit{font-size:11px}
+.routine-summary .currency-figure{display:inline-flex;--amount-size:24px;gap:10px;margin-top:4px}
+.routine-summary .utility-add{background:#fffaf080}
+.holding-detail-summary>.currency-figure{display:inline-flex;margin:6px 0;--amount-size:28px}
+.holding-detail-summary>small{display:block}
+.account-detail-balance .currency-figure{--amount-size:25px;flex:0 1 auto;gap:10px;color:var(--wallet)}
+.account-detail-balance .currency-number{flex:0 1 auto}
+.account-detail-balance .currency-unit{font-size:12px;font-weight:400;letter-spacing:.04em}
+.entry-overview{flex-wrap:wrap;row-gap:12px}
+.entry-category{min-width:5em}
+.entry-amount-block{margin-left:auto;max-width:100%}
+.entry-amount-block>.currency-figure{--amount-size:24px;font-size:inherit;line-height:inherit;letter-spacing:0;color:var(--ui-ink)}
+
+/* Same amount input and compact, independent calculator across all forms. */
+.currency-trigger,#modal.utility-modal .currency-trigger,#modal.utility-modal .utility-amount .currency-trigger{
+  display:flex;align-items:baseline;gap:12px;min-height:58px;width:100%;padding:0;border:0;background:transparent;border-radius:0;
+}
+#modal.utility-modal .utility-amount .currency-trigger:before{content:none}
+.currency-trigger>strong,#modal.utility-modal .currency-trigger strong,#modal.utility-modal .utility-amount .currency-trigger strong{
+  flex:1;min-width:0;font-size:var(--ui-edit-amount);font-weight:600;line-height:1.4;letter-spacing:-.035em;color:var(--ui-positive);text-align:left;overflow-wrap:anywhere;
+}
+.currency-trigger .currency-calculator,#modal.utility-modal .currency-trigger>.currency-calculator{
+  align-self:center;display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:0;background:transparent;color:var(--ui-muted);
+}
+.currency-trigger .calc-symbol{width:22px;height:22px}
+#modal .compose-stage{min-height:124px;padding:3px 0 5px}
+#modal.entry-compose .compose-stage .entry-amount-trigger,#modal.entry-details .record-amount-display{
+  display:grid;grid-template-columns:34px minmax(0,1fr) 44px;align-items:baseline;gap:10px;
+  width:100%;min-width:0;min-height:58px;padding:0;border:0;background:transparent;color:var(--compose-accent);
+}
+#modal.entry-compose .compose-stage .entry-amount-value,#modal.entry-details .entry-amount-value{display:flex;align-items:baseline;justify-content:center;min-width:0;max-width:100%;gap:2px}
+#modal.entry-compose .compose-stage .entry-amount-value>strong,#modal.entry-details .entry-amount-value>strong{font-size:var(--ui-edit-amount);font-weight:600;line-height:50px;letter-spacing:-.035em;overflow-wrap:anywhere;color:var(--compose-accent)}
+#modal.entry-compose .compose-stage .entry-amount-unit,#modal.entry-details .entry-amount-unit{align-self:baseline;font-size:12px;font-weight:400;letter-spacing:.04em;margin:0;line-height:1.4;text-align:left;color:var(--ui-muted)}
+#modal.entry-compose .compose-stage .edit-calc-sign,#modal.entry-details .edit-calc-sign{align-self:center;font-size:24px;line-height:1;transform:none;margin:0;color:var(--compose-accent)}
+#modal.entry-compose .compose-stage .edit-calc-hint,#modal.entry-details .edit-calc-hint{position:static;align-self:center;display:grid;place-items:center;width:44px;height:44px;margin:0;background:none;transform:none}
+.compose-date-button{min-height:44px;padding-inline:8px}
+.compose-date-button>strong{font-size:13px;white-space:normal;text-align:center}
+.compose-date{margin-top:12px}
+.calculator-total{display:flex;align-items:baseline;justify-content:flex-end;gap:12px;min-width:0}
+#picker-page .calculator-total .currency-unit{margin:0;font-size:12px;letter-spacing:.04em}
+#picker-page .calculator-total>strong{font-size:32px;line-height:1.4;font-weight:500;margin:0;overflow-wrap:anywhere;color:var(--ui-positive)}
+#picker-page[data-tone="expense"] .calculator-total>strong{color:var(--ui-negative)}
+#picker-page[data-tone="transfer"] .calculator-total>strong{color:var(--ui-transfer)}
+#picker-page[data-tone="neutral"] .calculator-total>strong{color:var(--ui-ink)}
+.account-create-grid{grid-template-columns:1fr;gap:12px}
+.account-opening-control{height:auto;min-height:86px;padding:8px 0;background:transparent;border-radius:0}
+.account-opening-control .currency-trigger{min-height:58px;gap:12px}
+.account-opening-control .currency-trigger>strong{font-size:var(--ui-edit-amount);line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.account-opening-control .currency-trigger>.currency-calculator{width:44px;height:44px}
+
+/* Dialogs share a header and footer; opening a child never stretches its parent. */
+#modal,#modal.entry-details,#modal.entry-edit.entry-compose,#modal.utility-modal,#modal.ledger-filter-panel{
+  position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);margin:0;
+  width:min(376px,calc(100vw - 24px));height:auto;max-height:min(680px,calc(100dvh - 48px));
+  padding:18px 20px;border:0;border-radius:var(--ui-panel-radius);background:var(--ui-paper);overflow:auto;
+}
+#modal:before{display:none}
+#modal #modal-form,#modal.entry-compose #modal-form{display:flex;flex-direction:column;min-height:0;max-height:min(644px,calc(100dvh - 84px))}
+#modal .modal-head,#modal.entry-compose .modal-head,#modal.utility-modal .modal-head,#modal.entry-details .modal-head{
+  display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:4px;flex:none;margin:0 0 12px;padding:0;
+}
+#modal .modal-head>div{grid-column:2;text-align:center;min-width:0}
+#modal .modal-head h2,#modal.entry-compose .modal-head h2,#modal.utility-modal .modal-head h2,#modal.entry-details .modal-head h2{
+  font-size:18px;line-height:1.5;font-weight:600;letter-spacing:0;color:var(--ui-ink);margin:0;overflow-wrap:anywhere;
+}
+#modal .modal-head .icon-button,#modal.entry-compose .modal-head .icon-button,#modal.utility-modal .modal-head .icon-button,#modal.entry-details .modal-head .icon-button{
+  grid-column:3;display:grid;place-items:center;width:44px;height:44px;margin:0;padding:0;background:transparent;font-size:16px;color:var(--ui-muted);
+}
+#modal #modal-kicker{display:none}
+#modal #modal-body{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+#modal.entry-details #modal-body{padding:0 2px 2px}
+#modal .modal-actions,#modal.entry-compose .modal-actions,#modal.utility-modal .modal-actions,#modal.entry-details .modal-actions{
+  display:grid;grid-template-columns:1fr 1fr;flex:none;gap:12px;margin-top:18px;padding:0;border:0;
+}
+#modal .modal-actions .button,#modal.entry-compose .modal-actions .button,#modal.utility-modal .modal-actions .button,#modal.entry-details .modal-actions .button{
+  min-height:46px;padding:10px 8px;border-radius:var(--ui-control-radius);font-size:14px;line-height:1.5;
+}
+#modal.entry-details .modal-actions .primary{order:1;background:var(--ui-danger);color:#fffaf3}
+#modal.entry-details .modal-actions .secondary{order:2;background:var(--ui-positive);color:#fffaf3}
+#modal.entry-details{--compose-accent:var(--ui-negative);--compose-soft:#f1e3d9}
+#modal.entry-details[data-compose-type="income"]{--compose-accent:var(--ui-positive);--compose-soft:#e5ece0}
+#modal.entry-details[data-compose-type="transfer"]{--compose-accent:var(--ui-transfer);--compose-soft:#e3ece9}
+.record-detail-type{display:flex;align-items:center;justify-content:center;gap:10px;min-height:38px;margin-bottom:9px;color:var(--compose-accent);font-size:14px;font-weight:600}
+.record-reversed{padding:2px 8px;border-radius:7px;background:var(--ui-surface);font-size:12px;font-weight:400;color:var(--ui-muted)}
+.compose-date-display{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 8px;color:#73796b}
+.compose-date-display .icon{width:16px;height:16px;stroke-width:1.55}
+.compose-date-display>strong{font-size:13px;line-height:20px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums;text-align:center}
+.record-fact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.record-fact-transfer{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);gap:5px;align-items:start}
+.record-fact{display:grid;grid-template-rows:18px minmax(40px,auto);align-content:start;justify-items:center;gap:7px;min-width:0;min-height:90px;padding:9px 7px}
+.record-fact-label{font-size:13px;line-height:18px;font-weight:600;color:#777d6c;text-align:center}
+.record-fact-content{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:8px;width:max-content;max-width:100%;min-width:0}
+.record-fact-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--compose-soft);color:var(--compose-accent)}
+.record-fact-icon .icon,.record-fact-icon .journal-icon{width:21px;height:21px}
+.record-fact-content>strong{min-width:0;font-size:15px;line-height:21px;font-weight:600;color:#405043;overflow-wrap:anywhere}
+.record-transfer-arrow{display:grid;grid-template-rows:18px 40px;align-content:start;align-items:center;justify-items:center;gap:7px;min-height:90px;padding:9px 0}
+.record-transfer-arrow .icon{grid-row:2;width:30px;height:30px;padding:6px;border-radius:50%;background:var(--compose-accent);color:#fffaf2;stroke-width:1.8}
+#modal .record-detail-note{display:grid;grid-template-columns:50px minmax(0,1fr);align-items:start;gap:8px;margin:9px 0 0;padding:10px 11px;border:0;border-radius:11px;background:#f0ebe1}
+#modal .record-detail-note>span{font-size:14px;line-height:23px;color:#777d6c}
+#modal .record-detail-note>p{margin:0;font-size:14px;line-height:23px;font-weight:400;color:#52604f;white-space:pre-wrap;overflow-wrap:anywhere}
+#modal.utility-holding .modal-actions{grid-template-columns:1fr}
+#picker-page{border-radius:var(--ui-panel-radius);background:var(--ui-paper)}
+.picker-page-header{grid-template-columns:44px minmax(0,1fr) 44px;border-bottom:0;padding:8px 12px 0;min-height:56px}
+.picker-page-header button{width:44px;height:44px}
+.picker-page-header h2{font-size:18px;font-weight:600;line-height:1.5;letter-spacing:0}
+#picker-content{padding:14px 18px 18px}
+.picker-page-footer button{border-radius:var(--ui-control-radius);min-height:46px;font-size:14px}
+#picker-page .picker-choice-grid[data-kind="account"],#picker-page .lf-account-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,max(4.8rem,calc((100% - 27px)/4))),1fr))}
+#picker-page .picker-choice-grid[data-kind="category"],#picker-page .lf-category-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+#picker-page .picker-choice-grid button{min-height:88px;border-radius:var(--ui-control-radius)}
+#picker-page .picker-choice-grid button.selected{background:var(--ui-selected)}
+#picker-page .picker-choice-grid button strong,#picker-page .picker-choice-grid[data-kind="category"] button strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+#picker-page .lf-option,#picker-page .lf-category-grid>.lf-option:not(:first-child),#picker-page .lf-account-grid>.lf-option:not(:first-child){font-size:13px;line-height:1.5;min-height:44px}
+#picker-page .lf-category-grid>.lf-option:not(:first-child),#picker-page .lf-account-grid>.lf-option:not(:first-child){min-height:88px}
+#picker-page .picker-choice-grid button:after,#picker-page .lf-option:after{content:none}
+#picker-page .edit-calendar-nav button,#picker-page .lf-calendar-head button{width:44px;height:44px}
+#picker-page .lf-amount-unlimited{min-height:44px;font-size:13px}
+.receipt-page-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.receipt-page-options button{min-height:44px;border-radius:10px;background:var(--ui-surface);font-size:14px}
+.receipt-page-options button.selected{background:var(--ui-selected);color:var(--ui-positive)}
+
+/* Page text and touch targets: readable captions without inflated containers. */
+/* Preserve the original 100px summary strip; all four amounts share a baseline. */
+.home-summary{padding:2px 0 13px;margin-bottom:12px}
+.home-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;height:100px}
+.home-summary-strip .home-stat{--summary-tone:var(--ui-positive);display:grid;grid-template-rows:32px 18px 28px;align-content:center;justify-items:center;row-gap:5px;min-width:0;padding:0;text-align:center}
+.home-summary-strip .home-stat:before{content:none}
+.home-summary-strip .home-expense,.home-summary-strip .is-negative{--summary-tone:var(--ui-negative)}
+.home-summary-strip .home-invest{--summary-tone:var(--ui-investment)}
+.home-summary-strip .is-positive{--summary-tone:var(--ui-positive)}
+.home-stat-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:11px;color:var(--summary-tone);background:color-mix(in srgb,var(--summary-tone) 8%,var(--ui-paper))}
+.home-stat-icon .icon{width:21px;height:21px;stroke-width:1.6}
+.home-summary-strip .home-stat-label{font-size:12px;line-height:18px;font-weight:400;color:var(--ui-muted);white-space:nowrap}
+.home-summary-strip .home-stat strong{font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--summary-tone)}
+.home-summary-strip .home-stat strong.home-amount-long{font-size:16px}
+.account-add,.account-actions button,.account-detail-actions button{min-height:44px;font-size:14px;border-radius:var(--ui-control-radius)}
+.account-detail-actions .icon{width:18px;height:18px}
+.account-group-heading span,.accounts-heading small,.account-section-heading small,.account-facts span,.account-overview-top>div>span{font-size:12px;line-height:1.5}
+.account-facts strong{font-size:14px;line-height:1.5}
+.account-group .account-wallet-copy strong{font-size:14px;line-height:1.5}
+.account-group .account-wallet-balance{font-size:18px;line-height:1.5}
+.account-group .account-wallet-balance small{font-size:11px;line-height:1.5}
+.account-wallet{border-radius:var(--ui-control-radius)}
+.record-type-tabs button,.record-compose-content .compose-note .edit-note-label{font-size:14px}
+#modal.entry-compose .compose-details .picker-field-label{font-size:13px}
+.record-compose-content .compose-note .edit-note{font-size:14px}
+.entry-category>span,.redesigned-entry .entry-full-note>span,.redesigned-entry .entry-detail-facts>div>span{font-size:12px;line-height:1.5}
+.entry-category>strong,.entry-full-note p,.redesigned-entry .entry-detail-facts>div>strong{font-size:14px;line-height:1.6}
+.field>label,.account-name-control>span,.account-opening-control>span{font-size:14px;line-height:1.5}
+.lf-section-trigger>span,.lf-amount-trigger small,.field-select-button>span.picker-field-label,.edit-date-picker .field-select-button>span{font-size:12px;line-height:1.5}
+.lf-section-trigger>strong,.field .field-select-button>strong{font-size:14px}
+.lf-section-trigger{min-height:56px;height:auto}
+.reminder-copy>strong{font-size:14px;line-height:1.5}
+.reminder-copy>small,.daily-details-head span,.daily-day-total>span,.activity-legend,.daily-receipt-nav,.spending-summary>div>span,.budget-values .budget-limit,.allocation-context-row,.flow-period-row,.flow-summary span,.flow-growth button{font-size:12px;line-height:1.5}
+.daily-week-nav button,.daily-receipt-nav button,.spending-actions button,.allocation-context-actions button,.flow-growth button{min-height:44px}
+.daily-week-nav button,.daily-receipt-nav button{min-width:44px}
+.daily-receipt-nav #daily-page-select{font-size:12px;padding:0 8px;min-width:54px}
+.today-investment-head h2{font-size:17px}
+.today-investment-head span,.today-investment-head small,.today-investment-head h2 small{font-size:12px;line-height:1.5}
+.holding-performance{grid-template-columns:38px minmax(16px,1fr) 48px;column-gap:5px}
+.holding-performance>span:first-child,.holding-performance b{font-size:12px;line-height:24px}
+.chart-hint{margin:5px 0 8px;color:var(--ui-muted);font-size:12px;line-height:1.5;text-align:right}
+.allocation-note.chart-hint{margin-top:6px}
+.mobile-nav .nav-item,.mobile-nav button{font-size:12px}
+.utility-section{margin-top:24px}.utility-section-head{margin-bottom:12px}
+.more-tool,.report-summary,.budget-overview,.portfolio-summary,.routine-summary,.settings-preferences,.settings-export{border-radius:var(--ui-panel-radius)}
+
+/* Text entry uses the same app surface; errors never invoke browser validation bubbles. */
+#modal .field input:not([type="hidden"]),#modal .field textarea{appearance:none;width:100%;min-height:48px;padding:12px 14px;border:0;border-radius:var(--ui-control-radius);background:var(--ui-surface);color:var(--ui-ink);font-size:16px;line-height:24px;box-shadow:none}
+#modal .field{margin:14px 0}
+#modal .field>label{margin-bottom:8px}
+#modal .field input::placeholder,#modal .field textarea::placeholder{color:var(--ui-muted)}
+#modal .app-field-invalid{outline:2px solid var(--ui-danger);outline-offset:2px}
+#modal #modal-error{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#f1e2db;color:var(--ui-danger);font-size:14px;line-height:1.6}
+#modal .app-search-field{display:grid;grid-template-columns:20px minmax(0,1fr) 44px;align-items:center;gap:8px;min-height:54px;padding:5px 8px 5px 14px;border-radius:var(--ui-control-radius);background:var(--ui-surface);color:var(--ui-muted)}
+#modal .app-search-field>input,#modal .lf-search input{appearance:none;min-width:0;width:100%;min-height:44px;padding:0;border:0;border-radius:0;background:transparent;font-size:16px;line-height:24px;color:var(--ui-ink)}
+#modal .app-search-field>button{min-width:44px;min-height:44px;padding:0;font-size:13px;color:var(--ui-positive)}
+input[type="search"]::-webkit-search-cancel-button,input[type="search"]::-webkit-search-decoration{-webkit-appearance:none;appearance:none}
+@media(hover:hover){.app-period>button:not(:disabled):hover{background:#e4ebdd}}
+@media(max-width:370px){
+  .home-heading{gap:0}.home-heading h1{font-size:22px}.home-heading-actions .icon-button{width:40px;min-width:40px}
+  .home-summary-strip{gap:7px}.home-summary-strip .home-stat strong{font-size:16px}.home-summary-strip .home-stat strong.home-amount-long{font-size:14px}.home-summary-strip .home-stat-label{font-size:11px}
+  .account-group .account-wallet-copy strong{font-size:13px}.account-group .account-wallet-balance{font-size:16px}
+  #modal,#modal.entry-details,#modal.entry-edit.entry-compose,#modal.utility-modal,#modal.ledger-filter-panel{padding-inline:16px}
+}
+@media(prefers-reduced-motion:reduce){.utility-page{animation:none}}
+
+/* Large exact values remain legible without expanding compact forms. */
+.currency-figure .currency-number>strong.amount-long{font-size:calc(var(--amount-size,var(--ui-amount)) * .8)}
+.currency-trigger>strong.amount-long,#modal.utility-modal .currency-trigger strong.amount-long,#modal.utility-modal .utility-amount .currency-trigger strong.amount-long{font-size:26px}
+#modal.entry-compose .compose-stage .entry-amount-value>strong.amount-long,#modal.entry-details .entry-amount-value>strong.amount-long{font-size:26px}
+#modal.entry-compose .compose-stage .entry-amount-value>strong.amount-wide,#modal.entry-details .entry-amount-value>strong.amount-wide{font-size:22px}
+#picker-page .calculator-total>strong.amount-long{font-size:25px}
+
+/* Account list retains its approved two-column, group-first layout in visual-refresh.css. */
+.account-facts{gap:10px}.account-facts strong{overflow-wrap:anywhere;white-space:normal;overflow:visible;text-overflow:clip}
+.account-detail-heading h1{white-space:normal;overflow-wrap:anywhere}
+.account-detail-net{min-width:0}.account-detail-net strong{overflow-wrap:anywhere}
+.account-detail-net strong.amount-long{font-size:14px}
+
+/* A full note belongs in the detail; scanning rows use a controlled two-line title. */
+.tx-info{min-width:0}.tx-info>strong,.ledger-records .tx-info>strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;overflow-wrap:anywhere;line-height:1.5}
+.tx-info>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.tx-amount,.ledger-records .tx-amount{flex:none;max-width:47%;overflow-wrap:anywhere;white-space:normal;font-variant-numeric:tabular-nums}
+.tx-amount.amount-long,.ledger-records .tx-amount.amount-long,.account-detail-activity .tx-amount.amount-long{font-size:13px}
+.redesigned-entry .entry-full-note p{font-size:14px;line-height:1.65;font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:0}
+.redesigned-entry .entry-detail-facts>div>strong{min-width:0;overflow-wrap:anywhere}
+.redesigned-entry .entry-detail-facts .entry-account-flow{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap}.entry-account-flow>span{min-width:0;overflow-wrap:anywhere}.entry-account-flow>i{flex:none}
+.entry-overview{row-gap:14px}
+
+/* A common, quiet response for pointer and keyboard interaction. */
+button,a,input,textarea{-webkit-tap-highlight-color:transparent}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #55765b;outline-offset:3px}
+button:disabled{cursor:default}
+#modal.entry-compose .compose-details .field-select-button:active,.more-tool:active,.account-wallet:active,.routine-open:active{background:#e8e6d9}
+#toast{font-size:14px;line-height:1.6;max-width:calc(100vw - 40px)}
+@media(prefers-reduced-motion:no-preference){
+ .utility-page{animation:page-arrive .18s ease-out}.field-updated{animation:field-updated .5s ease-out}
+ @keyframes page-arrive{from{opacity:.55;transform:translateY(3px)}to{opacity:1;transform:none}}
+ @keyframes field-updated{0%{box-shadow:0 0 0 3px #91aa793d}100%{box-shadow:0 0 0 0 transparent}}
+}
+
+.ledger-records .tx-info>strong{font-size:14px}.ledger-records .tx-info>small{font-size:12px;line-height:1.5}.ledger-records .date-divider{font-size:12px;line-height:1.5;margin-top:18px}
+
+.routine-summary .currency-figure{color:var(--ui-ink)}
+@media(max-width:350px){.account-detail-balance .currency-figure:has(.amount-long){--amount-size:19px;gap:8px}.account-detail-balance .currency-figure:has(.amount-long) .currency-unit{font-size:11px}}

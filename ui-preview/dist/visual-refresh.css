@@ -1,0 +1,339 @@
+/* October visual refresh: amount baseline, monthly summary and the account workspace. */
+
+/* Currency belongs to the number, so it shares the same typographic baseline. */
+.entry-amount-value{display:inline-flex;align-items:center;justify-content:center;gap:0;min-width:0}
+.entry-amount-value>strong{min-width:0;font-size:36px;font-weight:500;line-height:1.4;font-variant-numeric:tabular-nums;letter-spacing:-.02em;overflow-wrap:anywhere}
+.entry-amount-unit{align-self:flex-end;margin:0 11px 10px 0;font-size:10px;line-height:1;font-weight:600;letter-spacing:.13em;color:#8f8c7d;white-space:nowrap}
+#modal.entry-compose .compose-stage .entry-amount-trigger{justify-content:center;gap:0}
+#modal.entry-compose .compose-stage .entry-amount-value{align-items:center;gap:0;max-width:100%}
+#modal.entry-compose .compose-stage .entry-amount-value>strong{font-size:clamp(38px,10.5vw,46px);line-height:56px;font-weight:600;color:var(--compose-accent);letter-spacing:-.04em}
+#modal.entry-compose .compose-stage .entry-amount-unit{margin-right:12px;margin-bottom:10px;font-size:10px;color:#918d7e;transform:none}
+#modal.entry-compose .compose-stage .edit-calc-sign{align-self:center;margin-right:2px;font-size:25px;line-height:1;transform:translateY(1px)}
+
+/* Monthly summary: an open balance sheet instead of another filled card. */
+.home-summary{margin:0 0 12px;padding:4px 0 15px;border:0;border-bottom:1px solid #dcd3c3;border-radius:0;background:transparent;overflow:hidden}
+.home-summary-main{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(112px,.82fr);gap:18px;align-items:stretch}
+.home-primary{display:flex;flex-direction:column;justify-content:center;min-width:0;padding:5px 17px 5px 0;border-right:1px solid #ddd4c4}
+.home-primary .home-stat-label{font-size:10px;line-height:17px;color:#777a6d}
+.home-summary-total{display:flex;align-items:baseline;gap:9px;margin-top:2px;font-variant-numeric:tabular-nums}
+.home-summary-total>span{font-size:9px;line-height:1;font-weight:600;letter-spacing:.14em;color:#8b8879}
+.home-summary-total>strong{font-size:30px;line-height:42px;font-weight:600;letter-spacing:-.045em;color:#465c4b;white-space:nowrap}
+.home-primary>small{display:block;margin-top:1px;font-size:9px;line-height:15px;color:#85877a}
+.home-flow-pair{display:grid;grid-template-rows:1fr 1fr;gap:0;min-width:0}
+.home-flow-pair .home-stat{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:18px auto;align-content:center;column-gap:8px;min-width:0;padding:2px 0}
+.home-flow-pair .home-stat+.home-stat{border-top:1px solid #e1d9ca}
+.home-flow-pair .home-stat-label{font-size:9px;line-height:18px;color:#7c7e72;white-space:nowrap}
+.home-flow-pair strong{font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.home-flow-pair .home-income strong{color:#5f7d63}.home-flow-pair .home-expense strong{color:#aa5f55}
+.home-flow-pair small,.home-flow-pair .card-reminder{grid-column:1/-1;display:block;min-height:17px;padding:0;font-size:8px;line-height:17px;color:#8b8879;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-flow-pair .card-reminder{color:#a45f50}
+.home-summary-rail{position:relative;height:7px;margin:14px 0 11px;border-radius:9px;background:#789178;overflow:hidden}
+.home-summary-rail:after{content:'';position:absolute;inset:0;border:1px solid #ffffff80;border-radius:inherit;pointer-events:none}
+.home-summary-rail>i{position:absolute;right:0;top:0;bottom:0;display:block;min-width:3px;border-radius:9px;background:#b96e62}
+.home-summary-bottom{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.home-summary-bottom .home-invest{display:grid;grid-template-columns:auto auto;grid-template-rows:17px 18px;align-items:baseline;column-gap:8px;min-width:0}
+.home-summary-bottom .home-stat-label{font-size:9px;line-height:17px;color:#7c7e72}
+.home-summary-bottom .home-invest>strong{font-size:15px;line-height:18px;font-weight:600;color:#76658a;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
+.home-summary-bottom .home-invest>small{grid-column:1/-1;font-size:8px;line-height:16px;color:#8b8879}
+.home-flow-legend{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;color:#818174;font-size:8px;line-height:16px}
+.home-flow-legend>span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.home-flow-legend i{display:block;width:7px;height:7px;border-radius:2px;background:#789178}
+.home-flow-legend span:last-child i{background:#b96e62}
+
+/* Accounts use a compact dashboard followed by a two-column wallet collection. */
+.accounts-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:2px 0 17px}
+.accounts-heading small{display:block;font-size:9px;line-height:15px;color:#858376;letter-spacing:.04em}
+.accounts-heading h1{font-size:24px;line-height:34px;letter-spacing:.055em}
+.account-add{display:flex;align-items:center;justify-content:center;gap:5px;min-height:42px;padding:0 9px;color:#4f7258;font-size:11px;font-weight:600}
+.account-add .icon{width:17px;height:17px}
+.account-overview{padding:19px 18px 15px;border-radius:18px;background:#e9e8da}
+.account-overview-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.account-overview-top>div>span{display:block;font-size:10px;line-height:16px;color:#73796c}
+.account-overview-value{display:flex;align-items:baseline;gap:7px;min-width:0;margin-top:2px}
+.account-overview-value small{font-size:9px;font-weight:600;letter-spacing:.13em;color:#858778}
+.account-overview-value strong{font-size:30px;line-height:40px;font-weight:600;letter-spacing:-.045em;font-variant-numeric:tabular-nums;color:#425848;white-space:nowrap}
+.account-count{flex-shrink:0;padding:4px 8px;border-radius:10px;background:#f8f4e9;color:#77796b;font-size:9px;line-height:14px}
+.account-allocation{display:flex;height:8px;margin:12px 0 12px;border-radius:10px;background:#d8d3c5;overflow:hidden}
+.account-allocation i{display:block;height:100%}.account-allocation .cash{background:#69876d}.account-allocation .invest{background:#a590b3}
+.account-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.account-facts>div{min-width:0;padding:0 9px}
+.account-facts>div:first-child{padding-left:0}.account-facts>div:last-child{padding-right:0}
+.account-facts>div+div{border-left:1px solid #d4cebf}
+.account-facts span{display:block;font-size:8px;line-height:14px;color:#818276;white-space:nowrap}
+.account-facts strong{display:block;font-size:12px;line-height:20px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-facts strong.negative{color:#a65f52}
+.account-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
+.account-actions button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:42px;border-radius:11px;background:#f7f3e9;color:#536657;font-size:11px;font-weight:600}
+.account-actions button:first-child{background:#56745d;color:#fffdf7}
+.account-actions .icon{width:17px;height:17px}
+.account-collection{margin-top:24px}
+.account-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.account-section-heading small{display:block;font-size:9px;line-height:14px;color:#898678}
+.account-section-heading h2{font-size:17px;line-height:25px;letter-spacing:.035em}
+.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.account-wallet{--wallet:#687f6a;display:grid;grid-template-columns:36px minmax(0,1fr);grid-template-rows:36px auto;align-items:center;gap:10px 9px;min-width:0;min-height:104px;padding:13px 12px 11px;border:1px solid #ded6c7;border-radius:14px;background:#faf6ed;text-align:left;color:#4a564b}
+.account-wallet.cash{--wallet:#9a7650}.account-wallet.ewallet{--wallet:#5d7f83}.account-wallet.card{--wallet:#a35f58}
+.account-wallet.selected{border-color:color-mix(in srgb,var(--wallet) 52%,#ded6c7);background:color-mix(in srgb,var(--wallet) 10%,#faf6ed)}
+.account-wallet-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:color-mix(in srgb,var(--wallet) 12%,#faf6ed);color:var(--wallet)}
+.account-wallet-icon .icon{width:21px;height:21px;stroke-width:1.6}
+.account-wallet-copy{display:flex;flex-direction:column;min-width:0;gap:1px}
+.account-wallet-copy small{font-size:8px;line-height:13px;color:#8e897b}
+.account-wallet-copy strong{font-size:12px;line-height:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-wallet-balance{grid-column:1/-1;display:flex;align-items:baseline;gap:5px;font-size:17px;line-height:23px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.025em;color:#4c5f50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-wallet-balance small{font-size:8px;line-height:1;letter-spacing:.11em;color:#979182}
+.account-wallet-balance.negative{color:#a45e54}
+@media(max-width:370px){
+  .home-summary-main{grid-template-columns:minmax(0,1.08fr) minmax(106px,.92fr);gap:13px}.home-primary{padding-right:12px}.home-summary-total{gap:6px}.home-summary-total>strong{font-size:27px}.home-flow-pair strong{font-size:14px}.home-flow-legend{gap:8px}
+  .account-overview{padding-inline:15px}.account-overview-value strong{font-size:27px}.account-facts>div{padding-inline:6px}.account-facts strong{font-size:11px}
+  .account-grid{gap:7px}.account-wallet{padding-inline:10px;grid-template-columns:32px minmax(0,1fr)}.account-wallet-icon{width:32px;height:32px}.account-wallet-balance{font-size:15px}
+}
+
+/* Monthly flow diagram: income visibly branches into retained balance and spending. */
+.home-summary{margin:0 0 12px;padding:14px 15px 13px;border:1px solid #ddd4c4;border-radius:16px;background:#f1ebdf;overflow:hidden}
+.home-flow-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+.home-flow-header>span{font-size:11px;line-height:18px;font-weight:600;color:#525d51}
+.home-flow-header>strong{padding:3px 8px;border-radius:10px;background:#dde7d8;font-size:10px;line-height:15px;font-weight:600;color:#53705a;font-variant-numeric:tabular-nums;white-space:nowrap}
+.home-flow-diagram{display:grid;grid-template-columns:104px 42px minmax(0,1fr);align-items:stretch;min-height:124px}
+.home-flow-source{align-self:center;display:flex;flex-direction:column;justify-content:center;min-width:0;height:76px;padding:11px 10px;border-radius:13px;background:#607a64;color:#fffdf7}
+.home-flow-source .home-stat-label{font-size:10px;line-height:16px;color:#f6f4e9c7}
+.home-flow-source>strong{font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fffdf7}
+.home-flow-source>small{font-size:8px;line-height:12px;letter-spacing:.12em;color:#fffdf79e}
+.home-flow-branch{position:relative;min-width:0}
+.home-flow-branch>b,.home-flow-branch>i,.home-flow-branch:after{content:'';position:absolute;display:block;background:#b9b8a7}
+.home-flow-branch>b{left:0;right:50%;top:50%;height:2px;transform:translateY(-1px)}
+.home-flow-branch:after{left:50%;top:25%;bottom:25%;width:2px;transform:translateX(-1px)}
+.home-flow-branch>i{left:50%;right:0;height:2px}
+.home-flow-branch>i:first-of-type{top:25%;background:#8fa48d}
+.home-flow-branch>i:last-of-type{top:75%;background:#c28b80}
+.home-flow-outcomes{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-width:0}
+.home-flow-outcome{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:18px auto;align-content:center;column-gap:8px;min-width:0;padding:8px 10px;border-radius:11px;background:#f8f5ec}
+.home-flow-outcome.home-surplus{box-shadow:inset 3px 0 #819a82}
+.home-flow-outcome.home-expense{box-shadow:inset 3px 0 #be8176}
+.home-flow-outcome .home-stat-label{font-size:10px;line-height:18px;color:#70766b;white-space:nowrap}
+.home-flow-outcome>strong{font-size:16px;line-height:20px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.home-flow-outcome.home-surplus>strong{color:#58745d}.home-flow-outcome.home-expense>strong{color:#a75f55}
+.home-flow-outcome>small,.home-flow-outcome .card-reminder{grid-column:1/-1;display:block;min-height:15px;padding:0;font-size:8px;line-height:15px;color:#8c8a7d;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-flow-outcome .card-reminder{color:#a45f50}
+.home-invest-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid #ddd4c4;min-width:0}
+.home-invest-mark{width:8px;height:24px;border-radius:4px;background:#8b7a9d}
+.home-invest-row>div{display:flex;align-items:baseline;gap:7px;min-width:0}
+.home-invest-row .home-stat-label{font-size:10px;line-height:18px;color:#686d64;white-space:nowrap}
+.home-invest-row>div>small{font-size:8px;line-height:14px;color:#8c897c;white-space:nowrap}
+.home-invest-row>strong{font-size:16px;line-height:22px;font-weight:600;color:#76658a;font-variant-numeric:tabular-nums;letter-spacing:-.025em;white-space:nowrap}
+.home-invest-row>small{font-size:8px;line-height:12px;letter-spacing:.1em;color:#918d80}
+@media(max-width:370px){
+  .home-summary{padding-inline:12px}.home-flow-diagram{grid-template-columns:91px 34px minmax(0,1fr)}.home-flow-source{padding-inline:8px}.home-flow-source>strong{font-size:16px}.home-flow-outcome{padding-inline:8px}.home-flow-outcome>strong{font-size:14px}.home-invest-row{gap:5px}.home-invest-row>div{gap:5px}.home-invest-row>strong{font-size:14px}
+}
+
+/* Quiet monthly statement: typography first, without cards, diagrams or decorative tracks. */
+.home-summary{margin:0 0 12px;padding:3px 0 14px;border:0;border-bottom:1px solid #ddd4c4;border-radius:0;background:transparent;overflow:visible}
+.home-summary-balance{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:3px 0 14px}
+.home-summary-balance-copy{display:flex;flex-direction:column;gap:2px;min-width:0;padding-bottom:2px}
+.home-summary-balance-copy .home-stat-label{font-size:11px;line-height:18px;font-weight:600;color:#545f53}
+.home-summary-balance-copy>small{font-size:9px;line-height:15px;color:#88877a}
+.home-summary-balance-value{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;min-width:0;font-variant-numeric:tabular-nums}
+.home-summary-balance-value>span{font-size:9px;line-height:1;font-weight:600;letter-spacing:.14em;color:#918d7f}
+.home-summary-balance-value>strong{font-size:30px;line-height:39px;font-weight:600;letter-spacing:-.045em;color:#435748;white-space:nowrap}
+.home-summary-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding-top:12px;border-top:1px solid #e3dbcc}
+.home-summary-metrics .home-stat{position:relative;display:grid;grid-template-rows:17px 24px auto;align-content:start;min-width:0;padding-top:5px}
+.home-summary-metrics .home-stat:before{content:'';position:absolute;top:0;left:0;width:22px;height:2px;border-radius:2px;background:#728c75}
+.home-summary-metrics .home-expense:before{background:#b86d61}.home-summary-metrics .home-invest:before{background:#88769a}
+.home-summary-metrics .home-stat-label{font-size:9px;line-height:17px;color:#777b70;white-space:nowrap}
+.home-summary-metrics strong{font-size:17px;line-height:24px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-summary-metrics .home-income strong{color:#5f7d63}.home-summary-metrics .home-expense strong{color:#aa5f55}.home-summary-metrics .home-invest strong{color:#76658a}
+.home-summary-metrics small,.home-summary-metrics .card-reminder{display:block;min-height:18px;padding:0;font-size:8px;line-height:18px;color:#8b897c;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-summary-metrics .card-reminder{color:#a45f50}
+@media(max-width:370px){
+  .home-summary-balance{gap:10px}.home-summary-balance-value{gap:7px}.home-summary-balance-value>strong{font-size:27px}.home-summary-metrics{gap:12px}.home-summary-metrics strong{font-size:15px}
+}
+
+/* Grouped, compact account collection. */
+.account-collection{margin-top:22px}
+.account-section-heading{margin-bottom:14px}
+.account-groups{display:flex;flex-direction:column;gap:18px}
+.account-group{--wallet:#687f6a;min-width:0}
+.account-group.cash{--wallet:#9a7650}.account-group.ewallet{--wallet:#5d7f83}.account-group.card{--wallet:#a35f58}
+.account-group-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:30px;padding:0 1px 6px;border-bottom:1px solid #ddd5c6}
+.account-group-heading h3{display:flex;align-items:center;gap:7px;font-size:12px;line-height:20px;font-weight:600;color:#4d584d}
+.account-group-heading h3:before{content:'';display:block;width:3px;height:14px;border-radius:3px;background:var(--wallet)}
+.account-group-heading span{font-size:9px;line-height:16px;color:#8a887b}
+.account-group .account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px}
+.account-group .account-wallet{--wallet:#687f6a;display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:20px 20px;align-items:center;column-gap:8px;row-gap:0;min-width:0;min-height:58px;padding:9px 9px;border:0;border-radius:10px;background:#f2ece1;text-align:left;color:#4a564b}
+.account-group .account-wallet.cash{--wallet:#9a7650}.account-group .account-wallet.ewallet{--wallet:#5d7f83}.account-group .account-wallet.card{--wallet:#a35f58}
+.account-group .account-wallet.selected{border:0;background:color-mix(in srgb,var(--wallet) 13%,#f4efe5);box-shadow:inset 3px 0 var(--wallet)}
+.account-group .account-wallet-icon{grid-column:1;grid-row:1/3;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:color-mix(in srgb,var(--wallet) 12%,#faf6ed);color:var(--wallet)}
+.account-group .account-wallet-icon .icon{width:18px;height:18px;stroke-width:1.6}
+.account-group .account-wallet-copy{grid-column:2;grid-row:1;display:block;min-width:0}
+.account-group .account-wallet-copy strong{display:block;font-size:11px;line-height:20px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-group .account-wallet-balance{grid-column:2;grid-row:2;display:flex;align-items:baseline;gap:4px;min-width:0;font-size:13px;line-height:20px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:#526055;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-group .account-wallet-balance small{font-size:7px;line-height:1;letter-spacing:.09em;color:#979182}
+.account-group .account-wallet-balance.negative{color:#a45e54}
+@media(max-width:370px){
+  .account-groups{gap:16px}.account-group .account-grid{gap:6px}.account-group .account-wallet{grid-template-columns:27px minmax(0,1fr);column-gap:6px;padding-inline:8px}.account-group .account-wallet-icon{width:27px;height:27px}.account-group .account-wallet-copy strong{font-size:10px}.account-group .account-wallet-balance{font-size:12px}
+}
+
+/* Account rows replace the filled mini-cards; selection only reverses the icon and text. */
+.account-groups{gap:19px}
+.account-group-heading{padding-bottom:5px;border-bottom:0}
+.account-group-heading h3{font-size:13px}
+.account-group-heading h3:before{width:3px;height:15px}
+.account-group .account-grid{gap:0 14px;margin-top:2px}
+.account-group .account-wallet{grid-template-columns:31px minmax(0,1fr);grid-template-rows:20px 19px;column-gap:9px;min-height:56px;padding:8px 2px;border:0;border-bottom:1px solid #e1d9ca;border-radius:0;background:transparent;box-shadow:none}
+.account-group .account-wallet:hover{background:#eee8dc66}
+.account-group .account-wallet.selected{border:0;border-bottom:1px solid #d9d0c0;border-radius:0;background:transparent;box-shadow:none}
+.account-group .account-wallet-icon{width:31px;height:31px;border-radius:9px;background:color-mix(in srgb,var(--wallet) 11%,#f7f2e7);transition:background .15s,color .15s}
+.account-group .account-wallet.selected .account-wallet-icon{background:var(--wallet);color:#fffdf7}
+.account-group .account-wallet-copy strong{font-size:12px;line-height:20px;font-weight:500;color:#505a50}
+.account-group .account-wallet-balance{font-size:14px;line-height:19px;font-weight:500;color:#62695f}
+.account-group .account-wallet.selected .account-wallet-copy strong,.account-group .account-wallet.selected .account-wallet-balance{color:var(--wallet);font-weight:600}
+.account-group .account-wallet-balance small{font-size:7px;color:#989284}
+.account-group .account-wallet.selected .account-wallet-balance small{color:color-mix(in srgb,var(--wallet) 72%,#918b7d)}
+@media(max-width:370px){
+  .account-group .account-grid{column-gap:10px}.account-group .account-wallet{grid-template-columns:28px minmax(0,1fr);column-gap:7px;padding-inline:1px}.account-group .account-wallet-icon{width:28px;height:28px}.account-group .account-wallet-copy strong{font-size:11px}.account-group .account-wallet-balance{font-size:13px}
+}
+
+/* One-line account rows: identity at left, balance at right. */
+.account-group-heading{justify-content:flex-start}
+.account-group .account-wallet{grid-template-columns:31px minmax(0,1fr) auto;grid-template-rows:1fr;align-items:center;column-gap:9px;min-height:52px;padding:8px 2px}
+.account-group .account-wallet-icon{grid-column:1;grid-row:1}
+.account-group .account-wallet-copy{grid-column:2;grid-row:1;min-width:0}
+.account-group .account-wallet-copy strong{font-size:12px;line-height:20px}
+.account-group .account-wallet-balance{grid-column:3;grid-row:1;display:block;max-width:74px;text-align:right;font-size:14px;line-height:20px;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.account-group .account-wallet.selected .account-wallet-balance.negative{color:#a45e54}
+@media(max-width:370px){
+  .account-group .account-wallet{grid-template-columns:28px minmax(0,1fr) auto;column-gap:7px}
+  .account-group .account-wallet-balance{max-width:64px;font-size:13px}
+}
+
+/* Account creation shares the compact composer and treats cards as an account type. */
+.account-actions{grid-template-columns:1fr}
+#modal.account-compose{--compose-accent:#5d765f;--compose-soft:#e4ebdf}
+#modal.account-compose .modal-head{margin-bottom:17px}
+.account-create-content{display:flex;flex-direction:column;gap:14px;padding:2px 1px 5px}
+.account-name-control{display:flex;flex-direction:column;gap:5px;padding:13px 15px 11px;border-radius:12px;background:#f0ebe1}
+.account-name-control>span,.account-opening-control>span{font-size:11px;line-height:17px;font-weight:600;color:#7b7d6e}
+.account-name-control>input{width:100%;min-height:32px;padding:0;border:0;background:transparent;color:#405043;font-size:18px;line-height:28px;font-weight:600;outline:0}
+.account-name-control>input::placeholder{color:#a09c8f;font-weight:400}
+.account-name-control:focus-within{box-shadow:inset 0 0 0 2px #6d856f}
+.account-create-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:96px}
+#modal.account-compose .account-create-grid .account-picker-tile .field-select-button{height:96px;min-height:96px;display:grid;grid-template-rows:18px 40px;align-content:center;justify-items:center;gap:7px;padding:9px 7px;border-radius:12px;background:#f3eee4}
+#modal.account-compose .account-create-grid .account-tile-content{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:8px;width:max-content;max-width:100%}
+#modal.account-compose .account-create-grid .picker-account-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#e4ebdf;color:#5d765f}
+#modal.account-compose .account-create-grid .picker-account-icon .icon{width:21px;height:21px}
+#modal.account-compose .account-create-grid .account-tile-copy strong{font-size:14px;line-height:20px;color:#405043}
+.account-opening-control{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0;height:96px;padding:10px 13px;border-radius:12px;background:#f3eee4}
+.account-opening-control>div{display:flex;align-items:baseline;gap:7px;min-width:0}
+.account-opening-control>div>small{font-size:8px;font-weight:600;letter-spacing:.1em;color:#8b8c7d}
+.account-opening-control .currency-control{min-width:0;flex:1}
+.account-opening-control .currency-trigger{min-height:38px;padding:0;border:0;gap:5px}
+.account-opening-control .currency-trigger>strong{font-size:20px;line-height:30px;color:#4f6853;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-opening-control .currency-trigger>span{display:grid;place-items:center;flex-shrink:0;width:25px;height:25px;color:#7f8b77}
+.account-opening-control .currency-trigger .calc-symbol{width:17px;height:17px}
+@media(max-width:350px){
+  .account-create-grid{gap:6px}.account-opening-control{padding-inline:10px}.account-opening-control .currency-trigger>strong{font-size:18px}
+}
+
+/* Each account opens into one shared detail page; cards only change the content and actions. */
+.account-detail-page{max-width:760px;margin:0 auto;color:#465047}
+.account-detail-heading{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.account-detail-heading>button{display:grid;place-items:center;width:44px;height:44px;margin-left:-10px;border-radius:50%;color:#5b705d}
+.account-detail-heading>button:hover{background:#ece7dc}
+.account-detail-heading .month-chevron{width:8px;height:8px}
+.account-detail-heading>div{min-width:0}
+.account-detail-heading small{display:block;font-size:12px;line-height:18px;color:#828176}
+.account-detail-heading h1{overflow:hidden;font-size:25px;line-height:34px;letter-spacing:.015em;text-overflow:ellipsis;white-space:nowrap}
+.account-detail-hero{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:14px;padding:18px 0 22px;border-bottom:1px solid #ddd5c6}
+.account-detail-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:color-mix(in srgb,var(--wallet) 13%,#f7f2e7);color:var(--wallet)}
+.account-detail-icon .icon{width:29px;height:29px;stroke-width:1.55}
+.account-detail-balance{display:grid;min-width:0;gap:2px}
+.account-detail-balance>small{display:block;font-size:13px;line-height:19px;font-weight:500;color:#777b70}
+.account-detail-balance>div{display:flex;align-items:baseline;gap:11px;min-width:0}
+.account-detail-balance span{flex:0 0 auto;font-size:12px;line-height:1;font-weight:700;letter-spacing:.08em;color:#858176}
+.account-detail-balance strong{overflow:visible;font-size:28px;line-height:36px;font-weight:650;letter-spacing:-.025em;color:var(--wallet);font-variant-numeric:tabular-nums;text-overflow:clip;white-space:nowrap}
+.account-detail-balance strong.negative{color:#a35f58}
+.account-detail-flow{display:grid;grid-template-columns:repeat(2,minmax(92px,1fr));gap:18px;padding-left:20px;border-left:1px solid #ded6c8}
+.account-detail-flow>div{min-width:0}
+.account-detail-flow span{display:block;font-size:12px;line-height:18px;font-weight:500;color:#7c7f73}
+.account-detail-flow strong{display:block;overflow:hidden;margin-top:3px;font-size:17px;line-height:25px;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap}
+.account-detail-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:14px 0 20px}
+.account-detail-actions button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border-radius:12px;background:#eee8dc;color:#536457;font-size:14px;font-weight:600}
+.account-detail-actions button:first-child{background:var(--wallet);color:#fffdf7}
+.account-detail-actions .icon{width:19px;height:19px}
+.account-detail-section-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:7px 0 6px}
+.account-detail-section-head small{display:block;font-size:11px;line-height:17px;color:#89877b}
+.account-detail-section-head h2{font-size:20px;line-height:29px;letter-spacing:.025em}
+.account-detail-section-head .period{border:0;background:transparent}
+.account-detail-section-head .period button{min-width:40px;min-height:40px}
+.account-detail-section-head .period strong{font-size:12px}
+.account-detail-activity .tx-row{min-height:62px;padding:11px 2px}
+.account-detail-activity .tx-info strong{font-size:14px;line-height:20px}
+.account-detail-activity .tx-info small{font-size:12px;line-height:18px}
+.account-detail-activity .tx-amount{font-size:15px}
+@media(max-width:600px){
+  .account-detail-page{max-width:none}.account-detail-hero{grid-template-columns:48px minmax(0,1fr);gap:12px;padding-top:14px}.account-detail-icon{width:48px;height:48px}.account-detail-icon .icon{width:27px;height:27px}.account-detail-balance strong{font-size:29px}.account-detail-flow{grid-column:1/-1;padding:14px 0 0;border-left:0;border-top:1px solid #e2dacd}.account-detail-actions{padding-top:12px}
+}
+
+/* The app frame is phone-sized even on wide desktop viewports, so this composition must not depend on viewport media queries. */
+.account-detail-hero{grid-template-columns:48px minmax(0,1fr) 116px;gap:12px}
+.account-detail-icon{width:48px;height:48px}
+.account-detail-icon .icon{width:27px;height:27px}
+.account-detail-net{display:grid;align-content:center;align-self:stretch;gap:3px;padding-left:14px;border-left:1px solid #e2dacd;text-align:right}
+.account-detail-net span{font-size:12px;line-height:18px;font-weight:500;color:#777b70}
+.account-detail-net strong{font-size:17px;line-height:23px;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.account-detail-balance strong{font-size:25px;line-height:33px}
+.account-waterfall-chart{grid-column:1/-1;min-width:0;padding-top:10px;border-top:1px solid #e2dacd}
+.account-waterfall-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:4px}
+.account-waterfall-heading strong{font-size:14px;line-height:20px;font-weight:650}
+.account-waterfall-heading span{font-size:12px;line-height:18px;color:#858277}
+.account-waterfall-scroll{overflow:hidden;margin-inline:-2px;padding-inline:2px}
+.account-waterfall-scroll::-webkit-scrollbar{display:none}
+.account-waterfall-scroll svg{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:320/120}
+/* Color the data marks only; interaction hit areas must never inherit bar fills. */
+.account-waterfall-scroll .waterfall-bar{fill:#9f9a8e}
+.account-waterfall-scroll .total .waterfall-bar{fill:color-mix(in srgb,var(--wallet) 70%,#8e8b82)}
+.account-waterfall-scroll .current .waterfall-bar{fill:var(--wallet)}
+.account-waterfall-scroll .good .waterfall-bar{fill:var(--ui-positive)}
+.account-waterfall-scroll .bad .waterfall-bar{fill:var(--ui-negative)}
+.account-waterfall-scroll .flat .waterfall-bar{fill:#a7a398}
+.account-waterfall-scroll text{fill:#89867c;font-family:inherit;font-size:12px}
+.account-waterfall-scroll .waterfall-connectors line{stroke:#beb8ad;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+/* Keep an already-open previous build readable while the new script finishes replacing its chart. */
+.account-history-chart{grid-column:1/-1;min-width:0;padding-top:14px;border-top:1px solid #e2dacd}
+.account-history-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:6px}
+.account-history-heading strong{font-size:14px;line-height:20px;font-weight:650}
+.account-history-heading span{font-size:12px;line-height:18px;color:#858277}
+.account-history-chart svg{display:block;width:100%;height:100px;overflow:visible}
+.account-history-chart .history-guide{fill:none;stroke:#ddd6ca;stroke-width:1;vector-effect:non-scaling-stroke}
+.account-history-chart .history-area{fill:color-mix(in srgb,var(--wallet) 14%,transparent)}
+.account-history-chart .history-line{fill:none;stroke:var(--wallet);stroke-width:2.4;vector-effect:non-scaling-stroke}
+.account-history-chart .history-end{fill:var(--wallet);stroke:#f7f2e7;stroke-width:2}
+.account-history-ends{display:flex;justify-content:space-between;font-size:11px;color:#858277}
+.account-detail-actions{gap:8px;padding:9px 0 16px}
+.account-detail-actions button{min-height:38px;border-radius:10px;font-size:13px}
+.account-detail-actions .icon{width:16px;height:16px}
+@media(max-width:370px){
+  .account-detail-hero{grid-template-columns:44px minmax(0,1fr) 108px;gap:10px}
+  .account-detail-icon{width:44px;height:44px}
+  .account-detail-balance>div{gap:8px}
+  .account-detail-balance strong{font-size:23px}
+  .account-detail-net{padding-left:10px}
+}
+
+/* Interactive weekly waterfall */
+.account-waterfall-scroll .waterfall-item[role="button"]{cursor:pointer;outline:none}
+.account-waterfall-scroll .waterfall-hit{fill:none;stroke:none;pointer-events:all}
+.account-waterfall-scroll .waterfall-item:focus-visible .waterfall-bar{stroke:#3f4c42;stroke-width:2;paint-order:stroke fill}
+.account-waterfall-scroll .waterfall-item.selected text{fill:#53574f;font-weight:650}
+.account-waterfall-scroll .waterfall-selection{stroke:#53574f;stroke-width:2;stroke-linecap:round;opacity:0;pointer-events:none}
+.account-waterfall-scroll .waterfall-item.selected .waterfall-selection{opacity:1}
+.account-waterfall-scroll .waterfall-annotation{pointer-events:none}
+.account-waterfall-scroll .waterfall-value{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.account-waterfall-scroll .waterfall-value.good{fill:var(--ui-positive)}
+.account-waterfall-scroll .waterfall-value.bad{fill:var(--ui-negative)}
+.account-waterfall-scroll .waterfall-value.flat{fill:#6d6e63}
+@media(max-width:350px){
+  .account-detail-hero{grid-template-columns:40px minmax(0,1fr) 90px;gap:9px}
+  .account-detail-icon{width:40px;height:40px}
+  .account-detail-net{padding-left:8px}
+  .account-detail-net strong{font-size:15px}
+}

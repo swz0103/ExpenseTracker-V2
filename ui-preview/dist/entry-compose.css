@@ -1,0 +1,109 @@
+/* Compact record composer: one amount surface and visual choice nodes. */
+#modal.entry-edit.entry-compose{--compose-accent:var(--ui-negative);--compose-soft:#f1e3d9;width:min(404px,calc(100vw - 16px));background:#faf6ed;padding:18px 20px 16px;border-radius:20px;overflow:hidden;max-height:min(760px,calc(100dvh - 32px))}
+#modal.entry-edit.entry-compose[data-compose-type="income"]{--compose-accent:var(--ui-positive);--compose-soft:#e5ece0}
+#modal.entry-compose[data-compose-type="transfer"]{--compose-accent:#527276;--compose-soft:#e3ece9}
+#modal.entry-compose #modal-form{display:flex;flex-direction:column;min-height:0;max-height:min(728px,calc(100dvh - 64px))}
+#modal.entry-compose .modal-head{display:grid;grid-template-columns:32px minmax(0,1fr) 32px;gap:8px;align-items:center;flex-shrink:0;margin-bottom:8px}
+#modal.entry-compose .modal-head>div{grid-column:2;text-align:center}
+#modal.entry-compose .modal-head h2{margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:.025em}
+#modal.entry-compose .modal-head .icon-button{grid-column:3;width:32px;height:32px;color:#868878;background:transparent;font-size:14px}
+#modal.entry-compose #modal-kicker{display:none}
+#modal.entry-compose #modal-body{overflow-y:auto;min-height:0;scrollbar-width:thin;overscroll-behavior:contain;padding:0 2px 2px}
+#modal.entry-compose #modal-error{flex-shrink:0;font-size:12px;margin-top:7px}
+#modal.entry-compose .modal-actions{flex-shrink:0;grid-template-columns:.8fr 1.7fr;gap:9px;margin-top:12px;padding-top:0;border:0}
+#modal.entry-compose .modal-actions .button{min-height:44px;font-size:13px;border-radius:10px}
+#modal.entry-compose .modal-actions .primary{background:var(--compose-accent);color:#fffaf1}
+#modal.entry-compose .modal-actions .secondary{background:#eee8dc;color:#867f6f}
+.record-type-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;height:48px;margin:0 0 9px;padding:0;background:transparent}
+.record-type-tabs button{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:0 2px;border-radius:11px;background:transparent;color:#8d8b7d;font-size:12px;font-weight:500}
+.record-type-glyph{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#eee8dc;color:#8a8a79}
+.record-type-glyph .icon{width:18px;height:18px;stroke-width:1.6}
+.record-type-tabs button.selected{background:var(--compose-soft);color:var(--compose-accent)}
+.record-type-tabs button.selected .record-type-glyph{background:#fffaf0;color:var(--compose-accent)}
+.record-type-tabs button:focus-visible{outline:2px solid var(--compose-accent);outline-offset:0}
+.compose-stage{display:flex;flex-direction:column;align-items:center;min-height:136px;padding:3px 14px 5px;background:transparent}
+.compose-currency{align-self:flex-start;margin-left:2px;font-size:9px;line-height:18px;font-weight:600;letter-spacing:.18em;color:#918d7e}
+#modal.entry-compose .compose-stage .edit-calculator{width:100%;margin:0}
+#modal.entry-compose .compose-stage .entry-amount-trigger{position:relative;justify-content:center;gap:5px;min-height:58px;padding:0 42px;text-align:center;color:var(--compose-accent)}
+#modal.entry-compose .compose-stage .entry-amount-trigger>strong{min-width:0;font-size:clamp(38px,10.5vw,46px);line-height:56px;font-weight:600;color:var(--compose-accent);letter-spacing:-.04em}
+#modal.entry-compose .compose-stage .edit-calc-sign{font-size:24px;line-height:48px;color:var(--compose-accent)}
+#modal.entry-compose .compose-stage .edit-calc-hint{position:absolute;right:0;top:50%;display:grid;place-items:center;width:32px;height:32px;margin:0;background:transparent;color:#858d78;transform:translateY(-50%)}
+#modal.entry-compose .compose-stage .calc-symbol{width:19px;height:19px}
+.compose-date{display:flex;justify-content:center;min-width:0;margin-top:10px}
+.compose-date-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:0 12px;background:transparent;color:#73796b}
+.compose-date-button .icon{width:16px;height:16px;stroke-width:1.55}
+.compose-date-button>strong{font-size:12px;line-height:20px;font-weight:500;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.compose-details{margin-top:2px;min-height:90px}
+.compose-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;height:90px}
+.compose-choice-grid.single{grid-template-columns:minmax(0,190px);justify-content:center}
+#modal.entry-compose .compose-details .compose-picker-tile .field-select-button{height:90px;min-height:90px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:18px 40px;align-content:center;justify-items:center;gap:7px;padding:9px 7px;border:0;border-radius:12px;background:transparent;text-align:center;color:#435044}
+#modal.entry-compose .compose-details .account-tile-heading{display:block;min-width:0;width:100%;text-align:center}
+#modal.entry-compose .compose-details .picker-field-label{display:block;font-size:12px;line-height:18px;font-weight:600;letter-spacing:.02em;color:#777d6c;text-align:center}
+#modal.entry-compose .compose-details .account-tile-content{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:8px;width:max-content;max-width:100%;min-width:0;justify-self:center}
+#modal.entry-compose .compose-details .picker-account-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--compose-soft);color:var(--compose-accent)}
+#modal.entry-compose .compose-details .picker-account-icon .icon{width:21px;height:21px;stroke-width:1.6}
+#modal.entry-compose .compose-details .account-tile-copy{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;min-width:0;text-align:left}
+#modal.entry-compose .compose-details .account-tile-copy>strong{display:block;width:100%;min-width:0;overflow:hidden;font-size:15px;line-height:20px;font-weight:600;color:#405043;text-align:left;white-space:nowrap;text-overflow:ellipsis}
+#modal.entry-compose .transfer-picker-pair{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);align-items:center;gap:5px;height:90px;padding:0;background:transparent;border-radius:0;box-shadow:none}
+#modal.entry-compose .transfer-picker-pair .account-picker-tile{min-width:0}
+#modal.entry-compose .transfer-picker-pair .field-select-button{height:90px;min-height:90px}
+#modal.entry-compose .transfer-direction{display:grid;grid-template-rows:18px 40px;align-content:center;align-items:center;justify-items:center;gap:7px;min-height:90px;height:90px;padding:9px 0;color:#fffaf2}
+#modal.entry-compose .transfer-direction .icon{grid-row:2;align-self:center;box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:var(--compose-accent);stroke-width:1.8;box-shadow:none}
+.record-compose-content .compose-note{display:grid;grid-template-columns:50px minmax(0,1fr);align-items:start;gap:8px;margin-top:9px;padding:9px 11px;border-radius:11px;background:#f0ebe1}
+.record-compose-content .compose-note .edit-note-label{display:flex;align-items:center;gap:6px;margin:0;color:#929080;font-size:11px;line-height:22px}
+.record-compose-content .compose-note .edit-note-label .icon{width:14px;height:14px}
+.record-compose-content .compose-note .edit-note{min-height:42px;height:42px;max-height:42px;resize:none;padding:0;background:transparent;border:0;border-radius:0;font-size:13px;line-height:21px;color:#52604f}
+@media(hover:hover){#modal.entry-compose .modal-actions .primary:hover{filter:brightness(.94)}#modal.entry-compose .compose-details .account-picker-tile .field-select-button:hover{background:#f1ecdf}}
+/* Range amounts are buttons; all number entry happens in the built-in keypad. */
+.lf-amount-range{grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr);gap:7px;margin-bottom:10px}
+.lf-amount-range>span{align-self:center;padding-bottom:0;text-align:center}
+.lf-amount-trigger{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;min-height:76px;padding:10px;background:#eee8dc;border-radius:9px;text-align:left}
+.lf-amount-trigger small{font-size:10px;color:#918871;line-height:15px}
+.lf-amount-trigger>span{width:100%;font-size:20px;font-weight:500;line-height:29px;font-variant-numeric:tabular-nums;color:#536d51;overflow-wrap:anywhere;padding-right:15px}
+.lf-amount-trigger>i{position:absolute;right:8px;bottom:12px;color:#879174;font-style:normal}
+.lf-amount-trigger .calc-symbol{width:16px;height:16px;stroke-width:1.6}
+.lf-amount-trigger.selected{background:#dce7d2}
+.lf-amount-trigger:focus-visible{outline:2px solid #67816a;outline-offset:2px}
+.lf-amount-calculator{padding:8px 0 5px;margin-bottom:8px}
+.lf-calc-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lf-calc-heading strong{font-size:12px;font-weight:500;color:#698063}
+.lf-calc-heading strong small{font-size:9px;font-weight:400;color:#9c947f;letter-spacing:.08em;margin-left:7px}
+.lf-calc-heading button{font-size:11px;color:#9a907c;min-height:32px;padding:0 3px}
+.lf-calc-value{display:block;text-align:right;font-size:30px;font-weight:500;line-height:40px;color:#536d51;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.lf-calc-expression{display:block;text-align:right;font-size:13px;min-height:22px;line-height:20px;font-variant-numeric:tabular-nums;color:#8b8974;overflow-wrap:anywhere}
+.lf-amount-calculator .edit-calc-message{min-height:18px;font-size:11px;line-height:17px}
+.lf-amount-unlimited{display:block;min-height:36px;width:100%;padding:5px;margin-top:5px;font-size:11px;color:#8e8168;text-align:center}
+@media(max-width:600px){#modal.entry-edit.entry-compose{width:100%;padding:17px 18px calc(14px + env(safe-area-inset-bottom));max-height:calc(100dvh - 16px);border-radius:20px 20px 0 0}#modal.entry-compose #modal-form{max-height:calc(100dvh - 52px - env(safe-area-inset-bottom))}}
+@media(max-width:350px){#modal.entry-edit.entry-compose{padding-inline:14px}.record-type-tabs{gap:1px}.record-type-tabs button{gap:5px}.compose-stage{padding-inline:8px}.compose-choice-grid{gap:4px}.lf-amount-trigger>span{font-size:17px}}
+
+#modal.entry-compose[data-compose-type="investment"]{--compose-accent:var(--ui-investment);--compose-soft:#ece5f1}
+#modal.entry-compose[data-compose-type="investment"][data-investment-side="buy"] .entry-amount-value{color:var(--ui-negative)}
+.record-type-glyph{width:23px;height:26px;background:transparent}
+.record-type-tabs button.selected .record-type-glyph{background:transparent}
+.investment-side-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:2px 14px 0}
+.investment-side-tabs button{min-height:44px;border-radius:10px;font-size:14px;color:var(--ui-muted);background:transparent}
+.investment-side-tabs button.selected{background:var(--compose-soft);color:var(--compose-accent);font-weight:600}
+.investment-edit-kind{text-align:center;font-size:14px;color:var(--compose-accent);padding:7px 0}
+.investment-compose .compose-stage{min-height:122px}
+.investment-holding-field{display:flex;align-items:center;gap:6px;min-width:0}
+.investment-holding-field .edit-picker{flex:1;min-width:0;margin:0}
+.investment-holding-field>.edit-picker>.field-select-button{display:grid;grid-template-columns:1fr;justify-items:start;gap:5px;min-height:64px;padding:9px 12px;background:var(--compose-soft);border-radius:12px}
+.investment-holding-field .field-select-button>strong{font-size:15px;max-width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+.investment-holding-field .field-select-button>i{display:none}
+.investment-holding-field>button{display:grid;place-items:center;flex:0 0 44px;height:44px;background:transparent;color:var(--compose-accent)}
+.investment-settlement{display:grid;grid-template-columns:1fr 1fr;align-items:center;column-gap:12px}
+.investment-settlement:not(:has(.investment-quantity)){grid-template-columns:1fr}
+.investment-settlement .compose-details{min-width:0}
+.investment-quantity{display:grid;justify-items:center;gap:7px;min-width:0}
+.investment-quantity>span{font-size:14px;color:var(--ui-muted)}
+.investment-quantity>button{display:flex;align-items:baseline;justify-content:center;gap:6px;min-height:44px;max-width:100%;padding:0;background:transparent;color:var(--ui-ink)}
+.investment-quantity strong{font-size:21px;line-height:1.5;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.investment-quantity>button>span{font-size:14px}
+.investment-quantity .calc-symbol{width:18px;height:18px;align-self:center;flex-shrink:0;color:var(--ui-muted)}
+.record-investment-quantity{display:flex;align-items:baseline;justify-content:space-between;padding:10px 12px;font-size:14px}
+.new-holding-form{display:grid;gap:10px;padding:8px}
+.new-holding-form label{font-size:14px;color:var(--ui-ink)}
+.new-holding-form input{appearance:none;box-sizing:border-box;width:100%;min-height:48px;border:0;border-radius:12px;background:#eee8dc;padding:10px 12px;font:inherit;font-size:16px;color:var(--ui-ink)}
+.new-holding-form p{margin:0;color:var(--ui-negative);font-size:14px}
+.new-holding-form>button{min-height:44px;border-radius:12px;background:var(--ui-investment);color:#fff;font-size:14px}
+@media(max-width:350px){.record-type-tabs button{gap:2px}.record-type-glyph{width:20px}.record-type-tabs .icon{width:17px;height:17px}}

@@ -1,0 +1,95 @@
+/* Compact selection sheets fit their content without expanding the parent form. */
+#picker-page{position:fixed;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;width:min(376px,calc(100vw - 24px));height:auto;max-height:min(560px,calc(100dvh - 48px));padding:0;border:0;border-radius:18px;background:#faf6ed;overflow:hidden;box-shadow:0 12px 70px #3c413a35}
+#picker-page:before{display:none}
+#picker-page[open]{display:flex;flex-direction:column}
+#picker-page::backdrop{background:#383c3438;backdrop-filter:blur(2px)}
+.picker-page-header{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;gap:8px;align-items:center;flex-shrink:0;min-height:56px;padding:6px 12px;border-bottom:1px solid #e9e1d2}
+.picker-page-header h2{font-size:17px;font-weight:500;letter-spacing:.02em;text-align:center}
+.picker-page-header button{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;color:#697b5c}
+.picker-page-header button:hover{background:#eee9dd}
+.picker-page-header .month-chevron{width:8px;height:8px;border-width:1.7px}
+ #picker-content{flex:0 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:16px 18px}
+.picker-page-footer{flex-shrink:0;padding:0 18px 16px}
+.picker-page-footer:has(button[hidden]){display:none}
+.picker-page-footer button{display:block;width:100%;min-height:46px;border-radius:10px;background:#55745c;color:#fffdf7;font-size:14px}
+.picker-page-footer button[hidden]{display:none}
+#picker-page .edit-choices{max-height:none;overflow:visible;gap:9px;padding:0}
+#picker-page .picker-choice-grid[data-kind="account"]{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr))}
+#picker-page .picker-choice-grid[data-kind="category"]{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+#picker-page .picker-choice-grid button{min-height:82px;border-radius:10px;gap:7px;padding:9px 5px;background:#eee8dc;border:0}
+#picker-page .picker-choice-grid button.selected{background:#dce7d2}
+#picker-page .picker-choice-grid button .edit-option-icon{width:36px;height:36px;background:#faf6ed}
+#picker-page .picker-choice-grid button .icon{width:24px;height:24px;stroke-width:1.55}
+#picker-page .picker-choice-grid button strong{font-size:12px;line-height:18px}
+#picker-page .picker-choice-grid[data-kind="category"] button strong{font-size:11px}
+.picker-context{font-size:12px;color:#98927d;margin:0 0 10px;text-align:center;font-variant-numeric:tabular-nums}
+#picker-page .edit-calendar{padding:0}
+#picker-page .edit-calendar-nav,#picker-page .lf-calendar-head{margin-bottom:8px}
+#picker-page .edit-calendar-nav strong,#picker-page .lf-calendar-head strong{font-size:19px}
+#picker-page .edit-calendar-nav button,#picker-page .lf-calendar-head button{width:42px;height:42px}
+#picker-page .edit-calendar-week>span{font-size:12px;line-height:28px}
+#picker-page .edit-calendar-days{grid-template-rows:repeat(6,38px);gap:4px}
+#picker-page .edit-calendar-days>button{height:38px;min-height:38px;font-size:15px;border-radius:9px}
+#picker-page .edit-calendar-days>button.selected{background:#55745c;color:#fffdf7}
+#picker-page .edit-calendar-days>button.in-range{background:#e5eddc}
+#picker-page .lf-calendar{padding-top:0}
+#picker-page[data-kind="calculator"] #picker-content,#picker-page[data-kind="filter-calculator"] #picker-content{display:flex;flex-direction:column;padding:16px 18px 18px}
+.picker-calculator,.lf-amount-calculator{display:flex;flex-direction:column;flex:0 0 auto;min-height:0;width:100%;padding:0;margin:0}
+.picker-calculator-display{display:flex;flex:0 0 auto;flex-direction:column;justify-content:flex-end;text-align:right;padding:0 2px 9px;min-height:0}
+.picker-calculator-display small{font-size:11px;color:#a29881;letter-spacing:.12em;margin-bottom:7px}
+.picker-calculator-display strong{font-size:34px;font-weight:500;line-height:1.4;font-variant-numeric:tabular-nums;color:#526e54;overflow-wrap:anywhere}
+.picker-calculator-display output{display:block;min-height:25px;font-size:15px;font-variant-numeric:tabular-nums;color:#8c8c75;overflow-wrap:anywhere}
+.picker-calculator-display .edit-calc-message{font-size:12px;min-height:24px;line-height:22px;margin-top:7px}
+#picker-page .edit-calc-keys{gap:7px;flex-shrink:0}
+#picker-page .edit-calc-keys button{min-height:46px;font-size:22px;border-radius:9px}
+#picker-page .edit-calc-keys button.done{font-size:14px}
+#picker-page .edit-calc-keys button.utility{font-size:17px}
+#picker-page .edit-calc-keys button .calc-symbol{width:23px;height:23px}
+#picker-page .lf-amount-calculator>.lf-calc-value{margin-top:0;font-size:34px;line-height:1.4;overflow-wrap:anywhere}
+#picker-page .lf-amount-calculator>.lf-calc-expression{font-size:15px;min-height:25px}
+#picker-page .lf-amount-calculator>.edit-calc-message{font-size:12px;min-height:28px;line-height:24px;margin-bottom:8px}
+#picker-page .lf-amount-unlimited{min-height:40px;margin-top:9px;font-size:12px}
+#picker-page .lf-section-body{padding:0}
+#picker-page .lf-option{font-size:13px;min-height:42px}
+#picker-page .lf-category-grid>.lf-option:not(:first-child),#picker-page .lf-account-grid>.lf-option:not(:first-child){font-size:11px;min-height:84px}
+.lf-section-trigger{display:flex;align-items:center;gap:12px;width:100%;height:54px;min-height:54px;border-top:1px solid #e8e1d3;text-align:left;padding:6px 0}
+.lf-section-trigger>strong{font-size:14px;font-weight:500;color:#4b5645;flex-shrink:0}
+.lf-section-trigger>span{font-size:11px;color:#8f937a;margin-left:auto;text-align:right;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lf-section-trigger .month-chevron{width:6px;height:6px;flex-shrink:0;border-color:#a59a81;margin:0 4px 0 2px}
+
+.field-select-button{display:flex;align-items:center;gap:12px;width:100%;min-height:var(--entry-row-height,49px);text-align:left;border-bottom:1px solid #e3dacb;padding:0;color:#505d47}
+.field-select-button>span.picker-field-label,.edit-date-picker .field-select-button>span{font-size:11px;color:#938774;flex-shrink:0}
+.field-select-button>strong{flex:1;min-width:0;font-size:14px;font-weight:500;line-height:20px;text-align:right;overflow-wrap:anywhere}
+.field-select-button>i{width:6px;height:6px;flex-shrink:0;border-right:1.5px solid #8f947f;border-bottom:1.5px solid #8f947f;transform:rotate(-45deg);margin:0 3px}
+.field .field-select-button{min-height:46px;background:#efe9dd;border:0;border-radius:8px;padding:9px 12px}
+.field .field-select-button>strong{text-align:left;font-size:13px}
+.currency-trigger{display:flex;align-items:center;gap:10px;width:100%;min-height:58px;padding:2px 0;border-bottom:1px solid #e4dccc;text-align:left}
+.currency-trigger>strong{flex:1;font-size:32px;line-height:1.4;font-weight:500;color:#55745c;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.currency-trigger>span{color:#899276}
+.currency-trigger .calc-symbol{width:20px;height:20px}
+.entry-amount-trigger{display:flex;align-items:center;gap:7px;width:100%;min-height:58px;padding:0;text-align:left;border:0}
+.entry-amount-trigger .edit-calc-sign{font-size:28px;flex-shrink:0;line-height:1.4}
+.entry-amount-trigger>strong{min-width:0;font-size:36px;font-weight:500;line-height:1.4;font-variant-numeric:tabular-nums;letter-spacing:-.02em;overflow-wrap:anywhere}
+.entry-amount-trigger .edit-calc-hint{display:grid;place-items:center;margin-left:auto;width:34px;height:38px;flex-shrink:0;color:#798970}
+.entry-amount-trigger .calc-symbol{width:20px;height:20px}
+/* Shared visual account choices and a continuous transfer bridge. */
+.transfer-picker-pair{display:grid;grid-template-columns:minmax(0,1fr) 32px minmax(0,1fr);gap:2px;align-items:stretch;height:108px;padding:0 4px;border-radius:16px;background:var(--compose-tint,#e6ece2)}
+.account-picker-tile{min-width:0}
+.account-picker-tile .field-select-button{height:108px;min-height:108px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:30px 44px;align-content:center;justify-items:center;gap:6px;border:0;border-radius:14px;padding:12px 8px;background:transparent;text-align:center;color:#414d42;transition:background .15s}
+.account-tile-heading{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;max-width:100%}
+.account-picker-tile .picker-field-label{font-size:12px;line-height:18px;font-weight:400;letter-spacing:.025em;color:#7b826e}
+.account-picker-tile .picker-account-icon{display:grid;place-items:center;flex-shrink:0;width:29px;height:29px;border-radius:9px;background:#fbf7ed;color:#697f63}
+.account-picker-tile .picker-account-icon .icon{width:21px;height:21px;stroke-width:1.6}
+.account-tile-copy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;width:100%;text-align:center}
+.account-tile-copy>strong{min-width:0;font-size:17px;font-weight:500;color:#405243;text-align:center;line-height:23px;width:100%;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.015em}
+.account-tile-copy>small{display:flex;align-items:baseline;justify-content:center;gap:4px;min-width:0;max-width:100%;min-height:18px;font-size:10px;color:#939783;line-height:18px;white-space:nowrap}
+.account-tile-copy>small>span{flex-shrink:0}
+.account-tile-copy>small>b{min-width:0;font-size:12px;font-weight:400;color:#7b8770;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.account-tile-copy>small>b.card-balance{color:#986d58}
+.transfer-direction{display:grid;grid-template-rows:30px 44px;align-content:center;align-items:center;justify-items:center;gap:6px;padding:12px 0;color:var(--compose-accent,#527777)}
+.transfer-direction .icon{grid-row:2;box-sizing:content-box;width:20px;height:20px;padding:6px;background:#fcf8ee;border-radius:50%;stroke-width:1.8;box-shadow:0 2px 8px #5a695710}
+@media(hover:hover){.transfer-picker-pair .field-select-button:hover{background:#ffffff32}}
+@media(max-width:600px){#picker-page{width:min(376px,calc(100vw - 24px));max-height:min(560px,calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));border-radius:18px}.picker-page-header{min-height:56px}}
+@media(max-height:660px){#picker-page .edit-calc-keys button{min-height:43px}.picker-calculator-display{min-height:0;padding-bottom:7px}.picker-calculator-display strong,#picker-page .lf-amount-calculator>.lf-calc-value{font-size:32px}#picker-page[data-kind="calculator"] #picker-content,#picker-page[data-kind="filter-calculator"] #picker-content{padding:16px 20px}.picker-calculator-display .edit-calc-message{min-height:20px;margin-top:3px}}
+@media(max-width:390px){.account-picker-tile .field-select-button{padding-inline:5px}.account-tile-copy>strong{font-size:16px}}
+@media(max-width:350px){#picker-content{padding:19px 15px}#picker-page .picker-choice-grid[data-kind="account"]{grid-template-columns:repeat(3,minmax(0,1fr))}#picker-page .edit-calendar-days{grid-template-rows:repeat(6,39px);gap:4px}#picker-page .edit-calendar-days>button{height:39px;min-height:39px}.transfer-picker-pair{grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr);gap:1px}.transfer-direction .icon{width:18px;height:18px;padding:4px}.account-tile-copy>strong{font-size:15px}.account-tile-copy>small>span{display:none}.account-tile-heading{gap:5px}.account-picker-tile .picker-account-icon{width:25px;height:25px}.account-picker-tile .picker-account-icon .icon{width:19px;height:19px}.account-picker-tile .picker-field-label{font-size:11px}}

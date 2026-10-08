@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#f7f2e7"><meta name="description" content="ExpenseTracker V2 綠色日式記帳互動預覽。使用演示資料，自由體驗記帳、帳戶、信用卡、投資與預算。">
+  <link rel="preload" href="fonts/noto-sans-tc-400.woff" as="font" type="font/woff" crossorigin>
+  <title>日々記帳｜ExpenseTracker V2</title><link rel="stylesheet" href="style.css?v=114"><link rel="stylesheet" href="app-layout.css?v=114"><link rel="stylesheet" href="compact-home.css?v=114"><link rel="stylesheet" href="canvas-dashboard.css?v=114"><link rel="stylesheet" href="ledger-filters.css?v=114"><link rel="stylesheet" href="entry-compose.css?v=114"><link rel="stylesheet" href="picker-pages.css?v=114"><link rel="stylesheet" href="visual-refresh.css?v=114"><link rel="stylesheet" href="more-views.css?v=114"><link rel="stylesheet" href="interface-system.css?v=114"><link rel="stylesheet" href="app-experience.css?v=114">
+</head>
+<body>
+  <div class="app-frame">
+  <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="camera"></span><span class="status-icons"><svg viewBox="0 0 42 12"><path d="M1 10v-2m4 2V6m4 4V4m4 6V2" stroke="currentColor" stroke-width="2"/><rect x="23" y="2" width="15" height="8" rx="2" fill="none" stroke="currentColor"/><path d="M40 4v4" stroke="currentColor" stroke-width="2"/><rect x="25" y="4" width="11" height="4" rx="1" fill="currentColor"/></svg></span></div>
+  <div class="shell">
+    <header class="topbar"><a class="app-brand" href="#overview" aria-label="日々記帳首頁"><span class="brandmark">日</span><span>日々記帳<small id="breadcrumb">生活總覽</small></span></a><span class="demo-label"><i></i>演示</span><button class="icon-button" id="settings-shortcut" aria-label="開啟設定"></button></header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <nav class="mobile-nav" id="mobile-navigation" aria-label="行動版選單"></nav>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"><form id="modal-form" novalidate><div class="modal-head"><button type="button" id="modal-draft" class="modal-draft" data-action="draft-reset" hidden>草稿</button><div><small id="modal-kicker">NEW ENTRY</small><h2 id="modal-title">新增一筆</h2></div><button type="button" class="icon-button close-modal" aria-label="關閉視窗">✕</button></div><div id="modal-body"></div><p id="modal-error" class="attention" role="alert" hidden></p><div class="modal-actions"><button type="button" class="button secondary close-modal">取消</button><button type="submit" class="button primary" id="modal-submit">儲存這一筆</button></div></form></dialog>
+  <dialog id="picker-page" aria-labelledby="picker-title"><header class="picker-page-header"><button type="button" data-action="picker-back" aria-label="返回上一頁"><span class="month-chevron previous" aria-hidden="true"></span></button><h2 id="picker-title">選擇項目</h2><span></span></header><div id="picker-content"></div><footer class="picker-page-footer"><button type="button" id="picker-done" data-action="picker-done" hidden>完成選擇</button></footer></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="icons.js?v=114" defer></script><script src="dashboard.js?v=114" defer></script><script src="ledger-filters.js?v=114" defer></script><script src="entry-compose.js?v=114" defer></script><script src="picker-pages.js?v=114" defer></script><script src="more-views.js?v=114" defer></script><script src="more-pages.js?v=114" defer></script><script src="record-management.js?v=114" defer></script><script src="app-experience.js?v=114" defer></script><script src="app.js?v=114" defer></script>
+</body></html>
