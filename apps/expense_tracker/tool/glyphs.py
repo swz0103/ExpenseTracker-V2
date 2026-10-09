@@ -462,15 +462,7 @@ def wrap_call(line, indent):
         lst, tail = lst.rsplit("]", 1)
         items = lst.split(", ")
         out = [f"{indent}{head}({var}, ["]
-        row = ""
-        for it in items:
-            piece = it + ","
-            if row and len(indent) + 2 + len(row) + 1 + len(piece) > 80:
-                out.append(indent + "  " + row)
-                row = piece
-            else:
-                row = (row + " " + piece).strip()
-        out.append(indent + "  " + row)
+        out += [f"{indent}  {it}," for it in items]
         out.append(f"{indent}]{tail});")
         return out
     parts = args.split(", ")
