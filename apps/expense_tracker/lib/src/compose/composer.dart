@@ -630,11 +630,7 @@ class _ComposerState extends State<Composer> {
                   color: Hue.transfer,
                   shape: BoxShape.circle,
                 ),
-                child: const GlyphIcon(
-                  Glyph.arrow,
-                  size: 18,
-                  color: Hue.white,
-                ),
+                child: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.white),
               ),
               Expanded(
                 child: _Field(
