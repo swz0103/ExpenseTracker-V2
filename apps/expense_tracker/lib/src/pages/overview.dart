@@ -175,21 +175,29 @@ class _OverviewPageState extends State<OverviewPage> {
       const SizedBox(height: 14),
       Row(
         children: [
-          Text(
-            '${_day.month} 月 ${_day.day} 日',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          Flexible(
+            child: Text(
+              '${_day.month} 月 ${_day.day} 日',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(width: 10),
           if (pages > 1)
-            InkWell(
-              onTap: () => setState(() => _dayPage = (page + 1) % pages),
-              child: Text(
-                '$first-$last / ${entries.length}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Hue.muted,
-                  decoration: TextDecoration.underline,
-                  decorationColor: Hue.muted,
+            Flexible(
+              child: InkWell(
+                onTap: () => setState(() => _dayPage = (page + 1) % pages),
+                child: Text(
+                  '$first-$last / ${entries.length}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Hue.muted,
+                    decoration: TextDecoration.underline,
+                    decorationColor: Hue.muted,
+                  ),
                 ),
               ),
             ),

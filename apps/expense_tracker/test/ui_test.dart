@@ -164,7 +164,10 @@ void main() {
       await tester.tap(find.text(key).last);
       await tester.pumpAndSettle();
     }
-    expect(find.text('−180'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(Dialog), matching: find.text('−180')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('記下支出'));
     await tester.pumpAndSettle();
     expect(find.text('已記下'), findsOneWidget);
