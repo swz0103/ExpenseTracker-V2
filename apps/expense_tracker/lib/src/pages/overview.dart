@@ -634,7 +634,7 @@ class _Summary extends StatelessWidget {
                   child: Text(
                     ledger.hidden ? '••••' : groupDigits(amount),
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: color,
                     ),
@@ -880,7 +880,7 @@ class _DayGrid extends StatelessWidget {
                 e.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 13),
               ),
             ),
           ],
@@ -888,7 +888,7 @@ class _DayGrid extends StatelessWidget {
         Text(
           amount,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
             color: color,
           ),
