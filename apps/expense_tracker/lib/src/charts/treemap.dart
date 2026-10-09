@@ -94,20 +94,22 @@ List<int> _shownWeights(List<int> amounts) {
   ];
 }
 
-/// Labelled tiles, larger amounts larger; tap one to show its amount and
-/// share.
+/// Labelled tiles, larger amounts larger. Tap a tile to pick it; tap the
+/// picked tile again to open it ([onOpen]), as v114 does.
 class Treemap extends StatelessWidget {
   const Treemap({
     super.key,
     required this.tiles,
     required this.selected,
     required this.onSelect,
+    this.onOpen,
     this.height = 160,
   });
 
   final List<(String, int, Color)> tiles;
   final int? selected;
   final ValueChanged<int?> onSelect;
+  final ValueChanged<int>? onOpen;
   final double height;
 
   @override
@@ -124,7 +126,12 @@ class Treemap extends StatelessWidget {
             onTapDown: (details) {
               for (final (i, rect) in rects.indexed) {
                 if (rect.contains(details.localPosition)) {
-                  onSelect(i == selected ? null : i);
+                  final open = onOpen;
+                  if (i == selected && open != null) {
+                    open(i);
+                  } else {
+                    onSelect(i == selected ? null : i);
+                  }
                   return;
                 }
               }

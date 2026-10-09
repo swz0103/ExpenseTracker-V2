@@ -219,6 +219,7 @@ class _BottomBar extends StatelessWidget {
                         GlyphIcon(
                           icon,
                           color: item == tab ? Hue.positive : Hue.muted,
+                          tinted: item == tab,
                         ),
                         const SizedBox(height: 3),
                         Text(

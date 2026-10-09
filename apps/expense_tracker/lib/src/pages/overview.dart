@@ -35,6 +35,10 @@ class _OverviewPageState extends State<OverviewPage> {
   String? _holding;
   int? _piece;
   int? _tile;
+
+  /// The opened part of 財務分布: null for all assets, else 'investment'
+  /// or an account kind's name.
+  String? _assetGroup;
   int? _flowMonth;
 
   static const _perPage = 6;
@@ -449,50 +453,147 @@ class _OverviewPageState extends State<OverviewPage> {
     ];
   }
 
-  List<Widget> _assets() {
+  /// Colours for the second level of 財務分布, in v114's order.
+  static const _shades = [
+    Color(0xFF78906D),
+    Color(0xFFB97D61),
+    Color(0xFF6E929B),
+    Color(0xFFB19A56),
+    Color(0xFF927EAA),
+    Color(0xFFB77380),
+    Color(0xFF67857D),
+    Color(0xFFA58368),
+    Color(0xFF858AA8),
+    Color(0xFFA1A56A),
+    Color(0xFF879D92),
+    Color(0xFFA28595),
+  ];
+
+  /// The tiles of 財務分布 at the current level, largest first, each with
+  /// the key it opens to.
+  List<(String, String, int, Color)> _assetParts() {
     final ledger = widget.ledger;
+    final group = _assetGroup;
+    List<(String, String, int, Color)> shaded(List<(String, String, int)> l) {
+      l.sort((a, b) => b.$3.compareTo(a.$3));
+      return [
+        for (final (i, (key, name, value)) in l.indexed)
+          (key, name, value, _shades[i % _shades.length]),
+      ];
+    }
+
+    if (group == 'investment') {
+      return shaded([
+        for (final h in ledger.holdings)
+          if (h.value > 0) (h.code, h.code, h.value),
+      ]);
+    }
+    if (group != null) {
+      return shaded([
+        for (final a in ledger.accounts)
+          if (a.kind.name == group && ledger.balance(a.id) > 0)
+            (a.id, a.name, ledger.balance(a.id)),
+      ]);
+    }
     int sumOf(AccountKind kind) {
       var total = 0;
       for (final a in ledger.accounts) {
-        if (a.kind == kind) total += ledger.balance(a.id);
+        if (a.kind == kind) total += max(0, ledger.balance(a.id));
       }
       return total;
     }
 
-    final tiles = [
-      ('投資', ledger.investValue, Hue.holdings),
-      ('銀行', sumOf(AccountKind.bank), Hue.bank),
-      ('現金', sumOf(AccountKind.cash), Hue.cash),
-      ('電子支付', sumOf(AccountKind.wallet), Hue.wallet),
-    ]..sort((a, b) => b.$2.compareTo(a.$2));
+    final parts = [
+      ('investment', '投資', ledger.investValue, Hue.holdings),
+      ('bank', '銀行', sumOf(AccountKind.bank), Hue.bank),
+      ('cash', '現金', sumOf(AccountKind.cash), Hue.cash),
+      ('wallet', '電子支付', sumOf(AccountKind.wallet), Hue.wallet),
+    ]..sort((a, b) => b.$3.compareTo(a.$3));
+    return [
+      for (final p in parts)
+        if (p.$3 > 0) p,
+    ];
+  }
+
+  void _openAssets(String? group) {
+    setState(() {
+      _assetGroup = group;
+      _tile = null;
+    });
+  }
+
+  List<Widget> _assets() {
+    final parts = _assetParts();
+    final group = _assetGroup;
+    final tile = _tile == null || _tile! >= parts.length ? null : _tile;
+    final total = parts.fold<int>(0, (sum, p) => sum + p.$3);
+    final scope = switch (group) {
+      null => '資產',
+      'investment' => '投資',
+      _ => '${_groupLabel(group)} · 帳戶',
+    };
+    final allName = switch (group) {
+      null => '全部資產',
+      'investment' => '全部持股',
+      _ => '全部帳戶',
+    };
+    final shownName = tile == null ? allName : parts[tile].$2;
+    final shownAmount = tile == null ? total : parts[tile].$3;
+    final share = tile == null || total == 0
+        ? ''
+        : '　${(shownAmount * 100 / total).round()}%';
     return [
       SectionHead(
         '財務分布',
         trailing: Text(
-          'TWD ${groupDigits(ledger.assets)}',
+          'TWD ${groupDigits(shownAmount)}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
-      const Row(
+      Row(
         children: [
-          Text('資產', style: TextStyle(fontSize: 12, color: Hue.muted)),
-          SizedBox(width: 6),
+          Text(scope, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+          const SizedBox(width: 6),
           Text(
-            '全部資產',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            '$shownName$share',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
+          const Spacer(),
+          if (tile != null)
+            _SmallLink('全部', () => setState(() => _tile = null)),
+          if (group != null) _SmallLink('返回資產', () => _openAssets(null)),
         ],
       ),
       const SizedBox(height: 8),
-      Treemap(
-        tiles: tiles,
-        selected: _tile,
-        onSelect: (index) => setState(() => _tile = index),
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: Treemap(
+          key: ValueKey(group),
+          tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
+          selected: tile,
+          onSelect: (index) => setState(() => _tile = index),
+          onOpen: (index) =>
+              _openAssets(group == null ? parts[index].$1 : null),
+        ),
       ),
-      const SizedBox(height: 14),
+      Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          group == null ? '點選區塊看金額，再點一次展開明細' : '再點一次選取的區塊回到資產',
+          style: const TextStyle(fontSize: 11, color: Hue.faint),
+        ),
+      ),
+      const SizedBox(height: 10),
       const Divider(),
     ];
   }
+
+  String _groupLabel(String group) => switch (group) {
+    'bank' => '銀行',
+    'cash' => '現金',
+    'wallet' => '電子支付',
+    _ => group,
+  };
 
   List<Widget> _flow() {
     final ledger = widget.ledger;
@@ -933,6 +1034,28 @@ class _Dotted extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SmallLink extends StatelessWidget {
+  const _SmallLink(this.label, this.onTap);
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Hue.positive),
+        ),
+      ),
     );
   }
 }
