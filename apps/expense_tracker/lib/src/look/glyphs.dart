@@ -12,6 +12,7 @@ enum Glyph {
   subscription,
   other,
   salary,
+  payout,
   dividend,
   income,
   transfer,
@@ -189,6 +190,10 @@ void _draw(Glyph glyph, Path p, Path f) {
       _tray(p);
       _poly(p, [12, 3.5, 12, 11.5]);
       _poly(p, [8.8, 8.5, 12, 11.7, 15.2, 8.5]);
+    case Glyph.payout:
+      _tray(p);
+      _poly(p, [12, 11.5, 12, 3.5]);
+      _poly(p, [8.8, 6.7, 12, 3.5, 15.2, 6.7]);
     case Glyph.income:
       _tray(p);
       _poly(p, [12, 4, 12, 11]);

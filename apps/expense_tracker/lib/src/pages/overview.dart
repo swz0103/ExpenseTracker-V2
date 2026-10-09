@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../charts/bar_scale.dart';
 import '../charts/budget_bar.dart';
 import '../charts/flow_chart.dart';
+import '../charts/treemap.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -13,9 +14,9 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'nav.dart';
 
-/// 總覽: the month's balance, what falls due, a week of days with the
-/// chosen day's entries, the market, spending against the budget, where
-/// the assets are and six months of income and spending.
+/// 總覽: the month in four figures, what falls due, a week of days with
+/// the chosen day's entries, the market, spending against the budget,
+/// where the assets are and six months of income and spending.
 class OverviewPage extends StatefulWidget {
   const OverviewPage({super.key, required this.ledger, required this.nav});
 
@@ -86,7 +87,7 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           ),
           _Summary(ledger: ledger, month: _month),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           const Divider(),
           _DueRow(
             ledger: ledger,
@@ -159,7 +160,19 @@ class _OverviewPageState extends State<OverviewPage> {
           _dayPage = 0;
         }),
       ),
-      const SizedBox(height: 16),
+      const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _Legend('支出', Hue.negative),
+            _Legend('收入', Hue.positive),
+            _Legend('轉帳', Hue.transfer),
+            _Legend('投資', Hue.investment),
+          ],
+        ),
+      ),
+      const SizedBox(height: 14),
       Row(
         children: [
           Flexible(
@@ -221,124 +234,145 @@ class _OverviewPageState extends State<OverviewPage> {
 
   List<Widget> _market() {
     final ledger = widget.ledger;
+    final holdings = ledger.holdings;
     final change = ledger.dayChange;
     final before = ledger.investValue - change;
-    final movers = [...ledger.holdings]
-      ..sort((a, b) => b.change.abs().compareTo(a.change.abs()));
-    final shown = movers.take(6).toList();
-    final largest = shown.fold(0, (m, h) => max(m, h.change.abs()));
+    final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
     final today = ledger.today;
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
-    final tone = change < 0 ? Hue.negative : Hue.positive;
+    final pickedGain = picked == null
+        ? ''
+        : '${signed(picked.gain)}（${percentOf(picked.gain, picked.cost)}）';
+    final rows = <Widget>[];
+    for (var i = 0; i < holdings.length; i += 2) {
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _marketCell(holdings[i], largest)),
+              const VerticalDivider(width: 14),
+              Expanded(
+                child: i + 1 < holdings.length
+                    ? _marketCell(holdings[i + 1], largest)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return [
-      SectionHead(
-        '投資行情',
-        trailing: LinkToggle(
-          _scale.label,
-          onTap: () => setState(() => _scale = _scale.other),
+      Padding(
+        padding: const EdgeInsets.only(top: 22, bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '投資行情',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 10),
+            LinkToggle(
+              _scale.label,
+              onTap: () => setState(() => _scale = _scale.other),
+            ),
+            const Spacer(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${today.month}/${today.day} 當日損益 ${signed(change)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: change < 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+                Text(
+                  '示意行情 · ${percentOf(change, before)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: change < 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Figure(
-              '${today.month}/${today.day} 當日損益',
-              signed(change),
-              color: tone,
-              size: 22,
+      Text(
+        '投資市值 TWD ${groupDigits(ledger.investValue)}',
+        style: const TextStyle(fontSize: 13, color: Hue.muted),
+      ),
+      const SizedBox(height: 8),
+      ...rows,
+      if (picked != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              children: [
+                TextSpan(
+                  text: '${picked.name} ${picked.code}　',
+                  style: const TextStyle(
+                    color: Hue.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(text: '市值 ${groupDigits(picked.value)}　損益 '),
+                TextSpan(
+                  text: pickedGain,
+                  style: TextStyle(
+                    color: picked.gain < 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+              ],
             ),
           ),
-          Figure(
-            '投資市值 · ${percentOf(change, before)}',
-            groupDigits(ledger.investValue),
-            end: true,
-          ),
-        ],
-      ),
-      const SizedBox(height: 10),
-      for (final h in shown) _moverRow(h, largest),
-      if (picked != null) _pickedHolding(picked),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          onPressed: () => widget.nav.open(Pages.investments),
-          style: TextButton.styleFrom(foregroundColor: Hue.muted),
-          child: Text('全部 ${ledger.holdings.length} 檔持股 ›'),
         ),
-      ),
+      const SizedBox(height: 8),
       const Divider(),
     ];
   }
 
-  Widget _moverRow(Holding h, int largest) {
+  Widget _marketCell(Holding h, int largest) {
     final picked = h.code == _holding;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
-      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
-          borderRadius: BorderRadius.circular(8),
+          border: const Border(bottom: BorderSide(color: Hue.line)),
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 104,
-              child: Text(
-                h.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14),
-              ),
+              width: 52,
+              child: Text(h.code, style: const TextStyle(fontSize: 13)),
             ),
             Expanded(
               child: AxisBar(
                 value: h.change,
                 largest: largest,
                 scale: _scale,
-                axis: 0.25,
-                height: 8,
+                axis: 0.3,
+                height: 10,
               ),
             ),
             SizedBox(
-              width: 56,
+              width: 44,
               child: Text(
                 signed(h.change),
                 textAlign: TextAlign.end,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                   color: h.change < 0 ? Hue.negative : Hue.positive,
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pickedHolding(Holding h) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-      child: Text.rich(
-        TextSpan(
-          style: const TextStyle(fontSize: 13, color: Hue.muted),
-          children: [
-            TextSpan(
-              text: '${h.code}　',
-              style: const TextStyle(
-                color: Hue.ink,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextSpan(text: '市值 ${groupDigits(h.value)}　累計 '),
-            TextSpan(
-              text: '${signed(h.gain)}（${percentOf(h.gain, h.cost)}）',
-              style: TextStyle(color: h.gain < 0 ? Hue.negative : Hue.positive),
             ),
           ],
         ),
@@ -425,7 +459,7 @@ class _OverviewPageState extends State<OverviewPage> {
       return total;
     }
 
-    final parts = [
+    final tiles = [
       ('投資', ledger.investValue, Hue.holdings),
       ('銀行', sumOf(AccountKind.bank), Hue.bank),
       ('現金', sumOf(AccountKind.cash), Hue.cash),
@@ -433,14 +467,25 @@ class _OverviewPageState extends State<OverviewPage> {
     ]..sort((a, b) => b.$2.compareTo(a.$2));
     return [
       SectionHead(
-        '資產分布',
+        '財務分布',
         trailing: Text(
           'TWD ${groupDigits(ledger.assets)}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
-      _Composition(
-        parts: parts,
+      const Row(
+        children: [
+          Text('資產', style: TextStyle(fontSize: 12, color: Hue.muted)),
+          SizedBox(width: 6),
+          Text(
+            '全部資產',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Treemap(
+        tiles: tiles,
         selected: _tile,
         onSelect: (index) => setState(() => _tile = index),
       ),
@@ -502,25 +547,11 @@ class _OverviewPageState extends State<OverviewPage> {
       const SizedBox(height: 10),
       Row(
         children: [
-          Expanded(
-            child: _Dotted(
-              '收入',
-              'TWD ${groupDigits(shown.income)}',
-              Hue.positive,
-              size: 20,
-            ),
-          ),
-          Expanded(
-            child: _Dotted(
-              '支出',
-              'TWD ${groupDigits(shown.expense)}',
-              Hue.negative,
-              size: 20,
-            ),
-          ),
+          Expanded(child: _Dotted('收入', shown.income, Hue.positive)),
+          Expanded(child: _Dotted('支出', shown.expense, Hue.negative)),
         ],
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       Row(
         children: [
           Container(width: 16, height: 2, color: Hue.investment),
@@ -550,7 +581,7 @@ class _OverviewPageState extends State<OverviewPage> {
   }
 }
 
-/// 本月結餘 large, with 收入、支出 and 其中股息 under it.
+/// 本月收入、本月支出、其中股息、本月結餘 in four columns.
 class _Summary extends StatelessWidget {
   const _Summary({required this.ledger, required this.month});
 
@@ -563,36 +594,55 @@ class _Summary extends StatelessWidget {
     final income = ledger.income(year, m);
     final expense = ledger.expense(year, m);
     final left = income - expense;
-    final hidden = ledger.hidden;
-    String show(int amount) => hidden ? '••••' : groupDigits(amount);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final items = [
+      (Glyph.salary, '本月收入', income, Hue.positive, false),
+      (Glyph.payout, '本月支出', expense, Hue.negative, true),
+      (
+        Glyph.dividend,
+        '其中股息',
+        ledger.dividends(year, m),
+        Hue.investment,
+        false,
+      ),
+      (
+        Glyph.wallet,
+        '本月結餘',
+        left,
+        left < 0 ? Hue.negative : Hue.positive,
+        true,
+      ),
+    ];
+    return Row(
       children: [
-        const Text('本月結餘', style: TextStyle(fontSize: 13, color: Hue.muted)),
-        const SizedBox(height: 2),
-        Text(
-          show(left),
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: left < 0 ? Hue.negative : Hue.ink,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _Dotted('收入', show(income), Hue.positive)),
-            Expanded(child: _Dotted('支出', show(expense), Hue.negative)),
-            Expanded(
-              child: _Dotted(
-                '其中股息',
-                show(ledger.dividends(year, m)),
-                Hue.investment,
-              ),
+        for (final (icon, label, amount, color, strong) in items)
+          Expanded(
+            child: Column(
+              children: [
+                IconBadge(icon, color, size: 34),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: strong ? Hue.ink : Hue.muted,
+                    fontWeight: strong ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    ledger.hidden ? '••••' : groupDigits(amount),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
       ],
     );
   }
@@ -737,6 +787,32 @@ class _WeekStrip extends StatelessWidget {
   }
 }
 
+class _Legend extends StatelessWidget {
+  const _Legend(this.label, this.color);
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        ],
+      ),
+    );
+  }
+}
+
 /// A day's entries three to a row: icon and name above the amount.
 class _DayGrid extends StatelessWidget {
   const _DayGrid({
@@ -822,14 +898,12 @@ class _DayGrid extends StatelessWidget {
   }
 }
 
-/// A coloured dot and label over an amount.
 class _Dotted extends StatelessWidget {
-  const _Dotted(this.label, this.value, this.color, {this.size = 18});
+  const _Dotted(this.label, this.amount, this.color);
 
   final String label;
-  final String value;
+  final int amount;
   final Color color;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -844,113 +918,20 @@ class _Dotted extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+            Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
           ],
         ),
-        const SizedBox(height: 2),
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            value,
+            'TWD ${groupDigits(amount)}',
             style: TextStyle(
-              fontSize: size,
+              fontSize: 22,
               fontWeight: FontWeight.w600,
               color: color,
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// Parts of a whole as one segmented bar with a row per part under it;
-/// tapping a segment or a row picks that part.
-class _Composition extends StatelessWidget {
-  const _Composition({
-    required this.parts,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<(String, int, Color)> parts;
-  final int? selected;
-  final ValueChanged<int?> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = parts.fold<int>(0, (sum, p) => sum + max(0, p.$2));
-    void pick(int i) => onSelect(selected == i ? null : i);
-    return Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 14,
-            child: Row(
-              children: [
-                for (final (i, (_, amount, color)) in parts.indexed)
-                  if (amount > 0)
-                    Expanded(
-                      flex: max(1, amount * 1000 ~/ max(1, total)),
-                      child: GestureDetector(
-                        onTap: () => pick(i),
-                        child: Container(
-                          margin: EdgeInsets.only(
-                            right: i == parts.length - 1 ? 0 : 2,
-                          ),
-                          color: selected == null || selected == i
-                              ? color
-                              : color.withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final (i, (name, amount, color)) in parts.indexed)
-          InkWell(
-            onTap: () => pick(i),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              decoration: BoxDecoration(
-                color: selected == i
-                    ? Hue.selected.withValues(alpha: 0.6)
-                    : null,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(name, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 8),
-                  Text(
-                    total == 0 ? '' : '${(amount * 100 / total).round()}%',
-                    style: const TextStyle(fontSize: 12, color: Hue.muted),
-                  ),
-                  const Spacer(),
-                  Text(
-                    groupDigits(amount),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }

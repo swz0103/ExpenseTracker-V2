@@ -210,7 +210,6 @@ class _ComposerState extends State<Composer> {
   }
 
   String get _sign => switch (_type) {
-    _ when _amount == 0 => '',
     EntryType.expense || EntryType.buy => '−',
     EntryType.transfer => '',
     _ => '+',
@@ -354,7 +353,6 @@ class _ComposerState extends State<Composer> {
   @override
   Widget build(BuildContext context) {
     final problem = _problem;
-    final fields = _fields();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
@@ -368,15 +366,15 @@ class _ComposerState extends State<Composer> {
                   _drafts.remove(_mode);
                   _fresh();
                 }),
-                style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                child: const Text('重填', style: TextStyle(fontSize: 13)),
+                style: TextButton.styleFrom(foregroundColor: Hue.ink),
+                child: const Text('重填', style: TextStyle(fontSize: 12)),
               ),
               Expanded(
                 child: Text(
                   _title,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -389,18 +387,11 @@ class _ComposerState extends State<Composer> {
             ],
           ),
           const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Hue.surface,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                for (final mode in ComposeMode.values)
-                  Expanded(child: _tab(mode)),
-              ],
-            ),
+          Row(
+            children: [
+              for (final mode in ComposeMode.values)
+                Expanded(child: _tab(mode)),
+            ],
           ),
           if (_mode == ComposeMode.investment) ...[
             const SizedBox(height: 10),
@@ -418,20 +409,16 @@ class _ComposerState extends State<Composer> {
                         color: trade == _trade
                             ? Hue.investmentSoft
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           onTap: () => setState(() => _trade = trade),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             child: Text(
                               label,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 13,
-                                color: trade == _trade
-                                    ? Hue.investment
-                                    : Hue.muted,
                                 fontWeight: trade == _trade
                                     ? FontWeight.w700
                                     : FontWeight.w400,
@@ -445,29 +432,26 @@ class _ComposerState extends State<Composer> {
               ],
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           InkWell(
             onTap: _calculate,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(6, 10, 6, 12),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
                     'TWD',
                     style: TextStyle(fontSize: 12, color: Hue.muted),
                   ),
                   Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '$_sign${groupDigits(_amount)}',
-                        style: TextStyle(
-                          fontSize: 38,
-                          fontWeight: FontWeight.w600,
-                          color: _color,
-                        ),
+                    child: Text(
+                      '$_sign${groupDigits(_amount)}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w500,
+                        color: _color,
                       ),
                     ),
                   ),
@@ -476,44 +460,27 @@ class _ComposerState extends State<Composer> {
               ),
             ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Hue.white,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                for (final (i, field) in fields.indexed) ...[
-                  if (i > 0) const Divider(height: 1, indent: 52),
-                  field,
-                ],
-              ],
-            ),
+          TextButton.icon(
+            onPressed: _pickDate,
+            icon: const GlyphIcon(Glyph.calendar, size: 16),
+            label: Text(fullDay(_date)),
+            style: TextButton.styleFrom(foregroundColor: Hue.muted),
           ),
-          if (_mode == ComposeMode.investment)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _newHolding,
-                style: TextButton.styleFrom(foregroundColor: Hue.investment),
-                child: const Text('＋ 新增標的', style: TextStyle(fontSize: 13)),
-              ),
-            ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          ..._fields(),
+          const SizedBox(height: 14),
           TextField(
             controller: _note,
-            minLines: 1,
-            maxLines: 3,
+            minLines: 2,
+            maxLines: 4,
             decoration: InputDecoration(
               hintText: '備註',
-              isDense: true,
-              prefixIcon: const GlyphIcon(
-                Glyph.note,
-                size: 18,
-                color: Hue.muted,
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(bottom: 22),
+                child: GlyphIcon(Glyph.note, size: 18),
               ),
               filled: true,
-              fillColor: Hue.white,
+              fillColor: Hue.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -555,7 +522,6 @@ class _ComposerState extends State<Composer> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                flex: 2,
                 child: SizedBox(
                   height: 46,
                   child: FilledButton(
@@ -580,49 +546,43 @@ class _ComposerState extends State<Composer> {
   Widget _tab(ComposeMode mode) {
     final picked = mode == _mode;
     final locked = widget.entry != null && !picked;
-    return Material(
-      color: picked ? Hue.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(11),
-        onTap: locked ? null : () => _switch(mode),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GlyphIcon(
-                mode.icon,
-                size: 16,
-                color: picked ? mode.color : Hue.muted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                mode.label,
-                style: TextStyle(
-                  fontSize: 14,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: picked ? mode.soft : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: locked ? null : () => _switch(mode),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GlyphIcon(
+                  mode.icon,
+                  size: 16,
                   color: picked ? mode.color : Hue.muted,
-                  fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  mode.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: picked ? mode.color : Hue.muted,
+                    fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// The rows under the amount: the day, then what this kind of entry
-  /// needs.
   List<Widget> _fields() {
     final account = _ledger.account(_account);
-    final day = _Field(
-      label: '日期',
-      icon: Glyph.calendar,
-      color: Hue.positive,
-      value: fullDay(_date),
-      onTap: _pickDate,
-    );
     final accountField = _Field(
       label: switch (_type) {
         EntryType.expense || EntryType.buy => '付款帳戶',
@@ -641,59 +601,137 @@ class _ComposerState extends State<Composer> {
       case ComposeMode.expense || ComposeMode.income:
         final category = _ledger.category(_category);
         return [
-          day,
-          _Field(
-            label: _mode == ComposeMode.income ? '收入分類' : '支出分類',
-            icon: iconFor(category.icon),
-            color: category.color,
-            value: category.name,
-            onTap: _pickCategory,
+          Row(
+            children: [
+              Expanded(child: accountField),
+              Expanded(
+                child: _Field(
+                  label: _mode == ComposeMode.income ? '收入分類' : '支出分類',
+                  icon: iconFor(category.icon),
+                  color: category.color,
+                  value: category.name,
+                  onTap: _pickCategory,
+                ),
+              ),
+            ],
           ),
-          accountField,
         ];
       case ComposeMode.transfer:
         final to = _ledger.account(_to);
         return [
-          day,
-          accountField,
-          _Field(
-            label: '轉入',
-            icon: accountIcon(to.kind),
-            color: accountColor(to.kind),
-            value: to.name,
-            onTap: () async {
-              final picked = await _pickAccount('轉入帳戶', _to);
-              if (picked != null) setState(() => _to = picked);
-            },
+          Row(
+            children: [
+              Expanded(child: accountField),
+              Container(
+                width: 30,
+                height: 30,
+                margin: const EdgeInsets.only(top: 18),
+                decoration: const BoxDecoration(
+                  color: Hue.transfer,
+                  shape: BoxShape.circle,
+                ),
+                child: const GlyphIcon(
+                  Glyph.arrow,
+                  size: 18,
+                  color: Hue.white,
+                ),
+              ),
+              Expanded(
+                child: _Field(
+                  label: '轉入',
+                  icon: accountIcon(to.kind),
+                  color: accountColor(to.kind),
+                  value: to.name,
+                  onTap: () async {
+                    final picked = await _pickAccount('轉入帳戶', _to);
+                    if (picked != null) setState(() => _to = picked);
+                  },
+                ),
+              ),
+            ],
           ),
         ];
       case ComposeMode.investment:
         final code = _holding;
         final held = code == null ? null : _ledger.holding(code);
         return [
-          day,
-          _Field(
-            label: '投資標的',
-            icon: Glyph.investment,
-            color: Hue.investment,
-            value: code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
-            onTap: _pickHolding,
+          Row(
+            children: [
+              Expanded(
+                child: SoftPanel(
+                  color: Hue.investmentSoft,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  onTap: _pickHolding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '投資標的',
+                        style: TextStyle(fontSize: 12, color: Hue.muted),
+                      ),
+                      Text(
+                        code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '新增標的',
+                onPressed: _newHolding,
+                icon: const GlyphIcon(Glyph.add, color: Hue.investment),
+              ),
+            ],
           ),
-          accountField,
-          if (_trade != EntryType.dividend)
-            _Field(
-              label: '股數',
-              icon: Glyph.calculator,
-              color: Hue.investment,
-              value: '${groupDigits(_shares)} 股',
-              onTap: _calculateShares,
-            ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: accountField),
+              if (_trade != EntryType.dividend)
+                Expanded(
+                  child: InkWell(
+                    onTap: _calculateShares,
+                    child: Column(
+                      children: [
+                        const Text(
+                          '股數',
+                          style: TextStyle(fontSize: 13, color: Hue.muted),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              groupDigits(_shares),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Text(' 股'),
+                            const SizedBox(width: 6),
+                            const GlyphIcon(
+                              Glyph.calculator,
+                              size: 18,
+                              color: Hue.muted,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ];
     }
   }
 }
 
-/// One row of the form: a mark, what it is, and the current choice.
 class _Field extends StatelessWidget {
   const _Field({
     required this.label,
@@ -713,29 +751,31 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
           children: [
-            IconBadge(icon, color, size: 30),
-            const SizedBox(width: 10),
-            Text(label, style: const TextStyle(fontSize: 14, color: Hue.muted)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+            Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconBadge(icon, color, size: 30),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 4),
-            const GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
           ],
         ),
       ),

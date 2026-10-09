@@ -183,7 +183,13 @@ class AccountsPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SectionHead('帳戶一覽'),
+            const Padding(
+              padding: EdgeInsets.only(top: 22, bottom: 4),
+              child: Text(
+                '帳戶一覽',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
             for (final kind in AccountKind.values) ..._group(kind),
           ],
         );
@@ -213,20 +219,16 @@ class AccountsPage extends StatelessWidget {
         ),
       );
     }
-    final total = accounts.fold<int>(0, (sum, a) => sum + ledger.balance(a.id));
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 18, bottom: 2),
+        padding: const EdgeInsets.only(top: 16, bottom: 4),
         child: Row(
           children: [
+            Container(width: 3, height: 14, color: accountColor(kind)),
+            const SizedBox(width: 8),
             Text(
               groupName(kind),
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
-            ),
-            const Spacer(),
-            Text(
-              groupDigits(total),
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -240,7 +242,7 @@ class AccountsPage extends StatelessWidget {
     return InkWell(
       onTap: () => nav.open(Pages.account(account.id)),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Hue.line)),
         ),
@@ -249,32 +251,23 @@ class AccountsPage extends StatelessWidget {
             IconBadge(
               accountIcon(account.kind),
               accountColor(account.kind),
-              size: 34,
+              size: 28,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 7),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    account.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, color: Hue.muted),
-                  ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      ledger.hidden ? '••••' : groupDigits(balance),
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: balance < 0 ? Hue.negative : Hue.ink,
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                account.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            Text(
+              groupDigits(balance),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: balance < 0 ? Hue.negative : Hue.ink,
               ),
             ),
           ],

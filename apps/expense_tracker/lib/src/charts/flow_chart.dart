@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../look/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 
@@ -17,9 +18,8 @@ final class FlowMonth {
   final int worth;
 }
 
-/// Income and spending as paired columns with net worth as a line over
-/// them, no axes: the chosen month's figures are written above the chart.
-/// Tap or drag across to choose a month.
+/// Income and spending as paired columns (left axis, in 萬) with net worth
+/// as a line (right axis). Tap a month to choose it.
 class FlowChart extends StatelessWidget {
   const FlowChart({
     super.key,
@@ -34,8 +34,8 @@ class FlowChart extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final double height;
 
-  static const _left = 2.0;
-  static const _right = 2.0;
+  static const _left = 30.0;
+  static const _right = 40.0;
 
   @override
   Widget build(BuildContext context) {
@@ -101,13 +101,34 @@ class _FlowPainter extends CustomPainter {
     final span = peak + pad - floor;
     double yWorth(num v) => bottom - (bottom - top) * (v - floor) / span;
 
-    // A base line and a faint half-way guide.
+    // Grid and both axes.
     final grid = Paint()
       ..color = Hue.line
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(left, bottom), Offset(left + plot, bottom), grid);
-    final half = y(ceiling / 2);
-    _dotted(canvas, Offset(left, half), Offset(left + plot, half), grid);
+    for (final step in const [0, 1, 2]) {
+      final value = ceiling * step ~/ 2;
+      final yy = y(value);
+      if (step == 0) {
+        canvas.drawLine(Offset(left, yy), Offset(left + plot, yy), grid);
+      } else {
+        _dotted(canvas, Offset(left, yy), Offset(left + plot, yy), grid);
+      }
+      paintText(
+        canvas,
+        tenThousands(value),
+        axis,
+        Offset(left - 6, yy),
+        anchor: const Offset(1, 0.5),
+      );
+      final worth = floor + span * step / 2;
+      paintText(
+        canvas,
+        (worth / 10000).toStringAsFixed(1),
+        axis.copyWith(color: Hue.investment),
+        Offset(left + plot + 6, y(value)),
+        anchor: const Offset(0, 0.5),
+      );
+    }
 
     // The chosen month behind everything.
     canvas.drawRRect(
@@ -121,7 +142,7 @@ class _FlowPainter extends CustomPainter {
       Paint()..color = Hue.surface,
     );
 
-    final bar = min(14.0, slot * 0.22);
+    final bar = min(12.0, slot * 0.24);
     for (final (i, m) in months.indexed) {
       final centre = left + slot * (i + 0.5);
       final faded = i != selected;
@@ -133,7 +154,7 @@ class _FlowPainter extends CustomPainter {
             topLeft: const Radius.circular(2),
             topRight: const Radius.circular(2),
           ),
-          Paint()..color = faded ? color.withValues(alpha: 0.35) : color,
+          Paint()..color = faded ? color.withValues(alpha: 0.85) : color,
         );
       }
 

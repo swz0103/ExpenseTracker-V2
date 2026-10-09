@@ -78,7 +78,24 @@ double _worst(List<double> areas, double side) {
   );
 }
 
-/// Labelled tiles sized by amount; tap one to show its amount and share.
+/// Tile sizes for [Treemap]: the order of amounts is kept but small ones
+/// are lifted, `1 + log2(amount / smallest) / 6` (as in v114), so a few
+/// thousand in cash still gets a tile beside hundreds of thousands.
+List<int> _shownWeights(List<int> amounts) {
+  final positive = [
+    for (final a in amounts)
+      if (a > 0) a,
+  ];
+  if (positive.isEmpty) return amounts;
+  final smallest = positive.reduce(min);
+  return [
+    for (final a in amounts)
+      a <= 0 ? 0 : ((1 + log(a / smallest) / ln2 / 6) * 1000).round(),
+  ];
+}
+
+/// Labelled tiles, larger amounts larger; tap one to show its amount and
+/// share.
 class Treemap extends StatelessWidget {
   const Treemap({
     super.key,
@@ -99,9 +116,10 @@ class Treemap extends StatelessWidget {
       height: height,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final rects = treemapLayout([
-            for (final t in tiles) t.$2,
-          ], Offset.zero & constraints.biggest);
+          final rects = treemapLayout(
+            _shownWeights([for (final t in tiles) t.$2]),
+            Offset.zero & constraints.biggest,
+          );
           return GestureDetector(
             onTapDown: (details) {
               for (final (i, rect) in rects.indexed) {

@@ -190,13 +190,13 @@ class _BottomBar extends StatelessWidget {
                         message: '記一筆',
                         child: Material(
                           color: Hue.positive,
-                          borderRadius: BorderRadius.circular(16),
+                          shape: const CircleBorder(),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
+                            customBorder: const CircleBorder(),
                             onTap: onRecord,
                             child: const SizedBox(
-                              width: 52,
-                              height: 40,
+                              width: 44,
+                              height: 44,
                               child: Center(
                                 child: GlyphIcon(
                                   Glyph.add,
