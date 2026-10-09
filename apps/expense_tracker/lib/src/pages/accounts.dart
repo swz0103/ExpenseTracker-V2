@@ -134,9 +134,7 @@ class AccountsPage extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: _Part('現金與存款', shown(cash), Hue.bank)),
-                Expanded(
-                  child: _Part('投資市值', shown(invest), Hue.investment),
-                ),
+                Expanded(child: _Part('投資市值', shown(invest), Hue.investment)),
               ],
             ),
             if (debt > 0) ...[

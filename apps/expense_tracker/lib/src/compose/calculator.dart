@@ -62,12 +62,8 @@ Future<int?> showCalculator(
 }) {
   return showSheet<int>(
     context,
-    (_) => _Calculator(
-      title: title,
-      initial: initial,
-      color: color,
-      unit: unit,
-    ),
+    (_) =>
+        _Calculator(title: title, initial: initial, color: color, unit: unit),
   );
 }
 
