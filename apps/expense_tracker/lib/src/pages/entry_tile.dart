@@ -42,11 +42,16 @@ class EntryTile extends StatelessWidget {
     required this.ledger,
     required this.entry,
     required this.onTap,
+    this.repeat = false,
   });
 
   final Ledger ledger;
   final Entry entry;
   final VoidCallback onTap;
+
+  /// The row above has the same mark: show a quiet dot instead of the
+  /// badge again.
+  final bool repeat;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +65,22 @@ class EntryTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            IconBadge(icon, color, size: 40),
+            if (repeat)
+              SizedBox(
+                width: 34,
+                child: Center(
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              )
+            else
+              IconBadge(icon, color, size: 34),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -86,7 +106,7 @@ class EntryTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              entryAmount(entry),
+              ledger.hidden ? '••••' : entryAmount(entry),
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w500,
@@ -102,17 +122,28 @@ class EntryTile extends StatelessWidget {
 
 /// A date line over a group of entries.
 class DayHeading extends StatelessWidget {
-  const DayHeading(this.date, {super.key});
+  const DayHeading(this.date, {super.key, this.total});
 
   final DateTime date;
 
+  /// The day's spending, written on the right.
+  final String? total;
+
   @override
   Widget build(BuildContext context) {
+    final sum = total;
     return Padding(
       padding: const EdgeInsets.only(top: 18, bottom: 4),
-      child: Text(
-        longDay(date),
-        style: const TextStyle(fontSize: 13, color: Hue.muted),
+      child: Row(
+        children: [
+          Text(
+            longDay(date),
+            style: const TextStyle(fontSize: 13, color: Hue.muted),
+          ),
+          const Spacer(),
+          if (sum != null)
+            Text(sum, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        ],
       ),
     );
   }

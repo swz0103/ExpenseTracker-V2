@@ -106,7 +106,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SectionHead('日常偏好'),
                   _Setting(
                     icon: Glyph.eye,
-                    label: '隱藏摘要金額',
+                    label: '隱藏金額',
                     trailing: Switch(
                       value: ledger.hidden,
                       onChanged: (_) => ledger.toggleHidden(),

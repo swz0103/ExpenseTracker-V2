@@ -36,12 +36,18 @@ class _OverviewPageState extends State<OverviewPage> {
   int? _piece;
   int? _tile;
 
+  /// 投資行情 ordered by today's move instead of by holding.
+  var _byMove = false;
+
   /// The opened part of 財務分布: null for all assets, else 'investment'
   /// or an account kind's name.
   String? _assetGroup;
   int? _flowMonth;
 
   static const _perPage = 6;
+
+  /// [text], or dots while amounts are hidden.
+  String _m(String text) => widget.ledger.hidden ? '••••' : text;
 
   DateTime get _monday => _day.subtract(Duration(days: _day.weekday - 1));
 
@@ -120,7 +126,6 @@ class _OverviewPageState extends State<OverviewPage> {
     final pages = max(1, (entries.length / _perPage).ceil());
     final page = _dayPage.clamp(0, pages - 1);
     final shown = entries.skip(page * _perPage).take(_perPage).toList();
-    final first = page * _perPage + 1;
     final last = min(entries.length, (page + 1) * _perPage);
     final atToday = !sunday.isBefore(ledger.today);
     final from = '${monday.month} / ${monday.day}';
@@ -129,7 +134,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '每日紀錄',
         trailing: Text(
-          '本週 TWD ${groupDigits(weekSpent)}',
+          '本週 TWD ${_m(groupDigits(weekSpent))}',
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
@@ -154,20 +159,24 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
         ],
       ),
-      _WeekStrip(
-        ledger: ledger,
-        monday: monday,
-        selected: _day,
-        month: _month.$2,
-        onSelect: (day) => setState(() {
-          _day = day;
-          _dayPage = 0;
-        }),
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _WeekStrip(
+          key: ValueKey(monday),
+          ledger: ledger,
+          monday: monday,
+          selected: _day,
+          month: _month.$2,
+          onSelect: (day) => setState(() {
+            _day = day;
+            _dayPage = 0;
+          }),
+        ),
       ),
       const Padding(
-        padding: EdgeInsets.only(top: 8),
+        padding: EdgeInsets.only(top: 6),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _Legend('支出', Hue.negative),
             _Legend('收入', Hue.positive),
@@ -187,28 +196,15 @@ class _OverviewPageState extends State<OverviewPage> {
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
-          const SizedBox(width: 10),
-          if (pages > 1)
-            Flexible(
-              child: InkWell(
-                onTap: () => setState(() => _dayPage = (page + 1) % pages),
-                child: Text(
-                  '$first-$last / ${entries.length}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Hue.muted,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Hue.muted,
-                  ),
-                ),
-              ),
-            ),
+          const SizedBox(width: 8),
+          Text(
+            '${entries.length} 筆',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
+          ),
           const Spacer(),
           const Text('支出 ', style: TextStyle(fontSize: 13, color: Hue.muted)),
           Text(
-            groupDigits(ledger.spentOn(_day)),
+            _m(groupDigits(ledger.spentOn(_day))),
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -230,15 +226,32 @@ class _OverviewPageState extends State<OverviewPage> {
           ledger: ledger,
           entries: shown,
           onTap: widget.nav.showEntry,
+          onAdd: () => widget.nav.compose(),
         ),
       ),
+      if (pages > 1)
+        Center(
+          child: TextButton(
+            onPressed: () => setState(() => _dayPage = (page + 1) % pages),
+            style: TextButton.styleFrom(
+              foregroundColor: Hue.positive,
+              minimumSize: const Size(44, 44),
+            ),
+            child: Text(
+              last < entries.length
+                  ? '還有 ${entries.length - last} 筆 ›'
+                  : '‹ 回到前 $_perPage 筆',
+            ),
+          ),
+        ),
       const Divider(),
     ];
   }
 
   List<Widget> _market() {
     final ledger = widget.ledger;
-    final holdings = ledger.holdings;
+    final holdings = [...ledger.holdings];
+    if (_byMove) holdings.sort((a, b) => b.change.compareTo(a.change));
     final change = ledger.dayChange;
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
@@ -279,7 +292,7 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
             const SizedBox(width: 10),
             LinkToggle(
-              _scale.label,
+              '刻度：${_scale.label}',
               onTap: () => setState(() => _scale = _scale.other),
             ),
             const Spacer(),
@@ -287,7 +300,7 @@ class _OverviewPageState extends State<OverviewPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${today.month}/${today.day} 當日損益 ${signed(change)}',
+                  '${today.month}/${today.day} 當日損益 ${_m(signed(change))}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -306,9 +319,18 @@ class _OverviewPageState extends State<OverviewPage> {
           ],
         ),
       ),
-      Text(
-        '投資市值 TWD ${groupDigits(ledger.investValue)}',
-        style: const TextStyle(fontSize: 13, color: Hue.muted),
+      Row(
+        children: [
+          Text(
+            '投資市值 TWD ${_m(groupDigits(ledger.investValue))}',
+            style: const TextStyle(fontSize: 13, color: Hue.muted),
+          ),
+          const Spacer(),
+          LinkToggle(
+            _byMove ? '依漲跌排序' : '依持股排序',
+            onTap: () => setState(() => _byMove = !_byMove),
+          ),
+        ],
       ),
       const SizedBox(height: 8),
       ...rows,
@@ -326,9 +348,9 @@ class _OverviewPageState extends State<OverviewPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextSpan(text: '市值 ${groupDigits(picked.value)}　損益 '),
+                TextSpan(text: '市值 ${_m(groupDigits(picked.value))}　損益 '),
                 TextSpan(
-                  text: pickedGain,
+                  text: _m(pickedGain),
                   style: TextStyle(
                     color: picked.gain < 0 ? Hue.negative : Hue.positive,
                   ),
@@ -355,8 +377,22 @@ class _OverviewPageState extends State<OverviewPage> {
         child: Row(
           children: [
             SizedBox(
-              width: 52,
-              child: Text(h.code, style: const TextStyle(fontSize: 13)),
+              width: 62,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    h.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  Text(
+                    h.code,
+                    style: const TextStyle(fontSize: 10, color: Hue.muted),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: AxisBar(
@@ -368,9 +404,9 @@ class _OverviewPageState extends State<OverviewPage> {
               ),
             ),
             SizedBox(
-              width: 44,
+              width: 40,
               child: Text(
-                signed(h.change),
+                _m(signed(h.change)),
                 textAlign: TextAlign.end,
                 style: TextStyle(
                   fontSize: 13,
@@ -407,7 +443,7 @@ class _OverviewPageState extends State<OverviewPage> {
           Expanded(
             child: Figure(
               label,
-              'TWD ${groupDigits(amount)}',
+              'TWD ${_m(groupDigits(amount))}',
               color: Hue.negative,
               size: 22,
             ),
@@ -423,7 +459,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: 'TWD ${groupDigits(limit - spent)}',
+                      text: 'TWD ${_m(groupDigits(limit - spent))}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -445,12 +481,22 @@ class _OverviewPageState extends State<OverviewPage> {
       BudgetBar(
         pieces: [for (final (c, amount) in rows) (c.color, amount)],
         limit: limit,
+        pace: _pace(year, month),
         selected: piece,
         onSelect: (index) => setState(() => _piece = index),
       ),
       const SizedBox(height: 8),
       const Divider(),
     ];
+  }
+
+  /// How much of the month has gone by: today's share of its days for
+  /// the current month, all of it for past ones.
+  double _pace(int year, int month) {
+    final today = widget.ledger.today;
+    if (year != today.year || month != today.month) return 1;
+    final days = DateTime.utc(year, month + 1, 0).day;
+    return today.day / days;
   }
 
   /// Colours for the second level of 財務分布, in v114's order.
@@ -485,7 +531,7 @@ class _OverviewPageState extends State<OverviewPage> {
     if (group == 'investment') {
       return shaded([
         for (final h in ledger.holdings)
-          if (h.value > 0) (h.code, h.code, h.value),
+          if (h.value > 0) (h.code, h.name, h.value),
       ]);
     }
     if (group != null) {
@@ -529,8 +575,8 @@ class _OverviewPageState extends State<OverviewPage> {
     final total = parts.fold<int>(0, (sum, p) => sum + p.$3);
     final scope = switch (group) {
       null => '資產',
-      'investment' => '投資',
-      _ => '${_groupLabel(group)} · 帳戶',
+      'investment' => '資產 › 投資',
+      _ => '資產 › ${_groupLabel(group)}',
     };
     final allName = switch (group) {
       null => '全部資產',
@@ -546,7 +592,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '財務分布',
         trailing: Text(
-          'TWD ${groupDigits(shownAmount)}',
+          'TWD ${_m(groupDigits(shownAmount))}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -566,10 +612,20 @@ class _OverviewPageState extends State<OverviewPage> {
       ),
       const SizedBox(height: 8),
       AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+            child: child,
+          ),
+        ),
         child: Treemap(
           key: ValueKey(group),
           tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
+          hint: group == null ? '展開 ›' : '‹ 返回',
+          hidden: widget.ledger.hidden,
           selected: tile,
           onSelect: (index) => setState(() => _tile = index),
           onOpen: (index) =>
@@ -636,7 +692,7 @@ class _OverviewPageState extends State<OverviewPage> {
           const Spacer(),
           const Text('結餘 ', style: TextStyle(fontSize: 13, color: Hue.muted)),
           Text(
-            'TWD ${groupDigits(left)}',
+            'TWD ${_m(groupDigits(left))}',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -648,8 +704,20 @@ class _OverviewPageState extends State<OverviewPage> {
       const SizedBox(height: 10),
       Row(
         children: [
-          Expanded(child: _Dotted('收入', shown.income, Hue.positive)),
-          Expanded(child: _Dotted('支出', shown.expense, Hue.negative)),
+          Expanded(
+            child: _Dotted(
+              '收入',
+              'TWD ${_m(groupDigits(shown.income))}',
+              Hue.positive,
+            ),
+          ),
+          Expanded(
+            child: _Dotted(
+              '支出',
+              'TWD ${_m(groupDigits(shown.expense))}',
+              Hue.negative,
+            ),
+          ),
         ],
       ),
       const SizedBox(height: 12),
@@ -663,7 +731,7 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
           const Spacer(),
           Text(
-            'TWD ${groupDigits(shown.worth)}',
+            'TWD ${_m(groupDigits(shown.worth))}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -696,7 +764,7 @@ class _Summary extends StatelessWidget {
     final expense = ledger.expense(year, m);
     final left = income - expense;
     final items = [
-      (Glyph.salary, '本月收入', income, Hue.positive, false),
+      (Glyph.income, '本月收入', income, Hue.positive, false),
       (Glyph.payout, '本月支出', expense, Hue.negative, true),
       (
         Glyph.dividend,
@@ -758,6 +826,14 @@ class _DueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final due = ledger.due;
+    final upcoming = ledger.upcoming;
+    final next = due.isNotEmpty
+        ? due.first
+        : upcoming.isEmpty
+        ? null
+        : upcoming.first;
+    final today = ledger.today;
+    final hidden = ledger.hidden;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -773,16 +849,33 @@ class _DueRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Text(
-              due.isEmpty ? '尚無到期項目' : '${due.length} 筆已到期',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: due.isNotEmpty
+                          ? '${due.length} 筆已到期'
+                          : next == null
+                          ? '沒有待扣款項目'
+                          : '${upcoming.length} 筆即將扣款',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (next != null)
+                      TextSpan(
+                        text: '　${today.month}/${next.day} ${next.name} '
+                            '${hidden ? '••••' : groupDigits(next.amount)}',
+                        style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '即將到期 ${ledger.upcoming.length} 筆',
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
-            ),
-            const Spacer(),
             const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
           ],
         ),
@@ -793,6 +886,7 @@ class _DueRow extends StatelessWidget {
 
 class _WeekStrip extends StatelessWidget {
   const _WeekStrip({
+    super.key,
     required this.ledger,
     required this.monday,
     required this.selected,
@@ -920,18 +1014,30 @@ class _DayGrid extends StatelessWidget {
     required this.ledger,
     required this.entries,
     required this.onTap,
+    required this.onAdd,
   });
 
   final Ledger ledger;
   final List<Entry> entries;
   final ValueChanged<Entry> onTap;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          children: [
+            const Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
+            const Spacer(),
+            TextButton(
+              onPressed: onAdd,
+              style: TextButton.styleFrom(foregroundColor: Hue.positive),
+              child: const Text('＋ 記一筆'),
+            ),
+          ],
+        ),
       );
     }
     return LayoutBuilder(
@@ -964,11 +1070,13 @@ class _DayGrid extends StatelessWidget {
       _ => iconFor(category.icon),
     };
     final color = entryColor(e.type);
-    final amount = switch (e.type) {
-      EntryType.expense || EntryType.buy => spent(e.amount),
-      EntryType.transfer => groupDigits(e.amount),
-      _ => '+${groupDigits(e.amount)}',
-    };
+    final amount = ledger.hidden
+        ? '••••'
+        : switch (e.type) {
+            EntryType.expense || EntryType.buy => spent(e.amount),
+            EntryType.transfer => groupDigits(e.amount),
+            _ => '+${groupDigits(e.amount)}',
+          };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1000,10 +1108,10 @@ class _DayGrid extends StatelessWidget {
 }
 
 class _Dotted extends StatelessWidget {
-  const _Dotted(this.label, this.amount, this.color);
+  const _Dotted(this.label, this.value, this.color);
 
   final String label;
-  final int amount;
+  final String value;
   final Color color;
 
   @override
@@ -1025,7 +1133,7 @@ class _Dotted extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            'TWD ${groupDigits(amount)}',
+            value,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -1050,7 +1158,7 @@ class _SmallLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         child: Text(
           label,
           style: const TextStyle(fontSize: 12, color: Hue.positive),

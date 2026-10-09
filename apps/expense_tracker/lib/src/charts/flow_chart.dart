@@ -34,35 +34,38 @@ class FlowChart extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final double height;
 
-  static const _left = 30.0;
-  static const _right = 40.0;
+  static const _left = 34.0;
+  static const _right = 44.0;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final plot = constraints.maxWidth - _left - _right;
-          void pick(Offset at) {
-            final index = ((at.dx - _left) / plot * months.length).floor();
-            if (index >= 0 && index < months.length) onSelect(index);
-          }
+    // Its own layer: chart animations and taps do not repaint the page.
+    return RepaintBoundary(
+      child: SizedBox(
+        height: height,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final plot = constraints.maxWidth - _left - _right;
+            void pick(Offset at) {
+              final index = ((at.dx - _left) / plot * months.length).floor();
+              if (index >= 0 && index < months.length) onSelect(index);
+            }
 
-          return GestureDetector(
-            onTapDown: (d) => pick(d.localPosition),
-            onHorizontalDragUpdate: (d) => pick(d.localPosition),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOutCubic,
-              builder: (context, grow, _) => CustomPaint(
-                size: Size.infinite,
-                painter: _FlowPainter(months, selected, grow),
+            return GestureDetector(
+              onTapDown: (d) => pick(d.localPosition),
+              onHorizontalDragUpdate: (d) => pick(d.localPosition),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, grow, _) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _FlowPainter(months, selected, grow),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -115,7 +118,7 @@ class _FlowPainter extends CustomPainter {
       }
       paintText(
         canvas,
-        tenThousands(value),
+        step == 0 ? '0' : '${tenThousands(value)}萬',
         axis,
         Offset(left - 6, yy),
         anchor: const Offset(1, 0.5),
@@ -123,7 +126,7 @@ class _FlowPainter extends CustomPainter {
       final worth = floor + span * step / 2;
       paintText(
         canvas,
-        (worth / 10000).toStringAsFixed(1),
+        '${(worth / 10000).toStringAsFixed(1)}萬',
         axis.copyWith(color: Hue.investment),
         Offset(left + plot + 6, y(value)),
         anchor: const Offset(0, 0.5),

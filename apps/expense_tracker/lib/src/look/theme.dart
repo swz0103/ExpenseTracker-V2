@@ -9,7 +9,7 @@ abstract final class Hue {
   static const surface = Color(0xFFEEE8DC);
   static const selected = Color(0xFFDCE7D2);
   static const ink = Color(0xFF344638);
-  static const muted = Color(0xFF74796C);
+  static const muted = Color(0xFF666B5F);
   static const faint = Color(0xFFB9B5A8);
   static const line = Color(0xFFE2DACA);
 

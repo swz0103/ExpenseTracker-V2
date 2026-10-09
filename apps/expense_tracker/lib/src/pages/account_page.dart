@@ -88,7 +88,7 @@ class _AccountPageState extends State<AccountPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'TWD ${groupDigits(balance)}',
+                          'TWD ${money(balance)}',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w600,
@@ -101,14 +101,14 @@ class _AccountPageState extends State<AccountPage> {
                             Expanded(
                               child: Figure(
                                 '本月流入',
-                                groupDigits(inflow),
+                                money(inflow),
                                 color: Hue.positive,
                               ),
                             ),
                             Expanded(
                               child: Figure(
                                 '本月流出',
-                                groupDigits(outflow),
+                                money(outflow),
                                 color: Hue.negative,
                               ),
                             ),

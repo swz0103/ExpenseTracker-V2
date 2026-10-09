@@ -6,8 +6,9 @@ import '../look/paint.dart';
 import '../look/theme.dart';
 
 /// Spending against a limit as one bar: a coloured piece per category,
-/// the rest of the limit left pale, and an arrow at the share used with
-/// 0 and 100 at the ends. Tap a piece to choose it.
+/// the rest of the limit left pale, an arrow at the share used, and a
+/// dashed line at [pace], how much of the month has gone by, so spending
+/// ahead of time shows at a glance. Tap a piece to choose it.
 class BudgetBar extends StatelessWidget {
   const BudgetBar({
     super.key,
@@ -15,6 +16,7 @@ class BudgetBar extends StatelessWidget {
     required this.limit,
     this.selected,
     this.onSelect,
+    this.pace,
     this.height = 26,
   });
 
@@ -22,6 +24,9 @@ class BudgetBar extends StatelessWidget {
   final int limit;
   final int? selected;
   final ValueChanged<int?>? onSelect;
+
+  /// The share of the month gone by, 0 to 1.
+  final double? pace;
   final double height;
 
   int get _used => pieces.fold(0, (sum, p) => sum + p.$2);
@@ -29,43 +34,46 @@ class BudgetBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pick = onSelect;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return GestureDetector(
-          onTapDown: pick == null
-              ? null
-              : (details) {
-                  final span = max(limit, _used).toDouble();
-                  var left = 0.0;
-                  for (final (i, (_, amount)) in pieces.indexed) {
-                    final right = left + width * amount / span;
-                    final x = details.localPosition.dx;
-                    if (x >= left && x <= right) {
-                      pick(i == selected ? null : i);
-                      return;
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return GestureDetector(
+            onTapDown: pick == null
+                ? null
+                : (details) {
+                    final span = max(limit, _used).toDouble();
+                    var left = 0.0;
+                    for (final (i, (_, amount)) in pieces.indexed) {
+                      final right = left + width * amount / span;
+                      final x = details.localPosition.dx;
+                      if (x >= left && x <= right) {
+                        pick(i == selected ? null : i);
+                        return;
+                      }
+                      left = right;
                     }
-                    left = right;
-                  }
-                  pick(null);
-                },
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeOutCubic,
-            builder: (context, grow, _) => CustomPaint(
-              size: Size(width, height + 34),
-              painter: _BudgetPainter(
-                pieces: pieces,
-                limit: limit,
-                selected: selected,
-                grow: grow,
-                height: height,
+                    pick(null);
+                  },
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, grow, _) => CustomPaint(
+                size: Size(width, height + 34),
+                painter: _BudgetPainter(
+                  pieces: pieces,
+                  limit: limit,
+                  selected: selected,
+                  grow: grow,
+                  height: height,
+                  pace: pace,
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -77,6 +85,7 @@ class _BudgetPainter extends CustomPainter {
     required this.selected,
     required this.grow,
     required this.height,
+    required this.pace,
   });
 
   final List<(Color, int)> pieces;
@@ -84,6 +93,7 @@ class _BudgetPainter extends CustomPainter {
   final int? selected;
   final double grow;
   final double height;
+  final double? pace;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -112,17 +122,28 @@ class _BudgetPainter extends CustomPainter {
       );
       left += width;
     }
+    final time = pace;
+    if (time != null && limit > 0) {
+      final x = size.width * min(1.0, time) * limit / span;
+      final dash = Paint()
+        ..color = Hue.ink.withValues(alpha: 0.7)
+        ..strokeWidth = 1.5;
+      for (var y = 2.0; y < height - 2; y += 5) {
+        canvas.drawLine(Offset(x, y), Offset(x, min(y + 2.5, height)), dash);
+      }
+    }
     canvas.restore();
 
     const small = TextStyle(fontSize: 11, color: Hue.muted);
-    paintText(canvas, '0', small, Offset(0, height + 6), anchor: Offset.zero);
-    paintText(
-      canvas,
-      '100',
-      small,
-      Offset(size.width, height + 6),
-      anchor: const Offset(1, 0),
-    );
+    if (time != null) {
+      paintText(
+        canvas,
+        '｜時間 ${(min(1.0, time) * 100).round()}%',
+        small,
+        Offset(size.width, height + 6),
+        anchor: const Offset(1, 0),
+      );
+    }
     if (limit <= 0) return;
     final share = used / limit;
     final x = (size.width * min(1.0, share) * grow).clamp(6.0, size.width - 6);
@@ -148,5 +169,8 @@ class _BudgetPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BudgetPainter old) =>
-      old.selected != selected || old.grow != grow || old.pieces != pieces;
+      old.selected != selected ||
+      old.grow != grow ||
+      old.pieces != pieces ||
+      old.pace != pace;
 }

@@ -77,7 +77,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                               style: TextStyle(fontSize: 12, color: Hue.muted),
                             ),
                             Text(
-                              signed(gain),
+                              moneySigned(gain),
                               style: TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w600,
@@ -94,12 +94,12 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         const Divider(height: 24),
                         Row(
                           children: [
-                            Expanded(child: Figure('持股市值', groupDigits(value))),
-                            Expanded(child: Figure('投入成本', groupDigits(cost))),
+                            Expanded(child: Figure('持股市值', money(value))),
+                            Expanded(child: Figure('投入成本', money(cost))),
                             Expanded(
                               child: Figure(
                                 '已實現損益',
-                                signed(ledger.realized),
+                                moneySigned(ledger.realized),
                                 end: true,
                               ),
                             ),
@@ -120,7 +120,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     children: [
                       const Text('本月股息 ', style: TextStyle(color: Hue.muted)),
                       Text(
-                        groupDigits(ledger.dividends(year, month)),
+                        money(ledger.dividends(year, month)),
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
@@ -143,7 +143,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                           style: TextStyle(fontSize: 12, color: Hue.muted),
                         ),
                         TextSpan(
-                          text: groupDigits(ledger.totalDividends),
+                          text: money(ledger.totalDividends),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -203,7 +203,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  signed(h.gain),
+                                  moneySigned(h.gain),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -213,7 +213,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                                   ),
                                 ),
                                 Text(
-                                  '市值 ${groupDigits(h.value)}',
+                                  '市值 ${money(h.value)}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Hue.muted,

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
 
+import '../look/figures.dart';
+
 /// What an entry does. Buys, sells and dividends are investment entries.
 enum EntryType { expense, income, transfer, buy, sell, dividend }
 
@@ -551,6 +553,7 @@ final class Ledger extends ChangeNotifier {
       ..clear()
       ..addAll(fresh._recurring);
     hidden = false;
+    amountsHidden = false;
     _replay();
     notifyListeners();
   }
@@ -562,6 +565,7 @@ final class Ledger extends ChangeNotifier {
 
   void toggleHidden() {
     hidden = !hidden;
+    amountsHidden = hidden;
     notifyListeners();
   }
 

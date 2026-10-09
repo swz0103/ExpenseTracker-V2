@@ -71,7 +71,6 @@ class MonthSwitch extends StatelessWidget {
           tooltip: '上個月',
           onPressed: () => onChanged(_step(-1)),
           icon: const GlyphIcon(Glyph.back, size: 18, color: Hue.muted),
-          visualDensity: VisualDensity.compact,
         ),
         Text(
           '$year / $m',
@@ -81,7 +80,6 @@ class MonthSwitch extends StatelessWidget {
           tooltip: '下個月',
           onPressed: atEnd ? null : () => onChanged(_step(1)),
           icon: const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
-          visualDensity: VisualDensity.compact,
         ),
       ],
     );
@@ -192,7 +190,7 @@ class LinkToggle extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
           label,
           style: const TextStyle(

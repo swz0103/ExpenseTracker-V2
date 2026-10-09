@@ -44,3 +44,13 @@ String longDay(DateTime date) =>
 
 /// 「2026 年 10 月 4 日 · 週日」.
 String fullDay(DateTime date) => '${date.year} 年 ${longDay(date)}';
+
+/// While true, [money] and [moneySigned] write dots instead of amounts:
+/// the 隱藏金額 switch, set by the ledger.
+bool amountsHidden = false;
+
+/// [groupDigits], or dots while amounts are hidden.
+String money(int value) => amountsHidden ? '••••' : groupDigits(value);
+
+/// [signed], or dots while amounts are hidden.
+String moneySigned(int value) => amountsHidden ? '••••' : signed(value);

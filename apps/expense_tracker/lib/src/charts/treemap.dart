@@ -103,6 +103,8 @@ class Treemap extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.onOpen,
+    this.hint,
+    this.hidden = false,
     this.height = 160,
   });
 
@@ -110,42 +112,53 @@ class Treemap extends StatelessWidget {
   final int? selected;
   final ValueChanged<int?> onSelect;
   final ValueChanged<int>? onOpen;
+
+  /// A line under the picked tile's amount saying what another tap does.
+  final String? hint;
+
+  /// Dots instead of amounts.
+  final bool hidden;
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final rects = treemapLayout(
-            _shownWeights([for (final t in tiles) t.$2]),
-            Offset.zero & constraints.biggest,
-          );
-          return GestureDetector(
-            onTapDown: (details) {
-              for (final (i, rect) in rects.indexed) {
-                if (rect.contains(details.localPosition)) {
-                  final open = onOpen;
-                  if (i == selected && open != null) {
-                    open(i);
-                  } else {
-                    onSelect(i == selected ? null : i);
+    // Its own layer: chart animations and taps do not repaint the page.
+    return RepaintBoundary(
+      child: SizedBox(
+        height: height,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final rects = treemapLayout(
+              _shownWeights([for (final t in tiles) t.$2]),
+              Offset.zero & constraints.biggest,
+            );
+            return GestureDetector(
+              onTapDown: (details) {
+                for (final (i, rect) in rects.indexed) {
+                  if (rect.contains(details.localPosition)) {
+                    final open = onOpen;
+                    if (i == selected && open != null) {
+                      open(i);
+                    } else {
+                      onSelect(i == selected ? null : i);
+                    }
+                    return;
                   }
-                  return;
                 }
-              }
-            },
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _TreemapPainter(
-                tiles: tiles,
-                rects: rects,
-                selected: selected,
+              },
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _TreemapPainter(
+                  tiles: tiles,
+                  rects: rects,
+                  selected: selected,
+                  hint: hint,
+                  hidden: hidden,
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -156,11 +169,15 @@ class _TreemapPainter extends CustomPainter {
     required this.tiles,
     required this.rects,
     required this.selected,
+    required this.hint,
+    required this.hidden,
   });
 
   final List<(String, int, Color)> tiles;
   final List<Rect> rects;
   final int? selected;
+  final String? hint;
+  final bool hidden;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -194,24 +211,38 @@ class _TreemapPainter extends CustomPainter {
         continue;
       }
       final share = total == 0 ? 0 : (amount * 100 / total).round();
+      final more = hint;
+      final lift = more != null && rect.height >= 76 ? -10.0 : 0.0;
       paintText(
         canvas,
         name,
         label,
-        rect.center.translate(0, -12),
+        rect.center.translate(0, lift - 12),
         maxWidth: rect.width - 8,
       );
       paintText(
         canvas,
-        '${groupDigits(amount)}・$share%',
+        '${hidden ? '••••' : groupDigits(amount)}・$share%',
         label.copyWith(fontSize: 11, fontWeight: FontWeight.w500),
-        rect.center.translate(0, 8),
+        rect.center.translate(0, lift + 8),
         maxWidth: rect.width - 8,
       );
+      if (lift != 0 && more != null) {
+        paintText(
+          canvas,
+          more,
+          label.copyWith(fontSize: 11, decoration: TextDecoration.underline),
+          rect.center.translate(0, lift + 28),
+          maxWidth: rect.width - 8,
+        );
+      }
     }
   }
 
   @override
   bool shouldRepaint(_TreemapPainter old) =>
-      old.selected != selected || old.rects != rects || old.tiles != tiles;
+      old.selected != selected ||
+      old.rects != rects ||
+      old.tiles != tiles ||
+      old.hidden != hidden;
 }

@@ -13,7 +13,7 @@ import 'pickers.dart';
 /// The four tabs of the composer.
 enum ComposeMode {
   expense('支出', Glyph.bag, Hue.negative, Hue.expenseSoft),
-  income('收入', Glyph.salary, Hue.positive, Hue.incomeSoft),
+  income('收入', Glyph.income, Hue.positive, Hue.incomeSoft),
   transfer('轉帳', Glyph.transfer, Hue.transfer, Hue.transferSoft),
   investment('投資', Glyph.investment, Hue.investment, Hue.investmentSoft);
 
@@ -130,14 +130,41 @@ class _ComposerState extends State<Composer> {
     _date = _ledger.today;
     _account = accounts.first.id;
     _to = accounts.length > 1 ? accounts[1].id : accounts.first.id;
+    final common = _commonCategories();
     final categories = _ledger.categoriesFor(
       income: _mode == ComposeMode.income,
     );
-    _category = categories.isEmpty ? '' : categories.first.name;
+    _category = common.isNotEmpty
+        ? common.first
+        : categories.isEmpty
+        ? ''
+        : categories.first.name;
     _holding = _ledger.holdings.isEmpty ? null : _ledger.holdings.first.code;
     _shares = 0;
     _note.text = '';
     _problem = null;
+  }
+
+  /// Up to four categories of this tab, most used over the last two
+  /// months first, so the likely one is picked and the rest are a tap
+  /// away.
+  List<String> _commonCategories() {
+    final income = _mode == ComposeMode.income;
+    final type = income ? EntryType.income : EntryType.expense;
+    final today = _ledger.today;
+    final counts = <String, int>{};
+    for (final back in const [0, 1]) {
+      final month = DateTime.utc(today.year, today.month - back);
+      for (final e in _ledger.entriesIn(month.year, month.month)) {
+        if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
+      }
+    }
+    final names = {
+      for (final c in _ledger.categoriesFor(income: income)) c.name,
+    };
+    final ranked = counts.keys.where(names.contains).toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return ranked.take(4).toList();
   }
 
   Map<String, Object?> _save() => {
@@ -210,6 +237,7 @@ class _ComposerState extends State<Composer> {
   }
 
   String get _sign => switch (_type) {
+    _ when _amount == 0 => '',
     EntryType.expense || EntryType.buy => '−',
     EntryType.transfer => '',
     _ => '+',
@@ -499,28 +527,20 @@ class _ComposerState extends State<Composer> {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 46,
-                  child: FilledButton(
-                    onPressed: widget.entry != null
-                        ? () => Navigator.of(context).pop()
-                        : () {
-                            _drafts[_mode] = _Draft(_save());
-                            Navigator.of(context).pop();
-                          },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Hue.surface,
-                      foregroundColor: Hue.ink,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(widget.entry != null ? '取消' : '暫存'),
-                  ),
+              TextButton(
+                onPressed: widget.entry != null
+                    ? () => Navigator.of(context).pop()
+                    : () {
+                        _drafts[_mode] = _Draft(_save());
+                        Navigator.of(context).pop();
+                      },
+                style: TextButton.styleFrom(
+                  foregroundColor: Hue.muted,
+                  minimumSize: const Size(64, 46),
                 ),
+                child: Text(widget.entry != null ? '取消' : '暫存'),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
                   height: 46,
@@ -581,6 +601,28 @@ class _ComposerState extends State<Composer> {
     );
   }
 
+  /// The common categories as one-tap chips under the fields.
+  Widget _quickCategories() {
+    final common = _commonCategories();
+    if (common.length < 2) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final name in common)
+            _Chip(
+              category: _ledger.category(name),
+              picked: name == _category,
+              onTap: () => setState(() => _category = name),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _fields() {
     final account = _ledger.account(_account);
     final accountField = _Field(
@@ -615,6 +657,7 @@ class _ComposerState extends State<Composer> {
               ),
             ],
           ),
+          _quickCategories(),
         ];
       case ComposeMode.transfer:
         final to = _ledger.account(_to);
@@ -725,6 +768,50 @@ class _ComposerState extends State<Composer> {
           ),
         ];
     }
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.category,
+    required this.picked,
+    required this.onTap,
+  });
+
+  final Category category;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = category.color;
+    return Material(
+      color: picked ? softOf(color) : Colors.transparent,
+      shape: StadiumBorder(
+        side: BorderSide(color: picked ? color : Hue.line),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GlyphIcon(iconFor(category.icon), size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                category.name,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: picked ? Hue.ink : Hue.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

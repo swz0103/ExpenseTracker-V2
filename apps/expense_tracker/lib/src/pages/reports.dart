@@ -93,7 +93,7 @@ class _ReportsPageState extends State<ReportsPage> {
                         style: TextStyle(fontSize: 12, color: Hue.muted),
                       ),
                       Text(
-                        groupDigits(left),
+                        money(left),
                         style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w600,
@@ -126,14 +126,14 @@ class _ReportsPageState extends State<ReportsPage> {
                       Expanded(
                         child: Figure(
                           '● 收入',
-                          groupDigits(income),
+                          money(income),
                           color: Hue.positive,
                           size: 20,
                         ),
                       ),
                       Figure(
                         '支出 ●',
-                        groupDigits(expense),
+                        money(expense),
                         color: Hue.negative,
                         size: 20,
                         end: true,
@@ -158,8 +158,8 @@ class _ReportsPageState extends State<ReportsPage> {
                             const Spacer(),
                             Text(
                               change <= 0
-                                  ? '減少 ${groupDigits(-change)}'
-                                  : '增加 ${groupDigits(change)}',
+                                  ? '減少 ${money(-change)}'
+                                  : '增加 ${money(change)}',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -191,7 +191,7 @@ class _ReportsPageState extends State<ReportsPage> {
                               ),
                               const Spacer(),
                               Text(
-                                signed(rows.first.$3),
+                                moneySigned(rows.first.$3),
                                 style: const TextStyle(fontSize: 13),
                               ),
                             ],
@@ -278,7 +278,7 @@ class _ReportsPageState extends State<ReportsPage> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  groupDigits(amount),
+                                  money(amount),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -286,7 +286,7 @@ class _ReportsPageState extends State<ReportsPage> {
                                   ),
                                 ),
                                 Text(
-                                  signed(diff),
+                                  moneySigned(diff),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Hue.muted,

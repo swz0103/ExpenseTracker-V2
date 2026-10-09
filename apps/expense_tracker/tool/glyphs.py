@@ -102,16 +102,23 @@ ICONS = {
     },
     "other": {S: [ring(6, 12, 1.5), ring(12, 12, 1.5), ring(18, 12, 1.5)]},
     "salary": {
-        T: [TRAY_TINT],
-        L: TRAY + [poly(12, 3.5, 12, 11.5), poly(8.8, 8.5, 12, 11.7, 15.2, 8.5)],
+        T: [box(3, 8.5, 18.5, 18, 2)],
+        L: [
+            poly(6.5, 8.5, 6.5, 5.5, 21, 5.5, 21, 15, 18.5, 15),
+            box(3, 8.5, 18.5, 18, 2),
+            ring(10.75, 13.25, 2.3),
+        ],
+        S: [ring(6.2, 13.25, 0.9), ring(15.3, 13.25, 0.9)],
     },
     "payout": {
-        T: [TRAY_TINT],
-        L: TRAY + [poly(12, 11.5, 12, 3.5), poly(8.8, 6.7, 12, 3.5, 15.2, 6.7)],
+        T: [("disc", 12, 12, 8.5)],
+        L: [ring(12, 12, 8.5), poly(8.4, 15.6, 15.4, 8.6),
+            poly(10.4, 8.4, 15.6, 8.4, 15.6, 13.6)],
     },
     "income": {
-        T: [TRAY_TINT],
-        L: TRAY + [poly(12, 4, 12, 11), poly(8.5, 7.5, 15.5, 7.5)],
+        T: [("disc", 12, 12, 8.5)],
+        L: [ring(12, 12, 8.5), poly(15.6, 8.4, 8.6, 15.4),
+            poly(8.4, 10.4, 8.4, 15.6, 13.6, 15.6)],
     },
     "dividend": {
         T: [
@@ -455,10 +462,7 @@ class GlyphPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final scale = size.shortestSide / 24;
     if (scale <= 0) return;
-    final tint = Path();
-    final line = Path();
-    final solid = Path();
-    _draw(glyph, tint, line, solid);
+    final (tint, line, solid) = _paths[glyph] ??= _build(glyph);
     canvas
       ..save()
       ..translate((size.width - 24 * scale) / 2, (size.height - 24 * scale) / 2)
@@ -486,6 +490,18 @@ class GlyphPainter extends CustomPainter {
       old.color != color ||
       old.weight != weight ||
       old.tinted != tinted;
+}
+
+/// Each glyph's paths, built once on the 24-unit grid and reused by every
+/// icon that shows it.
+final _paths = <Glyph, (Path, Path, Path)>{};
+
+(Path, Path, Path) _build(Glyph glyph) {
+  final tint = Path();
+  final line = Path();
+  final solid = Path();
+  _draw(glyph, tint, line, solid);
+  return (tint, line, solid);
 }
 
 void _poly(Path p, List<double> xy, {bool close = false}) {

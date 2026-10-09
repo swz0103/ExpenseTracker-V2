@@ -90,7 +90,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                                     style: const TextStyle(color: Hue.muted),
                                   ),
                                   Text(
-                                    'TWD ${groupDigits(left.abs())}',
+                                    'TWD ${money(left.abs())}',
                                     style: TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w600,
@@ -120,7 +120,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                                     ],
                                   ),
                                   Text(
-                                    groupDigits(total),
+                                    money(total),
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w600,
@@ -138,7 +138,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                           height: 12,
                         ),
                         Text(
-                          '已用 ${groupDigits(spent)}',
+                          '已用 ${money(spent)}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Hue.negative,
@@ -209,7 +209,7 @@ class _CategoryLimit extends StatelessWidget {
                       style: const TextStyle(fontSize: 12, color: Hue.muted),
                     ),
                     Text(
-                      groupDigits(left.abs()),
+                      money(left.abs()),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -234,7 +234,7 @@ class _CategoryLimit extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      groupDigits(limit),
+                      money(limit),
                       style: const TextStyle(fontSize: 12, color: Hue.muted),
                     ),
                   ],

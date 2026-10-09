@@ -106,10 +106,7 @@ class GlyphPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final scale = size.shortestSide / 24;
     if (scale <= 0) return;
-    final tint = Path();
-    final line = Path();
-    final solid = Path();
-    _draw(glyph, tint, line, solid);
+    final (tint, line, solid) = _paths[glyph] ??= _build(glyph);
     canvas
       ..save()
       ..translate((size.width - 24 * scale) / 2, (size.height - 24 * scale) / 2)
@@ -137,6 +134,18 @@ class GlyphPainter extends CustomPainter {
       old.color != color ||
       old.weight != weight ||
       old.tinted != tinted;
+}
+
+/// Each glyph's paths, built once on the 24-unit grid and reused by every
+/// icon that shows it.
+final _paths = <Glyph, (Path, Path, Path)>{};
+
+(Path, Path, Path) _build(Glyph glyph) {
+  final tint = Path();
+  final line = Path();
+  final solid = Path();
+  _draw(glyph, tint, line, solid);
+  return (tint, line, solid);
 }
 
 void _poly(Path p, List<double> xy, {bool close = false}) {
@@ -218,23 +227,22 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
       _ring(f, 12, 12, 1.5);
       _ring(f, 18, 12, 1.5);
     case Glyph.salary:
-      _box(t, 4, 14.5, 20, 19.5, 0);
-      _poly(p, [4, 12.5, 4, 19.5, 20, 19.5, 20, 12.5]);
-      _poly(p, [4, 14.5, 9, 14.5, 10, 16.5, 14, 16.5, 15, 14.5, 20, 14.5]);
-      _poly(p, [12, 3.5, 12, 11.5]);
-      _poly(p, [8.8, 8.5, 12, 11.7, 15.2, 8.5]);
+      _box(t, 3, 8.5, 18.5, 18, 2);
+      _poly(p, [6.5, 8.5, 6.5, 5.5, 21, 5.5, 21, 15, 18.5, 15]);
+      _box(p, 3, 8.5, 18.5, 18, 2);
+      _ring(p, 10.75, 13.25, 2.3);
+      _ring(f, 6.2, 13.25, 0.9);
+      _ring(f, 15.3, 13.25, 0.9);
     case Glyph.payout:
-      _box(t, 4, 14.5, 20, 19.5, 0);
-      _poly(p, [4, 12.5, 4, 19.5, 20, 19.5, 20, 12.5]);
-      _poly(p, [4, 14.5, 9, 14.5, 10, 16.5, 14, 16.5, 15, 14.5, 20, 14.5]);
-      _poly(p, [12, 11.5, 12, 3.5]);
-      _poly(p, [8.8, 6.7, 12, 3.5, 15.2, 6.7]);
+      _ring(t, 12, 12, 8.5);
+      _ring(p, 12, 12, 8.5);
+      _poly(p, [8.4, 15.6, 15.4, 8.6]);
+      _poly(p, [10.4, 8.4, 15.6, 8.4, 15.6, 13.6]);
     case Glyph.income:
-      _box(t, 4, 14.5, 20, 19.5, 0);
-      _poly(p, [4, 12.5, 4, 19.5, 20, 19.5, 20, 12.5]);
-      _poly(p, [4, 14.5, 9, 14.5, 10, 16.5, 14, 16.5, 15, 14.5, 20, 14.5]);
-      _poly(p, [12, 4, 12, 11]);
-      _poly(p, [8.5, 7.5, 15.5, 7.5]);
+      _ring(t, 12, 12, 8.5);
+      _ring(p, 12, 12, 8.5);
+      _poly(p, [15.6, 8.4, 8.6, 15.4]);
+      _poly(p, [8.4, 10.4, 8.4, 15.6, 13.6, 15.6]);
     case Glyph.dividend:
       _ring(t, 12, 15.5, 5);
       t.moveTo(12, 8);

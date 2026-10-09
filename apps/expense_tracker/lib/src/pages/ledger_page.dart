@@ -172,18 +172,31 @@ class _LedgerPageState extends State<LedgerPage> {
         final shown = _shown();
         final rows = <Widget>[];
         DateTime? day;
+        Glyph? lastMark;
         for (final e in shown) {
           if (e.date != day) {
             day = e.date;
-            rows.add(DayHeading(e.date));
+            lastMark = null;
+            final spentToday = ledger.spentOn(e.date);
+            rows.add(
+              DayHeading(
+                e.date,
+                total: spentToday == 0
+                    ? null
+                    : '支出 ${ledger.hidden ? '••••' : groupDigits(spentToday)}',
+              ),
+            );
           }
+          final (mark, _) = entryMark(ledger, e);
           rows.add(
             EntryTile(
               ledger: ledger,
               entry: e,
+              repeat: mark == lastMark,
               onTap: () => widget.nav.showEntry(e),
             ),
           );
+          lastMark = mark;
         }
         final account = _account;
         return ListView(
@@ -209,7 +222,7 @@ class _LedgerPageState extends State<LedgerPage> {
                   style: TextStyle(fontSize: 12, color: Hue.muted),
                 ),
                 Text(
-                  groupDigits(income - expense),
+                  ledger.hidden ? '••••' : groupDigits(income - expense),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -221,9 +234,9 @@ class _LedgerPageState extends State<LedgerPage> {
             const SizedBox(height: 10),
             Row(
               children: [
-                _Pair('收入', income, Hue.positive),
+                _Pair('收入', income, Hue.positive, hidden: ledger.hidden),
                 const Spacer(),
-                _Pair('支出', expense, Hue.negative),
+                _Pair('支出', expense, Hue.negative, hidden: ledger.hidden),
               ],
             ),
             const SizedBox(height: 8),
@@ -254,10 +267,14 @@ class _LedgerPageState extends State<LedgerPage> {
                   label: const Text('篩選'),
                   style: TextButton.styleFrom(foregroundColor: Hue.muted),
                 ),
-                IconButton(
-                  tooltip: '複製 CSV',
-                  onPressed: _export,
-                  icon: const GlyphIcon(Glyph.download, color: Hue.muted),
+                PopupMenuButton<String>(
+                  tooltip: '更多動作',
+                  color: Hue.panel,
+                  icon: const GlyphIcon(Glyph.other, color: Hue.muted),
+                  onSelected: (_) => _export(),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'csv', child: Text('複製本月 CSV')),
+                  ],
                 ),
               ],
             ),
@@ -312,11 +329,12 @@ class _LedgerPageState extends State<LedgerPage> {
 }
 
 class _Pair extends StatelessWidget {
-  const _Pair(this.label, this.amount, this.color);
+  const _Pair(this.label, this.amount, this.color, {this.hidden = false});
 
   final String label;
   final int amount;
   final Color color;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +346,7 @@ class _Pair extends StatelessWidget {
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           TextSpan(
-            text: groupDigits(amount),
+            text: hidden ? '••••' : groupDigits(amount),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
