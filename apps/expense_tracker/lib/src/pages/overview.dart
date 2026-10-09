@@ -866,7 +866,8 @@ class _DueRow extends StatelessWidget {
                     ),
                     if (next != null)
                       TextSpan(
-                        text: '　${today.month}/${next.day} ${next.name} '
+                        text:
+                            '　${today.month}/${next.day} ${next.name} '
                             '${hidden ? '••••' : groupDigits(next.amount)}',
                         style: const TextStyle(fontSize: 13, color: Hue.muted),
                       ),

@@ -787,9 +787,7 @@ class _Chip extends StatelessWidget {
     final color = category.color;
     return Material(
       color: picked ? softOf(color) : Colors.transparent,
-      shape: StadiumBorder(
-        side: BorderSide(color: picked ? color : Hue.line),
-      ),
+      shape: StadiumBorder(side: BorderSide(color: picked ? color : Hue.line)),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onTap,
