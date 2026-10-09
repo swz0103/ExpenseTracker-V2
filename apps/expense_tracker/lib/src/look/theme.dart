@@ -66,7 +66,8 @@ ThemeData appTheme() {
   final base = ThemeData(
     colorScheme: scheme,
     scaffoldBackgroundColor: Hue.paper,
-    fontFamily: 'NotoSansTC',
+    fontFamily: 'Nunito',
+    fontFamilyFallback: const ['Huninn'],
     useMaterial3: true,
     splashFactory: NoSplash.splashFactory,
   );

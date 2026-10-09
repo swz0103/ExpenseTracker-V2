@@ -146,8 +146,7 @@ class _ComposerState extends State<Composer> {
   }
 
   /// Up to four categories of this tab, most used over the last two
-  /// months first, so the likely one is picked and the rest are a tap
-  /// away.
+  /// months first, so a new entry starts on the likely one.
   List<String> _commonCategories() {
     final income = _mode == ComposeMode.income;
     final type = income ? EntryType.income : EntryType.expense;
@@ -601,28 +600,6 @@ class _ComposerState extends State<Composer> {
     );
   }
 
-  /// The common categories as one-tap chips under the fields.
-  Widget _quickCategories() {
-    final common = _commonCategories();
-    if (common.length < 2) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final name in common)
-            _Chip(
-              category: _ledger.category(name),
-              picked: name == _category,
-              onTap: () => setState(() => _category = name),
-            ),
-        ],
-      ),
-    );
-  }
-
   List<Widget> _fields() {
     final account = _ledger.account(_account);
     final accountField = _Field(
@@ -657,7 +634,6 @@ class _ComposerState extends State<Composer> {
               ),
             ],
           ),
-          _quickCategories(),
         ];
       case ComposeMode.transfer:
         final to = _ledger.account(_to);
@@ -768,48 +744,6 @@ class _ComposerState extends State<Composer> {
           ),
         ];
     }
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.category,
-    required this.picked,
-    required this.onTap,
-  });
-
-  final Category category;
-  final bool picked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = category.color;
-    return Material(
-      color: picked ? softOf(color) : Colors.transparent,
-      shape: StadiumBorder(side: BorderSide(color: picked ? color : Hue.line)),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GlyphIcon(iconFor(category.icon), size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                category.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: picked ? Hue.ink : Hue.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

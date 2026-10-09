@@ -462,6 +462,16 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Changes a category's name, mark and colour; a new name reaches every
+  /// entry, budget and recurring item that uses it.
+  void editCategory(String from, Category next) {
+    renameCategory(from, next.name);
+    for (final (i, c) in _categories.indexed) {
+      if (c.name == next.name) _categories[i] = next;
+    }
+    notifyListeners();
+  }
+
   /// Renames a category and every entry, budget and recurring item that
   /// uses it.
   void renameCategory(String from, String to) {

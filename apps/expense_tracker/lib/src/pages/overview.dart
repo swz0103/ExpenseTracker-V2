@@ -31,7 +31,7 @@ class _OverviewPageState extends State<OverviewPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
   late DateTime _day = widget.ledger.today;
   var _dayPage = 0;
-  var _scale = BarScale.enlarged;
+  static const _scale = BarScale.proportional;
   String? _holding;
   int? _piece;
   int? _tile;
@@ -289,11 +289,6 @@ class _OverviewPageState extends State<OverviewPage> {
             const Text(
               '投資行情',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 10),
-            LinkToggle(
-              '刻度：${_scale.label}',
-              onTap: () => setState(() => _scale = _scale.other),
             ),
             const Spacer(),
             Column(

@@ -29,7 +29,7 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  var _scale = BarScale.enlarged;
+  static const _scale = BarScale.proportional;
   var _week = 3;
 
   @override
@@ -128,13 +128,7 @@ class _AccountPageState extends State<AccountPage> {
                       ],
                     ),
                   ),
-                  SectionHead(
-                    '近四週',
-                    trailing: LinkToggle(
-                      _scale.label,
-                      onTap: () => setState(() => _scale = _scale.other),
-                    ),
-                  ),
+                  const SectionHead('近四週'),
                   Waterfall(
                     weeks: weeks,
                     balance: balance,

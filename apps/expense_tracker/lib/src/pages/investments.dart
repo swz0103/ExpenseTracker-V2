@@ -24,7 +24,7 @@ class InvestmentsPage extends StatefulWidget {
 
 class _InvestmentsPageState extends State<InvestmentsPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
-  var _scale = BarScale.enlarged;
+  static const _scale = BarScale.proportional;
 
   @override
   Widget build(BuildContext context) {
@@ -149,13 +149,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                       ],
                     ),
                   ),
-                  SectionHead(
-                    '持股損益',
-                    trailing: LinkToggle(
-                      _scale.label,
-                      onTap: () => setState(() => _scale = _scale.other),
-                    ),
-                  ),
+                  const SectionHead('持股損益'),
                   for (final h in holdings)
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),

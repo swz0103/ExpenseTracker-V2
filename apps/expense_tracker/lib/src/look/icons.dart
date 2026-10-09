@@ -16,19 +16,35 @@ const _categoryIcons = {
   'income': Glyph.income,
   'transfer': Glyph.transfer,
   'investment': Glyph.investment,
+  'cup': Glyph.cup,
+  'shirt': Glyph.shirt,
+  'gift': Glyph.gift,
+  'book': Glyph.book,
+  'health': Glyph.health,
+  'pet': Glyph.pet,
+  'car': Glyph.car,
+  'game': Glyph.game,
 };
 
 /// Icon keys a new category may take.
 const categoryIconKeys = [
-  'home',
   'food',
+  'cup',
+  'home',
   'travel',
+  'car',
   'bag',
+  'shirt',
   'subscription',
+  'game',
+  'book',
+  'health',
+  'gift',
+  'pet',
   'other',
   'salary',
-  'dividend',
   'income',
+  'dividend',
 ];
 
 Glyph iconFor(String key) => _categoryIcons[key] ?? Glyph.other;

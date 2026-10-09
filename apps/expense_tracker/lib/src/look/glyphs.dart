@@ -18,6 +18,14 @@ enum Glyph {
   payout,
   income,
   dividend,
+  cup,
+  shirt,
+  gift,
+  book,
+  health,
+  pet,
+  car,
+  game,
   transfer,
   investment,
   cash,
@@ -234,15 +242,48 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
       _ring(f, 6.2, 13.25, 0.9);
       _ring(f, 15.3, 13.25, 0.9);
     case Glyph.payout:
-      _ring(t, 12, 12, 8.5);
-      _ring(p, 12, 12, 8.5);
-      _poly(p, [8.4, 15.6, 15.4, 8.6]);
-      _poly(p, [10.4, 8.4, 15.6, 8.4, 15.6, 13.6]);
+      t.moveTo(6, 3.5);
+      t.lineTo(18, 3.5);
+      t.lineTo(18, 20.5);
+      t.lineTo(16, 19);
+      t.lineTo(14, 20.5);
+      t.lineTo(12, 19);
+      t.lineTo(10, 20.5);
+      t.lineTo(8, 19);
+      t.lineTo(6, 20.5);
+      t.close();
+      p.moveTo(6, 3.5);
+      p.lineTo(18, 3.5);
+      p.lineTo(18, 20.5);
+      p.lineTo(16, 19);
+      p.lineTo(14, 20.5);
+      p.lineTo(12, 19);
+      p.lineTo(10, 20.5);
+      p.lineTo(8, 19);
+      p.lineTo(6, 20.5);
+      p.close();
+      _poly(p, [9, 8, 15, 8]);
+      _poly(p, [9, 11.5, 15, 11.5]);
+      _poly(p, [9, 15, 12.5, 15]);
     case Glyph.income:
-      _ring(t, 12, 12, 8.5);
-      _ring(p, 12, 12, 8.5);
-      _poly(p, [15.6, 8.4, 8.6, 15.4]);
-      _poly(p, [8.4, 10.4, 8.4, 15.6, 13.6, 15.6]);
+      t.moveTo(9, 9);
+      t.quadraticBezierTo(4, 12.5, 4.5, 16.5);
+      t.quadraticBezierTo(5, 20.5, 12, 20.5);
+      t.quadraticBezierTo(19, 20.5, 19.5, 16.5);
+      t.quadraticBezierTo(20, 12.5, 15, 9);
+      t.close();
+      p.moveTo(9, 9);
+      p.quadraticBezierTo(4, 12.5, 4.5, 16.5);
+      p.quadraticBezierTo(5, 20.5, 12, 20.5);
+      p.quadraticBezierTo(19, 20.5, 19.5, 16.5);
+      p.quadraticBezierTo(20, 12.5, 15, 9);
+      p.close();
+      p.moveTo(9, 9);
+      p.lineTo(7.5, 4.5);
+      p.quadraticBezierTo(12, 6, 16.5, 4.5);
+      p.lineTo(15, 9);
+      _poly(p, [12, 12.5, 12, 17.5]);
+      _poly(p, [9.5, 15, 14.5, 15]);
     case Glyph.dividend:
       _ring(t, 12, 15.5, 5);
       t.moveTo(12, 8);
@@ -258,6 +299,125 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
       p.quadraticBezierTo(15.2, 7.3, 16.5, 4.5);
       p.quadraticBezierTo(13, 4.3, 12, 7.5);
       _ring(f, 12, 15.5, 1.3);
+    case Glyph.cup:
+      t.moveTo(5, 8);
+      t.lineTo(16, 8);
+      t.lineTo(15, 18);
+      t.quadraticBezierTo(14.8, 20, 13, 20);
+      t.lineTo(8, 20);
+      t.quadraticBezierTo(6.2, 20, 6, 18);
+      t.close();
+      p.moveTo(5, 8);
+      p.lineTo(16, 8);
+      p.lineTo(15, 18);
+      p.quadraticBezierTo(14.8, 20, 13, 20);
+      p.lineTo(8, 20);
+      p.quadraticBezierTo(6.2, 20, 6, 18);
+      p.close();
+      p.moveTo(15.8, 10);
+      p.quadraticBezierTo(19.5, 9.8, 19.3, 12.6);
+      p.quadraticBezierTo(19, 15.3, 15.3, 15.3);
+      _poly(p, [9, 5.5, 9, 3.5]);
+      _poly(p, [12.5, 5.5, 12.5, 3.5]);
+    case Glyph.shirt:
+      _poly(t, [
+        8, 4, 4, 6.5, 5.5, 10.5, 7.5, 9.5, 7.5, 20, 16.5, 20, 16.5, 9.5, 18.5,
+        10.5, 20, 6.5, 16, 4,
+      ], close: true);
+      p.moveTo(8, 4);
+      p.lineTo(4, 6.5);
+      p.lineTo(5.5, 10.5);
+      p.lineTo(7.5, 9.5);
+      p.lineTo(7.5, 20);
+      p.lineTo(16.5, 20);
+      p.lineTo(16.5, 9.5);
+      p.lineTo(18.5, 10.5);
+      p.lineTo(20, 6.5);
+      p.lineTo(16, 4);
+      p.quadraticBezierTo(14.5, 6.5, 12, 6.5);
+      p.quadraticBezierTo(9.5, 6.5, 8, 4);
+      p.close();
+    case Glyph.gift:
+      _box(t, 5, 10.5, 19, 20, 1.5);
+      _box(p, 3.5, 7, 20.5, 10.5, 1.5);
+      _poly(p, [5, 10.5, 5, 20, 19, 20, 19, 10.5]);
+      _poly(p, [12, 7, 12, 20]);
+      p.moveTo(12, 7);
+      p.quadraticBezierTo(8, 2.5, 7.5, 5.3);
+      p.quadraticBezierTo(7.5, 7, 12, 7);
+      p.moveTo(12, 7);
+      p.quadraticBezierTo(16, 2.5, 16.5, 5.3);
+      p.quadraticBezierTo(16.5, 7, 12, 7);
+    case Glyph.book:
+      t.moveTo(12, 6.5);
+      t.quadraticBezierTo(8, 4.5, 4, 5.5);
+      t.lineTo(4, 18.5);
+      t.quadraticBezierTo(8, 17.5, 12, 19.5);
+      t.quadraticBezierTo(16, 17.5, 20, 18.5);
+      t.lineTo(20, 5.5);
+      t.quadraticBezierTo(16, 4.5, 12, 6.5);
+      t.close();
+      p.moveTo(12, 6.5);
+      p.quadraticBezierTo(8, 4.5, 4, 5.5);
+      p.lineTo(4, 18.5);
+      p.quadraticBezierTo(8, 17.5, 12, 19.5);
+      p.quadraticBezierTo(16, 17.5, 20, 18.5);
+      p.lineTo(20, 5.5);
+      p.quadraticBezierTo(16, 4.5, 12, 6.5);
+      p.close();
+      _poly(p, [12, 6.5, 12, 19.5]);
+    case Glyph.health:
+      t.moveTo(12, 19.5);
+      t.quadraticBezierTo(4, 14, 4, 9.5);
+      t.quadraticBezierTo(4, 5.5, 8, 5.5);
+      t.quadraticBezierTo(10.5, 5.5, 12, 8);
+      t.quadraticBezierTo(13.5, 5.5, 16, 5.5);
+      t.quadraticBezierTo(20, 5.5, 20, 9.5);
+      t.quadraticBezierTo(20, 14, 12, 19.5);
+      t.close();
+      p.moveTo(12, 19.5);
+      p.quadraticBezierTo(4, 14, 4, 9.5);
+      p.quadraticBezierTo(4, 5.5, 8, 5.5);
+      p.quadraticBezierTo(10.5, 5.5, 12, 8);
+      p.quadraticBezierTo(13.5, 5.5, 16, 5.5);
+      p.quadraticBezierTo(20, 5.5, 20, 9.5);
+      p.quadraticBezierTo(20, 14, 12, 19.5);
+      p.close();
+      _poly(p, [12, 10, 12, 15]);
+      _poly(p, [9.5, 12.5, 14.5, 12.5]);
+    case Glyph.pet:
+      _ring(t, 12, 15.5, 4.2);
+      _ring(p, 12, 15.5, 4.2);
+      _ring(f, 6, 11, 1.9);
+      _ring(f, 9.3, 6.8, 1.9);
+      _ring(f, 14.7, 6.8, 1.9);
+      _ring(f, 18, 11, 1.9);
+    case Glyph.car:
+      _poly(t, [
+        3.5, 16, 3.5, 11.5, 6.5, 11.5, 8.5, 6.5, 15.5, 6.5, 17.5, 11.5, 20.5,
+        11.5, 20.5, 16,
+      ], close: true);
+      p.moveTo(3.5, 16);
+      p.lineTo(3.5, 12.5);
+      p.quadraticBezierTo(3.5, 11.5, 4.5, 11.5);
+      p.lineTo(6.5, 11.5);
+      p.lineTo(8.5, 6.5);
+      p.lineTo(15.5, 6.5);
+      p.lineTo(17.5, 11.5);
+      p.lineTo(19.5, 11.5);
+      p.quadraticBezierTo(20.5, 11.5, 20.5, 12.5);
+      p.lineTo(20.5, 16);
+      p.close();
+      _poly(p, [12, 6.5, 12, 11.5]);
+      _ring(f, 7.5, 18, 2);
+      _ring(f, 16.5, 18, 2);
+    case Glyph.game:
+      _box(t, 3, 8, 21, 17, 4.5);
+      _box(p, 3, 8, 21, 17, 4.5);
+      _poly(p, [7.5, 10.8, 7.5, 14.2]);
+      _poly(p, [5.8, 12.5, 9.2, 12.5]);
+      _ring(f, 15.3, 11.3, 1.1);
+      _ring(f, 17.5, 13.6, 1.1);
     case Glyph.transfer:
       _poly(p, [5, 8.5, 19, 8.5]);
       _poly(p, [15.5, 5, 19, 8.5, 15.5, 12]);

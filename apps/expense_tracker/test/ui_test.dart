@@ -13,12 +13,17 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // Lay pages out with the app's own font, so widths match a phone.
   setUpAll(() async {
-    final loader = FontLoader('NotoSansTC');
-    for (final weight in ['Regular', 'Bold']) {
-      final bytes = File('fonts/NotoSansTC-$weight.ttf').readAsBytesSync();
-      loader.addFont(Future.value(ByteData.sublistView(bytes)));
+    for (final (family, files) in const [
+      ('Nunito', ['Nunito-Regular', 'Nunito-SemiBold', 'Nunito-Bold']),
+      ('Huninn', ['Huninn-Regular']),
+    ]) {
+      final loader = FontLoader(family);
+      for (final file in files) {
+        final bytes = File('fonts/$file.ttf').readAsBytesSync();
+        loader.addFont(Future.value(ByteData.sublistView(bytes)));
+      }
+      await loader.load();
     }
-    await loader.load();
   });
 
   group('the demo book matches the approved preview', () {
