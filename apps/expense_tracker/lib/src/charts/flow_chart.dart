@@ -213,10 +213,6 @@ void _dotted(Canvas canvas, Offset from, Offset to, Paint paint) {
   final length = (to - from).distance;
   final step = (to - from) / length;
   for (var at = 0.0; at < length; at += 5) {
-    canvas.drawLine(
-      from + step * at,
-      from + step * min(at + 2, length),
-      paint,
-    );
+    canvas.drawLine(from + step * at, from + step * min(at + 2, length), paint);
   }
 }

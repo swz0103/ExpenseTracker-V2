@@ -285,8 +285,7 @@ class _LedgerPageState extends State<LedgerPage> {
                     if (_kind != KindFilter.all)
                       InputChip(
                         label: Text(_kind.label),
-                        onDeleted: () =>
-                            setState(() => _kind = KindFilter.all),
+                        onDeleted: () => setState(() => _kind = KindFilter.all),
                       ),
                     if (account != null)
                       InputChip(

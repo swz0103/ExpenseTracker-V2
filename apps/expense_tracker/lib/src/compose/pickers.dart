@@ -118,11 +118,8 @@ Future<DateTime?> pickDate(
   return showChildPage<DateTime>(
     context,
     title: title,
-    builder: (context) => _Calendar(
-      selected: selected,
-      latest: latest,
-      marked: marked,
-    ),
+    builder: (context) =>
+        _Calendar(selected: selected, latest: latest, marked: marked),
   );
 }
 
@@ -202,9 +199,7 @@ class _CalendarState extends State<_Calendar> {
           Row(
             children: [
               for (var d = 0; d < 7; d++)
-                Expanded(
-                  child: _day(start.add(Duration(days: week * 7 + d))),
-                ),
+                Expanded(child: _day(start.add(Duration(days: week * 7 + d)))),
             ],
           ),
       ],

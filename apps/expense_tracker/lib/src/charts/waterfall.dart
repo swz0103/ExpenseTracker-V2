@@ -38,8 +38,7 @@ class Waterfall extends StatelessWidget {
           final width = constraints.maxWidth;
           return GestureDetector(
             onTapDown: (d) {
-              final index = (d.localPosition.dx / width * weeks.length)
-                  .floor();
+              final index = (d.localPosition.dx / width * weeks.length).floor();
               if (index >= 0 && index < weeks.length) onSelect(index);
             },
             child: TweenAnimationBuilder<double>(
@@ -85,7 +84,7 @@ class _WaterfallPainter extends CustomPainter {
     if (weeks.isEmpty) return;
     const top = 22.0;
     final bottom = size.height - 22;
-    var level = balance - weeks.fold(0, (sum, w) => sum + w.$2);
+    var level = balance - weeks.fold<int>(0, (sum, w) => sum + w.$2);
     final levels = <int>[level];
     for (final (_, change) in weeks) {
       level += change;

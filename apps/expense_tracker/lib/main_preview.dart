@@ -11,5 +11,10 @@ import 'src/preview.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final session = await previewSession();
-  runApp(ExpenseApp(session: session, home: AppShell(ledger: demoLedger())));
+  runApp(
+    ExpenseApp(
+      session: session,
+      home: AppShell(ledger: demoLedger()),
+    ),
+  );
 }

@@ -50,8 +50,9 @@ class _AccountPageState extends State<AccountPage> {
         var outflow = 0;
         for (final e in entries) {
           final change = switch (e.type) {
-            EntryType.income || EntryType.sell || EntryType.dividend =>
-              e.amount,
+            EntryType.income ||
+            EntryType.sell ||
+            EntryType.dividend => e.amount,
             EntryType.transfer => e.to == account.id ? e.amount : -e.amount,
             _ => -e.amount,
           };

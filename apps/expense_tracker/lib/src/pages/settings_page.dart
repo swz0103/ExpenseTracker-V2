@@ -162,10 +162,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         children: [
-                          Text(
-                            '重設演示資料',
-                            style: TextStyle(color: Hue.danger),
-                          ),
+                          Text('重設演示資料', style: TextStyle(color: Hue.danger)),
                           Spacer(),
                           Icon(Icons.restart_alt, color: Hue.danger),
                         ],

@@ -165,13 +165,7 @@ class _TreemapPainter extends CustomPainter {
         color: Hue.ink.withValues(alpha: faded ? 0.5 : 0.9),
       );
       if (!picked || rect.height < 52) {
-        paintText(
-          canvas,
-          name,
-          label,
-          rect.center,
-          maxWidth: rect.width - 8,
-        );
+        paintText(canvas, name, label, rect.center, maxWidth: rect.width - 8);
         continue;
       }
       final share = total == 0 ? 0 : (amount * 100 / total).round();

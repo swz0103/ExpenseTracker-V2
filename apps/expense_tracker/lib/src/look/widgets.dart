@@ -221,10 +221,16 @@ class Rail extends StatelessWidget {
         child: Row(
           children: [
             if (left > 0)
-              Expanded(flex: left, child: Container(color: Hue.positive)),
+              Expanded(
+                flex: left,
+                child: Container(color: Hue.positive),
+              ),
             if (left > 0 && right > 0) const SizedBox(width: 3),
             if (right > 0)
-              Expanded(flex: right, child: Container(color: Hue.negative)),
+              Expanded(
+                flex: right,
+                child: Container(color: Hue.negative),
+              ),
           ],
         ),
       ),

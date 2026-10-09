@@ -108,21 +108,17 @@ final class Holding {
 
   int get gain => value - cost;
 
-  Holding copyWith({
-    int? shares,
-    int? cost,
-    int? dividends,
-    int? realized,
-  }) => Holding(
-    code,
-    name,
-    shares: shares ?? this.shares,
-    price: price,
-    cost: cost ?? this.cost,
-    change: change,
-    dividends: dividends ?? this.dividends,
-    realized: realized ?? this.realized,
-  );
+  Holding copyWith({int? shares, int? cost, int? dividends, int? realized}) =>
+      Holding(
+        code,
+        name,
+        shares: shares ?? this.shares,
+        price: price,
+        cost: cost ?? this.cost,
+        change: change,
+        dividends: dividends ?? this.dividends,
+        realized: realized ?? this.realized,
+      );
 }
 
 final class Budget {
@@ -256,9 +252,10 @@ final class Ledger extends ChangeNotifier {
 
   /// Income of a month, dividends included.
   int income(int year, int month) => _sum(
-    entriesIn(year, month).where(
-      (e) => e.type == EntryType.income || e.type == EntryType.dividend,
-    ),
+    entriesIn(
+      year,
+      month,
+    ).where((e) => e.type == EntryType.income || e.type == EntryType.dividend),
   );
 
   int expense(int year, int month, {int? untilDay}) => _sum(
@@ -269,9 +266,8 @@ final class Ledger extends ChangeNotifier {
     ),
   );
 
-  int dividends(int year, int month) => _sum(
-    entriesIn(year, month).where((e) => e.type == EntryType.dividend),
-  );
+  int dividends(int year, int month) =>
+      _sum(entriesIn(year, month).where((e) => e.type == EntryType.dividend));
 
   int spentOn(DateTime day) =>
       _sum(entriesOn(day).where((e) => e.type == EntryType.expense));

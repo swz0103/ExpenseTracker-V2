@@ -33,11 +33,10 @@ void main() {
 
     test('budgets and recurring items', () {
       expect(ledger.budgetFor(Ledger.allSpending).limit, 32000);
-      expect([for (final r in ledger.upcoming) r.name], [
-        'Netflix',
-        '家用網路',
-        '瑜珈月費',
-      ]);
+      expect(
+        [for (final r in ledger.upcoming) r.name],
+        ['Netflix', '家用網路', '瑜珈月費'],
+      );
       expect(ledger.due, isEmpty);
     });
 
@@ -109,7 +108,10 @@ void main() {
     addTearDown(tester.view.reset);
     final ledger = demoLedger();
     await tester.pumpWidget(
-      MaterialApp(theme: appTheme(), home: AppShell(ledger: ledger)),
+      MaterialApp(
+        theme: appTheme(),
+        home: AppShell(ledger: ledger),
+      ),
     );
     await tester.pumpAndSettle();
     return ledger;

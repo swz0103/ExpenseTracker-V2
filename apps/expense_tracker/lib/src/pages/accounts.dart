@@ -87,8 +87,7 @@ class AccountsPage extends StatelessWidget {
         }
         final invest = ledger.investValue;
         final debt = ledger.cardDebt;
-        String shown(int value) =>
-            ledger.hidden ? '••••' : groupDigits(value);
+        String shown(int value) => ledger.hidden ? '••••' : groupDigits(value);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [

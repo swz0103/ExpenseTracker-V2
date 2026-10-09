@@ -61,10 +61,8 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                             const Spacer(),
                             LinkToggle(
                               '示意行情',
-                              onTap: () => showNote(
-                                context,
-                                '價格為示意收盤價，尚未接上自動行情',
-                              ),
+                              onTap: () =>
+                                  showNote(context, '價格為示意收盤價，尚未接上自動行情'),
                             ),
                           ],
                         ),
@@ -95,12 +93,8 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         const Divider(height: 24),
                         Row(
                           children: [
-                            Expanded(
-                              child: Figure('持股市值', groupDigits(value)),
-                            ),
-                            Expanded(
-                              child: Figure('投入成本', groupDigits(cost)),
-                            ),
+                            Expanded(child: Figure('持股市值', groupDigits(value))),
+                            Expanded(child: Figure('投入成本', groupDigits(cost))),
                             Expanded(
                               child: Figure(
                                 '已實現損益',
