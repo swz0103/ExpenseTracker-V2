@@ -79,7 +79,7 @@ class _AccountPageState extends State<AccountPage> {
                         Row(
                           children: [
                             IconBadge(
-                              accountIcon(account.kind),
+                              accountIcon(account),
                               color,
                               size: 30,
                             ),

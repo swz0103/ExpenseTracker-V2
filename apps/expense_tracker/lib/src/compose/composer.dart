@@ -258,7 +258,7 @@ class _ComposerState extends State<Composer> {
       columns: 3,
       options: [
         for (final a in _ledger.accounts)
-          Option(a.id, a.name, accountIcon(a.kind), accountColor(a.kind)),
+          Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
       ],
     );
   }
@@ -589,7 +589,7 @@ class _ComposerState extends State<Composer> {
         EntryType.transfer => '轉出',
         _ => '收款帳戶',
       },
-      icon: accountIcon(account.kind),
+      icon: accountIcon(account),
       color: accountColor(account.kind),
       value: account.name,
       onTap: () async {
@@ -635,7 +635,7 @@ class _ComposerState extends State<Composer> {
               Expanded(
                 child: _Field(
                   label: '轉入',
-                  icon: accountIcon(to.kind),
+                  icon: accountIcon(to),
                   color: accountColor(to.kind),
                   value: to.name,
                   onTap: () async {

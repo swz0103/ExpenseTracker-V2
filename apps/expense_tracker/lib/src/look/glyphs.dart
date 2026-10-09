@@ -21,6 +21,14 @@ enum Glyph {
   bank,
   phone,
   card,
+  coins,
+  safe,
+  suitcase,
+  briefcase,
+  chat,
+  store,
+  scan,
+  ticket,
   overview,
   records,
   wallet,
@@ -234,6 +242,43 @@ void _draw(Glyph glyph, Path p, Path f) {
       _box(p, 3, 6, 21, 18, 2.5);
       _poly(p, [3, 10, 21, 10]);
       _poly(p, [6.5, 14.5, 10, 14.5]);
+    case Glyph.coins:
+      _ring(p, 9, 9, 4.5);
+      _box(p, 10, 14, 20, 17.5, 1.75);
+      _box(p, 10, 17.5, 20, 21, 1.75);
+    case Glyph.safe:
+      _box(p, 4, 4, 20, 19, 2.5);
+      _ring(p, 12, 11.5, 3.5);
+      _ring(f, 12, 11.5, 1);
+      _poly(p, [7.5, 19, 7.5, 21]);
+      _poly(p, [16.5, 19, 16.5, 21]);
+    case Glyph.suitcase:
+      _box(p, 5, 7, 19, 20, 2.5);
+      _poly(p, [9.5, 7, 9.5, 4.5, 14.5, 4.5, 14.5, 7]);
+      _poly(p, [9, 10.5, 9, 16.5]);
+      _poly(p, [15, 10.5, 15, 16.5]);
+    case Glyph.briefcase:
+      _box(p, 3.5, 8, 20.5, 19.5, 2.5);
+      _poly(p, [9, 8, 9, 5, 15, 5, 15, 8]);
+      _poly(p, [3.5, 13, 20.5, 13]);
+    case Glyph.chat:
+      _box(p, 4, 5, 20, 16.5, 3);
+      _poly(p, [8, 16.5, 8, 20, 12, 16.5]);
+    case Glyph.store:
+      _poly(p, [4, 9, 5.5, 4.5, 18.5, 4.5, 20, 9], close: true);
+      _poly(p, [5.5, 9, 5.5, 19.5, 18.5, 19.5, 18.5, 9]);
+      _poly(p, [10, 19.5, 10, 15, 14, 15, 14, 19.5]);
+    case Glyph.scan:
+      _poly(p, [4, 8, 4, 4, 8, 4]);
+      _poly(p, [16, 4, 20, 4, 20, 8]);
+      _poly(p, [20, 16, 20, 20, 16, 20]);
+      _poly(p, [8, 20, 4, 20, 4, 16]);
+      _poly(p, [7, 12, 17, 12]);
+    case Glyph.ticket:
+      _box(p, 3.5, 6.5, 20.5, 17.5, 2.5);
+      _poly(p, [14.5, 9, 14.5, 10.5]);
+      _poly(p, [14.5, 12, 14.5, 13.5]);
+      _poly(p, [14.5, 15, 14.5, 15.5]);
     case Glyph.overview:
       _box(p, 4, 4, 10.5, 12, 1.8);
       _box(p, 13.5, 4, 20, 8.5, 1.8);

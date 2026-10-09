@@ -249,7 +249,7 @@ class AccountsPage extends StatelessWidget {
         child: Row(
           children: [
             IconBadge(
-              accountIcon(account.kind),
+              accountIcon(account),
               accountColor(account.kind),
               size: 28,
             ),

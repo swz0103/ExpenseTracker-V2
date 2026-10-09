@@ -7,11 +7,15 @@ enum EntryType { expense, income, transfer, buy, sell, dividend }
 enum AccountKind { cash, bank, wallet, card }
 
 final class Account {
-  const Account(this.id, this.name, this.kind, this.opening);
+  const Account(this.id, this.name, this.kind, this.opening, {this.icon});
 
   final String id;
   final String name;
   final AccountKind kind;
+
+  /// The account's own mark, such as 'safe' or 'chat'; null takes the
+  /// mark of its [kind].
+  final String? icon;
 
   /// The balance before the first entry; negative for card debt.
   final int opening;

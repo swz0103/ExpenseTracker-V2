@@ -33,7 +33,23 @@ const categoryIconKeys = [
 
 Glyph iconFor(String key) => _categoryIcons[key] ?? Glyph.other;
 
-Glyph accountIcon(AccountKind kind) => switch (kind) {
+const _accountIcons = {
+  'phone': Glyph.phone,
+  'safe': Glyph.safe,
+  'suitcase': Glyph.suitcase,
+  'briefcase': Glyph.briefcase,
+  'chat': Glyph.chat,
+  'store': Glyph.store,
+  'scan': Glyph.scan,
+  'ticket': Glyph.ticket,
+  'coins': Glyph.coins,
+};
+
+/// The account's own mark, or its kind's.
+Glyph accountIcon(Account account) =>
+    _accountIcons[account.icon] ?? kindIcon(account.kind);
+
+Glyph kindIcon(AccountKind kind) => switch (kind) {
   AccountKind.cash => Glyph.cash,
   AccountKind.bank => Glyph.bank,
   AccountKind.wallet => Glyph.phone,
