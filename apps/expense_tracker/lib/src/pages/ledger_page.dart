@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'entry_tile.dart';
@@ -243,20 +244,20 @@ class _LedgerPageState extends State<LedgerPage> {
                   onPressed: () => setState(() {
                     _search = _search == null ? '' : null;
                   }),
-                  icon: const Icon(Icons.search, size: 18),
+                  icon: const GlyphIcon(Glyph.search, size: 18),
                   label: const Text('搜尋'),
                   style: TextButton.styleFrom(foregroundColor: Hue.muted),
                 ),
                 TextButton.icon(
                   onPressed: _filter,
-                  icon: const Icon(Icons.tune, size: 18),
+                  icon: const GlyphIcon(Glyph.sliders, size: 18),
                   label: const Text('篩選'),
                   style: TextButton.styleFrom(foregroundColor: Hue.muted),
                 ),
                 IconButton(
                   tooltip: '複製 CSV',
                   onPressed: _export,
-                  icon: const Icon(Icons.download_outlined, color: Hue.muted),
+                  icon: const GlyphIcon(Glyph.download, color: Hue.muted),
                 ),
               ],
             ),
@@ -268,7 +269,7 @@ class _LedgerPageState extends State<LedgerPage> {
                   isDense: true,
                   filled: true,
                   fillColor: Hue.surface,
-                  prefixIcon: const Icon(Icons.search, size: 18),
+                  prefixIcon: const GlyphIcon(Glyph.search, size: 18),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,

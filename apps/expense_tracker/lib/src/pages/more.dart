@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'nav.dart';
@@ -13,12 +14,12 @@ class MorePage extends StatelessWidget {
   final Nav nav;
 
   static const _tools = [
-    (Pages.reports, '財務報表', Icons.bar_chart, Hue.bank),
-    (Pages.investments, '投資與股息', Icons.show_chart, Hue.wallet),
-    (Pages.budgets, '預算管理', Icons.pie_chart_outline, Hue.gold),
-    (Pages.recurring, '定期交易', Icons.event_repeat_outlined, Hue.card),
-    (Pages.categories, '分類管理', Icons.grid_view_outlined, Hue.holdings),
-    (Pages.settings, '設定與資料', Icons.tune, Hue.investment),
+    (Pages.reports, '財務報表', Glyph.reports, Hue.bank),
+    (Pages.investments, '投資與股息', Glyph.investment, Hue.wallet),
+    (Pages.budgets, '預算管理', Glyph.budget, Hue.gold),
+    (Pages.recurring, '定期交易', Glyph.recurring, Hue.card),
+    (Pages.categories, '分類管理', Glyph.categories, Hue.holdings),
+    (Pages.settings, '設定與資料', Glyph.sliders, Hue.investment),
   ];
 
   @override
@@ -35,11 +36,7 @@ class MorePage extends StatelessWidget {
               onTap: () => nav.open(Pages.recurring),
               child: Row(
                 children: [
-                  const IconBadge(
-                    Icons.calendar_month_outlined,
-                    Hue.positive,
-                    size: 40,
-                  ),
+                  const IconBadge(Glyph.calendar, Hue.positive, size: 40),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

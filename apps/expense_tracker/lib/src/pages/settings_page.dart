@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../demo/ledger.dart';
 import '../demo/seed.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'dialogs.dart';
@@ -79,10 +80,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _reset() async {
-    final ok = await confirm(context, '重設演示資料？目前的變更會清除。', '重設', danger: true);
+    final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
     if (!ok) return;
     widget.ledger.resetTo(demoLedger());
-    if (mounted) showNote(context, '已重設演示資料');
+    if (mounted) showNote(context, '已重設範例資料');
   }
 
   @override
@@ -104,7 +105,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   const SectionHead('日常偏好'),
                   _Setting(
-                    icon: Icons.visibility_outlined,
+                    icon: Glyph.eye,
                     label: '隱藏摘要金額',
                     trailing: Switch(
                       value: ledger.hidden,
@@ -113,7 +114,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const Divider(),
                   const _Setting(
-                    icon: Icons.account_balance_wallet_outlined,
+                    icon: Glyph.cash,
                     label: '記帳幣別',
                     trailing: Text('TWD', style: TextStyle(color: Hue.muted)),
                   ),
@@ -162,9 +163,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         children: [
-                          Text('重設演示資料', style: TextStyle(color: Hue.danger)),
+                          Text('重設範例資料', style: TextStyle(color: Hue.danger)),
                           Spacer(),
-                          Icon(Icons.restart_alt, color: Hue.danger),
+                          GlyphIcon(Glyph.reset, color: Hue.danger),
                         ],
                       ),
                     ),
@@ -186,7 +187,7 @@ class _Setting extends StatelessWidget {
     required this.trailing,
   });
 
-  final IconData icon;
+  final Glyph icon;
   final String label;
   final Widget trailing;
 
@@ -260,7 +261,7 @@ class _Export extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.download_outlined, color: Hue.muted),
+            const GlyphIcon(Glyph.download, color: Hue.muted),
           ],
         ),
       ),

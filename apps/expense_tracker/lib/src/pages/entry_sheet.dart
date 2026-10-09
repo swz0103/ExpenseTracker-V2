@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import 'dialogs.dart';
@@ -43,7 +44,7 @@ Future<String?> showEntrySheet(
             children: [
               Row(
                 children: [
-                  Icon(icon, color: color),
+                  GlyphIcon(icon, color: color),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

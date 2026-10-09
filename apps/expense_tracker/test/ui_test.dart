@@ -165,7 +165,7 @@ void main() {
 
   testWidgets('an expense is recorded with the calculator', (tester) async {
     final ledger = await show(tester);
-    await tester.tap(find.text('記一筆'));
+    await tester.tap(find.byTooltip('記一筆'));
     await tester.pumpAndSettle();
     expect(find.text('新增支出'), findsOneWidget);
     await tester.tap(find.text('記下支出'));

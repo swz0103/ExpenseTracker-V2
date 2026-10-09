@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../charts/budget_bar.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -115,7 +116,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                                           color: Hue.muted,
                                         ),
                                       ),
-                                      Icon(Icons.edit_outlined, size: 14),
+                                      GlyphIcon(Glyph.edit, size: 14),
                                     ],
                                   ),
                                   Text(
@@ -244,7 +245,7 @@ class _CategoryLimit extends StatelessWidget {
           IconButton(
             tooltip: '調整額度',
             onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, size: 20, color: Hue.muted),
+            icon: const GlyphIcon(Glyph.edit, size: 18, color: Hue.muted),
           ),
         ],
       ),

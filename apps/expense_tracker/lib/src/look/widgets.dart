@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'glyphs.dart';
 import 'theme.dart';
 
 /// A page's title row: an optional back arrow, the title in 22 px and
@@ -22,7 +23,7 @@ class PageHeader extends StatelessWidget {
             IconButton(
               tooltip: '返回',
               onPressed: back,
-              icon: const Icon(Icons.chevron_left, size: 26),
+              icon: const GlyphIcon(Glyph.back, size: 24),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
             ),
@@ -69,7 +70,7 @@ class MonthSwitch extends StatelessWidget {
         IconButton(
           tooltip: '上個月',
           onPressed: () => onChanged(_step(-1)),
-          icon: const Icon(Icons.chevron_left, color: Hue.muted),
+          icon: const GlyphIcon(Glyph.back, size: 18, color: Hue.muted),
           visualDensity: VisualDensity.compact,
         ),
         Text(
@@ -79,7 +80,7 @@ class MonthSwitch extends StatelessWidget {
         IconButton(
           tooltip: '下個月',
           onPressed: atEnd ? null : () => onChanged(_step(1)),
-          icon: const Icon(Icons.chevron_right, color: Hue.muted),
+          icon: const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
           visualDensity: VisualDensity.compact,
         ),
       ],
@@ -123,7 +124,7 @@ class IconBadge extends StatelessWidget {
     this.filled = false,
   });
 
-  final IconData icon;
+  final Glyph icon;
   final Color color;
   final double size;
 
@@ -139,7 +140,12 @@ class IconBadge extends StatelessWidget {
         color: filled ? color : softOf(color),
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
-      child: Icon(icon, size: size * 0.55, color: filled ? Hue.white : color),
+      alignment: Alignment.center,
+      child: GlyphIcon(
+        icon,
+        size: size * 0.55,
+        color: filled ? Hue.white : color,
+      ),
     );
   }
 }

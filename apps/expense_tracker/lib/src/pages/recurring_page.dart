@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'dialogs.dart';
@@ -118,7 +119,7 @@ class _RecurringPageState extends State<RecurringPage> {
                         ),
                         FilledButton.tonalIcon(
                           onPressed: _create,
-                          icon: const Icon(Icons.add, size: 18),
+                          icon: const GlyphIcon(Glyph.add, size: 16),
                           label: const Text('新增'),
                           style: FilledButton.styleFrom(
                             backgroundColor: Hue.white,
@@ -132,7 +133,7 @@ class _RecurringPageState extends State<RecurringPage> {
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
                       onPressed: () => setState(() => _manage = !_manage),
-                      icon: const Icon(Icons.tune, size: 18),
+                      icon: const GlyphIcon(Glyph.sliders, size: 18),
                       label: Text(_manage ? '完成' : '管理固定項目'),
                       style: TextButton.styleFrom(foregroundColor: Hue.muted),
                     ),

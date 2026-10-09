@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -72,7 +73,7 @@ class CategoriesPage extends StatelessWidget {
                           onTap: () => _rename(context, c),
                         ),
                       _Tile(
-                        icon: Icons.add,
+                        icon: Glyph.add,
                         color: Hue.faint,
                         label: '新增分類',
                         onTap: () => _add(context, income: income),
@@ -97,7 +98,7 @@ class _Tile extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final Glyph icon;
   final Color color;
   final String label;
   final VoidCallback onTap;

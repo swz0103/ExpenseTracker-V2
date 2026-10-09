@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 
 /// Works out `12+3×4−5÷2` with × and ÷ before + and −. Returns null for
@@ -151,7 +152,7 @@ class _CalculatorState extends State<_Calculator> {
               IconButton(
                 tooltip: '返回',
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.chevron_left),
+                icon: const GlyphIcon(Glyph.back),
               ),
               Expanded(
                 child: Text(
@@ -228,7 +229,7 @@ class _CalculatorState extends State<_Calculator> {
         onTap: () => _press(key),
         child: Center(
           child: key == '⌫'
-              ? const Icon(Icons.backspace_outlined, size: 20)
+              ? const GlyphIcon(Glyph.backspace, size: 22)
               : Text(
                   key,
                   style: TextStyle(

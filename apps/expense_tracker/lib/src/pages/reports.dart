@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../charts/bar_scale.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -246,7 +247,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
+                          GlyphIcon(
                             iconFor(category.icon),
                             size: 20,
                             color: category.color,

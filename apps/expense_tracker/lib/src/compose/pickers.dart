@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 
@@ -26,7 +27,7 @@ Future<T?> showChildPage<T>(
                 IconButton(
                   tooltip: '返回',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const GlyphIcon(Glyph.back),
                 ),
                 Expanded(
                   child: Text(
@@ -56,7 +57,7 @@ final class Option<T> {
 
   final T value;
   final String label;
-  final IconData icon;
+  final Glyph icon;
   final Color color;
 }
 
@@ -158,7 +159,7 @@ class _CalendarState extends State<_Calendar> {
               onPressed: () => setState(() {
                 _month = DateTime.utc(first.year, first.month - 1);
               }),
-              icon: const Icon(Icons.chevron_left),
+              icon: const GlyphIcon(Glyph.back, size: 20),
             ),
             Expanded(
               child: Text(
@@ -177,7 +178,7 @@ class _CalendarState extends State<_Calendar> {
                   : () => setState(() {
                       _month = DateTime.utc(first.year, first.month + 1);
                     }),
-              icon: const Icon(Icons.chevron_right),
+              icon: const GlyphIcon(Glyph.next, size: 20),
             ),
           ],
         ),

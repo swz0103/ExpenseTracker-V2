@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -95,7 +96,7 @@ class AccountsPage extends StatelessWidget {
               '我的帳戶',
               trailing: TextButton.icon(
                 onPressed: () => _create(context),
-                icon: const Icon(Icons.add, size: 18),
+                icon: const GlyphIcon(Glyph.add, size: 16),
                 label: const Text('新增'),
                 style: TextButton.styleFrom(foregroundColor: Hue.ink),
               ),
@@ -169,7 +170,7 @@ class AccountsPage extends StatelessWidget {
                     height: 46,
                     child: FilledButton.icon(
                       onPressed: () => nav.compose(type: EntryType.transfer),
-                      icon: const Icon(Icons.sync_alt, size: 18),
+                      icon: const GlyphIcon(Glyph.transfer, size: 18),
                       label: const Text('帳戶轉帳／繳卡款'),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF5B7B5F),
@@ -182,13 +183,7 @@ class AccountsPage extends StatelessWidget {
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.only(top: 22, bottom: 4),
-              child: Text(
-                '帳戶一覽',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ),
+            const SectionHead('帳戶一覽'),
             for (final kind in AccountKind.values) ..._group(kind),
           ],
         );
@@ -218,16 +213,20 @@ class AccountsPage extends StatelessWidget {
         ),
       );
     }
+    final total = accounts.fold<int>(0, (sum, a) => sum + ledger.balance(a.id));
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 4),
+        padding: const EdgeInsets.only(top: 18, bottom: 2),
         child: Row(
           children: [
-            Container(width: 3, height: 14, color: accountColor(kind)),
-            const SizedBox(width: 8),
             Text(
               groupName(kind),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
+            ),
+            const Spacer(),
+            Text(
+              groupDigits(total),
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
             ),
           ],
         ),
@@ -241,7 +240,7 @@ class AccountsPage extends StatelessWidget {
     return InkWell(
       onTap: () => nav.open(Pages.account(account.id)),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Hue.line)),
         ),
@@ -250,23 +249,32 @@ class AccountsPage extends StatelessWidget {
             IconBadge(
               accountIcon(account.kind),
               accountColor(account.kind),
-              size: 32,
+              size: 34,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                account.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15),
-              ),
-            ),
-            Text(
-              groupDigits(balance),
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-                color: balance < 0 ? Hue.negative : Hue.ink,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    account.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      ledger.hidden ? '••••' : groupDigits(balance),
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: balance < 0 ? Hue.negative : Hue.ink,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

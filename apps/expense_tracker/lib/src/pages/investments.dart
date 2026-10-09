@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../charts/bar_scale.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'nav.dart';
@@ -129,7 +130,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                       FilledButton.tonalIcon(
                         onPressed: () =>
                             widget.nav.compose(type: EntryType.dividend),
-                        icon: const Icon(Icons.add, size: 18),
+                        icon: const GlyphIcon(Glyph.add, size: 16),
                         label: const Text('記股息'),
                       ),
                     ],

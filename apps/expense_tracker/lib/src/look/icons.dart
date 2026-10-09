@@ -1,20 +1,21 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 
 import '../demo/ledger.dart';
+import 'glyphs.dart';
 import 'theme.dart';
 
 const _categoryIcons = {
-  'home': Icons.home_outlined,
-  'food': Icons.ramen_dining_outlined,
-  'travel': Icons.directions_bus_outlined,
-  'bag': Icons.shopping_bag_outlined,
-  'subscription': Icons.event_note_outlined,
-  'other': Icons.more_horiz,
-  'salary': Icons.move_to_inbox_outlined,
-  'dividend': Icons.savings_outlined,
-  'income': Icons.inbox_outlined,
-  'transfer': Icons.sync_alt,
-  'investment': Icons.trending_up,
+  'home': Glyph.home,
+  'food': Glyph.food,
+  'travel': Glyph.travel,
+  'bag': Glyph.bag,
+  'subscription': Glyph.subscription,
+  'other': Glyph.other,
+  'salary': Glyph.salary,
+  'dividend': Glyph.dividend,
+  'income': Glyph.income,
+  'transfer': Glyph.transfer,
+  'investment': Glyph.investment,
 };
 
 /// Icon keys a new category may take.
@@ -30,13 +31,13 @@ const categoryIconKeys = [
   'income',
 ];
 
-IconData iconFor(String key) => _categoryIcons[key] ?? Icons.more_horiz;
+Glyph iconFor(String key) => _categoryIcons[key] ?? Glyph.other;
 
-IconData accountIcon(AccountKind kind) => switch (kind) {
-  AccountKind.cash => Icons.payments_outlined,
-  AccountKind.bank => Icons.account_balance_outlined,
-  AccountKind.wallet => Icons.phone_iphone_outlined,
-  AccountKind.card => Icons.credit_card_outlined,
+Glyph accountIcon(AccountKind kind) => switch (kind) {
+  AccountKind.cash => Glyph.cash,
+  AccountKind.bank => Glyph.bank,
+  AccountKind.wallet => Glyph.phone,
+  AccountKind.card => Glyph.card,
 };
 
 Color accountColor(AccountKind kind) => switch (kind) {

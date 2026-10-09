@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
-(IconData, Color) entryMark(Ledger ledger, Entry e) {
+(Glyph, Color) entryMark(Ledger ledger, Entry e) {
   final category = ledger.category(e.category);
   return switch (e.type) {
     EntryType.transfer => (iconFor('transfer'), Hue.transfer),

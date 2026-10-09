@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../compose/composer.dart';
 import '../demo/ledger.dart';
+import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'account_page.dart';
@@ -20,8 +21,8 @@ import 'settings_page.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
-/// The app frame: the 日々記帳 bar on top, the page, and 總覽、紀錄、記一筆、
-/// 帳戶、更多 along the bottom. Pages under 更多 and each account open in
+/// The app frame: the page, and 總覽、紀錄、記一筆、帳戶、更多 along the
+/// bottom. Pages under 更多 and each account open in
 /// place with a back arrow; the system back closes them first.
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.ledger});
@@ -132,19 +133,9 @@ class _AppShellState extends State<AppShell> {
       child: Scaffold(
         body: SafeArea(
           bottom: false,
-          child: Column(
-            children: [
-              _TopBar(onSettings: () => _open(Pages.settings)),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child: KeyedSubtree(
-                    key: ValueKey((_tab, _page)),
-                    child: _body(),
-                  ),
-                ),
-              ),
-            ],
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
         ),
         bottomNavigationBar: _BottomBar(
@@ -155,75 +146,6 @@ class _AppShellState extends State<AppShell> {
           }),
           onRecord: () => _compose(),
         ),
-      ),
-    );
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onSettings});
-
-  final VoidCallback onSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: Hue.positive, width: 1.6),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: const Text(
-              '日',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Hue.positive,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Text(
-            '日々記帳',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(color: Hue.line),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Hue.gold,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  '演示',
-                  style: TextStyle(fontSize: 11, color: Hue.muted),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: '設定',
-            onPressed: onSettings,
-            icon: const Icon(Icons.tune, color: Hue.ink),
-          ),
-        ],
       ),
     );
   }
@@ -241,10 +163,10 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onRecord;
 
   static const _items = [
-    (_Tab.overview, Icons.home_outlined, '總覽'),
-    (_Tab.ledger, Icons.receipt_long_outlined, '紀錄'),
-    (_Tab.accounts, Icons.account_balance_wallet_outlined, '帳戶'),
-    (_Tab.more, Icons.more_horiz, '更多'),
+    (_Tab.overview, Glyph.overview, '總覽'),
+    (_Tab.ledger, Glyph.records, '紀錄'),
+    (_Tab.accounts, Glyph.wallet, '帳戶'),
+    (_Tab.more, Glyph.other, '更多'),
   ];
 
   @override
@@ -257,31 +179,34 @@ class _BottomBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 58,
           child: Row(
             children: [
               for (final (i, (item, icon, label)) in _items.indexed) ...[
                 if (i == 2)
                   Expanded(
-                    child: InkResponse(
-                      onTap: onRecord,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: const BoxDecoration(
-                              color: Hue.positive,
-                              shape: BoxShape.circle,
+                    child: Center(
+                      child: Tooltip(
+                        message: '記一筆',
+                        child: Material(
+                          color: Hue.positive,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: onRecord,
+                            child: const SizedBox(
+                              width: 52,
+                              height: 40,
+                              child: Center(
+                                child: GlyphIcon(
+                                  Glyph.add,
+                                  color: Hue.white,
+                                  weight: 2,
+                                ),
+                              ),
                             ),
-                            child: const Icon(Icons.add, color: Hue.white),
                           ),
-                          const Text(
-                            '記一筆',
-                            style: TextStyle(fontSize: 11, color: Hue.ink),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -291,15 +216,15 @@ class _BottomBar extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        GlyphIcon(
                           icon,
                           color: item == tab ? Hue.positive : Hue.muted,
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: item == tab ? Hue.positive : Hue.muted,
                             fontWeight: item == tab
                                 ? FontWeight.w700
