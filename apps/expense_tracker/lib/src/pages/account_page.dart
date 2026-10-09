@@ -78,11 +78,7 @@ class _AccountPageState extends State<AccountPage> {
                       children: [
                         Row(
                           children: [
-                            IconBadge(
-                              accountIcon(account),
-                              color,
-                              size: 30,
-                            ),
+                            IconBadge(accountIcon(account), color, size: 30),
                             const SizedBox(width: 8),
                             Text(
                               groupName(account.kind),
