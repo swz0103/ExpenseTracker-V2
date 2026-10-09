@@ -64,8 +64,7 @@ class GlyphIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink =
-        color ?? IconTheme.of(context).color ?? const Color(0xFF344638);
+    final ink = color ?? IconTheme.of(context).color ?? const Color(0xFF344638);
     // Like Icon, keep the drawn size when the parent asks for more room.
     return Center(
       widthFactor: 1,
@@ -94,10 +93,7 @@ class GlyphPainter extends CustomPainter {
     _draw(glyph, line, fill);
     canvas
       ..save()
-      ..translate(
-        (size.width - 24 * scale) / 2,
-        (size.height - 24 * scale) / 2,
-      )
+      ..translate((size.width - 24 * scale) / 2, (size.height - 24 * scale) / 2)
       ..scale(scale)
       ..drawPath(
         line,

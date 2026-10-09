@@ -210,6 +210,7 @@ class _ComposerState extends State<Composer> {
   }
 
   String get _sign => switch (_type) {
+    _ when _amount == 0 => '',
     EntryType.expense || EntryType.buy => '−',
     EntryType.transfer => '',
     _ => '+',

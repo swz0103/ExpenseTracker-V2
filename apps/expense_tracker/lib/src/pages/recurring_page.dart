@@ -92,7 +92,7 @@ class _RecurringPageState extends State<RecurringPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                due.isEmpty ? '尚無到期項目' : '${due.length} 筆已到期',
+                                due.isEmpty ? '下一筆固定項目' : '${due.length} 筆已到期',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Hue.muted,
