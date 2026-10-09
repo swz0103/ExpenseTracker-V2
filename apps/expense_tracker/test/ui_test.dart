@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:expense_tracker/src/charts/treemap.dart';
 import 'package:expense_tracker/src/compose/calculator.dart';
 import 'package:expense_tracker/src/demo/ledger.dart';
@@ -5,9 +7,20 @@ import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/look/theme.dart';
 import 'package:expense_tracker/src/pages/shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  // Lay pages out with the app's own font, so widths match a phone.
+  setUpAll(() async {
+    final loader = FontLoader('NotoSansTC');
+    for (final weight in ['Regular', 'Bold']) {
+      final bytes = File('fonts/NotoSansTC-$weight.ttf').readAsBytesSync();
+      loader.addFont(Future.value(ByteData.sublistView(bytes)));
+    }
+    await loader.load();
+  });
+
   group('the demo book matches the approved preview', () {
     final ledger = demoLedger();
 
