@@ -41,22 +41,21 @@ final class _Draft {
   final Map<String, Object?> state;
 }
 
-/// Opens the composer for a new entry of [type], or to change [entry].
-/// Returns the saved entry, or null when closed.
-Future<Entry?> openComposer(
+/// How the composer was left, when not just closed.
+enum ComposeOutcome { saved, deleted }
+
+/// Opens the composer as a bottom sheet for a new entry of [type], or
+/// to show and change [entry] (the same sheet, with 刪除). Returns what
+/// happened and the entry, or null when closed.
+Future<(ComposeOutcome, Entry)?> openComposer(
   BuildContext context,
   Ledger ledger, {
   EntryType type = EntryType.expense,
   Entry? entry,
 }) {
-  return showDialog<Entry>(
-    context: context,
-    builder: (_) => Dialog(
-      backgroundColor: Hue.panel,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: Composer(ledger: ledger, type: entry?.type ?? type, entry: entry),
-    ),
+  return showSheet<(ComposeOutcome, Entry)>(
+    context,
+    (_) => Composer(ledger: ledger, type: entry?.type ?? type, entry: entry),
   );
 }
 
@@ -374,7 +373,21 @@ class _ComposerState extends State<Composer> {
       return;
     }
     _drafts.remove(_mode);
-    Navigator.of(context).pop(entry);
+    Navigator.of(context).pop((ComposeOutcome.saved, entry));
+  }
+
+  void _putAside() {
+    _drafts[_mode] = _Draft(_save());
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _delete() async {
+    final entry = widget.entry;
+    if (entry == null) return;
+    final ok = await confirm(context, '刪除這一筆？', '刪除', danger: true);
+    if (ok && mounted) {
+      Navigator.of(context).pop((ComposeOutcome.deleted, entry));
+    }
   }
 
   @override
@@ -527,17 +540,14 @@ class _ComposerState extends State<Composer> {
           Row(
             children: [
               TextButton(
-                onPressed: widget.entry != null
-                    ? () => Navigator.of(context).pop()
-                    : () {
-                        _drafts[_mode] = _Draft(_save());
-                        Navigator.of(context).pop();
-                      },
+                onPressed: widget.entry != null ? _delete : _putAside,
                 style: TextButton.styleFrom(
-                  foregroundColor: Hue.muted,
+                  foregroundColor: widget.entry != null
+                      ? Hue.danger
+                      : Hue.muted,
                   minimumSize: const Size(64, 46),
                 ),
-                child: Text(widget.entry != null ? '取消' : '暫存'),
+                child: Text(widget.entry != null ? '刪除' : '暫存'),
               ),
               const SizedBox(width: 8),
               Expanded(

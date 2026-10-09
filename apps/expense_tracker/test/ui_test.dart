@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/charts/treemap.dart';
 import 'package:expense_tracker/src/compose/calculator.dart';
+import 'package:expense_tracker/src/compose/composer.dart';
 import 'package:expense_tracker/src/demo/ledger.dart';
 import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/look/theme.dart';
@@ -183,7 +184,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(
-      find.descendant(of: find.byType(Dialog), matching: find.text('−180')),
+      find.descendant(of: find.byType(Composer), matching: find.text('−180')),
       findsOneWidget,
     );
     await tester.tap(find.text('記下支出'));

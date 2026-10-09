@@ -36,9 +36,6 @@ class _OverviewPageState extends State<OverviewPage> {
   int? _piece;
   int? _tile;
 
-  /// 投資行情 ordered by today's move instead of by holding.
-  var _byMove = false;
-
   /// The opened part of 財務分布: null for all assets, else 'investment'
   /// or an account kind's name.
   String? _assetGroup;
@@ -250,8 +247,7 @@ class _OverviewPageState extends State<OverviewPage> {
 
   List<Widget> _market() {
     final ledger = widget.ledger;
-    final holdings = [...ledger.holdings];
-    if (_byMove) holdings.sort((a, b) => b.change.compareTo(a.change));
+    final holdings = ledger.holdings;
     final change = ledger.dayChange;
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
@@ -314,18 +310,9 @@ class _OverviewPageState extends State<OverviewPage> {
           ],
         ),
       ),
-      Row(
-        children: [
-          Text(
-            '投資市值 TWD ${_m(groupDigits(ledger.investValue))}',
-            style: const TextStyle(fontSize: 13, color: Hue.muted),
-          ),
-          const Spacer(),
-          LinkToggle(
-            _byMove ? '依漲跌排序' : '依持股排序',
-            onTap: () => setState(() => _byMove = !_byMove),
-          ),
-        ],
+      Text(
+        '投資市值 TWD ${_m(groupDigits(ledger.investValue))}',
+        style: const TextStyle(fontSize: 13, color: Hue.muted),
       ),
       const SizedBox(height: 8),
       ...rows,
@@ -369,45 +356,50 @@ class _OverviewPageState extends State<OverviewPage> {
           color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
           border: const Border(bottom: BorderSide(color: Hue.line)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 62,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
                     h.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: 13),
                   ),
-                  Text(
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _m(signed(h.change)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: h.change < 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                SizedBox(
+                  width: 46,
+                  child: Text(
                     h.code,
                     style: const TextStyle(fontSize: 10, color: Hue.muted),
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: AxisBar(
-                value: h.change,
-                largest: largest,
-                scale: _scale,
-                axis: 0.3,
-                height: 10,
-              ),
-            ),
-            SizedBox(
-              width: 40,
-              child: Text(
-                _m(signed(h.change)),
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: h.change < 0 ? Hue.negative : Hue.positive,
                 ),
-              ),
+                Expanded(
+                  child: AxisBar(
+                    value: h.change,
+                    largest: largest,
+                    scale: _scale,
+                    axis: 0.3,
+                    height: 6,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -619,8 +611,6 @@ class _OverviewPageState extends State<OverviewPage> {
         child: Treemap(
           key: ValueKey(group),
           tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
-          hint: group == null ? '展開 ›' : '‹ 返回',
-          hidden: widget.ledger.hidden,
           selected: tile,
           onSelect: (index) => setState(() => _tile = index),
           onOpen: (index) =>

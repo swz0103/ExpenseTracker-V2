@@ -5,47 +5,42 @@ import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 
-/// A sheet-like dialog with a back arrow and a title over [child].
+/// A bottom sheet with a back arrow and a title over [builder]'s content.
 Future<T?> showChildPage<T>(
   BuildContext context, {
   required String title,
   required Widget Function(BuildContext) builder,
 }) {
-  return showDialog<T>(
-    context: context,
-    builder: (context) => Dialog(
-      backgroundColor: Hue.panel,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: '返回',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const GlyphIcon(Glyph.back),
-                ),
-                Expanded(
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
+  return showSheet<T>(
+    context,
+    (context) => Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: '返回',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const GlyphIcon(Glyph.back),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 48),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Flexible(child: builder(context)),
-          ],
-        ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Flexible(child: builder(context)),
+        ],
       ),
     ),
   );

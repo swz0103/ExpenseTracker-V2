@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 
@@ -103,8 +102,6 @@ class Treemap extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.onOpen,
-    this.hint,
-    this.hidden = false,
     this.height = 160,
   });
 
@@ -112,12 +109,6 @@ class Treemap extends StatelessWidget {
   final int? selected;
   final ValueChanged<int?> onSelect;
   final ValueChanged<int>? onOpen;
-
-  /// A line under the picked tile's amount saying what another tap does.
-  final String? hint;
-
-  /// Dots instead of amounts.
-  final bool hidden;
   final double height;
 
   @override
@@ -152,8 +143,6 @@ class Treemap extends StatelessWidget {
                   tiles: tiles,
                   rects: rects,
                   selected: selected,
-                  hint: hint,
-                  hidden: hidden,
                 ),
               ),
             );
@@ -169,20 +158,15 @@ class _TreemapPainter extends CustomPainter {
     required this.tiles,
     required this.rects,
     required this.selected,
-    required this.hint,
-    required this.hidden,
   });
 
   final List<(String, int, Color)> tiles;
   final List<Rect> rects;
   final int? selected;
-  final String? hint;
-  final bool hidden;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final total = tiles.fold(0, (sum, t) => sum + t.$2);
-    for (final (i, (name, amount, color)) in tiles.indexed) {
+    for (final (i, (name, _, color)) in tiles.indexed) {
       final rect = rects[i].deflate(2);
       if (rect.isEmpty) continue;
       final picked = i == selected;
@@ -206,43 +190,11 @@ class _TreemapPainter extends CustomPainter {
         fontWeight: FontWeight.w600,
         color: Hue.ink.withValues(alpha: faded ? 0.5 : 0.9),
       );
-      if (!picked || rect.height < 52) {
-        paintText(canvas, name, label, rect.center, maxWidth: rect.width - 8);
-        continue;
-      }
-      final share = total == 0 ? 0 : (amount * 100 / total).round();
-      final more = hint;
-      final lift = more != null && rect.height >= 76 ? -10.0 : 0.0;
-      paintText(
-        canvas,
-        name,
-        label,
-        rect.center.translate(0, lift - 12),
-        maxWidth: rect.width - 8,
-      );
-      paintText(
-        canvas,
-        '${hidden ? '••••' : groupDigits(amount)}・$share%',
-        label.copyWith(fontSize: 11, fontWeight: FontWeight.w500),
-        rect.center.translate(0, lift + 8),
-        maxWidth: rect.width - 8,
-      );
-      if (lift != 0 && more != null) {
-        paintText(
-          canvas,
-          more,
-          label.copyWith(fontSize: 11, decoration: TextDecoration.underline),
-          rect.center.translate(0, lift + 28),
-          maxWidth: rect.width - 8,
-        );
-      }
+      paintText(canvas, name, label, rect.center, maxWidth: rect.width - 8);
     }
   }
 
   @override
   bool shouldRepaint(_TreemapPainter old) =>
-      old.selected != selected ||
-      old.rects != rects ||
-      old.tiles != tiles ||
-      old.hidden != hidden;
+      old.selected != selected || old.rects != rects || old.tiles != tiles;
 }

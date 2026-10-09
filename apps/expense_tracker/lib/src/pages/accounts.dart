@@ -101,90 +101,48 @@ class AccountsPage extends StatelessWidget {
                 style: TextButton.styleFrom(foregroundColor: Hue.ink),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '資產總額',
-                    style: TextStyle(fontSize: 12, color: Hue.muted),
-                  ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      const Text(
-                        'TWD',
-                        style: TextStyle(fontSize: 12, color: Hue.muted),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        shown(ledger.assets),
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: SizedBox(
-                      height: 8,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: cash < 1 ? 1 : cash,
-                            child: Container(color: const Color(0xFF6B8C6B)),
-                          ),
-                          Expanded(
-                            flex: invest < 1 ? 1 : invest,
-                            child: Container(color: const Color(0xFFA99BC0)),
-                          ),
-                        ],
-                      ),
+            const Text(
+              '資產總額',
+              style: TextStyle(fontSize: 13, color: Hue.muted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              shown(ledger.assets),
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                height: 8,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: cash < 1 ? 1 : cash,
+                      child: Container(color: Hue.bank),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  IntrinsicHeight(
-                    child: Row(
-                      children: [
-                        Expanded(child: Figure('現金與存款', shown(cash))),
-                        const VerticalDivider(color: Hue.faint),
-                        Expanded(child: Figure('投資市值', shown(invest))),
-                        const VerticalDivider(color: Hue.faint),
-                        Expanded(
-                          child: Figure(
-                            '待繳卡款',
-                            shown(debt),
-                            color: debt > 0 ? Hue.negative : Hue.ink,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 2),
+                    Expanded(
+                      flex: invest < 1 ? 1 : invest,
+                      child: Container(color: Hue.investment),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: OutlinedButton.icon(
-                      onPressed: () => nav.compose(type: EntryType.transfer),
-                      icon: const GlyphIcon(Glyph.transfer, size: 18),
-                      label: const Text('帳戶轉帳／繳卡款'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Hue.positive,
-                        side: const BorderSide(color: Hue.line),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _Part('現金與存款', shown(cash), Hue.bank)),
+                Expanded(
+                  child: _Part('投資市值', shown(invest), Hue.investment),
+                ),
+              ],
+            ),
+            if (debt > 0) ...[
+              const SizedBox(height: 12),
+              _Part('信用卡待繳', shown(debt), Hue.negative, inline: true),
+            ],
             const Divider(height: 28),
             const Text(
               '帳戶一覽',
@@ -285,6 +243,64 @@ class AccountsPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A coloured dot and label with its amount, under the asset bar.
+class _Part extends StatelessWidget {
+  const _Part(this.label, this.value, this.color, {this.inline = false});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  /// Label and amount on one line, the amount at the end.
+  final bool inline;
+
+  @override
+  Widget build(BuildContext context) {
+    final head = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
+      ],
+    );
+    if (inline) {
+      return Row(
+        children: [
+          head,
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        head,
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 14),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -139,14 +139,9 @@ Future<Category?> showCategoryEditor(
   required Category initial,
   required List<Color> colors,
 }) {
-  return showDialog<Category>(
-    context: context,
-    builder: (context) => Dialog(
-      backgroundColor: Hue.panel,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: _CategoryEditor(title: title, initial: initial, colors: colors),
-    ),
+  return showSheet<Category>(
+    context,
+    (_) => _CategoryEditor(title: title, initial: initial, colors: colors),
   );
 }
 
@@ -186,7 +181,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

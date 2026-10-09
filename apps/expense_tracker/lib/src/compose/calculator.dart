@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
+import '../look/widgets.dart';
 
 /// Works out `12+3×4−5÷2` with × and ÷ before + and −. Returns null for
 /// an expression that cannot be read, such as a trailing operator.
@@ -59,18 +60,13 @@ Future<int?> showCalculator(
   required Color color,
   String unit = 'TWD',
 }) {
-  return showDialog<int>(
-    context: context,
-    builder: (_) => Dialog(
-      backgroundColor: Hue.panel,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: _Calculator(
-        title: title,
-        initial: initial,
-        color: color,
-        unit: unit,
-      ),
+  return showSheet<int>(
+    context,
+    (_) => _Calculator(
+      title: title,
+      initial: initial,
+      color: color,
+      unit: unit,
     ),
   );
 }

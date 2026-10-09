@@ -9,7 +9,6 @@ import 'account_page.dart';
 import 'accounts.dart';
 import 'budgets.dart';
 import 'categories_page.dart';
-import 'entry_sheet.dart';
 import 'investments.dart';
 import 'ledger_page.dart';
 import 'more.dart';
@@ -40,7 +39,7 @@ class _AppShellState extends State<AppShell> {
     open: _open,
     back: () => setState(() => _page = null),
     compose: _compose,
-    showEntry: _showEntry,
+    showEntry: (entry) => _compose(entry: entry),
   );
 
   void _open(String page) {
@@ -54,37 +53,32 @@ class _AppShellState extends State<AppShell> {
     EntryType type = EntryType.expense,
     Entry? entry,
   }) async {
-    final saved = await openComposer(
+    final ledger = widget.ledger;
+    final result = await openComposer(
       context,
-      widget.ledger,
+      ledger,
       type: type,
       entry: entry,
     );
-    if (saved == null || !mounted) return;
+    if (result == null || !mounted) return;
+    final (outcome, saved) = result;
+    if (outcome == ComposeOutcome.deleted) {
+      final removed = ledger.remove(saved.id);
+      if (removed == null) return;
+      showNote(
+        context,
+        '已刪除「${saved.title}」',
+        action: '復原',
+        onAction: () => ledger.restore(removed),
+      );
+      return;
+    }
     showNote(
       context,
       entry == null ? '已記下' : '已更新',
       action: '查看',
-      onAction: () => _showEntry(saved),
+      onAction: () => _compose(entry: saved),
     );
-  }
-
-  Future<void> _showEntry(Entry entry) async {
-    final ledger = widget.ledger;
-    final choice = await showEntrySheet(context, ledger, entry);
-    if (!mounted) return;
-    if (choice == 'edit') {
-      await _compose(entry: entry);
-    } else if (choice == 'deleted') {
-      final removed = ledger.remove(entry.id);
-      if (removed == null) return;
-      showNote(
-        context,
-        '已刪除「${entry.title}」',
-        action: '復原',
-        onAction: () => ledger.restore(removed),
-      );
-    }
   }
 
   Widget _body() {
