@@ -580,7 +580,7 @@ class _OverviewPageState extends State<OverviewPage> {
         padding: const EdgeInsets.only(top: 6),
         child: Text(
           group == null ? '點選區塊看金額，再點一次展開明細' : '再點一次選取的區塊回到資產',
-          style: const TextStyle(fontSize: 11, color: Hue.faint),
+          style: const TextStyle(fontSize: 11, color: Hue.muted),
         ),
       ),
       const SizedBox(height: 10),
