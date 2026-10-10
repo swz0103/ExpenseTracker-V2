@@ -41,6 +41,7 @@ class AxisBar extends StatelessWidget {
     this.positive = Hue.positive,
     this.negative = Hue.negative,
     this.height = 12,
+    this.minimum = 0,
   });
 
   final num value;
@@ -51,10 +52,16 @@ class AxisBar extends StatelessWidget {
   final Color negative;
   final double height;
 
+  /// The share the smallest non-zero value still gets, so every bar
+  /// stays visible; larger values grow in proportion above it.
+  final double minimum;
+
   @override
   Widget build(BuildContext context) {
+    final share = scale.share(value, largest);
+    final end = value == 0 ? share : minimum + (1 - minimum) * share;
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: scale.share(value, largest)),
+      tween: Tween<double>(end: end),
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
       builder: (context, share, _) => CustomPaint(

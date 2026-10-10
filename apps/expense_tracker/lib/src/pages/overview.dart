@@ -397,6 +397,7 @@ class _OverviewPageState extends State<OverviewPage> {
                     scale: _scale,
                     axis: 0.3,
                     height: 6,
+                    minimum: 0.12,
                   ),
                 ),
               ],

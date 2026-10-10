@@ -189,6 +189,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                               scale: _scale,
                               axis: anyLoss ? 0.3 : 0,
                               height: 10,
+                              minimum: 0.1,
                             ),
                           ),
                           SizedBox(

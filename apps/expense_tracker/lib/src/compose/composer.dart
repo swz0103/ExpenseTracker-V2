@@ -90,6 +90,9 @@ class _ComposerState extends State<Composer> {
   final _note = TextEditingController();
   String? _problem;
 
+  /// An entry opened from a list is shown first; 編輯 unlocks it.
+  late var _viewing = widget.entry != null;
+
   Ledger get _ledger => widget.ledger;
 
   @override
@@ -213,7 +216,7 @@ class _ComposerState extends State<Composer> {
   }
 
   String get _title {
-    if (widget.entry != null) return '編輯紀錄';
+    if (widget.entry != null) return _viewing ? '紀錄詳情' : '編輯紀錄';
     return switch (_type) {
       EntryType.expense => '新增支出',
       EntryType.income => '新增收入',
@@ -401,13 +404,16 @@ class _ComposerState extends State<Composer> {
         children: [
           Row(
             children: [
-              TextButton(
-                onPressed: () => setState(() {
-                  _drafts.remove(_mode);
-                  _fresh();
-                }),
-                style: TextButton.styleFrom(foregroundColor: Hue.ink),
-                child: const Text('重填', style: TextStyle(fontSize: 12)),
+              Visibility.maintain(
+                visible: !_viewing,
+                child: TextButton(
+                  onPressed: () => setState(() {
+                    _drafts.remove(_mode);
+                    _fresh();
+                  }),
+                  style: TextButton.styleFrom(foregroundColor: Hue.ink),
+                  child: const Text('重填', style: TextStyle(fontSize: 12)),
+                ),
               ),
               Expanded(
                 child: Text(
@@ -426,105 +432,118 @@ class _ComposerState extends State<Composer> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              for (final mode in ComposeMode.values)
-                Expanded(child: _tab(mode)),
-            ],
-          ),
-          if (_mode == ComposeMode.investment) ...[
-            const SizedBox(height: 10),
-            Row(
+          IgnorePointer(
+            ignoring: _viewing,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final (trade, label) in const [
-                  (EntryType.buy, '買入'),
-                  (EntryType.sell, '賣出'),
-                  (EntryType.dividend, '股息'),
-                ])
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: Material(
-                        color: trade == _trade
-                            ? Hue.investmentSoft
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() => _trade = trade),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Text(
-                              label,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontWeight: trade == _trade
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  for (final mode in ComposeMode.values)
+                    Expanded(child: _tab(mode)),
+                ],
+              ),
+              if (_mode == ComposeMode.investment) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (final (trade, label) in const [
+                      (EntryType.buy, '買入'),
+                      (EntryType.sell, '賣出'),
+                      (EntryType.dividend, '股息'),
+                    ])
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: Material(
+                            color: trade == _trade
+                                ? Hue.investmentSoft
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => setState(() => _trade = trade),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  label,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: trade == _trade
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                  ],
+                ),
               ],
-            ),
-          ],
-          const SizedBox(height: 14),
-          InkWell(
-            onTap: _calculate,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-              child: Row(
-                children: [
-                  const Text(
-                    'TWD',
-                    style: TextStyle(fontSize: 12, color: Hue.muted),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: _calculate,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 6,
                   ),
-                  Expanded(
-                    child: Text(
-                      '$_sign${groupDigits(_amount)}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w500,
-                        color: _color,
+                  child: Row(
+                    children: [
+                      const Text(
+                        'TWD',
+                        style: TextStyle(fontSize: 12, color: Hue.muted),
                       ),
-                    ),
+                      Expanded(
+                        child: Text(
+                          '$_sign${groupDigits(_amount)}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w500,
+                            color: _color,
+                          ),
+                        ),
+                      ),
+                      const GlyphIcon(Glyph.calculator, color: Hue.muted),
+                    ],
                   ),
-                  const GlyphIcon(Glyph.calculator, color: Hue.muted),
-                ],
+                ),
               ),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _pickDate,
-            icon: const GlyphIcon(Glyph.calendar, size: 16),
-            label: Text(fullDay(_date)),
-            style: TextButton.styleFrom(foregroundColor: Hue.muted),
-          ),
-          const SizedBox(height: 8),
-          ..._fields(),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _note,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              hintText: '備註',
-              prefixIcon: const Padding(
-                padding: EdgeInsets.only(bottom: 22),
-                child: GlyphIcon(Glyph.note, size: 18),
+              TextButton.icon(
+                onPressed: _pickDate,
+                icon: const GlyphIcon(Glyph.calendar, size: 16),
+                label: Text(fullDay(_date)),
+                style: TextButton.styleFrom(foregroundColor: Hue.muted),
               ),
-              filled: true,
-              fillColor: Hue.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
+              const SizedBox(height: 8),
+              ..._fields(),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _note,
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: '備註',
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 22),
+                    child: GlyphIcon(Glyph.note, size: 18),
+                  ),
+                  filled: true,
+                  fillColor: Hue.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
               ),
+              ],
             ),
           ),
           if (problem != null)
@@ -554,14 +573,16 @@ class _ComposerState extends State<Composer> {
                 child: SizedBox(
                   height: 46,
                   child: FilledButton(
-                    onPressed: _submit,
+                    onPressed: _viewing
+                        ? () => setState(() => _viewing = false)
+                        : _submit,
                     style: FilledButton.styleFrom(
-                      backgroundColor: _color,
+                      backgroundColor: _viewing ? Hue.positive : _color,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(_action),
+                    child: Text(_viewing ? '編輯' : _action),
                   ),
                 ),
               ),
