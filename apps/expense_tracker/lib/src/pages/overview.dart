@@ -94,16 +94,15 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           ),
           _Summary(ledger: ledger, month: _month),
-          const SizedBox(height: 14),
-          const Divider(),
+          const SizedBox(height: 18),
+          ..._budget(),
+          const SizedBox(height: 6),
           _DueRow(
             ledger: ledger,
             onTap: () => widget.nav.open(Pages.recurring),
           ),
-          const Divider(),
           ..._daily(),
           ..._market(),
-          ..._budget(),
           ..._assets(),
           ..._flow(),
         ],
@@ -241,7 +240,6 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           ),
         ),
-      const Divider(),
     ];
   }
 
@@ -251,77 +249,44 @@ class _OverviewPageState extends State<OverviewPage> {
     final change = ledger.dayChange;
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
+    final anyLoss = holdings.any((h) => h.change < 0);
     final today = ledger.today;
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
-    final pickedGain = picked == null
-        ? ''
-        : '${signed(picked.gain)}（${percentOf(picked.gain, picked.cost)}）';
-    final rows = <Widget>[];
-    for (var i = 0; i < holdings.length; i += 2) {
-      rows.add(
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _marketCell(holdings[i], largest)),
-              const VerticalDivider(width: 14),
-              Expanded(
-                child: i + 1 < holdings.length
-                    ? _marketCell(holdings[i + 1], largest)
-                    : const SizedBox.shrink(),
-              ),
-            ],
+    final tone = change < 0 ? Hue.negative : Hue.positive;
+    return [
+      SectionHead(
+        '投資行情',
+        trailing: Text(
+          '${today.month}/${today.day} ${_m(signed(change))}',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: tone,
           ),
         ),
-      );
-    }
-    return [
-      Padding(
-        padding: const EdgeInsets.only(top: 22, bottom: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '投資行情',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${today.month}/${today.day} 當日損益 ${_m(signed(change))}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: change < 0 ? Hue.negative : Hue.positive,
-                  ),
-                ),
-                Text(
-                  '示意行情 · ${percentOf(change, before)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: change < 0 ? Hue.negative : Hue.positive,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
-      Text(
-        '投資市值 TWD ${_m(groupDigits(ledger.investValue))}',
-        style: const TextStyle(fontSize: 13, color: Hue.muted),
+      Row(
+        children: [
+          Text(
+            '市值 ${_m(groupDigits(ledger.investValue))}',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
+          ),
+          const Spacer(),
+          Text(
+            '當日 ${percentOf(change, before)} · 示意行情',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
+          ),
+        ],
       ),
-      const SizedBox(height: 8),
-      ...rows,
+      const SizedBox(height: 6),
+      for (final h in holdings) _moveRow(h, largest, anyLoss ? 0.3 : 0),
       if (picked != null)
         Padding(
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.only(top: 8),
           child: Text.rich(
             TextSpan(
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: const TextStyle(fontSize: 12, color: Hue.muted),
               children: [
                 TextSpan(
                   text: '${picked.name} ${picked.code}　',
@@ -330,9 +295,12 @@ class _OverviewPageState extends State<OverviewPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextSpan(text: '市值 ${_m(groupDigits(picked.value))}　損益 '),
+                TextSpan(text: '市值 ${_m(groupDigits(picked.value))}　累計 '),
                 TextSpan(
-                  text: _m(pickedGain),
+                  text: _m(
+                    '${signed(picked.gain)}'
+                    '（${percentOf(picked.gain, picked.cost)}）',
+                  ),
                   style: TextStyle(
                     color: picked.gain < 0 ? Hue.negative : Hue.positive,
                   ),
@@ -341,66 +309,54 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           ),
         ),
-      const SizedBox(height: 8),
-      const Divider(),
     ];
   }
 
-  Widget _marketCell(Holding h, int largest) {
+  /// One holding as a row of a bar chart: its name, today's move as a bar
+  /// from a shared axis, and the amount.
+  Widget _moveRow(Holding h, int largest, double axis) {
     final picked = h.code == _holding;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         decoration: BoxDecoration(
           color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
-          border: const Border(bottom: BorderSide(color: Hue.line)),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    h.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _m(signed(h.change)),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: h.change < 0 ? Hue.negative : Hue.positive,
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: 112,
+              child: Text(
+                h.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13),
+              ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                SizedBox(
-                  width: 46,
-                  child: Text(
-                    h.code,
-                    style: const TextStyle(fontSize: 10, color: Hue.muted),
-                  ),
+            Expanded(
+              child: AxisBar(
+                value: h.change,
+                largest: largest,
+                scale: _scale,
+                axis: axis,
+                height: 8,
+                minimum: 0.08,
+              ),
+            ),
+            SizedBox(
+              width: 50,
+              child: Text(
+                _m(signed(h.change)),
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: h.change < 0 ? Hue.negative : Hue.positive,
                 ),
-                Expanded(
-                  child: AxisBar(
-                    value: h.change,
-                    largest: largest,
-                    scale: _scale,
-                    axis: 0.3,
-                    height: 6,
-                    minimum: 0.12,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -408,6 +364,8 @@ class _OverviewPageState extends State<OverviewPage> {
     );
   }
 
+  /// The budget under the summary: spending by category against the
+  /// limit, the month's pace, and what is left.
   List<Widget> _budget() {
     final ledger = widget.ledger;
     final (year, month) = _month;
@@ -415,66 +373,43 @@ class _OverviewPageState extends State<OverviewPage> {
     final spent = rows.fold(0, (sum, r) => sum + r.$2);
     final limit = ledger.budgetFor(Ledger.allSpending).limit;
     final piece = _piece == null || _piece! >= rows.length ? null : _piece;
-    final label = piece == null ? '本月支出' : rows[piece].$1.name;
-    final amount = piece == null ? spent : rows[piece].$2;
     return [
-      SectionHead(
-        '支出與預算',
-        trailing: TextButton(
-          onPressed: () => widget.nav.open(Pages.budgets),
-          child: const Text('調整', style: TextStyle(color: Hue.positive)),
-        ),
-      ),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Figure(
-              label,
-              'TWD ${_m(groupDigits(amount))}',
-              color: Hue.negative,
-              size: 22,
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                '剩餘預算',
-                style: TextStyle(fontSize: 12, color: Hue.muted),
-              ),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'TWD ${_m(groupDigits(limit - spent))}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: limit < spent ? Hue.negative : Hue.ink,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' ／ ${groupDigits(limit)}',
-                      style: const TextStyle(fontSize: 14, color: Hue.muted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
       BudgetBar(
         pieces: [for (final (c, amount) in rows) (c.color, amount)],
         limit: limit,
         pace: _pace(year, month),
         selected: piece,
+        height: 12,
         onSelect: (index) => setState(() => _piece = index),
       ),
-      const SizedBox(height: 8),
-      const Divider(),
+      Row(
+        children: [
+          Text(
+            piece == null
+                ? '預算'
+                : '${rows[piece].$1.name} ${_m(groupDigits(rows[piece].$2))}',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
+          ),
+          const Spacer(),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(fontSize: 12, color: Hue.muted),
+              children: [
+                const TextSpan(text: '剩 '),
+                TextSpan(
+                  text: _m(groupDigits(limit - spent)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: limit < spent ? Hue.negative : Hue.ink,
+                  ),
+                ),
+                TextSpan(text: ' ／ ${_m(groupDigits(limit))}'),
+              ],
+            ),
+          ),
+          _SmallLink('調整', () => widget.nav.open(Pages.budgets)),
+        ],
+      ),
     ];
   }
 
@@ -625,8 +560,6 @@ class _OverviewPageState extends State<OverviewPage> {
           style: const TextStyle(fontSize: 11, color: Hue.muted),
         ),
       ),
-      const SizedBox(height: 10),
-      const Divider(),
     ];
   }
 
@@ -674,11 +607,13 @@ class _OverviewPageState extends State<OverviewPage> {
       ),
       Row(
         children: [
-          Text(scope, style: const TextStyle(fontSize: 13, color: Hue.muted)),
-          const Spacer(),
-          const Text('結餘 ', style: TextStyle(fontSize: 13, color: Hue.muted)),
           Text(
-            'TWD ${_m(groupDigits(left))}',
+            scope,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          Text(
+            '結餘 ${_m(groupDigits(left))}',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -687,46 +622,29 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
         ],
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 4),
       Row(
         children: [
-          Expanded(
-            child: _Dotted(
-              '收入',
-              'TWD ${_m(groupDigits(shown.income))}',
-              Hue.positive,
-            ),
+          const _Key(Hue.positive, '收入'),
+          Text(
+            ' ${_m(groupDigits(shown.income))}',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
-          Expanded(
-            child: _Dotted(
-              '支出',
-              'TWD ${_m(groupDigits(shown.expense))}',
-              Hue.negative,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
-      Row(
-        children: [
-          Container(width: 16, height: 2, color: Hue.investment),
-          const SizedBox(width: 6),
-          const Text(
-            '淨資產線',
-            style: TextStyle(fontSize: 12, color: Hue.investment),
+          const SizedBox(width: 12),
+          const _Key(Hue.negative, '支出'),
+          Text(
+            ' ${_m(groupDigits(shown.expense))}',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const Spacer(),
+          const _Key(Hue.investment, '淨資產', line: true),
           Text(
-            'TWD ${_m(groupDigits(shown.worth))}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Hue.investment,
-            ),
+            ' ${_m(groupDigits(shown.worth))}',
+            style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
         ],
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 10),
       FlowChart(
         months: months,
         selected: picked,
@@ -1094,40 +1012,29 @@ class _DayGrid extends StatelessWidget {
   }
 }
 
-class _Dotted extends StatelessWidget {
-  const _Dotted(this.label, this.value, this.color);
+/// A legend mark, a square or a short line, with its label.
+class _Key extends StatelessWidget {
+  const _Key(this.color, this.label, {this.line = false});
 
-  final String label;
-  final String value;
   final Color color;
+  final String label;
+  final bool line;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
-          ],
-        ),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+        Container(
+          width: line ? 12 : 8,
+          height: line ? 2 : 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
       ],
     );
   }

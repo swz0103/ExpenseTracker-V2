@@ -96,7 +96,7 @@ class SectionHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 10),
+      padding: const EdgeInsets.only(top: 28, bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

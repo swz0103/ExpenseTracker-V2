@@ -438,12 +438,15 @@ class _ComposerState extends State<Composer> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    for (final mode in ComposeMode.values)
-                      Expanded(child: _tab(mode)),
-                  ],
-                ),
+                if (_viewing)
+                  Center(child: SizedBox(width: 120, child: _tab(_mode)))
+                else
+                  Row(
+                    children: [
+                      for (final mode in ComposeMode.values)
+                        Expanded(child: _tab(mode)),
+                    ],
+                  ),
                 if (_mode == ComposeMode.investment) ...[
                   const SizedBox(height: 10),
                   Row(
@@ -453,35 +456,38 @@ class _ComposerState extends State<Composer> {
                         (EntryType.sell, '賣出'),
                         (EntryType.dividend, '股息'),
                       ])
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: Material(
-                              color: trade == _trade
-                                  ? Hue.investmentSoft
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
+                        if (!_viewing || trade == _trade)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 3,
+                              ),
+                              child: Material(
+                                color: trade == _trade
+                                    ? Hue.investmentSoft
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () => setState(() => _trade = trade),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  child: Text(
-                                    label,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontWeight: trade == _trade
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => setState(() => _trade = trade),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                    ),
+                                    child: Text(
+                                      label,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: trade == _trade
+                                            ? FontWeight.w700
+                                            : FontWeight.w400,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
                     ],
                   ),
                 ],
@@ -511,7 +517,8 @@ class _ComposerState extends State<Composer> {
                             ),
                           ),
                         ),
-                        const GlyphIcon(Glyph.calculator, color: Hue.muted),
+                        if (!_viewing)
+                          const GlyphIcon(Glyph.calculator, color: Hue.muted),
                       ],
                     ),
                   ),
@@ -524,25 +531,27 @@ class _ComposerState extends State<Composer> {
                 ),
                 const SizedBox(height: 8),
                 ..._fields(),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _note,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: '備註',
-                    prefixIcon: const Padding(
-                      padding: EdgeInsets.only(bottom: 22),
-                      child: GlyphIcon(Glyph.note, size: 18),
-                    ),
-                    filled: true,
-                    fillColor: Hue.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+                if (!_viewing || _note.text.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _note,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: '備註',
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(bottom: 22),
+                        child: GlyphIcon(Glyph.note, size: 18),
+                      ),
+                      filled: true,
+                      fillColor: Hue.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -726,11 +735,12 @@ class _ComposerState extends State<Composer> {
                   ),
                 ),
               ),
-              IconButton(
-                tooltip: '新增標的',
-                onPressed: _newHolding,
-                icon: const GlyphIcon(Glyph.add, color: Hue.investment),
-              ),
+              if (!_viewing)
+                IconButton(
+                  tooltip: '新增標的',
+                  onPressed: _newHolding,
+                  icon: const GlyphIcon(Glyph.add, color: Hue.investment),
+                ),
             ],
           ),
           const SizedBox(height: 10),
