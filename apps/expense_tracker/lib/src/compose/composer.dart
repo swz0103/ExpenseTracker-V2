@@ -437,112 +437,112 @@ class _ComposerState extends State<Composer> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  for (final mode in ComposeMode.values)
-                    Expanded(child: _tab(mode)),
-                ],
-              ),
-              if (_mode == ComposeMode.investment) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    for (final (trade, label) in const [
-                      (EntryType.buy, '買入'),
-                      (EntryType.sell, '賣出'),
-                      (EntryType.dividend, '股息'),
-                    ])
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: Material(
-                            color: trade == _trade
-                                ? Hue.investmentSoft
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
+                    for (final mode in ComposeMode.values)
+                      Expanded(child: _tab(mode)),
+                  ],
+                ),
+                if (_mode == ComposeMode.investment) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      for (final (trade, label) in const [
+                        (EntryType.buy, '買入'),
+                        (EntryType.sell, '賣出'),
+                        (EntryType.dividend, '股息'),
+                      ])
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: Material(
+                              color: trade == _trade
+                                  ? Hue.investmentSoft
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () => setState(() => _trade = trade),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  label,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: trade == _trade
-                                        ? FontWeight.w700
-                                        : FontWeight.w400,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => setState(() => _trade = trade),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Text(
+                                    label,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: trade == _trade
+                                          ? FontWeight.w700
+                                          : FontWeight.w400,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 14),
-              InkWell(
-                onTap: _calculate,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 6,
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'TWD',
-                        style: TextStyle(fontSize: 12, color: Hue.muted),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '$_sign${groupDigits(_amount)}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w500,
-                            color: _color,
-                          ),
-                        ),
-                      ),
-                      const GlyphIcon(Glyph.calculator, color: Hue.muted),
                     ],
                   ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _pickDate,
-                icon: const GlyphIcon(Glyph.calendar, size: 16),
-                label: Text(fullDay(_date)),
-                style: TextButton.styleFrom(foregroundColor: Hue.muted),
-              ),
-              const SizedBox(height: 8),
-              ..._fields(),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _note,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: '備註',
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 22),
-                    child: GlyphIcon(Glyph.note, size: 18),
+                ],
+                const SizedBox(height: 14),
+                InkWell(
+                  onTap: _calculate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'TWD',
+                          style: TextStyle(fontSize: 12, color: Hue.muted),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '$_sign${groupDigits(_amount)}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w500,
+                              color: _color,
+                            ),
+                          ),
+                        ),
+                        const GlyphIcon(Glyph.calculator, color: Hue.muted),
+                      ],
+                    ),
                   ),
-                  filled: true,
-                  fillColor: Hue.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+                ),
+                TextButton.icon(
+                  onPressed: _pickDate,
+                  icon: const GlyphIcon(Glyph.calendar, size: 16),
+                  label: Text(fullDay(_date)),
+                  style: TextButton.styleFrom(foregroundColor: Hue.muted),
+                ),
+                const SizedBox(height: 8),
+                ..._fields(),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _note,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: '備註',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(bottom: 22),
+                      child: GlyphIcon(Glyph.note, size: 18),
+                    ),
+                    filled: true,
+                    fillColor: Hue.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
-              ),
               ],
             ),
           ),
