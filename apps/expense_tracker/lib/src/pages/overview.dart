@@ -454,7 +454,7 @@ class _OverviewPageState extends State<OverviewPage> {
     if (group == 'investment') {
       return shaded([
         for (final h in ledger.holdings)
-          if (h.value > 0) (h.code, h.name, h.value),
+          if (h.value > 0) (h.code, h.code, h.value),
       ]);
     }
     if (group != null) {
@@ -551,13 +551,6 @@ class _OverviewPageState extends State<OverviewPage> {
           onSelect: (index) => setState(() => _tile = index),
           onOpen: (index) =>
               _openAssets(group == null ? parts[index].$1 : null),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          group == null ? '點選區塊看金額，再點一次展開明細' : '再點一次選取的區塊回到資產',
-          style: const TextStyle(fontSize: 11, color: Hue.muted),
         ),
       ),
     ];

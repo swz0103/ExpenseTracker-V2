@@ -93,8 +93,8 @@ List<int> _shownWeights(List<int> amounts) {
   ];
 }
 
-/// Labelled tiles, larger amounts larger. Tap a tile to pick it; tap the
-/// picked tile again to open it ([onOpen]), as v114 does.
+/// Labelled tiles, larger amounts larger. Tap a tile to pick it (the others
+/// fade); tap the picked tile again to open it ([onOpen]), as v114 does.
 class Treemap extends StatelessWidget {
   const Treemap({
     super.key,
@@ -175,15 +175,6 @@ class _TreemapPainter extends CustomPainter {
         RRect.fromRectAndRadius(rect, const Radius.circular(4)),
         Paint()..color = faded ? color.withValues(alpha: 0.4) : color,
       );
-      if (picked) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect.deflate(1.5), const Radius.circular(3)),
-          Paint()
-            ..color = Hue.ink
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
-      }
       if (rect.width < 36 || rect.height < 20) continue;
       final label = TextStyle(
         fontSize: 12,
