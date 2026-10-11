@@ -12,6 +12,10 @@ class PhoneFrame extends StatelessWidget {
 
   static const screen = Size(390, 844);
   static const _bezel = 10.0;
+  static const _statusHeight = 34.0;
+
+  /// Room the app leaves for the status bar and the gesture bar.
+  static const _insets = EdgeInsets.only(top: _statusHeight, bottom: 18);
 
   @override
   Widget build(BuildContext context) {
@@ -39,18 +43,176 @@ class PhoneFrame extends StatelessWidget {
               borderRadius: BorderRadius.circular(38),
               child: SizedBox.fromSize(
                 size: screen,
-                child: MediaQuery(
-                  data: media.copyWith(
-                    size: screen,
-                    padding: const EdgeInsets.only(top: 24),
-                    viewPadding: const EdgeInsets.only(top: 24),
-                    viewInsets: EdgeInsets.zero,
-                  ),
-                  child: ColoredBox(color: Hue.paper, child: child),
+                child: Stack(
+                  children: [
+                    MediaQuery(
+                      data: media.copyWith(
+                        size: screen,
+                        padding: _insets,
+                        viewPadding: _insets,
+                        viewInsets: EdgeInsets.zero,
+                      ),
+                      child: ColoredBox(color: Hue.paper, child: child),
+                    ),
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: _statusHeight,
+                      child: IgnorePointer(child: _StatusBar()),
+                    ),
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 6,
+                      child: IgnorePointer(child: _HomeBar()),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A phone's status bar over the preview: the time on the left, a
+/// camera hole in the middle, and Wi-Fi, signal and battery on the right.
+class _StatusBar extends StatelessWidget {
+  const _StatusBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 26),
+      child: Row(
+        children: [
+          Text(
+            '9:41',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Hue.ink,
+              height: 1,
+            ),
+          ),
+          Spacer(),
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color(0xFF1F2622),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Spacer(),
+          CustomPaint(size: Size(62, 14), painter: _StatusIcons()),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusIcons extends CustomPainter {
+  const _StatusIcons();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final ink = Paint()..color = Hue.ink;
+    final line = Paint()
+      ..color = Hue.ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    final mid = size.height / 2;
+
+    // Wi-Fi: three arcs over a dot.
+    const wifi = Offset(8, 12);
+    for (final r in const [4.0, 7.5, 11.0]) {
+      canvas.drawArc(
+        Rect.fromCircle(center: wifi, radius: r),
+        -2.36,
+        1.57,
+        false,
+        line,
+      );
+    }
+    canvas.drawCircle(wifi, 1.4, ink);
+
+    // Signal: four rising bars.
+    for (var i = 0; i < 4; i++) {
+      final h = 4.0 + i * 3;
+      canvas.drawRRect(
+        RRect.fromLTRBR(
+          22 + i * 4.5,
+          size.height - h,
+          25 + i * 4.5,
+          size.height,
+          const Radius.circular(1),
+        ),
+        ink,
+      );
+    }
+
+    // Battery: a case, its charge and the nub.
+    final body = RRect.fromLTRBR(
+      42,
+      mid - 6,
+      size.width - 3,
+      mid + 6,
+      const Radius.circular(3),
+    );
+    canvas
+      ..drawRRect(
+        body,
+        Paint()
+          ..color = Hue.ink
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      )
+      ..drawRRect(
+        RRect.fromLTRBR(
+          44,
+          mid - 4,
+          44 + (body.width - 4) * 0.8,
+          mid + 4,
+          const Radius.circular(1.5),
+        ),
+        ink,
+      )
+      ..drawRRect(
+        RRect.fromLTRBR(
+          size.width - 2,
+          mid - 2.5,
+          size.width,
+          mid + 2.5,
+          const Radius.circular(1),
+        ),
+        ink,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_StatusIcons old) => false;
+}
+
+/// The gesture bar at the foot of the screen.
+class _HomeBar extends StatelessWidget {
+  const _HomeBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 108,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Hue.ink.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );
