@@ -91,11 +91,14 @@ class _StatusBar extends StatelessWidget {
         children: [
           Text(
             '9:41',
+            // Above the app, so no theme: name the font, no underline.
             style: TextStyle(
+              fontFamily: 'Nunito',
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: Hue.ink,
               height: 1,
+              decoration: TextDecoration.none,
             ),
           ),
           Spacer(),
