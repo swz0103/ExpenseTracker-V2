@@ -464,10 +464,7 @@ class _ComposerState extends State<Composer> {
     setState(() {
       _parts = [
         for (final (i, p) in parts.indexed)
-          if (i != index)
-            p
-          else if (amount > 0)
-            (name, amount),
+          if (i != index) p else if (amount > 0) (name, amount),
       ];
     });
   }
@@ -491,8 +488,7 @@ class _ComposerState extends State<Composer> {
     } else if (splitTotal != null && splitTotal != _amount) {
       problem = '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
     } else if (refunded != null &&
-        _amount >
-            _ledger.refundable(refunded) + (widget.entry?.amount ?? 0)) {
+        _amount > _ledger.refundable(refunded) + (widget.entry?.amount ?? 0)) {
       problem = '超過可退金額 ${groupDigits(_ledger.refundable(refunded))}';
     }
     if (problem != null) {
@@ -674,9 +670,8 @@ class _ComposerState extends State<Composer> {
               ),
               if (canRefund)
                 TextButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).pop((ComposeOutcome.refund, entry)),
+                  onPressed: () =>
+                      Navigator.of(context).pop((ComposeOutcome.refund, entry)),
                   style: TextButton.styleFrom(
                     foregroundColor: Hue.positive,
                     minimumSize: const Size(64, 46),
@@ -762,7 +757,10 @@ class _ComposerState extends State<Composer> {
 
   List<Widget> _fields() {
     if (_refunded != null) {
-      return [TileRow([_accountTile('退回到'), _dateTile()]), _noteField()];
+      return [
+        TileRow([_accountTile('退回到'), _dateTile()]),
+        _noteField(),
+      ];
     }
     switch (_mode) {
       case ComposeMode.expense || ComposeMode.income:
@@ -858,7 +856,8 @@ class _ComposerState extends State<Composer> {
   /// The categories as a grid of marks, or the parts of a split.
   Widget _categories(bool expense) {
     final parts = _parts;
-    final left = _amount - (parts ?? const []).fold(0, (s, p) => s + p.$2);
+    final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);
+    final left = _amount - used;
     final choices = _categoryChoices();
     final shown = choices.take(7).toList();
     if (shown.isNotEmpty &&
@@ -1343,16 +1342,8 @@ class _AccountEnd extends StatelessWidget {
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         children: end
-            ? [
-                Flexible(child: text),
-                const SizedBox(width: 8),
-                badge,
-              ]
-            : [
-                badge,
-                const SizedBox(width: 8),
-                Flexible(child: text),
-              ],
+            ? [Flexible(child: text), const SizedBox(width: 8), badge]
+            : [badge, const SizedBox(width: 8), Flexible(child: text)],
       ),
     );
   }

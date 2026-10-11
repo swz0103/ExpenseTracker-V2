@@ -66,6 +66,10 @@ class _RecurringPageState extends State<RecurringPage> {
             if (ledger.confirmation(r, today.year, today.month) case final e?)
               (r, e),
         ];
+        final active = [
+          for (final r in ledger.recurring)
+            if (r.active) r,
+        ];
         final paused = [
           for (final r in ledger.recurring)
             if (!r.active) r,
@@ -84,51 +88,46 @@ class _RecurringPageState extends State<RecurringPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SoftPanel(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                due.isEmpty ? '下一筆' : '${due.length} 筆已到期',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Hue.muted,
-                                ),
-                              ),
-                              Text(
-                                next?.name ?? '沒有固定項目',
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (next != null)
-                                Text(
-                                  '${today.month} / ${next.day} · '
-                                  '${groupDigits(next.amount)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Hue.muted,
-                                  ),
-                                ),
-                            ],
+                  Tile(
+                    hero: true,
+                    icon: Glyph.subscription,
+                    label: next == null
+                        ? '下一筆'
+                        : due.isEmpty
+                        ? '下一筆 · ${today.month}/${next.day}'
+                        : '${due.length} 筆已到期',
+                    value: next?.name ?? '沒有固定項目',
+                    size: 28,
+                    sub: next == null ? null : '每月 ${next.day} 日',
+                    trailing: next == null
+                        ? null
+                        : Text(
+                            groupDigits(next.amount),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Hue.negative,
+                            ),
                           ),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _create,
-                          icon: const GlyphIcon(Glyph.add, size: 16),
-                          label: const Text('新增'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Hue.white,
-                            foregroundColor: Hue.ink,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
+                  TileRow([
+                    Tile(
+                      icon: Glyph.recurring,
+                      label: '本月固定支出',
+                      value: groupDigits(
+                        active.fold(0, (sum, r) => sum + r.amount),
+                      ),
+                      sub: '共 ${active.length} 筆',
+                    ),
+                    Tile(
+                      icon: Glyph.add,
+                      label: '新增固定項目',
+                      value: '＋ 新增',
+                      size: 16,
+                      sub: '房租、訂閱、保費',
+                      onTap: _create,
+                    ),
+                  ]),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(

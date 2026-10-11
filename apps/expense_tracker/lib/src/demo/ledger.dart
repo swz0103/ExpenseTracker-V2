@@ -581,8 +581,10 @@ final class Ledger extends ChangeNotifier {
   /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) {
     final end = closingOn(card, today);
-    final start = closingOn(card, end.subtract(const Duration(days: 1)))
-        .add(const Duration(days: 1));
+    final start = closingOn(
+      card,
+      end.subtract(const Duration(days: 1)),
+    ).add(const Duration(days: 1));
     final day = card.dueDay ?? 15;
     var due = DateTime.utc(end.year, end.month, day);
     if (!due.isAfter(end)) due = DateTime.utc(end.year, end.month + 1, day);

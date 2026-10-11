@@ -28,10 +28,19 @@ String entryAmount(Entry e) => switch (e.type) {
 String entryDetail(Ledger ledger, Entry e) {
   final account = ledger.account(e.account).name;
   final shares = '${e.holding} · ${e.shares} 股';
+  final category = e.parts.length > 1
+      ? '${e.category} 等 ${e.parts.length} 類'
+      : e.category;
   return switch (e.type) {
     EntryType.transfer => '$account → ${ledger.account(e.to ?? '').name}',
     EntryType.buy || EntryType.sell => '$shares · $account',
-    _ => '${e.category} · $account',
+    _ when e.isRefund => '退款 · $account',
+    _ => [
+      if (e.merchant.isNotEmpty) e.merchant,
+      category,
+      if (e.installments > 1) '${e.installments} 期',
+      account,
+    ].join(' · '),
   };
 }
 

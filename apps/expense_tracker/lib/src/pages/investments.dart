@@ -23,8 +23,64 @@ class InvestmentsPage extends StatefulWidget {
 }
 
 class _InvestmentsPageState extends State<InvestmentsPage> {
-  late var _month = (widget.ledger.today.year, widget.ledger.today.month);
+  late final _month = (widget.ledger.today.year, widget.ledger.today.month);
   static const _scale = BarScale.proportional;
+
+  /// The lots of [h] still held, oldest first: what a sale takes first.
+  void _showLots(Holding h) {
+    final lots = widget.ledger.lotsOf(h.code);
+    showSheet<void>(
+      context,
+      (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${h.name} ${h.code}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '持有批次：賣出時預設先賣最早的一批',
+              style: TextStyle(fontSize: 12, color: Hue.muted),
+            ),
+            const SizedBox(height: 10),
+            for (final (i, lot) in lots.indexed)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  border: i == 0
+                      ? null
+                      : const Border(top: BorderSide(color: Hue.line)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      lot.date == DateTime.utc(2025)
+                          ? '期初'
+                          : '${lot.date.month}/${lot.date.day}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${groupDigits(lot.shares)} 股',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      '成本 ${money(lot.cost)}',
+                      style: const TextStyle(color: Hue.muted),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,114 +96,65 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final largest = holdings.fold(0, (m, h) => max(m, h.gain.abs()));
         final anyLoss = holdings.any((h) => h.gain < 0);
         final tone = gain < 0 ? Hue.negative : Hue.positive;
+        final today = ledger.today;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Column(
+            Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SoftPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              '未實現損益',
-                              style: TextStyle(color: Hue.muted),
-                            ),
-                            const Spacer(),
-                            LinkToggle(
-                              '示意行情',
-                              onTap: () =>
-                                  showNote(context, '價格為示意收盤價，尚未接上自動行情'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              moneySigned(gain),
-                              style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w600,
-                                color: tone,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              percentOf(gain, cost),
-                              style: TextStyle(fontSize: 15, color: tone),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        Row(
-                          children: [
-                            Expanded(child: Figure('持股市值', money(value))),
-                            Expanded(child: Figure('投入成本', money(cost))),
-                            Expanded(
-                              child: Figure(
-                                '已實現損益',
-                                moneySigned(ledger.realized),
-                                end: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  Tile(
+                    hero: true,
+                    icon: Glyph.investment,
+                    label: '未實現損益',
+                    value: moneySigned(gain),
+                    valueColor: tone,
+                    trailing: Pill(percentOf(gain, cost), color: tone),
+                    child: TileStats([
+                      (Glyph.briefcase, '市值', money(value), Hue.ink),
+                      (Glyph.coins, '成本', money(cost), Hue.ink),
+                      (
+                        Glyph.reports,
+                        '已實現',
+                        moneySigned(ledger.realized),
+                        ledger.realized < 0 ? Hue.negative : Hue.ink,
+                      ),
+                    ]),
                   ),
+                  TileRow([
+                    Tile(
+                      icon: Glyph.dividend,
+                      label: '${today.month} 月股息',
+                      value: money(ledger.dividends(year, month)),
+                      sub: '累計 ${money(ledger.totalDividends)}',
+                      trailing: const Text(
+                        '＋記',
+                        style: TextStyle(fontSize: 12, color: Hue.accent),
+                      ),
+                      onTap: () => widget.nav.compose(type: EntryType.dividend),
+                    ),
+                    Tile(
+                      icon: Glyph.add,
+                      label: '買進／賣出',
+                      value: '記一筆交易',
+                      size: 16,
+                      sub: '自動算手續費、證交稅',
+                      onTap: () => widget.nav.compose(type: EntryType.buy),
+                    ),
+                  ]),
                   SectionHead(
-                    '股息入帳',
-                    trailing: MonthSwitch(
-                      month: _month,
-                      latest: (ledger.today.year, ledger.today.month),
-                      onChanged: (m) => setState(() => _month = m),
+                    '持股損益',
+                    trailing: LinkToggle(
+                      '示意行情',
+                      onTap: () =>
+                          showNote(context, '價格為示意收盤價，尚未接上自動行情'),
                     ),
                   ),
-                  Row(
-                    children: [
-                      const Text('本月股息 ', style: TextStyle(color: Hue.muted)),
-                      Text(
-                        money(ledger.dividends(year, month)),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      FilledButton.tonalIcon(
-                        onPressed: () =>
-                            widget.nav.compose(type: EntryType.dividend),
-                        icon: const GlyphIcon(Glyph.add, size: 16),
-                        label: const Text('記股息'),
-                      ),
-                    ],
-                  ),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: '累計股息  ',
-                          style: TextStyle(fontSize: 12, color: Hue.muted),
-                        ),
-                        TextSpan(
-                          text: money(ledger.totalDividends),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SectionHead('持股損益'),
                   for (final h in holdings)
-                    Container(
+                    InkWell(
+                      onTap: () => _showLots(h),
+                      child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: const BoxDecoration(
                         border: Border(bottom: BorderSide(color: Hue.line)),
@@ -216,9 +223,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         ],
                       ),
                     ),
+                    ),
                 ],
               ),
-            ),
           ],
         );
       },

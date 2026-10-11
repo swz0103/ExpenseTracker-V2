@@ -57,6 +57,7 @@ class _LedgerPageState extends State<LedgerPage> {
             (_account == null || e.account == _account || e.to == _account) &&
             (words.isEmpty ||
                 e.note.contains(words) ||
+                e.merchant.contains(words) ||
                 e.category.contains(words)))
           e,
     ];
@@ -171,9 +172,23 @@ class _LedgerPageState extends State<LedgerPage> {
         final expense = ledger.expense(year, month);
         final shown = _shown();
         final rows = <Widget>[];
+        var group = <Widget>[];
         DateTime? day;
+        void close() {
+          if (group.isEmpty) return;
+          rows.add(
+            SoftPanel(
+              color: Hue.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              child: Column(children: group),
+            ),
+          );
+          group = [];
+        }
+
         for (final e in shown) {
           if (e.date != day) {
+            close();
             day = e.date;
             final spentToday = ledger.spentOn(e.date);
             rows.add(
@@ -185,7 +200,7 @@ class _LedgerPageState extends State<LedgerPage> {
               ),
             );
           }
-          rows.add(
+          group.add(
             EntryTile(
               ledger: ledger,
               entry: e,
@@ -193,6 +208,9 @@ class _LedgerPageState extends State<LedgerPage> {
             ),
           );
         }
+        close();
+        final transfers = shown.where((e) => e.type == EntryType.transfer);
+        String hide(int value) => ledger.hidden ? '••••' : groupDigits(value);
         final account = _account;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -205,101 +223,100 @@ class _LedgerPageState extends State<LedgerPage> {
                 onChanged: (m) => setState(() => _month = m),
               ),
             ),
+            Tile(
+              hero: true,
+              icon: Glyph.records,
+              label: '$month 月結餘 · ${shown.length} 筆',
+              value: hide(income - expense),
+              valueColor: income < expense ? Hue.negative : Hue.ink,
+              size: 28,
+              trailing: PopupMenuButton<String>(
+                tooltip: '更多動作',
+                color: Hue.panel,
+                icon: const GlyphIcon(Glyph.other, color: Hue.muted),
+                onSelected: (_) => _export(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'csv', child: Text('複製本月 CSV')),
+                ],
+              ),
+              child: TileStats([
+                (Glyph.income, '收入', hide(income), Hue.positive),
+                (Glyph.payout, '支出', hide(expense), Hue.negative),
+                (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
+              ]),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
-                const Text(
-                  '本月收支',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: '搜尋名稱、分類、商家',
+                      isDense: true,
+                      filled: true,
+                      fillColor: Hue.white,
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: GlyphIcon(Glyph.search, size: 18),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (text) => setState(() => _search = text),
+                  ),
                 ),
-                const Spacer(),
-                const Text(
-                  '結餘 ',
-                  style: TextStyle(fontSize: 12, color: Hue.muted),
-                ),
-                Text(
-                  ledger.hidden ? '••••' : groupDigits(income - expense),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: income < expense ? Hue.negative : Hue.positive,
+                const SizedBox(width: 8),
+                Material(
+                  color: Hue.white,
+                  borderRadius: BorderRadius.circular(14),
+                  child: IconButton(
+                    tooltip: '篩選',
+                    onPressed: _filter,
+                    icon: const GlyphIcon(Glyph.sliders, size: 18),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                _Pair('收入', income, Hue.positive, hidden: ledger.hidden),
-                const Spacer(),
-                _Pair('支出', expense, Hue.negative, hidden: ledger.hidden),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Rail(income: income, expense: expense),
-            const SizedBox(height: 14),
-            const Divider(),
-            Row(
-              children: [
-                Text(
-                  '本月紀錄 · ${shown.length} 筆',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => setState(() {
-                    _search = _search == null ? '' : null;
-                  }),
-                  icon: const GlyphIcon(Glyph.search, size: 18),
-                  label: const Text('搜尋'),
-                  style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                ),
-                TextButton.icon(
-                  onPressed: _filter,
-                  icon: const GlyphIcon(Glyph.sliders, size: 18),
-                  label: const Text('篩選'),
-                  style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                ),
-                PopupMenuButton<String>(
-                  tooltip: '更多動作',
-                  color: Hue.panel,
-                  icon: const GlyphIcon(Glyph.other, color: Hue.muted),
-                  onSelected: (_) => _export(),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'csv', child: Text('複製本月 CSV')),
-                  ],
-                ),
-              ],
-            ),
-            if (_search != null)
-              TextField(
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: '搜尋名稱、分類',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Hue.surface,
-                  prefixIcon: const GlyphIcon(Glyph.search, size: 18),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onChanged: (text) => setState(() => _search = text),
+            SizedBox(
+              height: 32,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final option in KindFilter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _kind = option),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: option == _kind ? Hue.accent : Hue.tile,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            option.label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: option == _kind ? Hue.white : Hue.accent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            if (_kind != KindFilter.all || account != null)
+            ),
+            if (account != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Wrap(
                   spacing: 8,
                   children: [
-                    if (_kind != KindFilter.all)
-                      InputChip(
-                        label: Text(_kind.label),
-                        onDeleted: () => setState(() => _kind = KindFilter.all),
-                      ),
                     if (account != null)
                       InputChip(
                         label: Text(ledger.account(account).name),
@@ -319,37 +336,6 @@ class _LedgerPageState extends State<LedgerPage> {
           ],
         );
       },
-    );
-  }
-}
-
-class _Pair extends StatelessWidget {
-  const _Pair(this.label, this.amount, this.color, {this.hidden = false});
-
-  final String label;
-  final int amount;
-  final Color color;
-  final bool hidden;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '$label  ',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-          TextSpan(
-            text: hidden ? '••••' : groupDigits(amount),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
