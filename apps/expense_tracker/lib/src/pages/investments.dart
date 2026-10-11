@@ -165,10 +165,15 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   ),
                 ]),
                 for (final (title, etf) in const [('ETF', true), ('個股', false)])
-                  ..._group(title, [
-                    for (final h in holdings)
-                      if (h.code.startsWith('00') == etf) h,
-                  ], largest, axis),
+                  ..._group(
+                    title,
+                    [
+                      for (final h in holdings)
+                        if (h.code.startsWith('00') == etf) h,
+                    ],
+                    largest,
+                    axis,
+                  ),
               ],
             ),
           ],
