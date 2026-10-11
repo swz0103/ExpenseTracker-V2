@@ -314,15 +314,12 @@ class _LedgerPageState extends State<LedgerPage> {
             if (account != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Wrap(
-                  spacing: 8,
-                  children: [
-                    if (account != null)
-                      InputChip(
-                        label: Text(ledger.account(account).name),
-                        onDeleted: () => setState(() => _account = null),
-                      ),
-                  ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: InputChip(
+                    label: Text(ledger.account(account).name),
+                    onDeleted: () => setState(() => _account = null),
+                  ),
                 ),
               ),
             if (rows.isEmpty)

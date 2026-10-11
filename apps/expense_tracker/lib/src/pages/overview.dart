@@ -249,28 +249,27 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '投資行情',
         trailing: Text(
-          '${today.month}/${today.day} ${_m(signed(change))}',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: tone,
-          ),
+          '${today.month}/${today.day} 收盤 · 示意',
+          style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
-      Row(
-        children: [
-          Text(
-            '市值 ${_m(groupDigits(ledger.investValue))}',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-          const Spacer(),
-          Text(
-            '當日 ${percentOf(change, before)} · 示意行情',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-        ],
-      ),
-      const SizedBox(height: 6),
+      TileRow([
+        Tile(
+          icon: Glyph.investment,
+          label: '今日損益',
+          value: _m(signed(change)),
+          valueColor: tone,
+          sub: '當日 ${percentOf(change, before)}',
+        ),
+        Tile(
+          icon: Glyph.briefcase,
+          label: '持股市值',
+          value: _m(groupDigits(ledger.investValue)),
+          sub: '${holdings.length} 檔',
+          onTap: () => widget.nav.open(Pages.investments),
+        ),
+      ]),
+      const SizedBox(height: 8),
       for (final h in holdings) _moveRow(h, largest, anyLoss ? 0.3 : 0),
       if (picked != null)
         Padding(
