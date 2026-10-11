@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
 
@@ -9,7 +11,16 @@ enum EntryType { expense, income, transfer, buy, sell, dividend }
 enum AccountKind { cash, bank, wallet, card }
 
 final class Account {
-  const Account(this.id, this.name, this.kind, this.opening, {this.icon});
+  const Account(
+    this.id,
+    this.name,
+    this.kind,
+    this.opening, {
+    this.icon,
+    this.closingDay,
+    this.dueDay,
+    this.limit,
+  });
 
   final String id;
   final String name;
@@ -21,6 +32,12 @@ final class Account {
 
   /// The balance before the first entry; negative for card debt.
   final int opening;
+
+  /// A card's statement closing day and payment day of the month, and
+  /// its credit limit.
+  final int? closingDay;
+  final int? dueDay;
+  final int? limit;
 }
 
 final class Category {
@@ -50,6 +67,12 @@ final class Entry {
     this.recurring,
     this.merchant = '',
     this.tags = const [],
+    this.parts = const [],
+    this.fee = 0,
+    this.tax = 0,
+    this.refundOf,
+    this.installments = 0,
+    this.average = false,
   });
 
   final String id;
@@ -78,6 +101,52 @@ final class Entry {
   /// Labels that cut across categories, such as 家用.
   final List<String> tags;
 
+  /// A spending split across categories, each with its amount; empty when
+  /// the whole goes to [category].
+  final List<(String, int)> parts;
+
+  /// The bank's fee on a transfer, the broker's on a trade.
+  final int fee;
+
+  /// The securities transaction tax on a sale.
+  final int tax;
+
+  /// The spending this income gives back, for a refund.
+  final String? refundOf;
+
+  /// How many monthly instalments a card purchase is paid in; 0 for one.
+  final int installments;
+
+  /// A sale costed at the average price rather than first in, first out.
+  final bool average;
+
+  bool get isRefund => refundOf != null;
+
+  /// What the entry adds to spending: an expense, a transfer's fee; a
+  /// refund takes some back.
+  int get spending => switch (type) {
+    EntryType.expense => amount,
+    EntryType.transfer => fee,
+    EntryType.income when isRefund => -amount,
+    _ => 0,
+  };
+
+  /// What the entry brings in: income and dividends, not refunds.
+  int get earning => switch (type) {
+    EntryType.income when !isRefund => amount,
+    EntryType.dividend => amount,
+    _ => 0,
+  };
+
+  /// [spending] by category: the parts of a split, a transfer's fee under
+  /// [Ledger.feeCategory].
+  List<(String, int)> get spendingParts {
+    if (spending == 0) return const [];
+    if (type == EntryType.transfer) return [(Ledger.feeCategory, fee)];
+    if (parts.isNotEmpty) return parts;
+    return [(category, spending)];
+  }
+
   /// This entry with another category.
   Entry withCategory(String name) => Entry(
     id: id,
@@ -93,6 +162,15 @@ final class Entry {
     recurring: recurring,
     merchant: merchant,
     tags: tags,
+    parts: [
+      for (final (part, value) in parts)
+        (part == category ? name : part, value),
+    ],
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
   );
 
   /// What the lists show: the note, else the category.
@@ -150,6 +228,15 @@ final class Holding {
         dividends: dividends ?? this.dividends,
         realized: realized ?? this.realized,
       );
+}
+
+/// Shares bought together and still held, with what they cost.
+final class Lot {
+  const Lot(this.date, this.shares, this.cost);
+
+  final DateTime date;
+  final int shares;
+  final int cost;
 }
 
 final class Budget {
@@ -216,6 +303,9 @@ final class Ledger extends ChangeNotifier {
 
   static const allSpending = '全部支出';
 
+  /// Where transfer fees are counted.
+  static const feeCategory = '其他支出';
+
   final DateTime today;
   final List<Account> _accounts;
   final List<Category> _categories;
@@ -224,6 +314,7 @@ final class Ledger extends ChangeNotifier {
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
   var _holdings = <Holding>[];
+  var _lots = <String, List<Lot>>{};
   var _serial = 0;
 
   /// Hides the summary figures on the overview and accounts.
@@ -249,6 +340,50 @@ final class Ledger extends ChangeNotifier {
     (c) => c.name == name,
     orElse: () => Category(name, 'other', const Color(0xFF8C8C80)),
   );
+
+  /// The lots of [code] still held, oldest first.
+  List<Lot> lotsOf(String code) => List.unmodifiable(_lots[code] ?? const []);
+
+  /// What selling [shares] of [code] now would cost: the oldest lots
+  /// first, or the average price.
+  int saleCost(String code, int shares, {bool average = false}) =>
+      _take(_lots[code] ?? const [], shares, average: average).$1;
+
+  /// The cost of selling [shares] out of [lots], and the lots left.
+  static (int, List<Lot>) _take(
+    List<Lot> lots,
+    int shares, {
+    required bool average,
+  }) {
+    final held = lots.fold(0, (sum, l) => sum + l.shares);
+    if (shares > held) throw StateError('賣出股數超過持有股數');
+    if (average) {
+      final cost = lots.fold(0, (sum, l) => sum + l.cost);
+      final part = held == 0 ? 0 : (cost * shares / held).round();
+      final left = held - shares;
+      return (
+        part,
+        left == 0 ? <Lot>[] : [Lot(lots.last.date, left, cost - part)],
+      );
+    }
+    var need = shares;
+    var part = 0;
+    final rest = <Lot>[];
+    for (final lot in lots) {
+      if (need == 0) {
+        rest.add(lot);
+      } else if (lot.shares <= need) {
+        part += lot.cost;
+        need -= lot.shares;
+      } else {
+        final piece = (lot.cost * need / lot.shares).round();
+        part += piece;
+        rest.add(Lot(lot.date, lot.shares - need, lot.cost - piece));
+        need = 0;
+      }
+    }
+    return (part, rest);
+  }
 
   Holding? holding(String code) {
     for (final h in _holdings) {
@@ -282,26 +417,19 @@ final class Ledger extends ChangeNotifier {
       entries.fold(0, (total, e) => total + e.amount);
 
   /// Income of a month, dividends included.
-  int income(int year, int month) => _sum(
-    entriesIn(
-      year,
-      month,
-    ).where((e) => e.type == EntryType.income || e.type == EntryType.dividend),
-  );
+  int income(int year, int month) =>
+      entriesIn(year, month).fold(0, (total, e) => total + e.earning);
 
-  int expense(int year, int month, {int? untilDay}) => _sum(
-    entriesIn(year, month).where(
-      (e) =>
-          e.type == EntryType.expense &&
-          (untilDay == null || e.date.day <= untilDay),
-    ),
-  );
+  /// Spending of a month, less refunds, with transfer fees.
+  int expense(int year, int month, {int? untilDay}) => entriesIn(year, month)
+      .where((e) => untilDay == null || e.date.day <= untilDay)
+      .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
       _sum(entriesIn(year, month).where((e) => e.type == EntryType.dividend));
 
   int spentOn(DateTime day) =>
-      _sum(entriesOn(day).where((e) => e.type == EntryType.expense));
+      entriesOn(day).fold(0, (total, e) => total + e.spending);
 
   /// A month's spending by category, largest first.
   List<(Category, int)> expenseByCategory(
@@ -311,9 +439,10 @@ final class Ledger extends ChangeNotifier {
   }) {
     final totals = <String, int>{};
     for (final e in entriesIn(year, month)) {
-      if (e.type != EntryType.expense) continue;
       if (untilDay != null && e.date.day > untilDay) continue;
-      totals[e.category] = (totals[e.category] ?? 0) + e.amount;
+      for (final (name, value) in e.spendingParts) {
+        totals[name] = (totals[name] ?? 0) + value;
+      }
     }
     final rows = [
       for (final MapEntry(:key, :value) in totals.entries)
@@ -333,14 +462,8 @@ final class Ledger extends ChangeNotifier {
     var income = 0;
     var expense = 0;
     for (final e in _between(from, to)) {
-      switch (e.type) {
-        case EntryType.income || EntryType.dividend:
-          income += e.amount;
-        case EntryType.expense:
-          expense += e.amount;
-        default:
-          break;
-      }
+      income += e.earning;
+      expense += e.spending;
     }
     return (income, expense);
   }
@@ -352,8 +475,9 @@ final class Ledger extends ChangeNotifier {
   Map<String, int> spendingBetween(DateTime from, DateTime to) {
     final totals = <String, int>{};
     for (final e in _between(from, to)) {
-      if (e.type != EntryType.expense) continue;
-      totals[e.category] = (totals[e.category] ?? 0) + e.amount;
+      for (final (name, value) in e.spendingParts) {
+        totals[name] = (totals[name] ?? 0) + value;
+      }
     }
     return totals;
   }
@@ -365,7 +489,7 @@ final class Ledger extends ChangeNotifier {
     final counts = <String, int>{};
     for (final e in _between(from, to)) {
       if (e.type != EntryType.expense || e.merchant.isEmpty) continue;
-      amounts[e.merchant] = (amounts[e.merchant] ?? 0) + e.amount;
+      amounts[e.merchant] = (amounts[e.merchant] ?? 0) + e.spending;
       counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
     }
     final rows = [
@@ -380,9 +504,9 @@ final class Ledger extends ChangeNotifier {
   List<(String, int)> tagsBetween(DateTime from, DateTime to) {
     final totals = <String, int>{};
     for (final e in _between(from, to)) {
-      if (e.type != EntryType.expense) continue;
+      if (e.spending == 0) continue;
       for (final tag in e.tags) {
-        totals[tag] = (totals[tag] ?? 0) + e.amount;
+        totals[tag] = (totals[tag] ?? 0) + e.spending;
       }
     }
     final rows = [
@@ -399,16 +523,156 @@ final class Ledger extends ChangeNotifier {
 
   // Balances.
 
-  int _effect(Entry e, String account) {
+  /// What [e] does to [account] by the end of [at].
+  int _effect(Entry e, String account, DateTime at) {
     var change = 0;
     if (e.account == account) {
       change += switch (e.type) {
-        EntryType.income || EntryType.sell || EntryType.dividend => e.amount,
-        _ => -e.amount,
+        EntryType.income || EntryType.dividend => e.amount,
+        EntryType.sell => e.amount - e.fee - e.tax,
+        EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
+        EntryType.expense => -billed(e, at),
       };
     }
     if (e.type == EntryType.transfer && e.to == account) change += e.amount;
     return change;
+  }
+
+  // Cards.
+
+  /// The last statement closing of [card] on or before [day].
+  DateTime closingOn(Account card, DateTime day) {
+    DateTime closing(int year, int month) => DateTime.utc(
+      year,
+      month,
+      min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
+    );
+    final here = closing(day.year, day.month);
+    return here.isAfter(day) ? closing(day.year, day.month - 1) : here;
+  }
+
+  /// How much of [e] has reached its card's statements by [at]: all of
+  /// it, or the instalments billed so far.
+  int billed(Entry e, DateTime at) {
+    final count = e.installments;
+    if (count < 2) return e.amount;
+    final periods = billedPeriods(e, at);
+    final each = e.amount ~/ count;
+    return periods >= count ? e.amount : each * periods;
+  }
+
+  /// How many instalments of [e] have been billed by [at].
+  int billedPeriods(Entry e, DateTime at) {
+    final card = account(e.account);
+    var periods = 0;
+    var month = DateTime.utc(e.date.year, e.date.month);
+    while (!month.isAfter(at) && periods < e.installments) {
+      final closing = closingOn(card, _lastDayOf(month));
+      if (closing.isAfter(e.date) && !closing.isAfter(at)) periods++;
+      month = DateTime.utc(month.year, month.month + 1);
+    }
+    return periods;
+  }
+
+  static DateTime _lastDayOf(DateTime month) =>
+      DateTime.utc(month.year, month.month + 1, 0);
+
+  /// The last closed statement of [card]: its first and last day and when
+  /// it must be paid.
+  (DateTime, DateTime, DateTime) statement(Account card) {
+    final end = closingOn(card, today);
+    final start = closingOn(card, end.subtract(const Duration(days: 1)))
+        .add(const Duration(days: 1));
+    final day = card.dueDay ?? 15;
+    var due = DateTime.utc(end.year, end.month, day);
+    if (!due.isAfter(end)) due = DateTime.utc(end.year, end.month + 1, day);
+    return (start, end, due);
+  }
+
+  /// What is still to pay on the last statement of [card].
+  int statementDue(Account card) {
+    final (_, end, _) = statement(card);
+    var paid = 0;
+    for (final e in _entries) {
+      if (e.type == EntryType.transfer &&
+          e.to == card.id &&
+          e.date.isAfter(end)) {
+        paid += e.amount;
+      }
+    }
+    return max(0, -balance(card.id, until: end) - paid);
+  }
+
+  /// Purchases on [card] since its last statement closed.
+  List<Entry> unbilled(Account card) {
+    final (_, end, _) = statement(card);
+    return [
+      for (final e in _entries)
+        if (e.account == card.id &&
+            e.type == EntryType.expense &&
+            e.installments < 2 &&
+            e.date.isAfter(end))
+          e,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  /// Purchases on [card] still being paid in instalments.
+  List<Entry> instalmentsOn(Account card) => [
+    for (final e in _entries)
+      if (e.account == card.id &&
+          e.installments > 1 &&
+          billedPeriods(e, today) < e.installments)
+        e,
+  ];
+
+  /// Known merchants, most used first.
+  List<String> get merchants {
+    final counts = <String, int>{};
+    for (final e in _entries) {
+      if (e.merchant.isEmpty) continue;
+      counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
+    }
+    return counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+  }
+
+  /// The category last used with [merchant], if any.
+  String? categoryAt(String merchant) {
+    Entry? latest;
+    for (final e in _entries) {
+      if (e.merchant != merchant || e.type != EntryType.expense) continue;
+      if (latest == null || e.date.isAfter(latest.date)) latest = e;
+    }
+    return latest?.category;
+  }
+
+  /// Every tag in use, most used first.
+  List<String> get tags {
+    final counts = <String, int>{};
+    for (final e in _entries) {
+      for (final tag in e.tags) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+    return counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+  }
+
+  /// The entry with [id], if it is still in the book.
+  Entry? byId(String id) {
+    for (final e in _entries) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  /// How much of [original] is left to refund.
+  int refundable(Entry original) {
+    var back = 0;
+    for (final e in _entries) {
+      if (e.refundOf == original.id) back += e.amount;
+    }
+    return original.amount - back;
   }
 
   /// The balance of [account] at the end of [until], or of today.
@@ -416,7 +680,7 @@ final class Ledger extends ChangeNotifier {
     final end = until ?? today;
     var total = this.account(account).opening;
     for (final e in _entries) {
-      if (!e.date.isAfter(end)) total += _effect(e, account);
+      if (!e.date.isAfter(end)) total += _effect(e, account, end);
     }
     return total;
   }
@@ -467,7 +731,7 @@ final class Ledger extends ChangeNotifier {
       var change = 0;
       for (final e in _entries) {
         if (!e.date.isBefore(start) && e.date.isBefore(end)) {
-          change += _effect(e, account);
+          change += _effect(e, account, end);
         }
       }
       result.add((start, change));
@@ -675,10 +939,15 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Rebuilds the holdings from the starting positions and every
-  /// investment entry in date order.
+  /// Rebuilds the holdings and their lots from the starting positions and
+  /// every investment entry in date order.
   void _replay() {
+    final opening = DateTime.utc(2025);
     final byCode = {for (final h in _startHoldings) h.code: h};
+    final lots = <String, List<Lot>>{
+      for (final h in _startHoldings)
+        h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
+    };
     final trades = [
       for (final e in _entries)
         if (e.isInvestment && e.holding != null) e,
@@ -699,21 +968,23 @@ final class Ledger extends ChangeNotifier {
           );
       switch (e.type) {
         case EntryType.buy:
+          final cost = e.amount + e.fee;
+          lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
           byCode[code] = held.copyWith(
             shares: held.shares + e.shares,
-            cost: held.cost + e.amount,
+            cost: held.cost + cost,
           );
         case EntryType.sell:
-          if (e.shares > held.shares) {
-            throw StateError('賣出股數超過持有股數');
-          }
-          final part = held.shares == 0
-              ? 0
-              : (held.cost * e.shares / held.shares).round();
+          final (part, rest) = _take(
+            lots[code] ?? const [],
+            e.shares,
+            average: e.average,
+          );
+          lots[code] = rest;
           byCode[code] = held.copyWith(
             shares: held.shares - e.shares,
             cost: held.cost - part,
-            realized: held.realized + e.amount - part,
+            realized: held.realized + e.amount - e.fee - e.tax - part,
           );
         case EntryType.dividend:
           byCode[code] = held.copyWith(dividends: held.dividends + e.amount);
@@ -721,6 +992,7 @@ final class Ledger extends ChangeNotifier {
           break;
       }
     }
+    _lots = lots;
     _holdings = [
       for (final h in byCode.values)
         if (h.shares > 0 || h.realized != 0) h,

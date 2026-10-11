@@ -47,8 +47,7 @@ class PeriodBars extends StatelessWidget {
             final width = constraints.maxWidth;
             return GestureDetector(
               onTapDown: (d) {
-                final i = (d.localPosition.dx / width * buckets.length)
-                    .floor();
+                final i = (d.localPosition.dx / width * buckets.length).floor();
                 if (i < 0 || i >= buckets.length || buckets[i].ahead) return;
                 onSelect(i == selected ? null : i);
               },
@@ -83,10 +82,7 @@ class _BarsPainter extends CustomPainter {
     if (buckets.isEmpty) return;
     final plot = size.height - _labels;
     final slot = size.width / buckets.length;
-    final largest = buckets.fold(
-      1,
-      (m, b) => max(m, max(b.income, b.expense)),
-    );
+    final largest = buckets.fold(1, (m, b) => max(m, max(b.income, b.expense)));
     final bar = min(14.0, slot * 0.32);
     final faded = selected != null;
     for (final (i, b) in buckets.indexed) {
@@ -291,13 +287,7 @@ class MixBars extends StatelessWidget {
 }
 
 class _MixPainter extends CustomPainter {
-  _MixPainter(
-    this.columns,
-    this.colors,
-    this.labels,
-    this.selected,
-    this.grow,
-  );
+  _MixPainter(this.columns, this.colors, this.labels, this.selected, this.grow);
 
   final List<List<int>> columns;
   final List<Color> colors;

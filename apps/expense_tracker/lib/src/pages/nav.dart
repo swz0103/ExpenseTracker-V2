@@ -30,8 +30,10 @@ final class Nav {
   /// Returns from an opened page.
   final VoidCallback back;
 
-  /// Opens the composer for a new entry of [type], or to edit [entry].
-  final Future<void> Function({EntryType type, Entry? entry}) compose;
+  /// Opens the composer for a new entry of [type], filled in from
+  /// [draft] if given, or to show and edit [entry].
+  final Future<void> Function({EntryType type, Entry? entry, Entry? draft})
+  compose;
 
   /// Shows an entry's details, with delete and edit.
   final ValueChanged<Entry> showEntry;

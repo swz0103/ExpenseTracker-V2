@@ -611,10 +611,7 @@ class RingGauge extends StatelessWidget {
         child: Center(
           child: Text(
             '${(share * 100).round()}%',
-            style: TextStyle(
-              fontSize: size / 4.2,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontSize: size / 4.2, fontWeight: FontWeight.w700),
           ),
         ),
       ),

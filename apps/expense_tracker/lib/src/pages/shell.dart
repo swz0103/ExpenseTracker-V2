@@ -8,6 +8,7 @@ import '../look/widgets.dart';
 import 'account_page.dart';
 import 'accounts.dart';
 import 'budgets.dart';
+import 'card_page.dart';
 import 'categories_page.dart';
 import 'investments.dart';
 import 'ledger_page.dart';
@@ -52,6 +53,8 @@ class _AppShellState extends State<AppShell> {
   Future<void> _compose({
     EntryType type = EntryType.expense,
     Entry? entry,
+    Entry? draft,
+    Entry? refundOf,
   }) async {
     final ledger = widget.ledger;
     final result = await openComposer(
@@ -59,9 +62,15 @@ class _AppShellState extends State<AppShell> {
       ledger,
       type: type,
       entry: entry,
+      draft: draft,
+      refundOf: refundOf,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;
+    if (outcome == ComposeOutcome.refund) {
+      await _compose(refundOf: saved);
+      return;
+    }
     if (outcome == ComposeOutcome.deleted) {
       final removed = ledger.remove(saved.id);
       if (removed == null) return;
@@ -86,11 +95,20 @@ class _AppShellState extends State<AppShell> {
     final page = _page;
     if (page != null) {
       if (page.startsWith('account:')) {
+        final id = page.substring('account:'.length);
+        if (ledger.account(id).kind == AccountKind.card) {
+          return CardPage(
+            key: ValueKey(page),
+            ledger: ledger,
+            nav: _nav,
+            accountId: id,
+          );
+        }
         return AccountPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
-          accountId: page.substring('account:'.length),
+          accountId: id,
         );
       }
       return switch (page) {

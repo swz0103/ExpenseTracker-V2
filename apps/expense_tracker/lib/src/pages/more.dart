@@ -7,106 +7,155 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'nav.dart';
 
-/// 更多: what falls due, then six tools in two columns.
+/// 更多: what falls due as the main tile, the four tools with the figure
+/// each one is about, and the settings in a list.
 class MorePage extends StatelessWidget {
   const MorePage({super.key, required this.ledger, required this.nav});
 
   final Ledger ledger;
   final Nav nav;
 
-  static const _tools = [
-    (Pages.reports, '財務報表', Glyph.reports, Hue.bank),
-    (Pages.investments, '投資與股息', Glyph.investment, Hue.wallet),
-    (Pages.budgets, '預算管理', Glyph.budget, Hue.gold),
-    (Pages.recurring, '定期交易', Glyph.recurring, Hue.card),
-    (Pages.categories, '分類管理', Glyph.categories, Hue.holdings),
-    (Pages.settings, '設定與資料', Glyph.sliders, Hue.investment),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        final due = ledger.due;
-        final upcoming = ledger.upcoming;
-        final next = due.isNotEmpty
-            ? due.first
-            : upcoming.isEmpty
-            ? null
-            : upcoming.first;
         final today = ledger.today;
+        final due = ledger.due;
+        final items = [...due, ...ledger.upcoming];
+        final income = ledger.income(today.year, today.month);
+        final expense = ledger.expense(today.year, today.month);
+        final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
+        final limit = ledger.budgetFor(Ledger.allSpending).limit;
+        final next = items.isEmpty ? null : items.first;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
             const PageHeader('更多'),
-            SoftPanel(
+            Tile(
+              hero: true,
+              icon: Glyph.calendar,
+              label: due.isEmpty ? '即將扣款' : '已到期',
+              trailing: const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
+              value: '${items.length} 筆',
+              valueColor: due.isEmpty ? Hue.ink : Hue.negative,
+              size: 28,
+              sub: items.isEmpty
+                  ? '沒有待扣款項目'
+                  : [
+                      for (final r in items.take(3))
+                        '${today.month}/${r.day} ${r.name} ${money(r.amount)}',
+                    ].join(' · '),
               onTap: () => nav.open(Pages.recurring),
-              child: Row(
+            ),
+            const SectionHead('分析與規劃'),
+            TileRow([
+              Tile(
+                icon: Glyph.reports,
+                label: '財務報表',
+                value: '$rate%',
+                sub: '本月結餘率',
+                onTap: () => nav.open(Pages.reports),
+              ),
+              Tile(
+                icon: Glyph.investment,
+                label: '投資與股息',
+                value: moneySigned(ledger.investValue - ledger.investCost),
+                valueColor: ledger.investValue < ledger.investCost
+                    ? Hue.negative
+                    : Hue.positive,
+                sub: '未實現損益',
+                onTap: () => nav.open(Pages.investments),
+              ),
+            ]),
+            TileRow([
+              Tile(
+                icon: Glyph.budget,
+                label: '預算管理',
+                value: money(limit - expense),
+                valueColor: limit < expense ? Hue.negative : Hue.ink,
+                sub: '本月剩餘',
+                onTap: () => nav.open(Pages.budgets),
+              ),
+              Tile(
+                icon: Glyph.recurring,
+                label: '定期交易',
+                value: next == null ? '—' : '${today.month}/${next.day}',
+                sub: next == null ? '沒有待扣款項目' : '下一筆 ${next.name}',
+                onTap: () => nav.open(Pages.recurring),
+              ),
+            ]),
+            const SectionHead('設定'),
+            SoftPanel(
+              color: Hue.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: Column(
                 children: [
-                  const IconBadge(Glyph.calendar, Hue.accent, size: 40),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        due.isNotEmpty
-                            ? '${due.length} 筆已到期'
-                            : upcoming.isEmpty
-                            ? '沒有待扣款項目'
-                            : '${upcoming.length} 筆即將扣款',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (next != null)
-                        Text(
-                          '${today.month}/${next.day} ${next.name} '
-                          '${money(next.amount)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Hue.muted,
-                          ),
-                        ),
-                    ],
+                  _Row(
+                    icon: Glyph.categories,
+                    title: '分類管理',
+                    detail: '${ledger.categories.length} 個分類',
+                    onTap: () => nav.open(Pages.categories),
+                  ),
+                  const Divider(height: 1),
+                  _Row(
+                    icon: Glyph.sliders,
+                    title: '設定與資料',
+                    detail: '匯出、重設',
+                    onTap: () => nav.open(Pages.settings),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 2.3,
-              children: [
-                for (final (page, name, icon, color) in _tools)
-                  SoftPanel(
-                    color: Hue.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    onTap: () => nav.open(page),
-                    child: Row(
-                      children: [
-                        IconBadge(icon, color, size: 32),
-                        const SizedBox(width: 10),
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
           ],
         );
       },
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final Glyph icon;
+  final String title;
+  final String detail;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Hue.tile,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: GlyphIcon(icon, size: 18, color: Hue.accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 15))),
+            Text(
+              detail,
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
+            ),
+            const SizedBox(width: 4),
+            const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+          ],
+        ),
+      ),
     );
   }
 }

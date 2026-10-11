@@ -76,8 +76,7 @@ class _ReportsPageState extends State<ReportsPage> {
       _Span.month => '$y 年 ${_start.month} 月',
       _Span.quarter => '$y 年 第 ${(_start.month - 1) ~/ 3 + 1} 季',
       _Span.year => '$y 年',
-      _Span.custom =>
-        '$y/${_start.month} – ${_end.year}/${_end.month}',
+      _Span.custom => '$y/${_start.month} – ${_end.year}/${_end.month}',
     };
   }
 
@@ -323,9 +322,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             const SizedBox(height: 8),
             _Readout(
-              label: readout == null
-                  ? '整段期間'
-                  : _stretchName(readout),
+              label: readout == null ? '整段期間' : _stretchName(readout),
               income: readout?.income ?? income,
               expense: readout?.expense ?? expense,
             ),
@@ -353,13 +350,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       : '',
               ],
             ),
-            ..._mix(
-              stretches,
-              names,
-              spending,
-              lastSpending,
-              expense,
-            ),
+            ..._mix(stretches, names, spending, lastSpending, expense),
             ..._merchants(from, to),
             ..._tags(from, to),
           ],
@@ -449,9 +440,8 @@ class _ReportsPageState extends State<ReportsPage> {
                 share: expense == 0 ? 0 : (spending[name] ?? 0) / expense,
                 largest: largest,
                 picked: name == picked,
-                onTap: () => setState(
-                  () => _category = name == picked ? null : name,
-                ),
+                onTap: () =>
+                    setState(() => _category = name == picked ? null : name),
               ),
           ],
         ),
@@ -609,10 +599,7 @@ class _CategoryRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         '${(share * 100).round()}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Hue.muted,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Hue.muted),
                       ),
                       const Spacer(),
                       Text(

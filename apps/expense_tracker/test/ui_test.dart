@@ -40,13 +40,13 @@ void main() {
 
     test('balances and investments', () {
       expect(ledger.balance('cash'), 11990);
-      expect(ledger.balance('bank'), 262871);
-      expect(ledger.balance('card'), -7829);
-      expect(ledger.cardDebt, 7829);
+      expect(ledger.balance('bank'), 256871);
+      expect(ledger.balance('card'), -10829);
+      expect(ledger.cardDebt, 10829);
       expect(ledger.investValue, 681528);
       expect(ledger.investValue - ledger.investCost, 75678);
       expect(ledger.dayChange, 2717);
-      expect(ledger.assets, 1253389);
+      expect(ledger.assets, 1247389);
       expect(ledger.totalDividends, 32120);
     });
 
@@ -81,7 +81,7 @@ void main() {
       ),
     );
     expect(ledger.holding('0050')!.shares, 3100);
-    expect(ledger.balance('bank'), 262871 - 5820);
+    expect(ledger.balance('bank'), 256871 - 5820);
     expect(
       () => ledger.add(
         Entry(
@@ -101,6 +101,79 @@ void main() {
     expect(ledger.holding('0050')!.shares, 3000);
     ledger.restore(removed);
     expect(ledger.holding('0050')!.shares, 3100);
+  });
+
+  test('splits, refunds and transfer fees count as spending', () {
+    final ledger = demoLedger();
+    final day = ledger.today;
+    final before = ledger.expense(2026, 10);
+    ledger.add(
+      Entry(
+        id: 'split',
+        date: day,
+        type: EntryType.expense,
+        amount: 1000,
+        account: 'cash',
+        category: '飲食日常',
+        parts: const [('飲食日常', 600), ('居家生活', 400)],
+      ),
+    );
+    expect(ledger.expense(2026, 10), before + 1000);
+    expect(ledger.spendingBetween(day, day)['居家生活'], 400);
+    final split = ledger.byId('split')!;
+    ledger.add(
+      Entry(
+        id: 'refund',
+        date: day,
+        type: EntryType.income,
+        amount: 300,
+        account: 'cash',
+        category: '飲食日常',
+        refundOf: split.id,
+      ),
+    );
+    expect(ledger.expense(2026, 10), before + 700);
+    expect(ledger.income(2026, 10), 52000);
+    expect(ledger.refundable(split), 700);
+    final bank = ledger.balance('bank');
+    ledger.add(
+      Entry(
+        id: 'move',
+        date: day,
+        type: EntryType.transfer,
+        amount: 10000,
+        account: 'bank',
+        category: '轉帳',
+        to: 'digital',
+        fee: 15,
+      ),
+    );
+    expect(ledger.balance('bank'), bank - 10015);
+    expect(ledger.expense(2026, 10), before + 715);
+  });
+
+  test('sales take the oldest lots first, and cards bill by instalment', () {
+    final ledger = demoLedger();
+    ledger.add(
+      Entry(
+        id: 'buy',
+        date: ledger.today,
+        type: EntryType.buy,
+        amount: 6000,
+        account: 'bank',
+        holding: '2603',
+        shares: 30,
+        fee: 20,
+      ),
+    );
+    expect(ledger.lotsOf('2603'), hasLength(2));
+    expect(ledger.saleCost('2603', 3), 510);
+    expect(ledger.saleCost('2603', 33), 510 + 6020);
+    final card = ledger.account('card');
+    final phone = ledger.instalmentsOn(card).single;
+    expect(phone.note, 'iPhone 17');
+    expect(ledger.billedPeriods(phone, ledger.today), 3);
+    expect(ledger.billed(phone, ledger.today), 9000);
   });
 
   test('confirming a recurring item books it once', () {
@@ -177,7 +250,7 @@ void main() {
     await tester.tap(find.text('記下支出'));
     await tester.pump();
     expect(find.text('請輸入金額'), findsOneWidget);
-    await tester.tap(find.text('TWD'));
+    await tester.tap(find.text('計算機'));
     await tester.pumpAndSettle();
     for (final key in ['1', '8', '0', '完成']) {
       await tester.tap(find.text(key).last);

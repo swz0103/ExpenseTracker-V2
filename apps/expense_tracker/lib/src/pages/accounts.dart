@@ -101,51 +101,52 @@ class AccountsPage extends StatelessWidget {
                 style: TextButton.styleFrom(foregroundColor: Hue.ink),
               ),
             ),
-            const Text(
-              '資產總額',
-              style: TextStyle(fontSize: 13, color: Hue.muted),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              shown(ledger.assets),
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 8,
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: cash < 1 ? 1 : cash,
-                      child: Container(color: Hue.bank),
+            Tile(
+              hero: true,
+              icon: Glyph.wallet,
+              label: '資產總額',
+              value: shown(ledger.assets),
+              sub: '淨資產 ${shown(ledger.assets - debt)}（扣除卡費）',
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: SizedBox(
+                    height: 8,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: cash < 1 ? 1 : cash,
+                          child: Container(color: Hue.bank),
+                        ),
+                        const SizedBox(width: 2),
+                        Expanded(
+                          flex: invest < 1 ? 1 : invest,
+                          child: Container(color: Hue.investment),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 2),
-                    Expanded(
-                      flex: invest < 1 ? 1 : invest,
-                      child: Container(color: Hue.investment),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: _Part('現金與存款', shown(cash), Hue.bank)),
-                Expanded(child: _Part('投資市值', shown(invest), Hue.investment)),
-              ],
-            ),
-            if (debt > 0) ...[
-              const SizedBox(height: 12),
-              _Part('信用卡待繳', shown(debt), Hue.negative, inline: true),
-            ],
-            const Divider(height: 28),
-            const Text(
-              '帳戶一覽',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
+            TileRow([
+              Tile(icon: Glyph.bank, label: '存款', value: shown(cash), size: 17),
+              Tile(
+                icon: Glyph.investment,
+                label: '投資',
+                value: shown(invest),
+                size: 17,
+                onTap: () => nav.open(Pages.investments),
+              ),
+              Tile(
+                icon: Glyph.card,
+                label: '卡費',
+                value: shown(debt),
+                valueColor: debt > 0 ? Hue.negative : Hue.ink,
+                size: 17,
+              ),
+            ]),
             for (final kind in AccountKind.values) ..._group(kind),
           ],
         );
@@ -178,14 +179,14 @@ class AccountsPage extends StatelessWidget {
     final total = accounts.fold<int>(0, (sum, a) => sum + ledger.balance(a.id));
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 4),
+        padding: const EdgeInsets.only(top: 22, bottom: 8),
         child: Row(
           children: [
             Container(width: 3, height: 14, color: accountColor(kind)),
             const SizedBox(width: 8),
             Text(
               kind == AccountKind.card ? '信用卡 · 本期待繳' : groupName(kind),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const Spacer(),
             Text(
@@ -195,7 +196,11 @@ class AccountsPage extends StatelessWidget {
           ],
         ),
       ),
-      ...rows,
+      SoftPanel(
+        color: Hue.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: Column(children: rows),
+      ),
     ];
   }
 
@@ -205,9 +210,6 @@ class AccountsPage extends StatelessWidget {
       onTap: () => nav.open(Pages.account(account.id)),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Hue.line)),
-        ),
         child: Row(
           children: [
             IconBadge(
@@ -241,64 +243,6 @@ class AccountsPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// A coloured dot and label with its amount, under the asset bar.
-class _Part extends StatelessWidget {
-  const _Part(this.label, this.value, this.color, {this.inline = false});
-
-  final String label;
-  final String value;
-  final Color color;
-
-  /// Label and amount on one line, the amount at the end.
-  final bool inline;
-
-  @override
-  Widget build(BuildContext context) {
-    final head = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
-      ],
-    );
-    if (inline) {
-      return Row(
-        children: [
-          head,
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        head,
-        const SizedBox(height: 2),
-        Padding(
-          padding: const EdgeInsets.only(left: 14),
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
     );
   }
 }

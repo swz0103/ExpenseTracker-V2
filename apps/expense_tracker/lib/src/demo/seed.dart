@@ -22,6 +22,7 @@ Ledger demoLedger() {
     String? recurring,
     String merchant = '',
     List<String> tags = const [],
+    int installments = 0,
   }) {
     entries.add(
       Entry(
@@ -36,6 +37,7 @@ Ledger demoLedger() {
         recurring: recurring,
         merchant: merchant,
         tags: tags,
+        installments: installments,
       ),
     );
   }
@@ -70,16 +72,7 @@ Ledger demoLedger() {
     add(m, 14, spend, 1100, 'bank', '交通通勤', '交通儲值');
     add(m, 18, spend, 699, 'bank', '居家生活', '網路費');
     add(m, 21, spend, 570, 'bank', '訂閱服務', '影音與音樂訂閱');
-    add(
-      m,
-      26,
-      spend,
-      2600 + m * 180,
-      'cash',
-      '飲食日常',
-      '外食與咖啡',
-      merchant: '星巴克',
-    );
+    add(m, 26, spend, 2600 + m * 180, 'cash', '飲食日常', '外食與咖啡', merchant: '星巴克');
     add(
       m,
       28,
@@ -88,6 +81,30 @@ Ledger demoLedger() {
       'bank',
       '轉帳',
       '信用卡繳款',
+      to: 'card',
+    );
+  }
+  // A phone in twelve card instalments, two of them paid off.
+  add(
+    7,
+    12,
+    spend,
+    36000,
+    'card',
+    '購物休閒',
+    'iPhone 17',
+    merchant: 'Apple',
+    installments: 12,
+  );
+  for (final m in const [8, 9]) {
+    add(
+      m,
+      28,
+      EntryType.transfer,
+      3000,
+      'bank',
+      '轉帳',
+      'iPhone 分期繳款',
       to: 'card',
     );
   }
@@ -118,16 +135,7 @@ Ledger demoLedger() {
     tags: const ['家用'],
   );
   add(10, 4, spend, 240, 'cash', '飲食日常', '日式定食・午餐');
-  add(
-    10,
-    4,
-    spend,
-    150,
-    'cash',
-    '飲食日常',
-    '巷口咖啡',
-    merchant: '星巴克',
-  );
+  add(10, 4, spend, 150, 'cash', '飲食日常', '巷口咖啡', merchant: '星巴克');
   for (final (amount, note) in const [
     (65, '日式餐點'),
     (45, '飲品採買'),
@@ -153,7 +161,15 @@ Ledger demoLedger() {
         80000 - _toDigital * _historyMonths,
         icon: 'phone',
       ),
-      const Account('card', '日常信用卡', AccountKind.card, -4680),
+      const Account(
+        'card',
+        '日常信用卡',
+        AccountKind.card,
+        -4680,
+        closingDay: 1,
+        dueDay: 15,
+        limit: 100000,
+      ),
       const Account(
         'savings',
         '儲蓄帳戶',
@@ -182,13 +198,7 @@ Ledger demoLedger() {
         6800,
         icon: 'chat',
       ),
-      const Account(
-        'jkopay',
-        '街口支付',
-        AccountKind.wallet,
-        4200,
-        icon: 'store',
-      ),
+      const Account('jkopay', '街口支付', AccountKind.wallet, 4200, icon: 'store'),
       const Account('pxpay', '全支付', AccountKind.wallet, 2800, icon: 'scan'),
       const Account(
         'easy-wallet',
@@ -197,13 +207,7 @@ Ledger demoLedger() {
         1200,
         icon: 'ticket',
       ),
-      const Account(
-        'home-cash',
-        '家用現金',
-        AccountKind.cash,
-        8500,
-        icon: 'coins',
-      ),
+      const Account('home-cash', '家用現金', AccountKind.cash, 8500, icon: 'coins'),
     ],
     categories: const [
       Category('居家生活', 'home', Color(0xFF5C9A83)),
@@ -370,21 +374,20 @@ const _historyMonths = 15;
 const _toSavings = 8000;
 const _toDigital = 5000;
 
-typedef _Add =
-    void Function(
-      int month,
-      int day,
-      EntryType type,
-      int amount,
-      String account,
-      String category,
-      String note, {
-      int year,
-      String? to,
-      String? recurring,
-      String merchant,
-      List<String> tags,
-    });
+typedef _Add = void Function(
+  int month,
+  int day,
+  EntryType type,
+  int amount,
+  String account,
+  String category,
+  String note, {
+  int year,
+  String? to,
+  String? recurring,
+  String merchant,
+  List<String> tags,
+});
 
 /// Writes the plainer months before April 2026: salary, rent, groceries,
 /// coffee, fuel and a few one-off events, with the card paid off, cash
@@ -449,14 +452,7 @@ int _history(_Add add) {
     for (final day in const [8, 22]) {
       spend(day, 150 + wobble(day) * 5, 'cash', '飲食日常', '咖啡', merchant: '星巴克');
     }
-    spend(
-      16,
-      2400 + wobble(3) * 60,
-      'cash',
-      '飲食日常',
-      '外食',
-      merchant: '八方雲集',
-    );
+    spend(16, 2400 + wobble(3) * 60, 'cash', '飲食日常', '外食', merchant: '八方雲集');
     spend(
       11,
       1500 + wobble(4) * 90,
@@ -466,14 +462,7 @@ int _history(_Add add) {
       merchant: '家樂福',
       tags: const ['家用'],
     );
-    spend(
-      19,
-      850 + wobble(5) * 20,
-      'card',
-      '交通通勤',
-      '加油',
-      merchant: '台灣中油',
-    );
+    spend(19, 850 + wobble(5) * 20, 'card', '交通通勤', '加油', merchant: '台灣中油');
     spend(18, 699, 'bank', '居家生活', '網路費');
     spend(21, 570, 'card', '訂閱服務', '影音與音樂訂閱');
     spend(
@@ -485,14 +474,7 @@ int _history(_Add add) {
       tags: const ['家用'],
     );
     spend(25, 2800, 'bank', '其他支出', '保險費');
-    spend(
-      14,
-      2200 + wobble(7) * 80,
-      'card',
-      '購物休閒',
-      '網購',
-      merchant: 'momo購物網',
-    );
+    spend(14, 2200 + wobble(7) * 80, 'card', '購物休閒', '網購', merchant: 'momo購物網');
     for (final day in const [3, 10, 17, 24]) {
       spend(
         day,
@@ -505,22 +487,8 @@ int _history(_Add add) {
     }
     spend(6, 1000, 'cash', '交通通勤', '悠遊卡加值');
     if (year == 2025 && m == 8) {
-      spend(
-        9,
-        18600,
-        'card',
-        '購物休閒',
-        '日本旅遊・購物',
-        tags: const ['日本旅遊'],
-      );
-      spend(
-        2,
-        12800,
-        'card',
-        '交通通勤',
-        '日本來回機票',
-        tags: const ['日本旅遊'],
-      );
+      spend(9, 18600, 'card', '購物休閒', '日本旅遊・購物', tags: const ['日本旅遊']);
+      spend(2, 12800, 'card', '交通通勤', '日本來回機票', tags: const ['日本旅遊']);
     }
     if (m == 12) {
       spend(20, 3200, 'card', '其他支出', '聖誕禮物', tags: const ['禮物']);

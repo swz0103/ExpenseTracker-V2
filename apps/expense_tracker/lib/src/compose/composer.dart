@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
+import '../demo/trading.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
@@ -33,30 +34,38 @@ enum ComposeMode {
 }
 
 /// A form put aside with 暫存, by tab.
-final _drafts = <ComposeMode, _Draft>{};
-
-final class _Draft {
-  const _Draft(this.state);
-
-  final Map<String, Object?> state;
-}
+final _drafts = <ComposeMode, Map<String, Object?>>{};
 
 /// How the composer was left, when not just closed.
-enum ComposeOutcome { saved, deleted }
+enum ComposeOutcome { saved, deleted, refund }
 
-/// Opens the composer as a bottom sheet for a new entry of [type], or
-/// to show and change [entry] (the same sheet, with 刪除). Returns what
-/// happened and the entry, or null when closed.
+/// Opens the composer as a bottom sheet for a new entry of [type] (filled
+/// in from [draft] if given), to show and change [entry], or to refund
+/// [refundOf]. Returns what happened and the entry, or null when closed.
 Future<(ComposeOutcome, Entry)?> openComposer(
   BuildContext context,
   Ledger ledger, {
   EntryType type = EntryType.expense,
   Entry? entry,
+  Entry? draft,
+  Entry? refundOf,
 }) {
   return showSheet<(ComposeOutcome, Entry)>(
     context,
-    (_) => Composer(ledger: ledger, type: entry?.type ?? type, entry: entry),
+    (_) => Composer(
+      ledger: ledger,
+      type: entry?.type ?? draft?.type ?? type,
+      entry: entry,
+      draft: draft,
+      refundOf: refundOf ?? _original(ledger, entry),
+    ),
   );
+}
+
+/// The spending a refund gives back, when [entry] is one.
+Entry? _original(Ledger ledger, Entry? entry) {
+  final id = entry?.refundOf;
+  return id == null ? null : ledger.byId(id);
 }
 
 class Composer extends StatefulWidget {
@@ -65,6 +74,8 @@ class Composer extends StatefulWidget {
     required this.ledger,
     required this.type,
     this.entry,
+    this.draft,
+    this.refundOf,
   });
 
   final Ledger ledger;
@@ -72,6 +83,12 @@ class Composer extends StatefulWidget {
 
   /// The entry being changed, if any.
   final Entry? entry;
+
+  /// A new entry's starting values, such as a card payment.
+  final Entry? draft;
+
+  /// The spending being refunded, for a refund.
+  final Entry? refundOf;
 
   @override
   State<Composer> createState() => _ComposerState();
@@ -87,6 +104,14 @@ class _ComposerState extends State<Composer> {
   late String _category;
   String? _holding;
   late int _shares;
+  var _merchant = '';
+  var _tags = <String>[];
+
+  /// The parts of a split, or null when the whole goes to [_category].
+  List<(String, int)>? _parts;
+  var _fee = 0;
+  var _installments = 0;
+  var _average = false;
   final _note = TextEditingController();
   String? _problem;
 
@@ -95,28 +120,46 @@ class _ComposerState extends State<Composer> {
 
   Ledger get _ledger => widget.ledger;
 
+  Entry? get _refunded => widget.refundOf;
+
   @override
   void initState() {
     super.initState();
-    final entry = widget.entry;
     _mode = ComposeMode.of(widget.type);
     _trade = widget.type.index >= EntryType.buy.index
         ? widget.type
         : EntryType.buy;
     _fresh();
-    if (entry != null) {
-      _amount = entry.amount;
-      _date = entry.date;
-      _account = entry.account;
-      _to = entry.to ?? _to;
-      _category = entry.category.isEmpty ? _category : entry.category;
-      _holding = entry.holding;
-      _shares = entry.shares;
-      _note.text = entry.note;
+    final source = widget.entry ?? widget.draft;
+    final refunded = _refunded;
+    if (source != null) {
+      _load(source);
+    } else if (refunded != null) {
+      _mode = ComposeMode.income;
+      _amount = _ledger.refundable(refunded);
+      _account = refunded.account;
+      _category = refunded.category;
     } else {
       final draft = _drafts[_mode];
       if (draft != null) _restore(draft);
     }
+  }
+
+  void _load(Entry entry) {
+    _amount = entry.amount;
+    _date = entry.date;
+    _account = entry.account;
+    _to = entry.to ?? _to;
+    _category = entry.category.isEmpty ? _category : entry.category;
+    _holding = entry.holding ?? _holding;
+    _shares = entry.shares;
+    _note.text = entry.note;
+    _merchant = entry.merchant;
+    _tags = [...entry.tags];
+    _parts = entry.parts.isEmpty ? null : [...entry.parts];
+    _fee = entry.type == EntryType.transfer ? entry.fee : 0;
+    _installments = entry.installments;
+    _average = entry.average;
   }
 
   @override
@@ -132,24 +175,23 @@ class _ComposerState extends State<Composer> {
     _date = _ledger.today;
     _account = accounts.first.id;
     _to = accounts.length > 1 ? accounts[1].id : accounts.first.id;
-    final common = _commonCategories();
-    final categories = _ledger.categoriesFor(
-      income: _mode == ComposeMode.income,
-    );
-    _category = common.isNotEmpty
-        ? common.first
-        : categories.isEmpty
-        ? ''
-        : categories.first.name;
+    final common = _categoryChoices();
+    _category = common.isEmpty ? '' : common.first;
     _holding = _ledger.holdings.isEmpty ? null : _ledger.holdings.first.code;
     _shares = 0;
     _note.text = '';
+    _merchant = '';
+    _tags = [];
+    _parts = null;
+    _fee = 0;
+    _installments = 0;
+    _average = false;
     _problem = null;
   }
 
-  /// Up to four categories of this tab, most used over the last two
-  /// months first, so a new entry starts on the likely one.
-  List<String> _commonCategories() {
+  /// Categories of this tab, the most used over the last two months
+  /// first, so a new entry starts on the likely one.
+  List<String> _categoryChoices() {
     final income = _mode == ComposeMode.income;
     final type = income ? EntryType.income : EntryType.expense;
     final today = _ledger.today;
@@ -160,12 +202,10 @@ class _ComposerState extends State<Composer> {
         if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
       }
     }
-    final names = {
+    final names = [
       for (final c in _ledger.categoriesFor(income: income)) c.name,
-    };
-    final ranked = counts.keys.where(names.contains).toList()
-      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-    return ranked.take(4).toList();
+    ];
+    return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
   }
 
   Map<String, Object?> _save() => {
@@ -178,10 +218,13 @@ class _ComposerState extends State<Composer> {
     'holding': _holding,
     'shares': _shares,
     'note': _note.text,
+    'merchant': _merchant,
+    'tags': _tags,
+    'parts': _parts,
+    'fee': _fee,
   };
 
-  void _restore(_Draft draft) {
-    final s = draft.state;
+  void _restore(Map<String, Object?> s) {
     _trade = s['trade']! as EntryType;
     _amount = s['amount']! as int;
     _date = s['date']! as DateTime;
@@ -191,6 +234,11 @@ class _ComposerState extends State<Composer> {
     _holding = s['holding'] as String?;
     _shares = s['shares']! as int;
     _note.text = s['note']! as String;
+    _merchant = s['merchant']! as String;
+    _tags = [...s['tags']! as List<String>];
+    final parts = s['parts'] as List<(String, int)>?;
+    _parts = parts == null ? null : [...parts];
+    _fee = s['fee']! as int;
   }
 
   void _switch(ComposeMode mode) {
@@ -211,11 +259,13 @@ class _ComposerState extends State<Composer> {
   };
 
   Color get _color {
+    if (_refunded != null) return Hue.positive;
     if (_mode != ComposeMode.investment) return _mode.color;
     return _trade == EntryType.sell ? Hue.positive : Hue.investment;
   }
 
   String get _title {
+    if (_refunded != null) return widget.entry == null ? '退款' : '退款詳情';
     if (widget.entry != null) return _viewing ? '紀錄詳情' : '編輯紀錄';
     return switch (_type) {
       EntryType.expense => '新增支出',
@@ -227,11 +277,12 @@ class _ComposerState extends State<Composer> {
 
   String get _action {
     if (widget.entry != null) return '儲存修改';
+    if (_refunded != null) return '記下退款';
     return switch (_type) {
       EntryType.expense => '記下支出',
       EntryType.income => '記下收入',
       EntryType.transfer => '確認轉帳',
-      EntryType.buy => '記下買入',
+      EntryType.buy => '記下買進',
       EntryType.sell => '記下賣出',
       EntryType.dividend => '記下股息',
     };
@@ -244,25 +295,31 @@ class _ComposerState extends State<Composer> {
     _ => '+',
   };
 
-  Future<void> _calculate() async {
-    final value = await showCalculator(
-      context,
-      title: '輸入金額',
-      initial: _amount,
-      color: _color,
-    );
-    if (value != null) setState(() => _amount = value);
+  bool get _onCard =>
+      _type == EntryType.expense &&
+      _ledger.account(_account).kind == AccountKind.card;
+
+  /// The broker's fee and the tax on the trade being written.
+  (int, int) get _charges {
+    if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
+    final fee = brokerFee(_amount, _shares);
+    final code = _holding ?? '';
+    return (fee, _type == EntryType.sell ? saleTax(code, _amount) : 0);
   }
 
-  Future<void> _calculateShares() async {
-    final value = await showCalculator(
+  Future<int?> _ask(String title, int initial, {String unit = 'TWD'}) {
+    return showCalculator(
       context,
-      title: '輸入股數',
-      initial: _shares,
-      color: Hue.investment,
-      unit: '股',
+      title: title,
+      initial: initial,
+      color: _color,
+      unit: unit,
     );
-    if (value != null) setState(() => _shares = value);
+  }
+
+  Future<void> _calculate() async {
+    final value = await _ask('輸入金額', _amount);
+    if (value != null) setState(() => _amount = value);
   }
 
   Future<void> _pickDate() async {
@@ -292,18 +349,17 @@ class _ComposerState extends State<Composer> {
     );
   }
 
-  Future<void> _pickCategory() async {
+  Future<String?> _pickCategory(String? selected) {
     final income = _mode == ComposeMode.income;
-    final picked = await pickOption<String>(
+    return pickOption<String>(
       context,
       title: income ? '收入分類' : '支出分類',
-      selected: _category,
+      selected: selected,
       options: [
         for (final c in _ledger.categoriesFor(income: income))
           Option(c.name, c.name, iconFor(c.icon), c.color),
       ],
     );
-    if (picked != null) setState(() => _category = picked);
   }
 
   Future<void> _pickHolding() async {
@@ -330,9 +386,99 @@ class _ComposerState extends State<Composer> {
     if (code != null) setState(() => _holding = code.toUpperCase());
   }
 
+  Future<void> _pickMerchant() async {
+    final picked = await showChildPage<String>(
+      context,
+      title: '商家',
+      builder: (_) =>
+          _MerchantPicker(known: _ledger.merchants, initial: _merchant),
+    );
+    if (picked == null) return;
+    setState(() {
+      _merchant = picked;
+      final usual = _ledger.categoryAt(picked);
+      if (usual != null && _parts == null && widget.entry == null) {
+        _category = usual;
+      }
+    });
+  }
+
+  Future<void> _pickTags() async {
+    final picked = await showChildPage<List<String>>(
+      context,
+      title: '標籤',
+      builder: (_) => _TagPicker(known: _ledger.tags, initial: _tags),
+    );
+    if (picked != null) setState(() => _tags = picked);
+  }
+
+  Future<void> _pickInstallments() async {
+    final picked = await pickOption<int>(
+      context,
+      title: '分期付款',
+      selected: _installments,
+      columns: 3,
+      options: [
+        for (final n in const [0, 3, 6, 12, 24, 30])
+          Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.card),
+      ],
+    );
+    if (picked != null) setState(() => _installments = picked);
+  }
+
+  void _split() {
+    setState(() {
+      _parts = _parts == null ? [(_category, _amount)] : null;
+    });
+  }
+
+  void _evenly() {
+    final parts = _parts;
+    if (parts == null || parts.isEmpty) return;
+    final each = _amount ~/ parts.length;
+    setState(() {
+      _parts = [
+        for (final (i, (name, _)) in parts.indexed)
+          (
+            name,
+            i == parts.length - 1 ? _amount - each * (parts.length - 1) : each,
+          ),
+      ];
+    });
+  }
+
+  Future<void> _addPart() async {
+    final name = await _pickCategory(null);
+    if (name == null) return;
+    final parts = _parts ?? [];
+    final used = parts.fold(0, (sum, p) => sum + p.$2);
+    setState(() => _parts = [...parts, (name, _amount - used)]);
+  }
+
+  Future<void> _editPart(int index) async {
+    final parts = _parts;
+    if (parts == null) return;
+    final (name, value) = parts[index];
+    final amount = await _ask(name, value);
+    if (amount == null) return;
+    setState(() {
+      _parts = [
+        for (final (i, p) in parts.indexed)
+          if (i != index)
+            p
+          else if (amount > 0)
+            (name, amount),
+      ];
+    });
+  }
+
   void _submit() {
     final type = _type;
+    final parts = _type == EntryType.expense ? _parts : null;
+    final refunded = _refunded;
+    final (fee, tax) = _charges;
     String? problem;
+    final splitTotal = parts?.fold(0, (sum, p) => sum + p.$2);
     if (_amount <= 0) {
       problem = '請輸入金額';
     } else if (type == EntryType.transfer && _account == _to) {
@@ -342,6 +488,12 @@ class _ComposerState extends State<Composer> {
     } else if ((type == EntryType.buy || type == EntryType.sell) &&
         _shares <= 0) {
       problem = '請輸入股數';
+    } else if (splitTotal != null && splitTotal != _amount) {
+      problem = '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
+    } else if (refunded != null &&
+        _amount >
+            _ledger.refundable(refunded) + (widget.entry?.amount ?? 0)) {
+      problem = '超過可退金額 ${groupDigits(_ledger.refundable(refunded))}';
     }
     if (problem != null) {
       setState(() => _problem = problem);
@@ -357,13 +509,21 @@ class _ComposerState extends State<Composer> {
         EntryType.transfer => '轉帳',
         EntryType.dividend => '股息收入',
         EntryType.buy || EntryType.sell => '投資',
-        _ => _category,
+        _ => parts == null || parts.isEmpty ? _category : parts.first.$1,
       },
       note: _note.text.trim(),
       to: type == EntryType.transfer ? _to : null,
       holding: _mode == ComposeMode.investment ? _holding : null,
       shares: type == EntryType.buy || type == EntryType.sell ? _shares : 0,
       recurring: widget.entry?.recurring,
+      merchant: type == EntryType.expense ? _merchant : '',
+      tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
+      parts: parts != null && parts.length > 1 ? parts : const [],
+      fee: type == EntryType.transfer ? _fee : fee,
+      tax: tax,
+      refundOf: refunded?.id,
+      installments: _onCard ? _installments : 0,
+      average: type == EntryType.sell && _average,
     );
     try {
       if (widget.entry == null) {
@@ -380,7 +540,7 @@ class _ComposerState extends State<Composer> {
   }
 
   void _putAside() {
-    _drafts[_mode] = _Draft(_save());
+    _drafts[_mode] = _save();
     Navigator.of(context).pop();
   }
 
@@ -396,8 +556,18 @@ class _ComposerState extends State<Composer> {
   @override
   Widget build(BuildContext context) {
     final problem = _problem;
+    final entry = widget.entry;
+    final refunded = _refunded;
+    final most = refunded == null
+        ? 0
+        : _ledger.refundable(refunded) + (entry?.amount ?? 0);
+    final canRefund =
+        _viewing &&
+        entry != null &&
+        entry.type == EntryType.expense &&
+        _ledger.refundable(entry) > 0;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -405,7 +575,7 @@ class _ComposerState extends State<Composer> {
           Row(
             children: [
               Visibility.maintain(
-                visible: !_viewing,
+                visible: !_viewing && entry == null,
                 child: TextButton(
                   onPressed: () => setState(() {
                     _drafts.remove(_mode);
@@ -432,126 +602,53 @@ class _ComposerState extends State<Composer> {
               ),
             ],
           ),
+          if (refunded != null)
+            _OriginalTile(ledger: _ledger, entry: refunded)
+          else if (_viewing)
+            Center(child: Pill(_mode.label, color: _mode.color))
+          else if (entry == null)
+            Segments(
+              labels: [for (final m in ComposeMode.values) m.label],
+              selected: _mode.index,
+              selectedColor: _mode.color,
+              onChanged: (i) => _switch(ComposeMode.values[i]),
+            ),
+          if (_mode == ComposeMode.investment && refunded == null) ...[
+            const SizedBox(height: 8),
+            _TradeChips(
+              trade: _trade,
+              locked: _viewing,
+              onChanged: (trade) => setState(() => _trade = trade),
+            ),
+          ],
+          const SizedBox(height: 8),
           IgnorePointer(
             ignoring: _viewing,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 6),
-                if (_viewing)
-                  Center(child: SizedBox(width: 120, child: _tab(_mode)))
-                else
-                  Row(
-                    children: [
-                      for (final mode in ComposeMode.values)
-                        Expanded(child: _tab(mode)),
-                    ],
-                  ),
-                if (_mode == ComposeMode.investment) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      for (final (trade, label) in const [
-                        (EntryType.buy, '買入'),
-                        (EntryType.sell, '賣出'),
-                        (EntryType.dividend, '股息'),
-                      ])
-                        if (!_viewing || trade == _trade)
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 3,
-                              ),
-                              child: Material(
-                                color: trade == _trade
-                                    ? Hue.investmentSoft
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () => setState(() => _trade = trade),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
-                                    child: Text(
-                                      label,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontWeight: trade == _trade
-                                            ? FontWeight.w700
-                                            : FontWeight.w400,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 14),
-                InkWell(
+                Tile(
+                  hero: true,
+                  icon: Glyph.calculator,
+                  label: switch (_type) {
+                    _ when refunded != null => '退款金額',
+                    EntryType.transfer => '轉出金額',
+                    EntryType.buy || EntryType.sell => '成交金額',
+                    _ => '金額',
+                  },
+                  trailing: _viewing
+                      ? null
+                      : const Text(
+                          '計算機',
+                          style: TextStyle(fontSize: 12, color: Hue.accent),
+                        ),
+                  value: '$_sign${groupDigits(_amount)}',
+                  valueColor: _color,
+                  size: 34,
+                  sub: refunded == null ? null : '最多可退 ${groupDigits(most)}',
                   onTap: _calculate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 6,
-                    ),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'TWD',
-                          style: TextStyle(fontSize: 12, color: Hue.muted),
-                        ),
-                        Expanded(
-                          child: Text(
-                            '$_sign${groupDigits(_amount)}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w500,
-                              color: _color,
-                            ),
-                          ),
-                        ),
-                        if (!_viewing)
-                          const GlyphIcon(Glyph.calculator, color: Hue.muted),
-                      ],
-                    ),
-                  ),
                 ),
-                TextButton.icon(
-                  onPressed: _pickDate,
-                  icon: const GlyphIcon(Glyph.calendar, size: 16),
-                  label: Text(fullDay(_date)),
-                  style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                ),
-                const SizedBox(height: 8),
                 ..._fields(),
-                if (!_viewing || _note.text.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _note,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: '備註',
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(bottom: 22),
-                        child: GlyphIcon(Glyph.note, size: 18),
-                      ),
-                      filled: true,
-                      fillColor: Hue.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -568,15 +665,24 @@ class _ComposerState extends State<Composer> {
           Row(
             children: [
               TextButton(
-                onPressed: widget.entry != null ? _delete : _putAside,
+                onPressed: entry != null ? _delete : _putAside,
                 style: TextButton.styleFrom(
-                  foregroundColor: widget.entry != null
-                      ? Hue.danger
-                      : Hue.muted,
+                  foregroundColor: entry != null ? Hue.danger : Hue.muted,
                   minimumSize: const Size(64, 46),
                 ),
-                child: Text(widget.entry != null ? '刪除' : '暫存'),
+                child: Text(entry != null ? '刪除' : '暫存'),
               ),
+              if (canRefund)
+                TextButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop((ComposeOutcome.refund, entry)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Hue.positive,
+                    minimumSize: const Size(64, 46),
+                  ),
+                  child: const Text('退款'),
+                ),
               const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
@@ -602,38 +708,52 @@ class _ComposerState extends State<Composer> {
     );
   }
 
-  Widget _tab(ComposeMode mode) {
-    final picked = mode == _mode;
-    final locked = widget.entry != null && !picked;
+  Widget _accountTile(String label) {
+    final account = _ledger.account(_account);
+    return Tile(
+      icon: accountIcon(account),
+      label: label,
+      value: account.name,
+      size: 15,
+      onTap: () async {
+        final picked = await _pickAccount('選擇帳戶', _account);
+        if (picked != null) setState(() => _account = picked);
+      },
+    );
+  }
+
+  Widget _dateTile() {
+    final day = '${_date.month}/${_date.day}';
+    return Tile(
+      icon: Glyph.calendar,
+      label: '日期',
+      value: _date == _ledger.today
+          ? '今天 $day'
+          : '$day 週${weekdayNames[_date.weekday - 1]}',
+      size: 15,
+      onTap: _pickDate,
+    );
+  }
+
+  Widget _noteField() {
+    if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Material(
-        color: picked ? mode.soft : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: locked ? null : () => _switch(mode),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GlyphIcon(
-                  mode.icon,
-                  size: 16,
-                  color: picked ? mode.color : Hue.muted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  mode.label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: picked ? mode.color : Hue.muted,
-                    fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
+      padding: const EdgeInsets.only(top: 8),
+      child: TextField(
+        controller: _note,
+        minLines: 1,
+        maxLines: 3,
+        decoration: InputDecoration(
+          hintText: '備註（選填）',
+          prefixIcon: const Padding(
+            padding: EdgeInsets.all(12),
+            child: GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
+          ),
+          filled: true,
+          fillColor: Hue.tile,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
         ),
       ),
@@ -641,200 +761,857 @@ class _ComposerState extends State<Composer> {
   }
 
   List<Widget> _fields() {
-    final account = _ledger.account(_account);
-    final accountField = _Field(
-      label: switch (_type) {
-        EntryType.expense || EntryType.buy => '付款帳戶',
-        EntryType.transfer => '轉出',
-        _ => '收款帳戶',
-      },
-      icon: accountIcon(account),
-      color: accountColor(account.kind),
-      value: account.name,
-      onTap: () async {
-        final picked = await _pickAccount('選擇帳戶', _account);
-        if (picked != null) setState(() => _account = picked);
-      },
-    );
+    if (_refunded != null) {
+      return [TileRow([_accountTile('退回到'), _dateTile()]), _noteField()];
+    }
     switch (_mode) {
       case ComposeMode.expense || ComposeMode.income:
-        final category = _ledger.category(_category);
+        final expense = _mode == ComposeMode.expense;
         return [
-          Row(
-            children: [
-              Expanded(child: accountField),
-              Expanded(
-                child: _Field(
-                  label: _mode == ComposeMode.income ? '收入分類' : '支出分類',
-                  icon: iconFor(category.icon),
-                  color: category.color,
-                  value: category.name,
-                  onTap: _pickCategory,
-                ),
+          if (expense)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Tile(
+                icon: Glyph.store,
+                label: '商家',
+                value: _merchant.isEmpty ? '未填' : _merchant,
+                valueColor: _merchant.isEmpty ? Hue.faint : Hue.ink,
+                size: 15,
+                onTap: _pickMerchant,
               ),
-            ],
-          ),
+            ),
+          _categories(expense),
+          TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
+          if (_onCard)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Tile(
+                icon: Glyph.card,
+                label: '分期付款',
+                value: _installments < 2
+                    ? '不分期'
+                    : '$_installments 期 · 每期 '
+                          '${groupDigits(_amount ~/ _installments)}',
+                size: 15,
+                onTap: _pickInstallments,
+              ),
+            ),
+          _tagBlock(),
+          _noteField(),
         ];
       case ComposeMode.transfer:
+        final from = _ledger.account(_account);
         final to = _ledger.account(_to);
         return [
-          Row(
-            children: [
-              Expanded(child: accountField),
-              Container(
-                width: 30,
-                height: 30,
-                margin: const EdgeInsets.only(top: 18),
-                decoration: const BoxDecoration(
-                  color: Hue.transfer,
-                  shape: BoxShape.circle,
+          _Block(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _AccountEnd(
+                    label: '從',
+                    account: from,
+                    balance: _ledger.balance(from.id),
+                    onTap: () async {
+                      final picked = await _pickAccount('轉出帳戶', _account);
+                      if (picked != null) setState(() => _account = picked);
+                    },
+                  ),
                 ),
-                child: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.white),
-              ),
-              Expanded(
-                child: _Field(
-                  label: '轉入',
-                  icon: accountIcon(to),
-                  color: accountColor(to.kind),
-                  value: to.name,
-                  onTap: () async {
-                    final picked = await _pickAccount('轉入帳戶', _to);
-                    if (picked != null) setState(() => _to = picked);
-                  },
+                const GlyphIcon(Glyph.arrow, size: 22, color: Hue.accent),
+                Expanded(
+                  child: _AccountEnd(
+                    label: '到',
+                    account: to,
+                    balance: _ledger.balance(to.id),
+                    end: true,
+                    onTap: () async {
+                      final picked = await _pickAccount('轉入帳戶', _to);
+                      if (picked != null) setState(() => _to = picked);
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          TileRow([
+            Tile(
+              icon: Glyph.coins,
+              label: '手續費',
+              value: groupDigits(_fee),
+              valueColor: _fee > 0 ? Hue.negative : Hue.ink,
+              size: 15,
+              sub: '記入${Ledger.feeCategory}',
+              onTap: () async {
+                final value = await _ask('手續費', _fee);
+                if (value != null) setState(() => _fee = value);
+              },
+            ),
+            _dateTile(),
+          ]),
+          _noteField(),
         ];
       case ComposeMode.investment:
-        final code = _holding;
-        final held = code == null ? null : _ledger.holding(code);
-        return [
+        return _investmentFields();
+    }
+  }
+
+  /// The categories as a grid of marks, or the parts of a split.
+  Widget _categories(bool expense) {
+    final parts = _parts;
+    final left = _amount - (parts ?? const []).fold(0, (s, p) => s + p.$2);
+    final choices = _categoryChoices();
+    final shown = choices.take(7).toList();
+    if (shown.isNotEmpty &&
+        !shown.contains(_category) &&
+        _category.isNotEmpty) {
+      shown[shown.length - 1] = _category;
+    }
+    return _Block(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Row(
             children: [
-              Expanded(
-                child: SoftPanel(
-                  color: Hue.investmentSoft,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  onTap: _pickHolding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '投資標的',
-                        style: TextStyle(fontSize: 12, color: Hue.muted),
-                      ),
-                      Text(
-                        code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
-                        style: const TextStyle(fontSize: 15),
-                      ),
-                    ],
-                  ),
+              const IconChip(Glyph.categories),
+              const SizedBox(width: 8),
+              Text(
+                parts == null ? '分類' : '分類 · 拆成 ${parts.length} 筆',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Hue.accent,
                 ),
               ),
-              if (!_viewing)
-                IconButton(
-                  tooltip: '新增標的',
-                  onPressed: _newHolding,
-                  icon: const GlyphIcon(Glyph.add, color: Hue.investment),
-                ),
+              const Spacer(),
+              if (expense && !_viewing)
+                _Link(parts == null ? '拆分' : '不拆分', _split),
+              if (parts != null && !_viewing) _Link('均分', _evenly),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: accountField),
-              if (_trade != EntryType.dividend)
-                Expanded(
-                  child: InkWell(
-                    onTap: _calculateShares,
-                    child: Column(
-                      children: [
-                        const Text(
-                          '股數',
-                          style: TextStyle(fontSize: 13, color: Hue.muted),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              groupDigits(_shares),
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const Text(' 股'),
-                            const SizedBox(width: 6),
-                            const GlyphIcon(
-                              Glyph.calculator,
-                              size: 18,
-                              color: Hue.muted,
-                            ),
-                          ],
-                        ),
-                      ],
+          const SizedBox(height: 8),
+          if (parts == null)
+            Wrap(
+              runSpacing: 8,
+              children: [
+                for (final name in shown)
+                  _CategoryChoice(
+                    category: _ledger.category(name),
+                    picked: name == _category,
+                    onTap: () => setState(() => _category = name),
+                  ),
+                if (choices.length > shown.length)
+                  _CategoryChoice(
+                    category: const Category('更多', 'other', Hue.muted),
+                    picked: false,
+                    onTap: () async {
+                      final picked = await _pickCategory(_category);
+                      if (picked != null) setState(() => _category = picked);
+                    },
+                  ),
+              ],
+            )
+          else ...[
+            for (final (i, (name, value)) in parts.indexed)
+              _PartRow(
+                category: _ledger.category(name),
+                amount: value,
+                share: _amount == 0 ? 0 : value / _amount,
+                onTap: () => _editPart(i),
+              ),
+            if (!_viewing)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    _Link('＋ 再拆一個分類', _addPart),
+                    const Spacer(),
+                    Text(
+                      '剩餘 ${groupDigits(left)}',
+                      style: const TextStyle(fontSize: 12, color: Hue.muted),
                     ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tagBlock() {
+    if (_viewing && _tags.isEmpty) return const SizedBox.shrink();
+    return _Block(
+      child: Row(
+        children: [
+          const IconChip(Glyph.ticket),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final tag in _tags) _TagChip('#$tag', solid: true),
+                if (!_viewing)
+                  GestureDetector(
+                    onTap: _pickTags,
+                    child: const _TagChip('＋ 標籤', solid: false),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _investmentFields() {
+    final code = _holding;
+    final held = code == null ? null : _ledger.holding(code);
+    final trading = _trade != EntryType.dividend;
+    final (fee, tax) = _charges;
+    final sell = _trade == EntryType.sell;
+    final cost = sell && code != null && held != null && _shares <= held.shares
+        ? _ledger.saleCost(code, _shares, average: _average)
+        : null;
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Tile(
+          icon: Glyph.investment,
+          label: '標的',
+          value: code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
+          size: 15,
+          sub: held == null
+              ? null
+              : '持有 ${groupDigits(held.shares)} 股 · 參考價 ${held.price}',
+          trailing: _viewing
+              ? null
+              : GestureDetector(
+                  onTap: _newHolding,
+                  child: const Text(
+                    '＋ 新標的',
+                    style: TextStyle(fontSize: 12, color: Hue.accent),
                   ),
                 ),
-            ],
+          onTap: _pickHolding,
+        ),
+      ),
+      TileRow([
+        _accountTile(_trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
+        if (trading)
+          Tile(
+            icon: Glyph.briefcase,
+            label: '股數',
+            value: groupDigits(_shares),
+            size: 15,
+            sub: _shares > 0 && _shares % 1000 != 0 ? '零股' : null,
+            onTap: () async {
+              final value = await _ask('輸入股數', _shares, unit: '股');
+              if (value != null) setState(() => _shares = value);
+            },
+          )
+        else
+          _dateTile(),
+      ]),
+      if (trading) ...[
+        Padding(padding: const EdgeInsets.only(top: 8), child: _dateTile()),
+        if (sell && !_viewing)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Segments(
+              labels: const ['先進先出', '平均成本'],
+              selected: _average ? 1 : 0,
+              onChanged: (i) => setState(() => _average = i == 1),
+            ),
           ),
-        ];
-    }
+        if (_amount > 0)
+          _Block(
+            child: Column(
+              children: [
+                _Line(
+                  '成交金額',
+                  groupDigits(_amount),
+                  note: _shares == 0
+                      ? null
+                      : '均價 ${(_amount / _shares).toStringAsFixed(2)}',
+                ),
+                _Line('手續費', groupDigits(fee), note: '0.1425% × 6 折'),
+                if (sell)
+                  _Line(
+                    '證交稅',
+                    groupDigits(tax),
+                    note: (code ?? '').startsWith('00') ? 'ETF 0.1%' : '0.3%',
+                  ),
+                _Line(
+                  sell ? '實收' : '應付總額',
+                  groupDigits(sell ? _amount - fee - tax : _amount + fee),
+                  strong: true,
+                ),
+                if (cost != null)
+                  _Line(
+                    '已實現損益',
+                    signed(_amount - fee - tax - cost),
+                    note: '成本 ${groupDigits(cost)}',
+                    color: _amount - fee - tax < cost
+                        ? Hue.negative
+                        : Hue.positive,
+                  ),
+                _Line(
+                  '交割日',
+                  '${settlementDay(_date).month}/${settlementDay(_date).day}',
+                  note: 'T+2',
+                ),
+              ],
+            ),
+          ),
+      ],
+      _noteField(),
+    ];
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.value,
+/// A tinted block of the composer.
+class _Block extends StatelessWidget {
+  const _Block({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+      decoration: BoxDecoration(
+        color: Hue.tile,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// The spending a refund belongs to, at the top of the refund form.
+class _OriginalTile extends StatelessWidget {
+  const _OriginalTile({required this.ledger, required this.entry});
+
+  final Ledger ledger;
+  final Entry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = ledger.category(entry.category);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Hue.tile,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          IconBadge(iconFor(category.icon), category.color, size: 36),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '原支出 · ${entry.date.month}/${entry.date.day}',
+                  style: const TextStyle(fontSize: 12, color: Hue.accent),
+                ),
+                Text(
+                  entry.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            spent(entry.amount),
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Hue.negative,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TradeChips extends StatelessWidget {
+  const _TradeChips({
+    required this.trade,
+    required this.locked,
+    required this.onChanged,
+  });
+
+  final EntryType trade;
+  final bool locked;
+  final ValueChanged<EntryType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final (type, label) in const [
+          (EntryType.buy, '買進'),
+          (EntryType.sell, '賣出'),
+          (EntryType.dividend, '股息'),
+        ])
+          if (!locked || type == trade)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
+                onTap: locked ? null : () => onChanged(type),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: type == trade ? Hue.accent : Hue.tile,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: type == trade ? Hue.white : Hue.accent,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+class _CategoryChoice extends StatelessWidget {
+  const _CategoryChoice({
+    required this.category,
+    required this.picked,
     required this.onTap,
   });
 
-  final String label;
-  final Glyph icon;
-  final Color color;
-  final String value;
+  final Category category;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: 0.25,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Hue.white,
+                shape: BoxShape.circle,
+                border: picked
+                    ? Border.all(color: Hue.accent, width: 2.5)
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: GlyphIcon(
+                iconFor(category.icon),
+                size: 24,
+                color: category.color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              category.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
+                color: picked ? Hue.accent : Hue.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PartRow extends StatelessWidget {
+  const _PartRow({
+    required this.category,
+    required this.amount,
+    required this.share,
+    required this.onTap,
+  });
+
+  final Category category;
+  final int amount;
+  final double share;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0x263B6C80))),
+        ),
+        child: Row(
           children: [
-            Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconBadge(icon, color, size: 30),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+            IconBadge(iconFor(category.icon), category.color, size: 28),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 72,
+              child: Text(category.name, style: const TextStyle(fontSize: 14)),
+            ),
+            Expanded(
+              child: LinearProgressIndicator(
+                value: share.clamp(0.0, 1.0),
+                minHeight: 5,
+                borderRadius: BorderRadius.circular(3),
+                color: category.color,
+                backgroundColor: const Color(0x263B6C80),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              groupDigits(amount),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AccountEnd extends StatelessWidget {
+  const _AccountEnd({
+    required this.label,
+    required this.account,
+    required this.balance,
+    required this.onTap,
+    this.end = false,
+  });
+
+  final String label;
+  final Account account;
+  final int balance;
+  final VoidCallback onTap;
+  final bool end;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = IconBadge(
+      accountIcon(account),
+      accountColor(account.kind),
+      size: 34,
+    );
+    final text = Column(
+      crossAxisAlignment: end
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        Text(
+          account.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        Text(
+          '餘額 ${groupDigits(balance)}',
+          style: const TextStyle(fontSize: 11, color: Hue.muted),
+        ),
+      ],
+    );
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        mainAxisAlignment: end
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: end
+            ? [
+                Flexible(child: text),
+                const SizedBox(width: 8),
+                badge,
+              ]
+            : [
+                badge,
+                const SizedBox(width: 8),
+                Flexible(child: text),
+              ],
+      ),
+    );
+  }
+}
+
+/// One line of a trade's sums.
+class _Line extends StatelessWidget {
+  const _Line(
+    this.label,
+    this.value, {
+    this.note,
+    this.strong = false,
+    this.color = Hue.ink,
+  });
+
+  final String label;
+  final String value;
+  final String? note;
+  final bool strong;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final aside = note;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13.5)),
+          if (aside != null) ...[
+            const SizedBox(width: 6),
+            Text(aside, style: const TextStyle(fontSize: 11, color: Hue.muted)),
+          ],
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: strong ? 16 : 14.5,
+              fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Link extends StatelessWidget {
+  const _Link(this.label, this.onTap);
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12.5, color: Hue.accent),
+        ),
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip(this.label, {required this.solid});
+
+  final String label;
+  final bool solid;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: solid ? Hue.accent : Hue.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, color: solid ? Hue.white : Hue.accent),
+      ),
+    );
+  }
+}
+
+/// A merchant's name, typed or picked from those used before.
+class _MerchantPicker extends StatefulWidget {
+  const _MerchantPicker({required this.known, required this.initial});
+
+  final List<String> known;
+  final String initial;
+
+  @override
+  State<_MerchantPicker> createState() => _MerchantPickerState();
+}
+
+class _MerchantPickerState extends State<_MerchantPicker> {
+  late final _text = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typed = _text.text.trim();
+    final matches = [
+      for (final name in widget.known)
+        if (typed.isEmpty || name.toLowerCase().contains(typed.toLowerCase()))
+          name,
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _text,
+          autofocus: true,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+          decoration: InputDecoration(
+            hintText: '商家名稱',
+            filled: true,
+            fillColor: Hue.tile,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              if (typed.isNotEmpty && !widget.known.contains(typed))
+                ListTile(
+                  leading: const GlyphIcon(Glyph.add, color: Hue.accent),
+                  title: Text('新增「$typed」'),
+                  onTap: () => Navigator.of(context).pop(typed),
+                ),
+              for (final name in matches.take(12))
+                ListTile(
+                  leading: const GlyphIcon(Glyph.store, color: Hue.accent),
+                  title: Text(name),
+                  onTap: () => Navigator.of(context).pop(name),
+                ),
+              if (widget.initial.isNotEmpty)
+                ListTile(
+                  leading: const GlyphIcon(Glyph.close, color: Hue.muted),
+                  title: const Text('不記商家'),
+                  onTap: () => Navigator.of(context).pop(''),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tags to put on an entry: those in use, and new ones.
+class _TagPicker extends StatefulWidget {
+  const _TagPicker({required this.known, required this.initial});
+
+  final List<String> known;
+  final List<String> initial;
+
+  @override
+  State<_TagPicker> createState() => _TagPickerState();
+}
+
+class _TagPickerState extends State<_TagPicker> {
+  late final _picked = [...widget.initial];
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final tag = _text.text.trim().replaceAll('#', '');
+    if (tag.isEmpty) return;
+    setState(() {
+      if (!_picked.contains(tag) && _picked.length < 16) _picked.add(tag);
+      _text.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = {...widget.known, ..._picked}.toList();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final tag in all)
+              FilterChip(
+                label: Text('#$tag'),
+                selected: _picked.contains(tag),
+                onSelected: (on) => setState(() {
+                  if (on) {
+                    if (_picked.length < 16) _picked.add(tag);
+                  } else {
+                    _picked.remove(tag);
+                  }
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _text,
+                onSubmitted: (_) => _add(),
+                decoration: InputDecoration(
+                  hintText: '新標籤',
+                  filled: true,
+                  fillColor: Hue.tile,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: '加入',
+              onPressed: _add,
+              icon: const GlyphIcon(Glyph.add, color: Hue.accent),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_picked),
+          style: FilledButton.styleFrom(
+            backgroundColor: Hue.accent,
+            minimumSize: const Size.fromHeight(44),
+          ),
+          child: const Text('完成'),
+        ),
+      ],
     );
   }
 }
