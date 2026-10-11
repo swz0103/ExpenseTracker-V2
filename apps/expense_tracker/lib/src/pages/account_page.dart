@@ -88,7 +88,7 @@ class _AccountPageState extends State<AccountPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'TWD ${money(balance)}',
+                          money(balance),
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w600,

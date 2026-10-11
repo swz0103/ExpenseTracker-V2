@@ -72,10 +72,6 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const Text(
-                              'TWD ',
-                              style: TextStyle(fontSize: 12, color: Hue.muted),
-                            ),
                             Text(
                               moneySigned(gain),
                               style: TextStyle(

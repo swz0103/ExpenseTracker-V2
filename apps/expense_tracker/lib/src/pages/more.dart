@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../demo/ledger.dart';
+import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -28,6 +29,13 @@ class MorePage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final due = ledger.due;
+        final upcoming = ledger.upcoming;
+        final next = due.isNotEmpty
+            ? due.first
+            : upcoming.isEmpty
+            ? null
+            : upcoming.first;
+        final today = ledger.today;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
@@ -42,16 +50,22 @@ class MorePage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        due.isEmpty ? '尚無到期項目' : '${due.length} 筆已到期',
+                        due.isNotEmpty
+                            ? '${due.length} 筆已到期'
+                            : upcoming.isEmpty
+                            ? '沒有待扣款項目'
+                            : '${upcoming.length} 筆即將扣款',
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Text(
-                        '即將到期 ${ledger.upcoming.length} 筆',
-                        style: const TextStyle(fontSize: 12, color: Hue.muted),
-                      ),
+                      if (next != null)
+                        Text(
+                          '${today.month}/${next.day} ${next.name} '
+                          '${money(next.amount)}',
+                          style: const TextStyle(fontSize: 12, color: Hue.muted),
+                        ),
                     ],
                   ),
                 ],

@@ -130,7 +130,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '每日紀錄',
         trailing: Text(
-          '本週 TWD ${_m(groupDigits(weekSpent))}',
+          '本週 ${_m(groupDigits(weekSpent))}',
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
@@ -515,7 +515,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '財務分布',
         trailing: Text(
-          'TWD ${_m(groupDigits(shownAmount))}',
+          _m(groupDigits(shownAmount)),
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),

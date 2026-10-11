@@ -92,7 +92,7 @@ class _RecurringPageState extends State<RecurringPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                due.isEmpty ? '尚無到期項目' : '${due.length} 筆已到期',
+                                due.isEmpty ? '下一筆' : '${due.length} 筆已到期',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Hue.muted,
@@ -107,8 +107,8 @@ class _RecurringPageState extends State<RecurringPage> {
                               ),
                               if (next != null)
                                 Text(
-                                  '下一筆 ${today.month} / ${next.day} · '
-                                  'TWD ${groupDigits(next.amount)}',
+                                  '${today.month} / ${next.day} · '
+                                  '${groupDigits(next.amount)}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Hue.muted,

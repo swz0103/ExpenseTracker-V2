@@ -172,11 +172,9 @@ class _LedgerPageState extends State<LedgerPage> {
         final shown = _shown();
         final rows = <Widget>[];
         DateTime? day;
-        Glyph? lastMark;
         for (final e in shown) {
           if (e.date != day) {
             day = e.date;
-            lastMark = null;
             final spentToday = ledger.spentOn(e.date);
             rows.add(
               DayHeading(
@@ -187,16 +185,13 @@ class _LedgerPageState extends State<LedgerPage> {
               ),
             );
           }
-          final (mark, _) = entryMark(ledger, e);
           rows.add(
             EntryTile(
               ledger: ledger,
               entry: e,
-              repeat: mark == lastMark,
               onTap: () => widget.nav.showEntry(e),
             ),
           );
-          lastMark = mark;
         }
         final account = _account;
         return ListView(

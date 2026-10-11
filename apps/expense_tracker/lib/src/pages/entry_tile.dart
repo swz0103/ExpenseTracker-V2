@@ -42,16 +42,11 @@ class EntryTile extends StatelessWidget {
     required this.ledger,
     required this.entry,
     required this.onTap,
-    this.repeat = false,
   });
 
   final Ledger ledger;
   final Entry entry;
   final VoidCallback onTap;
-
-  /// The row above has the same mark: show a quiet dot instead of the
-  /// badge again.
-  final bool repeat;
 
   @override
   Widget build(BuildContext context) {
@@ -65,22 +60,7 @@ class EntryTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (repeat)
-              SizedBox(
-                width: 34,
-                child: Center(
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              )
-            else
-              IconBadge(icon, color, size: 34),
+            IconBadge(icon, color, size: 34),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

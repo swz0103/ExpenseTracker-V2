@@ -90,7 +90,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                                     style: const TextStyle(color: Hue.muted),
                                   ),
                                   Text(
-                                    'TWD ${money(left.abs())}',
+                                    money(left.abs()),
                                     style: TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w600,

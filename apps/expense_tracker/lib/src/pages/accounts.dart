@@ -189,7 +189,7 @@ class AccountsPage extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              ledger.hidden ? '••••' : groupDigits(total),
+              ledger.hidden ? '••••' : groupDigits(total.abs()),
               style: const TextStyle(fontSize: 12, color: Hue.muted),
             ),
           ],

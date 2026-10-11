@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../charts/bar_scale.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
-import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -88,10 +87,6 @@ class _ReportsPageState extends State<ReportsPage> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      const Text(
-                        'TWD ',
-                        style: TextStyle(fontSize: 12, color: Hue.muted),
-                      ),
                       Text(
                         money(left),
                         style: TextStyle(
@@ -247,10 +242,10 @@ class _ReportsPageState extends State<ReportsPage> {
                       ),
                       child: Row(
                         children: [
-                          GlyphIcon(
+                          IconBadge(
                             iconFor(category.icon),
-                            size: 20,
-                            color: category.color,
+                            category.color,
+                            size: 28,
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
