@@ -64,7 +64,10 @@ class MorePage extends StatelessWidget {
                         Text(
                           '${today.month}/${next.day} ${next.name} '
                           '${money(next.amount)}',
-                          style: const TextStyle(fontSize: 12, color: Hue.muted),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Hue.muted,
+                          ),
                         ),
                     ],
                   ),
