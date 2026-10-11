@@ -15,8 +15,10 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final back = onBack;
-    return SizedBox(
+    // Clear room under the status bar before the title.
+    return Container(
       height: 60,
+      margin: const EdgeInsets.only(top: 14),
       child: Row(
         children: [
           if (back != null)
