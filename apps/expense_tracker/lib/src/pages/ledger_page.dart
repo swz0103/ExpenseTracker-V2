@@ -179,7 +179,7 @@ class _LedgerPageState extends State<LedgerPage> {
           rows.add(
             SoftPanel(
               color: Hue.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: 2),
               child: Column(children: group),
             ),
           );

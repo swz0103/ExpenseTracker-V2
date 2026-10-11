@@ -97,7 +97,7 @@ class _AccountPageState extends State<AccountPage> {
                   if (entries.isNotEmpty)
                     SoftPanel(
                       color: Hue.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         children: [
                           for (final e in entries)

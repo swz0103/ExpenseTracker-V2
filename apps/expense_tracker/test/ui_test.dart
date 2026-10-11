@@ -228,7 +228,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
       ('財務報表', '淨資產走勢'),
-      ('投資與股息', '持股損益'),
+      ('投資與股息', 'ETF'),
       ('預算管理', '分類額度'),
       ('定期交易', '管理固定項目'),
       ('分類管理', '支出分類'),
@@ -250,7 +250,7 @@ void main() {
     await tester.tap(find.text('記下支出'));
     await tester.pump();
     expect(find.text('請輸入金額'), findsOneWidget);
-    await tester.tap(find.text('計算機'));
+    await tester.tap(find.text('金額'));
     await tester.pumpAndSettle();
     for (final key in ['1', '8', '0', '完成']) {
       await tester.tap(find.text(key).last);

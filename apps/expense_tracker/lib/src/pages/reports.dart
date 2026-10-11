@@ -305,18 +305,26 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ]),
             SectionHead(
-              '收支',
-              trailing: const Row(
+              '收支與淨資產',
+              trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _Key(Hue.positive, '收入'),
-                  SizedBox(width: 10),
-                  _Key(Hue.negative, '支出'),
+                  const _Key(Hue.positive, '收入'),
+                  const SizedBox(width: 10),
+                  const _Key(Hue.negative, '支出'),
+                  const SizedBox(width: 10),
+                  _Key(Hue.investment, shortAmount(worthNow), line: true),
                 ],
               ),
             ),
             PeriodBars(
               buckets: buckets,
+              worth: [
+                for (final (_, a, b) in stretches)
+                  a.isAfter(today)
+                      ? null
+                      : ledger.netWorthAt(b.isAfter(today) ? today : b),
+              ],
               selected: selected,
               onSelect: (i) => setState(() => _stretch = i),
             ),
@@ -325,30 +333,6 @@ class _ReportsPageState extends State<ReportsPage> {
               label: readout == null ? '整段期間' : _stretchName(readout),
               income: readout?.income ?? income,
               expense: readout?.expense ?? expense,
-            ),
-            SectionHead(
-              '淨資產走勢',
-              trailing: Text(
-                '${shortAmount(worthBefore)} → ${shortAmount(worthNow)}',
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
-              ),
-            ),
-            TrendLine(
-              values: [
-                for (final (_, a, b) in stretches)
-                  a.isAfter(today)
-                      ? null
-                      : ledger.netWorthAt(b.isAfter(today) ? today : b),
-              ],
-              labels: [
-                for (final (i, (label, _, _)) in stretches.indexed)
-                  i == 0 ||
-                          i == stretches.length - 1 ||
-                          stretches.length <= 6 ||
-                          i % 3 == 0
-                      ? (byMonth && _span == _Span.year ? '$label月' : label)
-                      : '',
-              ],
             ),
             ..._mix(stretches, names, spending, lastSpending, expense),
             ..._merchants(from, to),
@@ -738,12 +722,13 @@ class _Readout extends StatelessWidget {
   );
 }
 
-/// A legend mark with its label.
+/// A legend mark, a dot or a short line, with its label.
 class _Key extends StatelessWidget {
-  const _Key(this.color, this.label);
+  const _Key(this.color, this.label, {this.line = false});
 
   final Color color;
   final String label;
+  final bool line;
 
   @override
   Widget build(BuildContext context) {
@@ -751,9 +736,12 @@ class _Key extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: line ? 12 : 8,
+          height: line ? 2.5 : 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),

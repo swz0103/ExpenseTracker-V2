@@ -15,7 +15,7 @@ class CategoriesPage extends StatelessWidget {
   final Ledger ledger;
   final Nav nav;
 
-  static final _colors = Hue.shades.take(6).toList();
+  static const _colors = Hue.shades;
 
   Future<void> _edit(BuildContext context, Category category) async {
     final next = await showCategoryEditor(
@@ -171,6 +171,31 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     Navigator.of(context).pop(made);
   }
 
+  Widget _iconChoice(String key) {
+    final picked = key == _icon;
+    return InkWell(
+      onTap: () => setState(() => _icon = key),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: picked ? softOf(_color) : Hue.tile,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: picked ? _color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: GlyphIcon(
+          iconFor(key),
+          color: picked ? _color : Hue.muted,
+          tinted: picked,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -203,40 +228,25 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text('圖示', style: TextStyle(fontSize: 13, color: Hue.muted)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final key in categoryIconKeys)
-                InkWell(
-                  onTap: () => setState(() => _icon = key),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: key == _icon ? softOf(_color) : null,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: key == _icon ? _color : Colors.transparent,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: GlyphIcon(
-                      iconFor(key),
-                      color: key == _icon ? _color : Hue.muted,
-                      tinted: key == _icon,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          for (final (group, keys) in categoryIconGroups) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 6),
+              child: Text(
+                group,
+                style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+              ),
+            ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final key in keys) _iconChoice(key)],
+            ),
+          ],
           const SizedBox(height: 16),
           const Text('顏色', style: TextStyle(fontSize: 13, color: Hue.muted)),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            runSpacing: 8,
             children: [
               for (final color in widget.colors)
                 Padding(

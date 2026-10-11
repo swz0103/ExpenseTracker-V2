@@ -176,6 +176,7 @@ class SoftPanel extends StatelessWidget {
       child: Material(
         color: color,
         borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           borderRadius: radius,
           onTap: onTap,

@@ -13,6 +13,9 @@ abstract final class Pages {
 
   /// `account:<id>`.
   static String account(String id) => 'account:$id';
+
+  /// `holding:<code>`.
+  static String holding(String code) => 'holding:$code';
 }
 
 /// What a page may ask of the app frame.

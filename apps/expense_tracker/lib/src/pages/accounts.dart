@@ -166,7 +166,6 @@ class AccountsPage extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _cell(accounts[i])),
-            const SizedBox(width: 16),
             Expanded(
               child: i + 1 < accounts.length
                   ? _cell(accounts[i + 1])
@@ -198,7 +197,7 @@ class AccountsPage extends StatelessWidget {
       ),
       SoftPanel(
         color: Hue.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(children: rows),
       ),
     ];
@@ -209,7 +208,7 @@ class AccountsPage extends StatelessWidget {
     return InkWell(
       onTap: () => nav.open(Pages.account(account.id)),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(
           children: [
             IconBadge(

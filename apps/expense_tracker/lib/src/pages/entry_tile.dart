@@ -62,7 +62,9 @@ class EntryTile extends StatelessWidget {
     final (icon, color) = entryMark(ledger, entry);
     return InkWell(
       onTap: onTap,
-      child: Container(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: Hue.line)),
@@ -104,6 +106,7 @@ class EntryTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

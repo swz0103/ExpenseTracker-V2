@@ -59,13 +59,42 @@ Future<int?> showCalculator(
   required int initial,
   required Color color,
   String unit = 'TWD',
-}) {
-  return showSheet<int>(
+}) async {
+  final value = await showSheet<num>(
     context,
-    (_) =>
-        _Calculator(title: title, initial: initial, color: color, unit: unit),
+    (_) => _Calculator(
+      title: title,
+      initial: initial == 0 ? '' : '$initial',
+      color: color,
+      unit: unit,
+    ),
   );
+  return value?.round();
 }
+
+/// The calculator for a price with two decimals, such as 194.35.
+Future<double?> showPriceCalculator(
+  BuildContext context, {
+  required String title,
+  required double initial,
+  required Color color,
+}) async {
+  final value = await showSheet<num>(
+    context,
+    (_) => _Calculator(
+      title: title,
+      initial: initial == 0 ? '' : _plain(initial),
+      color: color,
+      unit: '元／股',
+      decimal: true,
+    ),
+  );
+  return value?.toDouble();
+}
+
+String _plain(double value) => value == value.roundToDouble()
+    ? '${value.round()}'
+    : value.toStringAsFixed(2);
 
 class _Calculator extends StatefulWidget {
   const _Calculator({
@@ -73,27 +102,21 @@ class _Calculator extends StatefulWidget {
     required this.initial,
     required this.color,
     required this.unit,
+    this.decimal = false,
   });
 
   final String title;
-  final int initial;
+  final String initial;
   final Color color;
   final String unit;
+  final bool decimal;
 
   @override
   State<_Calculator> createState() => _CalculatorState();
 }
 
 class _CalculatorState extends State<_Calculator> {
-  late var _expression = widget.initial == 0 ? '' : '${widget.initial}';
-
-  static const _rows = [
-    ['C', '⌫', '÷', '×'],
-    ['7', '8', '9', '−'],
-    ['4', '5', '6', '+'],
-    ['1', '2', '3', '='],
-    ['0', '00', '.', '完成'],
-  ];
+  late var _expression = widget.initial;
 
   void _press(String key) {
     setState(() {
@@ -104,14 +127,13 @@ class _CalculatorState extends State<_Calculator> {
           if (_expression.isNotEmpty) {
             _expression = _expression.substring(0, _expression.length - 1);
           }
-        case '=':
-          final value = evaluate(_expression);
-          if (value != null) _expression = _plain(value);
         case '完成':
           final value = evaluate(_expression) ?? 0;
-          final amount = value.round().clamp(0, 999999999);
+          final num result = widget.decimal
+              ? double.parse(value.clamp(0, 99999999).toStringAsFixed(2))
+              : value.round().clamp(0, 999999999);
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) Navigator.of(context).pop(amount);
+            if (mounted) Navigator.of(context).pop(result);
           });
         case '+' || '−' || '×' || '÷':
           if (_expression.isEmpty) return;
@@ -126,79 +148,104 @@ class _CalculatorState extends State<_Calculator> {
     });
   }
 
-  String _plain(double value) => value == value.roundToDouble()
-      ? '${value.round()}'
-      : value.toStringAsFixed(2);
-
   @override
   Widget build(BuildContext context) {
     final value = evaluate(_expression);
-    final shown = value == null ? '…' : groupDigits(value.round());
+    final shown = value == null
+        ? '…'
+        : widget.decimal
+        ? _plain(value)
+        : groupDigits(value.round());
+    final working = _expression.contains(RegExp('[+−×÷]'));
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: '返回',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const GlyphIcon(Glyph.back),
-              ),
-              Expanded(
-                child: Text(
-                  widget.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+            decoration: BoxDecoration(
+              color: Hue.hero,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  working ? _expression : widget.unit,
+                  style: const TextStyle(fontSize: 14, color: Hue.muted),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    shown,
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 48),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                widget.unit,
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                shown,
-                style: TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w500,
-                  color: widget.color,
-                ),
-              ),
-            ],
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              _expression.isEmpty ? '0' : _expression,
-              style: const TextStyle(fontSize: 14, color: Hue.muted),
+              ],
             ),
           ),
-          const SizedBox(height: 18),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.65,
-            children: [
-              for (final row in _rows)
-                for (final key in row) _key(key),
-            ],
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 5 * 54 + 4 * 8,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    children: [
+                      for (final (i, row) in const [
+                        ['C', '⌫', '÷'],
+                        ['7', '8', '9'],
+                        ['4', '5', '6'],
+                        ['1', '2', '3'],
+                        ['00', '0', '.'],
+                      ].indexed) ...[
+                        if (i > 0) const SizedBox(height: 8),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final (j, key) in row.indexed) ...[
+                                if (j > 0) const SizedBox(width: 8),
+                                Expanded(child: _key(key)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _key('×')),
+                      const SizedBox(height: 8),
+                      Expanded(child: _key('−')),
+                      const SizedBox(height: 8),
+                      Expanded(child: _key('+')),
+                      const SizedBox(height: 8),
+                      Expanded(flex: 2, child: _key('完成')),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -206,31 +253,33 @@ class _CalculatorState extends State<_Calculator> {
   }
 
   Widget _key(String key) {
-    final operator = '÷×−+='.contains(key);
+    final operator = '÷×−+'.contains(key);
     final done = key == '完成';
     final background = done
         ? Hue.accent
-        : operator
-        ? Hue.mist
-        : Hue.surface;
+        : operator || key == 'C' || key == '⌫'
+        ? Hue.hero
+        : Hue.tile;
+    final ink = done
+        ? Hue.white
+        : operator || key == 'C' || key == '⌫'
+        ? Hue.accent
+        : Hue.ink;
     return Material(
       color: background,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => _press(key),
         child: Center(
           child: key == '⌫'
-              ? const GlyphIcon(Glyph.backspace, size: 22)
+              ? const GlyphIcon(Glyph.backspace, size: 24, color: Hue.accent)
               : Text(
                   key,
                   style: TextStyle(
-                    fontSize: done ? 14 : 20,
-                    color: done
-                        ? Hue.white
-                        : key == 'C'
-                        ? Hue.danger
-                        : Hue.ink,
+                    fontSize: done ? 16 : 24,
+                    fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                    color: ink,
                   ),
                 ),
         ),

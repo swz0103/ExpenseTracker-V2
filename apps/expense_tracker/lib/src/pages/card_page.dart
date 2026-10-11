@@ -155,7 +155,7 @@ class CardPage extends StatelessWidget {
             else
               SoftPanel(
                 color: Hue.white,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Column(
                   children: [
                     for (final e in unbilled)

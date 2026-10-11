@@ -660,6 +660,12 @@ final class Ledger extends ChangeNotifier {
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
   }
 
+  /// Every trade and dividend of [code], newest first.
+  List<Entry> tradesOf(String code) => [
+    for (final e in _entries)
+      if (e.holding == code) e,
+  ]..sort((a, b) => b.date.compareTo(a.date));
+
   /// The entry with [id], if it is still in the book.
   Entry? byId(String id) {
     for (final e in _entries) {

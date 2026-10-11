@@ -9,6 +9,7 @@ import 'account_page.dart';
 import 'accounts.dart';
 import 'budgets.dart';
 import 'card_page.dart';
+import 'holding_page.dart';
 import 'categories_page.dart';
 import 'investments.dart';
 import 'ledger_page.dart';
@@ -38,10 +39,14 @@ class _AppShellState extends State<AppShell> {
   String? _page;
   late final Nav _nav = Nav(
     open: _open,
-    back: () => setState(() => _page = null),
+    back: () => setState(() => _page = _parent),
     compose: _compose,
     showEntry: (entry) => _compose(entry: entry),
   );
+
+  /// Where back leads from the open page: a holding returns to 投資.
+  String? get _parent =>
+      _page?.startsWith('holding:') ?? false ? Pages.investments : null;
 
   void _open(String page) {
     setState(() {
@@ -111,6 +116,14 @@ class _AppShellState extends State<AppShell> {
           accountId: id,
         );
       }
+      if (page.startsWith('holding:')) {
+        return HoldingPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          code: page.substring('holding:'.length),
+        );
+      }
       return switch (page) {
         Pages.reports => ReportsPage(ledger: ledger, nav: _nav),
         Pages.investments => InvestmentsPage(ledger: ledger, nav: _nav),
@@ -136,7 +149,7 @@ class _AppShellState extends State<AppShell> {
         if (popped) return;
         setState(() {
           if (_page != null) {
-            _page = null;
+            _page = _parent;
           } else {
             _tab = _Tab.overview;
           }

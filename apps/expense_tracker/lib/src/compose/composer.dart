@@ -7,6 +7,7 @@ import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../pages/categories_page.dart';
 import '../pages/dialogs.dart';
 import 'calculator.dart';
 import 'pickers.dart';
@@ -104,6 +105,7 @@ class _ComposerState extends State<Composer> {
   late String _category;
   String? _holding;
   late int _shares;
+  var _price = 0.0;
   var _merchant = '';
   var _tags = <String>[];
 
@@ -153,6 +155,7 @@ class _ComposerState extends State<Composer> {
     _category = entry.category.isEmpty ? _category : entry.category;
     _holding = entry.holding ?? _holding;
     _shares = entry.shares;
+    _price = entry.shares == 0 ? 0 : entry.amount / entry.shares;
     _note.text = entry.note;
     _merchant = entry.merchant;
     _tags = [...entry.tags];
@@ -179,6 +182,7 @@ class _ComposerState extends State<Composer> {
     _category = common.isEmpty ? '' : common.first;
     _holding = _ledger.holdings.isEmpty ? null : _ledger.holdings.first.code;
     _shares = 0;
+    _price = 0;
     _note.text = '';
     _merchant = '';
     _tags = [];
@@ -294,6 +298,10 @@ class _ComposerState extends State<Composer> {
     EntryType.transfer => '',
     _ => '+',
   };
+
+  /// A buy or sale, whose amount comes from shares and price.
+  bool get _trading =>
+      _mode == ComposeMode.investment && _trade != EntryType.dividend;
 
   bool get _onCard =>
       _type == EntryType.expense &&
@@ -426,6 +434,25 @@ class _ComposerState extends State<Composer> {
     if (picked != null) setState(() => _installments = picked);
   }
 
+  Future<void> _newCategory() async {
+    final income = _mode == ComposeMode.income;
+    final count = _ledger.categories.length;
+    final made = await showCategoryEditor(
+      context,
+      title: income ? '新增收入分類' : '新增支出分類',
+      initial: Category(
+        '',
+        income ? 'income' : 'other',
+        Hue.shades[count % Hue.shades.length],
+        income: income,
+      ),
+      colors: Hue.shades,
+    );
+    if (made == null) return;
+    _ledger.addCategory(made);
+    setState(() => _category = made.name);
+  }
+
   void _split() {
     setState(() {
       _parts = _parts == null ? [(_category, _amount)] : null;
@@ -477,7 +504,7 @@ class _ComposerState extends State<Composer> {
     String? problem;
     final splitTotal = parts?.fold(0, (sum, p) => sum + p.$2);
     if (_amount <= 0) {
-      problem = '請輸入金額';
+      problem = _trading ? '請輸入股數和成交價' : '請輸入金額';
     } else if (type == EntryType.transfer && _account == _to) {
       problem = '轉出與轉入不能是同一個帳戶';
     } else if (_mode == ComposeMode.investment && _holding == null) {
@@ -632,17 +659,11 @@ class _ComposerState extends State<Composer> {
                     EntryType.buy || EntryType.sell => '成交金額',
                     _ => '金額',
                   },
-                  trailing: _viewing
-                      ? null
-                      : const Text(
-                          '計算機',
-                          style: TextStyle(fontSize: 12, color: Hue.accent),
-                        ),
                   value: '$_sign${groupDigits(_amount)}',
                   valueColor: _color,
                   size: 34,
                   sub: refunded == null ? null : '最多可退 ${groupDigits(most)}',
-                  onTap: _calculate,
+                  onTap: _trading ? null : _calculate,
                 ),
                 ..._fields(),
               ],
@@ -838,7 +859,6 @@ class _ComposerState extends State<Composer> {
               value: groupDigits(_fee),
               valueColor: _fee > 0 ? Hue.negative : Hue.ink,
               size: 15,
-              sub: '記入${Ledger.feeCategory}',
               onTap: () async {
                 final value = await _ask('手續費', _fee);
                 if (value != null) setState(() => _fee = value);
@@ -859,7 +879,7 @@ class _ComposerState extends State<Composer> {
     final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);
     final left = _amount - used;
     final choices = _categoryChoices();
-    final shown = choices.take(7).toList();
+    final shown = choices.take(6).toList();
     if (shown.isNotEmpty &&
         !shown.contains(_category) &&
         _category.isNotEmpty) {
@@ -882,9 +902,12 @@ class _ComposerState extends State<Composer> {
                 ),
               ),
               const Spacer(),
+              if (parts != null && !_viewing) ...[
+                _Chip('均分', _evenly),
+                const SizedBox(width: 6),
+              ],
               if (expense && !_viewing)
-                _Link(parts == null ? '拆分' : '不拆分', _split),
-              if (parts != null && !_viewing) _Link('均分', _evenly),
+                _Chip(parts == null ? '拆分' : '不拆分', _split),
             ],
           ),
           const SizedBox(height: 8),
@@ -906,6 +929,12 @@ class _ComposerState extends State<Composer> {
                       final picked = await _pickCategory(_category);
                       if (picked != null) setState(() => _category = picked);
                     },
+                  ),
+                if (!_viewing)
+                  _CategoryChoice(
+                    category: const Category('新增', 'add', Hue.accent),
+                    picked: false,
+                    onTap: _newCategory,
                   ),
               ],
             )
@@ -966,12 +995,12 @@ class _ComposerState extends State<Composer> {
   List<Widget> _investmentFields() {
     final code = _holding;
     final held = code == null ? null : _ledger.holding(code);
-    final trading = _trade != EntryType.dividend;
     final (fee, tax) = _charges;
     final sell = _trade == EntryType.sell;
     final cost = sell && code != null && held != null && _shares <= held.shares
         ? _ledger.saleCost(code, _shares, average: _average)
         : null;
+    final settled = settlementDay(_date);
     return [
       Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -980,90 +1009,88 @@ class _ComposerState extends State<Composer> {
           label: '標的',
           value: code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
           size: 15,
-          sub: held == null
-              ? null
-              : '持有 ${groupDigits(held.shares)} 股 · 參考價 ${held.price}',
+          sub: held == null ? null : '持有 ${groupDigits(held.shares)} 股',
           trailing: _viewing
               ? null
               : GestureDetector(
                   onTap: _newHolding,
-                  child: const Text(
-                    '＋ 新標的',
-                    style: TextStyle(fontSize: 12, color: Hue.accent),
-                  ),
+                  child: const GlyphIcon(Glyph.add, size: 18),
                 ),
           onTap: _pickHolding,
         ),
       ),
-      TileRow([
-        _accountTile(_trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
-        if (trading)
+      if (_trading)
+        TileRow([
           Tile(
             icon: Glyph.briefcase,
             label: '股數',
             value: groupDigits(_shares),
-            size: 15,
-            sub: _shares > 0 && _shares % 1000 != 0 ? '零股' : null,
             onTap: () async {
-              final value = await _ask('輸入股數', _shares, unit: '股');
-              if (value != null) setState(() => _shares = value);
+              final value = await _ask('股數', _shares, unit: '股');
+              if (value == null) return;
+              setState(() {
+                _shares = value;
+                _amount = (_shares * _price).round();
+              });
             },
-          )
-        else
-          _dateTile(),
+          ),
+          Tile(
+            icon: Glyph.coins,
+            label: '成交價',
+            value: _price == _price.roundToDouble()
+                ? '${_price.round()}'
+                : _price.toStringAsFixed(2),
+            onTap: () async {
+              final value = await showPriceCalculator(
+                context,
+                title: '成交價',
+                initial: _price,
+                color: _color,
+              );
+              if (value == null) return;
+              setState(() {
+                _price = value;
+                _amount = (_shares * _price).round();
+              });
+            },
+          ),
+        ]),
+      TileRow([
+        _accountTile(_trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
+        _dateTile(),
       ]),
-      if (trading) ...[
-        Padding(padding: const EdgeInsets.only(top: 8), child: _dateTile()),
-        if (sell && !_viewing)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Segments(
-              labels: const ['先進先出', '平均成本'],
-              selected: _average ? 1 : 0,
-              onChanged: (i) => setState(() => _average = i == 1),
-            ),
+      if (_trading && sell && !_viewing)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Segments(
+            labels: const ['先進先出', '平均成本'],
+            selected: _average ? 1 : 0,
+            onChanged: (i) => setState(() => _average = i == 1),
           ),
-        if (_amount > 0)
-          _Block(
-            child: Column(
-              children: [
+        ),
+      if (_trading && _amount > 0)
+        _Block(
+          child: Column(
+            children: [
+              _Line('手續費', groupDigits(fee)),
+              if (sell) _Line('證交稅', groupDigits(tax)),
+              _Line(
+                sell ? '實收' : '應付',
+                groupDigits(sell ? _amount - fee - tax : _amount + fee),
+                strong: true,
+              ),
+              if (cost != null)
                 _Line(
-                  '成交金額',
-                  groupDigits(_amount),
-                  note: _shares == 0
-                      ? null
-                      : '均價 ${(_amount / _shares).toStringAsFixed(2)}',
+                  '已實現損益',
+                  signed(_amount - fee - tax - cost),
+                  color: _amount - fee - tax < cost
+                      ? Hue.negative
+                      : Hue.positive,
                 ),
-                _Line('手續費', groupDigits(fee), note: '0.1425% × 6 折'),
-                if (sell)
-                  _Line(
-                    '證交稅',
-                    groupDigits(tax),
-                    note: (code ?? '').startsWith('00') ? 'ETF 0.1%' : '0.3%',
-                  ),
-                _Line(
-                  sell ? '實收' : '應付總額',
-                  groupDigits(sell ? _amount - fee - tax : _amount + fee),
-                  strong: true,
-                ),
-                if (cost != null)
-                  _Line(
-                    '已實現損益',
-                    signed(_amount - fee - tax - cost),
-                    note: '成本 ${groupDigits(cost)}',
-                    color: _amount - fee - tax < cost
-                        ? Hue.negative
-                        : Hue.positive,
-                  ),
-                _Line(
-                  '交割日',
-                  '${settlementDay(_date).month}/${settlementDay(_date).day}',
-                  note: 'T+2',
-                ),
-              ],
-            ),
+              _Line('交割日', '${settled.month}/${settled.day}'),
+            ],
           ),
-      ],
+        ),
       _noteField(),
     ];
   }
@@ -1354,29 +1381,22 @@ class _Line extends StatelessWidget {
   const _Line(
     this.label,
     this.value, {
-    this.note,
     this.strong = false,
     this.color = Hue.ink,
   });
 
   final String label;
   final String value;
-  final String? note;
   final bool strong;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final aside = note;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           Text(label, style: const TextStyle(fontSize: 13.5)),
-          if (aside != null) ...[
-            const SizedBox(width: 6),
-            Text(aside, style: const TextStyle(fontSize: 11, color: Hue.muted)),
-          ],
           const Spacer(),
           Text(
             value,
@@ -1387,6 +1407,37 @@ class _Line extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A small white button in a block's heading, such as 拆分.
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.onTap);
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Hue.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: Hue.accent,
+            ),
+          ),
+        ),
       ),
     );
   }

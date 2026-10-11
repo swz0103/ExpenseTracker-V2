@@ -88,7 +88,7 @@ class MorePage extends StatelessWidget {
             const SectionHead('設定'),
             SoftPanel(
               color: Hue.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
                 children: [
                   _Row(
@@ -97,7 +97,7 @@ class MorePage extends StatelessWidget {
                     detail: '${ledger.categories.length} 個分類',
                     onTap: () => nav.open(Pages.categories),
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, indent: 14, endIndent: 14),
                   _Row(
                     icon: Glyph.sliders,
                     title: '設定與資料',
@@ -132,7 +132,7 @@ class _Row extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             Container(

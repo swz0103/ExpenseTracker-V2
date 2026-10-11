@@ -26,6 +26,26 @@ enum Glyph {
   pet,
   car,
   game,
+  cart,
+  drink,
+  train,
+  plane,
+  fuel,
+  parking,
+  bolt,
+  water,
+  wifi,
+  tool,
+  baby,
+  fitness,
+  film,
+  music,
+  sparkle,
+  bed,
+  shield,
+  heart,
+  school,
+  pill,
   transfer,
   investment,
   cash,
@@ -450,6 +470,288 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
       _poly(p, [5.8, 12.5, 9.2, 12.5]);
       _ring(f, 15.3, 11.3, 1.1);
       _ring(f, 17.5, 13.6, 1.1);
+    case Glyph.cart:
+      _poly(t, [6.5, 8, 20, 8, 18, 15.5, 8, 15.5], close: true);
+      _poly(p, [3, 5, 5.5, 5, 8, 15.5, 18, 15.5, 20, 8, 6.5, 8]);
+      _ring(f, 9.5, 19, 1.4);
+      _ring(f, 16.5, 19, 1.4);
+    case Glyph.drink:
+      _poly(t, [7, 8, 17, 8, 15.8, 20.5, 8.2, 20.5], close: true);
+      _poly(p, [7, 8, 17, 8, 15.8, 20.5, 8.2, 20.5], close: true);
+      _poly(p, [5.5, 8, 18.5, 8]);
+      _poly(p, [12.5, 8, 15, 3]);
+      _ring(f, 10.5, 17, 0.9);
+      _ring(f, 13.5, 17, 0.9);
+      _ring(f, 12, 14.3, 0.9);
+    case Glyph.train:
+      _box(t, 6, 3.5, 18, 16.5, 4);
+      _box(p, 6, 3.5, 18, 16.5, 4);
+      _box(p, 8.5, 6, 15.5, 10.5, 1);
+      _poly(p, [8, 20.5, 10, 16.5]);
+      _poly(p, [16, 20.5, 14, 16.5]);
+      _poly(p, [9, 19, 15, 19]);
+      _ring(f, 9.5, 13.5, 0.9);
+      _ring(f, 14.5, 13.5, 0.9);
+    case Glyph.plane:
+      _poly(t, [
+        12,
+        3.5,
+        13.5,
+        5,
+        13.5,
+        10,
+        20.5,
+        14,
+        20.5,
+        15.5,
+        13.5,
+        13.5,
+        13.5,
+        18,
+        16,
+        20,
+        16,
+        21,
+        12,
+        20,
+        8,
+        21,
+        8,
+        20,
+        10.5,
+        18,
+        10.5,
+        13.5,
+        3.5,
+        15.5,
+        3.5,
+        14,
+        10.5,
+        10,
+        10.5,
+        5,
+      ], close: true);
+      _poly(p, [
+        12,
+        3.5,
+        13.5,
+        5,
+        13.5,
+        10,
+        20.5,
+        14,
+        20.5,
+        15.5,
+        13.5,
+        13.5,
+        13.5,
+        18,
+        16,
+        20,
+        16,
+        21,
+        12,
+        20,
+        8,
+        21,
+        8,
+        20,
+        10.5,
+        18,
+        10.5,
+        13.5,
+        3.5,
+        15.5,
+        3.5,
+        14,
+        10.5,
+        10,
+        10.5,
+        5,
+      ], close: true);
+    case Glyph.fuel:
+      _box(t, 5, 4.5, 14, 20.5, 2);
+      _box(p, 5, 4.5, 14, 20.5, 2);
+      _poly(p, [5, 10.5, 14, 10.5]);
+      _poly(p, [14, 12, 17, 12, 17, 18, 19, 18, 19, 8.5, 16.5, 6]);
+    case Glyph.parking:
+      _box(t, 4.5, 4.5, 19.5, 19.5, 4);
+      _box(p, 4.5, 4.5, 19.5, 19.5, 4);
+      p.moveTo(10, 16.5);
+      p.lineTo(10, 8);
+      p.lineTo(13, 8);
+      _arcTo(p, 13, 10.4, 2.4, -90, 180);
+      p.lineTo(10, 12.8);
+    case Glyph.bolt:
+      _poly(t, [
+        13.5,
+        3,
+        6,
+        13.5,
+        11.5,
+        13.5,
+        10.5,
+        21,
+        18,
+        10,
+        12.5,
+        10,
+      ], close: true);
+      _poly(p, [
+        13.5,
+        3,
+        6,
+        13.5,
+        11.5,
+        13.5,
+        10.5,
+        21,
+        18,
+        10,
+        12.5,
+        10,
+      ], close: true);
+    case Glyph.water:
+      t.moveTo(12, 3.5);
+      t.quadraticBezierTo(18.5, 10.5, 18.5, 14.5);
+      _arcTo(t, 12, 14.5, 6.5, 0, 180);
+      t.quadraticBezierTo(5.5, 10.5, 12, 3.5);
+      t.close();
+      p.moveTo(12, 3.5);
+      p.quadraticBezierTo(18.5, 10.5, 18.5, 14.5);
+      _arcTo(p, 12, 14.5, 6.5, 0, 180);
+      p.quadraticBezierTo(5.5, 10.5, 12, 3.5);
+      p.close();
+      _arc(p, 12, 14.5, 3.5, 100, 70);
+    case Glyph.wifi:
+      _arc(p, 12, 19, 13, -135, 90);
+      _arc(p, 12, 19, 8.5, -135, 90);
+      _arc(p, 12, 19, 4, -135, 90);
+      _ring(f, 12, 19, 1.4);
+    case Glyph.tool:
+      _poly(p, [4.5, 19.5, 12.5, 11.5]);
+      _arc(p, 15.5, 8.5, 4.2, -10, 290);
+      _ring(f, 5.2, 18.8, 0.9);
+    case Glyph.baby:
+      _box(t, 8, 9, 16, 20.5, 3);
+      _box(p, 8, 9, 16, 20.5, 3);
+      _poly(p, [7, 9, 17, 9]);
+      p.moveTo(9.5, 9);
+      p.lineTo(9.5, 6.5);
+      p.quadraticBezierTo(12, 3, 14.5, 6.5);
+      p.lineTo(14.5, 9);
+      _poly(p, [8, 13, 11, 13]);
+      _poly(p, [8, 16, 11, 16]);
+    case Glyph.fitness:
+      _box(t, 4.5, 8, 7.5, 16, 1);
+      _box(t, 16.5, 8, 19.5, 16, 1);
+      _poly(p, [7.5, 12, 16.5, 12]);
+      _box(p, 4.5, 8, 7.5, 16, 1);
+      _box(p, 16.5, 8, 19.5, 16, 1);
+      _poly(p, [2.8, 10.5, 2.8, 13.5]);
+      _poly(p, [21.2, 10.5, 21.2, 13.5]);
+    case Glyph.film:
+      _box(t, 4, 10, 20, 19.5, 2);
+      _box(p, 4, 10, 20, 19.5, 2);
+      _poly(p, [4.5, 9.5, 19.5, 5.5]);
+      _poly(p, [8.5, 8.3, 10, 5]);
+      _poly(p, [13.5, 7, 15, 3.8]);
+    case Glyph.music:
+      _poly(p, [9, 17, 9, 5.5, 19, 3.5, 19, 15]);
+      _ring(f, 6.8, 17.2, 2.3);
+      _ring(f, 16.8, 15.2, 2.3);
+    case Glyph.sparkle:
+      _poly(t, [
+        11,
+        4,
+        12.8,
+        10.2,
+        19,
+        12,
+        12.8,
+        13.8,
+        11,
+        20,
+        9.2,
+        13.8,
+        3,
+        12,
+        9.2,
+        10.2,
+      ], close: true);
+      _poly(p, [
+        11,
+        4,
+        12.8,
+        10.2,
+        19,
+        12,
+        12.8,
+        13.8,
+        11,
+        20,
+        9.2,
+        13.8,
+        3,
+        12,
+        9.2,
+        10.2,
+      ], close: true);
+      _ring(f, 18.5, 5.5, 1.2);
+    case Glyph.bed:
+      _box(t, 3.5, 11.5, 20.5, 16, 0);
+      _poly(p, [3.5, 6.5, 3.5, 19.5]);
+      _poly(p, [3.5, 16, 20.5, 16, 20.5, 19.5]);
+      p.moveTo(3.5, 11.5);
+      p.lineTo(17, 11.5);
+      p.quadraticBezierTo(20.5, 11.5, 20.5, 15);
+      p.lineTo(20.5, 16);
+      _ring(f, 7.5, 9, 1.6);
+    case Glyph.shield:
+      t.moveTo(12, 3.5);
+      t.lineTo(19, 6);
+      t.lineTo(19, 11.5);
+      t.quadraticBezierTo(19, 17.5, 12, 20.5);
+      t.quadraticBezierTo(5, 17.5, 5, 11.5);
+      t.lineTo(5, 6);
+      t.close();
+      p.moveTo(12, 3.5);
+      p.lineTo(19, 6);
+      p.lineTo(19, 11.5);
+      p.quadraticBezierTo(19, 17.5, 12, 20.5);
+      p.quadraticBezierTo(5, 17.5, 5, 11.5);
+      p.lineTo(5, 6);
+      p.close();
+      _poly(p, [9, 12, 11.2, 14.2, 15.2, 10]);
+    case Glyph.heart:
+      t.moveTo(12, 19.5);
+      t.quadraticBezierTo(3.5, 13.5, 4, 8.8);
+      t.quadraticBezierTo(4.6, 4.5, 8.6, 4.6);
+      t.quadraticBezierTo(11, 4.7, 12, 7.3);
+      t.quadraticBezierTo(13, 4.7, 15.4, 4.6);
+      t.quadraticBezierTo(19.4, 4.5, 20, 8.8);
+      t.quadraticBezierTo(20.5, 13.5, 12, 19.5);
+      t.close();
+      p.moveTo(12, 19.5);
+      p.quadraticBezierTo(3.5, 13.5, 4, 8.8);
+      p.quadraticBezierTo(4.6, 4.5, 8.6, 4.6);
+      p.quadraticBezierTo(11, 4.7, 12, 7.3);
+      p.quadraticBezierTo(13, 4.7, 15.4, 4.6);
+      p.quadraticBezierTo(19.4, 4.5, 20, 8.8);
+      p.quadraticBezierTo(20.5, 13.5, 12, 19.5);
+      p.close();
+    case Glyph.school:
+      _poly(t, [12, 5, 21.5, 9.5, 12, 14, 2.5, 9.5], close: true);
+      _poly(p, [12, 5, 21.5, 9.5, 12, 14, 2.5, 9.5], close: true);
+      p.moveTo(6.5, 11.6);
+      p.lineTo(6.5, 16);
+      p.quadraticBezierTo(12, 19.5, 17.5, 16);
+      p.lineTo(17.5, 11.6);
+      _poly(p, [21.5, 9.5, 21.5, 15]);
+    case Glyph.pill:
+      _box(t, 3.5, 8.5, 12, 15.5, 0);
+      _box(p, 3.5, 8.5, 20.5, 15.5, 3.5);
+      _poly(p, [12, 8.5, 12, 15.5]);
     case Glyph.transfer:
       _poly(p, [5, 8.5, 19, 8.5]);
       _poly(p, [15.5, 5, 19, 8.5, 15.5, 12]);

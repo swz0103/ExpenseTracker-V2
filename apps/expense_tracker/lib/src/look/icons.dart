@@ -4,50 +4,31 @@ import '../demo/ledger.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 
-const _categoryIcons = {
-  'home': Glyph.home,
-  'food': Glyph.food,
-  'travel': Glyph.travel,
-  'bag': Glyph.bag,
-  'subscription': Glyph.subscription,
-  'other': Glyph.other,
-  'salary': Glyph.salary,
-  'dividend': Glyph.dividend,
-  'income': Glyph.income,
-  'transfer': Glyph.transfer,
-  'investment': Glyph.investment,
-  'cup': Glyph.cup,
-  'shirt': Glyph.shirt,
-  'gift': Glyph.gift,
-  'book': Glyph.book,
-  'health': Glyph.health,
-  'pet': Glyph.pet,
-  'car': Glyph.car,
-  'game': Glyph.game,
-};
-
-/// Icon keys a new category may take.
-const categoryIconKeys = [
-  'food',
-  'cup',
-  'home',
-  'travel',
-  'car',
-  'bag',
-  'shirt',
-  'subscription',
-  'game',
-  'book',
-  'health',
-  'gift',
-  'pet',
-  'other',
-  'salary',
-  'income',
-  'dividend',
+/// Icon groups a category may take its mark from, by what it is for.
+const categoryIconGroups = [
+  ('飲食', ['food', 'cup', 'drink', 'cart']),
+  ('交通', ['travel', 'train', 'car', 'fuel', 'parking', 'plane']),
+  ('居家', ['home', 'bolt', 'water', 'wifi', 'tool', 'bed']),
+  ('購物', ['bag', 'shirt', 'sparkle', 'gift', 'store']),
+  ('娛樂', ['game', 'film', 'music', 'ticket', 'suitcase']),
+  ('健康', ['health', 'pill', 'fitness', 'baby', 'pet']),
+  ('學習與工作', ['book', 'school', 'briefcase', 'phone']),
+  ('金融', ['subscription', 'shield', 'card', 'coins', 'safe', 'heart']),
+  ('收入', ['salary', 'income', 'dividend', 'investment']),
+  ('其他', ['other']),
 ];
 
-Glyph iconFor(String key) => _categoryIcons[key] ?? Glyph.other;
+/// Every icon key a category may take.
+List<String> get categoryIconKeys => [
+  for (final (_, keys) in categoryIconGroups) ...keys,
+];
+
+Glyph iconFor(String key) {
+  for (final glyph in Glyph.values) {
+    if (glyph.name == key) return glyph;
+  }
+  return Glyph.other;
+}
 
 const _accountIcons = {
   'phone': Glyph.phone,
