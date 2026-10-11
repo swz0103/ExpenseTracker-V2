@@ -124,7 +124,6 @@ class _RecurringPageState extends State<RecurringPage> {
                       label: '新增固定項目',
                       value: '＋ 新增',
                       size: 16,
-                      sub: '房租、訂閱、保費',
                       onTap: _create,
                     ),
                   ]),

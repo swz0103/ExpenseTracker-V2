@@ -107,7 +107,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
                           ? money(left ~/ (days - passed + 1))
                           : '—',
                       valueColor: Hue.positive,
-                      sub: '剩餘 ÷ 剩下天數',
                     ),
                   ]),
                   const SectionHead('分類額度'),
