@@ -102,59 +102,58 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
             Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Tile(
-                    hero: true,
-                    icon: Glyph.investment,
-                    label: '未實現損益',
-                    value: moneySigned(gain),
-                    valueColor: tone,
-                    trailing: Pill(percentOf(gain, cost), color: tone),
-                    child: TileStats([
-                      (Glyph.briefcase, '市值', money(value), Hue.ink),
-                      (Glyph.coins, '成本', money(cost), Hue.ink),
-                      (
-                        Glyph.reports,
-                        '已實現',
-                        moneySigned(ledger.realized),
-                        ledger.realized < 0 ? Hue.negative : Hue.ink,
-                      ),
-                    ]),
-                  ),
-                  TileRow([
-                    Tile(
-                      icon: Glyph.dividend,
-                      label: '${today.month} 月股息',
-                      value: money(ledger.dividends(year, month)),
-                      sub: '累計 ${money(ledger.totalDividends)}',
-                      trailing: const Text(
-                        '＋記',
-                        style: TextStyle(fontSize: 12, color: Hue.accent),
-                      ),
-                      onTap: () => widget.nav.compose(type: EntryType.dividend),
-                    ),
-                    Tile(
-                      icon: Glyph.add,
-                      label: '買進／賣出',
-                      value: '記一筆交易',
-                      size: 16,
-                      sub: '自動算手續費、證交稅',
-                      onTap: () => widget.nav.compose(type: EntryType.buy),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Tile(
+                  hero: true,
+                  icon: Glyph.investment,
+                  label: '未實現損益',
+                  value: moneySigned(gain),
+                  valueColor: tone,
+                  trailing: Pill(percentOf(gain, cost), color: tone),
+                  child: TileStats([
+                    (Glyph.briefcase, '市值', money(value), Hue.ink),
+                    (Glyph.coins, '成本', money(cost), Hue.ink),
+                    (
+                      Glyph.reports,
+                      '已實現',
+                      moneySigned(ledger.realized),
+                      ledger.realized < 0 ? Hue.negative : Hue.ink,
                     ),
                   ]),
-                  SectionHead(
-                    '持股損益',
-                    trailing: LinkToggle(
-                      '示意行情',
-                      onTap: () =>
-                          showNote(context, '價格為示意收盤價，尚未接上自動行情'),
+                ),
+                TileRow([
+                  Tile(
+                    icon: Glyph.dividend,
+                    label: '${today.month} 月股息',
+                    value: money(ledger.dividends(year, month)),
+                    sub: '累計 ${money(ledger.totalDividends)}',
+                    trailing: const Text(
+                      '＋記',
+                      style: TextStyle(fontSize: 12, color: Hue.accent),
                     ),
+                    onTap: () => widget.nav.compose(type: EntryType.dividend),
                   ),
-                  for (final h in holdings)
-                    InkWell(
-                      onTap: () => _showLots(h),
-                      child: Container(
+                  Tile(
+                    icon: Glyph.add,
+                    label: '買進／賣出',
+                    value: '記一筆交易',
+                    size: 16,
+                    sub: '自動算手續費、證交稅',
+                    onTap: () => widget.nav.compose(type: EntryType.buy),
+                  ),
+                ]),
+                SectionHead(
+                  '持股損益',
+                  trailing: LinkToggle(
+                    '示意行情',
+                    onTap: () => showNote(context, '價格為示意收盤價，尚未接上自動行情'),
+                  ),
+                ),
+                for (final h in holdings)
+                  InkWell(
+                    onTap: () => _showLots(h),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: const BoxDecoration(
                         border: Border(bottom: BorderSide(color: Hue.line)),
@@ -223,9 +222,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         ],
                       ),
                     ),
-                    ),
-                ],
-              ),
+                  ),
+              ],
+            ),
           ],
         );
       },

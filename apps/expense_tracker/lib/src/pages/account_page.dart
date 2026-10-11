@@ -4,6 +4,7 @@ import '../charts/bar_scale.dart';
 import '../charts/waterfall.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
+import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -62,7 +63,6 @@ class _AccountPageState extends State<AccountPage> {
             outflow -= change;
           }
         }
-        final color = accountColor(account.kind);
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
@@ -72,61 +72,16 @@ class _AccountPageState extends State<AccountPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SoftPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            IconBadge(accountIcon(account), color, size: 30),
-                            const SizedBox(width: 8),
-                            Text(
-                              groupName(account.kind),
-                              style: const TextStyle(color: Hue.muted),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          money(balance),
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w600,
-                            color: balance < 0 ? Hue.negative : Hue.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Figure(
-                                '本月流入',
-                                money(inflow),
-                                color: Hue.positive,
-                              ),
-                            ),
-                            Expanded(
-                              child: Figure(
-                                '本月流出',
-                                money(outflow),
-                                color: Hue.negative,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (account.kind == AccountKind.card) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed: () =>
-                                  widget.nav.compose(type: EntryType.transfer),
-                              child: const Text('繳卡款'),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  Tile(
+                    hero: true,
+                    icon: accountIcon(account),
+                    label: groupName(account.kind),
+                    value: money(balance),
+                    valueColor: balance < 0 ? Hue.negative : Hue.ink,
+                    child: TileStats([
+                      (Glyph.income, '本月流入', money(inflow), Hue.positive),
+                      (Glyph.payout, '本月流出', money(outflow), Hue.negative),
+                    ]),
                   ),
                   const SectionHead('近四週'),
                   Waterfall(
@@ -139,11 +94,20 @@ class _AccountPageState extends State<AccountPage> {
                   const SectionHead('本月紀錄'),
                   if (entries.isEmpty)
                     const Text('本月沒有紀錄', style: TextStyle(color: Hue.muted)),
-                  for (final e in entries)
-                    EntryTile(
-                      ledger: ledger,
-                      entry: e,
-                      onTap: () => widget.nav.showEntry(e),
+                  if (entries.isNotEmpty)
+                    SoftPanel(
+                      color: Hue.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Column(
+                        children: [
+                          for (final e in entries)
+                            EntryTile(
+                              ledger: ledger,
+                              entry: e,
+                              onTap: () => widget.nav.showEntry(e),
+                            ),
+                        ],
+                      ),
                     ),
                 ],
               ),
