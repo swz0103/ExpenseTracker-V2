@@ -22,7 +22,7 @@ class PhoneFrame extends StatelessWidget {
     final media = MediaQuery.of(context);
     if (media.size.width <= 520) return child;
     return ColoredBox(
-      color: const Color(0xFFE8E1D2),
+      color: const Color(0xFFE2E5E1),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: FittedBox(

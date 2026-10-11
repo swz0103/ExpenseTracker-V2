@@ -44,7 +44,7 @@ class MorePage extends StatelessWidget {
               onTap: () => nav.open(Pages.recurring),
               child: Row(
                 children: [
-                  const IconBadge(Glyph.calendar, Hue.positive, size: 40),
+                  const IconBadge(Glyph.calendar, Hue.accent, size: 40),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

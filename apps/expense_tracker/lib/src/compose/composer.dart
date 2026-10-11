@@ -586,7 +586,7 @@ class _ComposerState extends State<Composer> {
                         ? () => setState(() => _viewing = false)
                         : _submit,
                     style: FilledButton.styleFrom(
-                      backgroundColor: _viewing ? Hue.positive : _color,
+                      backgroundColor: _viewing ? Hue.accent : _color,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

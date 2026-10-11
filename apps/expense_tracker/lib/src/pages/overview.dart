@@ -230,7 +230,7 @@ class _OverviewPageState extends State<OverviewPage> {
           child: TextButton(
             onPressed: () => setState(() => _dayPage = (page + 1) % pages),
             style: TextButton.styleFrom(
-              foregroundColor: Hue.positive,
+              foregroundColor: Hue.accent,
               minimumSize: const Size(44, 44),
             ),
             child: Text(
@@ -423,20 +423,7 @@ class _OverviewPageState extends State<OverviewPage> {
   }
 
   /// Colours for the second level of 財務分布, in v114's order.
-  static const _shades = [
-    Color(0xFF78906D),
-    Color(0xFFB97D61),
-    Color(0xFF6E929B),
-    Color(0xFFB19A56),
-    Color(0xFF927EAA),
-    Color(0xFFB77380),
-    Color(0xFF67857D),
-    Color(0xFFA58368),
-    Color(0xFF858AA8),
-    Color(0xFFA1A56A),
-    Color(0xFF879D92),
-    Color(0xFFA28595),
-  ];
+  static const _shades = Hue.shades;
 
   /// The tiles of 財務分布 at the current level, largest first, each with
   /// the key it opens to.
@@ -803,8 +790,9 @@ class _WeekStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1EBDD),
+        color: Hue.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: Hue.cardShadow,
       ),
       child: Row(
         children: [
@@ -827,7 +815,7 @@ class _WeekStrip extends StatelessWidget {
       if (kinds.any((k) => k.index >= EntryType.buy.index)) Hue.investment,
     ];
     final ink = picked
-        ? Hue.positive
+        ? Hue.accent
         : future || outside
         ? Hue.faint
         : Hue.ink;
@@ -931,7 +919,7 @@ class _DayGrid extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: onAdd,
-              style: TextButton.styleFrom(foregroundColor: Hue.positive),
+              style: TextButton.styleFrom(foregroundColor: Hue.accent),
               child: const Text('＋ 記一筆'),
             ),
           ],
@@ -1048,7 +1036,7 @@ class _SmallLink extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Hue.positive),
+          style: const TextStyle(fontSize: 12, color: Hue.accent),
         ),
       ),
     );

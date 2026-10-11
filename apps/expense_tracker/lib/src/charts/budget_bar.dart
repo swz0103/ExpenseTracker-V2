@@ -110,7 +110,7 @@ class _BudgetPainter extends CustomPainter {
     canvas.clipRRect(bar);
     canvas.drawRect(
       Offset.zero & Size(size.width, height),
-      Paint()..color = const Color(0xFFE6E0D2),
+      Paint()..color = Hue.track,
     );
     var left = 0.0;
     for (final (i, (color, amount)) in pieces.indexed) {

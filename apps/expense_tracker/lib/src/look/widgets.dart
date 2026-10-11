@@ -138,7 +138,7 @@ class IconBadge extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: filled ? color : softOf(color),
-        borderRadius: BorderRadius.circular(size * 0.3),
+        shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: GlyphIcon(
@@ -168,13 +168,19 @@ class SoftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(18);
-    return Material(
-      color: color,
-      borderRadius: radius,
-      child: InkWell(
+    return DecoratedBox(
+      decoration: BoxDecoration(
         borderRadius: radius,
-        onTap: onTap,
-        child: Padding(padding: padding, child: child),
+        boxShadow: color == Hue.white ? Hue.cardShadow : null,
+      ),
+      child: Material(
+        color: color,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -197,9 +203,9 @@ class LinkToggle extends StatelessWidget {
           label,
           style: const TextStyle(
             fontSize: 13,
-            color: Hue.positive,
+            color: Hue.accent,
             decoration: TextDecoration.underline,
-            decorationColor: Hue.positive,
+            decorationColor: Hue.accent,
           ),
         ),
       ),

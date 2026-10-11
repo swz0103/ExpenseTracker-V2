@@ -133,7 +133,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                         ),
                         const SizedBox(height: 12),
                         BudgetBar(
-                          pieces: [(const Color(0xFF6B8C6B), spent)],
+                          pieces: [(Hue.accent, spent)],
                           limit: total,
                           height: 12,
                         ),
@@ -228,7 +228,7 @@ class _CategoryLimit extends StatelessWidget {
                           value: share,
                           minHeight: 5,
                           color: left < 0 ? Hue.negative : category.color,
-                          backgroundColor: const Color(0xFFE6E0D2),
+                          backgroundColor: Hue.track,
                         ),
                       ),
                     ),

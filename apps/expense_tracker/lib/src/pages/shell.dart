@@ -183,7 +183,7 @@ class _BottomBar extends StatelessWidget {
                       child: Tooltip(
                         message: '記一筆',
                         child: Material(
-                          color: Hue.positive,
+                          color: Hue.accent,
                           shape: const CircleBorder(),
                           child: InkWell(
                             customBorder: const CircleBorder(),
@@ -214,7 +214,7 @@ class _BottomBar extends StatelessWidget {
                       children: [
                         GlyphIcon(
                           icon,
-                          color: item == tab ? Hue.positive : Hue.muted,
+                          color: item == tab ? Hue.accent : Hue.muted,
                           tinted: item == tab,
                         ),
                         const SizedBox(height: 3),
@@ -222,7 +222,7 @@ class _BottomBar extends StatelessWidget {
                           label,
                           style: TextStyle(
                             fontSize: 11,
-                            color: item == tab ? Hue.positive : Hue.muted,
+                            color: item == tab ? Hue.accent : Hue.muted,
                             fontWeight: item == tab
                                 ? FontWeight.w700
                                 : FontWeight.w400,

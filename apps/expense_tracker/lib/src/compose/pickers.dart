@@ -208,7 +208,7 @@ class _CalendarState extends State<_Calendar> {
     final picked = day == widget.selected;
     final weekend = day.weekday >= DateTime.saturday;
     final background = picked
-        ? Hue.positive
+        ? Hue.accent
         : !inMonth
         ? Colors.transparent
         : widget.marked.contains(day)
@@ -219,7 +219,7 @@ class _CalendarState extends State<_Calendar> {
         : !inMonth || future
         ? Hue.faint
         : weekend
-        ? const Color(0xFF9A7650)
+        ? Hue.negative
         : Hue.ink;
     return Padding(
       padding: const EdgeInsets.all(2.5),

@@ -209,7 +209,7 @@ class _CalculatorState extends State<_Calculator> {
     final operator = '÷×−+='.contains(key);
     final done = key == '完成';
     final background = done
-        ? const Color(0xFF5B7B5F)
+        ? Hue.accent
         : operator
         ? Hue.mist
         : Hue.surface;

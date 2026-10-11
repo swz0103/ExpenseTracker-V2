@@ -15,14 +15,7 @@ class CategoriesPage extends StatelessWidget {
   final Ledger ledger;
   final Nav nav;
 
-  static const _colors = [
-    Color(0xFF78906D),
-    Color(0xFFC28B60),
-    Color(0xFF6E929B),
-    Color(0xFF927EAA),
-    Color(0xFFB19A56),
-    Color(0xFFB77380),
-  ];
+  static final _colors = Hue.shades.take(6).toList();
 
   Future<void> _edit(BuildContext context, Category category) async {
     final next = await showCategoryEditor(
