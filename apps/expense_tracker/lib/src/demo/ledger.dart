@@ -48,6 +48,8 @@ final class Entry {
     this.holding,
     this.shares = 0,
     this.recurring,
+    this.merchant = '',
+    this.tags = const [],
   });
 
   final String id;
@@ -69,6 +71,29 @@ final class Entry {
 
   /// The recurring item this entry confirms.
   final String? recurring;
+
+  /// Where the money went, such as 全聯福利中心; empty when not noted.
+  final String merchant;
+
+  /// Labels that cut across categories, such as 家用.
+  final List<String> tags;
+
+  /// This entry with another category.
+  Entry withCategory(String name) => Entry(
+    id: id,
+    date: date,
+    type: type,
+    amount: amount,
+    account: account,
+    category: name,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant,
+    tags: tags,
+  );
 
   /// What the lists show: the note, else the category.
   String get title => note.isNotEmpty ? note : category;
@@ -298,6 +323,80 @@ final class Ledger extends ChangeNotifier {
     return rows;
   }
 
+  // Any stretch of days, for the reports.
+
+  Iterable<Entry> _between(DateTime from, DateTime to) =>
+      _entries.where((e) => !e.date.isBefore(from) && !e.date.isAfter(to));
+
+  /// Income, dividends included, and spending from [from] to [to].
+  (int, int) totalsBetween(DateTime from, DateTime to) {
+    var income = 0;
+    var expense = 0;
+    for (final e in _between(from, to)) {
+      switch (e.type) {
+        case EntryType.income || EntryType.dividend:
+          income += e.amount;
+        case EntryType.expense:
+          expense += e.amount;
+        default:
+          break;
+      }
+    }
+    return (income, expense);
+  }
+
+  int dividendsBetween(DateTime from, DateTime to) =>
+      _sum(_between(from, to).where((e) => e.type == EntryType.dividend));
+
+  /// Spending by category name from [from] to [to].
+  Map<String, int> spendingBetween(DateTime from, DateTime to) {
+    final totals = <String, int>{};
+    for (final e in _between(from, to)) {
+      if (e.type != EntryType.expense) continue;
+      totals[e.category] = (totals[e.category] ?? 0) + e.amount;
+    }
+    return totals;
+  }
+
+  /// Spending by merchant from [from] to [to], largest first, with how
+  /// many times each was paid.
+  List<(String, int, int)> merchantsBetween(DateTime from, DateTime to) {
+    final amounts = <String, int>{};
+    final counts = <String, int>{};
+    for (final e in _between(from, to)) {
+      if (e.type != EntryType.expense || e.merchant.isEmpty) continue;
+      amounts[e.merchant] = (amounts[e.merchant] ?? 0) + e.amount;
+      counts[e.merchant] = (counts[e.merchant] ?? 0) + 1;
+    }
+    final rows = [
+      for (final MapEntry(:key, :value) in amounts.entries)
+        (key, counts[key] ?? 0, value),
+    ];
+    rows.sort((a, b) => b.$3.compareTo(a.$3));
+    return rows;
+  }
+
+  /// Spending by tag from [from] to [to], largest first.
+  List<(String, int)> tagsBetween(DateTime from, DateTime to) {
+    final totals = <String, int>{};
+    for (final e in _between(from, to)) {
+      if (e.type != EntryType.expense) continue;
+      for (final tag in e.tags) {
+        totals[tag] = (totals[tag] ?? 0) + e.amount;
+      }
+    }
+    final rows = [
+      for (final MapEntry(:key, :value) in totals.entries) (key, value),
+    ];
+    rows.sort((a, b) => b.$2.compareTo(a.$2));
+    return rows;
+  }
+
+  /// The day of the first entry, where the book starts.
+  DateTime get firstDay => _entries.isEmpty
+      ? today
+      : _entries.map((e) => e.date).reduce((a, b) => a.isBefore(b) ? a : b);
+
   // Balances.
 
   int _effect(Entry e, String account) {
@@ -482,21 +581,7 @@ final class Ledger extends ChangeNotifier {
       }
     }
     for (final (i, e) in _entries.indexed) {
-      if (e.category == from) {
-        _entries[i] = Entry(
-          id: e.id,
-          date: e.date,
-          type: e.type,
-          amount: e.amount,
-          account: e.account,
-          category: to,
-          note: e.note,
-          to: e.to,
-          holding: e.holding,
-          shares: e.shares,
-          recurring: e.recurring,
-        );
-      }
+      if (e.category == from) _entries[i] = e.withCategory(to);
     }
     for (final (i, b) in _budgets.indexed) {
       if (b.category == from) _budgets[i] = Budget(to, b.limit);

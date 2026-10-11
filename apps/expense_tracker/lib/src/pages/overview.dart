@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../charts/bar_scale.dart';
-import '../charts/budget_bar.dart';
 import '../charts/flow_chart.dart';
 import '../charts/treemap.dart';
 import '../demo/ledger.dart';
@@ -33,7 +32,6 @@ class _OverviewPageState extends State<OverviewPage> {
   var _dayPage = 0;
   static const _scale = BarScale.proportional;
   String? _holding;
-  int? _piece;
   int? _tile;
 
   /// The opened part of 財務分布: null for all assets, else 'investment'
@@ -87,20 +85,13 @@ class _OverviewPageState extends State<OverviewPage> {
                   onChanged: (month) => setState(() {
                     _month = month;
                     _flowMonth = null;
-                    _piece = null;
                   }),
                 ),
               ],
             ),
           ),
           _Summary(ledger: ledger, month: _month),
-          const SizedBox(height: 18),
-          ..._budget(),
-          const SizedBox(height: 6),
-          _DueRow(
-            ledger: ledger,
-            onTap: () => widget.nav.open(Pages.recurring),
-          ),
+          TileRow([_budgetTile(), _dueTile()]),
           ..._daily(),
           ..._market(),
           ..._assets(),
@@ -364,53 +355,52 @@ class _OverviewPageState extends State<OverviewPage> {
     );
   }
 
-  /// The budget under the summary: spending by category against the
-  /// limit, the month's pace, and what is left.
-  List<Widget> _budget() {
+  /// 預算: what is left of the month's limit, with the share spent as a
+  /// ring and the share of the month gone by.
+  Widget _budgetTile() {
     final ledger = widget.ledger;
     final (year, month) = _month;
-    final rows = ledger.expenseByCategory(year, month);
-    final spent = rows.fold(0, (sum, r) => sum + r.$2);
+    final spent = ledger.expense(year, month);
     final limit = ledger.budgetFor(Ledger.allSpending).limit;
-    final piece = _piece == null || _piece! >= rows.length ? null : _piece;
-    return [
-      BudgetBar(
-        pieces: [for (final (c, amount) in rows) (c.color, amount)],
-        limit: limit,
-        pace: _pace(year, month),
-        selected: piece,
-        height: 12,
-        onSelect: (index) => setState(() => _piece = index),
+    final pace = (_pace(year, month) * 100).round();
+    return Tile(
+      icon: Glyph.budget,
+      label: '預算',
+      trailing: const Text(
+        '調整',
+        style: TextStyle(fontSize: 12, color: Hue.accent),
       ),
-      Row(
-        children: [
-          Text(
-            piece == null
-                ? '預算'
-                : '${rows[piece].$1.name} ${_m(groupDigits(rows[piece].$2))}',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-          const Spacer(),
-          Text.rich(
-            TextSpan(
-              style: const TextStyle(fontSize: 12, color: Hue.muted),
-              children: [
-                const TextSpan(text: '剩 '),
-                TextSpan(
-                  text: _m(groupDigits(limit - spent)),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: limit < spent ? Hue.negative : Hue.ink,
-                  ),
-                ),
-                TextSpan(text: ' ／ ${_m(groupDigits(limit))}'),
-              ],
-            ),
-          ),
-          _SmallLink('調整', () => widget.nav.open(Pages.budgets)),
-        ],
-      ),
-    ];
+      lead: RingGauge(share: limit == 0 ? 0 : spent / limit, size: 50),
+      value: _m(groupDigits(limit - spent)),
+      valueColor: limit < spent ? Hue.negative : Hue.ink,
+      size: 18,
+      sub: '剩餘 · 時間 $pace%',
+      onTap: () => widget.nav.open(Pages.budgets),
+    );
+  }
+
+  /// 即將扣款: how many recurring items are due or coming, and the next
+  /// two.
+  Widget _dueTile() {
+    final ledger = widget.ledger;
+    final today = ledger.today;
+    final due = ledger.due;
+    final items = [...due, ...ledger.upcoming];
+    return Tile(
+      icon: Glyph.calendar,
+      label: due.isEmpty ? '即將扣款' : '已到期',
+      trailing: const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+      value: '${items.length} 筆',
+      valueColor: due.isEmpty ? Hue.ink : Hue.negative,
+      sub: items.isEmpty
+          ? '沒有待扣款項目'
+          : [
+              for (final r in items.take(2))
+                '${today.month}/${r.day} ${r.name} '
+                    '${_m(groupDigits(r.amount))}',
+            ].join('\n'),
+      onTap: () => widget.nav.open(Pages.recurring),
+    );
   }
 
   /// How much of the month has gone by: today's share of its days for
@@ -634,7 +624,8 @@ class _OverviewPageState extends State<OverviewPage> {
   }
 }
 
-/// 本月收入、本月支出、其中股息、本月結餘 in four columns.
+/// The month's balance as the page's main tile, with income, spending
+/// and dividends along its foot.
 class _Summary extends StatelessWidget {
   const _Summary({required this.ledger, required this.month});
 
@@ -647,124 +638,25 @@ class _Summary extends StatelessWidget {
     final income = ledger.income(year, m);
     final expense = ledger.expense(year, m);
     final left = income - expense;
-    final items = [
-      (Glyph.income, '本月收入', income, Hue.positive, false),
-      (Glyph.payout, '本月支出', expense, Hue.negative, true),
-      (
-        Glyph.dividend,
-        '其中股息',
-        ledger.dividends(year, m),
-        Hue.investment,
-        false,
-      ),
-      (
-        Glyph.wallet,
-        '本月結餘',
-        left,
-        left < 0 ? Hue.negative : Hue.positive,
-        true,
-      ),
-    ];
-    return Row(
-      children: [
-        for (final (icon, label, amount, color, strong) in items)
-          Expanded(
-            child: Column(
-              children: [
-                IconBadge(icon, color, size: 34),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: strong ? Hue.ink : Hue.muted,
-                    fontWeight: strong ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    ledger.hidden ? '••••' : groupDigits(amount),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DueRow extends StatelessWidget {
-  const _DueRow({required this.ledger, required this.onTap});
-
-  final Ledger ledger;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final due = ledger.due;
-    final upcoming = ledger.upcoming;
-    final next = due.isNotEmpty
-        ? due.first
-        : upcoming.isEmpty
-        ? null
-        : upcoming.first;
-    final today = ledger.today;
-    final hidden = ledger.hidden;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: due.isEmpty ? Hue.gold : Hue.negative,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: due.isNotEmpty
-                          ? '${due.length} 筆已到期'
-                          : next == null
-                          ? '沒有待扣款項目'
-                          : '${upcoming.length} 筆即將扣款',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (next != null)
-                      TextSpan(
-                        text:
-                            '　${today.month}/${next.day} ${next.name} '
-                            '${hidden ? '••••' : groupDigits(next.amount)}',
-                        style: const TextStyle(fontSize: 13, color: Hue.muted),
-                      ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
-          ],
+    final rate = income == 0 ? 0 : (left * 100 / income).round();
+    String shown(int value) => ledger.hidden ? '••••' : groupDigits(value);
+    return Tile(
+      hero: true,
+      icon: Glyph.wallet,
+      label: '本月結餘',
+      value: shown(left),
+      valueColor: left < 0 ? Hue.negative : Hue.ink,
+      trailing: Pill('結餘率 $rate%'),
+      child: TileStats([
+        (Glyph.income, '收入', shown(income), Hue.positive),
+        (Glyph.payout, '支出', shown(expense), Hue.negative),
+        (
+          Glyph.dividend,
+          '股息',
+          shown(ledger.dividends(year, m)),
+          Hue.investment,
         ),
-      ),
+      ]),
     );
   }
 }

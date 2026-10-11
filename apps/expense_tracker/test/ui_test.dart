@@ -154,7 +154,7 @@ void main() {
     await tester.tap(find.text('更多'));
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
-      ('財務報表', '減少 9,555'),
+      ('財務報表', '淨資產走勢'),
       ('投資與股息', '持股損益'),
       ('預算管理', '分類額度'),
       ('定期交易', '管理固定項目'),

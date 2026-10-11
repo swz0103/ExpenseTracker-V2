@@ -1,0 +1,356 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import '../look/paint.dart';
+import '../look/theme.dart';
+
+/// One stretch of a report: a week, a month, and what came in and went
+/// out in it. A stretch still ahead has [ahead] set and no figures.
+final class PeriodBucket {
+  const PeriodBucket(
+    this.label,
+    this.income,
+    this.expense, {
+    this.ahead = false,
+  });
+
+  final String label;
+  final int income;
+  final int expense;
+  final bool ahead;
+}
+
+/// Income and spending of each stretch as paired columns; stretches still
+/// ahead are dashed outlines. Tap a stretch to choose it.
+class PeriodBars extends StatelessWidget {
+  const PeriodBars({
+    super.key,
+    required this.buckets,
+    required this.selected,
+    required this.onSelect,
+    this.height = 150,
+  });
+
+  final List<PeriodBucket> buckets;
+  final int? selected;
+  final ValueChanged<int?> onSelect;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: SizedBox(
+        height: height,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return GestureDetector(
+              onTapDown: (d) {
+                final i = (d.localPosition.dx / width * buckets.length)
+                    .floor();
+                if (i < 0 || i >= buckets.length || buckets[i].ahead) return;
+                onSelect(i == selected ? null : i);
+              },
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                builder: (context, grow, _) => CustomPaint(
+                  size: Size(width, height),
+                  painter: _BarsPainter(buckets, selected, grow),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _BarsPainter extends CustomPainter {
+  _BarsPainter(this.buckets, this.selected, this.grow);
+
+  final List<PeriodBucket> buckets;
+  final int? selected;
+  final double grow;
+
+  static const _labels = 18.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (buckets.isEmpty) return;
+    final plot = size.height - _labels;
+    final slot = size.width / buckets.length;
+    final largest = buckets.fold(
+      1,
+      (m, b) => max(m, max(b.income, b.expense)),
+    );
+    final bar = min(14.0, slot * 0.32);
+    final faded = selected != null;
+    for (final (i, b) in buckets.indexed) {
+      final x = slot * i + slot / 2;
+      if (i == selected) {
+        canvas.drawRRect(
+          RRect.fromLTRBR(
+            slot * i + 2,
+            0,
+            slot * (i + 1) - 2,
+            plot,
+            const Radius.circular(8),
+          ),
+          Paint()..color = Hue.selected,
+        );
+      }
+      if (b.ahead) {
+        final outline = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Hue.faint;
+        canvas.drawRRect(
+          RRect.fromLTRBR(
+            x - bar,
+            plot * 0.45,
+            x + bar,
+            plot,
+            const Radius.circular(3),
+          ),
+          outline,
+        );
+      } else {
+        final dim = faded && i != selected;
+        for (final (k, (value, color)) in [
+          (b.income, Hue.positive),
+          (b.expense, Hue.negative),
+        ].indexed) {
+          final h = plot * value / largest * grow;
+          final left = k == 0 ? x - bar - 1 : x + 1;
+          canvas.drawRRect(
+            RRect.fromLTRBAndCorners(
+              left,
+              plot - h,
+              left + bar,
+              plot,
+              topLeft: const Radius.circular(3),
+              topRight: const Radius.circular(3),
+            ),
+            Paint()..color = dim ? color.withValues(alpha: 0.35) : color,
+          );
+        }
+      }
+      paintText(
+        canvas,
+        b.label,
+        TextStyle(
+          fontSize: 10.5,
+          color: i == selected ? Hue.ink : Hue.muted,
+          fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
+        ),
+        Offset(x, size.height - _labels / 2),
+      );
+    }
+    canvas.drawLine(
+      Offset(0, plot),
+      Offset(size.width, plot),
+      Paint()..color = Hue.line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BarsPainter old) =>
+      old.buckets != buckets || old.selected != selected || old.grow != grow;
+}
+
+/// A value over time as a line with a light area under it; null values,
+/// still ahead, are left out.
+class TrendLine extends StatelessWidget {
+  const TrendLine({
+    super.key,
+    required this.values,
+    required this.labels,
+    this.height = 110,
+  });
+
+  final List<int?> values;
+  final List<String> labels;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: CustomPaint(
+        size: Size(double.infinity, height),
+        painter: _TrendPainter(values, labels),
+      ),
+    );
+  }
+}
+
+class _TrendPainter extends CustomPainter {
+  _TrendPainter(this.values, this.labels);
+
+  final List<int?> values;
+  final List<String> labels;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final known = [
+      for (final v in values)
+        if (v != null) v,
+    ];
+    if (known.length < 2) return;
+    final plot = size.height - 18;
+    final low = known.reduce(min);
+    final high = known.reduce(max);
+    final span = max(1, high - low);
+    final step = size.width / max(1, values.length - 1);
+    final points = <Offset>[
+      for (final (i, v) in values.indexed)
+        if (v != null)
+          Offset(i * step, 6 + (plot - 12) * (1 - (v - low) / span)),
+    ];
+    final line = Path()..addPolygon(points, false);
+    final area = Path()
+      ..addPolygon([
+        Offset(points.first.dx, plot),
+        ...points,
+        Offset(points.last.dx, plot),
+      ], true);
+    canvas.drawPath(area, Paint()..color = Hue.accent.withValues(alpha: 0.14));
+    canvas.drawPath(
+      line,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeJoin = StrokeJoin.round
+        ..color = Hue.accent,
+    );
+    canvas.drawCircle(points.last, 4, Paint()..color = Hue.accent);
+    canvas.drawLine(
+      Offset(0, plot),
+      Offset(size.width, plot),
+      Paint()..color = Hue.line,
+    );
+    for (final (i, label) in labels.indexed) {
+      if (label.isEmpty) continue;
+      final anchor = i == 0
+          ? const Offset(0, 0)
+          : i == labels.length - 1
+          ? const Offset(1, 0)
+          : const Offset(0.5, 0);
+      paintText(
+        canvas,
+        label,
+        const TextStyle(fontSize: 10.5, color: Hue.muted),
+        Offset(i * step, plot + 4),
+        anchor: anchor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TrendPainter old) =>
+      old.values != values || old.labels != labels;
+}
+
+/// What each stretch's spending was made of: a column per stretch, as
+/// tall as its spending, stacked by category. A chosen category stays in
+/// colour and the rest fade.
+class MixBars extends StatelessWidget {
+  const MixBars({
+    super.key,
+    required this.columns,
+    required this.colors,
+    required this.labels,
+    required this.selected,
+    this.height = 150,
+  });
+
+  /// Per stretch, the amount of each category in [colors]' order.
+  final List<List<int>> columns;
+  final List<Color> colors;
+  final List<String> labels;
+  final int? selected;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+        builder: (context, grow, _) => CustomPaint(
+          size: Size(double.infinity, height),
+          painter: _MixPainter(columns, colors, labels, selected, grow),
+        ),
+      ),
+    );
+  }
+}
+
+class _MixPainter extends CustomPainter {
+  _MixPainter(
+    this.columns,
+    this.colors,
+    this.labels,
+    this.selected,
+    this.grow,
+  );
+
+  final List<List<int>> columns;
+  final List<Color> colors;
+  final List<String> labels;
+  final int? selected;
+  final double grow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (columns.isEmpty) return;
+    final plot = size.height - 18;
+    final slot = size.width / columns.length;
+    final width = min(22.0, slot * 0.62);
+    final largest = columns.fold(
+      1,
+      (m, c) => max(m, c.fold(0, (s, v) => s + v)),
+    );
+    for (final (i, column) in columns.indexed) {
+      final x = slot * i + slot / 2;
+      var top = plot;
+      for (final (k, value) in column.indexed) {
+        if (value <= 0) continue;
+        final h = plot * value / largest * grow;
+        final dim = selected != null && selected != k;
+        canvas.drawRect(
+          Rect.fromLTRB(x - width / 2, top - h, x + width / 2, top),
+          Paint()
+            ..color = dim
+                ? colors[k].withValues(alpha: 0.18)
+                : colors[k].withValues(alpha: 0.9),
+        );
+        top -= h;
+      }
+      if (i < labels.length) {
+        paintText(
+          canvas,
+          labels[i],
+          const TextStyle(fontSize: 10.5, color: Hue.muted),
+          Offset(x, size.height - 9),
+        );
+      }
+    }
+    canvas.drawLine(
+      Offset(0, plot),
+      Offset(size.width, plot),
+      Paint()..color = Hue.line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MixPainter old) =>
+      old.columns != columns ||
+      old.selected != selected ||
+      old.grow != grow ||
+      old.colors != colors;
+}

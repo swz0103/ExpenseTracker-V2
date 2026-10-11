@@ -17,6 +17,11 @@ abstract final class Hue {
   /// Cards: white on the paper, lifted by [cardShadow].
   static const mist = Color(0xFFFFFFFF);
 
+  /// Summary blocks: the page's main block and the smaller ones, both a
+  /// tint of [accent] on the paper.
+  static const hero = Color(0xFFCAD6D8);
+  static const tile = Color(0xFFE0E6E5);
+
   /// Empty track behind bars.
   static const track = Color(0xFFE9ECEA);
 
