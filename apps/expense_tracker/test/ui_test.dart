@@ -227,7 +227,7 @@ void main() {
     await tester.tap(find.text('更多'));
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
-      ('財務報表', '淨資產走勢'),
+      ('財務報表', '收支與淨資產'),
       ('投資與股息', 'ETF'),
       ('預算管理', '分類額度'),
       ('定期交易', '管理固定項目'),
