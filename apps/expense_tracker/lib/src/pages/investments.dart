@@ -28,7 +28,12 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
 
   /// A group of holdings two to a row in a white card, as 帳戶 shows
   /// accounts; each opens its own page.
-  List<Widget> _group(String title, List<Holding> holdings, int largest) {
+  List<Widget> _group(
+    String title,
+    List<Holding> holdings,
+    int largest,
+    double axis,
+  ) {
     if (holdings.isEmpty) return const [];
     final value = holdings.fold(0, (sum, h) => sum + h.value);
     final rows = <Widget>[];
@@ -36,10 +41,10 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
       rows.add(
         Row(
           children: [
-            Expanded(child: _cell(holdings[i], largest)),
+            Expanded(child: _cell(holdings[i], largest, axis)),
             Expanded(
               child: i + 1 < holdings.length
-                  ? _cell(holdings[i + 1], largest)
+                  ? _cell(holdings[i + 1], largest, axis)
                   : const SizedBox.shrink(),
             ),
           ],
@@ -62,7 +67,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
     ];
   }
 
-  Widget _cell(Holding h, int largest) {
+  Widget _cell(Holding h, int largest, double axis) {
     final tone = h.gain < 0 ? Hue.negative : Hue.positive;
     return InkWell(
       onTap: () => widget.nav.open(Pages.holding(h.code)),
@@ -86,6 +91,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               value: h.gain,
               largest: largest,
               scale: _scale,
+              axis: axis,
               height: 6,
               minimum: 0.1,
             ),
@@ -113,6 +119,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final holdings = ledger.holdings;
         final largest = holdings.fold(0, (m, h) => max(m, h.gain.abs()));
         final tone = gain < 0 ? Hue.negative : Hue.positive;
+        final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
         final today = ledger.today;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -161,7 +168,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   ..._group(title, [
                     for (final h in holdings)
                       if (h.code.startsWith('00') == etf) h,
-                  ], largest),
+                  ], largest, axis),
               ],
             ),
           ],
