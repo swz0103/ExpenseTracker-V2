@@ -6,6 +6,7 @@ import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import 'account_editor.dart';
 import 'nav.dart';
 
 /// 我的帳戶: total assets and what they are made of, then every account
@@ -16,78 +17,18 @@ class AccountsPage extends StatelessWidget {
   final Ledger ledger;
   final Nav nav;
 
-  Future<void> _create(BuildContext context) async {
-    final name = TextEditingController();
-    final opening = TextEditingController();
-    var kind = AccountKind.bank;
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          backgroundColor: Hue.panel,
-          title: const Text('新增帳戶'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: '名稱'),
-              ),
-              TextField(
-                controller: opening,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '目前餘額'),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final k in AccountKind.values)
-                    ChoiceChip(
-                      label: Text(groupName(k)),
-                      selected: k == kind,
-                      onSelected: (_) => setDialog(() => kind = k),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('新增'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final title = name.text.trim();
-    final amount = int.tryParse(opening.text.trim()) ?? 0;
-    name.dispose();
-    opening.dispose();
-    if (created != true || title.isEmpty) return;
-    final balance = kind == AccountKind.card ? -amount.abs() : amount;
-    ledger.addAccount(
-      Account('account-${ledger.newId()}', title, kind, balance),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
-        var cash = 0;
-        for (final a in ledger.accounts) {
-          if (a.kind != AccountKind.card) cash += ledger.balance(a.id);
-        }
         final invest = ledger.investValue;
-        final debt = ledger.cardDebt;
+        final cash = ledger.assets - invest;
+        final debt = ledger.cardDebt + ledger.loanDebt;
+        final archived = [
+          for (final a in ledger.accounts)
+            if (a.archived) a,
+        ];
         String shown(int value) => ledger.hidden ? '••••' : groupDigits(value);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -95,7 +36,7 @@ class AccountsPage extends StatelessWidget {
             PageHeader(
               '我的帳戶',
               trailing: TextButton.icon(
-                onPressed: () => _create(context),
+                onPressed: () => editAccount(context, ledger),
                 icon: const GlyphIcon(Glyph.add, size: 16),
                 label: const Text('新增'),
                 style: TextButton.styleFrom(foregroundColor: Hue.ink),
@@ -141,13 +82,27 @@ class AccountsPage extends StatelessWidget {
               ),
               Tile(
                 icon: Glyph.card,
-                label: '卡費',
+                label: '負債',
                 value: shown(debt),
                 valueColor: debt > 0 ? Hue.negative : Hue.ink,
                 size: 17,
               ),
             ]),
             for (final kind in AccountKind.values) ..._group(kind),
+            if (archived.isNotEmpty) ...[
+              const SectionHead('已封存'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final a in archived)
+                    ActionChip(
+                      label: Text(a.name),
+                      onPressed: () => editAccount(context, ledger, account: a),
+                    ),
+                ],
+              ),
+            ],
           ],
         );
       },
@@ -156,7 +111,7 @@ class AccountsPage extends StatelessWidget {
 
   List<Widget> _group(AccountKind kind) {
     final accounts = [
-      for (final a in ledger.accounts)
+      for (final a in ledger.openAccounts)
         if (a.kind == kind) a,
     ];
     if (accounts.isEmpty) return const [];
@@ -184,7 +139,7 @@ class AccountsPage extends StatelessWidget {
             Container(width: 3, height: 14, color: accountColor(kind)),
             const SizedBox(width: 8),
             Text(
-              kind == AccountKind.card ? '信用卡 · 本期待繳' : groupName(kind),
+              kind.isDebt ? '${groupName(kind)} · 待繳' : groupName(kind),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const Spacer(),

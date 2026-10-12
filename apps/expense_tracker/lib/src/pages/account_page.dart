@@ -8,6 +8,7 @@ import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import 'account_editor.dart';
 import 'entry_tile.dart';
 import 'nav.dart';
 
@@ -66,7 +67,15 @@ class _AccountPageState extends State<AccountPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
-            PageHeader(account.name, onBack: widget.nav.back),
+            PageHeader(
+              account.name,
+              onBack: widget.nav.back,
+              trailing: TextButton(
+                onPressed: () => editAccount(context, ledger, account: account),
+                style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                child: const Text('編輯'),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Column(

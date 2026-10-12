@@ -46,7 +46,7 @@ void main() {
       expect(ledger.investValue, 681528);
       expect(ledger.investValue - ledger.investCost, 75678);
       expect(ledger.dayChange, 2717);
-      expect(ledger.assets, 1247389);
+      expect(ledger.assets, 1250589);
       expect(ledger.totalDividends, 32120);
     });
 

@@ -8,7 +8,17 @@ import '../look/figures.dart';
 /// What an entry does. Buys, sells and dividends are investment entries.
 enum EntryType { expense, income, transfer, buy, sell, dividend }
 
-enum AccountKind { cash, bank, wallet, card }
+enum AccountKind {
+  cash,
+  bank,
+  wallet,
+  card,
+  loan,
+  receivable;
+
+  /// Kinds whose balance is owed rather than held.
+  bool get isDebt => this == card || this == loan;
+}
 
 final class Account {
   const Account(
@@ -20,6 +30,8 @@ final class Account {
     this.closingDay,
     this.dueDay,
     this.limit,
+    this.archived = false,
+    this.inNetWorth = true,
   });
 
   final String id;
@@ -38,6 +50,35 @@ final class Account {
   final int? closingDay;
   final int? dueDay;
   final int? limit;
+
+  /// Closed and kept only for its history: left out of lists and pickers.
+  final bool archived;
+
+  /// Counted in the totals and net worth.
+  final bool inNetWorth;
+
+  Account copyWith({
+    String? name,
+    AccountKind? kind,
+    int? opening,
+    String? icon,
+    int? closingDay,
+    int? dueDay,
+    int? limit,
+    bool? archived,
+    bool? inNetWorth,
+  }) => Account(
+    id,
+    name ?? this.name,
+    kind ?? this.kind,
+    opening ?? this.opening,
+    icon: icon ?? this.icon,
+    closingDay: closingDay ?? this.closingDay,
+    dueDay: dueDay ?? this.dueDay,
+    limit: limit ?? this.limit,
+    archived: archived ?? this.archived,
+    inNetWorth: inNetWorth ?? this.inNetWorth,
+  );
 }
 
 final class Category {
@@ -699,30 +740,41 @@ final class Ledger extends ChangeNotifier {
   int get realized => _holdings.fold(0, (sum, h) => sum + h.realized);
   int get totalDividends => _holdings.fold(0, (sum, h) => sum + h.dividends);
 
-  /// Cash in every account but cards, plus investments.
+  /// Accounts still open, in their order.
+  List<Account> get openAccounts => [
+    for (final a in _accounts)
+      if (!a.archived) a,
+  ];
+
+  /// What every counted account holds, debts aside, plus investments.
   int get assets {
     var total = investValue;
     for (final a in _accounts) {
-      if (a.kind != AccountKind.card) total += balance(a.id);
+      if (!a.kind.isDebt && a.inNetWorth) total += balance(a.id);
     }
     return total;
   }
 
   /// What is owed on cards, as a positive amount.
-  int get cardDebt {
+  int get cardDebt => _owed(AccountKind.card);
+
+  /// What is owed on loans, as a positive amount.
+  int get loanDebt => _owed(AccountKind.loan);
+
+  int _owed(AccountKind kind) {
     var total = 0;
     for (final a in _accounts) {
-      if (a.kind == AccountKind.card) total += -balance(a.id);
+      if (a.kind == kind && a.inNetWorth) total += -balance(a.id);
     }
     return total < 0 ? 0 : total;
   }
 
-  /// Accounts less card debt plus investments at today's value, at the
-  /// end of [day].
+  /// Counted accounts less debts plus investments at today's value, at
+  /// the end of [day].
   int netWorthAt(DateTime day) {
     var total = investValue;
     for (final a in _accounts) {
-      total += balance(a.id, until: day);
+      if (a.inNetWorth) total += balance(a.id, until: day);
     }
     return total;
   }
@@ -825,6 +877,34 @@ final class Ledger extends ChangeNotifier {
 
   void addAccount(Account account) {
     _accounts.add(account);
+    notifyListeners();
+  }
+
+  /// Puts [account] in place of the one with the same id.
+  void updateAccount(Account account) {
+    final index = _accounts.indexWhere((a) => a.id == account.id);
+    if (index < 0) return addAccount(account);
+    _accounts[index] = account;
+    notifyListeners();
+  }
+
+  /// Corrects [id]'s balance today to [target] by moving its opening
+  /// balance, so its history keeps its shape.
+  void setBalance(String id, int target) {
+    final index = _accounts.indexWhere((a) => a.id == id);
+    if (index < 0) return;
+    final a = _accounts[index];
+    _accounts[index] = a.copyWith(opening: a.opening + target - balance(id));
+    notifyListeners();
+  }
+
+  /// Whether [id] has any entries; an account without can be removed.
+  bool isUsed(String id) =>
+      _entries.any((e) => e.account == id || e.to == id);
+
+  void removeAccount(String id) {
+    if (isUsed(id)) return;
+    _accounts.removeWhere((a) => a.id == id);
     notifyListeners();
   }
 

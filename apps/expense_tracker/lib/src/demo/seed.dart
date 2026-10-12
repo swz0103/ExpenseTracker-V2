@@ -208,6 +208,14 @@ Ledger demoLedger() {
         icon: 'ticket',
       ),
       const Account('home-cash', '家用現金', AccountKind.cash, 8500, icon: 'coins'),
+      const Account('car-loan', '車貸', AccountKind.loan, -286000, icon: 'car'),
+      const Account(
+        'lent',
+        '代墊朋友',
+        AccountKind.receivable,
+        3200,
+        icon: 'heart',
+      ),
     ],
     categories: const [
       Category('居家生活', 'home', Color(0xFF5C9A83)),

@@ -46,6 +46,16 @@ enum Glyph {
   heart,
   school,
   pill,
+  bus,
+  bike,
+  cake,
+  beer,
+  camera,
+  laptop,
+  scissors,
+  leaf,
+  umbrella,
+  tax,
   transfer,
   investment,
   cash,
@@ -752,6 +762,91 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
       _box(t, 3.5, 8.5, 12, 15.5, 0);
       _box(p, 3.5, 8.5, 20.5, 15.5, 3.5);
       _poly(p, [12, 8.5, 12, 15.5]);
+    case Glyph.bus:
+      _box(t, 4.5, 5, 19.5, 17.5, 2.5);
+      _box(p, 4.5, 5, 19.5, 17.5, 2.5);
+      _poly(p, [4.5, 8.5, 19.5, 8.5]);
+      _poly(p, [4.5, 13, 19.5, 13]);
+      _poly(p, [12, 8.5, 12, 13]);
+      _poly(p, [7.5, 17.5, 7.5, 20]);
+      _poly(p, [16.5, 17.5, 16.5, 20]);
+      _ring(f, 7.8, 15.3, 0.9);
+      _ring(f, 16.2, 15.3, 0.9);
+    case Glyph.bike:
+      _ring(p, 6, 15.5, 3.8);
+      _ring(p, 18, 15.5, 3.8);
+      _poly(p, [6, 15.5, 10, 8.5, 15, 8.5, 18, 15.5]);
+      _poly(p, [10, 8.5, 12.5, 15.5, 15, 8.5]);
+      _poly(p, [8.5, 6.5, 11, 6.5]);
+      _poly(p, [15, 8.5, 14, 5.5, 16.5, 5.5]);
+    case Glyph.cake:
+      _box(t, 4.5, 11.5, 19.5, 20, 2);
+      _box(p, 4.5, 11.5, 19.5, 20, 2);
+      p.moveTo(4.5, 15);
+      p.quadraticBezierTo(8.25, 17, 12, 15);
+      p.quadraticBezierTo(15.75, 13, 19.5, 15);
+      _poly(p, [12, 11.5, 12, 7.5]);
+      _ring(f, 12, 5.5, 1.3);
+    case Glyph.beer:
+      _box(t, 5.5, 8, 15, 20.5, 2);
+      _box(p, 5.5, 8, 15, 20.5, 2);
+      p.moveTo(15, 10.5);
+      p.lineTo(17, 10.5);
+      p.quadraticBezierTo(19, 10.5, 19, 12.5);
+      p.lineTo(19, 15);
+      p.quadraticBezierTo(19, 17, 17, 17);
+      p.lineTo(15, 17);
+      p.moveTo(5.5, 8);
+      p.quadraticBezierTo(5.5, 4.5, 8.5, 5);
+      p.quadraticBezierTo(10.25, 3.2, 12, 5);
+      p.quadraticBezierTo(15, 4.5, 15, 8);
+      _poly(p, [9, 11, 9, 17.5]);
+      _poly(p, [11.5, 11, 11.5, 17.5]);
+    case Glyph.camera:
+      _box(t, 3.5, 7.5, 20.5, 19, 2.5);
+      _box(p, 3.5, 7.5, 20.5, 19, 2.5);
+      _poly(p, [8.5, 7.5, 10, 5, 14, 5, 15.5, 7.5]);
+      _ring(p, 12, 13.2, 3.3);
+      _ring(f, 17.5, 10.2, 0.9);
+    case Glyph.laptop:
+      _box(t, 5, 5, 19, 15, 1.5);
+      _box(p, 5, 5, 19, 15, 1.5);
+      _poly(p, [2.5, 18.5, 21.5, 18.5]);
+      _poly(p, [5, 15, 3.5, 18.5]);
+      _poly(p, [19, 15, 20.5, 18.5]);
+    case Glyph.scissors:
+      _ring(p, 7, 17, 2.8);
+      _ring(p, 17, 17, 2.8);
+      _poly(p, [9, 15, 17.5, 4]);
+      _poly(p, [15, 15, 6.5, 4]);
+    case Glyph.leaf:
+      t.moveTo(5, 19);
+      t.quadraticBezierTo(4, 6, 19.5, 4.5);
+      t.quadraticBezierTo(20, 19, 5, 19);
+      t.close();
+      p.moveTo(5, 19);
+      p.quadraticBezierTo(4, 6, 19.5, 4.5);
+      p.quadraticBezierTo(20, 19, 5, 19);
+      p.close();
+      _poly(p, [5, 19, 14, 10]);
+    case Glyph.umbrella:
+      t.moveTo(3, 12);
+      _arcTo(t, 12, 12, 9, 180, 180);
+      t.close();
+      p.moveTo(3, 12);
+      _arcTo(p, 12, 12, 9, 180, 180);
+      p.close();
+      p.moveTo(12, 12);
+      p.lineTo(12, 18.5);
+      p.quadraticBezierTo(12, 20.5, 10, 20.5);
+      p.quadraticBezierTo(8, 20.5, 8, 18.5);
+      _poly(p, [12, 3, 12, 1.8]);
+    case Glyph.tax:
+      _box(t, 5, 3.5, 19, 20.5, 2);
+      _box(p, 5, 3.5, 19, 20.5, 2);
+      _poly(p, [9, 16, 15, 9]);
+      _ring(p, 9.5, 9.5, 1.4);
+      _ring(p, 14.5, 15.5, 1.4);
     case Glyph.transfer:
       _poly(p, [5, 8.5, 19, 8.5]);
       _poly(p, [15.5, 5, 19, 8.5, 15.5, 12]);

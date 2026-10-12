@@ -105,6 +105,11 @@ ThemeData appTheme() {
     fontFamilyFallback: const ['Huninn'],
     useMaterial3: true,
     splashFactory: NoSplash.splashFactory,
+    // No grey wash under the finger or pointer: the app marks choices
+    // with its own colours instead.
+    hoverColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+    splashColor: Colors.transparent,
   );
   return base.copyWith(
     dividerTheme: const DividerThemeData(color: Hue.line, space: 1),

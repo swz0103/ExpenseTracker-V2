@@ -1,0 +1,452 @@
+import 'package:flutter/material.dart';
+
+import '../demo/ledger.dart';
+import '../look/figures.dart';
+import '../look/glyphs.dart';
+import '../look/icons.dart';
+import '../look/theme.dart';
+import '../look/widgets.dart';
+
+/// Opens the account form: a new account, or [account] to change. Saving
+/// writes to [ledger] directly.
+Future<void> editAccount(
+  BuildContext context,
+  Ledger ledger, {
+  Account? account,
+}) {
+  return showSheet<void>(
+    context,
+    (_) => _AccountEditor(ledger: ledger, account: account),
+  );
+}
+
+class _AccountEditor extends StatefulWidget {
+  const _AccountEditor({required this.ledger, this.account});
+
+  final Ledger ledger;
+  final Account? account;
+
+  @override
+  State<_AccountEditor> createState() => _AccountEditorState();
+}
+
+class _AccountEditorState extends State<_AccountEditor> {
+  late final _old = widget.account;
+  late final _name = TextEditingController(text: _old?.name ?? '');
+  late final _balance = TextEditingController(text: _startBalance());
+  late final _limit = TextEditingController(text: '${_old?.limit ?? ''}');
+  late var _kind = _old?.kind ?? AccountKind.bank;
+  late String? _icon = _old?.icon;
+  late var _closing = _old?.closingDay ?? 1;
+  late var _due = _old?.dueDay ?? 15;
+  late var _counted = _old?.inNetWorth ?? true;
+
+  String _startBalance() {
+    final account = widget.account;
+    return account == null ? '' : '${widget.ledger.balance(account.id).abs()}';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _balance.dispose();
+    _limit.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final ledger = widget.ledger;
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    final typed = int.tryParse(_balance.text.replaceAll(',', '').trim()) ?? 0;
+    final balance = _kind.isDebt ? -typed.abs() : typed;
+    final card = _kind == AccountKind.card;
+    final old = _old;
+    if (old == null) {
+      ledger.addAccount(
+        Account(
+          'account-${ledger.newId()}',
+          name,
+          _kind,
+          balance,
+          icon: _icon,
+          closingDay: card ? _closing : null,
+          dueDay: card ? _due : null,
+          limit: card ? int.tryParse(_limit.text.trim()) : null,
+          inNetWorth: _counted,
+        ),
+      );
+    } else {
+      ledger.updateAccount(
+        Account(
+          old.id,
+          name,
+          _kind,
+          old.opening,
+          icon: _icon,
+          closingDay: card ? _closing : null,
+          dueDay: card ? _due : null,
+          limit: card ? int.tryParse(_limit.text.trim()) : null,
+          archived: old.archived,
+          inNetWorth: _counted,
+        ),
+      );
+      if (balance != ledger.balance(old.id)) ledger.setBalance(old.id, balance);
+    }
+    Navigator.of(context).pop();
+  }
+
+  void _archive() {
+    final old = _old;
+    if (old == null) return;
+    widget.ledger.updateAccount(old.copyWith(archived: !old.archived));
+    Navigator.of(context).pop();
+  }
+
+  void _remove() {
+    final old = _old;
+    if (old == null) return;
+    widget.ledger.removeAccount(old.id);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _pickDay(bool closing) async {
+    final picked = await showSheet<int>(
+      context,
+      (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              closing ? '結帳日' : '繳款日',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              children: [
+                for (var day = 1; day <= 28; day++)
+                  _DayKey(
+                    day: day,
+                    picked: day == (closing ? _closing : _due),
+                    onTap: () => Navigator.of(context).pop(day),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (closing) {
+        _closing = picked;
+      } else {
+        _due = picked;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final old = _old;
+    final color = accountColor(_kind);
+    final key = _icon;
+    final icon = key == null ? kindIcon(_kind) : iconFor(key);
+    final removable = old != null && !widget.ledger.isUsed(old.id);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            old == null ? '新增帳戶' : '編輯帳戶',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Hue.hero,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
+              children: [
+                IconBadge(icon, color, size: 46),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _Field(controller: _name, hint: '帳戶名稱'),
+                      const SizedBox(height: 8),
+                      _Field(
+                        controller: _balance,
+                        hint: _kind.isDebt ? '目前欠款' : '目前餘額',
+                        number: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _Block(
+            title: '類型',
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final kind in AccountKind.values)
+                  _Choice(
+                    label: groupName(kind),
+                    picked: kind == _kind,
+                    onTap: () => setState(() => _kind = kind),
+                  ),
+              ],
+            ),
+          ),
+          _Block(
+            title: '圖示',
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final key in accountIconKeys)
+                  GestureDetector(
+                    onTap: () => setState(() => _icon = key),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: key == _icon ? Hue.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: key == _icon ? color : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: GlyphIcon(
+                        iconFor(key),
+                        color: key == _icon ? color : Hue.muted,
+                        tinted: key == _icon,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_kind == AccountKind.card)
+            TileRow([
+              Tile(
+                icon: Glyph.calendar,
+                label: '結帳日',
+                value: '每月 $_closing 日',
+                size: 15,
+                onTap: () => _pickDay(true),
+              ),
+              Tile(
+                icon: Glyph.calendar,
+                label: '繳款日',
+                value: '每月 $_due 日',
+                size: 15,
+                onTap: () => _pickDay(false),
+              ),
+            ]),
+          if (_kind == AccountKind.card)
+            _Block(
+              title: '信用額度',
+              child: _Field(controller: _limit, hint: '額度', number: true),
+            ),
+          _Block(
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text('計入資產與淨資產', style: TextStyle(fontSize: 14)),
+                ),
+                Switch(
+                  value: _counted,
+                  onChanged: (on) => setState(() => _counted = on),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              if (old != null)
+                TextButton(
+                  onPressed: removable ? _remove : _archive,
+                  style: TextButton.styleFrom(
+                    foregroundColor: removable || !old.archived
+                        ? Hue.danger
+                        : Hue.accent,
+                    minimumSize: const Size(64, 46),
+                  ),
+                  child: Text(removable ? '刪除' : old.archived ? '恢復' : '封存'),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Hue.accent,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('儲存'),
+                ),
+              ),
+            ],
+          ),
+          if (old != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '目前 ${groupDigits(widget.ledger.balance(old.id))}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: Hue.muted),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Block extends StatelessWidget {
+  const _Block({this.title, required this.child});
+
+  final String? title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final head = title;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+      decoration: BoxDecoration(
+        color: Hue.tile,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (head != null) ...[
+            Text(
+              head,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Hue.accent,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.controller,
+    required this.hint,
+    this.number = false,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final bool number;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: number ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: Hue.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _Choice extends StatelessWidget {
+  const _Choice({
+    required this.label,
+    required this.picked,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: picked ? Hue.accent : Hue.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: picked ? Hue.white : Hue.accent,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayKey extends StatelessWidget {
+  const _DayKey({required this.day, required this.picked, required this.onTap});
+
+  final int day;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: picked ? Hue.accent : Hue.tile,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '$day',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: picked ? Hue.white : Hue.ink,
+          ),
+        ),
+      ),
+    );
+  }
+}

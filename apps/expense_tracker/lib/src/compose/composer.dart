@@ -173,7 +173,7 @@ class _ComposerState extends State<Composer> {
 
   /// Empty fields with sensible first choices for the current tab.
   void _fresh() {
-    final accounts = _ledger.accounts;
+    final accounts = _ledger.openAccounts;
     _amount = 0;
     _date = _ledger.today;
     _account = accounts.first.id;
@@ -351,7 +351,7 @@ class _ComposerState extends State<Composer> {
       selected: selected,
       columns: 3,
       options: [
-        for (final a in _ledger.accounts)
+        for (final a in _ledger.openAccounts)
           Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
       ],
     );
