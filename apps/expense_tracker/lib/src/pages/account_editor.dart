@@ -288,7 +288,13 @@ class _AccountEditorState extends State<_AccountEditor> {
                         : Hue.accent,
                     minimumSize: const Size(64, 46),
                   ),
-                  child: Text(removable ? '刪除' : old.archived ? '恢復' : '封存'),
+                  child: Text(
+                    removable
+                        ? '刪除'
+                        : old.archived
+                        ? '恢復'
+                        : '封存',
+                  ),
                 ),
               const SizedBox(width: 8),
               Expanded(

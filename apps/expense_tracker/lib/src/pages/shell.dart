@@ -12,6 +12,7 @@ import 'card_page.dart';
 import 'holding_page.dart';
 import 'categories_page.dart';
 import 'investments.dart';
+import 'labels_page.dart';
 import 'ledger_page.dart';
 import 'more.dart';
 import 'nav.dart';
@@ -130,6 +131,7 @@ class _AppShellState extends State<AppShell> {
         Pages.budgets => BudgetsPage(ledger: ledger, nav: _nav),
         Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
         Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
+        Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
         _ => SettingsPage(ledger: ledger, nav: _nav),
       };
     }

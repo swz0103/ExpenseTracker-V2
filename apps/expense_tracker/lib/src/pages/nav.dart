@@ -10,6 +10,7 @@ abstract final class Pages {
   static const recurring = 'recurring';
   static const categories = 'categories';
   static const settings = 'settings';
+  static const labels = 'labels';
 
   /// `account:<id>`.
   static String account(String id) => 'account:$id';

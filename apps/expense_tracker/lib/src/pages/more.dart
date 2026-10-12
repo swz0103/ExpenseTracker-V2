@@ -99,6 +99,13 @@ class MorePage extends StatelessWidget {
                   ),
                   const Divider(height: 1, indent: 14, endIndent: 14),
                   _Row(
+                    icon: Glyph.ticket,
+                    title: '標籤與商家',
+                    detail: '${ledger.tags.length} 個標籤',
+                    onTap: () => nav.open(Pages.labels),
+                  ),
+                  const Divider(height: 1, indent: 14, endIndent: 14),
+                  _Row(
                     icon: Glyph.sliders,
                     title: '設定與資料',
                     detail: '匯出、重設',

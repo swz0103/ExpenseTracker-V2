@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../compose/pickers.dart';
 import '../demo/ledger.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
@@ -23,8 +24,9 @@ class CategoriesPage extends StatelessWidget {
       title: '編輯分類',
       initial: category,
       colors: _colors,
+      ledger: ledger,
     );
-    if (next != null) ledger.editCategory(category.name, next);
+    if (next != null) ledger.updateCategory(category.name, next);
   }
 
   Future<void> _add(BuildContext context, {required bool income}) async {
@@ -39,6 +41,7 @@ class CategoriesPage extends StatelessWidget {
         income: income,
       ),
       colors: _colors,
+      ledger: ledger,
     );
     if (made != null) ledger.addCategory(made);
   }
@@ -64,11 +67,12 @@ class CategoriesPage extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     childAspectRatio: 0.95,
                     children: [
-                      for (final c in ledger.categoriesFor(income: income))
+                      for (final c in _ordered(income))
                         _Tile(
                           icon: iconFor(c.icon),
                           color: c.color,
                           label: c.name,
+                          under: c.parent,
                           onTap: () => _edit(context, c),
                         ),
                       _Tile(
@@ -80,6 +84,21 @@ class CategoriesPage extends StatelessWidget {
                     ],
                   ),
                 ],
+                if (_archived.isNotEmpty) ...[
+                  const SectionHead('已封存'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in _archived)
+                        ActionChip(
+                          avatar: GlyphIcon(iconFor(c.icon), color: c.color),
+                          label: Text(c.name),
+                          onPressed: () => _edit(context, c),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -87,6 +106,25 @@ class CategoriesPage extends StatelessWidget {
       ),
     );
   }
+
+  /// Open categories of a kind, each followed by those under it.
+  List<Category> _ordered(bool income) {
+    final open = ledger.categoriesFor(income: income);
+    final names = {for (final c in open) c.name};
+    return [
+      for (final c in open)
+        if (c.parent == null || !names.contains(c.parent)) ...[
+          c,
+          for (final child in open)
+            if (child.parent == c.name) child,
+        ],
+    ];
+  }
+
+  List<Category> get _archived => [
+    for (final c in ledger.categories)
+      if (c.archived) c,
+  ];
 }
 
 class _Tile extends StatelessWidget {
@@ -95,12 +133,16 @@ class _Tile extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.under,
   });
 
   final Glyph icon;
   final Color color;
   final String label;
   final VoidCallback onTap;
+
+  /// The category this one sits under.
+  final String? under;
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +160,13 @@ class _Tile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13),
           ),
+          if (under case final parent?)
+            Text(
+              '‹ $parent',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10.5, color: Hue.muted),
+            ),
         ],
       ),
     );
@@ -131,10 +180,16 @@ Future<Category?> showCategoryEditor(
   required String title,
   required Category initial,
   required List<Color> colors,
+  Ledger? ledger,
 }) {
   return showSheet<Category>(
     context,
-    (_) => _CategoryEditor(title: title, initial: initial, colors: colors),
+    (_) => _CategoryEditor(
+      title: title,
+      initial: initial,
+      colors: colors,
+      ledger: ledger,
+    ),
   );
 }
 
@@ -143,11 +198,16 @@ class _CategoryEditor extends StatefulWidget {
     required this.title,
     required this.initial,
     required this.colors,
+    this.ledger,
   });
 
   final String title;
   final Category initial;
   final List<Color> colors;
+
+  /// The book, when an existing category may be moved, archived or
+  /// merged.
+  final Ledger? ledger;
 
   @override
   State<_CategoryEditor> createState() => _CategoryEditorState();
@@ -157,6 +217,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   late final _name = TextEditingController(text: widget.initial.name);
   late var _icon = widget.initial.icon;
   late var _color = widget.initial.color;
+  late var _parent = widget.initial.parent;
 
   @override
   void dispose() {
@@ -167,8 +228,38 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   void _save() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final made = Category(name, _icon, _color, income: widget.initial.income);
+    final made = Category(
+      name,
+      _icon,
+      _color,
+      income: widget.initial.income,
+      parent: _parent,
+      archived: widget.initial.archived,
+    );
     Navigator.of(context).pop(made);
+  }
+
+  void _archive(Ledger ledger) {
+    final c = widget.initial;
+    ledger.updateCategory(c.name, c.copyWith(archived: !c.archived));
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _merge(Ledger ledger) async {
+    final c = widget.initial;
+    final into = await pickOption<String>(
+      context,
+      title: '把「${c.name}」合併到',
+      selected: null,
+      options: [
+        for (final o in ledger.categoriesFor(income: c.income))
+          if (o.name != c.name)
+            Option(o.name, o.name, iconFor(o.icon), o.color),
+      ],
+    );
+    if (into == null || !mounted) return;
+    ledger.mergeCategory(c.name, into);
+    Navigator.of(context).pop();
   }
 
   Widget _iconChoice(String key) {
@@ -198,6 +289,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final ledger = widget.ledger;
+    final book = widget.initial.name.isEmpty ? null : ledger;
+    final parents = [
+      if (ledger != null)
+        for (final c in ledger.categoriesFor(income: widget.initial.income))
+          if (c.parent == null && c.name != widget.initial.name) c.name,
+    ];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
@@ -243,6 +341,31 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ),
           ],
           const SizedBox(height: 16),
+          if (parents.isNotEmpty) ...[
+            const Text(
+              '放在哪個分類下',
+              style: TextStyle(fontSize: 13, color: Hue.muted),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ChoiceChip(
+                  label: const Text('不放'),
+                  selected: _parent == null,
+                  onSelected: (_) => setState(() => _parent = null),
+                ),
+                for (final name in parents)
+                  ChoiceChip(
+                    label: Text(name),
+                    selected: _parent == name,
+                    onSelected: (_) => setState(() => _parent = name),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           const Text('顏色', style: TextStyle(fontSize: 13, color: Hue.muted)),
           const SizedBox(height: 8),
           Wrap(
@@ -278,6 +401,18 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 style: TextButton.styleFrom(foregroundColor: Hue.muted),
                 child: const Text('取消'),
               ),
+              if (book != null) ...[
+                TextButton(
+                  onPressed: () => _merge(book),
+                  style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                  child: const Text('合併'),
+                ),
+                TextButton(
+                  onPressed: () => _archive(book),
+                  style: TextButton.styleFrom(foregroundColor: Hue.danger),
+                  child: Text(widget.initial.archived ? '恢復' : '封存'),
+                ),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton(

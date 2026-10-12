@@ -842,6 +842,28 @@ final class Ledger extends ChangeNotifier {
     return latest?.category;
   }
 
+  /// Every tag with how many entries carry it and their spending, most
+  /// used first.
+  List<(String, int, int)> get tagStats {
+    final counts = <String, int>{};
+    final sums = <String, int>{};
+    for (final e in _entries) {
+      for (final tag in e.tags) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+        sums[tag] = (sums[tag] ?? 0) + e.spending;
+      }
+    }
+    return [
+      for (final MapEntry(:key, :value) in counts.entries)
+        (key, value, sums[key] ?? 0),
+    ]..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+
+  /// Every merchant with how many entries name it and their spending,
+  /// most used first.
+  List<(String, int, int)> get merchantStats =>
+      merchantsBetween(firstDay, today)..sort((a, b) => b.$2.compareTo(a.$2));
+
   /// Every tag in use, most used first.
   List<String> get tags {
     final counts = <String, int>{};
@@ -1089,8 +1111,7 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Whether [id] has any entries; an account without can be removed.
-  bool isUsed(String id) =>
-      _entries.any((e) => e.account == id || e.to == id);
+  bool isUsed(String id) => _entries.any((e) => e.account == id || e.to == id);
 
   void removeAccount(String id) {
     if (isUsed(id)) return;
@@ -1118,9 +1139,8 @@ final class Ledger extends ChangeNotifier {
   void renameCategory(String from, String to) {
     if (from == to || to.isEmpty) return;
     for (final (i, c) in _categories.indexed) {
-      if (c.name == from) {
-        _categories[i] = Category(to, c.icon, c.color, income: c.income);
-      }
+      if (c.name == from) _categories[i] = c.copyWith(name: to);
+      if (c.parent == from) _categories[i] = c.copyWith(parent: to);
     }
     for (final (i, e) in _entries.indexed) {
       if (e.category == from) _entries[i] = e.withCategory(to);
