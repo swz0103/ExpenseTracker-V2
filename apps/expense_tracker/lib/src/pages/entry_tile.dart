@@ -34,6 +34,8 @@ String entryDetail(Ledger ledger, Entry e) {
   return switch (e.type) {
     EntryType.transfer => '$account → ${ledger.account(e.to ?? '').name}',
     EntryType.buy || EntryType.sell => '$shares · $account',
+    EntryType.dividend when e.shares > 0 =>
+      '${e.holding} · ${e.split ? '分割' : '配股'} ${e.shares} 股',
     _ when e.isRefund => '退款 · $account',
     _ => [
       if (e.merchant.isNotEmpty) e.merchant,

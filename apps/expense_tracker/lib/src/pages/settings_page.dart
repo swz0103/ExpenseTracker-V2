@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../demo/exchange.dart';
 import '../demo/ledger.dart';
 import '../demo/seed.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'dialogs.dart';
+import 'import_sheet.dart';
 import 'nav.dart';
 
 /// 設定與資料: preferences, exporting a month or the whole book, and
@@ -29,22 +31,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _copy(String text, String note) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) showNote(context, note);
-  }
-
-  String _csv(List<Entry> entries) {
-    final ledger = widget.ledger;
-    return [
-      '日期,類型,金額,帳戶,分類,備註',
-      for (final e in entries.reversed)
-        [
-          '${e.date.year}-${e.date.month}-${e.date.day}',
-          e.type.name,
-          '${e.amount}',
-          ledger.account(e.account).name,
-          e.category,
-          e.note.replaceAll(',', '，'),
-        ].join(','),
-    ].join('\n');
   }
 
   String _json() {
@@ -142,7 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: '下載收支紀錄',
                           detail: '$year 年 $month 月 · ${entries.length} 筆紀錄',
                           onTap: () => _copy(
-                            _csv(entries),
+                            toCsv(ledger, entries),
                             '已複製 ${entries.length} 筆紀錄的 CSV',
                           ),
                         ),
@@ -152,6 +138,29 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: '下載完整帳本',
                           detail: '帳戶、紀錄與持股',
                           onTap: () => _copy(_json(), '已複製完整帳本 JSON'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SectionHead('匯入紀錄'),
+                  SoftPanel(
+                    child: Column(
+                      children: [
+                        _Export(
+                          badge: 'CSV',
+                          title: '從 CSV 匯入',
+                          detail: '貼上其他記帳 App 或本 App 匯出的 CSV',
+                          icon: Glyph.add,
+                          onTap: () => importInto(context, ledger),
+                        ),
+                        const Divider(),
+                        _Export(
+                          badge: '發票',
+                          title: '匯入電子發票',
+                          detail: '貼上財政部載具消費明細，自動帶入商家與分類',
+                          icon: Glyph.add,
+                          onTap: () =>
+                              importInto(context, ledger, invoices: true),
                         ),
                       ],
                     ),
@@ -214,9 +223,11 @@ class _Export extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.onTap,
+    this.icon = Glyph.download,
   });
 
   final String badge;
+  final Glyph icon;
   final String title;
   final String detail;
   final VoidCallback onTap;
@@ -261,7 +272,7 @@ class _Export extends StatelessWidget {
                 ],
               ),
             ),
-            const GlyphIcon(Glyph.download, color: Hue.muted),
+            GlyphIcon(icon, color: Hue.muted),
           ],
         ),
       ),

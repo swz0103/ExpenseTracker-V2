@@ -114,6 +114,7 @@ class _ComposerState extends State<Composer> {
   var _fee = 0;
   var _installments = 0;
   var _average = false;
+  var _split = false;
   final _note = TextEditingController();
   String? _problem;
 
@@ -163,6 +164,7 @@ class _ComposerState extends State<Composer> {
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
     _installments = entry.installments;
     _average = entry.average;
+    _split = entry.split;
   }
 
   @override
@@ -190,6 +192,7 @@ class _ComposerState extends State<Composer> {
     _fee = 0;
     _installments = 0;
     _average = false;
+    _split = false;
     _problem = null;
   }
 
@@ -496,6 +499,19 @@ class _ComposerState extends State<Composer> {
     });
   }
 
+  /// Moving between a trade and a dividend starts the shares afresh: a
+  /// dividend's are the ones it adds.
+  void _changeTrade(EntryType trade) {
+    setState(() {
+      if ((trade == EntryType.dividend) != (_trade == EntryType.dividend)) {
+        _shares = 0;
+        _amount = 0;
+        _split = false;
+      }
+      _trade = trade;
+    });
+  }
+
   void _submit() {
     final type = _type;
     final parts = _type == EntryType.expense ? _parts : null;
@@ -503,7 +519,8 @@ class _ComposerState extends State<Composer> {
     final (fee, tax) = _charges;
     String? problem;
     final splitTotal = parts?.fold(0, (sum, p) => sum + p.$2);
-    if (_amount <= 0) {
+    final stock = type == EntryType.dividend && _shares > 0;
+    if (_amount <= 0 && !stock) {
       problem = _trading ? '請輸入股數和成交價' : '請輸入金額';
     } else if (type == EntryType.transfer && _account == _to) {
       problem = '轉出與轉入不能是同一個帳戶';
@@ -537,7 +554,7 @@ class _ComposerState extends State<Composer> {
       note: _note.text.trim(),
       to: type == EntryType.transfer ? _to : null,
       holding: _mode == ComposeMode.investment ? _holding : null,
-      shares: type == EntryType.buy || type == EntryType.sell ? _shares : 0,
+      shares: _mode == ComposeMode.investment ? _shares : 0,
       recurring: widget.entry?.recurring ?? widget.draft?.recurring,
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
@@ -547,6 +564,7 @@ class _ComposerState extends State<Composer> {
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
+      split: stock && _split,
     );
     try {
       if (widget.entry == null) {
@@ -641,7 +659,7 @@ class _ComposerState extends State<Composer> {
             _TradeChips(
               trade: _trade,
               locked: _viewing,
-              onChanged: (trade) => setState(() => _trade = trade),
+              onChanged: _changeTrade,
             ),
           ],
           const SizedBox(height: 8),
@@ -1055,6 +1073,30 @@ class _ComposerState extends State<Composer> {
             },
           ),
         ]),
+      if (_trade == EntryType.dividend) ...[
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Tile(
+            icon: Glyph.briefcase,
+            label: _split ? '分割增加股數' : '配股股數',
+            value: groupDigits(_shares),
+            size: 15,
+            onTap: () async {
+              final value = await _ask('增加股數', _shares, unit: '股');
+              if (value != null) setState(() => _shares = value);
+            },
+          ),
+        ),
+        if (_shares > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Segments(
+              labels: const ['配股', '分割'],
+              selected: _split ? 1 : 0,
+              onChanged: (i) => setState(() => _split = i == 1),
+            ),
+          ),
+      ],
       TileRow([
         _accountTile(_trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
         _dateTile(),

@@ -141,6 +141,7 @@ final class Entry {
     this.refundOf,
     this.installments = 0,
     this.average = false,
+    this.split = false,
   });
 
   final String id;
@@ -187,6 +188,10 @@ final class Entry {
 
   /// A sale costed at the average price rather than first in, first out.
   final bool average;
+
+  /// A dividend entry whose [shares] come from a split rather than a stock
+  /// dividend: the shares held multiply at the same cost.
+  final bool split;
 
   bool get isRefund => refundOf != null;
 
@@ -236,6 +241,7 @@ final class Entry {
     refundOf: refundOf,
     installments: installments,
     average: average,
+    split: split,
   );
 
   /// This entry with [from], or its category, renamed to [name].
@@ -262,6 +268,7 @@ final class Entry {
     refundOf: refundOf,
     installments: installments,
     average: average,
+    split: split,
   );
 
   /// What the lists show: the note, else the category.
@@ -308,17 +315,22 @@ final class Holding {
 
   int get gain => value - cost;
 
-  Holding copyWith({int? shares, int? cost, int? dividends, int? realized}) =>
-      Holding(
-        code,
-        name,
-        shares: shares ?? this.shares,
-        price: price,
-        cost: cost ?? this.cost,
-        change: change,
-        dividends: dividends ?? this.dividends,
-        realized: realized ?? this.realized,
-      );
+  Holding copyWith({
+    int? shares,
+    double? price,
+    int? cost,
+    int? dividends,
+    int? realized,
+  }) => Holding(
+    code,
+    name,
+    shares: shares ?? this.shares,
+    price: price ?? this.price,
+    cost: cost ?? this.cost,
+    change: change,
+    dividends: dividends ?? this.dividends,
+    realized: realized ?? this.realized,
+  );
 }
 
 /// Shares bought together and still held, with what they cost.
@@ -1051,6 +1063,14 @@ final class Ledger extends ChangeNotifier {
     _replayOrUndo(() => _entries.removeLast());
   }
 
+  /// Adds every one of [entries] at once, as an import does.
+  void addAll(List<Entry> entries) {
+    if (entries.isEmpty) return;
+    final count = _entries.length;
+    _entries.addAll(entries);
+    _replayOrUndo(() => _entries.removeRange(count, _entries.length));
+  }
+
   /// Puts [entry] in place of the entry with the same id.
   void replace(Entry entry) {
     final index = _entries.indexWhere((e) => e.id == entry.id);
@@ -1311,6 +1331,22 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// [lots] with their shares grown to [total] in proportion, each at its
+  /// own cost; the last takes what rounding leaves.
+  static List<Lot> _scaled(List<Lot> lots, int total) {
+    final held = lots.fold(0, (sum, l) => sum + l.shares);
+    if (held == 0) return lots;
+    var left = total;
+    final scaled = <Lot>[];
+    for (final (i, l) in lots.indexed) {
+      final last = i == lots.length - 1;
+      final shares = last ? left : (l.shares * total / held).round();
+      left -= shares;
+      scaled.add(Lot(l.date, shares, l.cost));
+    }
+    return scaled;
+  }
+
   /// Rebuilds the holdings and their lots from the starting positions and
   /// every investment entry in date order.
   void _replay() {
@@ -1358,8 +1394,22 @@ final class Ledger extends ChangeNotifier {
             cost: held.cost - part,
             realized: held.realized + e.amount - e.fee - e.tax - part,
           );
+        case EntryType.dividend when e.split && held.shares > 0:
+          final ratio = (held.shares + e.shares) / held.shares;
+          lots[code] = _scaled(lots[code] ?? const [], held.shares + e.shares);
+          byCode[code] = held.copyWith(
+            shares: held.shares + e.shares,
+            price: held.price / ratio,
+            dividends: held.dividends + e.amount,
+          );
         case EntryType.dividend:
-          byCode[code] = held.copyWith(dividends: held.dividends + e.amount);
+          if (e.shares > 0) {
+            lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
+          }
+          byCode[code] = held.copyWith(
+            shares: held.shares + e.shares,
+            dividends: held.dividends + e.amount,
+          );
         default:
           break;
       }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../compose/pickers.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -96,11 +97,41 @@ class _AccountEditorState extends State<_AccountEditor> {
     Navigator.of(context).pop();
   }
 
-  void _archive() {
+  /// Archives the account, or brings it back. One with money left is
+  /// settled first: its balance moves to the account picked.
+  Future<void> _archive() async {
     final old = _old;
     if (old == null) return;
-    widget.ledger.updateAccount(old.copyWith(archived: !old.archived));
-    Navigator.of(context).pop();
+    final ledger = widget.ledger;
+    final left = ledger.balance(old.id);
+    if (!old.archived && left != 0) {
+      final into = await pickOption<String>(
+        context,
+        title: left > 0 ? '餘額轉到哪個帳戶' : '由哪個帳戶結清欠款',
+        selected: null,
+        columns: 3,
+        options: [
+          for (final a in ledger.openAccounts)
+            if (a.id != old.id && !a.kind.isDebt)
+              Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+        ],
+      );
+      if (into == null) return;
+      ledger.add(
+        Entry(
+          id: ledger.newId(),
+          date: ledger.today,
+          type: EntryType.transfer,
+          amount: left.abs(),
+          account: left > 0 ? old.id : into,
+          category: '轉帳',
+          note: '${old.name}結清',
+          to: left > 0 ? into : old.id,
+        ),
+      );
+    }
+    ledger.updateAccount(old.copyWith(archived: !old.archived));
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _remove() {
@@ -293,7 +324,9 @@ class _AccountEditorState extends State<_AccountEditor> {
                         ? '刪除'
                         : old.archived
                         ? '恢復'
-                        : '封存',
+                        : widget.ledger.balance(old.id) == 0
+                        ? '封存'
+                        : '結清封存',
                   ),
                 ),
               const SizedBox(width: 8),

@@ -25,6 +25,38 @@ class CardPage extends StatelessWidget {
   final Nav nav;
   final String accountId;
 
+  /// What entries on [card] tagged [tag] came to this year.
+  int _tagged(Account card, String tag, EntryType type) {
+    final year = ledger.today.year;
+    var total = 0;
+    for (var month = 1; month <= ledger.today.month; month++) {
+      for (final e in ledger.entriesIn(year, month)) {
+        if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
+          total += e.amount;
+        }
+      }
+    }
+    return total;
+  }
+
+  /// Opens the composer on a cashback credit or an annual fee for [card].
+  void _extra(Account card, EntryType type) {
+    final reward = type == EntryType.income;
+    nav.compose(
+      type: type,
+      draft: Entry(
+        id: '',
+        date: ledger.today,
+        type: type,
+        amount: 0,
+        account: card.id,
+        category: reward ? '其他收入' : Ledger.feeCategory,
+        note: '${card.name}${reward ? '回饋' : '年費'}',
+        tags: [reward ? '回饋' : '年費'],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -128,6 +160,23 @@ class CardPage extends StatelessWidget {
                     : pending == 0
                     ? '總額度 ${shortAmount(limit)}'
                     : '含分期未繳 ${money(pending)}',
+              ),
+            ]),
+            TileRow([
+              Tile(
+                icon: Glyph.sparkle,
+                label: '今年回饋',
+                value: money(_tagged(card, '回饋', EntryType.income)),
+                valueColor: Hue.positive,
+                trailing: const GlyphIcon(Glyph.add, size: 16),
+                onTap: () => _extra(card, EntryType.income),
+              ),
+              Tile(
+                icon: Glyph.ticket,
+                label: '今年年費',
+                value: money(_tagged(card, '年費', EntryType.expense)),
+                trailing: const GlyphIcon(Glyph.add, size: 16),
+                onTap: () => _extra(card, EntryType.expense),
               ),
             ]),
             if (plans.isNotEmpty) ...[
