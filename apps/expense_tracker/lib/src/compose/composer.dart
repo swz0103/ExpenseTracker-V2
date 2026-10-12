@@ -114,7 +114,7 @@ class _ComposerState extends State<Composer> {
   var _fee = 0;
   var _installments = 0;
   var _average = false;
-  var _split = false;
+  var _splitShares = false;
   final _note = TextEditingController();
   String? _problem;
 
@@ -164,7 +164,7 @@ class _ComposerState extends State<Composer> {
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
     _installments = entry.installments;
     _average = entry.average;
-    _split = entry.split;
+    _splitShares = entry.split;
   }
 
   @override
@@ -192,7 +192,7 @@ class _ComposerState extends State<Composer> {
     _fee = 0;
     _installments = 0;
     _average = false;
-    _split = false;
+    _splitShares = false;
     _problem = null;
   }
 
@@ -506,7 +506,7 @@ class _ComposerState extends State<Composer> {
       if ((trade == EntryType.dividend) != (_trade == EntryType.dividend)) {
         _shares = 0;
         _amount = 0;
-        _split = false;
+        _splitShares = false;
       }
       _trade = trade;
     });
@@ -564,7 +564,7 @@ class _ComposerState extends State<Composer> {
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
-      split: stock && _split,
+      split: stock && _splitShares,
     );
     try {
       if (widget.entry == null) {
@@ -1078,7 +1078,7 @@ class _ComposerState extends State<Composer> {
           padding: const EdgeInsets.only(top: 8),
           child: Tile(
             icon: Glyph.briefcase,
-            label: _split ? '分割增加股數' : '配股股數',
+            label: _splitShares ? '分割增加股數' : '配股股數',
             value: groupDigits(_shares),
             size: 15,
             onTap: () async {
@@ -1092,8 +1092,8 @@ class _ComposerState extends State<Composer> {
             padding: const EdgeInsets.only(top: 8),
             child: Segments(
               labels: const ['配股', '分割'],
-              selected: _split ? 1 : 0,
-              onChanged: (i) => setState(() => _split = i == 1),
+              selected: _splitShares ? 1 : 0,
+              onChanged: (i) => setState(() => _splitShares = i == 1),
             ),
           ),
       ],
