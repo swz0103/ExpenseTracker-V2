@@ -44,7 +44,7 @@ class MorePage extends StatelessWidget {
                   ? '沒有待扣款項目'
                   : [
                       for (final r in items.take(3))
-                        '${today.month}/${r.day} ${r.name} ${money(r.amount)}',
+                        '${ledger.nextLabel(r)} ${r.name} ${money(r.amount)}',
                     ].join(' · '),
               onTap: () => nav.open(Pages.recurring),
             ),
@@ -80,7 +80,7 @@ class MorePage extends StatelessWidget {
               Tile(
                 icon: Glyph.recurring,
                 label: '定期交易',
-                value: next == null ? '—' : '${today.month}/${next.day}',
+                value: next == null ? '—' : ledger.nextLabel(next),
                 sub: next == null ? '沒有待扣款項目' : '下一筆 ${next.name}',
                 onTap: () => nav.open(Pages.recurring),
               ),

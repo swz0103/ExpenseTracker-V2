@@ -382,7 +382,6 @@ class _OverviewPageState extends State<OverviewPage> {
   /// two.
   Widget _dueTile() {
     final ledger = widget.ledger;
-    final today = ledger.today;
     final due = ledger.due;
     final items = [...due, ...ledger.upcoming];
     return Tile(
@@ -395,8 +394,7 @@ class _OverviewPageState extends State<OverviewPage> {
           ? '沒有待扣款項目'
           : [
               for (final r in items.take(2))
-                '${today.month}/${r.day} ${r.name} '
-                    '${_m(groupDigits(r.amount))}',
+                '${ledger.nextLabel(r)} ${r.name} ${_m(groupDigits(r.amount))}',
             ].join('\n'),
       onTap: () => widget.nav.open(Pages.recurring),
     );

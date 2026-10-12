@@ -338,8 +338,18 @@ Ledger demoLedger() {
       Budget('交通通勤', 2500),
       Budget('購物休閒', 5000),
     ],
-    recurring: const [
+    recurring: [
       Recurring(
+        id: 'car-insurance',
+        name: '汽車保險',
+        amount: 12800,
+        day: 15,
+        account: 'bank',
+        category: '其他支出',
+        unit: RepeatUnit.year,
+        start: DateTime.utc(2026, 3, 15),
+      ),
+      const Recurring(
         id: 'rent',
         name: '每月房租',
         amount: 12500,
@@ -347,7 +357,7 @@ Ledger demoLedger() {
         account: 'bank',
         category: '居家生活',
       ),
-      Recurring(
+      const Recurring(
         id: 'netflix',
         name: 'Netflix',
         amount: 390,
@@ -355,7 +365,7 @@ Ledger demoLedger() {
         account: 'card',
         category: '訂閱服務',
       ),
-      Recurring(
+      const Recurring(
         id: 'internet',
         name: '家用網路',
         amount: 699,
@@ -363,7 +373,7 @@ Ledger demoLedger() {
         account: 'bank',
         category: '居家生活',
       ),
-      Recurring(
+      const Recurring(
         id: 'yoga',
         name: '瑜珈月費',
         amount: 1600,

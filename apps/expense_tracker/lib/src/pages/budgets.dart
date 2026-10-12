@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../compose/calculator.dart';
+import '../compose/pickers.dart';
 import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
-import 'dialogs.dart';
 import 'nav.dart';
 
 /// 預算管理: what is left of the month's budget, then each category's
@@ -24,12 +25,27 @@ class BudgetsPage extends StatefulWidget {
 class _BudgetsPageState extends State<BudgetsPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
-  Future<void> _edit(String category, int limit) async {
-    final title = category == Ledger.allSpending ? '總預算' : '$category 額度';
-    final value = await askAmount(context, title, initial: limit);
-    if (value != null && value >= 0) {
-      widget.ledger.setBudget(category, value);
-    }
+  Future<void> _edit(String category, int limit) => showSheet<void>(
+    context,
+    (_) => _BudgetEditor(
+      ledger: widget.ledger,
+      budget: widget.ledger.budgetFor(category),
+    ),
+  );
+
+  Future<void> _addLimit() async {
+    final ledger = widget.ledger;
+    final picked = await pickOption<String>(
+      context,
+      title: '設定額度的分類',
+      selected: null,
+      options: [
+        for (final c in ledger.categoriesFor(income: false))
+          if (ledger.budgetFor(c.name).limit == 0)
+            Option(c.name, c.name, iconFor(c.icon), c.color),
+      ],
+    );
+    if (picked != null && mounted) await _edit(picked, 0);
   }
 
   @override
@@ -118,10 +134,23 @@ class _BudgetsPageState extends State<BudgetsPage> {
                         for (final (budget, amount) in rows)
                           _CategoryLimit(
                             category: ledger.category(budget.category),
+                            warning: budget.warning,
                             limit: budget.limit,
                             used: amount,
                             onEdit: () => _edit(budget.category, budget.limit),
                           ),
+                        InkWell(
+                          onTap: _addLimit,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            child: Center(
+                              child: Text(
+                                '＋ 為其他分類設定額度',
+                                style: TextStyle(color: Hue.accent),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -138,12 +167,14 @@ class _BudgetsPageState extends State<BudgetsPage> {
 class _CategoryLimit extends StatelessWidget {
   const _CategoryLimit({
     required this.category,
+    required this.warning,
     required this.limit,
     required this.used,
     required this.onEdit,
   });
 
   final Category category;
+  final int warning;
   final int limit;
   final int used;
   final VoidCallback onEdit;
@@ -152,6 +183,12 @@ class _CategoryLimit extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = limit - used;
     final share = limit == 0 ? 1.0 : (used / limit).clamp(0.0, 1.0);
+    final near = limit > 0 && used * 100 >= limit * warning;
+    final tone = left < 0
+        ? Hue.negative
+        : near
+        ? Hue.gold
+        : category.color;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
@@ -183,7 +220,7 @@ class _CategoryLimit extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: left < 0 ? Hue.negative : Hue.ink,
+                        color: left < 0 || near ? tone : Hue.ink,
                       ),
                     ),
                   ],
@@ -197,7 +234,7 @@ class _CategoryLimit extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: share,
                           minHeight: 5,
-                          color: left < 0 ? Hue.negative : category.color,
+                          color: tone,
                           backgroundColor: Hue.track,
                         ),
                       ),
@@ -216,6 +253,108 @@ class _CategoryLimit extends StatelessWidget {
             tooltip: '調整額度',
             onPressed: onEdit,
             icon: const GlyphIcon(Glyph.edit, size: 18, color: Hue.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A budget's form: the limit, the share at which it warns, and, for a
+/// category, taking the budget away.
+class _BudgetEditor extends StatefulWidget {
+  const _BudgetEditor({required this.ledger, required this.budget});
+
+  final Ledger ledger;
+  final Budget budget;
+
+  @override
+  State<_BudgetEditor> createState() => _BudgetEditorState();
+}
+
+class _BudgetEditorState extends State<_BudgetEditor> {
+  late var _limit = widget.budget.limit;
+  late var _warning = widget.budget.warning;
+
+  static const _shares = [70, 80, 90, 100];
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.budget.category;
+    final total = name == Ledger.allSpending;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            total ? '總預算' : '$name 額度',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Tile(
+            hero: true,
+            icon: Glyph.budget,
+            label: '每月額度',
+            value: money(_limit),
+            onTap: () async {
+              final value = await showCalculator(
+                context,
+                title: '每月額度',
+                initial: _limit,
+                color: Hue.accent,
+              );
+              if (value != null) setState(() => _limit = value);
+            },
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '用到幾成時提醒',
+            style: TextStyle(fontSize: 12.5, color: Hue.accent),
+          ),
+          const SizedBox(height: 6),
+          Segments(
+            labels: [for (final p in _shares) '$p%'],
+            selected: _shares.contains(_warning)
+                ? _shares.indexOf(_warning)
+                : 1,
+            onChanged: (i) => setState(() => _warning = _shares[i]),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (!total)
+                TextButton(
+                  onPressed: () {
+                    widget.ledger.removeBudget(name);
+                    Navigator.of(context).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Hue.danger,
+                    minimumSize: const Size(64, 46),
+                  ),
+                  child: const Text('移除'),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    widget.ledger.setBudget(name, _limit, warning: _warning);
+                    Navigator.of(context).pop();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Hue.accent,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('儲存'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

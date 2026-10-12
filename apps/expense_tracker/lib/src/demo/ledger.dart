@@ -82,7 +82,14 @@ final class Account {
 }
 
 final class Category {
-  const Category(this.name, this.icon, this.color, {this.income = false});
+  const Category(
+    this.name,
+    this.icon,
+    this.color, {
+    this.income = false,
+    this.parent,
+    this.archived = false,
+  });
 
   final String name;
 
@@ -90,6 +97,26 @@ final class Category {
   final String icon;
   final Color color;
   final bool income;
+
+  /// The category this one sits under, if any.
+  final String? parent;
+
+  /// No longer offered for new entries; its history stays.
+  final bool archived;
+
+  Category copyWith({
+    String? name,
+    String? parent,
+    bool clearParent = false,
+    bool? archived,
+  }) => Category(
+    name ?? this.name,
+    icon,
+    color,
+    income: income,
+    parent: clearParent ? null : parent ?? this.parent,
+    archived: archived ?? this.archived,
+  );
 }
 
 /// One line of the book, in whole NT$.
@@ -188,14 +215,37 @@ final class Entry {
     return [(category, spending)];
   }
 
-  /// This entry with another category.
-  Entry withCategory(String name) => Entry(
+  /// This entry with its merchant or tags changed.
+  Entry withLabels({String? merchant, List<String>? tags}) => Entry(
     id: id,
     date: date,
     type: type,
     amount: amount,
     account: account,
-    category: name,
+    category: category,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant ?? this.merchant,
+    tags: tags ?? this.tags,
+    parts: parts,
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
+  );
+
+  /// This entry with [from], or its category, renamed to [name].
+  Entry withCategory(String name, {String? from}) => Entry(
+    id: id,
+    date: date,
+    type: type,
+    amount: amount,
+    account: account,
+    category: from == null || category == from ? name : category,
     note: note,
     to: to,
     holding: holding,
@@ -205,7 +255,7 @@ final class Entry {
     tags: tags,
     parts: [
       for (final (part, value) in parts)
-        (part == category ? name : part, value),
+        (part == (from ?? category) ? name : part, value),
     ],
     fee: fee,
     tax: tax,
@@ -281,11 +331,26 @@ final class Lot {
 }
 
 final class Budget {
-  const Budget(this.category, this.limit);
+  const Budget(this.category, this.limit, {this.warning = 80});
 
   /// A category name, or [Ledger.allSpending] for the total.
   final String category;
   final int limit;
+
+  /// The share used, in percent, at which the budget warns.
+  final int warning;
+}
+
+/// How often a recurring item comes round.
+enum RepeatUnit {
+  day('天'),
+  week('週'),
+  month('個月'),
+  year('年');
+
+  const RepeatUnit(this.label);
+
+  final String label;
 }
 
 final class Recurring {
@@ -297,27 +362,114 @@ final class Recurring {
     required this.account,
     required this.category,
     this.active = true,
+    this.unit = RepeatUnit.month,
+    this.every = 1,
+    this.start,
+    this.end,
+    this.income = false,
+    this.merchant = '',
   });
 
   final String id;
   final String name;
   final int amount;
 
-  /// Day of the month it falls due.
+  /// Day of the month it falls due, for monthly items without [start].
   final int day;
   final String account;
   final String category;
   final bool active;
+  final RepeatUnit unit;
 
-  Recurring toggled() => Recurring(
+  /// Every how many [unit]s.
+  final int every;
+
+  /// The first time it falls due; the weekday, day or date it keeps.
+  final DateTime? start;
+
+  /// The last day it may fall due, if it ends.
+  final DateTime? end;
+
+  /// Money coming in, such as a salary, rather than going out.
+  final bool income;
+  final String merchant;
+
+  /// 「每月 5 日」「每 2 週 週五」「每年 3/15」.
+  String get rhythm {
+    final first = start;
+    final n = every == 1 ? '' : ' $every ';
+    final weekday = first == null ? '' : ' 週${_weekdays[first.weekday - 1]}';
+    final date = first == null ? '' : ' ${first.month}/${first.day}';
+    return switch (unit) {
+      RepeatUnit.day => '每$n天',
+      RepeatUnit.week => '每$n週$weekday',
+      RepeatUnit.month =>
+        '每$n${every == 1 ? '月' : '個月'} ${first?.day ?? day} 日',
+      RepeatUnit.year => '每$n年$date',
+    };
+  }
+
+  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+
+  Recurring copyWith({
+    String? name,
+    int? amount,
+    String? account,
+    String? category,
+    bool? active,
+  }) => Recurring(
     id: id,
-    name: name,
-    amount: amount,
+    name: name ?? this.name,
+    amount: amount ?? this.amount,
     day: day,
-    account: account,
-    category: category,
-    active: !active,
+    account: account ?? this.account,
+    category: category ?? this.category,
+    active: active ?? this.active,
+    unit: unit,
+    every: every,
+    start: start,
+    end: end,
+    income: income,
+    merchant: merchant,
   );
+
+  Recurring toggled() => copyWith(active: !active);
+
+  /// The days in [year]/[month] it falls due.
+  List<DateTime> datesIn(int year, int month) {
+    final last = DateTime.utc(year, month + 1, 0);
+    final first = start ?? DateTime.utc(2025, 1, day);
+    final stop = end;
+    bool keep(DateTime d) =>
+        !d.isBefore(first) && (stop == null || !d.isAfter(stop));
+    final dates = <DateTime>[];
+    switch (unit) {
+      case RepeatUnit.day || RepeatUnit.week:
+        final step = every * (unit == RepeatUnit.week ? 7 : 1);
+        final monthStart = DateTime.utc(year, month);
+        final gap = monthStart.difference(first).inDays;
+        var d = gap <= 0
+            ? first
+            : first.add(Duration(days: (gap + step - 1) ~/ step * step));
+        while (!d.isAfter(last)) {
+          if (keep(d)) dates.add(d);
+          d = d.add(Duration(days: step));
+        }
+      case RepeatUnit.month:
+        final months = (year - first.year) * 12 + month - first.month;
+        if (months >= 0 && months % every == 0) {
+          final d = DateTime.utc(year, month, min(first.day, last.day));
+          if (keep(d)) dates.add(d);
+        }
+      case RepeatUnit.year:
+        final years = year - first.year;
+        if (month == first.month && years >= 0 && years % every == 0) {
+          final d = DateTime.utc(year, month, min(first.day, last.day));
+          if (keep(d)) dates.add(d);
+        }
+    }
+    return dates;
+  }
 }
 
 /// The preview's book: accounts, categories, entries, holdings, budgets
@@ -367,9 +519,10 @@ final class Ledger extends ChangeNotifier {
   List<Budget> get budgets => List.unmodifiable(_budgets);
   List<Recurring> get recurring => List.unmodifiable(_recurring);
 
+  /// Categories offered for new entries: open ones of the kind.
   List<Category> categoriesFor({required bool income}) => [
     for (final c in _categories)
-      if (c.income == income) c,
+      if (c.income == income && !c.archived) c,
   ];
 
   Account account(String id) => _accounts.firstWhere(
@@ -814,23 +967,54 @@ final class Ledger extends ChangeNotifier {
     return null;
   }
 
-  /// Active items not yet confirmed this month whose day has come.
-  List<Recurring> get due => [
-    for (final r in _recurring)
-      if (r.active &&
-          r.day <= today.day &&
-          confirmation(r, today.year, today.month) == null)
-        r,
+  /// The entries booking [item] in [year]/[month], earliest first.
+  List<Entry> confirmationsIn(Recurring item, int year, int month) => [
+    for (final e in entriesIn(year, month).reversed)
+      if (e.recurring == item.id) e,
   ];
 
-  /// Active items not yet confirmed this month, still to come.
-  List<Recurring> get upcoming => [
+  /// The first day of this month [item] falls due and is not yet booked:
+  /// bookings count against its days in order, so one booked early still
+  /// settles that day.
+  DateTime? pendingDate(Recurring item) {
+    if (!item.active) return null;
+    final dates = item.datesIn(today.year, today.month);
+    final booked = confirmationsIn(item, today.year, today.month).length;
+    return booked < dates.length ? dates[booked] : null;
+  }
+
+  /// The next day [item] falls due, this month or later.
+  DateTime? nextDate(Recurring item) {
+    final pending = pendingDate(item);
+    if (pending != null) return pending;
+    for (var k = 1; k <= 24; k++) {
+      final month = DateTime.utc(today.year, today.month + k);
+      final dates = item.datesIn(month.year, month.month);
+      if (dates.isNotEmpty) return dates.first;
+    }
+    return null;
+  }
+
+  /// [nextDate] as 「10/5」.
+  String nextLabel(Recurring item) {
+    final d = nextDate(item);
+    return d == null ? '' : '${d.month}/${d.day}';
+  }
+
+  /// Active items whose day has come this month but are not yet booked.
+  List<Recurring> get due => [
     for (final r in _recurring)
-      if (r.active &&
-          r.day > today.day &&
-          confirmation(r, today.year, today.month) == null)
-        r,
-  ]..sort((a, b) => a.day.compareTo(b.day));
+      if (pendingDate(r) case final d? when !d.isAfter(today)) r,
+  ];
+
+  /// Active items still to come this month, soonest first.
+  List<Recurring> get upcoming {
+    final rows = [
+      for (final r in _recurring)
+        if (pendingDate(r) case final d? when d.isAfter(today)) (r, d),
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    return [for (final (r, _) in rows) r];
+  }
 
   // Changes.
 
@@ -869,9 +1053,15 @@ final class Ledger extends ChangeNotifier {
     _replayOrUndo(() => _entries.remove(entry));
   }
 
-  void setBudget(String category, int limit) {
+  void setBudget(String category, int limit, {int? warning}) {
+    final old = budgetFor(category);
     _budgets.removeWhere((b) => b.category == category);
-    _budgets.add(Budget(category, limit));
+    _budgets.add(Budget(category, limit, warning: warning ?? old.warning));
+    notifyListeners();
+  }
+
+  void removeBudget(String category) {
+    _budgets.removeWhere((b) => b.category == category);
     notifyListeners();
   }
 
@@ -939,17 +1129,7 @@ final class Ledger extends ChangeNotifier {
       if (b.category == from) _budgets[i] = Budget(to, b.limit);
     }
     for (final (i, r) in _recurring.indexed) {
-      if (r.category == from) {
-        _recurring[i] = Recurring(
-          id: r.id,
-          name: r.name,
-          amount: r.amount,
-          day: r.day,
-          account: r.account,
-          category: to,
-          active: r.active,
-        );
-      }
+      if (r.category == from) _recurring[i] = r.copyWith(category: to);
     }
     notifyListeners();
   }
@@ -961,22 +1141,106 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Books [item] for this month on its day, or today if that is later.
+  /// The entry that books [item] on its pending day, or today if that is
+  /// later, for the composer to show before it is saved.
+  Entry booking(Recurring item) {
+    final date = pendingDate(item) ?? today;
+    return Entry(
+      id: '',
+      date: date.isAfter(today) ? today : date,
+      type: item.income ? EntryType.income : EntryType.expense,
+      amount: item.amount,
+      account: item.account,
+      category: item.category,
+      note: item.name,
+      recurring: item.id,
+      merchant: item.merchant,
+    );
+  }
+
+  /// Books [item] as it stands.
   void confirm(Recurring item) {
-    final day = item.day.clamp(1, 28);
-    final date = DateTime.utc(today.year, today.month, day);
+    final entry = booking(item);
     add(
       Entry(
         id: newId(),
-        date: date.isAfter(today) ? today : date,
-        type: EntryType.expense,
-        amount: item.amount,
-        account: item.account,
-        category: item.category,
-        note: item.name,
-        recurring: item.id,
+        date: entry.date,
+        type: entry.type,
+        amount: entry.amount,
+        account: entry.account,
+        category: entry.category,
+        note: entry.note,
+        recurring: entry.recurring,
+        merchant: entry.merchant,
       ),
     );
+  }
+
+  /// Puts [item] in place of the one with the same id, or adds it.
+  void saveRecurring(Recurring item) {
+    final index = _recurring.indexWhere((r) => r.id == item.id);
+    if (index < 0) {
+      _recurring.add(item);
+    } else {
+      _recurring[index] = item;
+    }
+    notifyListeners();
+  }
+
+  void removeRecurring(String id) {
+    _recurring.removeWhere((r) => r.id == id);
+    notifyListeners();
+  }
+
+  /// Changes a category's place, name or archive state.
+  void updateCategory(String name, Category next) {
+    final index = _categories.indexWhere((c) => c.name == name);
+    if (index < 0) return;
+    if (next.name != name) renameCategory(name, next.name);
+    _categories[index] = next;
+    notifyListeners();
+  }
+
+  /// Moves everything in [from] to [into] and removes [from].
+  void mergeCategory(String from, String into) {
+    if (from == into) return;
+    for (final (i, e) in _entries.indexed) {
+      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
+        _entries[i] = e.withCategory(into, from: from);
+      }
+    }
+    for (final (i, r) in _recurring.indexed) {
+      if (r.category == from) _recurring[i] = r.copyWith(category: into);
+    }
+    _budgets.removeWhere((b) => b.category == from);
+    _categories.removeWhere((c) => c.name == from);
+    for (final (i, c) in _categories.indexed) {
+      if (c.parent == from) _categories[i] = c.copyWith(clearParent: true);
+    }
+    notifyListeners();
+  }
+
+  /// Renames or merges a tag across every entry; an empty [to] removes it.
+  void renameTag(String from, String to) {
+    for (final (i, e) in _entries.indexed) {
+      if (!e.tags.contains(from)) continue;
+      final tags = {
+        for (final t in e.tags)
+          if (t != from) t,
+        if (to.isNotEmpty) to,
+      }.toList();
+      _entries[i] = e.withLabels(tags: tags);
+    }
+    notifyListeners();
+  }
+
+  /// Renames or merges a merchant across every entry; an empty [to]
+  /// clears it.
+  void renameMerchant(String from, String to) {
+    for (final (i, e) in _entries.indexed) {
+      if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
+    }
+    notifyListeners();
   }
 
   /// Replaces everything with the contents of [fresh], for a demo reset.

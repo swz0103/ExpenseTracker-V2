@@ -538,7 +538,7 @@ class _ComposerState extends State<Composer> {
       to: type == EntryType.transfer ? _to : null,
       holding: _mode == ComposeMode.investment ? _holding : null,
       shares: type == EntryType.buy || type == EntryType.sell ? _shares : 0,
-      recurring: widget.entry?.recurring,
+      recurring: widget.entry?.recurring ?? widget.draft?.recurring,
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
