@@ -8,7 +8,6 @@ import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'app.dart';
-import 'book/looks.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
 import 'demo/ledger.dart';
@@ -20,10 +19,7 @@ import 'startup.dart';
 /// in [directory], opened through [Startup]. The memory preview is not
 /// reachable from here; a test walks the imports to keep it that way.
 Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
-    Startup(
-      LedgerVault(directory, codec: KeyringCodec(), modules: [looksSchema]),
-      device: device,
-    );
+    Startup(LedgerVault(directory, codec: KeyringCodec()), device: device);
 
 /// Where this device keeps the ledger. Android's private app directory
 /// comes with the platform wiring (STATUS 4b-2); until then only desktop

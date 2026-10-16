@@ -23,6 +23,10 @@ final class ReplayException implements Exception {
   String toString() => 'ReplayException(#$seq $kind: $reason)';
 }
 
+/// Event kinds starting with this belong to the app: replay copies them
+/// without projecting them.
+const appEventPrefix = 'app.';
+
 /// Rebuilds a ledger from its event journal.
 ///
 /// Every event already carries the full new state of what it changed, so
@@ -91,6 +95,9 @@ abstract final class LedgerReplay {
     String kind,
     Map<String, Object?> p,
   ) async {
+    // Events the app keeps for itself, such as the marks it shows, ride
+    // along in the journal and backups but project nothing here.
+    if (kind.startsWith(appEventPrefix)) return;
     Map<String, Object?> part(String key) => p[key]! as Map<String, Object?>;
     switch (kind) {
       case 'account.opened' ||

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
@@ -70,7 +72,7 @@ final class VaultJournal implements Journal {
   late final _cards = CardBook(_books);
   late final _planning = PlanningBook(_books);
   late final _invest = InvestmentBook(_books);
-  late final _looks = Looks(_vault.store, _books.exclusive);
+  late final _looks = Looks(_vault.store, _workspace, _books.exclusive);
 
   LedgerStore get _store => _vault.ledger;
 
@@ -92,7 +94,10 @@ final class VaultJournal implements Journal {
     final merchants = {for (final m in _store.merchants(_workspace)) m.id: m};
     final reversed = _store.reversedPostings(_workspace);
     final charges = _store.cardChargesByPosting(_workspace);
-    final confirmed = _store.recurringByPosting(_workspace);
+    final confirmed = _recurringLinks();
+    final postingTags = _store.postingTags(_workspace);
+    final postingMerchants = _store.postingMerchants(_workspace);
+    final notes = _store.postingNotes(_workspace);
     String nameOf(PublicId id) =>
         _live(categories, id, (c) => c.replacementId)?.name ?? '';
     String merchantOf(PublicId? id) {
@@ -112,9 +117,8 @@ final class VaultJournal implements Journal {
         }
         continue;
       }
-      final metadata = _store.metadata(posting.id);
       final tagNames = <String>[];
-      for (final id in metadata.tags) {
+      for (final id in postingTags[posting.id] ?? const <PublicId>[]) {
         final tag = _live(tags, id, (t) => t.replacementId);
         if (tag != null && !tag.archived) tagNames.add(tag.name);
       }
@@ -122,7 +126,8 @@ final class VaultJournal implements Journal {
         posting,
         category: nameOf,
         tags: tagNames,
-        merchant: merchantOf(metadata.merchantId),
+        merchant: merchantOf(postingMerchants[posting.id]),
+        note: notes[posting.id] ?? '',
         recurring: confirmed[posting.id]?.value,
         installments: charges.containsKey(posting.id)
             ? _store.installments(posting.id).length
@@ -175,6 +180,7 @@ final class VaultJournal implements Journal {
     required String Function(PublicId id) category,
     required List<String> tags,
     required String merchant,
+    required String note,
     required int installments,
     String? recurring,
   }) {
@@ -183,7 +189,6 @@ final class VaultJournal implements Journal {
       posting.date.month,
       posting.date.day,
     );
-    final note = _store.note(posting.id).text;
     final principal = [
       for (final leg in posting.legs)
         if (leg.role == LegRole.principal) leg,
@@ -537,6 +542,57 @@ final class VaultJournal implements Journal {
 
   @override
   Future<String> replaceEntry(ui.Entry before, ui.Entry after) async {
+    final id = await _replace(before, after);
+    final template = _parse(after.recurring ?? '');
+    final posting = _parse(id);
+    if (template != null &&
+        posting != null &&
+        !_recurringLinks().containsKey(posting)) {
+      await _linkRecurring(posting, template);
+    }
+    return id;
+  }
+
+  static const _linkKind = '${appEventPrefix}recurring-link';
+
+  /// The recurring item behind each booking: the ones the ledger
+  /// confirmed, and edited bookings the app linked again.
+  Map<PublicId, PublicId> _recurringLinks() {
+    final links = _store.recurringByPosting(_workspace);
+    final rows = _vault.store.select(
+      'SELECT payload FROM events WHERE workspace = ? AND kind = ? '
+      'ORDER BY seq',
+      [_workspace.toString(), _linkKind],
+    );
+    for (final row in rows) {
+      final json =
+          jsonDecode(row['payload']! as String) as Map<String, Object?>;
+      final posting = PublicId.parse(json['posting']! as String);
+      links[posting] = PublicId.parse(json['template']! as String);
+    }
+    return links;
+  }
+
+  /// Keeps an edited booking linked to [template]: the ledger's own
+  /// confirmation stays with the entry it replaced.
+  Future<void> _linkRecurring(PublicId posting, PublicId template) {
+    final payload = jsonEncode({
+      'posting': posting.value,
+      'template': template.value,
+    });
+    return _books.exclusive(() async {
+      await _vault.store.write((t) async {
+        t.append(
+          id: PublicId.generate(),
+          workspace: _workspace,
+          kind: _linkKind,
+          payload: payload,
+        );
+      });
+    });
+  }
+
+  Future<String> _replace(ui.Entry before, ui.Entry after) async {
     final id = _parse(before.id);
     if (id == null || !_store.hasPosting(id)) {
       return (await _add(after)).value;

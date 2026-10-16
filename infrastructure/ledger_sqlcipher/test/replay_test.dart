@@ -69,6 +69,24 @@ void main() {
     expect(target.eventCount, 0);
   });
 
+  test('an app event is copied and projects nothing', () async {
+    final source = open('source');
+    final target = open('target');
+    addTearDown(source.close);
+    addTearDown(target.close);
+    await source.write((transaction) async {
+      transaction.append(
+        id: PublicId.generate(),
+        workspace: workspace,
+        kind: '${appEventPrefix}look',
+        payload: '{"subject":"x","icon":"food"}',
+      );
+    });
+    await LedgerReplay.copy(from: source, to: LedgerStore(target));
+    expect(target.eventCount, 1);
+    expect(projectionRows(target), projectionRows(source));
+  });
+
   test('a payload that breaks a domain rule stops the replay', () async {
     final source = open('source');
     final target = open('target');
