@@ -6,6 +6,7 @@ import 'package:categories/categories.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/painting.dart' show Color;
 import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
@@ -47,7 +48,8 @@ typedef _Label = ({PublicId id, String name, int version});
 /// ledger from the stored accounts, postings and catalogs; each change
 /// the screens make becomes the matching ledger command.
 ///
-/// Not kept yet: investments.
+/// Trades go to one investment account per funding account, at a broker
+/// named 券商, in instruments listed on TWSE.
 final class VaultJournal implements Journal {
   VaultJournal(this._vault, {Clock clock = const SystemClock()})
     : _clock = clock,
@@ -58,6 +60,7 @@ final class VaultJournal implements Journal {
   final Bookkeeping<SqlBookkeeping> _books;
   late final _cards = CardBook(_books);
   late final _planning = PlanningBook(_books);
+  late final _invest = InvestmentBook(_books);
   late final _looks = Looks(_vault.store, _books.exclusive);
 
   LedgerStore get _store => _vault.ledger;
@@ -115,6 +118,8 @@ final class VaultJournal implements Journal {
       );
       if (entry != null) entries.add(entry);
     }
+    final (trades, holdings) = _investments();
+    entries.addAll(trades);
     final today = _clock.today();
     final applying = _applying(categories);
     return ui.Ledger(
@@ -129,7 +134,7 @@ final class VaultJournal implements Journal {
             _categoryOf(c, categories, looks[c.id.value]),
       ],
       entries: entries,
-      holdings: const [],
+      holdings: holdings,
       budgets: [
         for (final MapEntry(key: category, value: plan) in applying.entries)
           ui.Budget(
@@ -295,9 +300,9 @@ final class VaultJournal implements Journal {
       case ui.EntryType.transfer:
         await _transfer(id, e, account, day);
       case ui.EntryType.buy || ui.EntryType.sell || ui.EntryType.dividend:
-        throw const AppFailure(FailureKind.rejected, 'app.not-kept');
+        await _trade(id, e, account, day);
     }
-    await _note(id, e.note);
+    if (_store.hasPosting(id)) await _note(id, e.note);
     return id;
   }
 
@@ -555,6 +560,20 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> removeEntry(ui.Entry entry) async {
+    final trade = _tradeOf(entry.id);
+    if (trade != null) {
+      final (account, instrument, tradeId) = trade;
+      await _invest.voidTrade(
+        VoidInvestmentTrade(
+          operation: _op(),
+          accountId: account,
+          instrumentId: instrument,
+          tradeId: tradeId,
+          reversalId: PublicId.generate(),
+        ),
+      );
+      return;
+    }
     final id = _parse(entry.id);
     if (id == null || !_store.hasPosting(id)) return;
     final charge = _store.cardChargesByPosting(_workspace)[id];
@@ -608,7 +627,12 @@ final class VaultJournal implements Journal {
       listEquals(a.parts, b.parts) &&
       a.fee == b.fee &&
       a.refundOf == b.refundOf &&
-      a.installments == b.installments;
+      a.installments == b.installments &&
+      a.holding == b.holding &&
+      a.shares == b.shares &&
+      a.tax == b.tax &&
+      a.average == b.average &&
+      a.split == b.split;
 
   Future<void> _note(PublicId posting, String text) async {
     final current = _store.note(posting);
@@ -686,6 +710,267 @@ final class VaultJournal implements Journal {
       rethrow;
     }
     return true;
+  }
+
+  // Investments.
+
+  /// The screens' trade entries and, for each instrument traded, a
+  /// holding to replay them onto, priced at its last trade.
+  (List<ui.Entry>, List<ui.Holding>) _investments() {
+    final entries = <ui.Entry>[];
+    final quotes = <String, (String, double)>{};
+    for (final account in _store.investmentAccounts(_workspace)) {
+      final funding = account.fundingCashAccountId.value;
+      final held = <String, int>{};
+      for (final r in _store.tradeRecords(account.id)) {
+        final instrument = _store.instrument(
+          PublicId.parse(r['instrumentId']! as String),
+        );
+        if (instrument == null) continue;
+        final code = instrument.symbol;
+        final id = (r['postingId'] as String?) ?? r['id']! as String;
+        final date = _date(BusinessDate.parse(r['date']! as String));
+        final shares = _whole(r['quantity']);
+        final before = held[code] ?? 0;
+        int money(String key) {
+          final json = r[key];
+          return json is Map<String, Object?> ? _int(Money.fromJson(json)) : 0;
+        }
+
+        switch (r['kind']) {
+          case 'buy' || 'sell':
+            final buy = r['kind'] == 'buy';
+            held[code] = buy ? before + shares : before - shares;
+            final gross = money('gross');
+            final method = r['costMethod'];
+            if (shares > 0) quotes[code] = (instrument.name, gross / shares);
+            entries.add(
+              ui.Entry(
+                id: id,
+                date: date,
+                type: buy ? ui.EntryType.buy : ui.EntryType.sell,
+                amount: gross,
+                account: funding,
+                category: '投資',
+                holding: code,
+                shares: shares,
+                fee: money('fee'),
+                tax: money('tax'),
+                average: method == InvestmentCostMethod.averageCost.name,
+              ),
+            );
+          case 'dividend':
+            entries.add(
+              ui.Entry(
+                id: id,
+                date: date,
+                type: ui.EntryType.dividend,
+                amount: money('net'),
+                account: funding,
+                category: '股息收入',
+                holding: code,
+              ),
+            );
+          case 'split' || 'action':
+            final after =
+                before * (r['newShares']! as int) ~/ (r['oldShares']! as int);
+            held[code] = after;
+            entries.add(
+              ui.Entry(
+                id: id,
+                date: date,
+                type: ui.EntryType.dividend,
+                amount: money('net'),
+                account: funding,
+                category: '股息收入',
+                holding: code,
+                shares: after - before,
+                split: r['kind'] == 'split',
+              ),
+            );
+        }
+      }
+    }
+    return (
+      entries,
+      [
+        for (final MapEntry(key: code, value: (name, price)) in quotes.entries)
+          ui.Holding(code, name, shares: 0, price: price, cost: 0, change: 0),
+      ],
+    );
+  }
+
+  Future<void> _trade(
+    PublicId id,
+    ui.Entry e,
+    Account funding,
+    BusinessDate day,
+  ) async {
+    final code = e.holding;
+    if (code == null || code.isEmpty) {
+      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
+    }
+    final account = await _investmentAccount(funding);
+    final instrument = await _instrument(code);
+    final target = TradeTarget(
+      accountId: account,
+      instrumentId: instrument,
+      funding: _ref(funding),
+    );
+    switch (e.type) {
+      case ui.EntryType.buy:
+        await _invest.buy(
+          BuyInvestment(
+            operation: _op(),
+            buyId: PublicId.generate(),
+            lotId: PublicId.generate(),
+            postingId: id,
+            target: target,
+            tradedOn: day,
+            quantity: '${e.shares}',
+            unitPrice: _unitPrice(e.amount, e.shares),
+            gross: _ntd(e.amount),
+            fee: _ntd(e.fee),
+            tax: _ntd(e.tax),
+          ),
+        );
+      case ui.EntryType.sell:
+        await _invest.sell(
+          SellInvestment(
+            operation: _op(),
+            sellId: PublicId.generate(),
+            postingId: id,
+            target: target,
+            tradedOn: day,
+            costMethod: e.average
+                ? InvestmentCostMethod.averageCost
+                : InvestmentCostMethod.fifo,
+            quantity: '${e.shares}',
+            unitPrice: _unitPrice(e.amount, e.shares),
+            gross: _ntd(e.amount),
+            fee: _ntd(e.fee),
+            tax: _ntd(e.tax),
+          ),
+        );
+      default:
+        await _dividend(id, e, day, target);
+    }
+  }
+
+  /// A dividend in cash, in shares, or a split; a stock dividend paid
+  /// with cash records both.
+  Future<void> _dividend(
+    PublicId id,
+    ui.Entry e,
+    BusinessDate day,
+    TradeTarget target,
+  ) async {
+    if (e.shares > 0) {
+      final held = _held(target.accountId, target.instrumentId);
+      if (e.split) {
+        await _invest.split(
+          SplitInvestment(
+            operation: _op(),
+            splitId: PublicId.generate(),
+            accountId: target.accountId,
+            instrumentId: target.instrumentId,
+            effectiveOn: day,
+            newShares: held + e.shares,
+            oldShares: held,
+          ),
+        );
+      } else {
+        await _invest.corporateAction(
+          RecordCorporateAction(
+            operation: _op(),
+            actionId: PublicId.generate(),
+            postingId: PublicId.generate(),
+            target: target,
+            effectiveOn: day,
+            newShares: held + e.shares,
+            oldShares: held,
+          ),
+        );
+      }
+    }
+    if (e.amount <= 0) return;
+    await _invest.dividend(
+      RecordDividend(
+        operation: _op(),
+        dividendId: PublicId.generate(),
+        postingId: id,
+        target: target,
+        paidOn: day,
+        gross: _ntd(e.amount),
+        withholdingTax: _ntd(0),
+        fee: _ntd(0),
+        net: _ntd(e.amount),
+      ),
+    );
+  }
+
+  /// Whole shares of [instrument] [account] holds now.
+  int _held(PublicId account, PublicId instrument) => _store
+      .holdings(account, instrument)
+      .fold(0, (sum, lot) => sum + _whole(lot.remainingQuantity.toString()));
+
+  /// The investment account [funding] pays for trades, opened with a
+  /// broker of its own the first time.
+  Future<PublicId> _investmentAccount(Account funding) async {
+    for (final a in _store.investmentAccounts(_workspace)) {
+      if (a.fundingCashAccountId == funding.id) return a.id;
+    }
+    final broker = PublicId.generate();
+    await _invest.registerBroker(
+      RegisterBroker(operation: _op(), brokerId: broker, name: '券商'),
+    );
+    final id = PublicId.generate();
+    await _invest.openAccount(
+      OpenInvestmentAccount(
+        operation: _op(),
+        accountId: id,
+        brokerId: broker,
+        fundingAccountId: funding.id,
+        name: '${funding.name}證券',
+      ),
+    );
+    return id;
+  }
+
+  /// The instrument listed as [code], registered the first time.
+  Future<PublicId> _instrument(String code) async {
+    final symbol = code.toUpperCase();
+    final etf = symbol.startsWith('00');
+    final listed = _store.listedInstrument('TWSE', symbol);
+    if (listed != null) return listed;
+    final id = PublicId.generate();
+    await _invest.registerInstrument(
+      RegisterInstrument(
+        operation: _op(),
+        instrumentId: id,
+        kind: etf ? InstrumentKind.etf : InstrumentKind.stock,
+        marketCode: 'TWSE',
+        symbol: symbol,
+        name: symbol,
+        currency: homeCurrency,
+      ),
+    );
+    return id;
+  }
+
+  /// The investment account, instrument and trade behind the entry [id].
+  (PublicId, PublicId, PublicId)? _tradeOf(String id) {
+    for (final account in _store.investmentAccounts(_workspace)) {
+      for (final r in _store.tradeRecords(account.id)) {
+        if (r['postingId'] != id && r['id'] != id) continue;
+        return (
+          account.id,
+          PublicId.parse(r['instrumentId']! as String),
+          PublicId.parse(r['id']! as String),
+        );
+      }
+    }
+    return null;
   }
 
   // Budgets and recurring items.
@@ -1043,11 +1328,6 @@ final class VaultJournal implements Journal {
     await _catalog(merchant ? CatalogType.merchant : CatalogType.tag, change);
   }
 
-  @override
-  Future<void> notKept(String what) async {
-    throw const AppFailure(FailureKind.rejected, 'app.not-kept');
-  }
-
   Future<void> _catalog(CatalogType type, CatalogChange change) async {
     await _books.changeCatalog(
       ChangeCatalog(operation: _op(), catalog: type, change: change),
@@ -1182,6 +1462,25 @@ BusinessDate _day(DateTime date) =>
     BusinessDate(date.year, date.month, date.day);
 
 DateTime _date(BusinessDate day) => DateTime.utc(day.year, day.month, day.day);
+
+/// Whole shares in a quantity written as decimal text.
+int _whole(Object? quantity) =>
+    quantity is String ? int.parse(quantity.split('.').first) : 0;
+
+/// [amount] over [shares] to six decimals: the ledger takes a gross one
+/// unit off price times quantity, which this stays within up to two
+/// million shares.
+String _unitPrice(int amount, int shares) {
+  final count = BigInt.from(shares < 1 ? 1 : shares);
+  final doubled = BigInt.from(amount) * BigInt.from(2000000) + count;
+  final scaled = doubled ~/ (count * BigInt.two);
+  final digits = scaled.toString().padLeft(7, '0');
+  final whole = digits.substring(0, digits.length - 6);
+  final fraction = digits
+      .substring(digits.length - 6)
+      .replaceAll(RegExp(r'0+$'), '');
+  return fraction.isEmpty ? whole : '$whole.$fraction';
+}
 
 AccountKind _kind(ui.AccountKind kind) => switch (kind) {
   ui.AccountKind.cash => AccountKind.cash,

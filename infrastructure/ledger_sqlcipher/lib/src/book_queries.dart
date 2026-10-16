@@ -64,6 +64,29 @@ extension BookQueries on LedgerStore {
     return ids;
   }
 
+  /// The trade records of investment account [accountId] as stored,
+  /// oldest first; voided ones are left out.
+  List<Map<String, Object?>> tradeRecords(PublicId accountId) {
+    final rows = _store.select(
+      'SELECT payload FROM invest_trades WHERE account_id = ? '
+      "AND json_extract(payload, '\$.id') NOT IN "
+      '(SELECT trade_id FROM invest_voids) ORDER BY seq',
+      [accountId.value],
+    );
+    return [for (final row in rows) _json(row['payload'])];
+  }
+
+  /// The instrument listed as [symbol] on [market], if any.
+  PublicId? listedInstrument(String market, String symbol) {
+    final rows = _store.select(
+      'SELECT instrument_id FROM invest_listings '
+      'WHERE market = ? AND symbol = ?',
+      [market, symbol],
+    );
+    if (rows.isEmpty) return null;
+    return PublicId.parse(rows.single['instrument_id']! as String);
+  }
+
   /// Whether a posting with [id] exists, live or reversed.
   bool hasPosting(PublicId id) {
     const sql = 'SELECT 1 FROM ledger_postings WHERE id = ?';

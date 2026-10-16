@@ -306,28 +306,77 @@ void main() {
     expect(ledger.entriesIn(2026, 9), hasLength(1));
   });
 
-  test('trades are refused until investments are kept', () async {
-    final ledger = await create();
-    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+  test('trades, dividends and splits are kept', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
     ledger.addAccount(bank);
     await ledger.settled;
-    ledger.add(
-      Entry(
-        id: ledger.newId(),
-        date: day,
-        type: EntryType.buy,
-        amount: 1000,
-        account: bank.id,
-        holding: '0050',
-        shares: 10,
-      ),
+    Entry trade(
+      EntryType type,
+      int amount, {
+      int shares = 0,
+      int fee = 0,
+      int tax = 0,
+      bool split = false,
+      DateTime? date,
+    }) => Entry(
+      id: ledger.newId(),
+      date: date ?? day,
+      type: type,
+      amount: amount,
+      account: bank.id,
+      category: type == EntryType.dividend ? '股息收入' : '投資',
+      holding: '0050',
+      shares: shares,
+      fee: fee,
+      tax: tax,
+      split: split,
     );
-    expect(ledger.entriesIn(2026, 10), hasLength(1));
-    await ledger.settled;
+    ledger
+      ..add(
+        trade(
+          EntryType.buy,
+          58200,
+          shares: 1000,
+          fee: 50,
+          date: DateTime.utc(2026, 9, 1),
+        ),
+      )
+      ..add(
+        trade(
+          EntryType.buy,
+          30000,
+          shares: 500,
+          fee: 25,
+          date: DateTime.utc(2026, 9, 15),
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    expect(ledger.holding('0050')!.shares, 1500);
+    expect(ledger.holding('0050')!.cost, 58250 + 30025);
+    expect(ledger.balance(bank.id), 500000 - 58250 - 30025);
+    ledger
+      ..add(trade(EntryType.sell, 35000, shares: 500, fee: 30, tax: 105))
+      ..add(trade(EntryType.dividend, 1200));
+
+    ledger = await reopen(ledger);
+    expect(ledger.holding('0050')!.shares, 1000);
     expect(
-      ledger.problem.value,
-      const AppFailure(FailureKind.rejected, 'app.not-kept'),
+      ledger.balance(bank.id),
+      500000 - 58250 - 30025 + 35000 - 135 + 1200,
     );
-    expect(ledger.entriesIn(2026, 10), isEmpty);
+    ledger.add(trade(EntryType.dividend, 0, shares: 3000, split: true));
+
+    ledger = await reopen(ledger);
+    expect(ledger.holding('0050')!.shares, 4000);
+    final dividend = ledger
+        .entriesIn(2026, 10)
+        .firstWhere((e) => e.type == EntryType.dividend && e.amount == 1200);
+    ledger.remove(dividend.id);
+
+    ledger = await reopen(ledger);
+    expect(ledger.balance(bank.id), 500000 - 58250 - 30025 + 35000 - 135);
+    expect(ledger.holding('0050')!.shares, 4000);
   });
 }

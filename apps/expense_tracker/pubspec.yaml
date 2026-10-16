@@ -23,6 +23,8 @@ dependencies:
     path: ../../packages/categories
   foundation_values:
     path: ../../packages/foundation_values
+  investments:
+    path: ../../packages/investments
   ledger:
     path: ../../packages/ledger
   ledger_sqlcipher:

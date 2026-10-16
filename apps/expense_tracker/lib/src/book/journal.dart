@@ -44,7 +44,4 @@ abstract interface class Journal {
 
   /// Stops [item]; the entries it booked stay.
   Future<void> removeRecurring(Recurring item);
-
-  /// A change of something not kept yet, such as trades: it is refused.
-  Future<void> notKept(String what);
 }
