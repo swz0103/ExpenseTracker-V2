@@ -33,6 +33,18 @@ abstract interface class Journal {
   /// that exists already, or retires it when [to] is empty.
   Future<void> relabel(String from, String to, {required bool merchant});
 
-  /// A change of something not kept yet, such as budgets: it is refused.
+  /// Sets the monthly budget of [Budget.category], from this month on.
+  Future<void> setBudget(Budget budget);
+
+  /// Drops the budget of [category] from every month.
+  Future<void> removeBudget(String category);
+
+  /// Adds [item], or changes the one with its id.
+  Future<void> saveRecurring(Recurring item);
+
+  /// Stops [item]; the entries it booked stay.
+  Future<void> removeRecurring(Recurring item);
+
+  /// A change of something not kept yet, such as trades: it is refused.
   Future<void> notKept(String what);
 }

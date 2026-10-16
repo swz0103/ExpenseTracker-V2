@@ -17,6 +17,8 @@ dependencies:
     path: ../../infrastructure/backup_security
   bookkeeping:
     path: ../../packages/bookkeeping
+  budgets:
+    path: ../../packages/budgets
   categories:
     path: ../../packages/categories
   foundation_values:
@@ -27,6 +29,8 @@ dependencies:
     path: ../../infrastructure/ledger_sqlcipher
   ledger_vault:
     path: ../../infrastructure/ledger_vault
+  recurring_transactions:
+    path: ../../packages/recurring_transactions
   reports:
     path: ../../packages/reports
   storage_sqlcipher:

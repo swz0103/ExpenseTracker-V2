@@ -1155,15 +1155,16 @@ final class Ledger extends ChangeNotifier {
   void setBudget(String category, int limit, {int? warning}) {
     final old = budgetFor(category);
     _budgets.removeWhere((b) => b.category == category);
-    _budgets.add(Budget(category, limit, warning: warning ?? old.warning));
+    final budget = Budget(category, limit, warning: warning ?? old.warning);
+    _budgets.add(budget);
     notifyListeners();
-    _keep((j) => j.notKept('預算'));
+    _keep((j) => j.setBudget(budget));
   }
 
   void removeBudget(String category) {
     _budgets.removeWhere((b) => b.category == category);
     notifyListeners();
-    _keep((j) => j.notKept('預算'));
+    _keep((j) => j.removeBudget(category));
   }
 
   void addAccount(Account account) {
@@ -1245,9 +1246,10 @@ final class Ledger extends ChangeNotifier {
   void toggleRecurring(String id) {
     final index = _recurring.indexWhere((r) => r.id == id);
     if (index < 0) return;
-    _recurring[index] = _recurring[index].toggled();
+    final toggled = _recurring[index].toggled();
+    _recurring[index] = toggled;
     notifyListeners();
-    _keep((j) => j.notKept('固定收支'));
+    _keep((j) => j.saveRecurring(toggled));
   }
 
   /// The entry that books [item] on its pending day, or today if that is
@@ -1294,13 +1296,15 @@ final class Ledger extends ChangeNotifier {
       _recurring[index] = item;
     }
     notifyListeners();
-    _keep((j) => j.notKept('固定收支'));
+    _keep((j) => j.saveRecurring(item));
   }
 
   void removeRecurring(String id) {
-    _recurring.removeWhere((r) => r.id == id);
+    final index = _recurring.indexWhere((r) => r.id == id);
+    if (index < 0) return;
+    final removed = _recurring.removeAt(index);
     notifyListeners();
-    _keep((j) => j.notKept('固定收支'));
+    _keep((j) => j.removeRecurring(removed));
   }
 
   /// Changes a category's place, name, mark, colour or archive state; a
@@ -1397,7 +1401,7 @@ final class Ledger extends ChangeNotifier {
   void addRecurring(Recurring item) {
     _recurring.add(item);
     notifyListeners();
-    _keep((j) => j.notKept('固定收支'));
+    _keep((j) => j.saveRecurring(item));
   }
 
   void toggleHidden() {

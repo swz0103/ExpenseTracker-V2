@@ -36,6 +36,34 @@ extension BookQueries on LedgerStore {
   Map<PublicId, PublicId> cardPaymentsByPosting(WorkspaceId workspace) =>
       _byPosting('card_payments', workspace);
 
+  /// Every budget plan in [workspace], whichever months it applies to,
+  /// oldest month first.
+  List<BudgetPlan> budgetPlans(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT payload FROM plan_budgets WHERE workspace = ? '
+      'ORDER BY month, id',
+      [workspace.toString()],
+    );
+    final codec = BudgetPlanCodec();
+    return [for (final row in rows) codec.decode(row['payload']! as String)];
+  }
+
+  /// The recurring template behind each posting in [workspace] that
+  /// confirmed one, by posting.
+  Map<PublicId, PublicId> recurringByPosting(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT c.posting_id, c.template_id FROM plan_recurring_confirmed c '
+      'JOIN plan_recurring r ON r.id = c.template_id WHERE r.workspace = ?',
+      [workspace.toString()],
+    );
+    final ids = <PublicId, PublicId>{};
+    for (final row in rows) {
+      final posting = PublicId.parse(row['posting_id']! as String);
+      ids[posting] = PublicId.parse(row['template_id']! as String);
+    }
+    return ids;
+  }
+
   /// Whether a posting with [id] exists, live or reversed.
   bool hasPosting(PublicId id) {
     const sql = 'SELECT 1 FROM ledger_postings WHERE id = ?';

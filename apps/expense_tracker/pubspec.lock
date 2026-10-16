@@ -46,7 +46,7 @@ packages:
     source: hosted
     version: "2.1.2"
   budgets:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../packages/budgets"
       relative: true
@@ -319,7 +319,7 @@ packages:
     source: hosted
     version: "1.1.1"
   recurring_transactions:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../packages/recurring_transactions"
       relative: true

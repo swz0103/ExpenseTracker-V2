@@ -263,15 +263,71 @@ void main() {
     expect([for (final c in ledger.categories) c.name], isNot(contains('毛孩')));
   });
 
-  test('changes not kept yet are refused and undone', () async {
+  test('budgets and recurring items are kept', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    ledger.addAccount(bank);
+    await ledger.settled;
+    ledger
+      ..setBudget('飲食日常', 6000, warning: 90)
+      ..setBudget(Ledger.allSpending, 30000)
+      ..saveRecurring(
+        Recurring(
+          id: ledger.newId(),
+          name: '房租',
+          amount: 12000,
+          day: 5,
+          account: bank.id,
+          category: '居家生活',
+          start: DateTime.utc(2026, 9, 5),
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    expect(ledger.budgetFor('飲食日常').limit, 6000);
+    expect(ledger.budgetFor('飲食日常').warning, 90);
+    expect(ledger.budgetFor(Ledger.allSpending).limit, 30000);
+    final rent = ledger.recurring.single;
+    expect((rent.name, rent.amount, rent.day), ('房租', 12000, 5));
+    ledger.confirm(rent);
+
+    ledger = await reopen(ledger);
+    final booked = ledger.entriesIn(2026, 9).single;
+    expect(booked.recurring, rent.id);
+    expect(booked.category, '居家生活');
+    expect(ledger.balance(bank.id), 50000 - 12000);
+    ledger
+      ..removeBudget('飲食日常')
+      ..removeRecurring(rent.id);
+
+    ledger = await reopen(ledger);
+    expect([for (final b in ledger.budgets) b.category], [Ledger.allSpending]);
+    expect(ledger.recurring.single.active, isFalse);
+    expect(ledger.entriesIn(2026, 9), hasLength(1));
+  });
+
+  test('trades are refused until investments are kept', () async {
     final ledger = await create();
-    ledger.setBudget('飲食日常', 5000);
-    expect(ledger.budgets, hasLength(1));
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    ledger.addAccount(bank);
+    await ledger.settled;
+    ledger.add(
+      Entry(
+        id: ledger.newId(),
+        date: day,
+        type: EntryType.buy,
+        amount: 1000,
+        account: bank.id,
+        holding: '0050',
+        shares: 10,
+      ),
+    );
+    expect(ledger.entriesIn(2026, 10), hasLength(1));
     await ledger.settled;
     expect(
       ledger.problem.value,
       const AppFailure(FailureKind.rejected, 'app.not-kept'),
     );
-    expect(ledger.budgets, isEmpty);
+    expect(ledger.entriesIn(2026, 10), isEmpty);
   });
 }

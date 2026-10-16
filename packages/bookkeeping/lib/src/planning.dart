@@ -6,6 +6,8 @@ abstract interface class PlanningTransaction implements BookkeepingTransaction {
 
   Future<void> saveBudget(BudgetPlan plan);
 
+  Future<void> removeBudget(PublicId id);
+
   /// The template and whether it still proposes occurrences.
   Future<(RecurringTemplate, bool)?> recurring(PublicId id);
 
@@ -39,6 +41,9 @@ final class PlanningBook<T extends PlanningTransaction> {
 
   Future<CommandOutcome<int>> setBudget(SetBudget command) =>
       _runner.run(command, (t) => _guard(() => _setBudget(t, command)));
+
+  Future<CommandOutcome<int>> removeBudget(RemoveBudget command) =>
+      _runner.run(command, (t) => _guard(() => _removeBudget(t, command)));
 
   Future<CommandOutcome<int>> saveRecurring(SaveRecurring command) =>
       _runner.run(command, (t) => _guard(() => _saveRecurring(t, command)));
@@ -90,6 +95,25 @@ final class PlanningBook<T extends PlanningTransaction> {
       payload: jsonEncode({'plan': BudgetPlanCodec().encode(plan)}),
     );
     return plan.version;
+  }
+
+  Future<int> _removeBudget(T t, RemoveBudget command) async {
+    final workspace = command.operation.workspace;
+    final current = await t.budget(command.budgetId);
+    if (current == null || current.workspace != workspace) {
+      throw const AppFailure(FailureKind.notFound, 'budget.not-found');
+    }
+    if (current.version != command.expectedVersion) {
+      throw const AppFailure(FailureKind.conflict, 'budget.versionConflict');
+    }
+    await t.removeBudget(current.id);
+    await t.appendEvent(
+      id: PublicId.generate(),
+      workspace: workspace,
+      kind: 'budget.removed',
+      payload: jsonEncode({'budgetId': current.id.value}),
+    );
+    return current.version;
   }
 
   Future<int> _saveRecurring(T t, SaveRecurring command) async {

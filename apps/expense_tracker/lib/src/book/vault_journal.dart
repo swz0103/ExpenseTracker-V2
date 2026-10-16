@@ -1,6 +1,7 @@
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
+import 'package:budgets/budgets.dart';
 import 'package:categories/categories.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/painting.dart' show Color;
@@ -8,6 +9,8 @@ import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
+import 'package:recurring_transactions/recurring_transactions.dart';
+import 'package:reports/reports.dart';
 
 import '../demo/ledger.dart' as ui;
 import 'journal.dart';
@@ -44,7 +47,7 @@ typedef _Label = ({PublicId id, String name, int version});
 /// ledger from the stored accounts, postings and catalogs; each change
 /// the screens make becomes the matching ledger command.
 ///
-/// Not kept yet: budgets, recurring items and investments.
+/// Not kept yet: investments.
 final class VaultJournal implements Journal {
   VaultJournal(this._vault, {Clock clock = const SystemClock()})
     : _clock = clock,
@@ -54,6 +57,7 @@ final class VaultJournal implements Journal {
   final Clock _clock;
   final Bookkeeping<SqlBookkeeping> _books;
   late final _cards = CardBook(_books);
+  late final _planning = PlanningBook(_books);
   late final _looks = Looks(_vault.store, _books.exclusive);
 
   LedgerStore get _store => _vault.ledger;
@@ -73,8 +77,15 @@ final class VaultJournal implements Journal {
     final merchants = {for (final m in _store.merchants(_workspace)) m.id: m};
     final reversed = _store.reversedPostings(_workspace);
     final charges = _store.cardChargesByPosting(_workspace);
+    final confirmed = _store.recurringByPosting(_workspace);
     String nameOf(PublicId id) =>
         _live(categories, id, (c) => c.replacementId)?.name ?? '';
+    String merchantOf(PublicId? id) {
+      if (id == null) return '';
+      final merchant = _live(merchants, id, (m) => m.replacementId);
+      return merchant == null || merchant.archived ? '' : merchant.name;
+    }
+
     final openings = <PublicId, int>{};
     final entries = <ui.Entry>[];
     for (final posting in _store.workspacePostings(_workspace)) {
@@ -92,15 +103,12 @@ final class VaultJournal implements Journal {
         final tag = _live(tags, id, (t) => t.replacementId);
         if (tag != null && !tag.archived) tagNames.add(tag.name);
       }
-      final merchantId = metadata.merchantId;
-      final merchant = merchantId == null
-          ? null
-          : _live(merchants, merchantId, (m) => m.replacementId);
       final entry = _entryOf(
         posting,
         category: nameOf,
         tags: tagNames,
-        merchant: merchant == null || merchant.archived ? '' : merchant.name,
+        merchant: merchantOf(metadata.merchantId),
+        recurring: confirmed[posting.id]?.value,
         installments: charges.containsKey(posting.id)
             ? _store.installments(posting.id).length
             : 0,
@@ -108,6 +116,7 @@ final class VaultJournal implements Journal {
       if (entry != null) entries.add(entry);
     }
     final today = _clock.today();
+    final applying = _applying(categories);
     return ui.Ledger(
       today: DateTime.utc(today.year, today.month, today.day),
       accounts: [
@@ -121,8 +130,23 @@ final class VaultJournal implements Journal {
       ],
       entries: entries,
       holdings: const [],
-      budgets: const [],
-      recurring: const [],
+      budgets: [
+        for (final MapEntry(key: category, value: plan) in applying.entries)
+          ui.Budget(
+            category == null ? ui.Ledger.allSpending : nameOf(category),
+            _int(plan.limit),
+            warning: plan.warningPercent,
+          ),
+      ],
+      recurring: [
+        for (final (template, active) in _store.recurringTemplates(_workspace))
+          _recurringOf(
+            template,
+            active: active,
+            category: nameOf,
+            merchant: merchantOf,
+          ),
+      ],
       journal: this,
     );
   }
@@ -135,6 +159,7 @@ final class VaultJournal implements Journal {
     required List<String> tags,
     required String merchant,
     required int installments,
+    String? recurring,
   }) {
     final date = DateTime.utc(
       posting.date.year,
@@ -174,6 +199,7 @@ final class VaultJournal implements Journal {
           parts: parts.length > 1 ? parts : const [],
           refundOf: posting.refundOf?.value,
           installments: installments,
+          recurring: recurring,
         );
       case PostingKind.transfer:
         final from = principal.where((leg) => _int(leg.amount) < 0);
@@ -254,6 +280,11 @@ final class VaultJournal implements Journal {
     final account = _account(e.account);
     final day = _day(e.date);
     final refunded = e.refundOf;
+    final template = _parse(e.recurring ?? '');
+    if (template != null && await _confirm(id, e, account, day, template)) {
+      await _note(id, e.note);
+      return id;
+    }
     switch (e.type) {
       case ui.EntryType.expense:
         await _spend(id, e, account, day);
@@ -598,6 +629,201 @@ final class VaultJournal implements Journal {
     final parsed = _parse(id);
     if (parsed != null && !_store.hasPosting(parsed)) return parsed;
     return PublicId.generate();
+  }
+
+  /// Books [e] as the next open occurrence of [template]. False when it
+  /// cannot be: another account or kind, or nothing left to confirm; it is
+  /// then booked as an ordinary entry.
+  Future<bool> _confirm(
+    PublicId id,
+    ui.Entry e,
+    Account account,
+    BusinessDate day,
+    PublicId template,
+  ) async {
+    final income = e.type == ui.EntryType.income;
+    if (e.refundOf != null ||
+        (e.type != ui.EntryType.expense && !income) ||
+        account.kind == AccountKind.creditCard) {
+      return false;
+    }
+    final saved = _template(template);
+    if (saved == null) return false;
+    final (kept, active) = saved;
+    if (!active ||
+        kept.accountId != account.id ||
+        kept.amount.minorUnits.isNegative == income) {
+      return false;
+    }
+    final due = _store
+        .dueRecurring(
+          _workspace,
+          after: _day(e.date.subtract(const Duration(days: 400))),
+          through: _day(e.date.add(const Duration(days: 400))),
+        )
+        .where((c) => c.template.id == template)
+        .map((c) => c.dueDate)
+        .firstOrNull;
+    if (due == null) return false;
+    try {
+      await _planning.confirm(
+        ConfirmRecurring(
+          operation: _op(),
+          postingId: id,
+          templateId: template,
+          expectedTemplateVersion: kept.version,
+          dueDate: due,
+          account: _ref(account),
+          amount: _ntd(e.amount),
+          date: day,
+          allocations: await _shares(e, income: income),
+          tags: await _tags(e.tags),
+          merchant: await _merchant(e.merchant),
+        ),
+      );
+    } on AppFailure catch (error) {
+      if (error.diagnostic.startsWith('recurring.')) return false;
+      rethrow;
+    }
+    return true;
+  }
+
+  // Budgets and recurring items.
+
+  /// The budget plans that apply this month, by category (null for all
+  /// spending): of several, the one that started last.
+  Map<PublicId?, BudgetPlan> _applying(Map<PublicId, Category> categories) {
+    final today = _clock.today();
+    final now = today.year * 12 + today.month;
+    final plans = <PublicId?, BudgetPlan>{};
+    for (final plan in _store.budgetPlans(_workspace)) {
+      final start = plan.month.year * 12 + plan.month.month;
+      if (start > now || (start < now && !plan.repeats)) continue;
+      final category = plan.categoryId;
+      final key = category == null
+          ? null
+          : _live(categories, category, (c) => c.replacementId)?.id;
+      plans[key] = plan;
+    }
+    return plans;
+  }
+
+  Map<PublicId, Category> _categoryMap() => {
+    for (final c in _store.categories(_workspace)) c.id: c,
+  };
+
+  @override
+  Future<void> setBudget(ui.Budget budget) async {
+    final category = budget.category == ui.Ledger.allSpending
+        ? null
+        : (await _category(budget.category, income: false)).id;
+    final current = _applying(_categoryMap())[category];
+    final today = _clock.today();
+    await _planning.setBudget(
+      SetBudget(
+        operation: _op(),
+        budgetId: current?.id ?? PublicId.generate(),
+        expectedVersion: current?.version ?? 0,
+        month: current?.month ?? ReportMonth(today.year, today.month),
+        limit: _ntd(budget.limit),
+        categoryId: category,
+        warningPercent: budget.warning,
+        repeats: true,
+      ),
+    );
+  }
+
+  @override
+  Future<void> removeBudget(String category) async {
+    final all = category == ui.Ledger.allSpending;
+    final id = all ? null : _categoryId(category, CategoryKind.expense);
+    if (!all && id == null) return;
+    final categories = _categoryMap();
+    for (final plan in _store.budgetPlans(_workspace)) {
+      final planned = plan.categoryId;
+      final key = planned == null
+          ? null
+          : _live(categories, planned, (c) => c.replacementId)?.id;
+      if (key != id) continue;
+      await _planning.removeBudget(
+        RemoveBudget(
+          operation: _op(),
+          budgetId: plan.id,
+          expectedVersion: plan.version,
+        ),
+      );
+    }
+  }
+
+  (RecurringTemplate, bool)? _template(PublicId id) {
+    for (final saved in _store.recurringTemplates(_workspace)) {
+      if (saved.$1.id == id) return saved;
+    }
+    return null;
+  }
+
+  ui.Recurring _recurringOf(
+    RecurringTemplate t, {
+    required bool active,
+    required String Function(PublicId id) category,
+    required String Function(PublicId? id) merchant,
+  }) {
+    final categoryId = t.categoryId;
+    final last = t.lastDate;
+    return ui.Recurring(
+      id: t.id.value,
+      name: t.label,
+      amount: _int(t.amount).abs(),
+      day: t.firstDate.day,
+      account: t.accountId.value,
+      category: categoryId == null ? '' : category(categoryId),
+      active: active,
+      unit: ui.RepeatUnit.values.byName(t.unit.name),
+      every: t.every,
+      start: _date(t.firstDate),
+      end: last == null ? null : _date(last),
+      income: !t.amount.minorUnits.isNegative,
+      merchant: merchant(t.merchantId),
+    );
+  }
+
+  @override
+  Future<void> saveRecurring(ui.Recurring item) async {
+    final id = _parse(item.id) ?? PublicId.generate();
+    final current = _template(id);
+    final category = item.category.isEmpty
+        ? null
+        : (await _category(item.category, income: item.income)).id;
+    final merchant = item.merchant.isEmpty
+        ? null
+        : (await _label(item.merchant, merchant: true)).id;
+    final today = _clock.today();
+    final first = item.start ?? DateTime.utc(today.year, today.month, item.day);
+    final end = item.end;
+    await _planning.saveRecurring(
+      SaveRecurring(
+        operation: _op(),
+        templateId: id,
+        expectedVersion: current?.$1.version ?? 0,
+        accountId: _account(item.account).id,
+        label: item.name,
+        amount: _ntd(item.income ? item.amount : -item.amount),
+        firstDate: _day(first),
+        unit: RecurrenceUnit.values.byName(item.unit.name),
+        every: item.every,
+        active: item.active,
+        lastDate: end == null ? null : _day(end),
+        categoryId: category,
+        merchantId: merchant,
+      ),
+    );
+  }
+
+  @override
+  Future<void> removeRecurring(ui.Recurring item) async {
+    final id = _parse(item.id);
+    if (id == null || _template(id) == null) return;
+    await saveRecurring(item.copyWith(active: false));
   }
 
   // Accounts.
@@ -954,6 +1180,8 @@ int _int(Money money) => money.minorUnits.toInt();
 
 BusinessDate _day(DateTime date) =>
     BusinessDate(date.year, date.month, date.day);
+
+DateTime _date(BusinessDate day) => DateTime.utc(day.year, day.month, day.day);
 
 AccountKind _kind(ui.AccountKind kind) => switch (kind) {
   ui.AccountKind.cash => AccountKind.cash,
