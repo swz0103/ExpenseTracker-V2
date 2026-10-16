@@ -69,6 +69,22 @@ void main() {
     final keeper = VaultKeeper(first, vaultOf(first), journal);
     final path = await keeper.backUp();
     expect(path, startsWith(keeper.backupFolder));
+    expect(await keeper.backUpIfDue(), isNull);
+    expect(await keeper.backUpIfDue(every: Duration.zero), isNull);
+    ledger.add(
+      Entry(
+        id: ledger.newId(),
+        date: DateTime.utc(2026, 10, 2),
+        type: EntryType.expense,
+        amount: 80,
+        account: cash.id,
+        category: '飲食日常',
+      ),
+    );
+    await ledger.settled;
+    final weekly = await keeper.backUpIfDue(every: Duration.zero, keep: 1);
+    expect(weekly, isNotNull);
+    expect(Directory(keeper.backupFolder).listSync(), hasLength(1));
 
     final second = startupIn('second');
     expect(second.state, isA<NeedsSetup>());
@@ -76,6 +92,7 @@ void main() {
     final restored = await VaultJournal(vaultOf(second), clock: clock).load();
     expect(restored.balance(cash.id), 880);
     expect(restored.entriesIn(2026, 10), hasLength(1));
+    expect(File(weekly!).existsSync(), isTrue);
     vaultOf(second).close();
     first.lock();
   });

@@ -81,12 +81,15 @@ class _OpenedLedgerState extends State<OpenedLedger> {
     widget.vault,
     market: MarketDataGateway(transport: const IoMarketTransport()),
   );
+  late final _keeper = VaultKeeper(widget.startup, widget.vault, _journal);
   late final Future<Ledger> _ledger = _open();
 
-  /// Loads the book, then fetches closing prices in the background.
+  /// Loads the book, then fetches closing prices and takes the weekly
+  /// backup in the background.
   Future<Ledger> _open() async {
     final ledger = await _journal.load();
     unawaited(_quotes(ledger));
+    unawaited(_keeper.backUpIfDue().catchError((Object _) => null));
     return ledger;
   }
 
@@ -115,10 +118,7 @@ class _OpenedLedgerState extends State<OpenedLedger> {
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(
-        ledger: ledger,
-        keeper: VaultKeeper(widget.startup, widget.vault, _journal),
-      );
+      return AppShell(ledger: ledger, keeper: _keeper);
     },
   );
 }

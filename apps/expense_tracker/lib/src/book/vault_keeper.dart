@@ -42,6 +42,42 @@ final class VaultKeeper implements Keeper {
     return file.path;
   }
 
+  /// The backups in [backupFolder], newest first; their names carry the
+  /// time they were taken.
+  List<File> _backups() {
+    if (!_folder.existsSync()) return const [];
+    return [
+      for (final entity in _folder.listSync())
+        if (entity is File && entity.path.endsWith('.etbk')) entity,
+    ]..sort((a, b) => b.path.compareTo(a.path));
+  }
+
+  /// Writes a backup when the newest one is older than [every] and the
+  /// ledger changed since, then keeps only the newest [keep]. Returns the
+  /// new backup's path, or null when none was due.
+  Future<String?> backUpIfDue({
+    Duration every = const Duration(days: 7),
+    int keep = 5,
+  }) async {
+    final files = _backups();
+    if (files.isNotEmpty) {
+      try {
+        final header = await LedgerBackup.readHeader(files.first);
+        final age = DateTime.now().difference(header.createdAt.value);
+        if (age < every || header.events == _vault.store.eventCount) {
+          return null;
+        }
+      } on Object {
+        // An unreadable newest backup is replaced by a good one.
+      }
+    }
+    final path = await backUp();
+    for (final old in _backups().skip(keep)) {
+      await old.delete();
+    }
+    return path;
+  }
+
   @override
   Future<void> changePassword(String current, String next) async {
     await _startup.codec.unlockWithPassword(_vault.keys.keyring, current);

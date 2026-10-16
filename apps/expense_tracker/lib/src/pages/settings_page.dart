@@ -242,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           _Export(
                             badge: '備份',
                             title: '立即備份',
-                            detail: '加密備份到 ${keeper.backupFolder}',
+                            detail: '每週會自動備份，保留最近 5 份',
                             onTap: () => _backUp(keeper),
                           ),
                           const Divider(),
