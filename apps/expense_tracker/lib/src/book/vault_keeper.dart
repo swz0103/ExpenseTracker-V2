@@ -27,7 +27,8 @@ final class VaultKeeper implements Keeper {
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp =
         '${now.year}${two(now.month)}${two(now.day)}'
-        '-${two(now.hour)}${two(now.minute)}${two(now.second)}';
+        '-${two(now.hour)}${two(now.minute)}${two(now.second)}'
+        '${now.millisecond.toString().padLeft(3, '0')}';
     await _folder.create(recursive: true);
     final file = File('${_folder.path}/記帳本-$stamp.etbk');
     await _journal.exclusive(

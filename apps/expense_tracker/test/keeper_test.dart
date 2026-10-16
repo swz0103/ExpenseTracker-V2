@@ -88,11 +88,11 @@ void main() {
 
     final second = startupIn('second');
     expect(second.state, isA<NeedsSetup>());
-    await second.restore(path, password);
+    expect(File(path).existsSync(), isFalse);
+    await second.restore(weekly!, password);
     final restored = await VaultJournal(vaultOf(second), clock: clock).load();
-    expect(restored.balance(cash.id), 880);
-    expect(restored.entriesIn(2026, 10), hasLength(1));
-    expect(File(weekly!).existsSync(), isTrue);
+    expect(restored.balance(cash.id), 800);
+    expect(restored.entriesIn(2026, 10), hasLength(2));
     vaultOf(second).close();
     first.lock();
   });
