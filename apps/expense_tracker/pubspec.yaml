@@ -31,6 +31,10 @@ dependencies:
     path: ../../infrastructure/ledger_sqlcipher
   ledger_vault:
     path: ../../infrastructure/ledger_vault
+  market_adapters:
+    path: ../../infrastructure/market_adapters
+  market_data:
+    path: ../../packages/market_data
   recurring_transactions:
     path: ../../packages/recurring_transactions
   reports:

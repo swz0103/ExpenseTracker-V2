@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/material.dart';
 import 'package:ledger_vault/ledger_vault.dart';
+import 'package:market_adapters/market_adapters.dart';
+import 'package:market_data/market_data.dart';
 
 import 'app.dart';
 import 'book/looks.dart';
@@ -74,7 +76,22 @@ class OpenedLedger extends StatefulWidget {
 }
 
 class _OpenedLedgerState extends State<OpenedLedger> {
-  late final Future<Ledger> _ledger = VaultJournal(widget.vault).load();
+  late final _journal = VaultJournal(
+    widget.vault,
+    market: MarketDataGateway(transport: const IoMarketTransport()),
+  );
+  late final Future<Ledger> _ledger = _open();
+
+  /// Loads the book, then fetches closing prices in the background.
+  Future<Ledger> _open() async {
+    final ledger = await _journal.load();
+    unawaited(_quotes(ledger));
+    return ledger;
+  }
+
+  Future<void> _quotes(Ledger ledger) async {
+    if (await _journal.refreshQuotes() && mounted) ledger.refresh();
+  }
 
   @override
   void initState() {

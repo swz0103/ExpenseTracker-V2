@@ -1105,6 +1105,9 @@ final class Ledger extends ChangeNotifier {
     });
   }
 
+  /// Reloads what the [journal] keeps, such as new closing prices.
+  void refresh() => _keep((_) async {});
+
   /// Adds [entry]; a sale of more shares than are held is refused.
   void add(Entry entry) {
     _entries.add(entry);

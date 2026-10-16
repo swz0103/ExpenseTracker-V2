@@ -10,6 +10,7 @@ import 'package:investments/investments.dart';
 import 'package:ledger/ledger.dart';
 import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
 import 'package:ledger_vault/ledger_vault.dart';
+import 'package:market_data/market_data.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:reports/reports.dart';
 
@@ -51,12 +52,20 @@ typedef _Label = ({PublicId id, String name, int version});
 /// Trades go to one investment account per funding account, at a broker
 /// named 券商, in instruments listed on TWSE.
 final class VaultJournal implements Journal {
-  VaultJournal(this._vault, {Clock clock = const SystemClock()})
-    : _clock = clock,
-      _books = Bookkeeping(_vault.ledger);
+  VaultJournal(
+    this._vault, {
+    Clock clock = const SystemClock(),
+    MarketDataGateway? market,
+  }) : _clock = clock,
+       _market = market,
+       _books = Bookkeeping(_vault.ledger);
 
   final OpenVault _vault;
   final Clock _clock;
+
+  /// Where closing prices come from; none in tests.
+  final MarketDataGateway? _market;
+  final _quotes = <String, double>{};
   final Bookkeeping<SqlBookkeeping> _books;
   late final _cards = CardBook(_books);
   late final _planning = PlanningBook(_books);
@@ -795,9 +804,60 @@ final class VaultJournal implements Journal {
       entries,
       [
         for (final MapEntry(key: code, value: (name, price)) in quotes.entries)
-          ui.Holding(code, name, shares: 0, price: price, cost: 0, change: 0),
+          ui.Holding(
+            code,
+            name,
+            shares: 0,
+            price: _quotes[code] ?? price,
+            cost: 0,
+            change: 0,
+          ),
       ],
     );
+  }
+
+  /// Fetches the latest close of every instrument still held, for the
+  /// holdings' value; a TWSE listing not found there is tried on TPEx.
+  /// Returns whether any price changed.
+  Future<bool> refreshQuotes() async {
+    final market = _market;
+    if (market == null) return false;
+    final held = <String, InvestmentInstrument>{};
+    for (final account in _store.investmentAccounts(_workspace)) {
+      for (final id in _store.positions(account.id)) {
+        final instrument = _store.instrument(id);
+        if (instrument != null) held[instrument.symbol] = instrument;
+      }
+    }
+    var changed = false;
+    for (final MapEntry(key: symbol, value: instrument) in held.entries) {
+      try {
+        var result = await market.stockClose(instrument);
+        if (result.state == MarketState.missing &&
+            instrument.marketCode == 'TWSE') {
+          result = await market.stockClose(
+            InvestmentInstrument(
+              id: instrument.id,
+              kind: instrument.kind,
+              marketCode: 'TPEX',
+              symbol: instrument.symbol,
+              name: instrument.name,
+              tradingCurrency: instrument.tradingCurrency,
+            ),
+          );
+        }
+        final close = result.value;
+        final price = close == null
+            ? null
+            : double.tryParse(close.decimalPrice);
+        if (price == null || _quotes[symbol] == price) continue;
+        _quotes[symbol] = price;
+        changed = true;
+      } on Object {
+        continue;
+      }
+    }
+    return changed;
   }
 
   Future<void> _trade(
