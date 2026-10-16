@@ -150,6 +150,8 @@ abstract final class LedgerReplay {
         await t.voidTrade(PublicId.parse(p['tradeId']! as String));
       case 'budget.set':
         await t.saveBudget(BudgetPlanCodec().decode(p['plan']! as String));
+      case 'budget.removed':
+        await t.removeBudget(PublicId.parse(p['budgetId']! as String));
       case 'recurring.saved':
         await t.saveRecurring(
           RecurringTemplateCodec().decode(p['template']! as String),

@@ -131,6 +131,11 @@ final class SqlBookkeeping
   }
 
   @override
+  Future<void> removeBudget(PublicId id) async {
+    _transaction.execute('DELETE FROM plan_budgets WHERE id = ?', [id.value]);
+  }
+
+  @override
   Future<(RecurringTemplate, bool)?> recurring(PublicId id) async {
     final rows = _transaction.select(
       'SELECT active, payload FROM plan_recurring WHERE id = ?',

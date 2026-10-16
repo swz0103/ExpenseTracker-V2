@@ -134,6 +134,40 @@ void main() {
     );
   });
 
+  test('a removed budget applies to no month', () async {
+    final food = await category('餐飲');
+    final budget = PublicId.generate();
+    await planning.setBudget(
+      SetBudget(
+        operation: op(),
+        budgetId: budget,
+        expectedVersion: 0,
+        month: october,
+        limit: ntd(5000),
+        categoryId: food,
+        repeats: true,
+      ),
+    );
+    expect(ledger.budgetStatus(workspace, october), hasLength(1));
+    await expectLater(
+      planning.removeBudget(
+        RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 2),
+      ),
+      fails(FailureKind.conflict, 'budget.versionConflict'),
+    );
+    await planning.removeBudget(
+      RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 1),
+    );
+    expect(ledger.budgetStatus(workspace, october), isEmpty);
+    expect(ledger.budgetStatus(workspace, ReportMonth(2027, 1)), isEmpty);
+    await expectLater(
+      planning.removeBudget(
+        RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 1),
+      ),
+      fails(FailureKind.notFound, 'budget.not-found'),
+    );
+  });
+
   test('recurring templates propose, confirm once and stop', () async {
     final rent = PublicId.generate();
     Future<void> save(int expected, {bool active = true}) =>

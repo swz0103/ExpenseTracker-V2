@@ -264,6 +264,20 @@ final class EveryEventKind {
         categoryId: food,
       ),
     );
+    final dropped = PublicId.generate();
+    await planning.setBudget(
+      SetBudget(
+        operation: op(),
+        budgetId: dropped,
+        expectedVersion: 0,
+        month: ReportMonth(2026, 10),
+        limit: ntd(500),
+        repeats: true,
+      ),
+    );
+    await planning.removeBudget(
+      RemoveBudget(operation: op(), budgetId: dropped, expectedVersion: 1),
+    );
     final rent = PublicId.generate();
     await planning.saveRecurring(
       SaveRecurring(

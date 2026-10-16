@@ -1,5 +1,11 @@
-Noto Sans TC subset (Big5 common characters), Copyright 2014-2021 Adobe, SIL Open Font License 1.1.
+Copyright 2025 The Huninn Project Authors (https://github.com/justfont/Huninn)
 
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://openfontlicense.org
+
+
+-----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------
 

@@ -60,6 +60,34 @@ final class SetBudget implements Command<int> {
   int decodeResult(String encoded) => int.parse(encoded);
 }
 
+/// Removes a budget from every month, its own and later ones. Returns
+/// the version it had.
+final class RemoveBudget implements Command<int> {
+  RemoveBudget({
+    required this.operation,
+    required this.budgetId,
+    required this.expectedVersion,
+  });
+
+  @override
+  final OperationKey operation;
+  final PublicId budgetId;
+  final int expectedVersion;
+
+  @override
+  String get input => jsonEncode({
+    'command': 'remove-budget-v1',
+    'budgetId': budgetId.value,
+    'expectedVersion': expectedVersion,
+  });
+
+  @override
+  String encodeResult(int result) => '$result';
+
+  @override
+  int decodeResult(String encoded) => int.parse(encoded);
+}
+
 /// Creates, revises or stops a recurring template. A negative amount is an
 /// expense, a positive one an income. Returns the template's new version.
 final class SaveRecurring implements Command<int> {
