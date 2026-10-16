@@ -76,10 +76,9 @@ void main() {
   test('accounts and entries survive reopening', () async {
     var ledger = await create();
     expect(ledger.accounts, isEmpty);
-    expect(
-      [for (final c in ledger.categoriesFor(income: false)) c.name],
-      contains('飲食日常'),
-    );
+    expect([
+      for (final c in ledger.categoriesFor(income: false)) c.name,
+    ], contains('飲食日常'));
     final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
     final bank = Account(
       ledger.newId(),
@@ -210,9 +209,7 @@ void main() {
         .entriesIn(2026, 10)
         .firstWhere((e) => e.amount == 30000);
     expect(purchase.installments, 3);
-    final dinner = ledger
-        .entriesIn(2026, 10)
-        .firstWhere((e) => e.note == '晚餐');
+    final dinner = ledger.entriesIn(2026, 10).firstWhere((e) => e.note == '晚餐');
     expect(ledger.balance(bank.id), 50000 - 800);
 
     ledger.add(

@@ -1371,11 +1371,7 @@ final class VaultJournal implements Journal {
   }
 
   @override
-  Future<void> relabel(
-    String from,
-    String to, {
-    required bool merchant,
-  }) async {
+  Future<void> relabel(String from, String to, {required bool merchant}) async {
     final labels = _labels(merchant: merchant);
     final source = labels.where((l) => l.name == from).firstOrNull;
     if (source == null) return;
