@@ -8,31 +8,28 @@ import 'package:market_adapters/market_adapters.dart';
 import 'package:market_data/market_data.dart';
 
 import 'app.dart';
-import 'book/looks.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
 import 'demo/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/shell.dart';
+import 'platform.dart';
 import 'startup.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
 /// reachable from here; a test walks the imports to keep it that way.
 Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
-    Startup(
-      LedgerVault(directory, codec: KeyringCodec(), modules: [looksSchema]),
-      device: device,
-    );
+    Startup(LedgerVault(directory, codec: KeyringCodec()), device: device);
 
-/// Where this device keeps the ledger. Android's private app directory
-/// comes with the platform wiring (STATUS 4b-2); until then only desktop
-/// development builds can start.
-Directory applicationDirectory() {
+/// Where this device keeps the ledger: the app's private folder on
+/// Android, a folder in the home directory on desktop development builds.
+Future<Directory> applicationDirectory() async {
+  if (Platform.isAndroid) return androidFilesDirectory();
   final home = Platform.isWindows
       ? Platform.environment['APPDATA']
       : Platform.environment['HOME'];
-  if (Platform.isAndroid || Platform.isIOS || home == null) {
+  if (Platform.isIOS || home == null) {
     throw UnsupportedError('No ledger directory on this platform yet.');
   }
   return Directory('$home/.expense_tracker_v2');
@@ -76,7 +73,13 @@ class OpenedLedger extends StatefulWidget {
   State<OpenedLedger> createState() => _OpenedLedgerState();
 }
 
-class _OpenedLedgerState extends State<OpenedLedger> {
+class _OpenedLedgerState extends State<OpenedLedger>
+    with WidgetsBindingObserver {
+  /// How long the app may sit in the background before the ledger locks.
+  static const _away = Duration(minutes: 5);
+
+  DateTime? _leftAt;
+
   late final _journal = VaultJournal(
     widget.vault,
     market: MarketDataGateway(transport: const IoMarketTransport()),
@@ -100,11 +103,35 @@ class _OpenedLedgerState extends State<OpenedLedger> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final code = widget.startup.takeRecoveryCode();
     if (code == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(showRecoveryCode(context, code));
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Locks the ledger when the app comes back after [_away] or more.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused || AppLifecycleState.hidden:
+        _leftAt ??= DateTime.now();
+      case AppLifecycleState.resumed:
+        final left = _leftAt;
+        _leftAt = null;
+        if (left != null && DateTime.now().difference(left) >= _away) {
+          widget.startup.lock();
+        }
+      default:
+        break;
+    }
   }
 
   @override

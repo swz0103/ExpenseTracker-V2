@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
-import 'package:expense_tracker/src/book/looks.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/demo/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
@@ -25,7 +24,6 @@ void main() {
     vault = LedgerVault(
       directory,
       codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
-      modules: [looksSchema],
     );
   });
 
@@ -298,6 +296,22 @@ void main() {
     expect(booked.recurring, rent.id);
     expect(booked.category, '居家生活');
     expect(ledger.balance(bank.id), 50000 - 12000);
+    ledger.replace(
+      Entry(
+        id: booked.id,
+        date: booked.date,
+        type: booked.type,
+        amount: 12500,
+        account: booked.account,
+        category: booked.category,
+        note: booked.note,
+        recurring: booked.recurring,
+      ),
+    );
+
+    ledger = await reopen(ledger);
+    expect(rentEntries().single.amount, 12500);
+    expect(rentEntries().single.recurring, rent.id);
     ledger
       ..removeBudget('飲食日常')
       ..removeRecurring(rent.id);

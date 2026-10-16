@@ -87,6 +87,53 @@ extension BookQueries on LedgerStore {
     return PublicId.parse(rows.single['instrument_id']! as String);
   }
 
+  /// The tags of every posting in [workspace] that has any, by posting.
+  Map<PublicId, List<PublicId>> postingTags(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT t.posting_id, t.tag_id FROM ledger_posting_tags t '
+      'JOIN ledger_postings p ON p.id = t.posting_id WHERE p.workspace = ? '
+      'ORDER BY t.posting_id, t.tag_id',
+      [workspace.toString()],
+    );
+    final tags = <PublicId, List<PublicId>>{};
+    for (final row in rows) {
+      final posting = PublicId.parse(row['posting_id']! as String);
+      (tags[posting] ??= []).add(PublicId.parse(row['tag_id']! as String));
+    }
+    return tags;
+  }
+
+  /// The merchant of every posting in [workspace] that has one, by
+  /// posting.
+  Map<PublicId, PublicId> postingMerchants(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT m.posting_id, m.merchant_id FROM ledger_posting_merchants m '
+      'JOIN ledger_postings p ON p.id = m.posting_id WHERE p.workspace = ?',
+      [workspace.toString()],
+    );
+    final merchants = <PublicId, PublicId>{};
+    for (final row in rows) {
+      final posting = PublicId.parse(row['posting_id']! as String);
+      merchants[posting] = PublicId.parse(row['merchant_id']! as String);
+    }
+    return merchants;
+  }
+
+  /// The note of every posting in [workspace] that has one, by posting.
+  Map<PublicId, String> postingNotes(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT n.posting_id, n.text FROM ledger_notes n '
+      'JOIN ledger_postings p ON p.id = n.posting_id WHERE p.workspace = ?',
+      [workspace.toString()],
+    );
+    final notes = <PublicId, String>{};
+    for (final row in rows) {
+      final posting = PublicId.parse(row['posting_id']! as String);
+      notes[posting] = row['text']! as String;
+    }
+    return notes;
+  }
+
   /// Whether a posting with [id] exists, live or reversed.
   bool hasPosting(PublicId id) {
     const sql = 'SELECT 1 FROM ledger_postings WHERE id = ?';

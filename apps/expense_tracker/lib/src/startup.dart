@@ -130,13 +130,19 @@ final class Startup extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Adds this device's key once, after a password unlock.
+  /// Adds this device's key once, after a password unlock. A cancelled
+  /// fingerprint never blocks the unlock; the next one asks again.
   Future<void> _enrolDevice(OpenVault open) async {
     final device = this.device;
     if (device == null || open.keys.keyring.deviceIds.contains(device.id)) {
       return;
     }
-    await open.updateKeys(await open.keys.addDevice(device.id, device.wrapper));
+    try {
+      final keys = await open.keys.addDevice(device.id, device.wrapper);
+      await open.updateKeys(keys);
+    } on Object catch (error) {
+      debugPrint('Device key not enrolled: $error');
+    }
   }
 
   void _ready(OpenVault open) {

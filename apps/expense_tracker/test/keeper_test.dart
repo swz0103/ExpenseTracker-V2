@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
-import 'package:expense_tracker/src/book/looks.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/book/vault_keeper.dart';
 import 'package:expense_tracker/src/demo/ledger.dart';
@@ -33,7 +32,6 @@ void main() {
       LedgerVault(
         directory,
         codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
-        modules: [looksSchema],
       ),
       clock: clock,
     );
@@ -51,7 +49,13 @@ void main() {
     expect(first.takeRecoveryCode(), isNull);
     final journal = VaultJournal(vaultOf(first), clock: clock);
     final ledger = await journal.load();
-    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    final cash = Account(
+      ledger.newId(),
+      '錢包',
+      AccountKind.cash,
+      1000,
+      icon: 'safe',
+    );
     ledger.addAccount(cash);
     await ledger.settled;
     ledger.add(
@@ -93,6 +97,8 @@ void main() {
     final restored = await VaultJournal(vaultOf(second), clock: clock).load();
     expect(restored.balance(cash.id), 800);
     expect(restored.entriesIn(2026, 10), hasLength(2));
+    expect(restored.account(cash.id).icon, 'safe');
+    expect(restored.category('飲食日常').icon, 'food');
     vaultOf(second).close();
     first.lock();
   });

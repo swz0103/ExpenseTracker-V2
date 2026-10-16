@@ -12,7 +12,7 @@
 
 1. 在 Google Cloud 建立或選擇專案，啟用 Google Drive API。
 2. 設定 OAuth 同意畫面；測試期間把實際使用的 Google 帳號加入測試使用者。
-3. 為新 App 的 Android application ID 建立 Android OAuth client，登記正式簽章的 SHA-1。application ID 在 4b-2 定案後補在這裡。
+3. 為新 App 的 Android application ID 建立 Android OAuth client，登記正式簽章的 SHA-1。application ID 是 `io.github.swz0103.expensetracker`（見 [Android 建置](android.md)）。
 4. 建立 Web application OAuth client，取得 `*.apps.googleusercontent.com` client ID，作為 Android Google Identity 流程的 `serverClientId`。
 5. 把 client ID 存成 GitHub Actions secret `GOOGLE_SERVER_CLIENT_ID`，建置時用 `--dart-define` 帶入；workflow 不會輸出這個值。
 
