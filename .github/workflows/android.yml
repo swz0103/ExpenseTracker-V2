@@ -1,0 +1,90 @@
+name: Android APK
+
+# Builds the phone app. On main it puts the APK on the release
+# `android-latest`, where it can be downloaded; pull requests only check
+# that it builds.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android.yml'
+      - 'apps/**'
+      - 'infrastructure/**'
+      - 'packages/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/android.yml'
+      - 'apps/**'
+      - 'infrastructure/**'
+      - 'packages/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Signing key
+        # The release key from repository secrets (docs/STATUS.md); without
+        # them the APK is signed with a debug key, for trying it out only.
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_PREVIEW_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_PREVIEW_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE" ]; then
+            echo 'No signing secrets: the APK is debug-signed.'
+            exit 0
+          fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > apps/expense_tracker/android/key.properties
+      - name: Build the APK
+        working-directory: apps/expense_tracker
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "$RUNNER_TEMP/ExpenseTracker.apk"
+      - name: Publish on the android-latest release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if ! gh release view android-latest --repo "$repo" > /dev/null 2>&1; then
+            gh release create android-latest --repo "$repo" --prerelease \
+              --target "$SOURCE_SHA" --title '記帳本 Android 最新版' \
+              --notes '從 main 最新一次建置的安裝檔。'
+          fi
+          gh release upload android-latest "$RUNNER_TEMP/ExpenseTracker.apk" \
+            --repo "$repo" --clobber
+          gh release edit android-latest --repo "$repo" \
+            --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。"
