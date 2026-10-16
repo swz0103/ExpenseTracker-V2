@@ -85,4 +85,30 @@ void main() {
     expect(startup.state, isA<Ready>());
     startup.lock();
   });
+
+  test('a cancelled fingerprint does not stop the password unlock', () async {
+    final first = Startup(vault);
+    await first.setUp(password);
+    first.lock();
+    final startup = Startup(
+      vault,
+      device: DeviceUnlock('phone-2', _CancelledDeviceKey()),
+    );
+    await startup.unlockWithPassword(password);
+    expect(startup.state, isA<Ready>());
+    final keys = (startup.state as Ready).vault.keys.keyring;
+    expect(keys.deviceIds, isNot(contains('phone-2')));
+    startup.lock();
+  });
+}
+
+/// A device key whose fingerprint prompt is always cancelled.
+final class _CancelledDeviceKey implements DeviceKeyWrapper {
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      Future.error(StateError('cancelled'));
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
+      Future.error(StateError('cancelled'));
 }

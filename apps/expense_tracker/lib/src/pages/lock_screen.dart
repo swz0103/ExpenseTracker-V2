@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:backup_security/backup_security.dart';
@@ -34,6 +35,42 @@ class _LockScreenState extends State<LockScreen> {
   String? _problem;
 
   bool get _creating => widget.startup.state is NeedsSetup && !_restoring;
+
+  /// This phone can open the ledger with a fingerprint or face.
+  bool get _biometric => switch (widget.startup.state) {
+    Locked(:final deviceUnlock) => deviceUnlock,
+    _ => false,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    if (_biometric) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_unlockWithDevice());
+      });
+    }
+  }
+
+  /// Asks for the fingerprint or face. The first time, before this phone's
+  /// key is enrolled by a password unlock, it says so instead.
+  Future<void> _unlockWithDevice() async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await widget.startup.unlockWithDevice();
+    } on KeyringException catch (error) {
+      _fail(
+        error.error == KeyringError.unknownDevice
+            ? '先用密碼打開一次，之後就能用指紋解鎖'
+            : '指紋解鎖失敗，請改用密碼',
+      );
+    } on Object {
+      _fail('指紋解鎖已取消，可以改用密碼');
+    }
+  }
 
   @override
   void dispose() {
@@ -218,6 +255,11 @@ class _LockScreenState extends State<LockScreen> {
                               _problem = null;
                             }),
                       child: Text(_recovery ? '改用密碼' : '忘記密碼？用救援碼'),
+                    ),
+                  if (_biometric && !_recovery)
+                    TextButton(
+                      onPressed: _busy ? null : _unlockWithDevice,
+                      child: const Text('用指紋或臉部解鎖'),
                     ),
                   if (empty)
                     TextButton(
