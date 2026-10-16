@@ -289,7 +289,12 @@ void main() {
     ledger.confirm(rent);
 
     ledger = await reopen(ledger);
-    final booked = ledger.entriesIn(2026, 9).single;
+    List<Entry> rentEntries() => [
+      for (final month in const [9, 10])
+        for (final e in ledger.entriesIn(2026, month))
+          if (e.recurring != null) e,
+    ];
+    final booked = rentEntries().single;
     expect(booked.recurring, rent.id);
     expect(booked.category, '居家生活');
     expect(ledger.balance(bank.id), 50000 - 12000);
@@ -300,7 +305,7 @@ void main() {
     ledger = await reopen(ledger);
     expect([for (final b in ledger.budgets) b.category], [Ledger.allSpending]);
     expect(ledger.recurring.single.active, isFalse);
-    expect(ledger.entriesIn(2026, 9), hasLength(1));
+    expect(rentEntries(), hasLength(1));
   });
 
   test('trades, dividends and splits are kept', () async {

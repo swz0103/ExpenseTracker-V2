@@ -413,6 +413,7 @@ final class VaultJournal implements Journal {
     BusinessDate day,
     PublicId original,
   ) async {
+    final shares = _refundShares(original, e.amount);
     final charge = _store.cardChargesByPosting(_workspace)[original];
     if (charge == null) {
       await _books.recordRefund(
@@ -423,6 +424,7 @@ final class VaultJournal implements Journal {
           account: _ref(account),
           date: day,
           amount: _ntd(e.amount),
+          allocations: shares,
         ),
       );
       return;
@@ -439,8 +441,34 @@ final class VaultJournal implements Journal {
         card: _ref(account),
         postedOn: day,
         amount: _ntd(e.amount),
+        allocations: shares,
       ),
     );
+  }
+
+  /// [amount] of the spending [original] given back, spread over its
+  /// categories in proportion, at the category versions it was booked
+  /// with, as the ledger requires.
+  List<CategoryShare> _refundShares(PublicId original, int amount) {
+    final posting = _store
+        .workspacePostings(_workspace)
+        .where((p) => p.id == original)
+        .firstOrNull;
+    final parts = posting?.allocations ?? const <Allocation>[];
+    if (parts.isEmpty) return const [];
+    final total = parts.fold(0, (sum, a) => sum + _int(a.amount));
+    var left = amount;
+    final shares = <CategoryShare>[];
+    for (final (i, a) in parts.indexed) {
+      final value = i == parts.length - 1
+          ? left
+          : (amount * _int(a.amount) / total).round();
+      left -= value;
+      if (value <= 0) continue;
+      final version = a.expectedCategoryVersion ?? 1;
+      shares.add(CategoryShare(a.categoryId, version, _ntd(value)));
+    }
+    return shares;
   }
 
   Future<void> _transfer(
@@ -691,15 +719,23 @@ final class VaultJournal implements Journal {
         kept.amount.minorUnits.isNegative == income) {
       return false;
     }
-    final due = _store
-        .dueRecurring(
-          _workspace,
-          after: _day(e.date.subtract(const Duration(days: 400))),
-          through: _day(e.date.add(const Duration(days: 400))),
-        )
-        .where((c) => c.template.id == template)
-        .map((c) => c.dueDate)
-        .firstOrNull;
+    // The open occurrence nearest the entry: one booked a little early or
+    // late settles its own day.
+    BusinessDate? due;
+    var gap = 1 << 30;
+    final candidates = _store.dueRecurring(
+      _workspace,
+      after: _day(e.date.subtract(const Duration(days: 400))),
+      through: _day(e.date.add(const Duration(days: 400))),
+    );
+    for (final candidate in candidates) {
+      if (candidate.template.id != template) continue;
+      final days = _date(candidate.dueDate).difference(e.date).inDays.abs();
+      if (days < gap) {
+        gap = days;
+        due = candidate.dueDate;
+      }
+    }
     if (due == null) return false;
     try {
       await _planning.confirm(
