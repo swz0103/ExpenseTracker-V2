@@ -6,9 +6,11 @@ import 'session.dart';
 /// The app shell. The screens are being rebuilt on the new architecture;
 /// until then the shell shows [home], or that the ledger is ready.
 class ExpenseApp extends StatelessWidget {
-  const ExpenseApp({super.key, required this.session, this.home, this.frame});
+  const ExpenseApp({super.key, this.session, this.home, this.frame});
 
-  final AppSession session;
+  /// The command session of the older home screen; the screens now work
+  /// on a ledger of their own.
+  final AppSession? session;
   final Widget? home;
 
   /// Wraps every route, as the web preview's phone frame does.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:backup_security/backup_security.dart';
@@ -5,13 +6,21 @@ import 'package:flutter/material.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
 import 'app.dart';
+import 'book/looks.dart';
+import 'book/vault_journal.dart';
+import 'demo/ledger.dart';
+import 'pages/lock_screen.dart';
+import 'pages/shell.dart';
 import 'startup.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
 /// reachable from here; a test walks the imports to keep it that way.
 Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
-    Startup(LedgerVault(directory, codec: KeyringCodec()), device: device);
+    Startup(
+      LedgerVault(directory, codec: KeyringCodec(), modules: [looksSchema]),
+      device: device,
+    );
 
 /// Where this device keeps the ledger. Android's private app directory
 /// comes with the platform wiring (STATUS 4b-2); until then only desktop
@@ -26,32 +35,69 @@ Directory applicationDirectory() {
   return Directory('$home/.expense_tracker_v2');
 }
 
-/// Follows [startup]: the app once a ledger is unlocked, otherwise the
-/// setup and unlock screens, which are rebuilt with the new interface.
+/// Follows [startup]: the lock screen until a ledger is open, then the
+/// app on that ledger.
 class VaultRoot extends StatelessWidget {
   const VaultRoot({super.key, required this.startup});
 
   final Startup startup;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: startup,
-    builder: (context, _) => switch (startup.state) {
-      Ready(:final session) => ExpenseApp(session: session),
-      NeedsSetup() => const _Waiting('記帳本 V2：尚未建立帳本'),
-      Locked() => const _Waiting('記帳本 V2：已鎖定'),
-    },
+  Widget build(BuildContext context) => ExpenseApp(
+    home: ListenableBuilder(
+      listenable: startup,
+      builder: (context, _) => switch (startup.state) {
+        Ready(:final vault) => OpenedLedger(
+          key: ObjectKey(vault),
+          startup: startup,
+          vault: vault,
+        ),
+        final state => LockScreen(
+          key: ValueKey(state.runtimeType),
+          startup: startup,
+        ),
+      },
+    ),
   );
 }
 
-class _Waiting extends StatelessWidget {
-  const _Waiting(this.message);
+/// The app on an unlocked [vault]: it loads the book, then shows it. A
+/// ledger just created shows its recovery code first.
+class OpenedLedger extends StatefulWidget {
+  const OpenedLedger({super.key, required this.startup, required this.vault});
 
-  final String message;
+  final Startup startup;
+  final OpenVault vault;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: Scaffold(body: Center(child: Text(message))),
+  State<OpenedLedger> createState() => _OpenedLedgerState();
+}
+
+class _OpenedLedgerState extends State<OpenedLedger> {
+  late final Future<Ledger> _ledger = VaultJournal(widget.vault).load();
+
+  @override
+  void initState() {
+    super.initState();
+    final code = widget.startup.takeRecoveryCode();
+    if (code == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(showRecoveryCode(context, code));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder(
+    future: _ledger,
+    builder: (context, snapshot) {
+      final ledger = snapshot.data;
+      if (snapshot.hasError) {
+        return Scaffold(body: Center(child: Text('無法讀取帳本：${snapshot.error}')));
+      }
+      if (ledger == null) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      return AppShell(ledger: ledger);
+    },
   );
 }

@@ -166,19 +166,24 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  InkWell(
-                    onTap: _reset,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          Text('重設範例資料', style: TextStyle(color: Hue.danger)),
-                          Spacer(),
-                          GlyphIcon(Glyph.reset, color: Hue.danger),
-                        ],
+                  // Only the preview's made-up book can be reset.
+                  if (ledger.journal == null)
+                    InkWell(
+                      onTap: _reset,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              '重設範例資料',
+                              style: TextStyle(color: Hue.danger),
+                            ),
+                            Spacer(),
+                            GlyphIcon(Glyph.reset, color: Hue.danger),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

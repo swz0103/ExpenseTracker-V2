@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
+import 'package:foundation_values/foundation_values.dart' show PublicId;
 
+import '../book/journal.dart';
 import '../look/figures.dart';
 
 /// What an entry does. Buys, sells and dividends are investment entries.
@@ -497,6 +499,7 @@ final class Ledger extends ChangeNotifier {
     required List<Holding> holdings,
     required List<Budget> budgets,
     required List<Recurring> recurring,
+    this.journal,
   }) : _accounts = [...accounts],
        _categories = [...categories],
        _entries = [...entries],
@@ -512,6 +515,13 @@ final class Ledger extends ChangeNotifier {
   static const feeCategory = '其他支出';
 
   final DateTime today;
+
+  /// Where changes are kept; none in the preview, which forgets them.
+  final Journal? journal;
+
+  /// The last change the [journal] refused, for the screens to report.
+  final problem = ValueNotifier<Object?>(null);
+
   final List<Account> _accounts;
   final List<Category> _categories;
   final List<Entry> _entries;
@@ -520,7 +530,6 @@ final class Ledger extends ChangeNotifier {
   final List<Recurring> _recurring;
   var _holdings = <Holding>[];
   var _lots = <String, List<Lot>>{};
-  var _serial = 0;
 
   /// Hides the summary figures on the overview and accounts.
   var hidden = false;
@@ -1052,15 +1061,55 @@ final class Ledger extends ChangeNotifier {
 
   // Changes.
 
-  String newId() {
-    final stamp = DateTime.now().microsecondsSinceEpoch;
-    return 'entry-$stamp-${_serial++}';
+  String newId() => PublicId.generate().value;
+
+  var _queue = Future<void>.value();
+  var _waiting = 0;
+
+  /// The id an edited entry has in the [journal] now, by its old one.
+  final _renamed = <String, String>{};
+
+  String _current(String id) {
+    var current = id;
+    for (var hops = 0; hops < 64; hops++) {
+      final next = _renamed[current];
+      if (next == null) break;
+      current = next;
+    }
+    return current;
+  }
+
+  /// Done once every change so far has reached the [journal] and the
+  /// ledger has reloaded what it kept.
+  Future<void> get settled => _queue;
+
+  /// Passes a change to the [journal]. Once nothing else waits, reloads
+  /// what was kept, so ids and figures match the store; a refused change
+  /// is undone that way and reported through [problem].
+  void _keep(Future<void> Function(Journal journal) change) {
+    final journal = this.journal;
+    if (journal == null) return;
+    _waiting++;
+    _queue = _queue.then((_) async {
+      try {
+        await change(journal);
+      } on Object catch (error) {
+        problem.value = error;
+      }
+      if (--_waiting > 0) return;
+      try {
+        _adopt(await journal.load());
+      } on Object catch (error) {
+        problem.value = error;
+      }
+    });
   }
 
   /// Adds [entry]; a sale of more shares than are held is refused.
   void add(Entry entry) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast());
+    _keep((j) => j.addEntries([entry]));
   }
 
   /// Adds every one of [entries] at once, as an import does.
@@ -1069,23 +1118,30 @@ final class Ledger extends ChangeNotifier {
     final count = _entries.length;
     _entries.addAll(entries);
     _replayOrUndo(() => _entries.removeRange(count, _entries.length));
+    _keep((j) => j.addEntries(entries));
   }
 
   /// Puts [entry] in place of the entry with the same id.
   void replace(Entry entry) {
-    final index = _entries.indexWhere((e) => e.id == entry.id);
+    final id = _current(entry.id);
+    final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return add(entry);
     final before = _entries[index];
     _entries[index] = entry;
     _replayOrUndo(() => _entries[index] = before);
+    _keep((j) async {
+      _renamed[before.id] = await j.replaceEntry(before, entry);
+    });
   }
 
   /// Removes the entry with [id] and returns it with its place, for undo.
   (int, Entry)? remove(String id) {
-    final index = _entries.indexWhere((e) => e.id == id);
+    final current = _current(id);
+    final index = _entries.indexWhere((e) => e.id == current);
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
+    _keep((j) => j.removeEntry(removed));
     return (index, removed);
   }
 
@@ -1093,6 +1149,7 @@ final class Ledger extends ChangeNotifier {
     final (index, entry) = removed;
     _entries.insert(index.clamp(0, _entries.length), entry);
     _replayOrUndo(() => _entries.remove(entry));
+    _keep((j) => j.addEntries([entry]));
   }
 
   void setBudget(String category, int limit, {int? warning}) {
@@ -1100,24 +1157,29 @@ final class Ledger extends ChangeNotifier {
     _budgets.removeWhere((b) => b.category == category);
     _budgets.add(Budget(category, limit, warning: warning ?? old.warning));
     notifyListeners();
+    _keep((j) => j.notKept('預算'));
   }
 
   void removeBudget(String category) {
     _budgets.removeWhere((b) => b.category == category);
     notifyListeners();
+    _keep((j) => j.notKept('預算'));
   }
 
   void addAccount(Account account) {
     _accounts.add(account);
     notifyListeners();
+    _keep((j) => j.saveAccount(null, account));
   }
 
   /// Puts [account] in place of the one with the same id.
   void updateAccount(Account account) {
     final index = _accounts.indexWhere((a) => a.id == account.id);
     if (index < 0) return addAccount(account);
+    final before = _accounts[index];
     _accounts[index] = account;
     notifyListeners();
+    _keep((j) => j.saveAccount(before, account));
   }
 
   /// Corrects [id]'s balance today to [target] by moving its opening
@@ -1126,8 +1188,10 @@ final class Ledger extends ChangeNotifier {
     final index = _accounts.indexWhere((a) => a.id == id);
     if (index < 0) return;
     final a = _accounts[index];
-    _accounts[index] = a.copyWith(opening: a.opening + target - balance(id));
+    final moved = a.copyWith(opening: a.opening + target - balance(id));
+    _accounts[index] = moved;
     notifyListeners();
+    _keep((j) => j.setOpening(moved, moved.opening));
   }
 
   /// Whether [id] has any entries; an account without can be removed.
@@ -1135,28 +1199,32 @@ final class Ledger extends ChangeNotifier {
 
   void removeAccount(String id) {
     if (isUsed(id)) return;
-    _accounts.removeWhere((a) => a.id == id);
+    final index = _accounts.indexWhere((a) => a.id == id);
+    if (index < 0) return;
+    final removed = _accounts.removeAt(index);
     notifyListeners();
+    _keep((j) => j.removeAccount(removed));
   }
 
   void addCategory(Category category) {
     _categories.add(category);
     notifyListeners();
+    _keep((j) => j.saveCategory(null, category));
   }
 
   /// Changes a category's name, mark and colour; a new name reaches every
   /// entry, budget and recurring item that uses it.
-  void editCategory(String from, Category next) {
-    renameCategory(from, next.name);
-    for (final (i, c) in _categories.indexed) {
-      if (c.name == next.name) _categories[i] = next;
-    }
-    notifyListeners();
-  }
+  void editCategory(String from, Category next) => updateCategory(from, next);
 
   /// Renames a category and every entry, budget and recurring item that
   /// uses it.
   void renameCategory(String from, String to) {
+    final index = _categories.indexWhere((c) => c.name == from);
+    if (index < 0 || from == to || to.isEmpty) return;
+    updateCategory(from, _categories[index].copyWith(name: to));
+  }
+
+  void _renameCategory(String from, String to) {
     if (from == to || to.isEmpty) return;
     for (final (i, c) in _categories.indexed) {
       if (c.name == from) _categories[i] = c.copyWith(name: to);
@@ -1179,6 +1247,7 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return;
     _recurring[index] = _recurring[index].toggled();
     notifyListeners();
+    _keep((j) => j.notKept('固定收支'));
   }
 
   /// The entry that books [item] on its pending day, or today if that is
@@ -1225,25 +1294,32 @@ final class Ledger extends ChangeNotifier {
       _recurring[index] = item;
     }
     notifyListeners();
+    _keep((j) => j.notKept('固定收支'));
   }
 
   void removeRecurring(String id) {
     _recurring.removeWhere((r) => r.id == id);
     notifyListeners();
+    _keep((j) => j.notKept('固定收支'));
   }
 
-  /// Changes a category's place, name or archive state.
+  /// Changes a category's place, name, mark, colour or archive state; a
+  /// new name reaches every entry, budget and recurring item that uses it.
   void updateCategory(String name, Category next) {
     final index = _categories.indexWhere((c) => c.name == name);
     if (index < 0) return;
-    if (next.name != name) renameCategory(name, next.name);
+    final before = _categories[index];
+    if (next.name != name) _renameCategory(name, next.name);
     _categories[index] = next;
     notifyListeners();
+    _keep((j) => j.saveCategory(before, next));
   }
 
   /// Moves everything in [from] to [into] and removes [from].
   void mergeCategory(String from, String into) {
     if (from == into) return;
+    final source = category(from);
+    final target = category(into);
     for (final (i, e) in _entries.indexed) {
       if (e.category == from || e.parts.any((p) => p.$1 == from)) {
         _entries[i] = e.withCategory(into, from: from);
@@ -1258,6 +1334,7 @@ final class Ledger extends ChangeNotifier {
       if (c.parent == from) _categories[i] = c.copyWith(clearParent: true);
     }
     notifyListeners();
+    _keep((j) => j.mergeCategory(source, target));
   }
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
@@ -1272,6 +1349,7 @@ final class Ledger extends ChangeNotifier {
       _entries[i] = e.withLabels(tags: tags);
     }
     notifyListeners();
+    _keep((j) => j.relabel(from, to, merchant: false));
   }
 
   /// Renames or merges a merchant across every entry; an empty [to]
@@ -1281,10 +1359,19 @@ final class Ledger extends ChangeNotifier {
       if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
     }
     notifyListeners();
+    _keep((j) => j.relabel(from, to, merchant: true));
   }
 
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
+    _adopt(fresh);
+    hidden = false;
+    amountsHidden = false;
+    notifyListeners();
+  }
+
+  /// Takes the contents of [fresh], as reloaded from the [journal].
+  void _adopt(Ledger fresh) {
     _accounts
       ..clear()
       ..addAll(fresh._accounts);
@@ -1303,8 +1390,6 @@ final class Ledger extends ChangeNotifier {
     _recurring
       ..clear()
       ..addAll(fresh._recurring);
-    hidden = false;
-    amountsHidden = false;
     _replay();
     notifyListeners();
   }
@@ -1312,6 +1397,7 @@ final class Ledger extends ChangeNotifier {
   void addRecurring(Recurring item) {
     _recurring.add(item);
     notifyListeners();
+    _keep((j) => j.notKept('固定收支'));
   }
 
   void toggleHidden() {

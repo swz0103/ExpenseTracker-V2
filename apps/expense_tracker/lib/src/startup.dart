@@ -55,15 +55,25 @@ final class Startup extends ChangeNotifier {
   final DeviceUnlock? device;
   final Clock _clock;
   late StartupState _state;
+  String? _recovery;
 
   StartupState get state => _state;
 
-  /// Creates the ledger. Returns the recovery code, to show once.
+  /// Creates the ledger. Returns the recovery code, to show once; it is
+  /// also kept for [takeRecoveryCode].
   Future<String> setUp(String password) async {
     final (open, recovery) = await _vault.create(password);
     await _enrolDevice(open);
+    _recovery = recovery;
     _ready(open);
     return recovery;
+  }
+
+  /// The recovery code of a ledger just created, once; null after that.
+  String? takeRecoveryCode() {
+    final code = _recovery;
+    _recovery = null;
+    return code;
   }
 
   Future<void> unlockWithPassword(String password) async {
@@ -86,6 +96,7 @@ final class Startup extends ChangeNotifier {
   void lock() {
     final state = _state;
     if (state is Ready) state.vault.close();
+    _recovery = null;
     _state = _locked();
     notifyListeners();
   }

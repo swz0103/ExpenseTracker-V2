@@ -53,7 +53,7 @@ packages:
     source: path
     version: "0.1.0"
   categories:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../packages/categories"
       relative: true
@@ -362,7 +362,7 @@ packages:
     source: hosted
     version: "1.12.2"
   storage_sqlcipher:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../../infrastructure/storage_sqlcipher"
       relative: true

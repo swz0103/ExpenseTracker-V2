@@ -66,7 +66,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (old == null) {
       ledger.addAccount(
         Account(
-          'account-${ledger.newId()}',
+          ledger.newId(),
           name,
           _kind,
           balance,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../compose/composer.dart';
 import '../demo/ledger.dart';
+import '../problems.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -44,6 +45,28 @@ class _AppShellState extends State<AppShell> {
     compose: _compose,
     showEntry: (entry) => _compose(entry: entry),
   );
+
+  @override
+  void initState() {
+    super.initState();
+    widget.ledger.problem.addListener(_report);
+  }
+
+  @override
+  void dispose() {
+    widget.ledger.problem.removeListener(_report);
+    super.dispose();
+  }
+
+  /// Says why the ledger refused a change; the screens already show what
+  /// was kept instead.
+  void _report() {
+    final problem = widget.ledger.problem;
+    final error = problem.value;
+    if (error == null || !mounted) return;
+    problem.value = null;
+    showProblem(context, error);
+  }
 
   /// Where back leads from the open page: a holding returns to 投資.
   String? get _parent =>

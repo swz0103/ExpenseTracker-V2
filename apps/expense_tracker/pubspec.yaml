@@ -17,6 +17,8 @@ dependencies:
     path: ../../infrastructure/backup_security
   bookkeeping:
     path: ../../packages/bookkeeping
+  categories:
+    path: ../../packages/categories
   foundation_values:
     path: ../../packages/foundation_values
   ledger:
@@ -27,6 +29,8 @@ dependencies:
     path: ../../infrastructure/ledger_vault
   reports:
     path: ../../packages/reports
+  storage_sqlcipher:
+    path: ../../infrastructure/storage_sqlcipher
 
 dev_dependencies:
   flutter_test:

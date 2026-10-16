@@ -16,6 +16,7 @@ import 'package:storage_sqlcipher/storage_sqlcipher.dart';
 import 'package:tags/tags.dart';
 
 part 'schema.dart';
+part 'book_queries.dart';
 part 'card_queries.dart';
 part 'investment_queries.dart';
 part 'report_queries.dart';
