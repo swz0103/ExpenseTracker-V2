@@ -10,6 +10,7 @@ import 'package:market_data/market_data.dart';
 import 'app.dart';
 import 'book/looks.dart';
 import 'book/vault_journal.dart';
+import 'book/vault_keeper.dart';
 import 'demo/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/shell.dart';
@@ -114,7 +115,10 @@ class _OpenedLedgerState extends State<OpenedLedger> {
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(ledger: ledger);
+      return AppShell(
+        ledger: ledger,
+        keeper: VaultKeeper(widget.startup, widget.vault, _journal),
+      );
     },
   );
 }

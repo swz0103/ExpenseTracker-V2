@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../book/keeper.dart';
 import '../demo/exchange.dart';
 import '../demo/ledger.dart';
 import '../demo/seed.dart';
@@ -13,13 +14,19 @@ import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';
 
-/// 設定與資料: preferences, exporting a month or the whole book, and
-/// resetting the demo.
+/// 設定與資料: preferences, exporting a month or the whole book, the
+/// encrypted ledger's backups and keys, and resetting the demo.
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key, required this.ledger, required this.nav});
+  const SettingsPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    this.keeper,
+  });
 
   final Ledger ledger;
   final Nav nav;
+  final Keeper? keeper;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -63,6 +70,68 @@ class _SettingsPageState extends State<SettingsPage> {
           {'code': h.code, 'shares': h.shares, 'cost': h.cost},
       ],
     });
+  }
+
+  Future<void> _backUp(Keeper keeper) async {
+    try {
+      final path = await keeper.backUp();
+      if (mounted) showNote(context, '已備份到 $path');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '備份失敗（$error）');
+    }
+  }
+
+  Future<void> _changePassword(Keeper keeper) async {
+    final passwords = await showDialog<(String, String)>(
+      context: context,
+      builder: (_) => const _PasswordDialog(),
+    );
+    if (passwords == null) return;
+    final (current, next) = passwords;
+    try {
+      await keeper.changePassword(current, next);
+      if (mounted) showNote(context, '密碼已變更');
+    } on Object catch (error) {
+      if (!mounted) return;
+      final wrong = '$error'.contains('wrongSecret');
+      final weak = '$error'.contains('weakPassword');
+      showNote(
+        context,
+        wrong
+            ? '目前的密碼不正確'
+            : weak
+            ? '新密碼至少要 12 個字'
+            : '無法變更密碼（$error）',
+      );
+    }
+  }
+
+  Future<void> _newRecovery(Keeper keeper) async {
+    final ok = await confirm(context, '換一組新的救援碼？舊的會立刻失效。', '更換');
+    if (!ok) return;
+    final code = await keeper.newRecoveryCode();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('新的救援碼'),
+        content: SelectableText(
+          code,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: code)),
+            child: const Text('複製'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('我已存好'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _reset() async {
@@ -165,6 +234,45 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                   ),
+                  if (widget.keeper case final keeper?) ...[
+                    const SectionHead('帳本安全'),
+                    SoftPanel(
+                      child: Column(
+                        children: [
+                          _Export(
+                            badge: '備份',
+                            title: '立即備份',
+                            detail: '加密備份到 ${keeper.backupFolder}',
+                            onTap: () => _backUp(keeper),
+                          ),
+                          const Divider(),
+                          _Export(
+                            badge: '密碼',
+                            title: '變更密碼',
+                            detail: '至少 12 個字',
+                            icon: Glyph.edit,
+                            onTap: () => _changePassword(keeper),
+                          ),
+                          const Divider(),
+                          _Export(
+                            badge: '救援',
+                            title: '更換救援碼',
+                            detail: '舊的救援碼會失效',
+                            icon: Glyph.reset,
+                            onTap: () => _newRecovery(keeper),
+                          ),
+                          const Divider(),
+                          _Export(
+                            badge: '鎖定',
+                            title: '鎖定帳本',
+                            detail: '回到輸入密碼的畫面',
+                            icon: Glyph.next,
+                            onTap: keeper.lock,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   // Only the preview's made-up book can be reset.
                   if (ledger.journal == null)
@@ -281,6 +389,70 @@ class _Export extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Asks for the current password and a new one twice; returns the
+/// current and the new one.
+class _PasswordDialog extends StatefulWidget {
+  const _PasswordDialog();
+
+  @override
+  State<_PasswordDialog> createState() => _PasswordDialogState();
+}
+
+class _PasswordDialogState extends State<_PasswordDialog> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _again = TextEditingController();
+  String? _problem;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _again.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_next.text != _again.text) {
+      setState(() => _problem = '兩次輸入的新密碼不一樣');
+      return;
+    }
+    Navigator.of(context).pop((_current.text, _next.text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget field(TextEditingController controller, String hint) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextField(
+        controller: controller,
+        obscureText: true,
+        decoration: InputDecoration(hintText: hint),
+      ),
+    );
+    return AlertDialog(
+      title: const Text('變更密碼'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          field(_current, '目前的密碼'),
+          field(_next, '新密碼'),
+          field(_again, '再輸入一次新密碼'),
+          if (_problem case final problem?)
+            Text(problem, style: const TextStyle(color: Hue.danger)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('變更')),
+      ],
     );
   }
 }

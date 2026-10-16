@@ -27,6 +27,8 @@ dependencies:
     path: ../../packages/investments
   ledger:
     path: ../../packages/ledger
+  ledger_backup:
+    path: ../../infrastructure/ledger_backup
   ledger_sqlcipher:
     path: ../../infrastructure/ledger_sqlcipher
   ledger_vault:

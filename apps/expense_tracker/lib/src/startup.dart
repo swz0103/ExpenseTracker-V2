@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ledger_backup/ledger_backup.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
 import 'session.dart';
@@ -59,6 +62,12 @@ final class Startup extends ChangeNotifier {
 
   StartupState get state => _state;
 
+  /// Where the ledger's files are kept.
+  Directory get directory => _vault.directory;
+
+  /// Opens and checks the ledger's keys.
+  KeyringCodec get codec => _vault.codec;
+
   /// Creates the ledger. Returns the recovery code, to show once; it is
   /// also kept for [takeRecoveryCode].
   Future<String> setUp(String password) async {
@@ -78,6 +87,26 @@ final class Startup extends ChangeNotifier {
 
   Future<void> unlockWithPassword(String password) async {
     final open = await _vault.unlockWithPassword(password);
+    await _enrolDevice(open);
+    _ready(open);
+  }
+
+  /// Restores the backup at [path] as this device's ledger. It opens
+  /// with the backup's password, or its recovery code when [recovery] is
+  /// set, which then open the restored ledger too.
+  Future<void> restore(
+    String path,
+    String secret, {
+    bool recovery = false,
+  }) async {
+    final file = File(path);
+    final header = await LedgerBackup.readHeader(file);
+    final keys = recovery
+        ? await codec.unlockWithRecovery(header.keyring, secret)
+        : await codec.unlockWithPassword(header.keyring, secret);
+    final open = await _vault.restore(keys, (staging) async {
+      await LedgerBackup.restore(file: file, keys: keys, into: staging);
+    });
     await _enrolDevice(open);
     _ready(open);
   }

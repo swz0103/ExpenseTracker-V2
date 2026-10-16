@@ -73,6 +73,9 @@ final class VaultJournal implements Journal {
   late final _looks = Looks(_vault.store, _books.exclusive);
 
   LedgerStore get _store => _vault.ledger;
+
+  /// Runs [job] with the ledger to itself, in turn with every change.
+  Future<R> exclusive<R>(Future<R> Function() job) => _books.exclusive(job);
   WorkspaceId get _workspace => _vault.workspace;
 
   OperationKey _op() =>

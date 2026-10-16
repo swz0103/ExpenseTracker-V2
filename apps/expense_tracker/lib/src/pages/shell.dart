@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../book/keeper.dart';
 import '../compose/composer.dart';
 import '../demo/ledger.dart';
 import '../problems.dart';
@@ -28,9 +29,12 @@ enum _Tab { overview, ledger, accounts, more }
 /// bottom. Pages under 更多 and each account open in
 /// place with a back arrow; the system back closes them first.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.ledger});
+  const AppShell({super.key, required this.ledger, this.keeper});
 
   final Ledger ledger;
+
+  /// The encrypted ledger's keys and backups; none in the preview.
+  final Keeper? keeper;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -155,7 +159,7 @@ class _AppShellState extends State<AppShell> {
         Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
         Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
         Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
-        _ => SettingsPage(ledger: ledger, nav: _nav),
+        _ => SettingsPage(ledger: ledger, nav: _nav, keeper: widget.keeper),
       };
     }
     return switch (_tab) {

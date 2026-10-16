@@ -217,6 +217,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  ledger_backup:
+    dependency: "direct main"
+    description:
+      path: "../../infrastructure/ledger_backup"
+      relative: true
+    source: path
+    version: "0.1.0"
   ledger_sqlcipher:
     dependency: "direct main"
     description:

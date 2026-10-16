@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ledger_backup/ledger_backup.dart';
 
 import '../look/glyphs.dart';
 import '../look/theme.dart';
@@ -22,16 +25,21 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   final _password = TextEditingController();
   final _again = TextEditingController();
+  final _file = TextEditingController();
   var _recovery = false;
+
+  /// Restoring a backup instead of creating an empty ledger.
+  var _restoring = false;
   var _busy = false;
   String? _problem;
 
-  bool get _creating => widget.startup.state is NeedsSetup;
+  bool get _creating => widget.startup.state is NeedsSetup && !_restoring;
 
   @override
   void dispose() {
     _password.dispose();
     _again.dispose();
+    _file.dispose();
     super.dispose();
   }
 
@@ -47,6 +55,14 @@ class _LockScreenState extends State<LockScreen> {
     });
     final startup = widget.startup;
     try {
+      if (_restoring) {
+        await startup.restore(
+          _file.text.trim(),
+          _recovery ? secret.trim() : secret,
+          recovery: _recovery,
+        );
+        return;
+      }
       if (!_creating) {
         await (_recovery
             ? startup.unlockWithRecovery(secret.trim())
@@ -54,6 +70,10 @@ class _LockScreenState extends State<LockScreen> {
         return;
       }
       await startup.setUp(secret);
+    } on BackupException catch (error) {
+      _fail('無法讀取這個備份（${error.problem.name}）');
+    } on FileSystemException {
+      _fail('找不到這個備份檔');
     } on KeyringException catch (error) {
       _fail(switch (error.error) {
         KeyringError.weakPassword => '密碼至少要 12 個字',
@@ -76,6 +96,19 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final creating = _creating;
+    final empty = widget.startup.state is NeedsSetup;
+    final title = creating
+        ? '建立帳本'
+        : _restoring
+        ? '從備份還原'
+        : '打開帳本';
+    final hint = creating
+        ? '帳本會以這組密碼加密，只存在這台裝置上。'
+        : _restoring
+        ? '輸入備份檔的位置，和那個帳本的密碼或救援碼。'
+        : _recovery
+        ? '輸入建立帳本時拿到的救援碼。'
+        : '輸入帳本密碼。';
     return Scaffold(
       backgroundColor: Hue.paper,
       body: SafeArea(
@@ -92,7 +125,7 @@ class _LockScreenState extends State<LockScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    creating ? '建立帳本' : '打開帳本',
+                    title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 22,
@@ -101,11 +134,7 @@ class _LockScreenState extends State<LockScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    creating
-                        ? '帳本會以這組密碼加密，只存在這台裝置上。'
-                        : _recovery
-                        ? '輸入建立帳本時拿到的救援碼。'
-                        : '輸入帳本密碼。',
+                    hint,
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Hue.muted),
                   ),
@@ -118,6 +147,14 @@ class _LockScreenState extends State<LockScreen> {
                     ),
                     child: Column(
                       children: [
+                        if (_restoring) ...[
+                          _Secret(
+                            controller: _file,
+                            hint: '備份檔路徑，例如 /home/me/記帳本.etbk',
+                            hidden: false,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         _Secret(
                           controller: _password,
                           hint: _recovery ? '救援碼' : '密碼',
@@ -163,7 +200,13 @@ class _LockScreenState extends State<LockScreen> {
                               color: Hue.white,
                             ),
                           )
-                        : Text(creating ? '建立' : '打開'),
+                        : Text(
+                            creating
+                                ? '建立'
+                                : _restoring
+                                ? '還原'
+                                : '打開',
+                          ),
                   ),
                   if (!creating)
                     TextButton(
@@ -175,6 +218,17 @@ class _LockScreenState extends State<LockScreen> {
                               _problem = null;
                             }),
                       child: Text(_recovery ? '改用密碼' : '忘記密碼？用救援碼'),
+                    ),
+                  if (empty)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                              _restoring = !_restoring;
+                              _recovery = false;
+                              _problem = null;
+                            }),
+                      child: Text(_restoring ? '改為建立新帳本' : '從備份還原'),
                     ),
                 ],
               ),
