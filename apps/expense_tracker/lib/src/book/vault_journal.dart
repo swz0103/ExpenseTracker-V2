@@ -93,6 +93,7 @@ final class VaultJournal implements Journal {
   @override
   Future<ui.Ledger> load() async {
     if (_store.categories(_workspace).isEmpty) await _addStarters();
+    if (_store.accounts(_workspace).isEmpty) await _addStarterAccounts();
     final looks = _looks.all();
     final categories = {for (final c in _store.categories(_workspace)) c.id: c};
     final tags = {for (final t in _store.tags(_workspace)) t.id: t};
@@ -332,8 +333,7 @@ final class VaultJournal implements Journal {
     );
   }
 
-  /// A new ledger's categories, and a cash and a bank account so the
-  /// first entry can be written at once.
+  /// A new ledger's categories.
   Future<void> _addStarters() async {
     for (final (name, icon, color, income) in _starters) {
       final id = PublicId.generate();
@@ -341,7 +341,11 @@ final class VaultJournal implements Journal {
       await _catalog(CatalogType.category, CreateEntry(id, name, kind: kind));
       await _looks.save(id.value, (icon: icon, color: color));
     }
-    if (_store.accounts(_workspace).isNotEmpty) return;
+  }
+
+  /// A cash and a bank account for a ledger that has never had one, so
+  /// the first entry can be written at once.
+  Future<void> _addStarterAccounts() async {
     for (final (name, kind) in const [
       ('現金', ui.AccountKind.cash),
       ('銀行帳戶', ui.AccountKind.bank),
@@ -525,10 +529,7 @@ final class VaultJournal implements Journal {
   /// with, as the ledger requires.
   List<CategoryShare> _refundShares(PublicId original, Money refund) {
     final amount = _int(refund);
-    final posting = _store
-        .workspacePostings(_workspace)
-        .where((p) => p.id == original)
-        .firstOrNull;
+    final posting = _store.postingById(original);
     final parts = posting?.allocations ?? const <Allocation>[];
     if (parts.isEmpty) return const [];
     final total = parts.fold(0, (sum, a) => sum + _int(a.amount));
