@@ -345,8 +345,13 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> addEntries(List<ui.Entry> entries) async {
-    for (final entry in entries) {
-      await _add(entry);
+    for (final (i, entry) in entries.indexed) {
+      try {
+        await _add(entry);
+      } on Object catch (error) {
+        if (entries.length == 1) rethrow;
+        throw PartlyKept(i, entries.length, error);
+      }
     }
   }
 

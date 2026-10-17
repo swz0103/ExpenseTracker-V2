@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
+import 'package:expense_tracker/src/book/journal.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
@@ -329,6 +330,22 @@ void main() {
     ledger.remove(refund.id);
     ledger = await reopen(ledger);
     expect(ledger.expense(2026, 10), 30000 + 800);
+  });
+
+  test('an import refused part way keeps what came before', () async {
+    final ledger = await create();
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger.addAccount(cash);
+    await ledger.settled;
+    ledger.addAll([
+      spend(ledger, cash.id, 100),
+      spend(ledger, 'no-such-account', 200),
+      spend(ledger, cash.id, 300),
+    ]);
+    await ledger.settled;
+    final partly = ledger.problem.value! as PartlyKept;
+    expect((partly.kept, partly.total), (1, 3));
+    expect([for (final e in ledger.entriesIn(2026, 10)) e.amount], [100]);
   });
 
   test("a card's statement due matches the ledger's billing", () async {

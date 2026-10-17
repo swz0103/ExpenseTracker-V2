@@ -45,3 +45,16 @@ abstract interface class Journal {
   /// Stops [item]; the entries it booked stay.
   Future<void> removeRecurring(Recurring item);
 }
+
+/// A batch of entries, such as an import, kept only in part: the first
+/// [kept] of [total], until [cause] refused the next one.
+final class PartlyKept implements Exception {
+  const PartlyKept(this.kept, this.total, this.cause);
+
+  final int kept;
+  final int total;
+  final Object cause;
+
+  @override
+  String toString() => 'PartlyKept($kept of $total: $cause)';
+}
