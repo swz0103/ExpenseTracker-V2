@@ -479,6 +479,8 @@ void main() {
     ledger
       ..setBudget('飲食日常', 6000, warning: 90)
       ..setBudget(Ledger.allSpending, 30000)
+      ..setBudget('#旅遊', 5000)
+      ..add(spend(ledger, bank.id, 1200, tags: ['旅遊']))
       ..saveRecurring(
         Recurring(
           id: ledger.newId(),
@@ -495,6 +497,12 @@ void main() {
     expect(ledger.budgetFor('飲食日常').limit, 6000);
     expect(ledger.budgetFor('飲食日常').warning, 90);
     expect(ledger.budgetFor(Ledger.allSpending).limit, 30000);
+    expect(ledger.budgetFor('#旅遊').limit, 5000);
+    expect(ledger.spentOnTag('旅遊', 2026, 10), 1200);
+    ledger.removeBudget('#旅遊');
+    ledger = await reopen(ledger);
+    expect(ledger.budgetFor('#旅遊').limit, 0);
+    expect(ledger.budgetFor('飲食日常').limit, 6000);
     final rent = ledger.recurring.single;
     expect((rent.name, rent.amount, rent.day), ('房租', 12000, 5));
     ledger.confirm(rent);
@@ -508,7 +516,7 @@ void main() {
     final booked = rentEntries().single;
     expect(booked.recurring, rent.id);
     expect(booked.category, '居家生活');
-    expect(ledger.balance(bank.id), 50000 - 12000);
+    expect(ledger.balance(bank.id), 50000 - 1200 - 12000);
     ledger.replace(
       Entry(
         id: booked.id,

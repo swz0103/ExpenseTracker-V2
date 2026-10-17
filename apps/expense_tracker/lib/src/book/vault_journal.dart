@@ -163,9 +163,9 @@ final class VaultJournal implements Journal {
       entries: entries,
       holdings: holdings,
       budgets: [
-        for (final MapEntry(key: category, value: plan) in applying.entries)
+        for (final MapEntry(key: key, value: plan) in applying.entries)
           ui.Budget(
-            category == null ? ui.Ledger.allSpending : nameOf(category),
+            key,
             _int(plan.limit),
             warning: plan.warningPercent,
           ),
@@ -998,20 +998,37 @@ final class VaultJournal implements Journal {
 
   /// The budget plans that apply this month, by category (null for all
   /// spending): of several, the one that started last.
-  Map<PublicId?, BudgetPlan> _applying(Map<PublicId, Category> categories) {
+  /// The budget plans that apply this month, by the screens' name for
+  /// them: [ui.Ledger.allSpending], a category, or `#` and a tag.
+  Map<String, BudgetPlan> _applying(Map<PublicId, Category> categories) {
     final today = _clock.today();
     final now = today.year * 12 + today.month;
-    final plans = <PublicId?, BudgetPlan>{};
+    final plans = <String, BudgetPlan>{};
+    final key = _budgetKeys(categories);
     for (final plan in _store.budgetPlans(_workspace)) {
       final start = plan.month.year * 12 + plan.month.month;
       if (start > now || (start < now && !plan.repeats)) continue;
-      final category = plan.categoryId;
-      final key = category == null
-          ? null
-          : _live(categories, category, (c) => c.replacementId)?.id;
-      plans[key] = plan;
+      final name = key(plan);
+      if (name != null) plans[name] = plan;
     }
     return plans;
+  }
+
+  /// The screens' name for a plan: [ui.Ledger.allSpending], a category,
+  /// or `#` and a tag; null when its category or tag is gone.
+  String? Function(BudgetPlan plan) _budgetKeys(
+    Map<PublicId, Category> categories,
+  ) {
+    final tags = {for (final t in _store.tags(_workspace)) t.id: t};
+    return (plan) {
+      if (plan.tagIds.isNotEmpty) {
+        final tag = _live(tags, plan.tagIds.first, (t) => t.replacementId);
+        return tag == null || tag.archived ? null : '#${tag.name}';
+      }
+      final category = plan.categoryId;
+      if (category == null) return ui.Ledger.allSpending;
+      return _live(categories, category, (c) => c.replacementId)?.name;
+    };
   }
 
   Map<PublicId, Category> _categoryMap() => {
@@ -1020,10 +1037,13 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> setBudget(ui.Budget budget) async {
-    final category = budget.category == ui.Ledger.allSpending
+    final key = budget.category;
+    final tag = budget.tag;
+    final category = key == ui.Ledger.allSpending || tag != null
         ? null
-        : (await _category(budget.category, income: false)).id;
-    final current = _applying(_categoryMap())[category];
+        : (await _category(key, income: false)).id;
+    final tagId = tag == null ? null : (await _label(tag, merchant: false)).id;
+    final current = _applying(_categoryMap())[key];
     final today = _clock.today();
     await _planning.setBudget(
       SetBudget(
@@ -1033,6 +1053,7 @@ final class VaultJournal implements Journal {
         month: current?.month ?? ReportMonth(today.year, today.month),
         limit: _ntd(budget.limit),
         categoryId: category,
+        tagIds: {?tagId},
         warningPercent: budget.warning,
         repeats: true,
       ),
@@ -1041,16 +1062,9 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> removeBudget(String category) async {
-    final all = category == ui.Ledger.allSpending;
-    final id = all ? null : _categoryId(category, CategoryKind.expense);
-    if (!all && id == null) return;
-    final categories = _categoryMap();
+    final key = _budgetKeys(_categoryMap());
     for (final plan in _store.budgetPlans(_workspace)) {
-      final planned = plan.categoryId;
-      final key = planned == null
-          ? null
-          : _live(categories, planned, (c) => c.replacementId)?.id;
-      if (key != id) continue;
+      if (key(plan) != category) continue;
       await _planning.removeBudget(
         RemoveBudget(
           operation: _op(),

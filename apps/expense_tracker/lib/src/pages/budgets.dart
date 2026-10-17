@@ -37,12 +37,15 @@ class _BudgetsPageState extends State<BudgetsPage> {
     final ledger = widget.ledger;
     final picked = await pickOption<String>(
       context,
-      title: '設定額度的分類',
+      title: '設定額度的分類或標籤',
       selected: null,
       options: [
         for (final c in ledger.categoriesFor(income: false))
           if (ledger.budgetFor(c.name).limit == 0)
             Option(c.name, c.name, iconFor(c.icon), c.color),
+        for (final tag in ledger.tags)
+          if (ledger.budgetFor('#$tag').limit == 0)
+            Option('#$tag', '#$tag', Glyph.ticket, Hue.accent),
       ],
     );
     if (picked != null && mounted) await _edit(picked, 0);
@@ -63,7 +66,14 @@ class _BudgetsPageState extends State<BudgetsPage> {
         };
         final rows = [
           for (final b in ledger.budgets)
-            if (b.category != Ledger.allSpending) (b, used[b.category] ?? 0),
+            if (b.category != Ledger.allSpending)
+              (
+                b,
+                switch (b.tag) {
+                  final tag? => ledger.spentOnTag(tag, year, month),
+                  _ => used[b.category] ?? 0,
+                },
+              ),
         ];
         // Overspent first, then by the share used.
         rows.sort((a, b) {
@@ -125,7 +135,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       valueColor: Hue.positive,
                     ),
                   ]),
-                  const SectionHead('分類額度'),
+                  const SectionHead('分類與標籤額度'),
                   SoftPanel(
                     color: Hue.white,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -133,7 +143,13 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       children: [
                         for (final (budget, amount) in rows)
                           _CategoryLimit(
-                            category: ledger.category(budget.category),
+                            category: budget.tag == null
+                                ? ledger.category(budget.category)
+                                : Category(
+                                    budget.category,
+                                    Glyph.ticket.name,
+                                    Hue.accent,
+                                  ),
                             warning: budget.warning,
                             limit: budget.limit,
                             used: amount,
@@ -145,7 +161,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                             padding: EdgeInsets.symmetric(vertical: 14),
                             child: Center(
                               child: Text(
-                                '＋ 為其他分類設定額度',
+                                '＋ 為分類或標籤設定額度',
                                 style: TextStyle(color: Hue.accent),
                               ),
                             ),

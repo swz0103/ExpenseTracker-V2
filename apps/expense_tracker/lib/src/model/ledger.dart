@@ -414,9 +414,13 @@ final class Lot {
 final class Budget {
   const Budget(this.category, this.limit, {this.warning = 80});
 
-  /// A category name, or [Ledger.allSpending] for the total.
+  /// A category name, [Ledger.allSpending] for the total, or `#` and a
+  /// tag for the spending carrying it, such as `#旅遊`.
   final String category;
   final int limit;
+
+  /// The tag of a tag budget; null for a category or the total.
+  String? get tag => category.startsWith('#') ? category.substring(1) : null;
 
   /// The share used, in percent, at which the budget warns.
   final int warning;
@@ -1159,6 +1163,11 @@ final class Ledger extends ChangeNotifier {
 
   // Budgets and recurring items.
 
+  /// What spending carrying [tag] came to in [year]/[month].
+  int spentOnTag(String tag, int year, int month) => entriesIn(year, month)
+      .where((e) => e.tags.contains(tag))
+      .fold(0, (sum, e) => sum + e.spending);
+
   Budget budgetFor(String category) => _budgets.firstWhere(
     (b) => b.category == category,
     orElse: () => Budget(category, 0),
@@ -1527,6 +1536,12 @@ final class Ledger extends ChangeNotifier {
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
   void renameTag(String from, String to) {
+    for (final (i, b) in _budgets.indexed) {
+      if (b.tag == from && to.isNotEmpty) {
+        _budgets[i] = Budget('#$to', b.limit, warning: b.warning);
+      }
+    }
+    if (to.isEmpty) _budgets.removeWhere((b) => b.tag == from);
     for (final (i, e) in _entries.indexed) {
       if (!e.tags.contains(from)) continue;
       final tags = {
