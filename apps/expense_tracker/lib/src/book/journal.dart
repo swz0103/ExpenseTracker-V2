@@ -21,6 +21,10 @@ abstract interface class Journal {
   /// Gives [account] the opening balance [opening].
   Future<void> setOpening(Account account, int opening);
 
+  /// Moves the close of [card]'s statement scheduled on [scheduled] to
+  /// [closesOn].
+  Future<void> moveClose(Account card, DateTime scheduled, DateTime closesOn);
+
   /// An account without entries; it is archived, never erased.
   Future<void> removeAccount(Account account);
 

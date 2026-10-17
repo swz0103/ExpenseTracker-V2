@@ -394,6 +394,22 @@ void main() {
     // 500 paid since the statement closed on 9/25.
     expect(ledger.dueFromEntries(kept), 1200 + 10001 - 500);
     expect(ledger.statementDue(kept), ledger.dueFromEntries(kept));
+
+    // The bank closes October's statement two days early.
+    ledger.moveClose(
+      card.id,
+      DateTime.utc(2026, 10, 25),
+      DateTime.utc(2026, 10, 23),
+    );
+    ledger = await reopen(ledger);
+    final moved = ledger.account(card.id);
+    expect(moved.closes, {
+      DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23),
+    });
+    expect(
+      ledger.closingOn(moved, DateTime.utc(2026, 10, 24)),
+      DateTime.utc(2026, 10, 23),
+    );
   });
 
   test('categories, tags and merchants are kept by name', () async {

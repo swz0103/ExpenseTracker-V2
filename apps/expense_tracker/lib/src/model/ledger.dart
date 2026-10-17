@@ -36,6 +36,7 @@ final class Account {
     this.archived = false,
     this.inNetWorth = true,
     this.currency = 'TWD',
+    this.closes = const {},
   });
 
   final String id;
@@ -49,6 +50,10 @@ final class Account {
 
   /// Kept in a currency other than NT$.
   bool get foreign => currency != 'TWD';
+
+  /// A card's statements that close on another day than scheduled, such
+  /// as around a holiday: the actual close by the scheduled one.
+  final Map<DateTime, DateTime> closes;
 
   /// The account's own mark, such as 'safe' or 'chat'; null takes the
   /// mark of its [kind].
@@ -79,6 +84,7 @@ final class Account {
     int? limit,
     bool? archived,
     bool? inNetWorth,
+    Map<DateTime, DateTime>? closes,
   }) => Account(
     id,
     name ?? this.name,
@@ -91,6 +97,7 @@ final class Account {
     archived: archived ?? this.archived,
     inNetWorth: inNetWorth ?? this.inNetWorth,
     currency: currency,
+    closes: closes ?? this.closes,
   );
 }
 
@@ -862,14 +869,22 @@ final class Ledger extends ChangeNotifier {
 
   /// The last statement closing of [card] on or before [day].
   DateTime closingOn(Account card, DateTime day) {
-    DateTime closing(int year, int month) => DateTime.utc(
-      year,
-      month,
-      min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
-    );
+    DateTime closing(int year, int month) {
+      final scheduled = scheduledClose(card, year, month);
+      return card.closes[scheduled] ?? scheduled;
+    }
+
     final here = closing(day.year, day.month);
     return here.isAfter(day) ? closing(day.year, day.month - 1) : here;
   }
+
+  /// The close [card]'s billing day sets in [year]/[month], before any
+  /// move.
+  DateTime scheduledClose(Account card, int year, int month) => DateTime.utc(
+    year,
+    month,
+    min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
+  );
 
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
@@ -1164,9 +1179,13 @@ final class Ledger extends ChangeNotifier {
   // Budgets and recurring items.
 
   /// What spending carrying [tag] came to in [year]/[month].
-  int spentOnTag(String tag, int year, int month) => entriesIn(year, month)
-      .where((e) => e.tags.contains(tag))
-      .fold(0, (sum, e) => sum + e.spending);
+  int spentOnTag(String tag, int year, int month) {
+    var total = 0;
+    for (final e in entriesIn(year, month)) {
+      if (e.tags.contains(tag)) total += e.spending;
+    }
+    return total;
+  }
 
   Budget budgetFor(String category) => _budgets.firstWhere(
     (b) => b.category == category,
@@ -1374,6 +1393,18 @@ final class Ledger extends ChangeNotifier {
     _accounts[index] = moved;
     notifyListeners();
     _keep((j) => j.setOpening(moved, moved.opening));
+  }
+
+  /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
+  /// [closesOn], up to a week either way, as a bank does around a holiday.
+  void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
+    final index = _accounts.indexWhere((a) => a.id == cardId);
+    if (index < 0) return;
+    final card = _accounts[index];
+    final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
+    _accounts[index] = moved;
+    notifyListeners();
+    _keep((j) => j.moveClose(moved, scheduled, closesOn));
   }
 
   /// Whether [id] has any entries; an account without can be removed.

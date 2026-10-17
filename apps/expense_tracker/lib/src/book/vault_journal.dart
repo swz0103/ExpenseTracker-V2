@@ -164,11 +164,7 @@ final class VaultJournal implements Journal {
       holdings: holdings,
       budgets: [
         for (final MapEntry(key: key, value: plan) in applying.entries)
-          ui.Budget(
-            key,
-            _int(plan.limit),
-            warning: plan.warningPercent,
-          ),
+          ui.Budget(key, _int(plan.limit), warning: plan.warningPercent),
       ],
       rates: _rates,
       recurring: [
@@ -304,6 +300,10 @@ final class VaultJournal implements Journal {
       a.name,
       _uiKind(a.kind),
       opening,
+      closes: {
+        for (final o in terms?.overrides ?? const [])
+          _date(o.scheduledClose): _date(o.closesOn),
+      },
       icon: look?.icon,
       closingDay: terms?.closingDay,
       dueDay: terms?.dueDay,
@@ -1245,6 +1245,30 @@ final class VaultJournal implements Journal {
         closingDay: closing,
         dueDay: due,
         limit: limit == null || limit <= 0 ? null : _ntd(limit),
+      ),
+    );
+  }
+
+  @override
+  Future<void> moveClose(
+    ui.Account card,
+    DateTime scheduled,
+    DateTime closesOn,
+  ) async {
+    final id = _account(card.id).id;
+    final terms = _store.cardTerms(id);
+    if (terms == null) {
+      throw const AppFailure(FailureKind.rejected, 'card.no-terms');
+    }
+    await _cards.overrideCycle(
+      OverrideCardCycle(
+        operation: _op(),
+        cardId: id,
+        expectedVersion: terms.version,
+        scheduledClose: _day(scheduled),
+        closesOn: _day(closesOn),
+        // Still paid when that statement would have been.
+        dueOn: terms.cycleFor(_day(scheduled)).dueOn,
       ),
     );
   }
