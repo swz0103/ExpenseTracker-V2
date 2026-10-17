@@ -302,8 +302,9 @@ final class VaultJournal implements Journal {
       _uiKind(a.kind),
       opening,
       closes: {
-        for (final o in terms?.overrides ?? const [])
-          _date(o.scheduledClose): _date(o.closesOn),
+        if (terms != null)
+          for (final o in terms.overrides)
+            _date(o.scheduledClose): _date(o.closesOn),
       },
       icon: look?.icon,
       closingDay: terms?.closingDay,
