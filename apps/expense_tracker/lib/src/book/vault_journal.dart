@@ -332,12 +332,21 @@ final class VaultJournal implements Journal {
     );
   }
 
+  /// A new ledger's categories, and a cash and a bank account so the
+  /// first entry can be written at once.
   Future<void> _addStarters() async {
     for (final (name, icon, color, income) in _starters) {
       final id = PublicId.generate();
       final kind = income ? CategoryKind.income : CategoryKind.expense;
       await _catalog(CatalogType.category, CreateEntry(id, name, kind: kind));
       await _looks.save(id.value, (icon: icon, color: color));
+    }
+    if (_store.accounts(_workspace).isNotEmpty) return;
+    for (final (name, kind) in const [
+      ('現金', ui.AccountKind.cash),
+      ('銀行帳戶', ui.AccountKind.bank),
+    ]) {
+      await _open(ui.Account(PublicId.generate().value, name, kind, 0));
     }
   }
 

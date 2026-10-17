@@ -125,6 +125,15 @@ final class VaultKeeper implements Keeper {
   }
 
   @override
+  bool get hasPassword => !_startup.passwordless;
+
+  @override
+  Future<void> setPassword(String next) async {
+    await changePassword(await _startup.quickSecret(), next);
+    await _startup.forgetQuickKey();
+  }
+
+  @override
   Future<void> changePassword(String current, String next) async {
     await _startup.codec.unlockWithPassword(_vault.keys.keyring, current);
     await _vault.updateKeys(await _vault.keys.changePassword(next));

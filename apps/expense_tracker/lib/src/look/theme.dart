@@ -69,6 +69,11 @@ abstract final class Hue {
   ];
 
   /// The lift under cards.
+  /// Tiles: just lifted off the paper.
+  static const tileShadow = [
+    BoxShadow(color: Color(0x0A1E2832), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+
   static const cardShadow = [
     BoxShadow(color: Color(0x0F1E2832), blurRadius: 2, offset: Offset(0, 1)),
     BoxShadow(color: Color(0x0D1E2832), blurRadius: 14, offset: Offset(0, 4)),
@@ -104,18 +109,19 @@ ThemeData appTheme() {
     fontFamily: 'Nunito',
     fontFamilyFallback: const ['Huninn'],
     useMaterial3: true,
-    splashFactory: NoSplash.splashFactory,
-    // No grey wash under the finger or pointer: the app marks choices
-    // with its own colours instead.
+    // A soft ripple in the accent under the finger, so every tap is felt.
+    splashFactory: InkRipple.splashFactory,
     hoverColor: Colors.transparent,
-    highlightColor: Colors.transparent,
-    splashColor: Colors.transparent,
+    highlightColor: const Color(0x0F3B6C80),
+    splashColor: const Color(0x1F3B6C80),
   );
   return base.copyWith(
     dividerTheme: const DividerThemeData(color: Hue.line, space: 1),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: Hue.ink,
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     textTheme: base.textTheme.apply(bodyColor: Hue.ink, displayColor: Hue.ink),
   );

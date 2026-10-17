@@ -103,15 +103,21 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _changePassword(Keeper keeper) async {
+    final first = !keeper.hasPassword;
     final passwords = await showDialog<(String, String)>(
       context: context,
-      builder: (_) => const _PasswordDialog(),
+      builder: (_) => _PasswordDialog(first: first),
     );
     if (passwords == null) return;
     final (current, next) = passwords;
     try {
-      await keeper.changePassword(current, next);
-      if (mounted) showNote(context, '密碼已變更');
+      if (first) {
+        await keeper.setPassword(next);
+      } else {
+        await keeper.changePassword(current, next);
+      }
+      if (mounted) setState(() {});
+      if (mounted) showNote(context, first ? '已設定密碼' : '密碼已變更');
     } on Object catch (error) {
       if (!mounted) return;
       final wrong = '$error'.contains('wrongSecret');
@@ -121,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
         wrong
             ? '目前的密碼不正確'
             : weak
-            ? '新密碼至少要 12 個字'
+            ? '新密碼至少要 6 個字'
             : '無法變更密碼（$error）',
       );
     }
@@ -278,27 +284,33 @@ class _SettingsPageState extends State<SettingsPage> {
                           const Divider(),
                           _Export(
                             badge: '密碼',
-                            title: '變更密碼',
-                            detail: '至少 12 個字',
+                            title: keeper.hasPassword ? '變更密碼' : '設定密碼',
+                            detail: keeper.hasPassword
+                                ? '至少 6 個字'
+                                : '目前打開 App 不用密碼；設定後每次都要輸入',
                             icon: Glyph.edit,
                             onTap: () => _changePassword(keeper),
                           ),
                           const Divider(),
                           _Export(
                             badge: '救援',
-                            title: '更換救援碼',
-                            detail: '舊的救援碼會失效',
+                            title: keeper.hasPassword ? '更換救援碼' : '取得救援碼',
+                            detail: keeper.hasPassword
+                                ? '舊的救援碼會失效'
+                                : '沒有密碼時，換手機要靠它還原備份',
                             icon: Glyph.reset,
                             onTap: () => _newRecovery(keeper),
                           ),
-                          const Divider(),
-                          _Export(
-                            badge: '鎖定',
-                            title: '鎖定帳本',
-                            detail: '回到輸入密碼的畫面',
-                            icon: Glyph.next,
-                            onTap: keeper.lock,
-                          ),
+                          if (keeper.hasPassword) ...[
+                            const Divider(),
+                            _Export(
+                              badge: '鎖定',
+                              title: '鎖定帳本',
+                              detail: '回到輸入密碼的畫面',
+                              icon: Glyph.next,
+                              onTap: keeper.lock,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -423,7 +435,10 @@ class _Export extends StatelessWidget {
 /// Asks for the current password and a new one twice; returns the
 /// current and the new one.
 class _PasswordDialog extends StatefulWidget {
-  const _PasswordDialog();
+  const _PasswordDialog({required this.first});
+
+  /// Setting a password on a ledger that has none: nothing to confirm.
+  final bool first;
 
   @override
   State<_PasswordDialog> createState() => _PasswordDialogState();
@@ -461,12 +476,13 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         decoration: InputDecoration(hintText: hint),
       ),
     );
+    final first = widget.first;
     return AlertDialog(
-      title: const Text('變更密碼'),
+      title: Text(first ? '設定密碼' : '變更密碼'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          field(_current, '目前的密碼'),
+          if (!first) field(_current, '目前的密碼'),
           field(_next, '新密碼'),
           field(_again, '再輸入一次新密碼'),
           if (_problem case final problem?)
@@ -478,7 +494,7 @@ class _PasswordDialogState extends State<_PasswordDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('變更')),
+        FilledButton(onPressed: _submit, child: Text(first ? '設定' : '變更')),
       ],
     );
   }

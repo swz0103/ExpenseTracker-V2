@@ -85,7 +85,7 @@ void main() {
 
   test('accounts and entries survive reopening', () async {
     var ledger = await create();
-    expect(ledger.accounts, isEmpty);
+    expect([for (final a in ledger.accounts) a.name], ['現金', '銀行帳戶']);
     expect([
       for (final c in ledger.categoriesFor(income: false)) c.name,
     ], contains('飲食日常'));
