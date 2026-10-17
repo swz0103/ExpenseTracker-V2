@@ -10,11 +10,20 @@ import 'vault_journal.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class VaultKeeper implements Keeper {
-  VaultKeeper(this._startup, this._vault, this._journal);
+  VaultKeeper(
+    this._startup,
+    this._vault,
+    this._journal, {
+    Future<void> Function()? beforeLock,
+  }) : _beforeLock = beforeLock;
 
   final Startup _startup;
   final OpenVault _vault;
   final VaultJournal _journal;
+
+  /// Waits for what the screens still have to keep, such as the ledger's
+  /// queued changes.
+  final Future<void> Function()? _beforeLock;
 
   Directory get _folder => Directory('${_startup.directory.path}/backups');
 
@@ -92,6 +101,12 @@ final class VaultKeeper implements Keeper {
     return rotated.recoveryCode;
   }
 
+  /// Locks once queued changes, a running backup and any other job on
+  /// the ledger are done, so nothing writes to a closed store.
   @override
-  void lock() => _startup.lock();
+  Future<void> lock() async {
+    await _beforeLock?.call();
+    await _journal.exclusive(() async {});
+    _startup.lock();
+  }
 }

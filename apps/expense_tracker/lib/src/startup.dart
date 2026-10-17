@@ -1,13 +1,9 @@
 import 'dart:io';
 
-import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/foundation.dart';
 import 'package:ledger_backup/ledger_backup.dart';
 import 'package:ledger_vault/ledger_vault.dart';
-
-import 'session.dart';
-import 'vault_session.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.
@@ -39,9 +35,8 @@ final class Locked extends StartupState {
 
 /// Unlocked and ready.
 final class Ready extends StartupState {
-  const Ready(this.session, this.vault);
+  const Ready(this.vault);
 
-  final AppSession session;
   final OpenVault vault;
 }
 
@@ -49,14 +44,12 @@ final class Ready extends StartupState {
 /// [state] and call these methods; keys never leave this class and the
 /// vault.
 final class Startup extends ChangeNotifier {
-  Startup(this._vault, {this.device, Clock? clock})
-    : _clock = clock ?? SystemClock() {
+  Startup(this._vault, {this.device}) {
     _state = _locked();
   }
 
   final LedgerVault _vault;
   final DeviceUnlock? device;
-  final Clock _clock;
   late StartupState _state;
   String? _recovery;
 
@@ -121,7 +114,7 @@ final class Startup extends ChangeNotifier {
     _ready(await _vault.unlockWithDevice(device.id, device.wrapper));
   }
 
-  /// Closes the database and forgets the session.
+  /// Closes the database.
   void lock() {
     final state = _state;
     if (state is Ready) state.vault.close();
@@ -146,7 +139,7 @@ final class Startup extends ChangeNotifier {
   }
 
   void _ready(OpenVault open) {
-    _state = Ready(vaultSession(open, clock: _clock), open);
+    _state = Ready(open);
     notifyListeners();
   }
 

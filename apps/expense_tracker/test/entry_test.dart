@@ -33,13 +33,12 @@ void main() {
     final libraries = reachable('lib/main.dart');
     expect(libraries, contains('lib/src/bootstrap.dart'));
     expect(libraries, contains('package:ledger_vault/ledger_vault.dart'));
-    expect(libraries, isNot(contains('lib/src/preview.dart')));
     expect(libraries, isNot(contains('package:bookkeeping/memory.dart')));
   });
 
-  test('the preview entry uses memory only', () {
+  test('the preview entry uses made-up data only', () {
     final libraries = reachable('lib/main_preview.dart');
-    expect(libraries, contains('lib/src/preview.dart'));
+    expect(libraries, contains('lib/src/demo/seed.dart'));
     expect(libraries, isNot(contains('lib/src/bootstrap.dart')));
     const vault = 'package:ledger_vault/ledger_vault.dart';
     expect(libraries, isNot(contains(vault)));

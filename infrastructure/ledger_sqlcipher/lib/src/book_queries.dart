@@ -134,6 +134,19 @@ extension BookQueries on LedgerStore {
     return notes;
   }
 
+  /// The card purchases in [workspace] paid in instalments.
+  Set<PublicId> instalmentPurchases(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT i.purchase_posting_id FROM card_installment_plans i '
+      'JOIN ledger_accounts a ON a.id = i.card_id WHERE a.workspace = ?',
+      [workspace.toString()],
+    );
+    return {
+      for (final row in rows)
+        PublicId.parse(row['purchase_posting_id']! as String),
+    };
+  }
+
   /// Whether a posting with [id] exists, live or reversed.
   bool hasPosting(PublicId id) {
     const sql = 'SELECT 1 FROM ledger_postings WHERE id = ?';

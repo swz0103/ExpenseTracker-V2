@@ -14,6 +14,7 @@ abstract interface class Keeper {
   /// the old one stops working.
   Future<String> newRecoveryCode();
 
-  /// Closes the ledger and returns to the lock screen.
-  void lock();
+  /// Closes the ledger once pending changes are kept, and returns to the
+  /// lock screen.
+  Future<void> lock();
 }

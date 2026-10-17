@@ -93,7 +93,7 @@ final class VaultJournal implements Journal {
     final tags = {for (final t in _store.tags(_workspace)) t.id: t};
     final merchants = {for (final m in _store.merchants(_workspace)) m.id: m};
     final reversed = _store.reversedPostings(_workspace);
-    final charges = _store.cardChargesByPosting(_workspace);
+    final instalments = _store.instalmentPurchases(_workspace);
     final confirmed = _recurringLinks();
     final postingTags = _store.postingTags(_workspace);
     final postingMerchants = _store.postingMerchants(_workspace);
@@ -129,7 +129,7 @@ final class VaultJournal implements Journal {
         merchant: merchantOf(postingMerchants[posting.id]),
         note: notes[posting.id] ?? '',
         recurring: confirmed[posting.id]?.value,
-        installments: charges.containsKey(posting.id)
+        installments: instalments.contains(posting.id)
             ? _store.installments(posting.id).length
             : 0,
       );
@@ -823,12 +823,15 @@ final class VaultJournal implements Journal {
   (List<ui.Entry>, List<ui.Holding>) _investments() {
     final entries = <ui.Entry>[];
     final quotes = <String, (String, double)>{};
+    final instruments = <String, InvestmentInstrument?>{};
     for (final account in _store.investmentAccounts(_workspace)) {
       final funding = account.fundingCashAccountId.value;
       final held = <String, int>{};
       for (final r in _store.tradeRecords(account.id)) {
-        final instrument = _store.instrument(
-          PublicId.parse(r['instrumentId']! as String),
+        final instrumentId = r['instrumentId']! as String;
+        final instrument = instruments.putIfAbsent(
+          instrumentId,
+          () => _store.instrument(PublicId.parse(instrumentId)),
         );
         if (instrument == null) continue;
         final code = instrument.symbol;

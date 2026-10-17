@@ -33,7 +33,6 @@ void main() {
         directory,
         codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
       ),
-      clock: clock,
     );
   }
 
@@ -115,7 +114,7 @@ void main() {
     await keeper.changePassword(password, changed);
     final newCode = await keeper.newRecoveryCode();
     expect(newCode, isNot(oldCode));
-    keeper.lock();
+    await keeper.lock();
     expect(startup.state, isA<Locked>());
 
     await expectLater(

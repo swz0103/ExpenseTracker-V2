@@ -222,6 +222,30 @@ final class Entry {
     return [(category, spending)];
   }
 
+  /// This entry under another [id], as the store knows it after an edit.
+  Entry withId(String id) => Entry(
+    id: id,
+    date: date,
+    type: type,
+    amount: amount,
+    account: account,
+    category: category,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant,
+    tags: tags,
+    parts: parts,
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
+    split: split,
+  );
+
   /// This entry with its merchant or tags changed.
   Entry withLabels({String? merchant, List<String>? tags}) => Entry(
     id: id,
@@ -546,10 +570,10 @@ final class Ledger extends ChangeNotifier {
       if (c.income == income && !c.archived) c,
   ];
 
-  Account account(String id) => _accounts.firstWhere(
-    (a) => a.id == id,
-    orElse: () => Account(id, id, AccountKind.bank, 0),
-  );
+  Account account(String id) {
+    final accounts = _accountIndex ??= {for (final a in _accounts) a.id: a};
+    return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
+  }
 
   Category category(String name) => _categories.firstWhere(
     (c) => c.name == name,
@@ -612,15 +636,43 @@ final class Ledger extends ChangeNotifier {
   /// Entries in [year]/[month], newest day first; within a day the most
   /// recently recorded first.
   List<Entry> entriesIn(int year, int month) {
-    final found = [
-      for (final (i, e) in _entries.indexed)
-        if (e.date.year == year && e.date.month == month) (i, e),
-    ];
-    found.sort((a, b) {
-      final byDate = b.$2.date.compareTo(a.$2.date);
-      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-    });
-    return [for (final (_, e) in found) e];
+    final months = _months ??= _indexMonths();
+    return List.of(months[year * 12 + month] ?? const <Entry>[]);
+  }
+
+  /// Every month's entries in [entriesIn] order, built once per change.
+  Map<int, List<Entry>> _indexMonths() {
+    final groups = <int, List<(int, Entry)>>{};
+    for (final (i, e) in _entries.indexed) {
+      (groups[e.date.year * 12 + e.date.month] ??= []).add((i, e));
+    }
+    final months = <int, List<Entry>>{};
+    for (final MapEntry(key: month, value: found) in groups.entries) {
+      found.sort((a, b) {
+        final byDate = b.$2.date.compareTo(a.$2.date);
+        return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+      });
+      months[month] = [for (final (_, e) in found) e];
+    }
+    return months;
+  }
+
+  /// What the screens ask for again and again, worked out once per change:
+  /// entries by month, balances by account and day, accounts by id.
+  Map<int, List<Entry>>? _months;
+  final _balances = <(String, DateTime), int>{};
+  Map<String, Account>? _accountIndex;
+
+  void _touch() {
+    _months = null;
+    _balances.clear();
+    _accountIndex = null;
+  }
+
+  @override
+  void notifyListeners() {
+    _touch();
+    super.notifyListeners();
   }
 
   List<Entry> entriesOn(DateTime day) => [
@@ -772,8 +824,11 @@ final class Ledger extends ChangeNotifier {
     final count = e.installments;
     if (count < 2) return e.amount;
     final periods = billedPeriods(e, at);
+    if (periods == 0) return 0;
+    // Equal parts rounded down, the remainder in the first one, as card
+    // issuers bill it and as the ledger's own schedule has it.
     final each = e.amount ~/ count;
-    return periods >= count ? e.amount : each * periods;
+    return periods >= count ? e.amount : e.amount - each * (count - periods);
   }
 
   /// How many instalments of [e] have been billed by [at].
@@ -923,6 +978,10 @@ final class Ledger extends ChangeNotifier {
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
     final end = until ?? today;
+    return _balances[(account, end)] ??= _balanceOn(account, end);
+  }
+
+  int _balanceOn(String account, DateTime end) {
     var total = this.account(account).opening;
     for (final e in _entries) {
       if (!e.date.isAfter(end)) total += _effect(e, account, end);
@@ -1098,7 +1157,10 @@ final class Ledger extends ChangeNotifier {
       }
       if (--_waiting > 0) return;
       try {
-        _adopt(await journal.load());
+        final fresh = await journal.load();
+        // A change made while loading is newer than what was loaded; the
+        // load after it brings both.
+        if (_waiting == 0) _adopt(fresh);
       } on Object catch (error) {
         problem.value = error;
       }
@@ -1132,8 +1194,12 @@ final class Ledger extends ChangeNotifier {
     final before = _entries[index];
     _entries[index] = entry;
     _replayOrUndo(() => _entries[index] = before);
+    // The id is looked up when the change runs: an edit queued before it
+    // may have given the entry a new one.
     _keep((j) async {
-      _renamed[before.id] = await j.replaceEntry(before, entry);
+      final stored = _current(before.id);
+      final next = await j.replaceEntry(before.withId(stored), entry);
+      if (next != stored) _renamed[stored] = next;
     });
   }
 
@@ -1144,7 +1210,7 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
-    _keep((j) => j.removeEntry(removed));
+    _keep((j) => j.removeEntry(removed.withId(_current(removed.id))));
     return (index, removed);
   }
 
@@ -1443,6 +1509,7 @@ final class Ledger extends ChangeNotifier {
   /// Rebuilds the holdings and their lots from the starting positions and
   /// every investment entry in date order.
   void _replay() {
+    _touch();
     final opening = DateTime.utc(2025);
     final byCode = {for (final h in _startHoldings) h.code: h};
     final lots = <String, List<Lot>>{

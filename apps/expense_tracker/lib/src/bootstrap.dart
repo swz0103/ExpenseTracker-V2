@@ -84,20 +84,32 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.vault,
     market: MarketDataGateway(transport: const IoMarketTransport()),
   );
-  late final _keeper = VaultKeeper(widget.startup, widget.vault, _journal);
+  late final _keeper = VaultKeeper(
+    widget.startup,
+    widget.vault,
+    _journal,
+    beforeLock: () async => _loaded?.settled,
+  );
+  Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
   /// Loads the book, then fetches closing prices and takes the weekly
   /// backup in the background.
   Future<Ledger> _open() async {
     final ledger = await _journal.load();
+    _loaded = ledger;
     unawaited(_quotes(ledger));
     unawaited(_keeper.backUpIfDue().catchError((Object _) => null));
     return ledger;
   }
 
   Future<void> _quotes(Ledger ledger) async {
-    if (await _journal.refreshQuotes() && mounted) ledger.refresh();
+    try {
+      if (await _journal.refreshQuotes() && mounted) ledger.refresh();
+    } on Object catch (error) {
+      // Prices are only informational; the ledger may have locked.
+      debugPrint('Closing prices not refreshed: $error');
+    }
   }
 
   @override
@@ -127,7 +139,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         final left = _leftAt;
         _leftAt = null;
         if (left != null && DateTime.now().difference(left) >= _away) {
-          widget.startup.lock();
+          unawaited(_keeper.lock());
         }
       default:
         break;

@@ -315,7 +315,10 @@ class _ComposerState extends State<Composer> {
     if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
     final fee = brokerFee(_amount, _shares);
     final code = _holding ?? '';
-    return (fee, _type == EntryType.sell ? saleTax(code, _amount) : 0);
+    final tax = _type == EntryType.sell
+        ? saleTax(code, _amount, _shares, _date)
+        : 0;
+    return (fee, tax);
   }
 
   Future<int?> _ask(String title, int initial, {String unit = 'TWD'}) {

@@ -169,6 +169,39 @@ void main() {
     expect(ledger.account(cash.id).archived, isTrue);
   });
 
+  test('quick edits and a delete of one entry are kept in order', () async {
+    var ledger = await create();
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger.addAccount(cash);
+    await ledger.settled;
+    ledger.add(spend(ledger, cash.id, 100));
+
+    ledger = await reopen(ledger);
+    final kept = ledger.entriesIn(2026, 10).single;
+    Entry edited(String id, int amount) => Entry(
+      id: id,
+      date: day,
+      type: EntryType.expense,
+      amount: amount,
+      account: cash.id,
+      category: '飲食日常',
+    );
+    ledger
+      ..replace(edited(kept.id, 150))
+      ..replace(edited(kept.id, 170));
+
+    ledger = await reopen(ledger);
+    final twice = ledger.entriesIn(2026, 10).single;
+    expect(twice.amount, 170);
+    ledger
+      ..replace(edited(twice.id, 200))
+      ..remove(twice.id);
+
+    ledger = await reopen(ledger);
+    expect(ledger.entriesIn(2026, 10), isEmpty);
+    expect(ledger.balance(cash.id), 1000);
+  });
+
   test('cards keep their terms, charges, instalments and payments', () async {
     var ledger = await create();
     final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);

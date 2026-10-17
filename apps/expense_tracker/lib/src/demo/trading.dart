@@ -1,25 +1,50 @@
-import 'dart:math';
+import 'package:foundation_values/foundation_values.dart';
+import 'package:investments/investments.dart';
 
-/// The broker's fee on a trade of [amount]: 0.1425% at [discount], at
-/// least NT$20 for whole lots and NT$1 for odd lots.
-int brokerFee(int amount, int shares, {double discount = 0.6}) {
-  if (amount <= 0) return 0;
-  final fee = (amount * 0.001425 * discount).floor();
-  return max(fee, shares % 1000 == 0 ? 20 : 1);
+/// Suggested charges for the composer, from the ledger's own Taiwan rules
+/// (`TaiwanTradeCharges`, `TaiwanRates`), so what it suggests is what the
+/// ledger would work out. The person can still type what was charged.
+final _charges = TaiwanTradeCharges(discountBasisPoints: 6000);
+final _twd = Currency.of('TWD');
+
+Money _ntd(int amount) => Money(_twd, BigInt.from(amount));
+
+BusinessDate _day(DateTime date) =>
+    BusinessDate(date.year, date.month, date.day);
+
+/// The broker's fee on a trade of [amount] for [shares]: 0.1425% at a 6折
+/// discount, at least NT$20 for a board lot and NT$1 for an odd lot.
+int brokerFee(int amount, int shares) {
+  if (amount <= 0 || shares <= 0) return 0;
+  final quantity = ShareQuantity.parse('$shares');
+  return _charges.fee(_ntd(amount), quantity).minorUnits.toInt();
 }
 
-/// The securities transaction tax on a sale: 0.1% for ETFs, whose codes
-/// start with 00, and 0.3% for shares.
-int saleTax(String code, int amount) =>
-    (amount * (code.startsWith('00') ? 0.001 : 0.003)).floor();
-
-/// When a trade on [day] settles: two weekdays later.
-DateTime settlementDay(DateTime day) {
-  var settled = day;
-  var left = 2;
-  while (left > 0) {
-    settled = settled.add(const Duration(days: 1));
-    if (settled.weekday <= DateTime.friday) left--;
+/// The securities transaction tax on selling [shares] of [code] for
+/// [amount] on [tradedOn], at that day's rate; codes starting with 00 are
+/// ETFs.
+int saleTax(String code, int amount, int shares, DateTime tradedOn) {
+  if (amount <= 0 || shares <= 0) return 0;
+  final etf = code.startsWith('00');
+  try {
+    return _charges
+        .sellTax(
+          _ntd(amount),
+          ShareQuantity.parse('$shares'),
+          kind: etf ? InstrumentKind.etf : InstrumentKind.stock,
+          tradedOn: _day(tradedOn),
+        )
+        .minorUnits
+        .toInt();
+  } on InvestmentException {
+    // Before the rates on record: nothing to suggest.
+    return 0;
   }
-  return settled;
+}
+
+/// When a trade on [day] settles: two weekdays later (T+2). Holidays are
+/// not known here, so a trade before one settles a day early.
+DateTime settlementDay(DateTime day) {
+  final settles = taiwanSettlementDate(_day(day), BankingCalendar());
+  return DateTime.utc(settles.year, settles.month, settles.day);
 }
