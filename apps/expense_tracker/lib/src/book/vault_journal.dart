@@ -980,7 +980,6 @@ final class VaultJournal implements Journal {
     return changed;
   }
 
-
   // Budgets and recurring items.
 
   /// The budget plans that apply this month, by category (null for all
