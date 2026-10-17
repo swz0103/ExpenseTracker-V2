@@ -49,6 +49,17 @@ void main() {
     return VaultJournal(again, clock: clock).load();
   }
 
+  /// The ledger's own shares and cost of [code], to hold the screens'
+  /// replay of the same trades to.
+  (int, int)? held(String code) =>
+      VaultJournal(open!, clock: clock).positions()[code];
+
+  /// The shares and cost of [code] as the screens replay them.
+  (int, int) shown(Ledger ledger, String code) {
+    final holding = ledger.holding(code)!;
+    return (holding.shares, holding.cost);
+  }
+
   Entry spend(
     Ledger ledger,
     String account,
@@ -320,6 +331,54 @@ void main() {
     expect(ledger.expense(2026, 10), 30000 + 800);
   });
 
+  test("a card's statement due matches the ledger's billing", () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger
+      ..addAccount(bank)
+      ..addAccount(card);
+    await ledger.settled;
+    Entry charge(int amount, DateTime date, {int installments = 0}) => Entry(
+      id: ledger.newId(),
+      date: date,
+      type: EntryType.expense,
+      amount: amount,
+      account: card.id,
+      category: '購物休閒',
+      installments: installments,
+    );
+    ledger
+      ..add(charge(1200, DateTime.utc(2026, 9, 10)))
+      ..add(charge(30001, DateTime.utc(2026, 9, 12), installments: 3))
+      ..add(charge(700, DateTime.utc(2026, 10, 1)))
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.transfer,
+          amount: 500,
+          account: bank.id,
+          to: card.id,
+          category: '轉帳',
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    final kept = ledger.account(card.id);
+    // 1,200 and the first instalment, 10,001 with the remainder, less the
+    // 500 paid since the statement closed on 9/25.
+    expect(ledger.dueFromEntries(kept), 1200 + 10001 - 500);
+    expect(ledger.statementDue(kept), ledger.dueFromEntries(kept));
+  });
+
   test('categories, tags and merchants are kept by name', () async {
     var ledger = await create();
     final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 5000);
@@ -460,6 +519,7 @@ void main() {
     ledger = await reopen(ledger);
     expect(ledger.holding('0050')!.shares, 1500);
     expect(ledger.holding('0050')!.cost, 58250 + 30025);
+    expect(held('0050'), shown(ledger, '0050'));
     expect(ledger.balance(bank.id), 500000 - 58250 - 30025);
     ledger
       ..add(trade(EntryType.sell, 35000, shares: 500, fee: 30, tax: 105))
@@ -467,6 +527,7 @@ void main() {
 
     ledger = await reopen(ledger);
     expect(ledger.holding('0050')!.shares, 1000);
+    expect(held('0050'), shown(ledger, '0050'));
     expect(
       ledger.balance(bank.id),
       500000 - 58250 - 30025 + 35000 - 135 + 1200,
@@ -475,6 +536,7 @@ void main() {
 
     ledger = await reopen(ledger);
     expect(ledger.holding('0050')!.shares, 4000);
+    expect(held('0050'), shown(ledger, '0050'));
     final dividend = ledger
         .entriesIn(2026, 10)
         .firstWhere((e) => e.type == EntryType.dividend && e.amount == 1200);

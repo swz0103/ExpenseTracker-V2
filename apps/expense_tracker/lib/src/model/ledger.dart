@@ -559,7 +559,9 @@ final class Ledger extends ChangeNotifier {
     required List<Recurring> recurring,
     this.journal,
     Map<String, double> rates = const {},
+    Map<String, int> cardDues = const {},
   }) : _rates = {...rates},
+       _dues = {...cardDues},
        _accounts = [...accounts],
        _categories = [...categories],
        _entries = [...entries],
@@ -589,6 +591,9 @@ final class Ledger extends ChangeNotifier {
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
   final Map<String, double> _rates;
+
+  /// Each card's [statementDue] as the journal's billing has it, by id.
+  final Map<String, int> _dues;
   var _holdings = <Holding>[];
   var _lots = <String, List<Lot>>{};
 
@@ -898,8 +903,16 @@ final class Ledger extends ChangeNotifier {
     return (start, end, due);
   }
 
-  /// What is still to pay on the last statement of [card].
+  /// What is still to pay on the last statement of [card]: the journal's
+  /// figure once every change has reached it, else [dueFromEntries].
   int statementDue(Account card) {
+    final kept = _dues[card.id];
+    return kept != null && _waiting == 0 ? kept : dueFromEntries(card);
+  }
+
+  /// [statementDue] worked out from the entries, as the screens show it
+  /// before a change has been kept.
+  int dueFromEntries(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
     for (final e in _entries) {
@@ -1549,6 +1562,9 @@ final class Ledger extends ChangeNotifier {
     _rates
       ..clear()
       ..addAll(fresh._rates);
+    _dues
+      ..clear()
+      ..addAll(fresh._dues);
     _replay();
     notifyListeners();
   }
