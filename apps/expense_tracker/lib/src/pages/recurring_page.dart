@@ -246,6 +246,7 @@ class _Row extends StatelessWidget {
     final category = ledger.category(item.category);
     final account = ledger.account(item.account);
     final currency = account.currency;
+    final booked = amount;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -313,9 +314,9 @@ class _Row extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    amount == null
+                    booked == null
                         ? ledger.recurringAmount(item)
-                        : amountIn(amount, currency),
+                        : amountIn(booked, currency),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
