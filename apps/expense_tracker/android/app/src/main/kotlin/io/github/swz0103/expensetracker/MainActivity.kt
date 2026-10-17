@@ -3,6 +3,7 @@ package io.github.swz0103.expensetracker
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
@@ -10,6 +11,7 @@ import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -18,10 +20,55 @@ import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Hosts the app and answers `expense_tracker/platform` (lib/src/platform.dart):
- * the private files folder, and a Keystore AES key that only a fingerprint or
- * face can use, which wraps the ledger key for unlocking without the password.
+ * the private files folder; a Keystore AES key that only a fingerprint or face
+ * can use, which wraps the ledger key for unlocking without the password; and
+ * the system's save and open dialogs, for taking backups out and back in.
  */
 class MainActivity : FlutterFragmentActivity() {
+    private var pendingExport: Pair<String, MethodChannel.Result>? = null
+    private var pendingPick: MethodChannel.Result? = null
+
+    /** Copies a backup to where the person chooses: Downloads, Drive, ... */
+    private val createDocument =
+        registerForActivityResult(
+            ActivityResultContracts.CreateDocument("application/octet-stream"),
+        ) { uri ->
+            val (source, result) = pendingExport ?: return@registerForActivityResult
+            pendingExport = null
+            if (uri == null) {
+                result.success(false)
+                return@registerForActivityResult
+            }
+            try {
+                contentResolver.openOutputStream(uri)?.use { output ->
+                    File(source).inputStream().use { it.copyTo(output) }
+                }
+                result.success(true)
+            } catch (e: Exception) {
+                result.error("export", e.message, null)
+            }
+        }
+
+    /** Copies the chosen file into the cache, where the app can read it. */
+    private val openDocument =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val result = pendingPick ?: return@registerForActivityResult
+            pendingPick = null
+            if (uri == null) {
+                result.success(null)
+                return@registerForActivityResult
+            }
+            try {
+                val copy = File(cacheDir, "restore.etbk")
+                contentResolver.openInputStream(uri)?.use { input ->
+                    copy.outputStream().use { input.copyTo(it) }
+                }
+                result.success(copy.absolutePath)
+            } catch (e: Exception) {
+                result.error("pick", e.message, null)
+            }
+        }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
@@ -39,6 +86,24 @@ class MainActivity : FlutterFragmentActivity() {
                             result.error("bad-arguments", "data and context are required", null)
                         } else {
                             crypt(call.method == "wrap", data, context, result)
+                        }
+                    }
+                    "exportFile" -> {
+                        val path = call.argument<String>("path")
+                        val name = call.argument<String>("name")
+                        if (path == null || name == null || pendingExport != null) {
+                            result.error("bad-arguments", "path and name are required", null)
+                        } else {
+                            pendingExport = path to result
+                            createDocument.launch(name)
+                        }
+                    }
+                    "pickFile" -> {
+                        if (pendingPick != null) {
+                            result.error("busy", "A file is being chosen.", null)
+                        } else {
+                            pendingPick = result
+                            openDocument.launch(arrayOf("*/*"))
                         }
                     }
                     else -> result.notImplemented()

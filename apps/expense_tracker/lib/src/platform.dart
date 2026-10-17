@@ -61,3 +61,19 @@ final class KeystoreDeviceKey implements DeviceKeyWrapper {
     return result;
   }
 }
+
+/// Lets the person save a copy of the file at [path], named [name],
+/// wherever they choose (Downloads, Google Drive, ...). False when they
+/// cancel.
+Future<bool> androidExportFile(String path, String name) async {
+  final saved = await platformChannel.invokeMethod<bool>('exportFile', {
+    'path': path,
+    'name': name,
+  });
+  return saved ?? false;
+}
+
+/// Lets the person choose a file and returns a copy the app can read, or
+/// null when they cancel.
+Future<String?> androidPickFile() =>
+    platformChannel.invokeMethod<String>('pickFile');

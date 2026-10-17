@@ -89,6 +89,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.vault,
     _journal,
     beforeLock: () async => _loaded?.settled,
+    export: Platform.isAndroid ? androidExportFile : null,
   );
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();

@@ -15,7 +15,9 @@ final class VaultKeeper implements Keeper {
     this._vault,
     this._journal, {
     Future<void> Function()? beforeLock,
-  }) : _beforeLock = beforeLock;
+    Future<bool> Function(String path, String name)? export,
+  }) : _beforeLock = beforeLock,
+       _export = export ?? _toDownloads;
 
   final Startup _startup;
   final OpenVault _vault;
@@ -24,6 +26,26 @@ final class VaultKeeper implements Keeper {
   /// Waits for what the screens still have to keep, such as the ledger's
   /// queued changes.
   final Future<void> Function()? _beforeLock;
+
+  /// Hands a backup file to the person: the system's save dialog on a
+  /// phone, the Downloads folder on a computer.
+  final Future<bool> Function(String path, String name) _export;
+
+  static Future<bool> _toDownloads(String path, String name) async {
+    final home =
+        Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
+    if (home == null) return false;
+    final downloads = Directory('$home/Downloads');
+    await downloads.create(recursive: true);
+    await File(path).copy('${downloads.path}/$name');
+    return true;
+  }
+
+  @override
+  Future<bool> exportBackup() async {
+    final path = await backUp();
+    return _export(path, path.split(RegExp(r'[/\\]')).last);
+  }
 
   Directory get _folder => Directory('${_startup.directory.path}/backups');
 

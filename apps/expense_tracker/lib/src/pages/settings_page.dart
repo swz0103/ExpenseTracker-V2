@@ -81,6 +81,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _export(Keeper keeper) async {
+    try {
+      final saved = await keeper.exportBackup();
+      if (mounted && saved) showNote(context, '已匯出備份檔');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '匯出失敗（$error）');
+    }
+  }
+
   Future<void> _changePassword(Keeper keeper) async {
     final passwords = await showDialog<(String, String)>(
       context: context,
@@ -244,6 +253,14 @@ class _SettingsPageState extends State<SettingsPage> {
                             title: '立即備份',
                             detail: '每週會自動備份，保留最近 5 份',
                             onTap: () => _backUp(keeper),
+                          ),
+                          const Divider(),
+                          _Export(
+                            badge: '匯出',
+                            title: '匯出備份檔',
+                            detail: '存到下載資料夾或雲端硬碟，換手機時用來還原',
+                            icon: Glyph.download,
+                            onTap: () => _export(keeper),
                           ),
                           const Divider(),
                           _Export(
