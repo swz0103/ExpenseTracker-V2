@@ -5,7 +5,7 @@ import 'package:app_core/app_core.dart';
 import 'package:bookkeeping/bookkeeping.dart';
 import 'package:budgets/budgets.dart';
 import 'package:categories/categories.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:flutter/painting.dart' show Color;
 import 'package:foundation_values/foundation_values.dart';
 import 'package:investments/investments.dart';
@@ -68,6 +68,9 @@ final class VaultJournal implements Journal {
   /// Where closing prices come from; none in tests.
   final MarketDataGateway? _market;
   final _quotes = <String, double>{};
+
+  /// NT$ for one unit of each currency on 臺灣銀行's latest board.
+  final _rates = <String, double>{};
   final Bookkeeping<SqlBookkeeping> _books;
   late final _cards = CardBook(_books);
   late final _planning = PlanningBook(_books);
@@ -98,6 +101,8 @@ final class VaultJournal implements Journal {
     final postingTags = _store.postingTags(_workspace);
     final postingMerchants = _store.postingMerchants(_workspace);
     final notes = _store.postingNotes(_workspace);
+    final homes = _store.postingHomeValues(_workspace);
+    if (_rates.isEmpty) _rates.addAll(_keptRates());
     String nameOf(PublicId id) =>
         _live(categories, id, (c) => c.replacementId)?.name ?? '';
     String merchantOf(PublicId? id) {
@@ -128,6 +133,7 @@ final class VaultJournal implements Journal {
         tags: tagNames,
         merchant: merchantOf(postingMerchants[posting.id]),
         note: notes[posting.id] ?? '',
+        home: homes[posting.id],
         recurring: confirmed[posting.id]?.value,
         installments: instalments.contains(posting.id)
             ? _store.installments(posting.id).length
@@ -160,6 +166,7 @@ final class VaultJournal implements Journal {
             warning: plan.warningPercent,
           ),
       ],
+      rates: _rates,
       recurring: [
         for (final (template, active) in _store.recurringTemplates(_workspace))
           _recurringOf(
@@ -182,6 +189,7 @@ final class VaultJournal implements Journal {
     required String merchant,
     required String note,
     required int installments,
+    Money? home,
     String? recurring,
   }) {
     final date = DateTime.utc(
@@ -222,21 +230,25 @@ final class VaultJournal implements Journal {
           refundOf: posting.refundOf?.value,
           installments: installments,
           recurring: recurring,
+          home: home == null ? null : _int(home),
         );
       case PostingKind.transfer:
         final from = principal.where((leg) => _int(leg.amount) < 0);
         final to = principal.where((leg) => _int(leg.amount) > 0);
         if (from.isEmpty || to.isEmpty) return null;
+        final sent = from.first.amount;
+        final arrived = to.first.amount;
         return ui.Entry(
           id: posting.id.value,
           date: date,
           type: ui.EntryType.transfer,
-          amount: _int(from.first.amount).abs(),
+          amount: _int(sent).abs(),
           account: from.first.account.id.value,
           to: to.first.account.id.value,
           category: '轉帳',
           note: note,
           fee: fee,
+          received: arrived.currency == sent.currency ? null : _int(arrived),
         );
       default:
         return null;
@@ -258,6 +270,7 @@ final class VaultJournal implements Journal {
       limit: limit == null ? null : _int(limit),
       archived: a.state != AccountState.active,
       inNetWorth: a.includeInNetWorth,
+      currency: a.currency.code,
     );
   }
 
@@ -329,7 +342,7 @@ final class VaultJournal implements Journal {
     Account account,
     BusinessDate day,
   ) async {
-    final shares = await _shares(e, income: false);
+    final shares = await _shares(e, income: false, account: account);
     final tags = await _tags(e.tags);
     final merchant = await _merchant(e.merchant);
     if (account.kind != AccountKind.creditCard) {
@@ -340,10 +353,11 @@ final class VaultJournal implements Journal {
           flow: CashFlow.expense,
           account: _ref(account),
           date: day,
-          amount: _ntd(e.amount),
+          amount: _in(account, e.amount),
           allocations: shares,
           tags: tags,
           merchant: merchant,
+          homeValue: _homeOf(account, e),
         ),
       );
       return;
@@ -381,7 +395,7 @@ final class VaultJournal implements Journal {
     Account account,
     BusinessDate day,
   ) async {
-    final shares = await _shares(e, income: true);
+    final shares = await _shares(e, income: true, account: account);
     if (account.kind == AccountKind.creditCard) {
       await _cards.adjust(
         AdjustCard(
@@ -404,9 +418,10 @@ final class VaultJournal implements Journal {
         flow: CashFlow.income,
         account: _ref(account),
         date: day,
-        amount: _ntd(e.amount),
+        amount: _in(account, e.amount),
         allocations: shares,
         tags: await _tags(e.tags),
+        homeValue: _homeOf(account, e),
       ),
     );
   }
@@ -418,7 +433,7 @@ final class VaultJournal implements Journal {
     BusinessDate day,
     PublicId original,
   ) async {
-    final shares = _refundShares(original, e.amount);
+    final shares = _refundShares(original, _in(account, e.amount));
     final charge = _store.cardChargesByPosting(_workspace)[original];
     if (charge == null) {
       await _books.recordRefund(
@@ -428,7 +443,7 @@ final class VaultJournal implements Journal {
           originalId: original,
           account: _ref(account),
           date: day,
-          amount: _ntd(e.amount),
+          amount: _in(account, e.amount),
           allocations: shares,
         ),
       );
@@ -454,7 +469,8 @@ final class VaultJournal implements Journal {
   /// [amount] of the spending [original] given back, spread over its
   /// categories in proportion, at the category versions it was booked
   /// with, as the ledger requires.
-  List<CategoryShare> _refundShares(PublicId original, int amount) {
+  List<CategoryShare> _refundShares(PublicId original, Money refund) {
+    final amount = _int(refund);
     final posting = _store
         .workspacePostings(_workspace)
         .where((p) => p.id == original)
@@ -471,7 +487,8 @@ final class VaultJournal implements Journal {
       left -= value;
       if (value <= 0) continue;
       final version = a.expectedCategoryVersion ?? 1;
-      shares.add(CategoryShare(a.categoryId, version, _ntd(value)));
+      final money = Money(refund.currency, BigInt.from(value));
+      shares.add(CategoryShare(a.categoryId, version, money));
     }
     return shares;
   }
@@ -486,6 +503,7 @@ final class VaultJournal implements Journal {
     if (from.kind == AccountKind.creditCard) {
       throw const AppFailure(FailureKind.rejected, 'app.card-transfer');
     }
+    _requireHomeFee(from, e);
     final fee = e.fee > 0 ? _ntd(e.fee) : null;
     final feeShares = await _feeShares(e.fee);
     if (to.kind != AccountKind.creditCard) {
@@ -496,12 +514,16 @@ final class VaultJournal implements Journal {
           source: _ref(from),
           destination: _ref(to),
           date: day,
-          principal: _ntd(e.amount),
+          principal: _in(from, e.amount),
+          received: _receivedIn(from, to, e),
           fee: fee,
           feeAllocations: feeShares,
         ),
       );
       return;
+    }
+    if (from.currency != homeCurrency) {
+      throw const AppFailure(FailureKind.rejected, 'app.foreign-card-payment');
     }
     await _cards.pay(
       PayCard(
@@ -622,17 +644,20 @@ final class VaultJournal implements Journal {
           reversalId: PublicId.generate(),
           account: _ref(account),
           date: day,
-          amount: _ntd(after.amount),
-          allocations: await _shares(after, income: income),
+          amount: _in(account, after.amount),
+          allocations: await _shares(after, income: income, account: account),
           tags: await _tags(after.tags),
           merchant: await _merchant(after.merchant),
+          homeValue: _homeOf(account, after),
         ),
       );
       await _note(replacement, after.note);
       return replacement.value;
     }
     if (plain && after.type == ui.EntryType.transfer) {
+      _requireHomeFee(account, after);
       final fee = after.fee > 0 ? _ntd(after.fee) : null;
+      final destination = _account(after.to ?? '');
       await _books.correctTransfer(
         CorrectTransfer(
           operation: _op(),
@@ -640,9 +665,10 @@ final class VaultJournal implements Journal {
           originalId: id,
           reversalId: PublicId.generate(),
           source: _ref(account),
-          destination: _ref(_account(after.to ?? '')),
+          destination: _ref(destination),
           date: day,
-          principal: _ntd(after.amount),
+          principal: _in(account, after.amount),
+          received: _receivedIn(account, destination, after),
           fee: fee,
           feeAllocations: await _feeShares(after.fee),
         ),
@@ -728,7 +754,9 @@ final class VaultJournal implements Journal {
       a.shares == b.shares &&
       a.tax == b.tax &&
       a.average == b.average &&
-      a.split == b.split;
+      a.split == b.split &&
+      a.home == b.home &&
+      a.received == b.received;
 
   Future<void> _note(PublicId posting, String text) async {
     final current = _store.note(posting);
@@ -764,7 +792,8 @@ final class VaultJournal implements Journal {
     final income = e.type == ui.EntryType.income;
     if (e.refundOf != null ||
         (e.type != ui.EntryType.expense && !income) ||
-        account.kind == AccountKind.creditCard) {
+        account.kind == AccountKind.creditCard ||
+        account.currency != homeCurrency) {
       return false;
     }
     final saved = _template(template);
@@ -912,6 +941,53 @@ final class VaultJournal implements Journal {
           ),
       ],
     );
+  }
+
+  static const _ratesKind = '${appEventPrefix}rates';
+
+  /// The board last fetched, kept so foreign accounts are valued offline.
+  Map<String, double> _keptRates() {
+    final rows = _vault.store.select(
+      'SELECT payload FROM events WHERE workspace = ? AND kind = ? '
+      'ORDER BY seq DESC LIMIT 1',
+      [_workspace.toString(), _ratesKind],
+    );
+    if (rows.isEmpty) return const {};
+    final json = jsonDecode(rows.single['payload']! as String) as Map;
+    return {
+      for (final MapEntry(:key, :value) in (json['rates'] as Map).entries)
+        key as String: (value as num).toDouble(),
+    };
+  }
+
+  /// Fetches 臺灣銀行's board: the spot buying rate of each currency, what
+  /// a foreign balance is worth in NT$. Returns whether any rate changed.
+  Future<bool> refreshRates() async {
+    final market = _market;
+    if (market == null) return false;
+    final board = (await market.bankRates()).value;
+    if (board == null) return false;
+    final fetched = <String, double>{};
+    for (final MapEntry(key: code, value: row) in board.rates.entries) {
+      final rate = row.valuation;
+      if (rate != null) fetched[code] = rate.numerator / rate.denominator;
+    }
+    if (fetched.isEmpty || mapEquals(fetched, _rates)) return false;
+    _rates
+      ..clear()
+      ..addAll(fetched);
+    final payload = jsonEncode({'asOf': '${board.asOf}', 'rates': fetched});
+    await _books.exclusive(() async {
+      await _vault.store.write((t) async {
+        t.append(
+          id: PublicId.generate(),
+          workspace: _workspace,
+          kind: _ratesKind,
+          payload: payload,
+        );
+      });
+    });
+    return true;
   }
 
   /// Fetches the latest close of every instrument still held, for the
@@ -1321,14 +1397,20 @@ final class VaultJournal implements Journal {
 
   Future<void> _open(ui.Account a) async {
     final id = _parse(a.id) ?? PublicId.generate();
-    final opening = a.opening == 0 ? null : _ntd(a.opening);
+    final currency = Currency.of(a.currency);
+    if (a.kind == ui.AccountKind.card && currency != homeCurrency) {
+      throw const AppFailure(FailureKind.rejected, 'app.foreign-card');
+    }
+    final opening = a.opening == 0
+        ? null
+        : Money(currency, BigInt.from(a.opening));
     await _books.openAccount(
       OpenAccount(
         operation: _op(),
         accountId: id,
         name: a.name,
         kind: _kind(a.kind),
-        currency: homeCurrency,
+        currency: currency,
         openedOn: earliestBookingDate,
         includeInNetWorth: a.inNetWorth,
         openingBalance: opening,
@@ -1375,7 +1457,7 @@ final class VaultJournal implements Journal {
         reversalId: PublicId.generate(),
         accountId: a.id,
         expectedVersion: a.rulesVersion,
-        amount: _ntd(opening),
+        amount: _in(a, opening),
       ),
     );
   }
@@ -1511,11 +1593,18 @@ final class VaultJournal implements Journal {
     return _categoryById(id);
   }
 
-  Future<List<CategoryShare>> _shares(ui.Entry e, {required bool income}) {
-    final parts = e.parts.isNotEmpty
+  /// The categories of [e], counted in the currency of the [account] it
+  /// is booked in; a foreign entry is never split.
+  Future<List<CategoryShare>> _shares(
+    ui.Entry e, {
+    required bool income,
+    Account? account,
+  }) {
+    final currency = account?.currency ?? homeCurrency;
+    final parts = e.parts.isNotEmpty && currency == homeCurrency
         ? e.parts
         : [if (e.category.isNotEmpty) (e.category, e.amount)];
-    return _sharesOf(parts, income: income);
+    return _sharesOf(parts, income: income, currency: currency);
   }
 
   /// The category of a transfer's [fee], none without one.
@@ -1527,11 +1616,13 @@ final class VaultJournal implements Journal {
   Future<List<CategoryShare>> _sharesOf(
     List<(String, int)> parts, {
     required bool income,
+    Currency? currency,
   }) async {
     final shares = <CategoryShare>[];
     for (final (name, amount) in parts) {
       final c = await _category(name, income: income);
-      shares.add(CategoryShare(c.id, c.version, _ntd(amount)));
+      final money = Money(currency ?? homeCurrency, BigInt.from(amount));
+      shares.add(CategoryShare(c.id, c.version, money));
     }
     return shares;
   }
@@ -1609,6 +1700,39 @@ PublicId? _parse(String id) {
 }
 
 Money _ntd(int amount) => Money(homeCurrency, BigInt.from(amount));
+
+/// [amount] in the smallest unit of [account]'s currency.
+Money _in(Account account, int amount) =>
+    Money(account.currency, BigInt.from(amount));
+
+/// What a foreign entry [e] in [account] was worth in NT$, which the
+/// ledger keeps for reports, budgets and net worth; none for NT$.
+Money? _homeOf(Account account, ui.Entry e) {
+  if (account.currency == homeCurrency) return null;
+  final home = e.home;
+  if (home == null || home <= 0) {
+    throw const AppFailure(FailureKind.rejected, 'app.home-value');
+  }
+  return _ntd(home);
+}
+
+/// What reached [to] when it is kept in another currency than [from].
+Money? _receivedIn(Account from, Account to, ui.Entry e) {
+  if (from.currency == to.currency) return null;
+  final received = e.received;
+  if (received == null || received <= 0) {
+    throw const AppFailure(FailureKind.rejected, 'app.received');
+  }
+  return _in(to, received);
+}
+
+/// A transfer's fee is counted as NT$ spending, so only an NT$ account
+/// pays one.
+void _requireHomeFee(Account from, ui.Entry e) {
+  if (e.fee > 0 && from.currency != homeCurrency) {
+    throw const AppFailure(FailureKind.rejected, 'app.foreign-fee');
+  }
+}
 
 int _int(Money money) => money.minorUnits.toInt();
 

@@ -11,6 +11,7 @@ import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import 'entry_tile.dart';
 import 'nav.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
@@ -434,14 +435,14 @@ class _OverviewPageState extends State<OverviewPage> {
     if (group != null) {
       return shaded([
         for (final a in ledger.accounts)
-          if (a.kind.name == group && ledger.balance(a.id) > 0)
-            (a.id, a.name, ledger.balance(a.id)),
+          if (a.kind.name == group && ledger.worthOf(a) > 0)
+            (a.id, a.name, ledger.worthOf(a)),
       ]);
     }
     int sumOf(AccountKind kind) {
       var total = 0;
       for (final a in ledger.accounts) {
-        if (a.kind == kind) total += max(0, ledger.balance(a.id));
+        if (a.kind == kind) total += max(0, ledger.worthOf(a));
       }
       return total;
     }
@@ -845,13 +846,8 @@ class _DayGrid extends StatelessWidget {
       _ => iconFor(category.icon),
     };
     final color = entryColor(e.type);
-    final amount = ledger.hidden
-        ? '••••'
-        : switch (e.type) {
-            EntryType.expense || EntryType.buy => spent(e.amount),
-            EntryType.transfer => groupDigits(e.amount),
-            _ => '+${groupDigits(e.amount)}',
-          };
+    final currency = ledger.account(e.account).currency;
+    final amount = ledger.hidden ? '••••' : entryAmount(e, currency: currency);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

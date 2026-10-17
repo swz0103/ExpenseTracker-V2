@@ -106,10 +106,13 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   Future<void> _quotes(Ledger ledger) async {
     try {
-      if (await _journal.refreshQuotes() && mounted) ledger.refresh();
+      final quotes = await _journal.refreshQuotes();
+      final rates = await _journal.refreshRates();
+      if ((quotes || rates) && mounted) ledger.refresh();
     } on Object catch (error) {
-      // Prices are only informational; the ledger may have locked.
-      debugPrint('Closing prices not refreshed: $error');
+      // Prices and rates are only informational; the ledger may have
+      // locked.
+      debugPrint('Closing prices or rates not refreshed: $error');
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:foundation_values/foundation_values.dart' show Currency;
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -52,7 +53,8 @@ double? evaluate(String expression) {
 }
 
 /// The amount calculator: digits and the four operations; 完成 returns
-/// the whole amount, or null when dismissed.
+/// the amount in the smallest unit of [unit] (whole NT$, US cents), or
+/// null when dismissed.
 Future<int?> showCalculator(
   BuildContext context, {
   required String title,
@@ -60,16 +62,24 @@ Future<int?> showCalculator(
   required Color color,
   String unit = 'TWD',
 }) async {
+  final cents =
+      Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;
   final value = await showSheet<num>(
     context,
     (_) => _Calculator(
       title: title,
-      initial: initial == 0 ? '' : '$initial',
+      initial: initial == 0
+          ? ''
+          : cents
+          ? _plain(initial / 100)
+          : '$initial',
       color: color,
       unit: unit,
+      decimal: cents,
     ),
   );
-  return value?.round();
+  if (value == null) return null;
+  return cents ? (value * 100).round() : value.round();
 }
 
 /// The calculator for a price with two decimals, such as 194.35.

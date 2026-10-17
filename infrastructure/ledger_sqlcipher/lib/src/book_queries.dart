@@ -119,6 +119,22 @@ extension BookQueries on LedgerStore {
     return merchants;
   }
 
+  /// What each foreign-currency posting in [workspace] was worth in the
+  /// home currency when it was booked, by posting.
+  Map<PublicId, Money> postingHomeValues(WorkspaceId workspace) {
+    final rows = _store.select(
+      'SELECT h.posting_id, h.value FROM ledger_posting_home h '
+      'JOIN ledger_postings p ON p.id = h.posting_id WHERE p.workspace = ?',
+      [workspace.toString()],
+    );
+    final values = <PublicId, Money>{};
+    for (final row in rows) {
+      final posting = PublicId.parse(row['posting_id']! as String);
+      values[posting] = Money.fromJson(_json(row['value']));
+    }
+    return values;
+  }
+
   /// The note of every posting in [workspace] that has one, by posting.
   Map<PublicId, String> postingNotes(WorkspaceId workspace) {
     final rows = _store.select(

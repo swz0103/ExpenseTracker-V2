@@ -202,6 +202,62 @@ void main() {
     expect(ledger.balance(cash.id), 1000);
   });
 
+  test('a foreign account keeps its currency and its NT\$ worth', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    final usd = Account(
+      ledger.newId(),
+      '美元帳戶',
+      AccountKind.bank,
+      10000,
+      currency: 'USD',
+    );
+    ledger
+      ..addAccount(bank)
+      ..addAccount(usd);
+    await ledger.settled;
+    ledger
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.expense,
+          amount: 1250,
+          account: usd.id,
+          category: '飲食日常',
+          home: 401,
+        ),
+      )
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.transfer,
+          amount: 3210,
+          account: bank.id,
+          to: usd.id,
+          category: '轉帳',
+          received: 10000,
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    final kept = ledger.account(usd.id);
+    expect(kept.currency, 'USD');
+    expect(ledger.balance(usd.id), 10000 - 1250 + 10000);
+    expect(ledger.balance(bank.id), 50000 - 3210);
+    expect(ledger.expense(2026, 10), 401);
+    final entries = ledger.entriesIn(2026, 10);
+    final spent = entries.firstWhere((e) => e.type == EntryType.expense);
+    expect((spent.amount, spent.home), (1250, 401));
+    final moved = entries.firstWhere((e) => e.type == EntryType.transfer);
+    expect((moved.amount, moved.received), (3210, 10000));
+
+    // Without a rate the foreign balance stays out of the totals.
+    expect(ledger.unrated, [kept]);
+    expect(ledger.assets, 50000 - 3210);
+  });
+
   test('cards keep their terms, charges, instalments and payments', () async {
     var ledger = await create();
     final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);

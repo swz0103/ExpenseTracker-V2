@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:foundation_values/foundation_values.dart' show Currency;
 
 import '../compose/pickers.dart';
 import '../demo/ledger.dart';
@@ -42,10 +43,18 @@ class _AccountEditorState extends State<_AccountEditor> {
   late var _due = _old?.dueDay ?? 15;
   late var _counted = _old?.inNetWorth ?? true;
 
+  /// Chosen when the account is opened; fixed after that.
+  late var _currency = _old?.currency ?? 'TWD';
+
   String _startBalance() {
     final account = widget.account;
-    return account == null ? '' : '${widget.ledger.balance(account.id).abs()}';
+    if (account == null) return '';
+    final balance = widget.ledger.balance(account.id).abs();
+    return plainIn(balance, account.currency);
   }
+
+  /// Cards and loans are kept in NT$.
+  bool get _foreignAllowed => !_kind.isDebt;
 
   @override
   void dispose() {
@@ -59,7 +68,8 @@ class _AccountEditorState extends State<_AccountEditor> {
     final ledger = widget.ledger;
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final typed = int.tryParse(_balance.text.replaceAll(',', '').trim()) ?? 0;
+    final currency = _foreignAllowed ? _currency : 'TWD';
+    final typed = minorOf(_balance.text, currency) ?? 0;
     final balance = _kind.isDebt ? -typed.abs() : typed;
     final card = _kind == AccountKind.card;
     final old = _old;
@@ -75,6 +85,7 @@ class _AccountEditorState extends State<_AccountEditor> {
           dueDay: card ? _due : null,
           limit: card ? int.tryParse(_limit.text.trim()) : null,
           inNetWorth: _counted,
+          currency: currency,
         ),
       );
     } else {
@@ -90,6 +101,7 @@ class _AccountEditorState extends State<_AccountEditor> {
           limit: card ? int.tryParse(_limit.text.trim()) : null,
           archived: old.archived,
           inNetWorth: _counted,
+          currency: old.currency,
         ),
       );
       if (balance != ledger.balance(old.id)) ledger.setBalance(old.id, balance);
@@ -112,7 +124,9 @@ class _AccountEditorState extends State<_AccountEditor> {
         columns: 3,
         options: [
           for (final a in ledger.openAccounts)
-            if (a.id != old.id && !a.kind.isDebt)
+            if (a.id != old.id &&
+                !a.kind.isDebt &&
+                a.currency == old.currency)
               Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
         ],
       );
@@ -272,6 +286,22 @@ class _AccountEditorState extends State<_AccountEditor> {
               ],
             ),
           ),
+          if (old == null && _foreignAllowed)
+            _Block(
+              title: '幣別',
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final code in Currency.supported)
+                    _Choice(
+                      label: code,
+                      picked: code == _currency,
+                      onTap: () => setState(() => _currency = code),
+                    ),
+                ],
+              ),
+            ),
           if (_kind == AccountKind.card)
             TileRow([
               Tile(
@@ -349,7 +379,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '目前 ${groupDigits(widget.ledger.balance(old.id))}',
+                '目前 ${amountIn(widget.ledger.balance(old.id), old.currency)}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: Hue.muted),
               ),
@@ -412,7 +442,9 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      keyboardType: number ? TextInputType.number : TextInputType.text,
+      keyboardType: number
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
       decoration: InputDecoration(
         hintText: hint,
         isDense: true,
