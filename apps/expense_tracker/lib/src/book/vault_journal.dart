@@ -837,8 +837,7 @@ final class VaultJournal implements Journal {
     final income = e.type == ui.EntryType.income;
     if (e.refundOf != null ||
         (e.type != ui.EntryType.expense && !income) ||
-        account.kind == AccountKind.creditCard ||
-        account.currency != homeCurrency) {
+        account.kind == AccountKind.creditCard) {
       return false;
     }
     final saved = _template(template);
@@ -876,11 +875,12 @@ final class VaultJournal implements Journal {
           expectedTemplateVersion: kept.version,
           dueDate: due,
           account: _ref(account),
-          amount: _ntd(e.amount),
+          amount: _in(account, e.amount),
           date: day,
-          allocations: await _shares(e, income: income),
+          allocations: await _shares(e, income: income, account: account),
           tags: await _tags(e.tags),
           merchant: await _merchant(e.merchant),
+          homeValue: _homeOf(account, e),
         ),
       );
     } on AppFailure catch (error) {
@@ -1088,6 +1088,7 @@ final class VaultJournal implements Journal {
   Future<void> saveRecurring(ui.Recurring item) async {
     final id = _parse(item.id) ?? PublicId.generate();
     final current = _template(id);
+    final account = _account(item.account);
     final category = item.category.isEmpty
         ? null
         : (await _category(item.category, income: item.income)).id;
@@ -1102,9 +1103,9 @@ final class VaultJournal implements Journal {
         operation: _op(),
         templateId: id,
         expectedVersion: current?.$1.version ?? 0,
-        accountId: _account(item.account).id,
+        accountId: account.id,
         label: item.name,
-        amount: _ntd(item.income ? item.amount : -item.amount),
+        amount: _in(account, item.income ? item.amount : -item.amount),
         firstDate: _day(first),
         unit: RecurrenceUnit.values.byName(item.unit.name),
         every: item.every,

@@ -66,7 +66,8 @@ class _RecurringPageState extends State<RecurringPage> {
         var monthly = 0;
         for (final r in active) {
           if (r.income) continue;
-          monthly += r.amount * r.datesIn(today.year, today.month).length;
+          final times = r.datesIn(today.year, today.month).length;
+          monthly += ledger.recurringWorth(r) * times;
         }
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -86,7 +87,7 @@ class _RecurringPageState extends State<RecurringPage> {
               trailing: next == null
                   ? null
                   : Text(
-                      groupDigits(next.amount),
+                      ledger.recurringAmount(next),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -243,6 +244,8 @@ class _Row extends StatelessWidget {
     final muted = !item.active;
     final date = day;
     final category = ledger.category(item.category);
+    final account = ledger.account(item.account);
+    final currency = account.currency;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -300,7 +303,7 @@ class _Row extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${item.category} · ${ledger.account(item.account).name}',
+                      '${item.category} · ${account.name}',
                       style: const TextStyle(fontSize: 12, color: Hue.muted),
                     ),
                   ],
@@ -310,7 +313,9 @@ class _Row extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    groupDigits(amount ?? item.amount),
+                    amount == null
+                        ? ledger.recurringAmount(item)
+                        : amountIn(amount, currency),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -361,6 +366,8 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   late var _active = widget.item?.active ?? true;
 
   Ledger get _ledger => widget.ledger;
+
+  String get _currency => _ledger.account(_account).currency;
 
   String _firstCategory(bool income) {
     final choices = widget.ledger.categoriesFor(income: income);
@@ -460,7 +467,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
             Tile(
               icon: Glyph.calculator,
               label: '金額',
-              value: groupDigits(_amount),
+              value: amountIn(_amount, _currency),
               valueColor: _income ? Hue.positive : Hue.negative,
               onTap: () async {
                 final value = await showCalculator(
@@ -468,6 +475,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   title: '金額',
                   initial: _amount,
                   color: _income ? Hue.positive : Hue.negative,
+                  unit: _currency,
                 );
                 if (value != null) setState(() => _amount = value);
               },

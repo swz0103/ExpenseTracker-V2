@@ -423,6 +423,54 @@ void main() {
     expect([for (final c in ledger.categories) c.name], isNot(contains('毛孩')));
   });
 
+  test('a recurring item in a foreign account keeps its NT\$ worth', () async {
+    var ledger = await create();
+    final usd = Account(
+      ledger.newId(),
+      '美元帳戶',
+      AccountKind.bank,
+      100000,
+      currency: 'USD',
+    );
+    ledger.addAccount(usd);
+    await ledger.settled;
+    ledger.saveRecurring(
+      Recurring(
+        id: ledger.newId(),
+        name: '訂閱',
+        amount: 999,
+        day: 2,
+        account: usd.id,
+        category: '購物休閒',
+        start: DateTime.utc(2026, 9, 2),
+      ),
+    );
+
+    ledger = await reopen(ledger);
+    final item = ledger.recurring.single;
+    expect(item.amount, 999);
+    final booking = ledger.booking(item);
+    ledger.add(
+      Entry(
+        id: ledger.newId(),
+        date: booking.date,
+        type: booking.type,
+        amount: booking.amount,
+        account: booking.account,
+        category: booking.category,
+        note: booking.note,
+        recurring: booking.recurring,
+        home: 321,
+      ),
+    );
+
+    ledger = await reopen(ledger);
+    final booked = ledger.entriesIn(2026, 10).single;
+    expect((booked.recurring, booked.home), (item.id, 321));
+    expect(ledger.balance(usd.id), 100000 - 999);
+    expect(ledger.expense(2026, 10), 321);
+  });
+
   test('budgets and recurring items are kept', () async {
     var ledger = await create();
     final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);

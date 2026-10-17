@@ -1417,10 +1417,20 @@ final class Ledger extends ChangeNotifier {
     _keep((j) => j.saveRecurring(toggled));
   }
 
+  /// [item]'s amount in its account's currency, as the screens write it.
+  String recurringAmount(Recurring item) =>
+      amountIn(item.amount, account(item.account).currency);
+
+  /// [item]'s amount in whole NT$ at today's rate; 0 without one.
+  int recurringWorth(Recurring item) =>
+      toHome(item.amount, account(item.account).currency) ?? 0;
+
   /// The entry that books [item] on its pending day, or today if that is
-  /// later, for the composer to show before it is saved.
+  /// later, for the composer to show before it is saved. A foreign one
+  /// takes its worth at today's rate.
   Entry booking(Recurring item) {
     final date = pendingDate(item) ?? today;
+    final currency = account(item.account).currency;
     return Entry(
       id: '',
       date: date.isAfter(today) ? today : date,
@@ -1431,6 +1441,7 @@ final class Ledger extends ChangeNotifier {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
+      home: currency == 'TWD' ? null : toHome(item.amount, currency),
     );
   }
 
@@ -1448,6 +1459,7 @@ final class Ledger extends ChangeNotifier {
         note: entry.note,
         recurring: entry.recurring,
         merchant: entry.merchant,
+        home: entry.home,
       ),
     );
   }

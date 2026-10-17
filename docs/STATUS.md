@@ -46,7 +46,8 @@
 - [x] 畫面的帳本模型從 `demo/` 移到 `model/`（`demo/` 只剩示範資料）；每月清單、餘額、帳戶查詢在每次變更後只算一次。
 - [ ] 4d l10n（字串移到語系檔，G4-23）：需要 `intl`／`flutter_localizations`，目前不在 `pubspec.lock`，要在能連 pub.dev 的環境加。清單已按月份分段，暫不需要分頁（G4-22）。
 - [ ] 接上 `amount_input`、`data_exchange`（目前 UI 用自己的 CSV／發票解析，`model/exchange.dart`）。
-- [ ] 外幣帳戶不能直接繳卡費、買股票，也還不能設定期交易（會記成一般收支）。
+- [x] 外幣帳戶的定期交易：確認入帳時記下台幣約當（`ConfirmRecurring.homeValue`）。
+- [ ] 外幣帳戶不能直接繳卡費、買股票。
 - [ ] 備註、標籤、商家已改成整批查詢；每次變更後仍會重讀整本帳，資料量大時再改成只讀變動的部分。
 
 ### Android 與真機（最後做）

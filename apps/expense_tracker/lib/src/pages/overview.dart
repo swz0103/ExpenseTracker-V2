@@ -395,7 +395,11 @@ class _OverviewPageState extends State<OverviewPage> {
           ? '沒有待扣款項目'
           : [
               for (final r in items.take(2))
-                '${ledger.nextLabel(r)} ${r.name} ${_m(groupDigits(r.amount))}',
+                [
+                  ledger.nextLabel(r),
+                  r.name,
+                  _m(ledger.recurringAmount(r)),
+                ].join(' '),
             ].join('\n'),
       onTap: () => widget.nav.open(Pages.recurring),
     );
