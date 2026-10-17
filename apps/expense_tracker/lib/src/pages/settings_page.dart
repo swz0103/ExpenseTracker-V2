@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
-import '../demo/exchange.dart';
-import '../demo/ledger.dart';
 import '../demo/seed.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/exchange.dart';
+import '../model/ledger.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';
@@ -78,6 +78,15 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) showNote(context, '已備份到 $path');
     } on Object catch (error) {
       if (mounted) showNote(context, '備份失敗（$error）');
+    }
+  }
+
+  Future<void> _export(Keeper keeper) async {
+    try {
+      final saved = await keeper.exportBackup();
+      if (mounted && saved) showNote(context, '已匯出備份檔');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '匯出失敗（$error）');
     }
   }
 
@@ -244,6 +253,14 @@ class _SettingsPageState extends State<SettingsPage> {
                             title: '立即備份',
                             detail: '每週會自動備份，保留最近 5 份',
                             onTap: () => _backUp(keeper),
+                          ),
+                          const Divider(),
+                          _Export(
+                            badge: '匯出',
+                            title: '匯出備份檔',
+                            detail: '存到下載資料夾或雲端硬碟，換手機時用來還原',
+                            icon: Glyph.download,
+                            onTap: () => _export(keeper),
                           ),
                           const Divider(),
                           _Export(

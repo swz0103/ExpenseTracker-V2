@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
-import 'package:expense_tracker/src/demo/ledger.dart';
+import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -167,6 +167,95 @@ void main() {
     ledger.updateAccount(ledger.account(cash.id).copyWith(archived: true));
     ledger = await reopen(ledger);
     expect(ledger.account(cash.id).archived, isTrue);
+  });
+
+  test('quick edits and a delete of one entry are kept in order', () async {
+    var ledger = await create();
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger.addAccount(cash);
+    await ledger.settled;
+    ledger.add(spend(ledger, cash.id, 100));
+
+    ledger = await reopen(ledger);
+    final kept = ledger.entriesIn(2026, 10).single;
+    Entry edited(String id, int amount) => Entry(
+      id: id,
+      date: day,
+      type: EntryType.expense,
+      amount: amount,
+      account: cash.id,
+      category: '飲食日常',
+    );
+    ledger
+      ..replace(edited(kept.id, 150))
+      ..replace(edited(kept.id, 170));
+
+    ledger = await reopen(ledger);
+    final twice = ledger.entriesIn(2026, 10).single;
+    expect(twice.amount, 170);
+    ledger
+      ..replace(edited(twice.id, 200))
+      ..remove(twice.id);
+
+    ledger = await reopen(ledger);
+    expect(ledger.entriesIn(2026, 10), isEmpty);
+    expect(ledger.balance(cash.id), 1000);
+  });
+
+  test('a foreign account keeps its currency and its NT\$ worth', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    final usd = Account(
+      ledger.newId(),
+      '美元帳戶',
+      AccountKind.bank,
+      10000,
+      currency: 'USD',
+    );
+    ledger
+      ..addAccount(bank)
+      ..addAccount(usd);
+    await ledger.settled;
+    ledger
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.expense,
+          amount: 1250,
+          account: usd.id,
+          category: '飲食日常',
+          home: 401,
+        ),
+      )
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.transfer,
+          amount: 3210,
+          account: bank.id,
+          to: usd.id,
+          category: '轉帳',
+          received: 10000,
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    final kept = ledger.account(usd.id);
+    expect(kept.currency, 'USD');
+    expect(ledger.balance(usd.id), 10000 - 1250 + 10000);
+    expect(ledger.balance(bank.id), 50000 - 3210);
+    expect(ledger.expense(2026, 10), 401);
+    final entries = ledger.entriesIn(2026, 10);
+    final spent = entries.firstWhere((e) => e.type == EntryType.expense);
+    expect((spent.amount, spent.home), (1250, 401));
+    final moved = entries.firstWhere((e) => e.type == EntryType.transfer);
+    expect((moved.amount, moved.received), (3210, 10000));
+
+    // Without a rate the foreign balance stays out of the totals.
+    expect(ledger.unrated, [kept]);
+    expect(ledger.assets, 50000 - 3210);
   });
 
   test('cards keep their terms, charges, instalments and payments', () async {

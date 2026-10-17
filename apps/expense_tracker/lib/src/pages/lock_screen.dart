@@ -9,6 +9,7 @@ import 'package:ledger_backup/ledger_backup.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../platform.dart';
 import '../startup.dart';
 
 /// The first screen of the phone app: a password to create the encrypted
@@ -122,6 +123,14 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
+  /// Opens the system's file chooser; the chosen backup is copied where
+  /// the app can read it.
+  Future<void> _pickBackup() async {
+    final path = await androidPickFile();
+    if (path == null || !mounted) return;
+    setState(() => _file.text = path);
+  }
+
   void _fail(String problem) {
     if (!mounted) return;
     setState(() {
@@ -185,11 +194,22 @@ class _LockScreenState extends State<LockScreen> {
                     child: Column(
                       children: [
                         if (_restoring) ...[
-                          _Secret(
-                            controller: _file,
-                            hint: '備份檔路徑，例如 /home/me/記帳本.etbk',
-                            hidden: false,
-                          ),
+                          if (Platform.isAndroid)
+                            OutlinedButton(
+                              onPressed: _busy ? null : _pickBackup,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(44),
+                              ),
+                              child: Text(
+                                _file.text.isEmpty ? '選擇備份檔' : '已選好備份檔',
+                              ),
+                            )
+                          else
+                            _Secret(
+                              controller: _file,
+                              hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
+                              hidden: false,
+                            ),
                           const SizedBox(height: 8),
                         ],
                         _Secret(

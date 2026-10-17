@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../charts/bar_scale.dart';
 import '../charts/waterfall.dart';
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 import 'account_editor.dart';
 import 'entry_tile.dart';
 import 'nav.dart';
@@ -42,6 +42,7 @@ class _AccountPageState extends State<AccountPage> {
       builder: (context, _) {
         final account = ledger.account(widget.accountId);
         final balance = ledger.balance(account.id);
+        final code = account.currency;
         final weeks = ledger.weeklyChanges(account.id);
         final today = ledger.today;
         final entries = [
@@ -55,7 +56,7 @@ class _AccountPageState extends State<AccountPage> {
             EntryType.income ||
             EntryType.sell ||
             EntryType.dividend => e.amount,
-            EntryType.transfer => e.to == account.id ? e.amount : -e.amount,
+            EntryType.transfer => e.to == account.id ? e.arrived : -e.amount,
             _ => -e.amount,
           };
           if (change > 0) {
@@ -64,6 +65,8 @@ class _AccountPageState extends State<AccountPage> {
             outflow -= change;
           }
         }
+        final into = moneyIn(inflow, code);
+        final out = moneyIn(outflow, code);
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
@@ -85,11 +88,11 @@ class _AccountPageState extends State<AccountPage> {
                     hero: true,
                     icon: accountIcon(account),
                     label: groupName(account.kind),
-                    value: money(balance),
+                    value: moneyIn(balance, account.currency),
                     valueColor: balance < 0 ? Hue.negative : Hue.ink,
                     child: TileStats([
-                      (Glyph.income, '本月流入', money(inflow), Hue.positive),
-                      (Glyph.payout, '本月流出', money(outflow), Hue.negative),
+                      (Glyph.income, '本月流入', into, Hue.positive),
+                      (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
                   ),
                   const SectionHead('近四週'),
@@ -99,6 +102,7 @@ class _AccountPageState extends State<AccountPage> {
                     scale: _scale,
                     selected: _week,
                     onSelect: (week) => setState(() => _week = week),
+                    currency: code,
                   ),
                   const SectionHead('本月紀錄'),
                   if (entries.isEmpty)

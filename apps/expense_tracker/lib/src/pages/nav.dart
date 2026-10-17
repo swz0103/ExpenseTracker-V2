@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../demo/ledger.dart';
+import '../model/ledger.dart';
 
 /// The pages under 更多 and the account page, by key.
 abstract final class Pages {

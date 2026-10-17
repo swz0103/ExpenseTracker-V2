@@ -7,6 +7,10 @@ abstract interface class Keeper {
   /// Writes an encrypted backup of the whole ledger and returns its path.
   Future<String> backUp();
 
+  /// Writes a backup and lets the person keep a copy outside the app, such
+  /// as in Downloads or on Google Drive. False when they cancel.
+  Future<bool> exportBackup();
+
   /// Replaces the password; [current] must open the ledger.
   Future<void> changePassword(String current, String next);
 
@@ -14,6 +18,7 @@ abstract interface class Keeper {
   /// the old one stops working.
   Future<String> newRecoveryCode();
 
-  /// Closes the ledger and returns to the lock screen.
-  void lock();
+  /// Closes the ledger once pending changes are kept, and returns to the
+  /// lock screen.
+  Future<void> lock();
 }

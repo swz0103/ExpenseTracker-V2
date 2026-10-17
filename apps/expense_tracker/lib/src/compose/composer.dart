@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../demo/ledger.dart';
-import '../demo/trading.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
+import '../model/trading.dart';
 import '../pages/categories_page.dart';
 import '../pages/dialogs.dart';
 import 'calculator.dart';
@@ -112,6 +112,11 @@ class _ComposerState extends State<Composer> {
   /// The parts of a split, or null when the whole goes to [_category].
   List<(String, int)>? _parts;
   var _fee = 0;
+
+  /// What a foreign amount is worth in NT$, and what a transfer between
+  /// currencies delivers, as typed; null works them out at today's rate.
+  int? _home;
+  int? _received;
   var _installments = 0;
   var _average = false;
   var _splitShares = false;
@@ -162,6 +167,8 @@ class _ComposerState extends State<Composer> {
     _tags = [...entry.tags];
     _parts = entry.parts.isEmpty ? null : [...entry.parts];
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
+    _home = entry.home;
+    _received = entry.received;
     _installments = entry.installments;
     _average = entry.average;
     _splitShares = entry.split;
@@ -190,6 +197,8 @@ class _ComposerState extends State<Composer> {
     _tags = [];
     _parts = null;
     _fee = 0;
+    _home = null;
+    _received = null;
     _installments = 0;
     _average = false;
     _splitShares = false;
@@ -310,12 +319,46 @@ class _ComposerState extends State<Composer> {
       _type == EntryType.expense &&
       _ledger.account(_account).kind == AccountKind.card;
 
+  /// The currency of the account paying or receiving, and of a
+  /// transfer's receiving account.
+  String get _currency => _ledger.account(_account).currency;
+  String get _toCurrency => _ledger.account(_to).currency;
+
+  /// Spending or income in a foreign-currency account, which also needs
+  /// its worth in NT$.
+  bool get _foreign =>
+      _currency != 'TWD' &&
+      (_type == EntryType.expense || _type == EntryType.income);
+
+  /// A transfer between accounts kept in different currencies.
+  bool get _crossing => _type == EntryType.transfer && _currency != _toCurrency;
+
+  /// [_home], else the refunded share of the purchase's worth, else the
+  /// amount at today's rate; null without a rate.
+  int? get _homeValue {
+    final typed = _home;
+    if (typed != null) return typed;
+    final refunded = _refunded;
+    final worth = refunded?.home;
+    if (refunded != null && worth != null && refunded.amount > 0) {
+      return (worth * _amount / refunded.amount).round();
+    }
+    return _ledger.toHome(_amount, _currency);
+  }
+
+  /// [_received], else the amount at today's rates.
+  int? get _receivedValue =>
+      _received ?? _ledger.convert(_amount, _currency, _toCurrency);
+
   /// The broker's fee and the tax on the trade being written.
   (int, int) get _charges {
     if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
     final fee = brokerFee(_amount, _shares);
     final code = _holding ?? '';
-    return (fee, _type == EntryType.sell ? saleTax(code, _amount) : 0);
+    final tax = _type == EntryType.sell
+        ? saleTax(code, _amount, _shares, _date)
+        : 0;
+    return (fee, tax);
   }
 
   Future<int?> _ask(String title, int initial, {String unit = 'TWD'}) {
@@ -329,8 +372,13 @@ class _ComposerState extends State<Composer> {
   }
 
   Future<void> _calculate() async {
-    final value = await _ask('輸入金額', _amount);
-    if (value != null) setState(() => _amount = value);
+    final value = await _ask('輸入金額', _amount, unit: _currency);
+    if (value == null) return;
+    setState(() {
+      _amount = value;
+      _home = null;
+      _received = null;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -514,7 +562,7 @@ class _ComposerState extends State<Composer> {
 
   void _submit() {
     final type = _type;
-    final parts = _type == EntryType.expense ? _parts : null;
+    final parts = _type == EntryType.expense && !_foreign ? _parts : null;
     final refunded = _refunded;
     final (fee, tax) = _charges;
     String? problem;
@@ -524,6 +572,16 @@ class _ComposerState extends State<Composer> {
       problem = _trading ? '請輸入股數和成交價' : '請輸入金額';
     } else if (type == EntryType.transfer && _account == _to) {
       problem = '轉出與轉入不能是同一個帳戶';
+    } else if (_foreign && _homeValue == null) {
+      problem = '還沒有匯率，請輸入折合台幣的金額';
+    } else if (_crossing && _receivedValue == null) {
+      problem = '還沒有匯率，請輸入轉入金額';
+    } else if (type == EntryType.transfer &&
+        _currency != 'TWD' &&
+        _ledger.account(_to).kind == AccountKind.card) {
+      problem = '外幣帳戶不能直接繳卡費';
+    } else if (_mode == ComposeMode.investment && _currency != 'TWD') {
+      problem = '投資請用新台幣帳戶';
     } else if (_mode == ComposeMode.investment && _holding == null) {
       problem = '請選擇投資標的';
     } else if ((type == EntryType.buy || type == EntryType.sell) &&
@@ -539,6 +597,8 @@ class _ComposerState extends State<Composer> {
       setState(() => _problem = problem);
       return;
     }
+    // A transfer's fee counts as NT$ spending: only an NT$ account pays one.
+    final transferFee = _currency == 'TWD' ? _fee : 0;
     final entry = Entry(
       id: widget.entry?.id ?? _ledger.newId(),
       date: _date,
@@ -559,12 +619,14 @@ class _ComposerState extends State<Composer> {
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
-      fee: type == EntryType.transfer ? _fee : fee,
+      fee: type == EntryType.transfer ? transferFee : fee,
       tax: tax,
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
       split: stock && _splitShares,
+      home: _foreign ? _homeValue : null,
+      received: _crossing ? _receivedValue : null,
     );
     try {
       if (widget.entry == null) {
@@ -677,10 +739,12 @@ class _ComposerState extends State<Composer> {
                     EntryType.buy || EntryType.sell => '成交金額',
                     _ => '金額',
                   },
-                  value: '$_sign${groupDigits(_amount)}',
+                  value: '$_sign${amountIn(_amount, _currency)}',
                   valueColor: _color,
                   size: 34,
-                  sub: refunded == null ? null : '最多可退 ${groupDigits(most)}',
+                  sub: refunded == null
+                      ? null
+                      : '最多可退 ${amountIn(most, _currency)}',
                   onTap: _trading ? null : _calculate,
                 ),
                 ..._fields(),
@@ -751,8 +815,33 @@ class _ComposerState extends State<Composer> {
       size: 15,
       onTap: () async {
         final picked = await _pickAccount('選擇帳戶', _account);
-        if (picked != null) setState(() => _account = picked);
+        if (picked == null) return;
+        setState(() {
+          _account = picked;
+          _home = null;
+        });
       },
+    );
+  }
+
+  /// The worth in NT$ of a foreign amount, at today's rate until typed.
+  Widget _homeTile() {
+    final value = _homeValue;
+    final rate = _ledger.rates[_currency];
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Tile(
+        icon: Glyph.coins,
+        label: '折合台幣',
+        value: value == null ? '請輸入' : groupDigits(value),
+        valueColor: value == null ? Hue.faint : Hue.ink,
+        size: 15,
+        sub: _home != null || rate == null ? null : '臺銀即期買入 $rate',
+        onTap: () async {
+          final typed = await _ask('折合台幣', value ?? 0);
+          if (typed != null) setState(() => _home = typed);
+        },
+      ),
     );
   }
 
@@ -819,6 +908,7 @@ class _ComposerState extends State<Composer> {
             ),
           _categories(expense),
           TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
+          if (_foreign) _homeTile(),
           if (_onCard)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -850,7 +940,11 @@ class _ComposerState extends State<Composer> {
                     balance: _ledger.balance(from.id),
                     onTap: () async {
                       final picked = await _pickAccount('轉出帳戶', _account);
-                      if (picked != null) setState(() => _account = picked);
+                      if (picked == null) return;
+                      setState(() {
+                        _account = picked;
+                        _received = null;
+                      });
                     },
                   ),
                 ),
@@ -863,25 +957,31 @@ class _ComposerState extends State<Composer> {
                     end: true,
                     onTap: () async {
                       final picked = await _pickAccount('轉入帳戶', _to);
-                      if (picked != null) setState(() => _to = picked);
+                      if (picked == null) return;
+                      setState(() {
+                        _to = picked;
+                        _received = null;
+                      });
                     },
                   ),
                 ),
               ],
             ),
           ),
+          if (_crossing) _receivedTile(),
           TileRow([
-            Tile(
-              icon: Glyph.coins,
-              label: '手續費',
-              value: groupDigits(_fee),
-              valueColor: _fee > 0 ? Hue.negative : Hue.ink,
-              size: 15,
-              onTap: () async {
-                final value = await _ask('手續費', _fee);
-                if (value != null) setState(() => _fee = value);
-              },
-            ),
+            if (_currency == 'TWD')
+              Tile(
+                icon: Glyph.coins,
+                label: '手續費',
+                value: groupDigits(_fee),
+                valueColor: _fee > 0 ? Hue.negative : Hue.ink,
+                size: 15,
+                onTap: () async {
+                  final value = await _ask('手續費', _fee);
+                  if (value != null) setState(() => _fee = value);
+                },
+              ),
             _dateTile(),
           ]),
           _noteField(),
@@ -889,6 +989,27 @@ class _ComposerState extends State<Composer> {
       case ComposeMode.investment:
         return _investmentFields();
     }
+  }
+
+  /// What a transfer between currencies delivers, at today's rates until
+  /// typed.
+  Widget _receivedTile() {
+    final value = _receivedValue;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Tile(
+        icon: Glyph.coins,
+        label: '轉入金額',
+        value: value == null ? '請輸入' : amountIn(value, _toCurrency),
+        valueColor: value == null ? Hue.faint : Hue.ink,
+        size: 15,
+        sub: _received == null && value != null ? '依臺銀即期匯率換算' : null,
+        onTap: () async {
+          final typed = await _ask('轉入金額', value ?? 0, unit: _toCurrency);
+          if (typed != null) setState(() => _received = typed);
+        },
+      ),
+    );
   }
 
   /// The categories as a grid of marks, or the parts of a split.
@@ -924,7 +1045,7 @@ class _ComposerState extends State<Composer> {
                 _Chip('均分', _evenly),
                 const SizedBox(width: 6),
               ],
-              if (expense && !_viewing)
+              if (expense && !_viewing && !_foreign)
                 _Chip(parts == null ? '拆分' : '不拆分', _split),
             ],
           ),
@@ -1399,7 +1520,7 @@ class _AccountEnd extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         Text(
-          '餘額 ${groupDigits(balance)}',
+          '餘額 ${amountIn(balance, account.currency)}',
           style: const TextStyle(fontSize: 11, color: Hue.muted),
         ),
       ],

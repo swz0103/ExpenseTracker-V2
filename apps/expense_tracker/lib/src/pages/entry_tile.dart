@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
@@ -17,12 +17,16 @@ import '../look/widgets.dart';
   };
 }
 
-/// `−200`, `+52,000`, or a plain amount for transfers.
-String entryAmount(Entry e) => switch (e.type) {
-  EntryType.expense || EntryType.buy => spent(e.amount),
-  EntryType.transfer => groupDigits(e.amount),
-  _ => '+${groupDigits(e.amount)}',
-};
+/// `−200`, `+52,000`, or a plain amount for transfers, in the [currency]
+/// of the entry's account.
+String entryAmount(Entry e, {String currency = 'TWD'}) {
+  final amount = amountIn(e.amount, currency);
+  return switch (e.type) {
+    EntryType.expense || EntryType.buy => '−$amount',
+    EntryType.transfer => amount,
+    _ => '+$amount',
+  };
+}
 
 /// 「飲食日常 · 隨身現金」, or the two accounts of a transfer.
 String entryDetail(Ledger ledger, Entry e) {
@@ -62,6 +66,10 @@ class EntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, color) = entryMark(ledger, entry);
+    final currency = ledger.account(entry.account).currency;
+    final shown = ledger.hidden
+        ? '••••'
+        : entryAmount(entry, currency: currency);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -99,7 +107,7 @@ class EntryTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                ledger.hidden ? '••••' : entryAmount(entry),
+                shown,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w500,

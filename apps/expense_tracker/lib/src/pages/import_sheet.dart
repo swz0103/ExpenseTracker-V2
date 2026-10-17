@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../compose/pickers.dart';
-import '../demo/exchange.dart';
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/exchange.dart';
+import '../model/ledger.dart';
 
 /// Opens the import form: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in, read and added to [ledger].

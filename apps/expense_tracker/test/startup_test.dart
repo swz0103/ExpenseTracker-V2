@@ -1,11 +1,9 @@
 import 'dart:io';
 
-import 'package:accounts/accounts.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:expense_tracker/src/startup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foundation_values/foundation_values.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
 const password = 'correct horse battery';
@@ -52,22 +50,14 @@ void main() {
     expect(startup.state, isA<NeedsSetup>());
     final recovery = await startup.setUp(password);
     expect(recovery, isNotEmpty);
-    final ready = startup.state as Ready;
-    final twd = Currency.of('TWD');
-    await ready.session.openAccount(
-      ready.session.begin(),
-      '現金',
-      AccountKind.cash,
-      opening: Money(twd, BigInt.from(100)),
-    );
+    final workspace = (startup.state as Ready).vault.workspace;
 
     startup.lock();
     expect(startup.state, isA<Locked>());
     final reopened = Startup(vault, device: device);
     expect((reopened.state as Locked).deviceUnlock, isTrue);
     await reopened.unlockWithDevice();
-    final session = (reopened.state as Ready).session;
-    expect(session.accounts.single.name, '現金');
+    expect((reopened.state as Ready).vault.workspace, workspace);
     reopened.lock();
   });
 

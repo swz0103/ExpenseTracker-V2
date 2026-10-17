@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
-import 'package:foundation_values/foundation_values.dart' show PublicId;
+import 'package:foundation_values/foundation_values.dart'
+    show Currency, PublicId;
 
 import '../book/journal.dart';
 import '../look/figures.dart';
@@ -34,11 +35,20 @@ final class Account {
     this.limit,
     this.archived = false,
     this.inNetWorth = true,
+    this.currency = 'TWD',
   });
 
   final String id;
   final String name;
   final AccountKind kind;
+
+  /// What the account is kept in, such as TWD or USD. Its [opening], its
+  /// entries and its balance count the smallest unit of it: whole NT$,
+  /// US cents.
+  final String currency;
+
+  /// Kept in a currency other than NT$.
+  bool get foreign => currency != 'TWD';
 
   /// The account's own mark, such as 'safe' or 'chat'; null takes the
   /// mark of its [kind].
@@ -80,6 +90,7 @@ final class Account {
     limit: limit ?? this.limit,
     archived: archived ?? this.archived,
     inNetWorth: inNetWorth ?? this.inNetWorth,
+    currency: currency,
   );
 }
 
@@ -121,7 +132,8 @@ final class Category {
   );
 }
 
-/// One line of the book, in whole NT$.
+/// One line of the book, in the smallest unit of its account's currency:
+/// whole NT$ for most.
 final class Entry {
   const Entry({
     required this.id,
@@ -144,6 +156,8 @@ final class Entry {
     this.installments = 0,
     this.average = false,
     this.split = false,
+    this.home,
+    this.received,
   });
 
   final String id;
@@ -195,20 +209,34 @@ final class Entry {
   /// dividend: the shares held multiply at the same cost.
   final bool split;
 
+  /// For spending or income in a foreign-currency account: what it was
+  /// worth in whole NT$ that day, which the reports and budgets count.
+  final int? home;
+
+  /// For a transfer between accounts in different currencies: what
+  /// reached [to], in the smallest unit of its currency.
+  final int? received;
+
   bool get isRefund => refundOf != null;
+
+  /// [amount] in whole NT$: [home] when the entry has one.
+  int get worth => home ?? amount;
+
+  /// What reached [to] for a transfer.
+  int get arrived => received ?? amount;
 
   /// What the entry adds to spending: an expense, a transfer's fee; a
   /// refund takes some back.
   int get spending => switch (type) {
-    EntryType.expense => amount,
+    EntryType.expense => worth,
     EntryType.transfer => fee,
-    EntryType.income when isRefund => -amount,
+    EntryType.income when isRefund => -worth,
     _ => 0,
   };
 
   /// What the entry brings in: income and dividends, not refunds.
   int get earning => switch (type) {
-    EntryType.income when !isRefund => amount,
+    EntryType.income when !isRefund => worth,
     EntryType.dividend => amount,
     _ => 0,
   };
@@ -218,9 +246,35 @@ final class Entry {
   List<(String, int)> get spendingParts {
     if (spending == 0) return const [];
     if (type == EntryType.transfer) return [(Ledger.feeCategory, fee)];
-    if (parts.isNotEmpty) return parts;
+    if (parts.isNotEmpty && home == null) return parts;
     return [(category, spending)];
   }
+
+  /// This entry under another [id], as the store knows it after an edit.
+  Entry withId(String id) => Entry(
+    id: id,
+    date: date,
+    type: type,
+    amount: amount,
+    account: account,
+    category: category,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant,
+    tags: tags,
+    parts: parts,
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
+    split: split,
+    home: home,
+    received: received,
+  );
 
   /// This entry with its merchant or tags changed.
   Entry withLabels({String? merchant, List<String>? tags}) => Entry(
@@ -244,6 +298,8 @@ final class Entry {
     installments: installments,
     average: average,
     split: split,
+    home: home,
+    received: received,
   );
 
   /// This entry with [from], or its category, renamed to [name].
@@ -271,6 +327,8 @@ final class Entry {
     installments: installments,
     average: average,
     split: split,
+    home: home,
+    received: received,
   );
 
   /// What the lists show: the note, else the category.
@@ -486,7 +544,7 @@ final class Recurring {
   }
 }
 
-/// The preview's book: accounts, categories, entries, holdings, budgets
+/// The screens' book: accounts, categories, entries, holdings, budgets
 /// and recurring items, with the sums the screens show. Holdings are
 /// replayed from the starting positions and the investment entries, so
 /// edits and deletions always recompute them.
@@ -500,7 +558,9 @@ final class Ledger extends ChangeNotifier {
     required List<Budget> budgets,
     required List<Recurring> recurring,
     this.journal,
-  }) : _accounts = [...accounts],
+    Map<String, double> rates = const {},
+  }) : _rates = {...rates},
+       _accounts = [...accounts],
        _categories = [...categories],
        _entries = [...entries],
        _startHoldings = [...holdings],
@@ -528,6 +588,7 @@ final class Ledger extends ChangeNotifier {
   final List<Holding> _startHoldings;
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
+  final Map<String, double> _rates;
   var _holdings = <Holding>[];
   var _lots = <String, List<Lot>>{};
 
@@ -546,10 +607,10 @@ final class Ledger extends ChangeNotifier {
       if (c.income == income && !c.archived) c,
   ];
 
-  Account account(String id) => _accounts.firstWhere(
-    (a) => a.id == id,
-    orElse: () => Account(id, id, AccountKind.bank, 0),
-  );
+  Account account(String id) {
+    final accounts = _accountIndex ??= {for (final a in _accounts) a.id: a};
+    return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
+  }
 
   Category category(String name) => _categories.firstWhere(
     (c) => c.name == name,
@@ -612,15 +673,43 @@ final class Ledger extends ChangeNotifier {
   /// Entries in [year]/[month], newest day first; within a day the most
   /// recently recorded first.
   List<Entry> entriesIn(int year, int month) {
-    final found = [
-      for (final (i, e) in _entries.indexed)
-        if (e.date.year == year && e.date.month == month) (i, e),
-    ];
-    found.sort((a, b) {
-      final byDate = b.$2.date.compareTo(a.$2.date);
-      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-    });
-    return [for (final (_, e) in found) e];
+    final months = _months ??= _indexMonths();
+    return List.of(months[year * 12 + month] ?? const <Entry>[]);
+  }
+
+  /// Every month's entries in [entriesIn] order, built once per change.
+  Map<int, List<Entry>> _indexMonths() {
+    final groups = <int, List<(int, Entry)>>{};
+    for (final (i, e) in _entries.indexed) {
+      (groups[e.date.year * 12 + e.date.month] ??= []).add((i, e));
+    }
+    final months = <int, List<Entry>>{};
+    for (final MapEntry(key: month, value: found) in groups.entries) {
+      found.sort((a, b) {
+        final byDate = b.$2.date.compareTo(a.$2.date);
+        return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+      });
+      months[month] = [for (final (_, e) in found) e];
+    }
+    return months;
+  }
+
+  /// What the screens ask for again and again, worked out once per change:
+  /// entries by month, balances by account and day, accounts by id.
+  Map<int, List<Entry>>? _months;
+  final _balances = <(String, DateTime), int>{};
+  Map<String, Account>? _accountIndex;
+
+  void _touch() {
+    _months = null;
+    _balances.clear();
+    _accountIndex = null;
+  }
+
+  @override
+  void notifyListeners() {
+    _touch();
+    super.notifyListeners();
   }
 
   List<Entry> entriesOn(DateTime day) => [
@@ -749,7 +838,7 @@ final class Ledger extends ChangeNotifier {
         EntryType.expense => -billed(e, at),
       };
     }
-    if (e.type == EntryType.transfer && e.to == account) change += e.amount;
+    if (e.type == EntryType.transfer && e.to == account) change += e.arrived;
     return change;
   }
 
@@ -772,8 +861,11 @@ final class Ledger extends ChangeNotifier {
     final count = e.installments;
     if (count < 2) return e.amount;
     final periods = billedPeriods(e, at);
+    if (periods == 0) return 0;
+    // Equal parts rounded down, the remainder in the first one, as card
+    // issuers bill it and as the ledger's own schedule has it.
     final each = e.amount ~/ count;
-    return periods >= count ? e.amount : each * periods;
+    return periods >= count ? e.amount : e.amount - each * (count - periods);
   }
 
   /// How many instalments of [e] have been billed by [at].
@@ -814,7 +906,7 @@ final class Ledger extends ChangeNotifier {
       if (e.type == EntryType.transfer &&
           e.to == card.id &&
           e.date.isAfter(end)) {
-        paid += e.amount;
+        paid += e.arrived;
       }
     }
     return max(0, -balance(card.id, until: end) - paid);
@@ -923,6 +1015,10 @@ final class Ledger extends ChangeNotifier {
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
     final end = until ?? today;
+    return _balances[(account, end)] ??= _balanceOn(account, end);
+  }
+
+  int _balanceOn(String account, DateTime end) {
     var total = this.account(account).opening;
     for (final e in _entries) {
       if (!e.date.isAfter(end)) total += _effect(e, account, end);
@@ -942,11 +1038,57 @@ final class Ledger extends ChangeNotifier {
       if (!a.archived) a,
   ];
 
+  // Currencies.
+
+  /// NT$ for one unit of each foreign currency: 臺灣銀行's spot buying
+  /// rate, what a foreign balance would fetch today. Empty until fetched.
+  Map<String, double> get rates => Map.unmodifiable(_rates);
+
+  /// [minor] units of [currency] in whole NT$ at [rates]; null without a
+  /// rate for it.
+  int? toHome(int minor, String currency) {
+    if (currency == 'TWD') return minor;
+    final rate = _rates[currency];
+    if (rate == null) return null;
+    return (minor / _unit(currency) * rate).round();
+  }
+
+  /// [amount] of [from] in the smallest unit of [to], through NT$ at
+  /// [rates]; null without a rate for either.
+  int? convert(int amount, String from, String to) {
+    if (from == to) return amount;
+    final home = from == 'TWD' ? amount.toDouble() : _rated(amount, from);
+    if (home == null) return null;
+    if (to == 'TWD') return home.round();
+    final rate = _rates[to];
+    if (rate == null || rate <= 0) return null;
+    return (home / rate * _unit(to)).round();
+  }
+
+  double? _rated(int minor, String currency) {
+    final rate = _rates[currency];
+    return rate == null ? null : minor / _unit(currency) * rate;
+  }
+
+  static int _unit(String currency) =>
+      Currency.scaleOf(currency) == 0 ? 1 : 100;
+
+  /// The balance of [a] in whole NT$; 0 for a foreign account without a
+  /// rate, which [unrated] lists.
+  int worthOf(Account a, {DateTime? until}) =>
+      toHome(balance(a.id, until: until), a.currency) ?? 0;
+
+  /// Counted foreign accounts left out of the totals for want of a rate.
+  List<Account> get unrated => [
+    for (final a in _accounts)
+      if (a.foreign && a.inNetWorth && !_rates.containsKey(a.currency)) a,
+  ];
+
   /// What every counted account holds, debts aside, plus investments.
   int get assets {
     var total = investValue;
     for (final a in _accounts) {
-      if (!a.kind.isDebt && a.inNetWorth) total += balance(a.id);
+      if (!a.kind.isDebt && a.inNetWorth) total += worthOf(a);
     }
     return total;
   }
@@ -960,7 +1102,7 @@ final class Ledger extends ChangeNotifier {
   int _owed(AccountKind kind) {
     var total = 0;
     for (final a in _accounts) {
-      if (a.kind == kind && a.inNetWorth) total += -balance(a.id);
+      if (a.kind == kind && a.inNetWorth) total += -worthOf(a);
     }
     return total < 0 ? 0 : total;
   }
@@ -970,7 +1112,7 @@ final class Ledger extends ChangeNotifier {
   int netWorthAt(DateTime day) {
     var total = investValue;
     for (final a in _accounts) {
-      if (a.inNetWorth) total += balance(a.id, until: day);
+      if (a.inNetWorth) total += worthOf(a, until: day);
     }
     return total;
   }
@@ -1098,7 +1240,10 @@ final class Ledger extends ChangeNotifier {
       }
       if (--_waiting > 0) return;
       try {
-        _adopt(await journal.load());
+        final fresh = await journal.load();
+        // A change made while loading is newer than what was loaded; the
+        // load after it brings both.
+        if (_waiting == 0) _adopt(fresh);
       } on Object catch (error) {
         problem.value = error;
       }
@@ -1132,8 +1277,12 @@ final class Ledger extends ChangeNotifier {
     final before = _entries[index];
     _entries[index] = entry;
     _replayOrUndo(() => _entries[index] = before);
+    // The id is looked up when the change runs: an edit queued before it
+    // may have given the entry a new one.
     _keep((j) async {
-      _renamed[before.id] = await j.replaceEntry(before, entry);
+      final stored = _current(before.id);
+      final next = await j.replaceEntry(before.withId(stored), entry);
+      if (next != stored) _renamed[stored] = next;
     });
   }
 
@@ -1144,7 +1293,7 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
-    _keep((j) => j.removeEntry(removed));
+    _keep((j) => j.removeEntry(removed.withId(_current(removed.id))));
     return (index, removed);
   }
 
@@ -1397,6 +1546,9 @@ final class Ledger extends ChangeNotifier {
     _recurring
       ..clear()
       ..addAll(fresh._recurring);
+    _rates
+      ..clear()
+      ..addAll(fresh._rates);
     _replay();
     notifyListeners();
   }
@@ -1443,6 +1595,7 @@ final class Ledger extends ChangeNotifier {
   /// Rebuilds the holdings and their lots from the starting positions and
   /// every investment entry in date order.
   void _replay() {
+    _touch();
     final opening = DateTime.utc(2025);
     final byCode = {for (final h in _startHoldings) h.code: h};
     final lots = <String, List<Lot>>{

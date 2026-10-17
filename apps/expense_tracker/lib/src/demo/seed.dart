@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart' show Color;
 
-import 'ledger.dart';
+import '../model/ledger.dart';
 
 /// The preview's made-up book as of 2026-10-04, the same fixture as the
 /// approved web preview (v114): six months of salary, rent and everyday
@@ -151,6 +151,8 @@ Ledger demoLedger() {
 
   return Ledger(
     today: DateTime.utc(2026, 10, 4),
+    // A sample of 臺灣銀行's board, so a foreign account can be tried.
+    rates: const {'USD': 32.1, 'JPY': 0.214, 'EUR': 35.6, 'CNY': 4.47},
     accounts: [
       Account('bank', '日常銀行', AccountKind.bank, 45000 - bankBefore),
       const Account('cash', '隨身現金', AccountKind.cash, 36000),

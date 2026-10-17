@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 import 'account_editor.dart';
 import 'nav.dart';
 
@@ -88,6 +88,15 @@ class AccountsPage extends StatelessWidget {
                 size: 17,
               ),
             ]),
+            if (ledger.unrated.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '尚未取得臺銀匯率，${ledger.unrated.map((a) => a.name).join('、')}'
+                  '暫不計入總額',
+                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                ),
+              ),
             for (final kind in AccountKind.values) ..._group(kind),
             if (archived.isNotEmpty) ...[
               const SectionHead('已封存'),
@@ -130,7 +139,7 @@ class AccountsPage extends StatelessWidget {
         ),
       );
     }
-    final total = accounts.fold<int>(0, (sum, a) => sum + ledger.balance(a.id));
+    final total = accounts.fold<int>(0, (sum, a) => sum + ledger.worthOf(a));
     return [
       Padding(
         padding: const EdgeInsets.only(top: 22, bottom: 8),
@@ -183,7 +192,9 @@ class AccountsPage extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, color: Hue.muted),
                   ),
                   Text(
-                    ledger.hidden ? '••••' : groupDigits(balance),
+                    ledger.hidden
+                        ? '••••'
+                        : amountIn(balance, account.currency),
                     maxLines: 1,
                     style: TextStyle(
                       fontSize: 16,
