@@ -102,6 +102,7 @@ class _AccountPageState extends State<AccountPage> {
                     scale: _scale,
                     selected: _week,
                     onSelect: (week) => setState(() => _week = week),
+                    currency: code,
                   ),
                   const SectionHead('本月紀錄'),
                   if (entries.isEmpty)
