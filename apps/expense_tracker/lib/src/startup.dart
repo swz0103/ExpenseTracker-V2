@@ -90,8 +90,7 @@ final class Startup extends ChangeNotifier {
   }
 
   /// The key a ledger without a password opens with.
-  Future<String> quickSecret() async =>
-      (await _quickKey.readAsString()).trim();
+  Future<String> quickSecret() async => (await _quickKey.readAsString()).trim();
 
   /// Drops the kept key once the person has set a password.
   Future<void> forgetQuickKey() async {

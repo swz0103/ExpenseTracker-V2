@@ -90,17 +90,6 @@ void main() {
     expect(keys.deviceIds, isNot(contains('phone-2')));
     startup.lock();
   });
-}
-
-/// A device key whose fingerprint prompt is always cancelled.
-final class _CancelledDeviceKey implements DeviceKeyWrapper {
-  @override
-  Future<List<int>> wrap(List<int> secret, List<int> context) =>
-      Future.error(StateError('cancelled'));
-
-  @override
-  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
-      Future.error(StateError('cancelled'));
 
   test('a ledger without a password opens by itself', () async {
     final startup = Startup(vault);
@@ -116,4 +105,15 @@ final class _CancelledDeviceKey implements DeviceKeyWrapper {
     await again.openQuietly();
     expect(again.state, isA<Ready>());
   });
+}
+
+/// A device key whose fingerprint prompt is always cancelled.
+final class _CancelledDeviceKey implements DeviceKeyWrapper {
+  @override
+  Future<List<int>> wrap(List<int> secret, List<int> context) =>
+      Future.error(StateError('cancelled'));
+
+  @override
+  Future<List<int>> unwrap(List<int> wrapped, List<int> context) =>
+      Future.error(StateError('cancelled'));
 }

@@ -563,6 +563,14 @@ void main() {
     expect((paid.amount, paid.tax, paid.dividendNet), (30000, 633, 29367));
     expect(ledger.balance(bank.id), 500000 - 100000 + 29367);
     expect(ledger.dividends(2026, 10), 29367);
+
+    // A capital reduction of 40%: 400 shares and NT$4,000 back.
+    ledger.add(stock(EntryType.dividend, 4000, shares: -400));
+    ledger = await reopen(ledger);
+    expect(shown(ledger, '2330'), (600, 100000 - 4000));
+    expect(held('2330'), shown(ledger, '2330'));
+    expect(ledger.balance(bank.id), 500000 - 100000 + 29367 + 4000);
+    expect(ledger.dividends(2026, 10), 29367);
   });
 
   test('trades, dividends and splits are kept', () async {

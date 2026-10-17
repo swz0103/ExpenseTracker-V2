@@ -349,6 +349,7 @@ class _LockScreenState extends State<LockScreen> {
       ),
     );
   }
+
   Widget _welcomeScreen() {
     final problem = _problem;
     return Scaffold(

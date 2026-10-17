@@ -166,6 +166,22 @@ extension _Investments on VaultJournal {
     BusinessDate day,
     TradeTarget target,
   ) async {
+    if (e.shares < 0) {
+      final held = _held(target.accountId, target.instrumentId);
+      await _invest.corporateAction(
+        RecordCorporateAction(
+          operation: _op(),
+          actionId: PublicId.generate(),
+          postingId: id,
+          target: target,
+          effectiveOn: day,
+          newShares: held + e.shares,
+          oldShares: held,
+          capitalReturned: e.amount > 0 ? _ntd(e.amount) : null,
+        ),
+      );
+      return;
+    }
     if (e.shares > 0) {
       final held = _held(target.accountId, target.instrumentId);
       if (e.split) {

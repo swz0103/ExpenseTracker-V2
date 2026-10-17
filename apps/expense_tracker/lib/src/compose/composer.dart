@@ -132,6 +132,9 @@ class _ComposerState extends State<Composer> {
   var _installments = 0;
   var _average = false;
   var _splitShares = false;
+
+  /// A capital reduction: the shares go down and cash comes back.
+  var _reduce = false;
   final _note = TextEditingController();
   String? _problem;
 
@@ -185,6 +188,8 @@ class _ComposerState extends State<Composer> {
     _installments = entry.installments;
     _average = entry.average;
     _splitShares = entry.split;
+    _reduce = entry.isReduction;
+    if (_reduce) _shares = -entry.shares;
   }
 
   @override
@@ -216,6 +221,7 @@ class _ComposerState extends State<Composer> {
     _installments = 0;
     _average = false;
     _splitShares = false;
+    _reduce = false;
     _problem = null;
   }
 
@@ -586,6 +592,8 @@ class _ComposerState extends State<Composer> {
     String? problem;
     final splitTotal = parts?.fold(0, (sum, p) => sum + p.$2);
     final stock = type == EntryType.dividend && _shares > 0;
+    final reducing = stock && _reduce;
+    final held = _ledger.holding(_holding ?? '')?.shares ?? 0;
     if (_amount <= 0 && !stock) {
       problem = _trading ? '請輸入股數和成交價' : '請輸入金額';
     } else if (type == EntryType.transfer && _account == _to) {
@@ -600,7 +608,9 @@ class _ComposerState extends State<Composer> {
       problem = '外幣帳戶不能直接繳卡費';
     } else if (_mode == ComposeMode.investment && _currency != 'TWD') {
       problem = '投資請用新台幣帳戶';
-    } else if (type == EntryType.dividend && _withheld > _amount) {
+    } else if (reducing && _shares > held) {
+      problem = '減少的股數超過持股（${groupDigits(held)} 股）';
+    } else if (type == EntryType.dividend && !reducing && _withheld > _amount) {
       problem = '補充保費不能超過股息';
     } else if (_mode == ComposeMode.investment && _holding == null) {
       problem = '請選擇投資標的';
@@ -634,17 +644,21 @@ class _ComposerState extends State<Composer> {
       note: _note.text.trim(),
       to: type == EntryType.transfer ? _to : null,
       holding: _mode == ComposeMode.investment ? _holding : null,
-      shares: _mode == ComposeMode.investment ? _shares : 0,
+      shares: _mode != ComposeMode.investment
+          ? 0
+          : reducing
+          ? -_shares
+          : _shares,
       recurring: widget.entry?.recurring ?? widget.draft?.recurring,
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
       fee: type == EntryType.transfer ? transferFee : fee,
-      tax: type == EntryType.dividend ? _withheld : tax,
+      tax: type == EntryType.dividend ? (reducing ? 0 : _withheld) : tax,
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
-      split: stock && _splitShares,
+      split: stock && _splitShares && !reducing,
       home: _foreign ? _homeValue : null,
       received: _crossing ? _receivedValue : null,
     );
@@ -757,6 +771,7 @@ class _ComposerState extends State<Composer> {
                     _ when refunded != null => '退款金額',
                     EntryType.transfer => '轉出金額',
                     EntryType.buy || EntryType.sell => '成交金額',
+                    EntryType.dividend when _reduce => '退還股款',
                     _ => '金額',
                   },
                   value: '$_sign${amountIn(_amount, _currency)}',
@@ -1219,16 +1234,24 @@ class _ComposerState extends State<Composer> {
           padding: const EdgeInsets.only(top: 8),
           child: Tile(
             icon: Glyph.briefcase,
-            label: _splitShares ? '分割增加股數' : '配股股數',
+            label: _reduce
+                ? '減資減少股數'
+                : _splitShares
+                ? '分割增加股數'
+                : '配股股數',
             value: groupDigits(_shares),
             size: 15,
             onTap: () async {
-              final value = await _ask('增加股數', _shares, unit: '股');
+              final value = await _ask(
+                _reduce ? '減少股數' : '增加股數',
+                _shares,
+                unit: '股',
+              );
               if (value != null) setState(() => _shares = value);
             },
           ),
         ),
-        if (_amount > 0)
+        if (_amount > 0 && !_reduce)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Tile(
@@ -1248,9 +1271,16 @@ class _ComposerState extends State<Composer> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Segments(
-              labels: const ['配股', '分割'],
-              selected: _splitShares ? 1 : 0,
-              onChanged: (i) => setState(() => _splitShares = i == 1),
+              labels: const ['配股', '分割', '減資'],
+              selected: _reduce
+                  ? 2
+                  : _splitShares
+                  ? 1
+                  : 0,
+              onChanged: (i) => setState(() {
+                _splitShares = i == 1;
+                _reduce = i == 2;
+              }),
             ),
           ),
       ],

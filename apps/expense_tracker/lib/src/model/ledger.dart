@@ -235,8 +235,13 @@ final class Entry {
     _ => 0,
   };
 
+  /// A capital reduction: the company takes back [shares] (negative) and
+  /// returns [amount] in cash, which lowers the cost rather than earning.
+  bool get isReduction => type == EntryType.dividend && shares < 0;
+
   /// What a dividend paid out, after the premium withheld.
-  int get dividendNet => type == EntryType.dividend ? amount - tax : 0;
+  int get dividendNet =>
+      type == EntryType.dividend && !isReduction ? amount - tax : 0;
 
   /// What the entry brings in: income and dividends, not refunds.
   int get earning => switch (type) {
@@ -839,7 +844,7 @@ final class Ledger extends ChangeNotifier {
     if (e.account == account) {
       change += switch (e.type) {
         EntryType.income => e.amount,
-        EntryType.dividend => e.dividendNet,
+        EntryType.dividend => e.isReduction ? e.amount : e.dividendNet,
         EntryType.sell => e.amount - e.fee - e.tax,
         EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
         EntryType.expense => -billed(e, at),
@@ -1622,6 +1627,21 @@ final class Ledger extends ChangeNotifier {
     return scaled;
   }
 
+  /// [lots] with [amount] taken off their cost in proportion to it; the
+  /// last takes what rounding leaves.
+  static List<Lot> _lowered(List<Lot> lots, int amount) {
+    final total = lots.fold(0, (sum, l) => sum + l.cost);
+    if (total == 0 || amount == 0) return lots;
+    var left = amount;
+    final lowered = <Lot>[];
+    for (final (i, l) in lots.indexed) {
+      final part = i == lots.length - 1 ? left : amount * l.cost ~/ total;
+      left -= part;
+      lowered.add(Lot(l.date, l.shares, l.cost - part));
+    }
+    return lowered;
+  }
+
   /// Rebuilds the holdings and their lots from the starting positions and
   /// every investment entry in date order.
   void _replay() {
@@ -1632,11 +1652,17 @@ final class Ledger extends ChangeNotifier {
       for (final h in _startHoldings)
         h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
     };
+    // In date order, and in the order written within a day: a sort that
+    // kept no order could put a day's sale before its purchase.
     final trades = [
-      for (final e in _entries)
-        if (e.isInvestment && e.holding != null) e,
-    ]..sort((a, b) => a.date.compareTo(b.date));
-    for (final e in trades) {
+      for (final (i, e) in _entries.indexed)
+        if (e.isInvestment && e.holding != null) (i, e),
+    ];
+    trades.sort((a, b) {
+      final byDate = a.$2.date.compareTo(b.$2.date);
+      return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
+    });
+    for (final (_, e) in trades) {
       final code = e.holding!;
       // A stock bought for the first time takes its first price per share
       // as the reference until a close is known.
@@ -1669,6 +1695,18 @@ final class Ledger extends ChangeNotifier {
             shares: held.shares - e.shares,
             cost: held.cost - part,
             realized: held.realized + e.amount - e.fee - e.tax - part,
+          );
+        case EntryType.dividend when e.isReduction && held.shares > 0:
+          final left = max(0, held.shares + e.shares);
+          final lowered = min(e.amount, held.cost);
+          final scaled = _scaled(lots[code] ?? const [], left);
+          lots[code] = _lowered(scaled, lowered);
+          final worth = max(0.0, held.price * held.shares - e.amount);
+          byCode[code] = held.copyWith(
+            shares: left,
+            cost: held.cost - lowered,
+            price: left == 0 ? held.price : worth / left,
+            realized: held.realized + e.amount - lowered,
           );
         case EntryType.dividend when e.split && held.shares > 0:
           final ratio = (held.shares + e.shares) / held.shares;
