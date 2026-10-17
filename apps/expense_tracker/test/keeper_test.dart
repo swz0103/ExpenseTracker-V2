@@ -4,7 +4,7 @@ import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/book/vault_keeper.dart';
-import 'package:expense_tracker/src/demo/ledger.dart';
+import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:expense_tracker/src/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -128,6 +128,41 @@ void main() {
       throwsA(isA<KeyringException>()),
     );
     await startup.unlockWithRecovery(newCode);
+    startup.lock();
+  });
+
+  test('locking keeps the changes still being written', () async {
+    final startup = startupIn('pending');
+    await startup.setUp(password);
+    final vault = vaultOf(startup);
+    final journal = VaultJournal(vault, clock: clock);
+    final ledger = await journal.load();
+    final keeper = VaultKeeper(
+      startup,
+      vault,
+      journal,
+      beforeLock: () => ledger.settled,
+    );
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger
+      ..addAccount(cash)
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: DateTime.utc(2026, 10, 2),
+          type: EntryType.expense,
+          amount: 120,
+          account: cash.id,
+          category: '飲食日常',
+        ),
+      );
+    await keeper.lock();
+    expect(startup.state, isA<Locked>());
+    expect(ledger.problem.value, isNull);
+
+    await startup.unlockWithPassword(password);
+    final again = await VaultJournal(vaultOf(startup), clock: clock).load();
+    expect(again.balance(cash.id), 880);
     startup.lock();
   });
 }

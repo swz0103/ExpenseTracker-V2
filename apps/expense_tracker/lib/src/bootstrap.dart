@@ -10,7 +10,7 @@ import 'package:market_data/market_data.dart';
 import 'app.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
-import 'demo/ledger.dart';
+import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/shell.dart';
 import 'platform.dart';

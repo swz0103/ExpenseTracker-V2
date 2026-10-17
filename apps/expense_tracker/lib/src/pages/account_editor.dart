@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart' show Currency;
 
 import '../compose/pickers.dart';
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 
 /// Opens the account form: a new account, or [account] to change. Saving
 /// writes to [ledger] directly.

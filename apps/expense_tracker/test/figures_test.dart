@@ -1,5 +1,5 @@
-import 'package:expense_tracker/src/demo/ledger.dart';
 import 'package:expense_tracker/src/look/figures.dart';
+import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

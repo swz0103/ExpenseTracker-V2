@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
-import 'package:expense_tracker/src/demo/ledger.dart';
+import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';

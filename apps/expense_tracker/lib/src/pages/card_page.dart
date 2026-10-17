@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../demo/ledger.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 import 'account_editor.dart';
 import 'entry_tile.dart';
 import 'nav.dart';

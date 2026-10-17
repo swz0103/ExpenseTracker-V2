@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../demo/ledger.dart';
-import '../demo/trading.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
+import '../model/trading.dart';
 import '../pages/categories_page.dart';
 import '../pages/dialogs.dart';
 import 'calculator.dart';

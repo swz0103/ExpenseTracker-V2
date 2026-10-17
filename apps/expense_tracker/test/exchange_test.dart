@@ -1,6 +1,6 @@
-import 'package:expense_tracker/src/demo/exchange.dart';
-import 'package:expense_tracker/src/demo/ledger.dart';
 import 'package:expense_tracker/src/demo/seed.dart';
+import 'package:expense_tracker/src/model/exchange.dart';
+import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

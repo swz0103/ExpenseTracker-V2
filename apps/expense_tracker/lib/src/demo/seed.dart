@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart' show Color;
 
-import 'ledger.dart';
+import '../model/ledger.dart';
 
 /// The preview's made-up book as of 2026-10-04, the same fixture as the
 /// approved web preview (v114): six months of salary, rent and everyday

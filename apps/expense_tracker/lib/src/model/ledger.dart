@@ -544,7 +544,7 @@ final class Recurring {
   }
 }
 
-/// The preview's book: accounts, categories, entries, holdings, budgets
+/// The screens' book: accounts, categories, entries, holdings, budgets
 /// and recurring items, with the sums the screens show. Holdings are
 /// replayed from the starting positions and the investment entries, so
 /// edits and deletions always recompute them.

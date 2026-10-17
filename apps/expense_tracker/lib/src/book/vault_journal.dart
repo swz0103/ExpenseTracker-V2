@@ -16,7 +16,7 @@ import 'package:market_data/market_data.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:reports/reports.dart';
 
-import '../demo/ledger.dart' as ui;
+import '../model/ledger.dart' as ui;
 import 'journal.dart';
 import 'looks.dart';
 

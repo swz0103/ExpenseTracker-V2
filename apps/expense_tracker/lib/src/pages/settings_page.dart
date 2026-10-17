@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
-import '../demo/exchange.dart';
-import '../demo/ledger.dart';
 import '../demo/seed.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/exchange.dart';
+import '../model/ledger.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';

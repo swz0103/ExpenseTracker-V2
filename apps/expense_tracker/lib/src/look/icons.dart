@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-import '../demo/ledger.dart';
+import '../model/ledger.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 
