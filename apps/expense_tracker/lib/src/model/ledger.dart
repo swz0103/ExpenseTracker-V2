@@ -193,7 +193,8 @@ final class Entry {
   /// The bank's fee on a transfer, the broker's on a trade.
   final int fee;
 
-  /// The securities transaction tax on a sale.
+  /// The securities transaction tax on a sale; the NHI supplementary
+  /// premium (二代健保) withheld from a dividend.
   final int tax;
 
   /// The spending this income gives back, for a refund.
@@ -234,10 +235,13 @@ final class Entry {
     _ => 0,
   };
 
+  /// What a dividend paid out, after the premium withheld.
+  int get dividendNet => type == EntryType.dividend ? amount - tax : 0;
+
   /// What the entry brings in: income and dividends, not refunds.
   int get earning => switch (type) {
     EntryType.income when !isRefund => worth,
-    EntryType.dividend => amount,
+    EntryType.dividend => dividendNet,
     _ => 0,
   };
 
@@ -722,9 +726,6 @@ final class Ledger extends ChangeNotifier {
       if (e.date == day) e,
   ];
 
-  int _sum(Iterable<Entry> entries) =>
-      entries.fold(0, (total, e) => total + e.amount);
-
   /// Income of a month, dividends included.
   int income(int year, int month) =>
       entriesIn(year, month).fold(0, (total, e) => total + e.earning);
@@ -735,7 +736,7 @@ final class Ledger extends ChangeNotifier {
       .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
-      _sum(entriesIn(year, month).where((e) => e.type == EntryType.dividend));
+      entriesIn(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
   int spentOn(DateTime day) =>
       entriesOn(day).fold(0, (total, e) => total + e.spending);
@@ -778,7 +779,7 @@ final class Ledger extends ChangeNotifier {
   }
 
   int dividendsBetween(DateTime from, DateTime to) =>
-      _sum(_between(from, to).where((e) => e.type == EntryType.dividend));
+      _between(from, to).fold(0, (sum, e) => sum + e.dividendNet);
 
   /// Spending by category name from [from] to [to].
   Map<String, int> spendingBetween(DateTime from, DateTime to) {
@@ -837,7 +838,8 @@ final class Ledger extends ChangeNotifier {
     var change = 0;
     if (e.account == account) {
       change += switch (e.type) {
-        EntryType.income || EntryType.dividend => e.amount,
+        EntryType.income => e.amount,
+        EntryType.dividend => e.dividendNet,
         EntryType.sell => e.amount - e.fee - e.tax,
         EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
         EntryType.expense => -billed(e, at),
@@ -1674,7 +1676,7 @@ final class Ledger extends ChangeNotifier {
           byCode[code] = held.copyWith(
             shares: held.shares + e.shares,
             price: held.price / ratio,
-            dividends: held.dividends + e.amount,
+            dividends: held.dividends + e.dividendNet,
           );
         case EntryType.dividend:
           if (e.shares > 0) {
@@ -1682,7 +1684,7 @@ final class Ledger extends ChangeNotifier {
           }
           byCode[code] = held.copyWith(
             shares: held.shares + e.shares,
-            dividends: held.dividends + e.amount,
+            dividends: held.dividends + e.dividendNet,
           );
         default:
           break;

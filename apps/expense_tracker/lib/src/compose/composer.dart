@@ -119,6 +119,10 @@ class _ComposerState extends State<Composer> {
   /// currencies delivers, as typed; null works them out at today's rate.
   int? _home;
   int? _received;
+
+  /// The 二代健保 premium withheld from a cash dividend, as typed; null
+  /// works it out from the amount and day.
+  int? _premium;
   var _installments = 0;
   var _average = false;
   var _splitShares = false;
@@ -171,6 +175,7 @@ class _ComposerState extends State<Composer> {
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
     _home = entry.home;
     _received = entry.received;
+    _premium = entry.type == EntryType.dividend ? entry.tax : null;
     _installments = entry.installments;
     _average = entry.average;
     _splitShares = entry.split;
@@ -201,6 +206,7 @@ class _ComposerState extends State<Composer> {
     _fee = 0;
     _home = null;
     _received = null;
+    _premium = null;
     _installments = 0;
     _average = false;
     _splitShares = false;
@@ -352,6 +358,9 @@ class _ComposerState extends State<Composer> {
   int? get _receivedValue =>
       _received ?? _ledger.convert(_amount, _currency, _toCurrency);
 
+  /// The premium withheld from the cash dividend being written.
+  int get _withheld => _premium ?? dividendPremium(_amount, _date);
+
   /// The broker's fee and the tax on the trade being written.
   (int, int) get _charges {
     if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
@@ -380,6 +389,7 @@ class _ComposerState extends State<Composer> {
       _amount = value;
       _home = null;
       _received = null;
+      _premium = null;
     });
   }
 
@@ -584,6 +594,8 @@ class _ComposerState extends State<Composer> {
       problem = '外幣帳戶不能直接繳卡費';
     } else if (_mode == ComposeMode.investment && _currency != 'TWD') {
       problem = '投資請用新台幣帳戶';
+    } else if (type == EntryType.dividend && _withheld > _amount) {
+      problem = '補充保費不能超過股息';
     } else if (_mode == ComposeMode.investment && _holding == null) {
       problem = '請選擇投資標的';
     } else if ((type == EntryType.buy || type == EntryType.sell) &&
@@ -622,7 +634,7 @@ class _ComposerState extends State<Composer> {
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
       fee: type == EntryType.transfer ? transferFee : fee,
-      tax: tax,
+      tax: type == EntryType.dividend ? _withheld : tax,
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
@@ -1210,6 +1222,22 @@ class _ComposerState extends State<Composer> {
             },
           ),
         ),
+        if (_amount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Tile(
+              icon: Glyph.coins,
+              label: '二代健保補充保費',
+              value: groupDigits(_withheld),
+              valueColor: _withheld > 0 ? Hue.negative : Hue.ink,
+              size: 15,
+              sub: '實收 ${groupDigits(_amount - _withheld)}',
+              onTap: () async {
+                final value = await _ask('二代健保補充保費', _withheld);
+                if (value != null) setState(() => _premium = value);
+              },
+            ),
+          ),
         if (_shares > 0)
           Padding(
             padding: const EdgeInsets.only(top: 8),

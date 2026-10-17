@@ -52,15 +52,17 @@ extension _Investments on VaultJournal {
               ),
             );
           case 'dividend':
+            final withheld = money('withholdingTax');
             entries.add(
               ui.Entry(
                 id: id,
                 date: date,
                 type: ui.EntryType.dividend,
-                amount: money('net'),
+                amount: money('net') + withheld,
                 account: funding,
                 category: '股息收入',
                 holding: code,
+                tax: withheld,
               ),
             );
           case 'split' || 'action':
@@ -201,9 +203,9 @@ extension _Investments on VaultJournal {
         target: target,
         paidOn: day,
         gross: _ntd(e.amount),
-        withholdingTax: _ntd(0),
+        withholdingTax: _ntd(e.tax),
         fee: _ntd(0),
-        net: _ntd(e.amount),
+        net: _ntd(e.amount - e.tax),
       ),
     );
   }

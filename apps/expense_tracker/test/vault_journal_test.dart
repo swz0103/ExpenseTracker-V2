@@ -535,6 +535,36 @@ void main() {
     expect(rentEntries(), hasLength(1));
   });
 
+  test('a dividend keeps the premium withheld from it', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
+    ledger.addAccount(bank);
+    await ledger.settled;
+    Entry stock(EntryType type, int amount, {int shares = 0, int tax = 0}) =>
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: type,
+          amount: amount,
+          account: bank.id,
+          category: type == EntryType.dividend ? '股息收入' : '投資',
+          holding: '2330',
+          shares: shares,
+          tax: tax,
+        );
+    ledger
+      ..add(stock(EntryType.buy, 100000, shares: 1000))
+      ..add(stock(EntryType.dividend, 30000, tax: 633));
+
+    ledger = await reopen(ledger);
+    final paid = ledger
+        .entriesIn(2026, 10)
+        .firstWhere((e) => e.type == EntryType.dividend);
+    expect((paid.amount, paid.tax, paid.dividendNet), (30000, 633, 29367));
+    expect(ledger.balance(bank.id), 500000 - 100000 + 29367);
+    expect(ledger.dividends(2026, 10), 29367);
+  });
+
   test('trades, dividends and splits are kept', () async {
     var ledger = await create();
     final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);

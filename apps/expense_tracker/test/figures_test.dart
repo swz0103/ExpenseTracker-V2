@@ -1,5 +1,6 @@
 import 'package:expense_tracker/src/look/figures.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
+import 'package:expense_tracker/src/model/trading.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -41,5 +42,12 @@ void main() {
     expect(ledger.convert(10000, 'USD', 'JPY'), 16000);
     expect(ledger.assets, 1000 + 3200 + 2000);
     expect(ledger.unrated, isEmpty);
+  });
+
+  test('a dividend of NT\$20,000 or more pays the 2.11% premium', () {
+    final day = DateTime.utc(2026, 10, 2);
+    expect(dividendPremium(19999, day), 0);
+    expect(dividendPremium(20000, day), 422);
+    expect(dividendPremium(30000, day), 633);
   });
 }

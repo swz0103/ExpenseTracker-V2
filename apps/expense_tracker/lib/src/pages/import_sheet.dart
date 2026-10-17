@@ -122,7 +122,7 @@ class _ImportSheetState extends State<_ImportSheet> {
             style: const TextStyle(fontSize: 12.5, fontFamily: 'monospace'),
             decoration: InputDecoration(
               hintText: widget.invoices
-                  ? 'M|手機條碼|/ABC123|20260312|…|全聯|AB12345678|268|開立'
+                  ? '財政部消費明細 CSV，或 M|手機條碼|…|全聯|AB12345678|268|開立'
                   : '日期,類型,金額,帳戶,分類,商家,標籤,備註',
               filled: true,
               fillColor: Hue.tile,
