@@ -47,6 +47,20 @@ final class VaultKeeper implements Keeper {
     return _export(path, path.split(RegExp(r'[/\\]')).last);
   }
 
+  @override
+  Future<bool> exportFile(String name, String text) async {
+    // Written beside the ledger only until it is handed over.
+    final folder = Directory('${_startup.directory.path}/exports');
+    await folder.create(recursive: true);
+    final file = File('${folder.path}/$name');
+    await file.writeAsString(text, flush: true);
+    try {
+      return await _export(file.path, name);
+    } finally {
+      await file.delete();
+    }
+  }
+
   Directory get _folder => Directory('${_startup.directory.path}/backups');
 
   @override

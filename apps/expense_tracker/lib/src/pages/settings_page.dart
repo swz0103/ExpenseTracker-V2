@@ -40,6 +40,18 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) showNote(context, note);
   }
 
+  /// Saves [text] as the file [name] when the ledger can, else copies it.
+  Future<void> _save(String name, String text, String what) async {
+    final keeper = widget.keeper;
+    if (keeper == null) return _copy(text, '已複製$what');
+    try {
+      final saved = await keeper.exportFile(name, text);
+      if (mounted && saved) showNote(context, '已下載$what');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '下載失敗（$error）');
+    }
+  }
+
   String _json() {
     final ledger = widget.ledger;
     final entries = <Map<String, Object?>>[];
@@ -205,9 +217,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           badge: 'CSV',
                           title: '下載收支紀錄',
                           detail: '$year 年 $month 月 · ${entries.length} 筆紀錄',
-                          onTap: () => _copy(
+                          onTap: () => _save(
+                            '記帳本-$year-${'$month'.padLeft(2, '0')}.csv',
                             toCsv(ledger, entries),
-                            '已複製 ${entries.length} 筆紀錄的 CSV',
+                            ' ${entries.length} 筆紀錄的 CSV',
                           ),
                         ),
                         const Divider(),
@@ -215,7 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           badge: 'JSON',
                           title: '下載完整帳本',
                           detail: '帳戶、紀錄與持股',
-                          onTap: () => _copy(_json(), '已複製完整帳本 JSON'),
+                          onTap: () => _save('記帳本.json', _json(), '完整帳本 JSON'),
                         ),
                       ],
                     ),
