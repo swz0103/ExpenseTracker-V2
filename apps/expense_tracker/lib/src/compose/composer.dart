@@ -597,6 +597,8 @@ class _ComposerState extends State<Composer> {
       setState(() => _problem = problem);
       return;
     }
+    // A transfer's fee counts as NT$ spending: only an NT$ account pays one.
+    final transferFee = _currency == 'TWD' ? _fee : 0;
     final entry = Entry(
       id: widget.entry?.id ?? _ledger.newId(),
       date: _date,
@@ -617,7 +619,7 @@ class _ComposerState extends State<Composer> {
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
-      fee: type == EntryType.transfer ? (_currency == 'TWD' ? _fee : 0) : fee,
+      fee: type == EntryType.transfer ? transferFee : fee,
       tax: tax,
       refundOf: refunded?.id,
       installments: _onCard ? _installments : 0,

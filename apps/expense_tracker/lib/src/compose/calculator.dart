@@ -62,8 +62,7 @@ Future<int?> showCalculator(
   required Color color,
   String unit = 'TWD',
 }) async {
-  final cents =
-      Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;
+  final cents = Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;
   final value = await showSheet<num>(
     context,
     (_) => _Calculator(

@@ -953,10 +953,12 @@ final class VaultJournal implements Journal {
       [_workspace.toString(), _ratesKind],
     );
     if (rows.isEmpty) return const {};
-    final json = jsonDecode(rows.single['payload']! as String) as Map;
+    final json =
+        jsonDecode(rows.single['payload']! as String) as Map<String, Object?>;
+    final rates = json['rates']! as Map<String, Object?>;
     return {
-      for (final MapEntry(:key, :value) in (json['rates'] as Map).entries)
-        key as String: (value as num).toDouble(),
+      for (final MapEntry(:key, :value) in rates.entries)
+        key: (value! as num).toDouble(),
     };
   }
 

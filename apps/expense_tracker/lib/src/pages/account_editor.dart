@@ -124,9 +124,7 @@ class _AccountEditorState extends State<_AccountEditor> {
         columns: 3,
         options: [
           for (final a in ledger.openAccounts)
-            if (a.id != old.id &&
-                !a.kind.isDebt &&
-                a.currency == old.currency)
+            if (a.id != old.id && !a.kind.isDebt && a.currency == old.currency)
               Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
         ],
       );
