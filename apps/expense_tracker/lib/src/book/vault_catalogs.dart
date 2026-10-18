@@ -49,7 +49,7 @@ extension _Catalogs on VaultJournal {
   /// The category of a transfer's [fee], none without one.
   Future<List<CategoryShare>> _feeShares(int fee) async {
     if (fee <= 0) return const [];
-    return _sharesOf([(ui.Ledger.feeCategory, fee)], income: false);
+    return _sharesOf([(ui.feeCategory, fee)], income: false);
   }
 
   Future<List<CategoryShare>> _sharesOf(

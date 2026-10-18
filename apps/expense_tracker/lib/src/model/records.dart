@@ -2,6 +2,10 @@ import 'dart:math';
 
 import 'package:flutter/painting.dart' show Color;
 
+/// Where fees go that have no category of their own, such as a
+/// transfer's.
+const feeCategory = '其他支出';
+
 /// What an entry does. Buys, sells and dividends are investment entries.
 enum EntryType { expense, income, transfer, buy, sell, dividend }
 
@@ -252,10 +256,10 @@ final class Entry {
   };
 
   /// [spending] by category: the parts of a split, a transfer's fee under
-  /// [Ledger.feeCategory].
+  /// [feeCategory].
   List<(String, int)> get spendingParts {
     if (spending == 0) return const [];
-    if (type == EntryType.transfer) return [(Ledger.feeCategory, fee)];
+    if (type == EntryType.transfer) return [(feeCategory, fee)];
     if (parts.isNotEmpty && home == null) return parts;
     return [(category, spending)];
   }

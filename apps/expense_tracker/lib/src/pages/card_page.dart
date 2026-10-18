@@ -51,7 +51,7 @@ class CardPage extends StatelessWidget {
         type: type,
         amount: 0,
         account: card.id,
-        category: reward ? '其他收入' : Ledger.feeCategory,
+        category: reward ? '其他收入' : feeCategory,
         note: '${card.name}${reward ? '回饋' : '年費'}',
         tags: [reward ? '回饋' : '年費'],
       ),

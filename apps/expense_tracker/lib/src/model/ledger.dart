@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
 import 'package:foundation_values/foundation_values.dart'
     show Currency, PublicId;
@@ -42,9 +42,6 @@ final class Ledger extends ChangeNotifier {
   }
 
   static const allSpending = '全部支出';
-
-  /// Where transfer fees are counted.
-  static const feeCategory = '其他支出';
 
   final DateTime today;
 
@@ -734,14 +731,16 @@ final class Ledger extends ChangeNotifier {
   void add(Entry entry) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast());
-    // An entry with an id of its own is kept under it; any other gets one
-    // from the journal, which a reload brings.
-    _keep((j) => j.addEntries([entry]), reload: !_isId(entry.id));
+    _keep((j) => j.addEntries([entry]), reload: !_keptAsShown(entry));
   }
 
-  static bool _isId(String id) {
+  /// Whether the [journal] keeps [e] just as the screens hold it, so no
+  /// reload is needed: it has an id of its own, and is neither a refund,
+  /// whose parts the journal works out, nor a recurring booking.
+  static bool _keptAsShown(Entry e) {
+    if (e.isRefund || e.recurring != null) return false;
     try {
-      PublicId.parse(id);
+      PublicId.parse(e.id);
       return true;
     } on Object {
       return false;
@@ -773,7 +772,7 @@ final class Ledger extends ChangeNotifier {
       if (next != stored) _renamed[stored] = next;
     }
 
-    _keep(change, reload: false);
+    _keep(change, reload: !_keptAsShown(before) || !_keptAsShown(entry));
   }
 
   /// Removes the entry with [id] and returns it with its place, for undo.

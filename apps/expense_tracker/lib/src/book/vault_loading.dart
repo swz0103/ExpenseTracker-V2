@@ -131,7 +131,7 @@ extension _Loading on VaultJournal {
           0,
           (sum, leg) => sum + _int(leg.amount),
         );
-        final fallback = income ? '其他收入' : ui.Ledger.feeCategory;
+        final fallback = income ? '其他收入' : ui.feeCategory;
         return ui.Entry(
           id: posting.id.value,
           date: date,
@@ -184,27 +184,6 @@ extension _Loading on VaultJournal {
       dues[a.id.value] = due < 0 ? 0 : due;
     }
     return dues;
-  }
-
-  /// What the ledger holds of each stock, by code: shares and what they
-  /// cost, from its own lots. The screens replay the same trades.
-  Map<String, (int, int)> positions() {
-    final held = <String, (int, int)>{};
-    for (final account in _store.investmentAccounts(_workspace)) {
-      for (final id in _store.positions(account.id)) {
-        final instrument = _store.instrument(id);
-        if (instrument == null) continue;
-        var (shares, cost) = held[instrument.symbol] ?? (0, 0);
-        for (final lot in _store.holdings(account.id, id)) {
-          final quantity = lot.remainingQuantity;
-          final unit = BigInt.from(10).pow(quantity.scale);
-          shares += (quantity.coefficient ~/ unit).toInt();
-          cost += _int(lot.remainingCost);
-        }
-        held[instrument.symbol] = (shares, cost);
-      }
-    }
-    return held;
   }
 
   ui.Account _accountOf(Account a, int opening, Look? look) {
