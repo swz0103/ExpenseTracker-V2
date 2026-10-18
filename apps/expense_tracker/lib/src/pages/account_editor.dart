@@ -161,9 +161,11 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _remove() {
+  Future<void> _remove() async {
     final old = _old;
     if (old == null) return;
+    final ok = await confirm(context, '刪除「${old.name}」？', '刪除', danger: true);
+    if (!ok || !mounted) return;
     widget.ledger.removeAccount(old.id);
     Navigator.of(context).pop();
   }

@@ -9,6 +9,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
 import 'account_editor.dart';
+import 'dialogs.dart';
 import 'nav.dart';
 
 /// 定期交易: the next item, then items due, coming up, booked and
@@ -421,9 +422,12 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     Navigator.of(context).pop();
   }
 
-  void _remove() {
+  Future<void> _remove() async {
     final item = widget.item;
-    if (item != null) _ledger.removeRecurring(item.id);
+    if (item == null) return;
+    final ok = await confirm(context, '刪除「${item.name}」？', '刪除', danger: true);
+    if (!ok || !mounted) return;
+    _ledger.removeRecurring(item.id);
     Navigator.of(context).pop();
   }
 
