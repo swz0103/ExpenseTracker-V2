@@ -703,6 +703,7 @@ void main() {
       'loaded them in ${loading.elapsedMilliseconds} ms',
     );
     expect(loaded.balance(cash.id), -entries.fold(0, (s, e) => s + e.amount));
-    expect(loading.elapsed, lessThan(const Duration(seconds: 5)));
+    // About 40 ms on CI (2026-10); a phone may take several times that.
+    expect(loading.elapsed, lessThan(const Duration(seconds: 1)));
   });
 }
