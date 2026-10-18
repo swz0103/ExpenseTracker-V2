@@ -31,12 +31,14 @@ class HoldingPage extends StatelessWidget {
       listenable: ledger,
       builder: (context, _) {
         final held = ledger.holding(code);
+        final trades = ledger.tradesOf(code);
         if (held == null) {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
               PageHeader(code, onBack: nav.back),
               const Text('已不再持有', style: TextStyle(color: Hue.muted)),
+              ..._history(trades),
             ],
           );
         }
@@ -46,7 +48,6 @@ class HoldingPage extends StatelessWidget {
         for (final l in lots) {
           largest = max(largest, max(l.cost, (l.shares * held.price).round()));
         }
-        final trades = ledger.tradesOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -95,28 +96,33 @@ class HoldingPage extends StatelessWidget {
                 ],
               ),
             ),
-            if (trades.isNotEmpty) ...[
-              const SectionHead('交易紀錄'),
-              SoftPanel(
-                color: Hue.white,
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Column(
-                  children: [
-                    for (final e in trades)
-                      EntryTile(
-                        ledger: ledger,
-                        entry: e,
-                        onTap: () => nav.showEntry(e),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+            ..._history(trades),
           ],
         );
       },
     );
   }
+
+  /// Every trade and dividend of the stock, also once it is all sold.
+  List<Widget> _history(List<Entry> trades) => [
+    if (trades.isNotEmpty) ...[
+      const SectionHead('交易紀錄'),
+      SoftPanel(
+        color: Hue.white,
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          children: [
+            for (final e in trades)
+              EntryTile(
+                ledger: ledger,
+                entry: e,
+                onTap: () => nav.showEntry(e),
+              ),
+          ],
+        ),
+      ),
+    ],
+  ];
 }
 
 /// A lot: when it was bought, how many shares, and its cost against what

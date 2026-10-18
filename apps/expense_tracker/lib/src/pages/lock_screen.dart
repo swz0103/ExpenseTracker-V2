@@ -202,145 +202,158 @@ class _LockScreenState extends State<LockScreen> {
         : _recovery
         ? '輸入建立帳本時拿到的救援碼。'
         : '輸入帳本密碼。';
-    return Scaffold(
-      backgroundColor: Hue.paper,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Center(
-                    child: IconBadge(Glyph.wallet, Hue.accent, size: 64),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
+    // Back from the password or backup form returns to the first screen.
+    final away = _withPassword || _restoring;
+    return PopScope(
+      canPop: !away,
+      onPopInvokedWithResult: (popped, _) {
+        if (popped) return;
+        setState(() {
+          _withPassword = false;
+          _restoring = false;
+          _problem = null;
+        });
+      },
+      child: Scaffold(
+        backgroundColor: Hue.paper,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Center(
+                      child: IconBadge(Glyph.wallet, Hue.accent, size: 64),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    hint,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Hue.muted),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Hue.hero,
-                      borderRadius: BorderRadius.circular(22),
+                    const SizedBox(height: 16),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        if (_restoring) ...[
-                          if (Platform.isAndroid)
-                            OutlinedButton(
-                              onPressed: _busy ? null : _pickBackup,
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(44),
+                    const SizedBox(height: 6),
+                    Text(
+                      hint,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Hue.muted),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Hue.hero,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Column(
+                        children: [
+                          if (_restoring) ...[
+                            if (Platform.isAndroid)
+                              OutlinedButton(
+                                onPressed: _busy ? null : _pickBackup,
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(44),
+                                ),
+                                child: Text(
+                                  _file.text.isEmpty ? '選擇備份檔' : '已選好備份檔',
+                                ),
+                              )
+                            else
+                              _Secret(
+                                controller: _file,
+                                hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
+                                hidden: false,
                               ),
-                              child: Text(
-                                _file.text.isEmpty ? '選擇備份檔' : '已選好備份檔',
+                            const SizedBox(height: 8),
+                          ],
+                          _Secret(
+                            controller: _password,
+                            hint: _recovery ? '救援碼' : '密碼',
+                            hidden: !_recovery,
+                            onSubmitted: creating ? null : _submit,
+                          ),
+                          if (creating) ...[
+                            const SizedBox(height: 8),
+                            _Secret(
+                              controller: _again,
+                              hint: '再輸入一次密碼',
+                              hidden: true,
+                              onSubmitted: _submit,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (_problem case final problem?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          problem,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Hue.danger),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Hue.accent,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _busy
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Hue.white,
                               ),
                             )
-                          else
-                            _Secret(
-                              controller: _file,
-                              hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
-                              hidden: false,
+                          : Text(
+                              creating
+                                  ? '建立'
+                                  : _restoring
+                                  ? '還原'
+                                  : '打開',
                             ),
-                          const SizedBox(height: 8),
-                        ],
-                        _Secret(
-                          controller: _password,
-                          hint: _recovery ? '救援碼' : '密碼',
-                          hidden: !_recovery,
-                          onSubmitted: creating ? null : _submit,
-                        ),
-                        if (creating) ...[
-                          const SizedBox(height: 8),
-                          _Secret(
-                            controller: _again,
-                            hint: '再輸入一次密碼',
-                            hidden: true,
-                            onSubmitted: _submit,
-                          ),
-                        ],
-                      ],
                     ),
-                  ),
-                  if (_problem case final problem?)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        problem,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Hue.danger),
+                    if (!creating)
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _recovery = !_recovery;
+                                _password.clear();
+                                _problem = null;
+                              }),
+                        child: Text(_recovery ? '改用密碼' : '忘記密碼？用救援碼'),
                       ),
-                    ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Hue.accent,
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                    if (_biometric && !_recovery)
+                      TextButton(
+                        onPressed: _busy ? null : _unlockWithDevice,
+                        child: const Text('用指紋或臉部解鎖'),
                       ),
-                    ),
-                    child: _busy
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Hue.white,
-                            ),
-                          )
-                        : Text(
-                            creating
-                                ? '建立'
-                                : _restoring
-                                ? '還原'
-                                : '打開',
-                          ),
-                  ),
-                  if (!creating)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() {
-                              _recovery = !_recovery;
-                              _password.clear();
-                              _problem = null;
-                            }),
-                      child: Text(_recovery ? '改用密碼' : '忘記密碼？用救援碼'),
-                    ),
-                  if (_biometric && !_recovery)
-                    TextButton(
-                      onPressed: _busy ? null : _unlockWithDevice,
-                      child: const Text('用指紋或臉部解鎖'),
-                    ),
-                  if (empty)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() {
-                              _restoring = false;
-                              _withPassword = false;
-                              _recovery = false;
-                              _problem = null;
-                            }),
-                      child: const Text('返回'),
-                    ),
-                ],
+                    if (empty)
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _restoring = false;
+                                _withPassword = false;
+                                _recovery = false;
+                                _problem = null;
+                              }),
+                        child: const Text('返回'),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

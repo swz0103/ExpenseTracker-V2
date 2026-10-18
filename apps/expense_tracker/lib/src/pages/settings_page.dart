@@ -8,6 +8,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
 import '../model/ledger.dart';
+import '../problems.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';
@@ -47,7 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final saved = await keeper.exportFile(name, text);
       if (mounted && saved) showNote(context, '已下載$what');
     } on Object catch (error) {
-      if (mounted) showNote(context, '下載失敗（$error）');
+      if (mounted) showNote(context, '下載失敗：${describeProblem(error)}');
     }
   }
 
@@ -57,18 +58,21 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final code = keeper.hasPassword ? null : await keeper.newRecoveryCode();
       final saved = await keeper.exportBackup();
-      if (!mounted || !saved) return;
-      if (code == null) {
-        showNote(context, '已匯出備份檔');
-      } else {
+      if (!mounted) return;
+      if (code != null) {
+        // The code changed even if the save was cancelled: show it anyway.
         await showRecoveryCode(
           context,
           code,
-          why: '在新手機還原這份備份時，要輸入這組救援碼。請抄下來放在安全的地方，它只會顯示這一次。',
+          why: saved
+              ? '在新手機還原這份備份時，要輸入這組救援碼。請抄下來放在安全的地方，它只會顯示這一次。'
+              : '救援碼已更新，之前的不再適用。請抄下來放在安全的地方，它只會顯示這一次。',
         );
+      } else if (saved) {
+        showNote(context, '已匯出備份檔');
       }
     } on Object catch (error) {
-      if (mounted) showNote(context, '匯出失敗（$error）');
+      if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
     }
   }
 
@@ -83,6 +87,15 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       if (first) {
         await keeper.setPassword(next);
+        // A ledger started without a password has had no code to show yet.
+        final code = await keeper.newRecoveryCode();
+        if (mounted) {
+          await showRecoveryCode(
+            context,
+            code,
+            why: '密碼設好了。忘記密碼時，只有這組救援碼能打開帳本。請抄下來放在安全的地方，它只會顯示這一次。',
+          );
+        }
       } else {
         await keeper.changePassword(current, next);
       }

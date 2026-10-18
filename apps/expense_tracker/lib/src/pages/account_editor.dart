@@ -8,6 +8,16 @@ import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
+import 'dialogs.dart';
+
+/// True when [ledger] has an open account, after offering to add one if
+/// it has none: entries, imports and recurring items all need one.
+Future<bool> ensureAccount(BuildContext context, Ledger ledger) async {
+  if (ledger.openAccounts.isNotEmpty) return true;
+  final add = await confirm(context, '先新增一個帳戶，才能記帳', '新增帳戶');
+  if (add && context.mounted) await editAccount(context, ledger);
+  return ledger.openAccounts.isNotEmpty && context.mounted;
+}
 
 /// Opens the account form: a new account, or [account] to change. Saving
 /// writes to [ledger] directly.
@@ -49,8 +59,10 @@ class _AccountEditorState extends State<_AccountEditor> {
   String _startBalance() {
     final account = widget.account;
     if (account == null) return '';
-    final balance = widget.ledger.balance(account.id).abs();
-    return plainIn(balance, account.currency);
+    // A debt is shown as what is owed: a card at −500 reads 500, and one
+    // overpaid by 300 reads −300.
+    final balance = widget.ledger.balance(account.id);
+    return plainIn(account.kind.isDebt ? -balance : balance, account.currency);
   }
 
   /// Cards and loans are kept in NT$.
@@ -69,8 +81,8 @@ class _AccountEditorState extends State<_AccountEditor> {
     final name = _name.text.trim();
     if (name.isEmpty) return;
     final currency = _foreignAllowed ? _currency : 'TWD';
-    final typed = minorOf(_balance.text, currency) ?? 0;
-    final balance = _kind.isDebt ? -typed.abs() : typed;
+    final typed = minorOf(_balance.text, currency);
+    final balance = typed == null ? null : (_kind.isDebt ? -typed : typed);
     final card = _kind == AccountKind.card;
     final old = _old;
     if (old == null) {
@@ -79,7 +91,7 @@ class _AccountEditorState extends State<_AccountEditor> {
           ledger.newId(),
           name,
           _kind,
-          balance,
+          balance ?? 0,
           icon: _icon,
           closingDay: card ? _closing : null,
           dueDay: card ? _due : null,
@@ -104,7 +116,10 @@ class _AccountEditorState extends State<_AccountEditor> {
           currency: old.currency,
         ),
       );
-      if (balance != ledger.balance(old.id)) ledger.setBalance(old.id, balance);
+      // A field left empty leaves the balance as it is.
+      if (balance != null && balance != ledger.balance(old.id)) {
+        ledger.setBalance(old.id, balance);
+      }
     }
     Navigator.of(context).pop();
   }

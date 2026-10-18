@@ -32,6 +32,8 @@ Future<DeviceUnlock?> androidDeviceUnlock(Directory directory) async {
   return DeviceUnlock(
     (await file.readAsString()).trim(),
     const KeystoreDeviceKey(),
+    hasKey: () async =>
+        await platformChannel.invokeMethod<bool>('hasDeviceKey') ?? false,
   );
 }
 

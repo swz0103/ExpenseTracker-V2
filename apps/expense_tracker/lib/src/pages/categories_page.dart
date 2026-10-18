@@ -218,6 +218,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   late var _icon = widget.initial.icon;
   late var _color = widget.initial.color;
   late var _parent = widget.initial.parent;
+  String? _problem;
 
   @override
   void dispose() {
@@ -228,6 +229,12 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   void _save() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
+    // Categories are found by name: two with one name would be one.
+    final taken = widget.ledger?.categories.any((c) => c.name == name) ?? false;
+    if (taken && name != widget.initial.name) {
+      setState(() => _problem = '已經有「$name」這個分類，可以改用合併');
+      return;
+    }
     final made = Category(
       name,
       _icon,
@@ -291,6 +298,9 @@ class _CategoryEditorState extends State<_CategoryEditor> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final book = widget.initial.name.isEmpty ? null : ledger;
+    final hasChildren =
+        ledger?.categories.any((c) => c.parent == widget.initial.name) ??
+        false;
     final parents = [
       if (ledger != null)
         for (final c in ledger.categoriesFor(income: widget.initial.income))
@@ -325,6 +335,11 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               ),
             ],
           ),
+          if (_problem case final problem?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(problem, style: const TextStyle(color: Hue.danger)),
+            ),
           const SizedBox(height: 16),
           for (final (group, keys) in categoryIconGroups) ...[
             Padding(
@@ -341,7 +356,9 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ),
           ],
           const SizedBox(height: 16),
-          if (parents.isNotEmpty) ...[
+          // One level only: a category with its own subcategories stays on
+          // top.
+          if (parents.isNotEmpty && !hasChildren) ...[
             const Text(
               '放在哪個分類下',
               style: TextStyle(fontSize: 13, color: Hue.muted),

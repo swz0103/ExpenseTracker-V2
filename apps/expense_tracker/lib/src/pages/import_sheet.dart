@@ -9,6 +9,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
 import '../model/ledger.dart';
+import 'account_editor.dart';
 
 /// Opens the import form: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in, read and added to [ledger].
@@ -16,8 +17,9 @@ Future<void> importInto(
   BuildContext context,
   Ledger ledger, {
   bool invoices = false,
-}) {
-  return showSheet<void>(
+}) async {
+  if (!await ensureAccount(context, ledger) || !context.mounted) return;
+  await showSheet<void>(
     context,
     (_) => _ImportSheet(ledger: ledger, invoices: invoices),
   );

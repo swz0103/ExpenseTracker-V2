@@ -125,6 +125,8 @@ class _Calculator extends StatefulWidget {
   State<_Calculator> createState() => _CalculatorState();
 }
 
+final _trailing = RegExp('[+−×÷]+\$');
+
 class _CalculatorState extends State<_Calculator> {
   late var _expression = widget.initial;
 
@@ -139,7 +141,8 @@ class _CalculatorState extends State<_Calculator> {
             _expression = _expression.substring(0, _expression.length - 1);
           }
         case '完成':
-          final value = evaluate(_expression) ?? 0;
+          // A sum left open, such as 120+, counts what was typed.
+          final value = evaluate(_expression.replaceAll(_trailing, '')) ?? 0;
           final num result = widget.decimal
               ? double.parse(value.clamp(0, 99999999).toStringAsFixed(2))
               : value.round().clamp(0, 999999999);
@@ -217,12 +220,12 @@ class _CalculatorState extends State<_Calculator> {
                   flex: 3,
                   child: Column(
                     children: [
-                      for (final (i, row) in const [
+                      for (final (i, row) in [
                         ['C', '⌫', '÷'],
                         ['7', '8', '9'],
                         ['4', '5', '6'],
                         ['1', '2', '3'],
-                        ['00', '0', '.'],
+                        ['00', '0', if (widget.decimal) '.' else '000'],
                       ].indexed) ...[
                         if (i > 0) const SizedBox(height: 8),
                         Expanded(

@@ -8,6 +8,7 @@ import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
+import 'account_editor.dart';
 import 'nav.dart';
 
 /// 定期交易: the next item, then items due, coming up, booked and
@@ -30,10 +31,13 @@ class _RecurringPageState extends State<RecurringPage> {
     widget.nav.compose(draft: widget.ledger.booking(item));
   }
 
-  Future<void> _edit([Recurring? item]) => showSheet<void>(
-    context,
-    (_) => _RecurringEditor(ledger: widget.ledger, item: item),
-  );
+  Future<void> _edit([Recurring? item]) async {
+    if (!await ensureAccount(context, widget.ledger) || !mounted) return;
+    await showSheet<void>(
+      context,
+      (_) => _RecurringEditor(ledger: widget.ledger, item: item),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +361,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   late final _name = TextEditingController(text: widget.item?.name ?? '');
   late var _income = widget.item?.income ?? false;
   late var _amount = widget.item?.amount ?? 0;
+  String? _problem;
   late var _category = widget.item?.category ?? _firstCategory(false);
   late var _account =
       widget.item?.account ?? widget.ledger.openAccounts.first.id;
@@ -392,7 +397,10 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   void _save() {
     final name = _name.text.trim();
-    if (name.isEmpty || _amount <= 0) return;
+    if (name.isEmpty || _amount <= 0) {
+      setState(() => _problem = name.isEmpty ? '請輸入名稱' : '請輸入金額');
+      return;
+    }
     _ledger.saveRecurring(
       Recurring(
         id: widget.item?.id ?? _ledger.newId(),
@@ -523,7 +531,14 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                       ),
                   ],
                 );
-                if (picked != null) setState(() => _account = picked);
+                if (picked == null) return;
+                setState(() {
+                  // An amount in another currency means something else.
+                  if (_ledger.account(picked).currency != _currency) {
+                    _amount = 0;
+                  }
+                  _account = picked;
+                });
               },
             ),
             Tile(
@@ -624,6 +639,15 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               onTap: () => setState(() => _active = !_active),
             ),
           ]),
+          if (_problem case final problem?)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                problem,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Hue.danger),
+              ),
+            ),
           const SizedBox(height: 14),
           Row(
             children: [
