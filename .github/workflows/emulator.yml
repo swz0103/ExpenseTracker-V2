@@ -1,0 +1,88 @@
+name: Emulator timings
+
+# Runs the app in profile mode on an Android emulator and prints how long
+# loading three years of entries takes and how smooth scrolling and
+# switching pages are (integration_test/bench_test.dart). An emulator is
+# not a phone: the figures are for spotting a slow-down between changes.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/emulator.yml'
+      - 'apps/expense_tracker/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  timings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Add the test packages
+        # Only here, so the app's lockfile stays without them.
+        working-directory: apps/expense_tracker
+        run: |
+          flutter config --no-analytics
+          flutter pub add 'dev:integration_test:{"sdk":"flutter"}' \
+            'dev:flutter_driver:{"sdk":"flutter"}'
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          cores: 4
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          working-directory: apps/expense_tracker
+          script: flutter drive --profile --driver=test_driver/integration_test.dart --target=integration_test/bench_test.dart --no-dds
+      - name: Timings
+        if: always()
+        working-directory: apps/expense_tracker
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          path = pathlib.Path('build/integration_response_data.json')
+          if not path.exists():
+              raise SystemExit('No timings were written.')
+          data = json.loads(path.read_text())
+          print(json.dumps(data, ensure_ascii=False, indent=1))
+          lines = ['| 項目 | 數值 |', '|---|---|']
+          for key in ('entries', 'write_ms', 'load_ms'):
+              lines.append(f'| {key} | {data.get(key)} |')
+          for key, value in data.items():
+              if isinstance(value, dict):
+                  lines.append(
+                      f"| {key} | build 平均 {value.get('average_frame_build_time_millis', 0):.1f} ms、"
+                      f"90% {value.get('90th_percentile_frame_build_time_millis', 0):.1f} ms；"
+                      f"raster 平均 {value.get('average_frame_rasterizer_time_millis', 0):.1f} ms、"
+                      f"90% {value.get('90th_percentile_frame_rasterizer_time_millis', 0):.1f} ms；"
+                      f"掉格 {value.get('missed_frame_build_budget_count', 0)}/"
+                      f"{value.get('frame_count', 0)} |"
+                  )
+          text = '\n'.join(lines)
+          print(text)
+          import os
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(text + '\n')
+          PY
