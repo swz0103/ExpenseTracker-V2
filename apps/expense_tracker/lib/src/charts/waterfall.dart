@@ -166,7 +166,5 @@ class _WaterfallPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WaterfallPainter old) =>
-      old.selected != selected ||
-      old.grow != grow ||
-      old.weeks != weeks;
+      old.selected != selected || old.grow != grow || old.weeks != weeks;
 }
