@@ -82,4 +82,34 @@ void main() {
     final (_, end, due) = ledger.statement(card);
     expect((end, due), (DateTime.utc(2026, 3, 31), DateTime.utc(2026, 4, 30)));
   });
+
+  test('a purchase on the closing day joins that statement', () {
+    final card = Account('card', '卡', AccountKind.card, 0, closingDay: 25);
+    Entry charge(String id, DateTime date, {int installments = 0}) => Entry(
+      id: id,
+      date: date,
+      type: EntryType.expense,
+      amount: 3000,
+      account: 'card',
+      category: '購物',
+      installments: installments,
+    );
+    final split = charge('a', DateTime.utc(2026, 3, 25), installments: 3);
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 4, 25),
+      accounts: [card],
+      categories: const [],
+      entries: [split, charge('b', DateTime.utc(2026, 4, 25))],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    expect(ledger.billedPeriods(split, DateTime.utc(2026, 3, 24)), 0);
+    expect(ledger.billedPeriods(split, DateTime.utc(2026, 3, 25)), 1);
+    // Today's close is still open: the last statement closed on 3/25.
+    final (start, end, _) = ledger.statement(card);
+    expect(start, DateTime.utc(2026, 2, 26));
+    expect(end, DateTime.utc(2026, 3, 25));
+    expect([for (final e in ledger.unbilled(card)) e.id], ['b']);
+  });
 }

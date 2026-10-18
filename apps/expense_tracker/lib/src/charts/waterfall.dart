@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
 import '../look/paint.dart';
-import 'bar_scale.dart';
 import '../look/theme.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
@@ -15,7 +14,6 @@ class Waterfall extends StatelessWidget {
     super.key,
     required this.weeks,
     required this.balance,
-    required this.scale,
     required this.selected,
     required this.onSelect,
     this.currency = 'TWD',
@@ -26,7 +24,6 @@ class Waterfall extends StatelessWidget {
 
   /// The balance after the last week.
   final int balance;
-  final BarScale scale;
   final int selected;
   final ValueChanged<int> onSelect;
 
@@ -46,7 +43,6 @@ class Waterfall extends StatelessWidget {
               if (index >= 0 && index < weeks.length) onSelect(index);
             },
             child: TweenAnimationBuilder<double>(
-              key: ValueKey(scale),
               tween: Tween<double>(begin: 0, end: 1),
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
@@ -55,7 +51,6 @@ class Waterfall extends StatelessWidget {
                 painter: _WaterfallPainter(
                   weeks: weeks,
                   balance: balance,
-                  scale: scale,
                   selected: selected,
                   grow: grow,
                   currency: currency,
@@ -73,7 +68,6 @@ class _WaterfallPainter extends CustomPainter {
   _WaterfallPainter({
     required this.weeks,
     required this.balance,
-    required this.scale,
     required this.selected,
     required this.grow,
     required this.currency,
@@ -81,7 +75,6 @@ class _WaterfallPainter extends CustomPainter {
 
   final List<(DateTime, int)> weeks;
   final int balance;
-  final BarScale scale;
   final int selected;
   final double grow;
   final String currency;
@@ -97,16 +90,8 @@ class _WaterfallPainter extends CustomPainter {
       level += change;
       levels.add(level);
     }
-    var low = levels.reduce(min);
-    var high = levels.reduce(max);
-    if (scale == BarScale.proportional) {
-      low = min(0, low);
-      high = max(0, high);
-    } else {
-      final pad = max(1, ((high - low) * 0.25).round());
-      low -= pad;
-      high += pad;
-    }
+    final low = min(0, levels.reduce(min));
+    final high = max(0, levels.reduce(max));
     final span = max(1, high - low);
     double y(num v) => bottom - (bottom - top) * (v - low) / span;
 

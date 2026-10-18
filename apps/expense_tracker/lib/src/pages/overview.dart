@@ -31,7 +31,6 @@ class _OverviewPageState extends State<OverviewPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
   late DateTime _day = widget.ledger.today;
   var _dayPage = 0;
-  static const _scale = BarScale.proportional;
   String? _holding;
   int? _tile;
 
@@ -273,7 +272,7 @@ class _OverviewPageState extends State<OverviewPage> {
         ),
       ]),
       const SizedBox(height: 8),
-      for (final h in holdings) _moveRow(h, largest, anyLoss ? 0.3 : 0),
+      for (final h in holdings) _moveRow(h, largest, anyLoss ? 0.5 : 0),
       if (picked != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -333,7 +332,6 @@ class _OverviewPageState extends State<OverviewPage> {
               child: AxisBar(
                 value: h.change,
                 largest: largest,
-                scale: _scale,
                 axis: axis,
                 height: 8,
                 minimum: 0.08,
@@ -441,14 +439,16 @@ class _OverviewPageState extends State<OverviewPage> {
     if (group != null) {
       return shaded([
         for (final a in ledger.accounts)
-          if (a.kind.name == group && ledger.worthOf(a) > 0)
+          if (a.kind.name == group && _counted(a) && ledger.worthOf(a) > 0)
             (a.id, a.name, ledger.worthOf(a)),
       ]);
     }
     int sumOf(AccountKind kind) {
       var total = 0;
       for (final a in ledger.accounts) {
-        if (a.kind == kind) total += max(0, ledger.worthOf(a));
+        if (a.kind == kind && _counted(a)) {
+          total += max(0, ledger.worthOf(a));
+        }
       }
       return total;
     }
@@ -458,12 +458,16 @@ class _OverviewPageState extends State<OverviewPage> {
       ('bank', '銀行', sumOf(AccountKind.bank), Hue.bank),
       ('cash', '現金', sumOf(AccountKind.cash), Hue.cash),
       ('wallet', '電子支付', sumOf(AccountKind.wallet), Hue.wallet),
+      ('receivable', '代墊應收', sumOf(AccountKind.receivable), Hue.shades[3]),
     ]..sort((a, b) => b.$3.compareTo(a.$3));
     return [
       for (final p in parts)
         if (p.$3 > 0) p,
     ];
   }
+
+  /// Whether [a] counts toward 財務分布: in net worth and still open.
+  static bool _counted(Account a) => a.inNetWorth && !a.archived;
 
   void _openAssets(String? group) {
     setState(() {
@@ -542,6 +546,7 @@ class _OverviewPageState extends State<OverviewPage> {
     'bank' => '銀行',
     'cash' => '現金',
     'wallet' => '電子支付',
+    'receivable' => '代墊應收',
     _ => group,
   };
 
@@ -656,7 +661,7 @@ class _Summary extends StatelessWidget {
         (Glyph.payout, '支出', money(expense), Hue.negative),
         (
           Glyph.dividend,
-          '股息',
+          '其中股息',
           money(ledger.dividends(year, m)),
           Hue.investment,
         ),

@@ -4,28 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../look/theme.dart';
 
-/// How bar lengths follow values. Small changes are enlarged by default
-/// (a square-root scale) so they stay visible next to large ones; the
-/// proportional scale is linear.
-enum BarScale {
-  enlarged('小額放大'),
-  proportional('等比例');
-
-  const BarScale(this.label);
-
-  final String label;
-
-  BarScale get other =>
-      this == enlarged ? BarScale.proportional : BarScale.enlarged;
-
-  /// The share of the full length that [value] takes, at least a sliver
-  /// when it is not zero.
-  double share(num value, num largest) {
-    if (largest == 0 || value == 0) return 0;
-    final ratio = (value.abs() / largest.abs()).clamp(0.0, 1.0);
-    final scaled = this == enlarged ? sqrt(ratio) : ratio.toDouble();
-    return max(scaled, 0.04);
-  }
+/// The share of a bar's full length that [value] takes next to
+/// [largest], in proportion, and at least a sliver when it is not zero.
+double barShare(num value, num largest) {
+  if (largest == 0 || value == 0) return 0;
+  final ratio = (value.abs() / largest.abs()).clamp(0.0, 1.0);
+  return max(ratio.toDouble(), 0.04);
 }
 
 /// One bar growing left or right from an axis. Positive values take
@@ -36,7 +20,6 @@ class AxisBar extends StatelessWidget {
     super.key,
     required this.value,
     required this.largest,
-    this.scale = BarScale.proportional,
     this.axis = 0.5,
     this.positive = Hue.positive,
     this.negative = Hue.negative,
@@ -46,7 +29,6 @@ class AxisBar extends StatelessWidget {
 
   final num value;
   final num largest;
-  final BarScale scale;
   final double axis;
   final Color positive;
   final Color negative;
@@ -58,7 +40,7 @@ class AxisBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final share = scale.share(value, largest);
+    final share = barShare(value, largest);
     final end = value == 0 ? share : minimum + (1 - minimum) * share;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: end),

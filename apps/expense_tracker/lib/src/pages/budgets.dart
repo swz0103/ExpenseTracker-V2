@@ -25,7 +25,7 @@ class BudgetsPage extends StatefulWidget {
 class _BudgetsPageState extends State<BudgetsPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
-  Future<void> _edit(String category, int limit) => showSheet<void>(
+  Future<void> _edit(String category) => showSheet<void>(
     context,
     (_) => _BudgetEditor(
       ledger: widget.ledger,
@@ -48,7 +48,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
             Option('#$tag', '#$tag', Glyph.ticket, Hue.accent),
       ],
     );
-    if (picked != null && mounted) await _edit(picked, 0);
+    if (picked != null && mounted) await _edit(picked);
   }
 
   @override
@@ -84,6 +84,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         final left = total - spent;
         final today = ledger.today;
         final current = year == today.year && month == today.month;
+        final period = current ? '本月' : '$month 月';
         final days = DateTime.utc(year, month + 1, 0).day;
         final passed = current ? today.day : days;
         return ListView(
@@ -106,18 +107,22 @@ class _BudgetsPageState extends State<BudgetsPage> {
                   Tile(
                     hero: true,
                     icon: Glyph.budget,
-                    label: left < 0 ? '本月超支' : '本月剩餘',
+                    label: total == 0
+                        ? '總預算'
+                        : '$period${left < 0 ? '超支' : '剩餘'}',
                     trailing: GestureDetector(
-                      onTap: () => _edit(Ledger.allSpending, total),
+                      onTap: () => _edit(Ledger.allSpending),
                       child: const GlyphIcon(Glyph.edit, size: 18),
                     ),
                     lead: RingGauge(
                       share: total == 0 ? 0 : spent / total,
                       size: 68,
                     ),
-                    value: money(left.abs()),
-                    valueColor: left < 0 ? Hue.negative : Hue.ink,
-                    sub: '總預算 ${money(total)} · 已用 ${money(spent)}',
+                    value: total == 0 ? '尚未設定' : money(left.abs()),
+                    valueColor: left < 0 && total > 0 ? Hue.negative : Hue.ink,
+                    sub: total == 0
+                        ? '已用 ${money(spent)} · 點鉛筆設定'
+                        : '總預算 ${money(total)} · 已用 ${money(spent)}',
                   ),
                   TileRow([
                     Tile(
@@ -153,7 +158,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                             warning: budget.warning,
                             limit: budget.limit,
                             used: amount,
-                            onEdit: () => _edit(budget.category, budget.limit),
+                            onEdit: () => _edit(budget.category),
                           ),
                         InkWell(
                           onTap: _addLimit,
@@ -198,9 +203,9 @@ class _CategoryLimit extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final left = limit - used;
-    final share = limit == 0 ? 1.0 : (used / limit).clamp(0.0, 1.0);
+    final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
     final near = limit > 0 && used * 100 >= limit * warning;
-    final tone = left < 0
+    final tone = left < 0 && limit > 0
         ? Hue.negative
         : near
         ? Hue.gold
