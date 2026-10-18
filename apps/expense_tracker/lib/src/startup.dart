@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:ledger_backup/ledger_backup.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
@@ -32,12 +33,16 @@ final class NeedsSetup extends StartupState {
 
 /// A ledger exists and is locked.
 final class Locked extends StartupState {
-  const Locked({required this.deviceUnlock});
+  const Locked({required this.deviceUnlock, this.askFirst = true});
 
   /// This device has a key to try before asking for the password. It is
   /// enrolled at the first password unlock; until then the device unlock
   /// fails with `KeyringError.unknownDevice`.
   final bool deviceUnlock;
+
+  /// Whether to ask for the fingerprint as soon as the screen opens: not
+  /// after the person turned enrolling it down.
+  final bool askFirst;
 }
 
 /// Unlocked and ready.
@@ -71,6 +76,10 @@ final class Startup extends ChangeNotifier {
   /// Where the key of a ledger opened without a password is kept, in the
   /// app's private folder, until the person sets a password.
   File get _quickKey => File('${directory.path}/quick-open.key');
+
+  /// Kept when the person turned the fingerprint down, so a password
+  /// unlock stops asking; asking for the fingerprint drops it.
+  File get _noDevice => File('${directory.path}/no-fingerprint');
 
   /// The ledger opens without asking: no password has been set.
   bool get passwordless => _quickKey.existsSync();
@@ -183,6 +192,7 @@ final class Startup extends ChangeNotifier {
     final device = this.device;
     if (device == null) throw StateError('No device key.');
     final hasKey = device.hasKey;
+    if (await _noDevice.exists()) await _noDevice.delete();
     if (hasKey != null && !await hasKey()) {
       // The key is gone: the next password unlock enrols a new one.
       _reEnrol = true;
@@ -204,12 +214,14 @@ final class Startup extends ChangeNotifier {
   }
 
   /// Adds this device's key once, after a password unlock. A cancelled
-  /// fingerprint never blocks the unlock; the next one asks again.
+  /// fingerprint never blocks the unlock, and is not asked again until
+  /// the person asks for the fingerprint on the lock screen.
   Future<void> _enrolDevice(OpenVault open) async {
     final device = this.device;
     if (device == null) return;
     final known = open.keys.keyring.deviceIds.contains(device.id);
     if (known && !_reEnrol) return;
+    if (!_reEnrol && _noDevice.existsSync()) return;
     try {
       final current = known ? open.keys.removeDevice(device.id) : open.keys;
       final keys = await current.addDevice(device.id, device.wrapper);
@@ -217,6 +229,10 @@ final class Startup extends ChangeNotifier {
       _reEnrol = false;
     } on Object catch (error) {
       debugPrint('Device key not enrolled: $error');
+      // Only turning the prompt down stops it; a failure asks next time.
+      if (error is PlatformException && error.code == 'declined') {
+        await _noDevice.writeAsString('', flush: true);
+      }
     }
   }
 
@@ -227,6 +243,9 @@ final class Startup extends ChangeNotifier {
 
   StartupState _locked() {
     if (!_vault.exists) return const NeedsSetup();
-    return Locked(deviceUnlock: device != null);
+    return Locked(
+      deviceUnlock: device != null,
+      askFirst: !_noDevice.existsSync(),
+    );
   }
 }

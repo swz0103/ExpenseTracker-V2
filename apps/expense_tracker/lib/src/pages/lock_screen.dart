@@ -55,6 +55,12 @@ class _LockScreenState extends State<LockScreen> {
     _ => false,
   };
 
+  /// Whether to ask for the fingerprint as the screen opens.
+  bool get _askFirst => switch (widget.startup.state) {
+    Locked(:final askFirst) => askFirst,
+    _ => false,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +71,7 @@ class _LockScreenState extends State<LockScreen> {
       });
       return;
     }
-    if (_biometric) {
+    if (_biometric && _askFirst) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_unlockWithDevice());
       });

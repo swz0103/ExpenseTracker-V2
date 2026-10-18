@@ -484,6 +484,34 @@ class TileStats extends StatelessWidget {
   }
 }
 
+/// A legend mark, a dot or a short line, with its label.
+class LegendKey extends StatelessWidget {
+  const LegendKey(this.color, this.label, {super.key, this.line = false});
+
+  final Color color;
+  final String label;
+  final bool line;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: line ? 12 : 8,
+          height: line ? 2.5 : 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+      ],
+    );
+  }
+}
+
 /// A small rounded label, such as 「結餘率 66%」.
 class Pill extends StatelessWidget {
   const Pill(this.text, {super.key, this.color = Hue.accent});

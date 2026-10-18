@@ -121,7 +121,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     value: total == 0 ? '尚未設定' : money(left.abs()),
                     valueColor: left < 0 && total > 0 ? Hue.negative : Hue.ink,
                     sub: total == 0
-                        ? '已用 ${money(spent)} · 點鉛筆設定'
+                        ? '已用 ${money(spent)} · 點右邊的鉛筆設定'
                         : '總預算 ${money(total)} · 已用 ${money(spent)}',
                   ),
                   TileRow([

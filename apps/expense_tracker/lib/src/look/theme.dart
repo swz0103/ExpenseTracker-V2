@@ -50,6 +50,7 @@ abstract final class Hue {
   static const wallet = Color(0xFF5B8DB0);
   static const card = Color(0xFFB5523E);
   static const holdings = Color(0xFFD08B5B);
+  static const receivable = Color(0xFF8E7CC0);
 
   /// Colours for parts of a whole, in order: categories, the second level
   /// of 財務分布.

@@ -112,4 +112,32 @@ void main() {
     expect(end, DateTime.utc(2026, 3, 25));
     expect([for (final e in ledger.unbilled(card)) e.id], ['b']);
   });
+
+  test('past net worth counts only the shares then held', () {
+    final bank = Account('bank', '銀行', AccountKind.bank, 100000);
+    final buy = Entry(
+      id: 'buy',
+      date: DateTime.utc(2026, 4, 25),
+      type: EntryType.buy,
+      amount: 10000,
+      account: 'bank',
+      category: '投資',
+      holding: '2330',
+      shares: 1000,
+      fee: 20,
+    );
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 4, 25),
+      accounts: [bank],
+      categories: const [],
+      entries: [buy],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    expect(ledger.netWorthAt(DateTime.utc(2026, 4, 24)), 100000);
+    expect(ledger.netWorthAt(DateTime.utc(2026, 4, 25)), 100000 - 20);
+    expect(ledger.entriesOn(DateTime.utc(2026, 4, 25)), [buy]);
+    expect(ledger.entriesOn(DateTime.utc(2026, 4, 24)), isEmpty);
+  });
 }

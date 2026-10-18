@@ -665,10 +665,10 @@ final class Ledger extends ChangeNotifier {
   // Entries.
 
   /// Entries in [year]/[month], newest day first; within a day the most
-  /// recently recorded first.
+  /// recently recorded first. The list cannot be changed.
   List<Entry> entriesIn(int year, int month) {
     final months = _months ??= _indexMonths();
-    return List.of(months[year * 12 + month] ?? const <Entry>[]);
+    return months[year * 12 + month] ?? const <Entry>[];
   }
 
   /// Every month's entries in [entriesIn] order, built once per change.
@@ -683,7 +683,7 @@ final class Ledger extends ChangeNotifier {
         final byDate = b.$2.date.compareTo(a.$2.date);
         return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
       });
-      months[month] = [for (final (_, e) in found) e];
+      months[month] = List.unmodifiable([for (final (_, e) in found) e]);
     }
     return months;
   }
@@ -691,11 +691,15 @@ final class Ledger extends ChangeNotifier {
   /// What the screens ask for again and again, worked out once per change:
   /// entries by month, balances by account and day, accounts by id.
   Map<int, List<Entry>>? _months;
+  Map<DateTime, List<Entry>>? _days;
+  DateTime? _first;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
 
   void _touch() {
     _months = null;
+    _days = null;
+    _first = null;
     _balances.clear();
     _accountIndex = null;
   }
@@ -726,10 +730,19 @@ final class Ledger extends ChangeNotifier {
     return [for (final (_, e) in found) e];
   }
 
-  List<Entry> entriesOn(DateTime day) => [
-    for (final e in entriesIn(day.year, day.month))
-      if (e.date == day) e,
-  ];
+  List<Entry> entriesOn(DateTime day) =>
+      (_days ??= _indexDays())[day] ?? const [];
+
+  /// Every day's entries in [entriesIn] order, built once per change.
+  Map<DateTime, List<Entry>> _indexDays() {
+    final days = <DateTime, List<Entry>>{};
+    for (final month in (_months ??= _indexMonths()).values) {
+      for (final e in month) {
+        (days[e.date] ??= []).add(e);
+      }
+    }
+    return days;
+  }
 
   /// Income of a month, dividends included.
   int income(int year, int month) =>
@@ -832,7 +845,9 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// The day of the first entry, where the book starts.
-  DateTime get firstDay => _entries.isEmpty
+  DateTime get firstDay => _first ??= _firstDay();
+
+  DateTime _firstDay() => _entries.isEmpty
       ? today
       : _entries.map((e) => e.date).reduce((a, b) => a.isBefore(b) ? a : b);
 
@@ -915,10 +930,14 @@ final class Ledger extends ChangeNotifier {
   static DateTime _lastDayOf(DateTime month) =>
       DateTime.utc(month.year, month.month + 1, 0);
 
+  /// The last day whose statement closes are behind: a statement closes
+  /// at the end of its day, so one closing today is still open.
+  DateTime get closedBy => today.subtract(const Duration(days: 1));
+
   /// The last closed statement of [card]: its first and last day and when
-  /// it must be paid. A statement closing today is still open.
+  /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) {
-    final end = closingOn(card, today.subtract(const Duration(days: 1)));
+    final end = closingOn(card, closedBy);
     final start = closingOn(
       card,
       end.subtract(const Duration(days: 1)),
@@ -956,16 +975,18 @@ final class Ledger extends ChangeNotifier {
     return max(0, -balance(card.id, until: end) - paid);
   }
 
-  /// Purchases on [card] since its last statement closed.
+  /// Purchases on [card] since its last statement closed, and the
+  /// refunds and rewards credited against them.
   List<Entry> unbilled(Account card) {
     final (_, end, _) = statement(card);
+    bool posted(Entry e) => switch (e.type) {
+      EntryType.income => true,
+      EntryType.expense => e.installments < 2,
+      _ => false,
+    };
     return [
       for (final e in _entries)
-        if (e.account == card.id &&
-            e.type == EntryType.expense &&
-            e.installments < 2 &&
-            e.date.isAfter(end))
-          e,
+        if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
   }
 
@@ -974,7 +995,7 @@ final class Ledger extends ChangeNotifier {
     for (final e in _entries)
       if (e.account == card.id &&
           e.installments > 1 &&
-          billedPeriods(e, today) < e.installments)
+          billedPeriods(e, closedBy) < e.installments)
         e,
   ];
 
@@ -1022,16 +1043,7 @@ final class Ledger extends ChangeNotifier {
       merchantsBetween(firstDay, today)..sort((a, b) => b.$2.compareTo(a.$2));
 
   /// Every tag in use, most used first.
-  List<String> get tags {
-    final counts = <String, int>{};
-    for (final e in _entries) {
-      for (final tag in e.tags) {
-        counts[tag] = (counts[tag] ?? 0) + 1;
-      }
-    }
-    return counts.keys.toList()
-      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-  }
+  List<String> get tags => [for (final (tag, _, _) in tagStats) tag];
 
   /// Every trade and dividend of [code], newest first.
   List<Entry> tradesOf(String code) => [
@@ -1436,20 +1448,25 @@ final class Ledger extends ChangeNotifier {
       if (c.name == from) _categories[i] = c.copyWith(name: to);
       if (c.parent == from) _categories[i] = c.copyWith(parent: to);
     }
-    for (final (i, e) in _entries.indexed) {
-      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
-        _entries[i] = e.withCategory(to, from: from);
-      }
-    }
+    _moveUses(from, to);
     for (final (i, b) in _budgets.indexed) {
       if (b.category == from) {
         _budgets[i] = Budget(to, b.limit, warning: b.warning);
       }
     }
+    notifyListeners();
+  }
+
+  /// Puts the entries and recurring items of category [from] in [to].
+  void _moveUses(String from, String to) {
+    for (final (i, e) in _entries.indexed) {
+      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
+        _entries[i] = e.withCategory(to, from: from);
+      }
+    }
     for (final (i, r) in _recurring.indexed) {
       if (r.category == from) _recurring[i] = r.copyWith(category: to);
     }
-    notifyListeners();
   }
 
   /// [item]'s amount in its account's currency, as the screens write it.
@@ -1522,14 +1539,7 @@ final class Ledger extends ChangeNotifier {
     if (from == into) return;
     final source = category(from);
     final target = category(into);
-    for (final (i, e) in _entries.indexed) {
-      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
-        _entries[i] = e.withCategory(into, from: from);
-      }
-    }
-    for (final (i, r) in _recurring.indexed) {
-      if (r.category == from) _recurring[i] = r.copyWith(category: into);
-    }
+    _moveUses(from, into);
     _budgets.removeWhere((b) => b.category == from);
     _categories.removeWhere((c) => c.name == from);
     for (final (i, c) in _categories.indexed) {

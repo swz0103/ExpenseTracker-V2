@@ -182,7 +182,10 @@ class MainActivity : FlutterFragmentActivity() {
             }
 
             override fun onAuthenticationError(code: Int, message: CharSequence) {
-                result.error("cancelled", message.toString(), null)
+                // "declined" only when the person turned it down themselves.
+                val declined = code == BiometricPrompt.ERROR_USER_CANCELED ||
+                    code == BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                result.error(if (declined) "declined" else "cancelled", message.toString(), null)
             }
         }
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), callback)
