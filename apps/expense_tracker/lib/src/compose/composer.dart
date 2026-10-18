@@ -241,24 +241,9 @@ class _ComposerState extends State<Composer> {
     _problem = null;
   }
 
-  /// Categories of this tab, the most used over the last two months
-  /// first, so a new entry starts on the likely one.
-  List<String> _categoryChoices() {
-    final income = _mode == ComposeMode.income;
-    final type = income ? EntryType.income : EntryType.expense;
-    final today = _ledger.today;
-    final counts = <String, int>{};
-    for (final back in const [0, 1]) {
-      final month = DateTime.utc(today.year, today.month - back);
-      for (final e in _ledger.entriesIn(month.year, month.month)) {
-        if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
-      }
-    }
-    final names = [
-      for (final c in _ledger.categoriesFor(income: income)) c.name,
-    ];
-    return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
-  }
+  /// Categories of this tab, the most used lately first.
+  List<String> _categoryChoices() =>
+      _ledger.categoriesByUse(income: _mode == ComposeMode.income);
 
   /// Brings back a draft put aside, on accounts still open.
   void _restoreDraft(Entry draft) {

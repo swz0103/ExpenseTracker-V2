@@ -143,6 +143,7 @@ final class Ledger extends ChangeNotifier {
   Map<int, List<Entry>>? _months;
   Map<DateTime, List<Entry>>? _days;
   DateTime? _first;
+  Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
 
@@ -150,6 +151,7 @@ final class Ledger extends ChangeNotifier {
     _months = null;
     _days = null;
     _first = null;
+    _running = null;
     _balances.clear();
     _accountIndex = null;
   }
@@ -634,5 +636,29 @@ final class Ledger extends ChangeNotifier {
   void _replay() {
     _touch();
     _portfolio = Portfolio.replay(_startHoldings, _entries);
+  }
+}
+
+/// One account's entries in date order with the balance change up to each
+/// of them, so a balance on any day is one search. Instalment purchases
+/// are kept apart: what they have billed depends on the day asked about.
+final class _Running {
+  final days = <DateTime>[];
+  final totals = <int>[];
+  final plans = <Entry>[];
+
+  /// The change of the entries on or before [day].
+  int until(DateTime day) {
+    var low = 0;
+    var high = days.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (days[middle].isAfter(day)) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return low == 0 ? 0 : totals[low - 1];
   }
 }
