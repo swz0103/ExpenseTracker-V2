@@ -138,6 +138,10 @@ class _ComposerState extends State<Composer> {
   final _note = TextEditingController();
   String? _problem;
 
+  /// Shows the merchant, tags and note: hidden until asked for, or until
+  /// an entry that has them is opened, so a quick entry stays short.
+  var _more = false;
+
   /// An entry opened from a list is shown first; 編輯 unlocks it.
   late var _viewing = widget.entry != null;
 
@@ -180,6 +184,10 @@ class _ComposerState extends State<Composer> {
     _note.text = entry.note;
     _merchant = entry.merchant;
     _tags = [...entry.tags];
+    _more =
+        entry.merchant.isNotEmpty ||
+        entry.tags.isNotEmpty ||
+        entry.note.isNotEmpty;
     _parts = entry.parts.isEmpty ? null : [...entry.parts];
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
     _home = entry.home;
@@ -929,7 +937,7 @@ class _ComposerState extends State<Composer> {
       case ComposeMode.expense || ComposeMode.income:
         final expense = _mode == ComposeMode.expense;
         return [
-          if (expense)
+          if (expense && _more)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Tile(
@@ -958,8 +966,7 @@ class _ComposerState extends State<Composer> {
                 onTap: _pickInstallments,
               ),
             ),
-          _tagBlock(),
-          _noteField(),
+          if (_more) ...[_tagBlock(), _noteField()] else _moreLink(expense),
         ];
       case ComposeMode.transfer:
         final from = _ledger.account(_account);
@@ -1136,6 +1143,20 @@ class _ComposerState extends State<Composer> {
               ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// Opens the fields a quick entry leaves out.
+  Widget _moreLink(bool expense) {
+    if (_viewing) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => setState(() => _more = true),
+        icon: const GlyphIcon(Glyph.add, size: 16, color: Hue.accent),
+        label: Text(expense ? '商家、標籤、備註' : '標籤、備註'),
+        style: TextButton.styleFrom(foregroundColor: Hue.accent),
       ),
     );
   }

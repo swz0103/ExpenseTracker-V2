@@ -266,40 +266,20 @@ final class Entry {
     return [(category, spending)];
   }
 
-  /// This entry under another [id], as the store knows it after an edit.
-  Entry withId(String id) => Entry(
-    id: id,
+  /// This entry with the given fields changed.
+  Entry _with({
+    String? id,
+    String? category,
+    String? merchant,
+    List<String>? tags,
+    List<(String, int)>? parts,
+  }) => Entry(
+    id: id ?? this.id,
     date: date,
     type: type,
     amount: amount,
     account: account,
-    category: category,
-    note: note,
-    to: to,
-    holding: holding,
-    shares: shares,
-    recurring: recurring,
-    merchant: merchant,
-    tags: tags,
-    parts: parts,
-    fee: fee,
-    tax: tax,
-    refundOf: refundOf,
-    installments: installments,
-    average: average,
-    split: split,
-    home: home,
-    received: received,
-  );
-
-  /// This entry with its merchant or tags changed.
-  Entry withLabels({String? merchant, List<String>? tags}) => Entry(
-    id: id,
-    date: date,
-    type: type,
-    amount: amount,
-    account: account,
-    category: category,
+    category: category ?? this.category,
     note: note,
     to: to,
     holding: holding,
@@ -307,7 +287,7 @@ final class Entry {
     recurring: recurring,
     merchant: merchant ?? this.merchant,
     tags: tags ?? this.tags,
-    parts: parts,
+    parts: parts ?? this.parts,
     fee: fee,
     tax: tax,
     refundOf: refundOf,
@@ -318,33 +298,20 @@ final class Entry {
     received: received,
   );
 
+  /// This entry under another [id], as the store knows it after an edit.
+  Entry withId(String id) => _with(id: id);
+
+  /// This entry with its merchant or tags changed.
+  Entry withLabels({String? merchant, List<String>? tags}) =>
+      _with(merchant: merchant, tags: tags);
+
   /// This entry with [from], or its category, renamed to [name].
-  Entry withCategory(String name, {String? from}) => Entry(
-    id: id,
-    date: date,
-    type: type,
-    amount: amount,
-    account: account,
+  Entry withCategory(String name, {String? from}) => _with(
     category: from == null || category == from ? name : category,
-    note: note,
-    to: to,
-    holding: holding,
-    shares: shares,
-    recurring: recurring,
-    merchant: merchant,
-    tags: tags,
     parts: [
       for (final (part, value) in parts)
         (part == (from ?? category) ? name : part, value),
     ],
-    fee: fee,
-    tax: tax,
-    refundOf: refundOf,
-    installments: installments,
-    average: average,
-    split: split,
-    home: home,
-    received: received,
   );
 
   /// What the lists show: the note, else the category.
@@ -525,8 +492,6 @@ final class Recurring {
     merchant: merchant,
   );
 
-  Recurring toggled() => copyWith(active: !active);
-
   /// The days in [year]/[month] it falls due.
   List<DateTime> datesIn(int year, int month) {
     final last = DateTime.utc(year, month + 1, 0);
@@ -617,8 +582,8 @@ final class Ledger extends ChangeNotifier {
   var _holdings = <Holding>[];
   var _lots = <String, List<Lot>>{};
 
-  /// Hides the summary figures on the overview and accounts.
-  var hidden = false;
+  /// Amounts are written as dots: the 隱藏金額 switch.
+  bool get hidden => amountsHidden;
 
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
@@ -1425,18 +1390,6 @@ final class Ledger extends ChangeNotifier {
     _keep((j) => j.saveCategory(null, category));
   }
 
-  /// Changes a category's name, mark and colour; a new name reaches every
-  /// entry, budget and recurring item that uses it.
-  void editCategory(String from, Category next) => updateCategory(from, next);
-
-  /// Renames a category and every entry, budget and recurring item that
-  /// uses it.
-  void renameCategory(String from, String to) {
-    final index = _categories.indexWhere((c) => c.name == from);
-    if (index < 0 || from == to || to.isEmpty) return;
-    updateCategory(from, _categories[index].copyWith(name: to));
-  }
-
   void _renameCategory(String from, String to) {
     if (from == to || to.isEmpty) return;
     for (final (i, c) in _categories.indexed) {
@@ -1453,15 +1406,6 @@ final class Ledger extends ChangeNotifier {
       if (r.category == from) _recurring[i] = r.copyWith(category: to);
     }
     notifyListeners();
-  }
-
-  void toggleRecurring(String id) {
-    final index = _recurring.indexWhere((r) => r.id == id);
-    if (index < 0) return;
-    final toggled = _recurring[index].toggled();
-    _recurring[index] = toggled;
-    notifyListeners();
-    _keep((j) => j.saveRecurring(toggled));
   }
 
   /// [item]'s amount in its account's currency, as the screens write it.
@@ -1599,7 +1543,6 @@ final class Ledger extends ChangeNotifier {
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
     _adopt(fresh);
-    hidden = false;
     amountsHidden = false;
     notifyListeners();
   }
@@ -1634,15 +1577,8 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addRecurring(Recurring item) {
-    _recurring.add(item);
-    notifyListeners();
-    _keep((j) => j.saveRecurring(item));
-  }
-
   void toggleHidden() {
-    hidden = !hidden;
-    amountsHidden = hidden;
+    amountsHidden = !amountsHidden;
     notifyListeners();
   }
 

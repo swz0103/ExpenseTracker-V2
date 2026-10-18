@@ -196,7 +196,7 @@ class _LedgerPageState extends State<LedgerPage> {
                 e.date,
                 total: spentToday == 0
                     ? null
-                    : '支出 ${ledger.hidden ? '••••' : groupDigits(spentToday)}',
+                    : '支出 ${money(spentToday)}',
               ),
             );
           }
@@ -210,7 +210,6 @@ class _LedgerPageState extends State<LedgerPage> {
         }
         close();
         final transfers = shown.where((e) => e.type == EntryType.transfer);
-        String hide(int value) => ledger.hidden ? '••••' : groupDigits(value);
         final account = _account;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -227,7 +226,7 @@ class _LedgerPageState extends State<LedgerPage> {
               hero: true,
               icon: Glyph.records,
               label: '$month 月結餘 · ${shown.length} 筆',
-              value: hide(income - expense),
+              value: money(income - expense),
               valueColor: income < expense ? Hue.negative : Hue.ink,
               size: 28,
               trailing: PopupMenuButton<String>(
@@ -240,8 +239,8 @@ class _LedgerPageState extends State<LedgerPage> {
                 ],
               ),
               child: TileStats([
-                (Glyph.income, '收入', hide(income), Hue.positive),
-                (Glyph.payout, '支出', hide(expense), Hue.negative),
+                (Glyph.income, '收入', money(income), Hue.positive),
+                (Glyph.payout, '支出', money(expense), Hue.negative),
                 (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
               ]),
             ),

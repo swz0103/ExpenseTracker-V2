@@ -29,7 +29,6 @@ class AccountsPage extends StatelessWidget {
           for (final a in ledger.accounts)
             if (a.archived) a,
         ];
-        String shown(int value) => ledger.hidden ? '••••' : groupDigits(value);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
@@ -46,8 +45,8 @@ class AccountsPage extends StatelessWidget {
               hero: true,
               icon: Glyph.wallet,
               label: '資產總額',
-              value: shown(ledger.assets),
-              sub: '淨資產 ${shown(ledger.assets - debt)}（扣除卡費）',
+              value: money(ledger.assets),
+              sub: '淨資產 ${money(ledger.assets - debt)}（扣除卡費）',
               child: Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: ClipRRect(
@@ -72,18 +71,18 @@ class AccountsPage extends StatelessWidget {
               ),
             ),
             TileRow([
-              Tile(icon: Glyph.bank, label: '存款', value: shown(cash), size: 17),
+              Tile(icon: Glyph.bank, label: '存款', value: money(cash), size: 17),
               Tile(
                 icon: Glyph.investment,
                 label: '投資',
-                value: shown(invest),
+                value: money(invest),
                 size: 17,
                 onTap: () => nav.open(Pages.investments),
               ),
               Tile(
                 icon: Glyph.card,
                 label: '負債',
-                value: shown(debt),
+                value: money(debt),
                 valueColor: debt > 0 ? Hue.negative : Hue.ink,
                 size: 17,
               ),
@@ -153,7 +152,7 @@ class AccountsPage extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              ledger.hidden ? '••••' : groupDigits(total.abs()),
+              money(total.abs()),
               style: const TextStyle(fontSize: 12, color: Hue.muted),
             ),
           ],
@@ -192,9 +191,7 @@ class AccountsPage extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, color: Hue.muted),
                   ),
                   Text(
-                    ledger.hidden
-                        ? '••••'
-                        : amountIn(balance, account.currency),
+                    moneyIn(balance, account.currency),
                     maxLines: 1,
                     style: TextStyle(
                       fontSize: 16,

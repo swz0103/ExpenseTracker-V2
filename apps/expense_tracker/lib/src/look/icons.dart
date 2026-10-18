@@ -18,11 +18,6 @@ const categoryIconGroups = [
   ('其他', ['umbrella', 'other']),
 ];
 
-/// Every icon key a category may take.
-List<String> get categoryIconKeys => [
-  for (final (_, keys) in categoryIconGroups) ...keys,
-];
-
 Glyph iconFor(String key) {
   for (final glyph in Glyph.values) {
     if (glyph.name == key) return glyph;
