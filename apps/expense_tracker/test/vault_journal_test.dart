@@ -450,7 +450,7 @@ void main() {
       DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23),
     });
     expect(
-      ledger.closingOn(moved, DateTime.utc(2026, 10, 24)),
+      moved.closingOn(DateTime.utc(2026, 10, 24)),
       DateTime.utc(2026, 10, 23),
     );
   });

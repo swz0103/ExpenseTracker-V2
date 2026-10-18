@@ -2,7 +2,7 @@ import 'package:data_exchange/data_exchange.dart';
 import 'package:foundation_values/foundation_values.dart'
     show BusinessDate, Currency;
 
-import '../look/figures.dart';
+import 'amounts.dart';
 import 'ledger.dart';
 
 /// What an import found: the entries to add and how many lines were left

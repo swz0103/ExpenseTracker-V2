@@ -6,528 +6,13 @@ import 'package:foundation_values/foundation_values.dart'
     show Currency, PublicId;
 
 import '../book/journal.dart';
-import '../look/figures.dart';
-
-/// What an entry does. Buys, sells and dividends are investment entries.
-enum EntryType { expense, income, transfer, buy, sell, dividend }
-
-enum AccountKind {
-  cash,
-  bank,
-  wallet,
-  card,
-  loan,
-  receivable;
-
-  /// Kinds whose balance is owed rather than held.
-  bool get isDebt => this == card || this == loan;
-}
-
-final class Account {
-  const Account(
-    this.id,
-    this.name,
-    this.kind,
-    this.opening, {
-    this.icon,
-    this.closingDay,
-    this.dueDay,
-    this.limit,
-    this.archived = false,
-    this.inNetWorth = true,
-    this.currency = 'TWD',
-    this.closes = const {},
-  });
-
-  final String id;
-  final String name;
-  final AccountKind kind;
-
-  /// What the account is kept in, such as TWD or USD. Its [opening], its
-  /// entries and its balance count the smallest unit of it: whole NT$,
-  /// US cents.
-  final String currency;
-
-  /// Kept in a currency other than NT$.
-  bool get foreign => currency != 'TWD';
-
-  /// A card's statements that close on another day than scheduled, such
-  /// as around a holiday: the actual close by the scheduled one.
-  final Map<DateTime, DateTime> closes;
-
-  /// The account's own mark, such as 'safe' or 'chat'; null takes the
-  /// mark of its [kind].
-  final String? icon;
-
-  /// The balance before the first entry; negative for card debt.
-  final int opening;
-
-  /// A card's statement closing day and payment day of the month, and
-  /// its credit limit.
-  final int? closingDay;
-  final int? dueDay;
-  final int? limit;
-
-  /// Closed and kept only for its history: left out of lists and pickers.
-  final bool archived;
-
-  /// Counted in the totals and net worth.
-  final bool inNetWorth;
-
-  Account copyWith({
-    String? name,
-    AccountKind? kind,
-    int? opening,
-    String? icon,
-    int? closingDay,
-    int? dueDay,
-    int? limit,
-    bool? archived,
-    bool? inNetWorth,
-    Map<DateTime, DateTime>? closes,
-  }) => Account(
-    id,
-    name ?? this.name,
-    kind ?? this.kind,
-    opening ?? this.opening,
-    icon: icon ?? this.icon,
-    closingDay: closingDay ?? this.closingDay,
-    dueDay: dueDay ?? this.dueDay,
-    limit: limit ?? this.limit,
-    archived: archived ?? this.archived,
-    inNetWorth: inNetWorth ?? this.inNetWorth,
-    currency: currency,
-    closes: closes ?? this.closes,
-  );
-}
-
-final class Category {
-  const Category(
-    this.name,
-    this.icon,
-    this.color, {
-    this.income = false,
-    this.parent,
-    this.archived = false,
-  });
-
-  final String name;
-
-  /// A key into the app's icon set, such as `food`.
-  final String icon;
-  final Color color;
-  final bool income;
-
-  /// The category this one sits under, if any.
-  final String? parent;
-
-  /// No longer offered for new entries; its history stays.
-  final bool archived;
-
-  Category copyWith({
-    String? name,
-    String? parent,
-    bool clearParent = false,
-    bool? archived,
-  }) => Category(
-    name ?? this.name,
-    icon,
-    color,
-    income: income,
-    parent: clearParent ? null : parent ?? this.parent,
-    archived: archived ?? this.archived,
-  );
-}
-
-/// One line of the book, in the smallest unit of its account's currency:
-/// whole NT$ for most.
-final class Entry {
-  const Entry({
-    required this.id,
-    required this.date,
-    required this.type,
-    required this.amount,
-    required this.account,
-    this.category = '',
-    this.note = '',
-    this.to,
-    this.holding,
-    this.shares = 0,
-    this.recurring,
-    this.merchant = '',
-    this.tags = const [],
-    this.parts = const [],
-    this.fee = 0,
-    this.tax = 0,
-    this.refundOf,
-    this.installments = 0,
-    this.average = false,
-    this.split = false,
-    this.home,
-    this.received,
-  });
-
-  final String id;
-
-  /// Midnight UTC of the day.
-  final DateTime date;
-  final EntryType type;
-  final int amount;
-  final String account;
-  final String category;
-  final String note;
-
-  /// The receiving account of a transfer.
-  final String? to;
-
-  /// The stock code of an investment entry.
-  final String? holding;
-  final int shares;
-
-  /// The recurring item this entry confirms.
-  final String? recurring;
-
-  /// Where the money went, such as 全聯福利中心; empty when not noted.
-  final String merchant;
-
-  /// Labels that cut across categories, such as 家用.
-  final List<String> tags;
-
-  /// A spending split across categories, each with its amount; empty when
-  /// the whole goes to [category].
-  final List<(String, int)> parts;
-
-  /// The bank's fee on a transfer, the broker's on a trade.
-  final int fee;
-
-  /// The securities transaction tax on a sale; the NHI supplementary
-  /// premium (二代健保) withheld from a dividend.
-  final int tax;
-
-  /// The spending this income gives back, for a refund.
-  final String? refundOf;
-
-  /// How many monthly instalments a card purchase is paid in; 0 for one.
-  final int installments;
-
-  /// A sale costed at the average price rather than first in, first out.
-  final bool average;
-
-  /// A dividend entry whose [shares] come from a split rather than a stock
-  /// dividend: the shares held multiply at the same cost.
-  final bool split;
-
-  /// For spending or income in a foreign-currency account: what it was
-  /// worth in whole NT$ that day, which the reports and budgets count.
-  final int? home;
-
-  /// For a transfer between accounts in different currencies: what
-  /// reached [to], in the smallest unit of its currency.
-  final int? received;
-
-  bool get isRefund => refundOf != null;
-
-  /// [amount] in whole NT$: [home] when the entry has one.
-  int get worth => home ?? amount;
-
-  /// What reached [to] for a transfer.
-  int get arrived => received ?? amount;
-
-  /// What the entry adds to spending: an expense, a transfer's fee; a
-  /// refund takes some back.
-  int get spending => switch (type) {
-    EntryType.expense => worth,
-    EntryType.transfer => fee,
-    EntryType.income when isRefund => -worth,
-    _ => 0,
-  };
-
-  /// A capital reduction: the company takes back [shares] (negative) and
-  /// returns [amount] in cash, which lowers the cost rather than earning.
-  bool get isReduction => type == EntryType.dividend && shares < 0;
-
-  /// What a dividend paid out, after the premium withheld.
-  int get dividendNet =>
-      type == EntryType.dividend && !isReduction ? amount - tax : 0;
-
-  /// What the entry brings in: income and dividends, not refunds.
-  int get earning => switch (type) {
-    EntryType.income when !isRefund => worth,
-    EntryType.dividend => dividendNet,
-    _ => 0,
-  };
-
-  /// [spending] by category: the parts of a split, a transfer's fee under
-  /// [Ledger.feeCategory].
-  List<(String, int)> get spendingParts {
-    if (spending == 0) return const [];
-    if (type == EntryType.transfer) return [(Ledger.feeCategory, fee)];
-    if (parts.isNotEmpty && home == null) return parts;
-    return [(category, spending)];
-  }
-
-  /// This entry with the given fields changed.
-  Entry _with({
-    String? id,
-    String? category,
-    String? merchant,
-    List<String>? tags,
-    List<(String, int)>? parts,
-  }) => Entry(
-    id: id ?? this.id,
-    date: date,
-    type: type,
-    amount: amount,
-    account: account,
-    category: category ?? this.category,
-    note: note,
-    to: to,
-    holding: holding,
-    shares: shares,
-    recurring: recurring,
-    merchant: merchant ?? this.merchant,
-    tags: tags ?? this.tags,
-    parts: parts ?? this.parts,
-    fee: fee,
-    tax: tax,
-    refundOf: refundOf,
-    installments: installments,
-    average: average,
-    split: split,
-    home: home,
-    received: received,
-  );
-
-  /// This entry under another [id], as the store knows it after an edit.
-  Entry withId(String id) => _with(id: id);
-
-  /// This entry with its merchant or tags changed.
-  Entry withLabels({String? merchant, List<String>? tags}) =>
-      _with(merchant: merchant, tags: tags);
-
-  /// This entry with [from], or its category, renamed to [name].
-  Entry withCategory(String name, {String? from}) => _with(
-    category: from == null || category == from ? name : category,
-    parts: [
-      for (final (part, value) in parts)
-        (part == (from ?? category) ? name : part, value),
-    ],
-  );
-
-  /// What the lists show: the note, else the category.
-  String get title => note.isNotEmpty ? note : category;
-
-  bool get isInvestment =>
-      type == EntryType.buy ||
-      type == EntryType.sell ||
-      type == EntryType.dividend;
-}
-
-final class Holding {
-  const Holding(
-    this.code,
-    this.name, {
-    required this.shares,
-    required this.price,
-    required this.cost,
-    required this.change,
-    this.dividends = 0,
-    this.realized = 0,
-  });
-
-  final String code;
-  final String name;
-  final int shares;
-
-  /// The reference close, in NT$ with decimals.
-  final double price;
-
-  /// What the shares still held cost.
-  final int cost;
-
-  /// Today's change in market value.
-  final int change;
-
-  /// Dividends received so far.
-  final int dividends;
-
-  /// Profit or loss of shares already sold.
-  final int realized;
-
-  int get value => (shares * price).round();
-
-  int get gain => value - cost;
-
-  Holding copyWith({
-    int? shares,
-    double? price,
-    int? cost,
-    int? dividends,
-    int? realized,
-  }) => Holding(
-    code,
-    name,
-    shares: shares ?? this.shares,
-    price: price ?? this.price,
-    cost: cost ?? this.cost,
-    change: change,
-    dividends: dividends ?? this.dividends,
-    realized: realized ?? this.realized,
-  );
-}
-
-/// Shares bought together and still held, with what they cost.
-final class Lot {
-  const Lot(this.date, this.shares, this.cost);
-
-  final DateTime date;
-  final int shares;
-  final int cost;
-}
-
-final class Budget {
-  const Budget(this.category, this.limit, {this.warning = 80});
-
-  /// A category name, [Ledger.allSpending] for the total, or `#` and a
-  /// tag for the spending carrying it, such as `#旅遊`.
-  final String category;
-  final int limit;
-
-  /// The tag of a tag budget; null for a category or the total.
-  String? get tag => category.startsWith('#') ? category.substring(1) : null;
-
-  /// The share used, in percent, at which the budget warns.
-  final int warning;
-}
-
-/// How often a recurring item comes round.
-enum RepeatUnit {
-  day('天'),
-  week('週'),
-  month('個月'),
-  year('年');
-
-  const RepeatUnit(this.label);
-
-  final String label;
-}
-
-final class Recurring {
-  const Recurring({
-    required this.id,
-    required this.name,
-    required this.amount,
-    required this.day,
-    required this.account,
-    required this.category,
-    this.active = true,
-    this.unit = RepeatUnit.month,
-    this.every = 1,
-    this.start,
-    this.end,
-    this.income = false,
-    this.merchant = '',
-  });
-
-  final String id;
-  final String name;
-  final int amount;
-
-  /// Day of the month it falls due, for monthly items without [start].
-  final int day;
-  final String account;
-  final String category;
-  final bool active;
-  final RepeatUnit unit;
-
-  /// Every how many [unit]s.
-  final int every;
-
-  /// The first time it falls due; the weekday, day or date it keeps.
-  final DateTime? start;
-
-  /// The last day it may fall due, if it ends.
-  final DateTime? end;
-
-  /// Money coming in, such as a salary, rather than going out.
-  final bool income;
-  final String merchant;
-
-  /// 「每月 5 日」「每 2 週 週五」「每年 3/15」.
-  String get rhythm {
-    final first = start;
-    final n = every == 1 ? '' : ' $every ';
-    final weekday = first == null ? '' : ' 週${_weekdays[first.weekday - 1]}';
-    final date = first == null ? '' : ' ${first.month}/${first.day}';
-    return switch (unit) {
-      RepeatUnit.day => '每$n天',
-      RepeatUnit.week => '每$n週$weekday',
-      RepeatUnit.month =>
-        '每$n${every == 1 ? '月' : '個月'} ${first?.day ?? day} 日',
-      RepeatUnit.year => '每$n年$date',
-    };
-  }
-
-  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
-
-  Recurring copyWith({
-    String? name,
-    int? amount,
-    String? account,
-    String? category,
-    bool? active,
-  }) => Recurring(
-    id: id,
-    name: name ?? this.name,
-    amount: amount ?? this.amount,
-    day: day,
-    account: account ?? this.account,
-    category: category ?? this.category,
-    active: active ?? this.active,
-    unit: unit,
-    every: every,
-    start: start,
-    end: end,
-    income: income,
-    merchant: merchant,
-  );
-
-  /// The days in [year]/[month] it falls due.
-  List<DateTime> datesIn(int year, int month) {
-    final last = DateTime.utc(year, month + 1, 0);
-    final first = start ?? DateTime.utc(2025, 1, day);
-    final stop = end;
-    bool keep(DateTime d) =>
-        !d.isBefore(first) && (stop == null || !d.isAfter(stop));
-    final dates = <DateTime>[];
-    switch (unit) {
-      case RepeatUnit.day || RepeatUnit.week:
-        final step = every * (unit == RepeatUnit.week ? 7 : 1);
-        final monthStart = DateTime.utc(year, month);
-        final gap = monthStart.difference(first).inDays;
-        var d = gap <= 0
-            ? first
-            : first.add(Duration(days: (gap + step - 1) ~/ step * step));
-        while (!d.isAfter(last)) {
-          if (keep(d)) dates.add(d);
-          d = d.add(Duration(days: step));
-        }
-      case RepeatUnit.month:
-        final months = (year - first.year) * 12 + month - first.month;
-        if (months >= 0 && months % every == 0) {
-          final d = DateTime.utc(year, month, min(first.day, last.day));
-          if (keep(d)) dates.add(d);
-        }
-      case RepeatUnit.year:
-        final years = year - first.year;
-        if (month == first.month && years >= 0 && years % every == 0) {
-          final d = DateTime.utc(year, month, min(first.day, last.day));
-          if (keep(d)) dates.add(d);
-        }
-    }
-    return dates;
-  }
-}
+import 'amounts.dart';
+import 'card_cycle.dart';
+import 'portfolio.dart';
+import 'records.dart';
+
+export 'card_cycle.dart';
+export 'records.dart';
 
 /// The screens' book: accounts, categories, entries, holdings, budgets
 /// and recurring items, with the sums the screens show. Holdings are
@@ -579,15 +64,15 @@ final class Ledger extends ChangeNotifier {
 
   /// Each card's [statementDue] as the journal's billing has it, by id.
   final Map<String, int> _dues;
-  var _holdings = <Holding>[];
 
-  /// Each stock's shares after each trade, in date order; counts before a
-  /// split or reduction are scaled to today's shares.
-  var _shareSteps = <String, List<(DateTime, int)>>{};
-  var _lots = <String, List<Lot>>{};
+  /// The holdings replayed from [_startHoldings] and the entries.
+  late Portfolio _portfolio;
+
+  List<Holding> get _holdings => _portfolio.holdings;
 
   /// Amounts are written as dots: the 隱藏金額 switch.
-  bool get hidden => amountsHidden;
+  bool get hidden => _hidden;
+  var _hidden = false;
 
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
@@ -612,48 +97,12 @@ final class Ledger extends ChangeNotifier {
   );
 
   /// The lots of [code] still held, oldest first.
-  List<Lot> lotsOf(String code) => List.unmodifiable(_lots[code] ?? const []);
+  List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
 
   /// What selling [shares] of [code] now would cost: the oldest lots
   /// first, or the average price.
   int saleCost(String code, int shares, {bool average = false}) =>
-      _take(_lots[code] ?? const [], shares, average: average).$1;
-
-  /// The cost of selling [shares] out of [lots], and the lots left.
-  static (int, List<Lot>) _take(
-    List<Lot> lots,
-    int shares, {
-    required bool average,
-  }) {
-    final held = lots.fold(0, (sum, l) => sum + l.shares);
-    if (shares > held) throw StateError('賣出股數超過持有股數');
-    if (average) {
-      final cost = lots.fold(0, (sum, l) => sum + l.cost);
-      final part = held == 0 ? 0 : (cost * shares / held).round();
-      final left = held - shares;
-      return (
-        part,
-        left == 0 ? <Lot>[] : [Lot(lots.last.date, left, cost - part)],
-      );
-    }
-    var need = shares;
-    var part = 0;
-    final rest = <Lot>[];
-    for (final lot in lots) {
-      if (need == 0) {
-        rest.add(lot);
-      } else if (lot.shares <= need) {
-        part += lot.cost;
-        need -= lot.shares;
-      } else {
-        final piece = (lot.cost * need / lot.shares).round();
-        part += piece;
-        rest.add(Lot(lot.date, lot.shares - need, lot.cost - piece));
-        need = 0;
-      }
-    }
-    return (part, rest);
-  }
+      _portfolio.saleCost(code, shares, average: average);
 
   Holding? holding(String code) {
     for (final h in _holdings) {
@@ -874,61 +323,13 @@ final class Ledger extends ChangeNotifier {
 
   // Cards.
 
-  /// The last statement closing of [card] on or before [day].
-  DateTime closingOn(Account card, DateTime day) {
-    DateTime closing(int year, int month) {
-      final scheduled = scheduledClose(card, year, month);
-      return card.closes[scheduled] ?? scheduled;
-    }
-
-    // A close moved by up to a week may fall in the month before or
-    // after its own: the latest of the three not after [day].
-    DateTime? latest;
-    for (final back in const [1, 0, -1]) {
-      final close = closing(day.year, day.month - back);
-      if (!close.isAfter(day) && (latest == null || close.isAfter(latest))) {
-        latest = close;
-      }
-    }
-    return latest ?? closing(day.year, day.month - 2);
-  }
-
-  /// The close [card]'s billing day sets in [year]/[month], before any
-  /// move.
-  DateTime scheduledClose(Account card, int year, int month) => DateTime.utc(
-    year,
-    month,
-    min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
-  );
-
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
-  int billed(Entry e, DateTime at) {
-    final count = e.installments;
-    if (count < 2) return e.amount;
-    final periods = billedPeriods(e, at);
-    if (periods == 0) return 0;
-    // Equal parts rounded down, the remainder in the first one, as card
-    // issuers bill it and as the ledger's own schedule has it.
-    final each = e.amount ~/ count;
-    return periods >= count ? e.amount : e.amount - each * (count - periods);
-  }
+  int billed(Entry e, DateTime at) => account(e.account).billed(e, at);
 
   /// How many instalments of [e] have been billed by [at].
-  int billedPeriods(Entry e, DateTime at) {
-    final card = account(e.account);
-    var periods = 0;
-    var month = DateTime.utc(e.date.year, e.date.month);
-    while (!month.isAfter(at) && periods < e.installments) {
-      final closing = closingOn(card, _lastDayOf(month));
-      if (!closing.isBefore(e.date) && !closing.isAfter(at)) periods++;
-      month = DateTime.utc(month.year, month.month + 1);
-    }
-    return periods;
-  }
-
-  static DateTime _lastDayOf(DateTime month) =>
-      DateTime.utc(month.year, month.month + 1, 0);
+  int billedPeriods(Entry e, DateTime at) =>
+      account(e.account).billedPeriods(e, at);
 
   /// The last day whose statement closes are behind: a statement closes
   /// at the end of its day, so one closing today is still open.
@@ -937,11 +338,9 @@ final class Ledger extends ChangeNotifier {
   /// The last closed statement of [card]: its first and last day and when
   /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) {
-    final end = closingOn(card, closedBy);
-    final start = closingOn(
-      card,
-      end.subtract(const Duration(days: 1)),
-    ).add(const Duration(days: 1));
+    final end = card.closingOn(closedBy);
+    final before = card.closingOn(end.subtract(const Duration(days: 1)));
+    final start = before.add(const Duration(days: 1));
     // The due day in the close's month, or the next, kept within it.
     DateTime dueIn(int month) {
       final last = DateTime.utc(end.year, month + 1, 0);
@@ -1168,12 +567,7 @@ final class Ledger extends ChangeNotifier {
   int netWorthAt(DateTime day) {
     var total = 0;
     for (final h in _holdings) {
-      final steps = _shareSteps[h.code] ?? const [];
-      final held = steps.lastWhere(
-        (s) => !s.$1.isAfter(day),
-        orElse: () => (day, 0),
-      );
-      total += (h.price * held.$2).round();
+      total += (h.price * _portfolio.sharesOn(h.code, day)).round();
     }
     for (final a in _accounts) {
       if (a.inNetWorth) total += worthOf(a, until: day);
@@ -1290,20 +684,37 @@ final class Ledger extends ChangeNotifier {
   /// ledger has reloaded what it kept.
   Future<void> get settled => _queue;
 
+  /// Whether a change since the last load needs the book read back.
+  var _stale = false;
+
   /// Passes a change to the [journal]. Once nothing else waits, reloads
   /// what was kept, so ids and figures match the store; a refused change
-  /// is undone that way and reported through [problem].
-  void _keep(Future<void> Function(Journal journal) change) {
+  /// is undone that way and reported through [problem]. A change kept
+  /// exactly as the screens already show it skips the reload unless
+  /// refused ([reload] false): reading back a large book takes a moment.
+  void _keep(
+    Future<void> Function(Journal journal) change, {
+    bool reload = true,
+  }) {
     final journal = this.journal;
     if (journal == null) return;
     _waiting++;
+    if (reload) _stale = true;
     _queue = _queue.then((_) async {
       try {
         await change(journal);
       } on Object catch (error) {
         problem.value = error;
+        _stale = true;
       }
       if (--_waiting > 0) return;
+      if (!_stale) {
+        // The journal's card dues may have moved; work them out from the
+        // entries until the next load.
+        _dues.clear();
+        return;
+      }
+      _stale = false;
       try {
         final fresh = await journal.load();
         // A change made while loading is newer than what was loaded; the
@@ -1311,6 +722,7 @@ final class Ledger extends ChangeNotifier {
         if (_waiting == 0) _adopt(fresh);
       } on Object catch (error) {
         problem.value = error;
+        _stale = true;
       }
     });
   }
@@ -1322,7 +734,18 @@ final class Ledger extends ChangeNotifier {
   void add(Entry entry) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast());
-    _keep((j) => j.addEntries([entry]));
+    // An entry with an id of its own is kept under it; any other gets one
+    // from the journal, which a reload brings.
+    _keep((j) => j.addEntries([entry]), reload: !_isId(entry.id));
+  }
+
+  static bool _isId(String id) {
+    try {
+      PublicId.parse(id);
+      return true;
+    } on Object {
+      return false;
+    }
   }
 
   /// Adds every one of [entries] at once, as an import does.
@@ -1344,11 +767,13 @@ final class Ledger extends ChangeNotifier {
     _replayOrUndo(() => _entries[index] = before);
     // The id is looked up when the change runs: an edit queued before it
     // may have given the entry a new one.
-    _keep((j) async {
+    Future<void> change(Journal j) async {
       final stored = _current(before.id);
       final next = await j.replaceEntry(before.withId(stored), entry);
       if (next != stored) _renamed[stored] = next;
-    });
+    }
+
+    _keep(change, reload: false);
   }
 
   /// Removes the entry with [id] and returns it with its place, for undo.
@@ -1358,7 +783,10 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
-    _keep((j) => j.removeEntry(removed.withId(_current(removed.id))));
+    _keep(
+      (j) => j.removeEntry(removed.withId(_current(removed.id))),
+      reload: false,
+    );
     return (index, removed);
   }
 
@@ -1468,10 +896,6 @@ final class Ledger extends ChangeNotifier {
       if (r.category == from) _recurring[i] = r.copyWith(category: to);
     }
   }
-
-  /// [item]'s amount in its account's currency, as the screens write it.
-  String recurringAmount(Recurring item) =>
-      amountIn(item.amount, account(item.account).currency);
 
   /// [item]'s amount in whole NT$ at today's rate; 0 without one.
   int recurringWorth(Recurring item) =>
@@ -1583,7 +1007,7 @@ final class Ledger extends ChangeNotifier {
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
     _adopt(fresh);
-    amountsHidden = false;
+    _hidden = false;
     notifyListeners();
   }
 
@@ -1618,7 +1042,7 @@ final class Ledger extends ChangeNotifier {
   }
 
   void toggleHidden() {
-    amountsHidden = !amountsHidden;
+    _hidden = !_hidden;
     notifyListeners();
   }
 
@@ -1633,142 +1057,10 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// [lots] with their shares grown to [total] in proportion, each at its
-  /// own cost; the last takes what rounding leaves.
-  static List<Lot> _scaled(List<Lot> lots, int total) {
-    final held = lots.fold(0, (sum, l) => sum + l.shares);
-    if (held == 0) return lots;
-    var left = total;
-    final scaled = <Lot>[];
-    for (final (i, l) in lots.indexed) {
-      final last = i == lots.length - 1;
-      final shares = last ? left : (l.shares * total / held).round();
-      left -= shares;
-      scaled.add(Lot(l.date, shares, l.cost));
-    }
-    return scaled;
-  }
-
-  /// [lots] with [amount] taken off their cost in proportion to it; the
-  /// last takes what rounding leaves.
-  static List<Lot> _lowered(List<Lot> lots, int amount) {
-    final total = lots.fold(0, (sum, l) => sum + l.cost);
-    if (total == 0 || amount == 0) return lots;
-    var left = amount;
-    final lowered = <Lot>[];
-    for (final (i, l) in lots.indexed) {
-      final part = i == lots.length - 1 ? left : amount * l.cost ~/ total;
-      left -= part;
-      lowered.add(Lot(l.date, l.shares, l.cost - part));
-    }
-    return lowered;
-  }
-
-  /// Rebuilds the holdings and their lots from the starting positions and
-  /// every investment entry in date order.
+  /// Rebuilds the holdings from the starting positions and every
+  /// investment entry; an oversold trade throws a [StateError].
   void _replay() {
     _touch();
-    final opening = DateTime.utc(2025);
-    final byCode = {for (final h in _startHoldings) h.code: h};
-    final lots = <String, List<Lot>>{
-      for (final h in _startHoldings)
-        h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
-    };
-    // In date order, and in the order written within a day: a sort that
-    // kept no order could put a day's sale before its purchase.
-    final trades = [
-      for (final (i, e) in _entries.indexed)
-        if (e.isInvestment && e.holding != null) (i, e),
-    ];
-    trades.sort((a, b) {
-      final byDate = a.$2.date.compareTo(b.$2.date);
-      return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
-    });
-    final steps = <String, List<(DateTime, int)>>{
-      for (final h in _startHoldings) h.code: [(opening, h.shares)],
-    };
-    for (final (_, e) in trades) {
-      final code = e.holding!;
-      // A stock bought for the first time takes its first price per share
-      // as the reference until a close is known.
-      final held =
-          byCode[code] ??
-          Holding(
-            code,
-            code,
-            shares: 0,
-            price: e.shares == 0 ? 0 : e.amount / e.shares,
-            cost: 0,
-            change: 0,
-          );
-      switch (e.type) {
-        case EntryType.buy:
-          final cost = e.amount + e.fee;
-          lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
-          byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            cost: held.cost + cost,
-          );
-        case EntryType.sell:
-          final (part, rest) = _take(
-            lots[code] ?? const [],
-            e.shares,
-            average: e.average,
-          );
-          lots[code] = rest;
-          byCode[code] = held.copyWith(
-            shares: held.shares - e.shares,
-            cost: held.cost - part,
-            realized: held.realized + e.amount - e.fee - e.tax - part,
-          );
-        case EntryType.dividend when e.isReduction && held.shares > 0:
-          final left = max(0, held.shares + e.shares);
-          final lowered = min(e.amount, held.cost);
-          final scaled = _scaled(lots[code] ?? const [], left);
-          lots[code] = _lowered(scaled, lowered);
-          final worth = max(0.0, held.price * held.shares - e.amount);
-          byCode[code] = held.copyWith(
-            shares: left,
-            cost: held.cost - lowered,
-            price: left == 0 ? held.price : worth / left,
-            realized: held.realized + e.amount - lowered,
-          );
-        case EntryType.dividend when e.split && held.shares > 0:
-          final ratio = (held.shares + e.shares) / held.shares;
-          lots[code] = _scaled(lots[code] ?? const [], held.shares + e.shares);
-          byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            price: held.price / ratio,
-            dividends: held.dividends + e.dividendNet,
-          );
-        case EntryType.dividend:
-          if (e.shares > 0) {
-            lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
-          }
-          byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            dividends: held.dividends + e.dividendNet,
-          );
-        default:
-          break;
-      }
-      final before = held.shares;
-      final after = byCode[code]?.shares ?? before;
-      final rescaled =
-          e.type == EntryType.dividend &&
-          before > 0 &&
-          (e.split || e.isReduction);
-      steps[code] = [
-        for (final (d, n) in steps[code] ?? const <(DateTime, int)>[])
-          (d, rescaled ? (n * after / before).round() : n),
-        (e.date, after),
-      ];
-    }
-    _lots = lots;
-    _shareSteps = steps;
-    _holdings = [
-      for (final h in byCode.values)
-        if (h.shares > 0 || h.realized != 0) h,
-    ]..sort((a, b) => b.value.compareTo(a.value));
+    _portfolio = Portfolio.replay(_startHoldings, _entries);
   }
 }

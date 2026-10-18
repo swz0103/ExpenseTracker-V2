@@ -17,6 +17,10 @@ import '../model/ledger.dart';
   };
 }
 
+/// [item]'s amount in its account's currency, as the screens write it.
+String recurringAmount(Ledger ledger, Recurring item) =>
+    amountIn(item.amount, ledger.account(item.account).currency);
+
 /// `−200`, `+52,000`, or a plain amount for transfers, in the [currency]
 /// of the entry's account.
 String entryAmount(Entry e, {String currency = 'TWD'}) {

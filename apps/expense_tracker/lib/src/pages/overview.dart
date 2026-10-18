@@ -399,7 +399,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 [
                   ledger.nextLabel(r),
                   r.name,
-                  _m(ledger.recurringAmount(r)),
+                  _m(recurringAmount(ledger, r)),
                 ].join(' '),
             ].join('\n'),
       onTap: () => widget.nav.open(Pages.recurring),

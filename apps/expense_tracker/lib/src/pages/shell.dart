@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
 import '../compose/composer.dart';
+import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -57,13 +58,20 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     widget.ledger.problem.addListener(_report);
+    widget.ledger.addListener(_hideAmounts);
+    _hideAmounts();
   }
 
   @override
   void dispose() {
     widget.ledger.problem.removeListener(_report);
+    widget.ledger.removeListener(_hideAmounts);
     super.dispose();
   }
+
+  /// Follows the ledger's 隱藏金額 switch in every [money] on screen. Added
+  /// before any page listens, so the pages redraw with it already set.
+  void _hideAmounts() => amountsHidden = widget.ledger.hidden;
 
   /// Says why the ledger refused a change; the screens already show what
   /// was kept instead.
