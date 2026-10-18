@@ -10,6 +10,7 @@ import 'package:market_data/market_data.dart';
 import 'app.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
+import 'look/widgets.dart';
 import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/recovery_code.dart';
@@ -104,8 +105,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final ledger = await _journal.load();
     _loaded = ledger;
     unawaited(_quotes(ledger));
-    unawaited(_keeper.backUpIfDue().catchError((Object _) => null));
+    unawaited(_weeklyBackup());
     return ledger;
+  }
+
+  /// Takes the weekly backup; a failure is said, not kept quiet.
+  Future<void> _weeklyBackup() async {
+    try {
+      await _keeper.backUpIfDue();
+    } on Object catch (error) {
+      debugPrint('Weekly backup failed: $error');
+      if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
+    }
   }
 
   Future<void> _quotes(Ledger ledger) async {

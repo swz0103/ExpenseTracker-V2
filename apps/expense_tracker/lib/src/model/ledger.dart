@@ -164,13 +164,18 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
+  /// Every entry, in the order written; the list cannot be changed.
+  List<Entry> get entries => List.unmodifiable(_entries);
+
   List<Entry> search(String words) {
+    final lower = words.toLowerCase();
+    bool holds(String text) => text.toLowerCase().contains(lower);
     final found = [
       for (final (i, e) in _entries.indexed)
-        if (e.note.contains(words) ||
-            e.merchant.contains(words) ||
-            e.category.contains(words) ||
-            e.tags.any((t) => t.contains(words)) ||
+        if (holds(e.note) ||
+            holds(e.merchant) ||
+            holds(e.category) ||
+            e.tags.any(holds) ||
             plainIn(e.amount, account(e.account).currency) == words ||
             '${e.amount}' == words)
           (i, e),

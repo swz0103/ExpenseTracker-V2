@@ -4,7 +4,9 @@
     <!-- Unlocking the ledger with a fingerprint or face. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <application
-        android:allowBackup="false"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="記帳本"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"

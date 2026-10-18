@@ -456,6 +456,27 @@ final class VaultJournal implements Journal {
       await _note(replacement, after.note);
       return replacement.value;
     }
+    // The new form is added before the old one goes, so a stop in between
+    // leaves both, one to delete, rather than neither. A recurring booking
+    // must give up its occurrence first, and a form the ledger refuses
+    // beside the old one (an edited sale) is tried after it is gone.
+    if (before.recurring == null && after.recurring == null) {
+      PublicId? added;
+      try {
+        added = await _add(after);
+      } on AppFailure {
+        added = null;
+      }
+      if (added != null) {
+        try {
+          await removeEntry(before);
+        } on Object {
+          await removeEntry(after.withId(added.value));
+          rethrow;
+        }
+        return added.value;
+      }
+    }
     await removeEntry(before);
     try {
       return (await _add(after)).value;

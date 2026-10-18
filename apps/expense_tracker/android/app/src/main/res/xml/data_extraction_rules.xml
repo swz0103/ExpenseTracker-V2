@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and later. The ledger and its weekly backups go to the
+     person's Google backup, which Android encrypts with the screen lock;
+     what belongs to this phone alone (its fingerprint enrolment) stays. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="."/>
+        <exclude domain="file" path="device-id"/>
+        <exclude domain="file" path="no-fingerprint"/>
+        <exclude domain="file" path="exports"/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="."/>
+        <exclude domain="file" path="device-id"/>
+        <exclude domain="file" path="no-fingerprint"/>
+        <exclude domain="file" path="exports"/>
+    </device-transfer>
+</data-extraction-rules>

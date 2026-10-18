@@ -57,7 +57,11 @@ class _SettingsPageState extends State<SettingsPage> {
   /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(Keeper keeper) async {
     try {
-      final code = keeper.hasPassword ? null : await keeper.newRecoveryCode();
+      // A ledger without a password restores with its recovery code: one
+      // is made the first time, and kept after that.
+      final code = keeper.hasPassword || keeper.recoveryGiven
+          ? null
+          : await keeper.newRecoveryCode();
       final saved = await keeper.exportBackup();
       if (!mounted) return;
       if (code != null) {
@@ -70,7 +74,10 @@ class _SettingsPageState extends State<SettingsPage> {
               : '救援碼已更新，之前的不再適用。請抄下來放在安全的地方，它只會顯示這一次。',
         );
       } else if (saved) {
-        showNote(context, '已匯出備份檔');
+        showNote(
+          context,
+          keeper.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
+        );
       }
     } on Object catch (error) {
       if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
@@ -120,8 +127,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _newRecovery(Keeper keeper) async {
     final ok = await confirm(context, '換一組新的救援碼？舊的會立刻失效。', '更換');
     if (!ok) return;
-    final code = await keeper.newRecoveryCode();
-    if (mounted) await showRecoveryCode(context, code);
+    try {
+      final code = await keeper.newRecoveryCode();
+      if (mounted) await showRecoveryCode(context, code);
+    } on Object catch (error) {
+      if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
+    }
   }
 
   Future<void> _reset() async {
@@ -175,6 +186,17 @@ class _SettingsPageState extends State<SettingsPage> {
                             '記帳本-$year-${'$month'.padLeft(2, '0')}.csv',
                             toCsv(ledger, entries),
                             ' ${entries.length} 筆紀錄的 CSV',
+                          ),
+                        ),
+                        const Divider(),
+                        _Export(
+                          badge: 'CSV',
+                          title: '下載全部紀錄',
+                          detail: '所有月份 · ${ledger.entries.length} 筆紀錄',
+                          onTap: () => _save(
+                            '記帳本-全部.csv',
+                            toCsv(ledger, ledger.entries),
+                            ' ${ledger.entries.length} 筆紀錄的 CSV',
                           ),
                         ),
                       ],

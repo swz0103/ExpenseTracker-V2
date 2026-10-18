@@ -28,6 +28,10 @@ abstract interface class Keeper {
   /// the old one stops working.
   Future<String> newRecoveryCode();
 
+  /// Whether a recovery code has been shown on this phone, so exporting
+  /// a backup need not replace it.
+  bool get recoveryGiven;
+
   /// Closes the ledger once pending changes are kept, and returns to the
   /// lock screen.
   Future<void> lock();

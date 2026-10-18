@@ -46,6 +46,9 @@ class _LedgerPageState extends State<LedgerPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
   var _kind = KindFilter.all;
   String? _account;
+
+  /// Entries of this category, its subcategories or a split part in it.
+  String? _category;
   String? _search;
 
   String get _words => (_search ?? '').trim();
@@ -61,22 +64,29 @@ class _LedgerPageState extends State<LedgerPage> {
     return [
       for (final e in source)
         if (_kind.shows(e) &&
-            (_account == null || e.account == _account || e.to == _account))
+            (_account == null || e.account == _account || e.to == _account) &&
+            (_category == null || _inCategory(e, _category!)))
           e,
     ];
   }
+
+  bool _inCategory(Entry e, String name) =>
+      e.category == name ||
+      widget.ledger.category(e.category).parent == name ||
+      e.parts.any((p) => p.$1 == name);
 
   Future<void> _filter() async {
     final ledger = widget.ledger;
     var kind = _kind;
     var account = _account;
+    var category = _category;
     final applied = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Hue.panel,
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -121,6 +131,27 @@ class _LedgerPageState extends State<LedgerPage> {
                       ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                const Text('分類', style: TextStyle(color: Hue.muted)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('全部分類'),
+                      selected: category == null,
+                      onSelected: (_) => setSheet(() => category = null),
+                    ),
+                    for (final c in ledger.categories)
+                      if (!c.archived && c.parent == null)
+                        ChoiceChip(
+                          label: Text(c.name),
+                          selected: category == c.name,
+                          onSelected: (_) => setSheet(() => category = c.name),
+                        ),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -139,6 +170,7 @@ class _LedgerPageState extends State<LedgerPage> {
       setState(() {
         _kind = kind;
         _account = account;
+        _category = category;
       });
     }
   }
@@ -222,6 +254,7 @@ class _LedgerPageState extends State<LedgerPage> {
         close();
         final transfers = shown.where((e) => e.type == EntryType.transfer);
         final account = _account;
+        final category = _category;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
@@ -322,6 +355,17 @@ class _LedgerPageState extends State<LedgerPage> {
                   child: InputChip(
                     label: Text(ledger.account(account).name),
                     onDeleted: () => setState(() => _account = null),
+                  ),
+                ),
+              ),
+            if (category != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: InputChip(
+                    label: Text(category),
+                    onDeleted: () => setState(() => _category = null),
                   ),
                 ),
               ),
