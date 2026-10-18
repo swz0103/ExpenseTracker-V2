@@ -5,7 +5,9 @@ part of 'vault_journal.dart';
 extension _Investments on VaultJournal {
   /// The screens' trade entries and, for each instrument traded, a
   /// holding to replay them onto, priced at its last trade.
-  (List<ui.Entry>, List<ui.Holding>) _investments() {
+  (List<ui.Entry>, List<ui.Holding>) _investments(
+    Map<PublicId, String> notes,
+  ) {
     final entries = <ui.Entry>[];
     final quotes = <String, (String, double)>{};
     final instruments = <String, InvestmentInstrument?>{};
@@ -21,6 +23,7 @@ extension _Investments on VaultJournal {
         if (instrument == null) continue;
         final code = instrument.symbol;
         final id = (r['postingId'] as String?) ?? r['id']! as String;
+        final note = notes[PublicId.parse(id)] ?? '';
         final date = _date(BusinessDate.parse(r['date']! as String));
         final shares = _whole(r['quantity']);
         final before = held[code] ?? 0;
@@ -44,6 +47,7 @@ extension _Investments on VaultJournal {
                 amount: gross,
                 account: funding,
                 category: '投資',
+                note: note,
                 holding: code,
                 shares: shares,
                 fee: money('fee'),
@@ -61,6 +65,7 @@ extension _Investments on VaultJournal {
                 amount: money('net') + withheld,
                 account: funding,
                 category: '股息收入',
+                note: note,
                 holding: code,
                 tax: withheld,
               ),
@@ -77,6 +82,7 @@ extension _Investments on VaultJournal {
                 amount: money('net'),
                 account: funding,
                 category: '股息收入',
+                note: note,
                 holding: code,
                 shares: after - before,
                 split: r['kind'] == 'split',
@@ -167,7 +173,7 @@ extension _Investments on VaultJournal {
     TradeTarget target,
   ) async {
     if (e.shares < 0) {
-      final held = _held(target.accountId, target.instrumentId);
+      final held = _held(target.accountId, target.instrumentId, day);
       await _invest.corporateAction(
         RecordCorporateAction(
           operation: _op(),
@@ -183,7 +189,7 @@ extension _Investments on VaultJournal {
       return;
     }
     if (e.shares > 0) {
-      final held = _held(target.accountId, target.instrumentId);
+      final held = _held(target.accountId, target.instrumentId, day);
       if (e.split) {
         await _invest.split(
           SplitInvestment(
@@ -227,9 +233,14 @@ extension _Investments on VaultJournal {
   }
 
   /// Whole shares of [instrument] [account] holds now.
-  int _held(PublicId account, PublicId instrument) => _store
-      .holdings(account, instrument)
-      .fold(0, (sum, lot) => sum + _whole(lot.remainingQuantity.toString()));
+  int _held(PublicId account, PublicId instrument, BusinessDate day) {
+    var held = 0;
+    for (final lot in _store.holdings(account, instrument)) {
+      if (lot.acquiredOn.compareTo(day) > 0) continue;
+      held += _whole(lot.remainingQuantity.toString());
+    }
+    return held;
+  }
 
   /// The investment account [funding] pays for trades, opened with a
   /// broker of its own the first time.

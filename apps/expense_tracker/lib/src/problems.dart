@@ -33,6 +33,7 @@ String describeProblem(Object error) => switch (error) {
   AppFailure(diagnostic: 'app.foreign-fee') => '外幣帳戶轉出時不能記手續費。',
   AppFailure(diagnostic: 'app.foreign-card-payment') => '外幣帳戶不能直接繳卡費。',
   AppFailure(diagnostic: 'app.foreign-card') => '信用卡只能用新台幣。',
+  AppFailure(diagnostic: 'app.card-fee') => '繳卡費不記手續費，請另記一筆支出。',
   AppFailure(diagnostic: 'category.duplicate') => '已經有同名的分類。',
   AppFailure(diagnostic: 'category.hasChildren') => '這個分類底下還有子分類，請先移走。',
   AppFailure(diagnostic: 'category.unavailable') => '這個分類已封存或合併，不能再使用。',

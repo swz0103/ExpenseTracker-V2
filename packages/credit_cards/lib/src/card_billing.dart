@@ -856,6 +856,11 @@ final class CardStatementItems {
     Iterable<CardInstallmentSchedule> plans = const [],
   }) {
     final planned = {for (final plan in plans) plan.purchaseEventId};
+    // A plan whose purchase was voided bills nothing.
+    final live = {
+      for (final charge in charges)
+        if (charge.isPosted) charge.ledgerEventId,
+    };
     final posted = [
       for (final charge in charges)
         if (charge.isPosted &&
@@ -868,8 +873,9 @@ final class CardStatementItems {
       charges: posted,
       installments: [
         for (final plan in plans)
-          for (final part in plan.installments)
-            if (cycle.bills(part.scheduledClose)) part,
+          if (live.contains(plan.purchaseEventId))
+            for (final part in plan.installments)
+              if (cycle.bills(part.scheduledClose)) part,
       ],
       payments: [
         for (final payment in payments)

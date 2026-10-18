@@ -485,7 +485,11 @@ class _Secret extends StatelessWidget {
 
 /// Shows a new ledger's recovery code once; it is the only way in without
 /// the password.
-Future<void> showRecoveryCode(BuildContext context, String code) {
+Future<void> showRecoveryCode(
+  BuildContext context,
+  String code, {
+  String why = '忘記密碼時，只有這組救援碼能打開帳本。請抄下來放在安全的地方，它只會顯示這一次。',
+}) {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -495,7 +499,7 @@ Future<void> showRecoveryCode(BuildContext context, String code) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('忘記密碼時，只有這組救援碼能打開帳本。請抄下來放在安全的地方，它只會顯示這一次。'),
+          Text(why),
           const SizedBox(height: 14),
           SelectableText(
             code,

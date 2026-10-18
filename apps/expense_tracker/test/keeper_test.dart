@@ -128,6 +128,12 @@ void main() {
       throwsA(isA<KeyringException>()),
     );
     await startup.unlockWithRecovery(newCode);
+    // The code opened it; from now on it opens by itself, as without a
+    // password, until one is set again.
+    expect(startup.passwordless, isTrue);
+    startup.lock();
+    await startup.openQuietly();
+    expect(startup.state, isA<Ready>());
     startup.lock();
   });
 

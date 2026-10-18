@@ -10,6 +10,7 @@ import '../model/exchange.dart';
 import '../model/ledger.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
+import 'lock_screen.dart';
 import 'nav.dart';
 
 /// 設定與資料: preferences, exporting a month or the whole book, the
@@ -50,10 +51,22 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// Saves a backup outside the app. Without a password, only a recovery
+  /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(Keeper keeper) async {
     try {
+      final code = keeper.hasPassword ? null : await keeper.newRecoveryCode();
       final saved = await keeper.exportBackup();
-      if (mounted && saved) showNote(context, '已匯出備份檔');
+      if (!mounted || !saved) return;
+      if (code == null) {
+        showNote(context, '已匯出備份檔');
+      } else {
+        await showRecoveryCode(
+          context,
+          code,
+          why: '在新手機還原這份備份時，要輸入這組救援碼。請抄下來放在安全的地方，它只會顯示這一次。',
+        );
+      }
     } on Object catch (error) {
       if (mounted) showNote(context, '匯出失敗（$error）');
     }
@@ -94,28 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final ok = await confirm(context, '換一組新的救援碼？舊的會立刻失效。', '更換');
     if (!ok) return;
     final code = await keeper.newRecoveryCode();
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('新的救援碼'),
-        content: SelectableText(
-          code,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Clipboard.setData(ClipboardData(text: code)),
-            child: const Text('複製'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('我已存好'),
-          ),
-        ],
-      ),
-    );
+    if (mounted) await showRecoveryCode(context, code);
   }
 
   Future<void> _reset() async {

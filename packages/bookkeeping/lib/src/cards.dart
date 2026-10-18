@@ -217,10 +217,8 @@ final class CardBook<T extends CardTransaction> {
     if (await t.isReleased(charge.id)) {
       throw const AppFailure(FailureKind.conflict, 'card.voided');
     }
-    if (charge.kind == CardChargeKind.purchase &&
-        await t.installmentPlan(charge.ledgerEventId!) != null) {
-      throw const AppFailure(FailureKind.rejected, 'card.has-installments');
-    }
+    // A purchase in instalments may be voided too: its plan is only ever
+    // read through the charge, which voiding releases.
     final reversal = await _books._reverseOwned(
       t,
       command.operation,

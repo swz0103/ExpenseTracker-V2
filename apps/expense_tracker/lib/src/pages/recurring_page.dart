@@ -407,6 +407,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
         start: _start,
         end: _end,
         income: _income,
+        merchant: widget.item?.merchant ?? '',
       ),
     );
     Navigator.of(context).pop();

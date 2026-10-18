@@ -711,6 +711,7 @@ final class Ledger extends ChangeNotifier {
             e.merchant.contains(words) ||
             e.category.contains(words) ||
             e.tags.any((t) => t.contains(words)) ||
+            plainIn(e.amount, account(e.account).currency) == words ||
             '${e.amount}' == words)
           (i, e),
     ];
@@ -858,8 +859,16 @@ final class Ledger extends ChangeNotifier {
       return card.closes[scheduled] ?? scheduled;
     }
 
-    final here = closing(day.year, day.month);
-    return here.isAfter(day) ? closing(day.year, day.month - 1) : here;
+    // A close moved by up to a week may fall in the month before or
+    // after its own: the latest of the three not after [day].
+    DateTime? latest;
+    for (final back in const [1, 0, -1]) {
+      final close = closing(day.year, day.month - back);
+      if (!close.isAfter(day) && (latest == null || close.isAfter(latest))) {
+        latest = close;
+      }
+    }
+    return latest ?? closing(day.year, day.month - 2);
   }
 
   /// The close [card]'s billing day sets in [year]/[month], before any
@@ -907,10 +916,15 @@ final class Ledger extends ChangeNotifier {
       card,
       end.subtract(const Duration(days: 1)),
     ).add(const Duration(days: 1));
-    final day = card.dueDay ?? 15;
-    var due = DateTime.utc(end.year, end.month, day);
-    if (!due.isAfter(end)) due = DateTime.utc(end.year, end.month + 1, day);
-    return (start, end, due);
+    // The due day in the close's month, or the next, kept within it.
+    DateTime dueIn(int month) {
+      final last = DateTime.utc(end.year, month + 1, 0);
+      final day = min(card.dueDay ?? 15, last.day);
+      return DateTime.utc(last.year, last.month, day);
+    }
+
+    final here = dueIn(end.month);
+    return (start, end, here.isAfter(end) ? here : dueIn(end.month + 1));
   }
 
   /// What is still to pay on the last statement of [card]: the journal's
@@ -1416,10 +1430,14 @@ final class Ledger extends ChangeNotifier {
       if (c.parent == from) _categories[i] = c.copyWith(parent: to);
     }
     for (final (i, e) in _entries.indexed) {
-      if (e.category == from) _entries[i] = e.withCategory(to);
+      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
+        _entries[i] = e.withCategory(to, from: from);
+      }
     }
     for (final (i, b) in _budgets.indexed) {
-      if (b.category == from) _budgets[i] = Budget(to, b.limit);
+      if (b.category == from) {
+        _budgets[i] = Budget(to, b.limit, warning: b.warning);
+      }
     }
     for (final (i, r) in _recurring.indexed) {
       if (r.category == from) _recurring[i] = r.copyWith(category: to);
@@ -1457,21 +1475,7 @@ final class Ledger extends ChangeNotifier {
 
   /// Books [item] as it stands.
   void confirm(Recurring item) {
-    final entry = booking(item);
-    add(
-      Entry(
-        id: newId(),
-        date: entry.date,
-        type: entry.type,
-        amount: entry.amount,
-        account: entry.account,
-        category: entry.category,
-        note: entry.note,
-        recurring: entry.recurring,
-        merchant: entry.merchant,
-        home: entry.home,
-      ),
-    );
+    add(booking(item).withId(newId()));
   }
 
   /// Puts [item] in place of the one with the same id, or adds it.
