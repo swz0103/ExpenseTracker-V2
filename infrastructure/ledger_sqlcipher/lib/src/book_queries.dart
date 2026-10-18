@@ -164,6 +164,15 @@ extension BookQueries on LedgerStore {
   }
 
   /// Whether a posting with [id] exists, live or reversed.
+  /// The posting [id], or null when there is none.
+  Posting? postingById(PublicId id) {
+    final rows = _store.select(
+      'SELECT payload FROM ledger_postings WHERE id = ?',
+      [id.value],
+    );
+    return rows.isEmpty ? null : _decodePosting(rows.single['payload']);
+  }
+
   bool hasPosting(PublicId id) {
     const sql = 'SELECT 1 FROM ledger_postings WHERE id = ?';
     return _store.select(sql, [id.value]).isNotEmpty;

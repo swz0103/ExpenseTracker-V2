@@ -28,6 +28,8 @@ class MorePage extends StatelessWidget {
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
         final limit = ledger.budgetFor(Ledger.allSpending).limit;
         final next = items.isEmpty ? null : items.first;
+        String shown(Recurring r) =>
+            ledger.hidden ? '••••' : ledger.recurringAmount(r);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
@@ -44,7 +46,7 @@ class MorePage extends StatelessWidget {
                   ? '沒有待扣款項目'
                   : [
                       for (final r in items.take(3))
-                        '${ledger.nextLabel(r)} ${r.name} ${money(r.amount)}',
+                        '${ledger.nextLabel(r)} ${r.name} ${shown(r)}',
                     ].join(' · '),
               onTap: () => nav.open(Pages.recurring),
             ),

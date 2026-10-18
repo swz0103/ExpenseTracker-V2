@@ -42,6 +42,18 @@ int saleTax(String code, int amount, int shares, DateTime tradedOn) {
   }
 }
 
+/// The NHI supplementary premium (二代健保) withheld from a cash dividend
+/// of [gross] paid on [paidOn]: 2.11% once one payment reaches NT$20,000.
+int dividendPremium(int gross, DateTime paidOn) {
+  if (gross <= 0) return 0;
+  try {
+    final premium = supplementaryPremium(_ntd(gross), paidOn: _day(paidOn));
+    return premium.minorUnits.toInt();
+  } on InvestmentException {
+    return 0;
+  }
+}
+
 /// When a trade on [day] settles: two weekdays later (T+2). Holidays are
 /// not known here, so a trade before one settles a day early.
 DateTime settlementDay(DateTime day) {

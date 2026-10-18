@@ -11,6 +11,16 @@ abstract interface class Keeper {
   /// as in Downloads or on Google Drive. False when they cancel.
   Future<bool> exportBackup();
 
+  /// Saves [text] as a file named [name] outside the app, as
+  /// [exportBackup] does. False when the person cancels.
+  Future<bool> exportFile(String name, String text);
+
+  /// False for a ledger that opens without a password.
+  bool get hasPassword;
+
+  /// Gives a ledger without a password the password [next].
+  Future<void> setPassword(String next);
+
   /// Replaces the password; [current] must open the ledger.
   Future<void> changePassword(String current, String next);
 

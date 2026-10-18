@@ -2,6 +2,8 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:foundation_values/foundation_values.dart';
 
+import 'book/journal.dart';
+
 /// Shows why a command was refused, in words a person can act on.
 void showProblem(BuildContext context, Object error) {
   ScaffoldMessenger.of(context)
@@ -10,6 +12,7 @@ void showProblem(BuildContext context, Object error) {
 }
 
 String describeProblem(Object error) => switch (error) {
+  final PartlyKept partly => _partly(partly),
   AppFailure(diagnostic: 'account.versionConflict') => '帳戶剛被修改過，請再試一次。',
   AppFailure(diagnostic: 'account.unavailable') => '這個帳戶已封存或結清，不能記帳。',
   AppFailure(diagnostic: 'account.invalidInput') => '帳戶名稱不能空白，最多 100 字。',
@@ -39,3 +42,11 @@ String describeProblem(Object error) => switch (error) {
   MoneyException() || FormatException() => '請輸入有效的金額。',
   _ => '發生未預期的錯誤。',
 };
+
+/// Which entry of a batch was refused, and what became of the rest.
+String _partly(PartlyKept partly) {
+  final PartlyKept(:kept, :total, :cause) = partly;
+  final left = total - kept - 1;
+  return '第 ${kept + 1} 筆無法記下：${describeProblem(cause)}'
+      '前 $kept 筆已記下，其餘 $left 筆沒有記。';
+}

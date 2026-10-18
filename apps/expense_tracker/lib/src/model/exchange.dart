@@ -1,3 +1,8 @@
+import 'package:data_exchange/data_exchange.dart';
+import 'package:foundation_values/foundation_values.dart'
+    show BusinessDate, Currency;
+
+import '../look/figures.dart';
 import 'ledger.dart';
 
 /// What an import found: the entries to add and how many lines were left
@@ -20,79 +25,39 @@ const _typeNames = {
 
 const _header = ['日期', '類型', '金額', '帳戶', '分類', '商家', '標籤', '備註'];
 
-/// A field as CSV writes it: quoted when it holds a comma, a quote or a
-/// line break, with its quotes doubled.
-String csvField(String value) {
-  if (!value.contains(RegExp('[",\n\r]'))) return value;
-  return '"${value.replaceAll('"', '""')}"';
-}
-
-/// [entries], oldest first, as CSV with a header line.
+/// [entries], oldest first, as CSV with a header line that Excel opens
+/// as UTF-8. Amounts are in their account's currency, with its decimals.
 String toCsv(Ledger ledger, List<Entry> entries) {
   final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
-  return [
-    _header.join(','),
+  return writeCsv([
+    _header,
     for (final e in sorted)
       [
         _day(e.date),
         _typeNames[e.type]!,
-        '${e.amount}',
+        plainIn(e.amount, ledger.account(e.account).currency),
         ledger.account(e.account).name,
         e.category,
         e.merchant,
         e.tags.join(' '),
         e.note,
-      ].map(csvField).join(','),
-  ].join('\n');
+      ],
+  ]);
 }
 
 String _day(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
 
 String _two(int n) => n.toString().padLeft(2, '0');
 
-/// The rows of [text] read as CSV: quoted fields may hold commas, quotes
-/// written twice and line breaks.
+/// The rows of [text] read as CSV, a leading byte order mark and blank
+/// lines left out. A quote left open runs to the end, as a spreadsheet
+/// reads it.
 List<List<String>> parseCsv(String text) {
-  final rows = <List<String>>[];
-  var row = <String>[];
-  final field = StringBuffer();
-  var quoted = false;
-  var i = 0;
-  void endField() {
-    row.add(field.toString());
-    field.clear();
+  try {
+    return readCsv(text);
+  } on FormatException {
+    return readCsv('$text"');
   }
-
-  void endRow() {
-    endField();
-    if (row.length > 1 || row.first.trim().isNotEmpty) rows.add(row);
-    row = <String>[];
-  }
-
-  while (i < text.length) {
-    final c = text[i];
-    if (quoted) {
-      if (c == '"' && i + 1 < text.length && text[i + 1] == '"') {
-        field.write('"');
-        i++;
-      } else if (c == '"') {
-        quoted = false;
-      } else {
-        field.write(c);
-      }
-    } else if (c == '"') {
-      quoted = true;
-    } else if (c == ',') {
-      endField();
-    } else if (c == '\n') {
-      endRow();
-    } else if (c != '\r') {
-      field.write(c);
-    }
-    i++;
-  }
-  if (field.isNotEmpty || row.isNotEmpty) endRow();
-  return rows;
 }
 
 /// A day written as 2026-03-05, 2026/3/5, 20260305 or, in the Republic
@@ -123,9 +88,15 @@ DateTime? _valid(int year, int month, int day) {
   return date.month == month ? date : null;
 }
 
-int? _amount(String text) {
-  final value = double.tryParse(text.replaceAll(RegExp(r'[,\s$]'), ''));
-  return value?.round();
+/// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
+/// as written, more decimals than the currency has are rounded.
+int? _amount(String text, [String currency = 'TWD']) {
+  final value = text.replaceAll(RegExp(r'[,\s$]|NT'), '');
+  final exact = minorOf(value, currency);
+  if (exact != null) return exact;
+  final rounded = double.tryParse(value);
+  if (rounded == null) return null;
+  return (rounded * (Currency.scaleOf(currency) == 0 ? 1 : 100)).round();
 }
 
 /// Income and spending in [text], CSV with a header naming at least
@@ -154,7 +125,9 @@ Import importCsv(Ledger ledger, String text, {required String fallback}) {
   var skipped = 0;
   for (final row in rows.skip(1)) {
     final day = readDay(cell(row, date));
-    final value = _amount(cell(row, amount));
+    final into = names[cell(row, account)] ?? fallback;
+    final currency = ledger.account(into).currency;
+    final value = _amount(cell(row, amount), currency);
     final kind = cell(row, type);
     final income =
         kind == '收入' ||
@@ -175,7 +148,7 @@ Import importCsv(Ledger ledger, String text, {required String fallback}) {
       date: day,
       type: income ? EntryType.income : EntryType.expense,
       amount: value.abs(),
-      account: names[cell(row, account)] ?? fallback,
+      account: into,
       category: known.contains(named)
           ? named
           : income
@@ -187,6 +160,7 @@ Import importCsv(Ledger ledger, String text, {required String fallback}) {
         for (final t in cell(row, tags).split(RegExp(r'[\s;、]+')))
           if (t.isNotEmpty) t,
       ],
+      home: currency == 'TWD' ? null : ledger.toHome(value.abs(), currency),
     );
     if (_already(ledger, entry)) {
       skipped++;
@@ -234,8 +208,12 @@ String guessCategory(Ledger ledger, String merchant, String items) {
 /// invoice (載具名稱|載具號碼|日期|統編|店名|發票號碼|總金額|狀態) and D
 /// lines with its items. Each invoice becomes spending on [account] at
 /// the shop, noted with its invoice number; void ones and invoices
-/// already in the book are left out.
+/// already in the book are left out. The ministry's 消費明細 CSV, with a
+/// 發票號碼 column, is read too.
 Import importInvoices(Ledger ledger, String text, {required String account}) {
+  if (text.contains('發票號碼')) {
+    return _invoiceCsv(ledger, text, account: account);
+  }
   final items = <String, List<String>>{};
   final heads = <List<String>>[];
   for (final raw in text.split('\n')) {
@@ -263,23 +241,72 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
       continue;
     }
     final bought = items[number] ?? const [];
-    final what = bought.isEmpty ? '' : bought.first;
-    final more = bought.length > 1 ? ' 等 ${bought.length} 項' : '';
+    entries.add(_invoice(ledger, account, day, shop, number, bought, value));
+  }
+  return Import(entries, skipped);
+}
+
+/// The ministry's 消費明細 CSV, one row per item, added up per invoice by
+/// `data_exchange`. A row it cannot read leaves the whole file out.
+Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
+  final List<EInvoice> invoices;
+  try {
+    invoices = parseEInvoices(text);
+  } on FormatException {
+    return const Import([], 1);
+  }
+  final entries = <Entry>[];
+  var skipped = 0;
+  for (final invoice in invoices) {
+    final BusinessDate(:year, :month, :day) = invoice.date;
+    final date = DateTime.utc(year, month, day);
+    final number = invoice.number;
+    final value = invoice.amount.minorUnits.toInt();
+    if (value <= 0 ||
+        entries.any((e) => e.note.contains(number)) ||
+        _hasInvoice(ledger, date, number)) {
+      skipped++;
+      continue;
+    }
     entries.add(
-      Entry(
-        id: ledger.newId(),
-        date: day,
-        type: EntryType.expense,
-        amount: value,
-        account: account,
-        category: guessCategory(ledger, shop, bought.join(' ')),
-        note: '$what$more 發票 $number'.trim(),
-        merchant: shop,
-        tags: const ['發票'],
+      _invoice(
+        ledger,
+        account,
+        date,
+        invoice.seller,
+        number,
+        invoice.items,
+        value,
       ),
     );
   }
   return Import(entries, skipped);
+}
+
+/// Spending at [shop] on [day] for the invoice [number], noted with its
+/// first item and how many there were.
+Entry _invoice(
+  Ledger ledger,
+  String account,
+  DateTime day,
+  String shop,
+  String number,
+  List<String> bought,
+  int value,
+) {
+  final what = bought.isEmpty ? '' : bought.first;
+  final more = bought.length > 1 ? ' 等 ${bought.length} 項' : '';
+  return Entry(
+    id: ledger.newId(),
+    date: day,
+    type: EntryType.expense,
+    amount: value,
+    account: account,
+    category: guessCategory(ledger, shop, bought.join(' ')),
+    note: '$what$more 發票 $number'.trim(),
+    merchant: shop,
+    tags: const ['發票'],
+  );
 }
 
 bool _hasInvoice(Ledger ledger, DateTime? day, String number) {

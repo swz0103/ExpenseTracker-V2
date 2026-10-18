@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
 import '../compose/composer.dart';
@@ -105,6 +108,7 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     if (outcome == ComposeOutcome.deleted) {
+      unawaited(HapticFeedback.mediumImpact());
       final removed = ledger.remove(saved.id);
       if (removed == null) return;
       showNote(
@@ -115,6 +119,7 @@ class _AppShellState extends State<AppShell> {
       );
       return;
     }
+    unawaited(HapticFeedback.lightImpact());
     showNote(
       context,
       entry == null ? '已記下' : '已更新',
@@ -188,16 +193,31 @@ class _AppShellState extends State<AppShell> {
         body: SafeArea(
           bottom: false,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 240),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, 0.03),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
             child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
         ),
         bottomNavigationBar: _BottomBar(
           tab: _tab,
-          onTab: (tab) => setState(() {
-            _tab = tab;
-            _page = null;
-          }),
+          onTab: (tab) {
+            if (tab != _tab || _page != null) HapticFeedback.selectionClick();
+            setState(() {
+              _tab = tab;
+              _page = null;
+            });
+          },
           onRecord: () => _compose(),
         ),
       ),
@@ -242,20 +262,38 @@ class _BottomBar extends StatelessWidget {
                     child: Center(
                       child: Tooltip(
                         message: '記一筆',
-                        child: Material(
-                          color: Hue.accent,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: onRecord,
-                            child: const SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: Center(
-                                child: GlyphIcon(
-                                  Glyph.add,
-                                  color: Hue.white,
-                                  weight: 2,
+                        child: Pressable(
+                          depth: 0.9,
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0x553B6C80),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Hue.accent,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  onRecord();
+                                },
+                                child: const SizedBox(
+                                  width: 50,
+                                  height: 50,
+                                  child: Center(
+                                    child: GlyphIcon(
+                                      Glyph.add,
+                                      color: Hue.white,
+                                      weight: 2,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -272,10 +310,15 @@ class _BottomBar extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        GlyphIcon(
-                          icon,
-                          color: item == tab ? Hue.accent : Hue.muted,
-                          tinted: item == tab,
+                        AnimatedScale(
+                          scale: item == tab ? 1.12 : 1,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutBack,
+                          child: GlyphIcon(
+                            icon,
+                            color: item == tab ? Hue.accent : Hue.muted,
+                            tinted: item == tab,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(

@@ -90,6 +90,21 @@ void main() {
     expect(keys.deviceIds, isNot(contains('phone-2')));
     startup.lock();
   });
+
+  test('a ledger without a password opens by itself', () async {
+    final startup = Startup(vault);
+    await startup.setUpWithoutPassword();
+    expect(startup.state, isA<Ready>());
+    expect(startup.passwordless, isTrue);
+    expect(startup.takeRecoveryCode(), isNull);
+
+    startup.lock();
+    final again = Startup(vault);
+    expect(again.state, isA<Locked>());
+    expect(again.passwordless, isTrue);
+    await again.openQuietly();
+    expect(again.state, isA<Ready>());
+  });
 }
 
 /// A device key whose fingerprint prompt is always cancelled.

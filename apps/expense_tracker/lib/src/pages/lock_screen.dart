@@ -12,9 +12,10 @@ import '../look/widgets.dart';
 import '../platform.dart';
 import '../startup.dart';
 
-/// The first screen of the phone app: a password to create the encrypted
-/// ledger, or to open it; the recovery code opens it when the password is
-/// forgotten.
+/// The first screen of the phone app. A new ledger starts with one tap,
+/// without a password (one can be set first, or later in settings), or
+/// from a backup. A ledger with a password asks for it, a fingerprint or
+/// the recovery code; one without opens by itself.
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.startup});
 
@@ -32,10 +33,22 @@ class _LockScreenState extends State<LockScreen> {
 
   /// Restoring a backup instead of creating an empty ledger.
   var _restoring = false;
+
+  /// Setting a password before starting a new ledger.
+  var _withPassword = false;
   var _busy = false;
   String? _problem;
 
-  bool get _creating => widget.startup.state is NeedsSetup && !_restoring;
+  bool get _creating =>
+      widget.startup.state is NeedsSetup && !_restoring && _withPassword;
+
+  /// The first screen of a new ledger, before any choice.
+  bool get _welcome =>
+      widget.startup.state is NeedsSetup && !_restoring && !_withPassword;
+
+  /// A ledger without a password, opening by itself.
+  bool get _quiet =>
+      widget.startup.state is Locked && widget.startup.passwordless;
 
   /// This phone can open the ledger with a fingerprint or face.
   bool get _biometric => switch (widget.startup.state) {
@@ -46,6 +59,13 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void initState() {
     super.initState();
+    if (_quiet) {
+      _busy = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openQuietly());
+      });
+      return;
+    }
     if (_biometric) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_unlockWithDevice());
@@ -70,6 +90,27 @@ class _LockScreenState extends State<LockScreen> {
       );
     } on Object {
       _fail('指紋解鎖已取消，可以改用密碼');
+    }
+  }
+
+  Future<void> _openQuietly() async {
+    try {
+      await widget.startup.openQuietly();
+    } on Object catch (error) {
+      _fail('無法開啟帳本（$error）');
+    }
+  }
+
+  /// Starts a new ledger without a password.
+  Future<void> _start() async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await widget.startup.setUpWithoutPassword();
+    } on Object catch (error) {
+      _fail('無法建立帳本（$error）');
     }
   }
 
@@ -114,7 +155,7 @@ class _LockScreenState extends State<LockScreen> {
       _fail('找不到這個備份檔');
     } on KeyringException catch (error) {
       _fail(switch (error.error) {
-        KeyringError.weakPassword => '密碼至少要 12 個字',
+        KeyringError.weakPassword => '密碼至少要 6 個字',
         KeyringError.wrongSecret => _recovery ? '救援碼不正確' : '密碼不正確',
         _ => '無法開啟帳本（${error.error.name}）',
       });
@@ -141,6 +182,13 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_welcome) return _welcomeScreen();
+    if (_quiet && _problem == null) {
+      return const Scaffold(
+        backgroundColor: Hue.paper,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final creating = _creating;
     final empty = widget.startup.state is NeedsSetup;
     final title = creating
@@ -149,7 +197,7 @@ class _LockScreenState extends State<LockScreen> {
         ? '從備份還原'
         : '打開帳本';
     final hint = creating
-        ? '帳本會以這組密碼加密，只存在這台裝置上。'
+        ? '帳本會以這組密碼加密，只存在這台裝置上。至少 6 個字。'
         : _restoring
         ? '輸入備份檔的位置，和那個帳本的密碼或救援碼。'
         : _recovery
@@ -286,12 +334,110 @@ class _LockScreenState extends State<LockScreen> {
                       onPressed: _busy
                           ? null
                           : () => setState(() {
-                              _restoring = !_restoring;
+                              _restoring = false;
+                              _withPassword = false;
                               _recovery = false;
                               _problem = null;
                             }),
-                      child: Text(_restoring ? '改為建立新帳本' : '從備份還原'),
+                      child: const Text('返回'),
                     ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _welcomeScreen() {
+    final problem = _problem;
+    return Scaffold(
+      backgroundColor: Hue.paper,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: IconBadge(Glyph.wallet, Hue.accent, size: 84),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    '歡迎使用記帳本',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '帳本只存在這台手機，並且加密保存。\n不用註冊，現在就能開始記帳。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Hue.muted, height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  FilledButton(
+                    onPressed: _busy ? null : _start,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Hue.accent,
+                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: _busy
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Hue.white,
+                            ),
+                          )
+                        : const Text(
+                            '開始記帳',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                  if (problem != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        problem,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Hue.danger),
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _withPassword = true),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('先設定密碼'),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _restoring = true),
+                    child: const Text('從備份還原'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '之後可以在「設定」加上密碼或指紋解鎖。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Hue.muted),
+                  ),
                 ],
               ),
             ),

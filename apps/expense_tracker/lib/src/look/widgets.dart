@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'glyphs.dart';
 import 'theme.dart';
@@ -168,7 +169,7 @@ class SoftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(18);
-    return DecoratedBox(
+    final panel = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: color == Hue.white ? Hue.cardShadow : null,
@@ -184,6 +185,7 @@ class SoftPanel extends StatelessWidget {
         ),
       ),
     );
+    return onTap == null ? panel : Pressable(depth: 0.985, child: panel);
   }
 }
 
@@ -432,55 +434,75 @@ class Tile extends StatelessWidget {
           ),
       ],
     );
-    return Material(
-      color: hero ? Hue.hero : Hue.tile,
-      borderRadius: radius,
-      child: InkWell(
+    final tap = onTap;
+    final tile = DecoratedBox(
+      decoration: BoxDecoration(
         borderRadius: radius,
-        onTap: onTap,
-        child: Padding(
-          padding: hero
-              ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
-              : const EdgeInsets.fromLTRB(13, 12, 13, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconChip(icon),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: Hue.accent,
-                      ),
-                    ),
-                  ),
-                  ?trailing,
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (side != null)
+        boxShadow: Hue.tileShadow,
+        gradient: hero
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFD3DEE0), Hue.hero],
+              )
+            : null,
+      ),
+      child: Material(
+        color: hero ? Colors.transparent : Hue.tile,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: tap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  tap();
+                },
+          child: Padding(
+            padding: hero
+                ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
+                : const EdgeInsets.fromLTRB(13, 12, 13, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Row(
                   children: [
-                    side,
-                    const SizedBox(width: 12),
-                    Expanded(child: text),
+                    IconChip(icon),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Hue.accent,
+                        ),
+                      ),
+                    ),
+                    ?trailing,
                   ],
-                )
-              else
-                text,
-              ?child,
-            ],
+                ),
+                const SizedBox(height: 8),
+                if (side != null)
+                  Row(
+                    children: [
+                      side,
+                      const SizedBox(width: 12),
+                      Expanded(child: text),
+                    ],
+                  )
+                else
+                  text,
+                ?child,
+              ],
+            ),
           ),
         ),
       ),
     );
+    return tap == null ? tile : Pressable(child: tile);
   }
 }
 
@@ -687,7 +709,10 @@ class Segments extends StatelessWidget {
           for (final (i, label) in labels.indexed)
             Expanded(
               child: GestureDetector(
-                onTap: () => onChanged(i),
+                onTap: () {
+                  if (i != selected) HapticFeedback.selectionClick();
+                  onChanged(i);
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -710,6 +735,43 @@ class Segments extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Sinks a little under the finger and springs back, so a tap is felt as
+/// well as seen.
+class Pressable extends StatefulWidget {
+  const Pressable({super.key, required this.child, this.depth = 0.97});
+
+  final Widget child;
+
+  /// How far it shrinks while held.
+  final double depth;
+
+  @override
+  State<Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<Pressable> {
+  var _down = false;
+
+  void _set(bool down) {
+    if (_down != down) setState(() => _down = down);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _down ? widget.depth : 1,
+        duration: Duration(milliseconds: _down ? 90 : 220),
+        curve: _down ? Curves.easeOut : Curves.easeOutBack,
+        child: widget.child,
       ),
     );
   }

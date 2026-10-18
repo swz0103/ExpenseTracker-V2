@@ -174,6 +174,7 @@ final class ConfirmRecurring extends PostingCommand {
     this.allocations = const [],
     this.tags = const [],
     this.merchant,
+    this.homeValue,
   }) : super(operation, postingId);
 
   final PublicId templateId;
@@ -189,6 +190,10 @@ final class ConfirmRecurring extends PostingCommand {
   final List<CategoryShare> allocations;
   final List<TagSelection> tags;
   final MerchantSelection? merchant;
+
+  /// For a template in a foreign currency: what this occurrence was worth
+  /// in the home currency that day (G-11).
+  final Money? homeValue;
 
   @override
   Map<String, Object?> get fields => {
@@ -211,5 +216,7 @@ final class ConfirmRecurring extends PostingCommand {
             'id': merchant!.id.value,
             'expectedVersion': merchant!.expectedVersion,
           },
+    // Left out when absent, so earlier confirmations keep their identity.
+    if (homeValue != null) 'homeValue': homeValue!.toJson(),
   };
 }

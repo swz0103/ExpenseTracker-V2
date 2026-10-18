@@ -224,7 +224,14 @@ final class PlanningBook<T extends PlanningTransaction> {
     await _books._savePosting(
       t,
       posting,
-      await _books._metadata(t, workspace, command.tags, command.merchant),
+      await _books._metadata(
+        t,
+        workspace,
+        command.tags,
+        command.merchant,
+        homeValue: command.homeValue,
+        currency: value.currency,
+      ),
     );
     await t.saveConfirmation(template.id, command.dueDate, posting.id);
     await t.appendEvent(

@@ -20,7 +20,10 @@ import 'startup.dart';
 /// in [directory], opened through [Startup]. The memory preview is not
 /// reachable from here; a test walks the imports to keep it that way.
 Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
-    Startup(LedgerVault(directory, codec: KeyringCodec()), device: device);
+    Startup(
+      LedgerVault(directory, codec: KeyringCodec(minimumPassword: 6)),
+      device: device,
+    );
 
 /// Where this device keeps the ledger: the app's private folder on
 /// Android, a folder in the home directory on desktop development builds.
@@ -142,7 +145,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
       case AppLifecycleState.resumed:
         final left = _leftAt;
         _leftAt = null;
-        if (left != null && DateTime.now().difference(left) >= _away) {
+        if (left != null &&
+            !widget.startup.passwordless &&
+            DateTime.now().difference(left) >= _away) {
           unawaited(_keeper.lock());
         }
       default:

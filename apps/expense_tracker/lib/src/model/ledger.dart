@@ -36,6 +36,7 @@ final class Account {
     this.archived = false,
     this.inNetWorth = true,
     this.currency = 'TWD',
+    this.closes = const {},
   });
 
   final String id;
@@ -49,6 +50,10 @@ final class Account {
 
   /// Kept in a currency other than NT$.
   bool get foreign => currency != 'TWD';
+
+  /// A card's statements that close on another day than scheduled, such
+  /// as around a holiday: the actual close by the scheduled one.
+  final Map<DateTime, DateTime> closes;
 
   /// The account's own mark, such as 'safe' or 'chat'; null takes the
   /// mark of its [kind].
@@ -79,6 +84,7 @@ final class Account {
     int? limit,
     bool? archived,
     bool? inNetWorth,
+    Map<DateTime, DateTime>? closes,
   }) => Account(
     id,
     name ?? this.name,
@@ -91,6 +97,7 @@ final class Account {
     archived: archived ?? this.archived,
     inNetWorth: inNetWorth ?? this.inNetWorth,
     currency: currency,
+    closes: closes ?? this.closes,
   );
 }
 
@@ -193,7 +200,8 @@ final class Entry {
   /// The bank's fee on a transfer, the broker's on a trade.
   final int fee;
 
-  /// The securities transaction tax on a sale.
+  /// The securities transaction tax on a sale; the NHI supplementary
+  /// premium (二代健保) withheld from a dividend.
   final int tax;
 
   /// The spending this income gives back, for a refund.
@@ -234,10 +242,18 @@ final class Entry {
     _ => 0,
   };
 
+  /// A capital reduction: the company takes back [shares] (negative) and
+  /// returns [amount] in cash, which lowers the cost rather than earning.
+  bool get isReduction => type == EntryType.dividend && shares < 0;
+
+  /// What a dividend paid out, after the premium withheld.
+  int get dividendNet =>
+      type == EntryType.dividend && !isReduction ? amount - tax : 0;
+
   /// What the entry brings in: income and dividends, not refunds.
   int get earning => switch (type) {
     EntryType.income when !isRefund => worth,
-    EntryType.dividend => amount,
+    EntryType.dividend => dividendNet,
     _ => 0,
   };
 
@@ -405,9 +421,13 @@ final class Lot {
 final class Budget {
   const Budget(this.category, this.limit, {this.warning = 80});
 
-  /// A category name, or [Ledger.allSpending] for the total.
+  /// A category name, [Ledger.allSpending] for the total, or `#` and a
+  /// tag for the spending carrying it, such as `#旅遊`.
   final String category;
   final int limit;
+
+  /// The tag of a tag budget; null for a category or the total.
+  String? get tag => category.startsWith('#') ? category.substring(1) : null;
 
   /// The share used, in percent, at which the budget warns.
   final int warning;
@@ -559,7 +579,9 @@ final class Ledger extends ChangeNotifier {
     required List<Recurring> recurring,
     this.journal,
     Map<String, double> rates = const {},
+    Map<String, int> cardDues = const {},
   }) : _rates = {...rates},
+       _dues = {...cardDues},
        _accounts = [...accounts],
        _categories = [...categories],
        _entries = [...entries],
@@ -589,6 +611,9 @@ final class Ledger extends ChangeNotifier {
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
   final Map<String, double> _rates;
+
+  /// Each card's [statementDue] as the journal's billing has it, by id.
+  final Map<String, int> _dues;
   var _holdings = <Holding>[];
   var _lots = <String, List<Lot>>{};
 
@@ -717,9 +742,6 @@ final class Ledger extends ChangeNotifier {
       if (e.date == day) e,
   ];
 
-  int _sum(Iterable<Entry> entries) =>
-      entries.fold(0, (total, e) => total + e.amount);
-
   /// Income of a month, dividends included.
   int income(int year, int month) =>
       entriesIn(year, month).fold(0, (total, e) => total + e.earning);
@@ -730,7 +752,7 @@ final class Ledger extends ChangeNotifier {
       .fold(0, (total, e) => total + e.spending);
 
   int dividends(int year, int month) =>
-      _sum(entriesIn(year, month).where((e) => e.type == EntryType.dividend));
+      entriesIn(year, month).fold(0, (sum, e) => sum + e.dividendNet);
 
   int spentOn(DateTime day) =>
       entriesOn(day).fold(0, (total, e) => total + e.spending);
@@ -773,7 +795,7 @@ final class Ledger extends ChangeNotifier {
   }
 
   int dividendsBetween(DateTime from, DateTime to) =>
-      _sum(_between(from, to).where((e) => e.type == EntryType.dividend));
+      _between(from, to).fold(0, (sum, e) => sum + e.dividendNet);
 
   /// Spending by category name from [from] to [to].
   Map<String, int> spendingBetween(DateTime from, DateTime to) {
@@ -832,7 +854,8 @@ final class Ledger extends ChangeNotifier {
     var change = 0;
     if (e.account == account) {
       change += switch (e.type) {
-        EntryType.income || EntryType.dividend => e.amount,
+        EntryType.income => e.amount,
+        EntryType.dividend => e.isReduction ? e.amount : e.dividendNet,
         EntryType.sell => e.amount - e.fee - e.tax,
         EntryType.buy || EntryType.transfer => -(e.amount + e.fee),
         EntryType.expense => -billed(e, at),
@@ -846,14 +869,22 @@ final class Ledger extends ChangeNotifier {
 
   /// The last statement closing of [card] on or before [day].
   DateTime closingOn(Account card, DateTime day) {
-    DateTime closing(int year, int month) => DateTime.utc(
-      year,
-      month,
-      min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
-    );
+    DateTime closing(int year, int month) {
+      final scheduled = scheduledClose(card, year, month);
+      return card.closes[scheduled] ?? scheduled;
+    }
+
     final here = closing(day.year, day.month);
     return here.isAfter(day) ? closing(day.year, day.month - 1) : here;
   }
+
+  /// The close [card]'s billing day sets in [year]/[month], before any
+  /// move.
+  DateTime scheduledClose(Account card, int year, int month) => DateTime.utc(
+    year,
+    month,
+    min(card.closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
+  );
 
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
@@ -898,8 +929,16 @@ final class Ledger extends ChangeNotifier {
     return (start, end, due);
   }
 
-  /// What is still to pay on the last statement of [card].
+  /// What is still to pay on the last statement of [card]: the journal's
+  /// figure once every change has reached it, else [dueFromEntries].
   int statementDue(Account card) {
+    final kept = _dues[card.id];
+    return kept != null && _waiting == 0 ? kept : dueFromEntries(card);
+  }
+
+  /// [statementDue] worked out from the entries, as the screens show it
+  /// before a change has been kept.
+  int dueFromEntries(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
     for (final e in _entries) {
@@ -1139,6 +1178,15 @@ final class Ledger extends ChangeNotifier {
 
   // Budgets and recurring items.
 
+  /// What spending carrying [tag] came to in [year]/[month].
+  int spentOnTag(String tag, int year, int month) {
+    var total = 0;
+    for (final e in entriesIn(year, month)) {
+      if (e.tags.contains(tag)) total += e.spending;
+    }
+    return total;
+  }
+
   Budget budgetFor(String category) => _budgets.firstWhere(
     (b) => b.category == category,
     orElse: () => Budget(category, 0),
@@ -1347,6 +1395,18 @@ final class Ledger extends ChangeNotifier {
     _keep((j) => j.setOpening(moved, moved.opening));
   }
 
+  /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
+  /// [closesOn], up to a week either way, as a bank does around a holiday.
+  void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
+    final index = _accounts.indexWhere((a) => a.id == cardId);
+    if (index < 0) return;
+    final card = _accounts[index];
+    final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
+    _accounts[index] = moved;
+    notifyListeners();
+    _keep((j) => j.moveClose(moved, scheduled, closesOn));
+  }
+
   /// Whether [id] has any entries; an account without can be removed.
   bool isUsed(String id) => _entries.any((e) => e.account == id || e.to == id);
 
@@ -1404,10 +1464,20 @@ final class Ledger extends ChangeNotifier {
     _keep((j) => j.saveRecurring(toggled));
   }
 
+  /// [item]'s amount in its account's currency, as the screens write it.
+  String recurringAmount(Recurring item) =>
+      amountIn(item.amount, account(item.account).currency);
+
+  /// [item]'s amount in whole NT$ at today's rate; 0 without one.
+  int recurringWorth(Recurring item) =>
+      toHome(item.amount, account(item.account).currency) ?? 0;
+
   /// The entry that books [item] on its pending day, or today if that is
-  /// later, for the composer to show before it is saved.
+  /// later, for the composer to show before it is saved. A foreign one
+  /// takes its worth at today's rate.
   Entry booking(Recurring item) {
     final date = pendingDate(item) ?? today;
+    final currency = account(item.account).currency;
     return Entry(
       id: '',
       date: date.isAfter(today) ? today : date,
@@ -1418,6 +1488,7 @@ final class Ledger extends ChangeNotifier {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
+      home: currency == 'TWD' ? null : toHome(item.amount, currency),
     );
   }
 
@@ -1435,6 +1506,7 @@ final class Ledger extends ChangeNotifier {
         note: entry.note,
         recurring: entry.recurring,
         merchant: entry.merchant,
+        home: entry.home,
       ),
     );
   }
@@ -1495,6 +1567,12 @@ final class Ledger extends ChangeNotifier {
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
   void renameTag(String from, String to) {
+    for (final (i, b) in _budgets.indexed) {
+      if (b.tag == from && to.isNotEmpty) {
+        _budgets[i] = Budget('#$to', b.limit, warning: b.warning);
+      }
+    }
+    if (to.isEmpty) _budgets.removeWhere((b) => b.tag == from);
     for (final (i, e) in _entries.indexed) {
       if (!e.tags.contains(from)) continue;
       final tags = {
@@ -1549,6 +1627,9 @@ final class Ledger extends ChangeNotifier {
     _rates
       ..clear()
       ..addAll(fresh._rates);
+    _dues
+      ..clear()
+      ..addAll(fresh._dues);
     _replay();
     notifyListeners();
   }
@@ -1592,6 +1673,21 @@ final class Ledger extends ChangeNotifier {
     return scaled;
   }
 
+  /// [lots] with [amount] taken off their cost in proportion to it; the
+  /// last takes what rounding leaves.
+  static List<Lot> _lowered(List<Lot> lots, int amount) {
+    final total = lots.fold(0, (sum, l) => sum + l.cost);
+    if (total == 0 || amount == 0) return lots;
+    var left = amount;
+    final lowered = <Lot>[];
+    for (final (i, l) in lots.indexed) {
+      final part = i == lots.length - 1 ? left : amount * l.cost ~/ total;
+      left -= part;
+      lowered.add(Lot(l.date, l.shares, l.cost - part));
+    }
+    return lowered;
+  }
+
   /// Rebuilds the holdings and their lots from the starting positions and
   /// every investment entry in date order.
   void _replay() {
@@ -1602,11 +1698,17 @@ final class Ledger extends ChangeNotifier {
       for (final h in _startHoldings)
         h.code: [if (h.shares > 0) Lot(opening, h.shares, h.cost)],
     };
+    // In date order, and in the order written within a day: a sort that
+    // kept no order could put a day's sale before its purchase.
     final trades = [
-      for (final e in _entries)
-        if (e.isInvestment && e.holding != null) e,
-    ]..sort((a, b) => a.date.compareTo(b.date));
-    for (final e in trades) {
+      for (final (i, e) in _entries.indexed)
+        if (e.isInvestment && e.holding != null) (i, e),
+    ];
+    trades.sort((a, b) {
+      final byDate = a.$2.date.compareTo(b.$2.date);
+      return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
+    });
+    for (final (_, e) in trades) {
       final code = e.holding!;
       // A stock bought for the first time takes its first price per share
       // as the reference until a close is known.
@@ -1640,13 +1742,25 @@ final class Ledger extends ChangeNotifier {
             cost: held.cost - part,
             realized: held.realized + e.amount - e.fee - e.tax - part,
           );
+        case EntryType.dividend when e.isReduction && held.shares > 0:
+          final left = max(0, held.shares + e.shares);
+          final lowered = min(e.amount, held.cost);
+          final scaled = _scaled(lots[code] ?? const [], left);
+          lots[code] = _lowered(scaled, lowered);
+          final worth = max(0.0, held.price * held.shares - e.amount);
+          byCode[code] = held.copyWith(
+            shares: left,
+            cost: held.cost - lowered,
+            price: left == 0 ? held.price : worth / left,
+            realized: held.realized + e.amount - lowered,
+          );
         case EntryType.dividend when e.split && held.shares > 0:
           final ratio = (held.shares + e.shares) / held.shares;
           lots[code] = _scaled(lots[code] ?? const [], held.shares + e.shares);
           byCode[code] = held.copyWith(
             shares: held.shares + e.shares,
             price: held.price / ratio,
-            dividends: held.dividends + e.amount,
+            dividends: held.dividends + e.dividendNet,
           );
         case EntryType.dividend:
           if (e.shares > 0) {
@@ -1654,7 +1768,7 @@ final class Ledger extends ChangeNotifier {
           }
           byCode[code] = held.copyWith(
             shares: held.shares + e.shares,
-            dividends: held.dividends + e.amount,
+            dividends: held.dividends + e.dividendNet,
           );
         default:
           break;

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/foundation.dart';
@@ -18,7 +20,8 @@ sealed class StartupState {
   const StartupState();
 }
 
-/// No ledger on this device: set a password, or restore a backup.
+/// No ledger on this device: start one, with or without a password, or
+/// restore a backup.
 final class NeedsSetup extends StartupState {
   const NeedsSetup();
 }
@@ -61,6 +64,39 @@ final class Startup extends ChangeNotifier {
   /// Opens and checks the ledger's keys.
   KeyringCodec get codec => _vault.codec;
 
+  /// Where the key of a ledger opened without a password is kept, in the
+  /// app's private folder, until the person sets a password.
+  File get _quickKey => File('${directory.path}/quick-open.key');
+
+  /// The ledger opens without asking: no password has been set.
+  bool get passwordless => _quickKey.existsSync();
+
+  /// Creates the ledger without asking for anything: a random key kept
+  /// on this device opens it, and a password can be set later.
+  Future<void> setUpWithoutPassword() async {
+    await directory.create(recursive: true);
+    final random = Random.secure();
+    final secret = base64Url.encode([
+      for (var i = 0; i < 32; i++) random.nextInt(256),
+    ]);
+    await _quickKey.writeAsString(secret, flush: true);
+    final (open, _) = await _vault.create(secret);
+    _ready(open);
+  }
+
+  /// Opens a ledger set up without a password.
+  Future<void> openQuietly() async {
+    _ready(await _vault.unlockWithPassword(await quickSecret()));
+  }
+
+  /// The key a ledger without a password opens with.
+  Future<String> quickSecret() async => (await _quickKey.readAsString()).trim();
+
+  /// Drops the kept key once the person has set a password.
+  Future<void> forgetQuickKey() async {
+    if (await _quickKey.exists()) await _quickKey.delete();
+  }
+
   /// Creates the ledger. Returns the recovery code, to show once; it is
   /// also kept for [takeRecoveryCode].
   Future<String> setUp(String password) async {
@@ -100,6 +136,8 @@ final class Startup extends ChangeNotifier {
     final open = await _vault.restore(keys, (staging) async {
       await LedgerBackup.restore(file: file, keys: keys, into: staging);
     });
+    // The restored ledger opens with the backup's own secrets.
+    await forgetQuickKey();
     await _enrolDevice(open);
     _ready(open);
   }

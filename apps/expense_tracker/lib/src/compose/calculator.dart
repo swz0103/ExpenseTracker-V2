@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:foundation_values/foundation_values.dart' show Currency;
 
 import '../look/figures.dart';
@@ -128,6 +129,7 @@ class _CalculatorState extends State<_Calculator> {
   late var _expression = widget.initial;
 
   void _press(String key) {
+    HapticFeedback.selectionClick();
     setState(() {
       switch (key) {
         case 'C':
@@ -274,23 +276,26 @@ class _CalculatorState extends State<_Calculator> {
         : operator || key == 'C' || key == '⌫'
         ? Hue.accent
         : Hue.ink;
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+    return Pressable(
+      depth: 0.93,
+      child: Material(
+        color: background,
         borderRadius: BorderRadius.circular(16),
-        onTap: () => _press(key),
-        child: Center(
-          child: key == '⌫'
-              ? const GlyphIcon(Glyph.backspace, size: 24, color: Hue.accent)
-              : Text(
-                  key,
-                  style: TextStyle(
-                    fontSize: done ? 16 : 24,
-                    fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                    color: ink,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _press(key),
+          child: Center(
+            child: key == '⌫'
+                ? const GlyphIcon(Glyph.backspace, size: 24, color: Hue.accent)
+                : Text(
+                    key,
+                    style: TextStyle(
+                      fontSize: done ? 16 : 24,
+                      fontWeight: done ? FontWeight.w700 : FontWeight.w500,
+                      color: ink,
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );

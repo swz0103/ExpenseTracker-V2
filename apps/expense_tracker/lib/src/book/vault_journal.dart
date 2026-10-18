@@ -20,6 +20,8 @@ import '../model/ledger.dart' as ui;
 import 'journal.dart';
 import 'looks.dart';
 
+part 'vault_investments.dart';
+
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
   ('居家生活', 'home', 0xFF5C9A83, false),
@@ -91,6 +93,7 @@ final class VaultJournal implements Journal {
   @override
   Future<ui.Ledger> load() async {
     if (_store.categories(_workspace).isEmpty) await _addStarters();
+    if (_store.accounts(_workspace).isEmpty) await _addStarterAccounts();
     final looks = _looks.all();
     final categories = {for (final c in _store.categories(_workspace)) c.id: c};
     final tags = {for (final t in _store.tags(_workspace)) t.id: t};
@@ -145,12 +148,14 @@ final class VaultJournal implements Journal {
     entries.addAll(trades);
     final today = _clock.today();
     final applying = _applying(categories);
+    final accounts = _store.accounts(_workspace);
     return ui.Ledger(
       today: DateTime.utc(today.year, today.month, today.day),
       accounts: [
-        for (final a in _store.accounts(_workspace))
+        for (final a in accounts)
           _accountOf(a, openings[a.id] ?? 0, looks[a.id.value]),
       ],
+      cardDues: _cardDues(accounts, today),
       categories: [
         for (final c in categories.values)
           if (c.replacementId == null)
@@ -159,12 +164,8 @@ final class VaultJournal implements Journal {
       entries: entries,
       holdings: holdings,
       budgets: [
-        for (final MapEntry(key: category, value: plan) in applying.entries)
-          ui.Budget(
-            category == null ? ui.Ledger.allSpending : nameOf(category),
-            _int(plan.limit),
-            warning: plan.warningPercent,
-          ),
+        for (final MapEntry(key: key, value: plan) in applying.entries)
+          ui.Budget(key, _int(plan.limit), warning: plan.warningPercent),
       ],
       rates: _rates,
       recurring: [
@@ -255,6 +256,42 @@ final class VaultJournal implements Journal {
     }
   }
 
+  /// What is still to pay on each card's last closed statement, as the
+  /// ledger's own billing works it out.
+  Map<String, int> _cardDues(List<Account> accounts, BusinessDate today) {
+    final dues = <String, int>{};
+    for (final a in accounts) {
+      if (a.kind != AccountKind.creditCard) continue;
+      final terms = _store.cardTerms(a.id);
+      if (terms == null) continue;
+      final closed = terms.cycleFor(today).startsAfter;
+      final due = _int(_store.statement(a.id, closed).remainingDue);
+      dues[a.id.value] = due < 0 ? 0 : due;
+    }
+    return dues;
+  }
+
+  /// What the ledger holds of each stock, by code: shares and what they
+  /// cost, from its own lots. The screens replay the same trades.
+  Map<String, (int, int)> positions() {
+    final held = <String, (int, int)>{};
+    for (final account in _store.investmentAccounts(_workspace)) {
+      for (final id in _store.positions(account.id)) {
+        final instrument = _store.instrument(id);
+        if (instrument == null) continue;
+        var (shares, cost) = held[instrument.symbol] ?? (0, 0);
+        for (final lot in _store.holdings(account.id, id)) {
+          final quantity = lot.remainingQuantity;
+          final unit = BigInt.from(10).pow(quantity.scale);
+          shares += (quantity.coefficient ~/ unit).toInt();
+          cost += _int(lot.remainingCost);
+        }
+        held[instrument.symbol] = (shares, cost);
+      }
+    }
+    return held;
+  }
+
   ui.Account _accountOf(Account a, int opening, Look? look) {
     final card = a.kind == AccountKind.creditCard;
     final terms = card ? _store.cardTerms(a.id) : null;
@@ -264,6 +301,11 @@ final class VaultJournal implements Journal {
       a.name,
       _uiKind(a.kind),
       opening,
+      closes: {
+        if (terms != null)
+          for (final o in terms.overrides)
+            _date(o.scheduledClose): _date(o.closesOn),
+      },
       icon: look?.icon,
       closingDay: terms?.closingDay,
       dueDay: terms?.dueDay,
@@ -292,6 +334,7 @@ final class VaultJournal implements Journal {
     );
   }
 
+  /// A new ledger's categories.
   Future<void> _addStarters() async {
     for (final (name, icon, color, income) in _starters) {
       final id = PublicId.generate();
@@ -301,12 +344,28 @@ final class VaultJournal implements Journal {
     }
   }
 
+  /// A cash and a bank account for a ledger that has never had one, so
+  /// the first entry can be written at once.
+  Future<void> _addStarterAccounts() async {
+    for (final (name, kind) in const [
+      ('現金', ui.AccountKind.cash),
+      ('銀行帳戶', ui.AccountKind.bank),
+    ]) {
+      await _open(ui.Account(PublicId.generate().value, name, kind, 0));
+    }
+  }
+
   // Entries.
 
   @override
   Future<void> addEntries(List<ui.Entry> entries) async {
-    for (final entry in entries) {
-      await _add(entry);
+    for (final (i, entry) in entries.indexed) {
+      try {
+        await _add(entry);
+      } on Object catch (error) {
+        if (entries.length == 1) rethrow;
+        throw PartlyKept(i, entries.length, error);
+      }
     }
   }
 
@@ -471,10 +530,7 @@ final class VaultJournal implements Journal {
   /// with, as the ledger requires.
   List<CategoryShare> _refundShares(PublicId original, Money refund) {
     final amount = _int(refund);
-    final posting = _store
-        .workspacePostings(_workspace)
-        .where((p) => p.id == original)
-        .firstOrNull;
+    final posting = _store.postingById(original);
     final parts = posting?.allocations ?? const <Allocation>[];
     if (parts.isEmpty) return const [];
     final total = parts.fold(0, (sum, a) => sum + _int(a.amount));
@@ -792,8 +848,7 @@ final class VaultJournal implements Journal {
     final income = e.type == ui.EntryType.income;
     if (e.refundOf != null ||
         (e.type != ui.EntryType.expense && !income) ||
-        account.kind == AccountKind.creditCard ||
-        account.currency != homeCurrency) {
+        account.kind == AccountKind.creditCard) {
       return false;
     }
     final saved = _template(template);
@@ -831,11 +886,12 @@ final class VaultJournal implements Journal {
           expectedTemplateVersion: kept.version,
           dueDate: due,
           account: _ref(account),
-          amount: _ntd(e.amount),
+          amount: _in(account, e.amount),
           date: day,
-          allocations: await _shares(e, income: income),
+          allocations: await _shares(e, income: income, account: account),
           tags: await _tags(e.tags),
           merchant: await _merchant(e.merchant),
+          homeValue: _homeOf(account, e),
         ),
       );
     } on AppFailure catch (error) {
@@ -845,103 +901,7 @@ final class VaultJournal implements Journal {
     return true;
   }
 
-  // Investments.
-
-  /// The screens' trade entries and, for each instrument traded, a
-  /// holding to replay them onto, priced at its last trade.
-  (List<ui.Entry>, List<ui.Holding>) _investments() {
-    final entries = <ui.Entry>[];
-    final quotes = <String, (String, double)>{};
-    final instruments = <String, InvestmentInstrument?>{};
-    for (final account in _store.investmentAccounts(_workspace)) {
-      final funding = account.fundingCashAccountId.value;
-      final held = <String, int>{};
-      for (final r in _store.tradeRecords(account.id)) {
-        final instrumentId = r['instrumentId']! as String;
-        final instrument = instruments.putIfAbsent(
-          instrumentId,
-          () => _store.instrument(PublicId.parse(instrumentId)),
-        );
-        if (instrument == null) continue;
-        final code = instrument.symbol;
-        final id = (r['postingId'] as String?) ?? r['id']! as String;
-        final date = _date(BusinessDate.parse(r['date']! as String));
-        final shares = _whole(r['quantity']);
-        final before = held[code] ?? 0;
-        int money(String key) {
-          final json = r[key];
-          return json is Map<String, Object?> ? _int(Money.fromJson(json)) : 0;
-        }
-
-        switch (r['kind']) {
-          case 'buy' || 'sell':
-            final buy = r['kind'] == 'buy';
-            held[code] = buy ? before + shares : before - shares;
-            final gross = money('gross');
-            final method = r['costMethod'];
-            if (shares > 0) quotes[code] = (instrument.name, gross / shares);
-            entries.add(
-              ui.Entry(
-                id: id,
-                date: date,
-                type: buy ? ui.EntryType.buy : ui.EntryType.sell,
-                amount: gross,
-                account: funding,
-                category: '投資',
-                holding: code,
-                shares: shares,
-                fee: money('fee'),
-                tax: money('tax'),
-                average: method == InvestmentCostMethod.averageCost.name,
-              ),
-            );
-          case 'dividend':
-            entries.add(
-              ui.Entry(
-                id: id,
-                date: date,
-                type: ui.EntryType.dividend,
-                amount: money('net'),
-                account: funding,
-                category: '股息收入',
-                holding: code,
-              ),
-            );
-          case 'split' || 'action':
-            final after =
-                before * (r['newShares']! as int) ~/ (r['oldShares']! as int);
-            held[code] = after;
-            entries.add(
-              ui.Entry(
-                id: id,
-                date: date,
-                type: ui.EntryType.dividend,
-                amount: money('net'),
-                account: funding,
-                category: '股息收入',
-                holding: code,
-                shares: after - before,
-                split: r['kind'] == 'split',
-              ),
-            );
-        }
-      }
-    }
-    return (
-      entries,
-      [
-        for (final MapEntry(key: code, value: (name, price)) in quotes.entries)
-          ui.Holding(
-            code,
-            name,
-            shares: 0,
-            price: _quotes[code] ?? price,
-            cost: 0,
-            change: 0,
-          ),
-      ],
-    );
-  }
+  // Prices and rates; trades are in vault_investments.dart.
 
   static const _ratesKind = '${appEventPrefix}rates';
 
@@ -1036,197 +996,41 @@ final class VaultJournal implements Journal {
     return changed;
   }
 
-  Future<void> _trade(
-    PublicId id,
-    ui.Entry e,
-    Account funding,
-    BusinessDate day,
-  ) async {
-    final code = e.holding;
-    if (code == null || code.isEmpty) {
-      throw const AppFailure(FailureKind.notFound, 'investment.not-found');
-    }
-    final account = await _investmentAccount(funding);
-    final instrument = await _instrument(code);
-    final target = TradeTarget(
-      accountId: account,
-      instrumentId: instrument,
-      funding: _ref(funding),
-    );
-    switch (e.type) {
-      case ui.EntryType.buy:
-        await _invest.buy(
-          BuyInvestment(
-            operation: _op(),
-            buyId: PublicId.generate(),
-            lotId: PublicId.generate(),
-            postingId: id,
-            target: target,
-            tradedOn: day,
-            quantity: '${e.shares}',
-            unitPrice: _unitPrice(e.amount, e.shares),
-            gross: _ntd(e.amount),
-            fee: _ntd(e.fee),
-            tax: _ntd(e.tax),
-          ),
-        );
-      case ui.EntryType.sell:
-        await _invest.sell(
-          SellInvestment(
-            operation: _op(),
-            sellId: PublicId.generate(),
-            postingId: id,
-            target: target,
-            tradedOn: day,
-            costMethod: e.average
-                ? InvestmentCostMethod.averageCost
-                : InvestmentCostMethod.fifo,
-            quantity: '${e.shares}',
-            unitPrice: _unitPrice(e.amount, e.shares),
-            gross: _ntd(e.amount),
-            fee: _ntd(e.fee),
-            tax: _ntd(e.tax),
-          ),
-        );
-      default:
-        await _dividend(id, e, day, target);
-    }
-  }
-
-  /// A dividend in cash, in shares, or a split; a stock dividend paid
-  /// with cash records both.
-  Future<void> _dividend(
-    PublicId id,
-    ui.Entry e,
-    BusinessDate day,
-    TradeTarget target,
-  ) async {
-    if (e.shares > 0) {
-      final held = _held(target.accountId, target.instrumentId);
-      if (e.split) {
-        await _invest.split(
-          SplitInvestment(
-            operation: _op(),
-            splitId: PublicId.generate(),
-            accountId: target.accountId,
-            instrumentId: target.instrumentId,
-            effectiveOn: day,
-            newShares: held + e.shares,
-            oldShares: held,
-          ),
-        );
-      } else {
-        await _invest.corporateAction(
-          RecordCorporateAction(
-            operation: _op(),
-            actionId: PublicId.generate(),
-            postingId: PublicId.generate(),
-            target: target,
-            effectiveOn: day,
-            newShares: held + e.shares,
-            oldShares: held,
-          ),
-        );
-      }
-    }
-    if (e.amount <= 0) return;
-    await _invest.dividend(
-      RecordDividend(
-        operation: _op(),
-        dividendId: PublicId.generate(),
-        postingId: id,
-        target: target,
-        paidOn: day,
-        gross: _ntd(e.amount),
-        withholdingTax: _ntd(0),
-        fee: _ntd(0),
-        net: _ntd(e.amount),
-      ),
-    );
-  }
-
-  /// Whole shares of [instrument] [account] holds now.
-  int _held(PublicId account, PublicId instrument) => _store
-      .holdings(account, instrument)
-      .fold(0, (sum, lot) => sum + _whole(lot.remainingQuantity.toString()));
-
-  /// The investment account [funding] pays for trades, opened with a
-  /// broker of its own the first time.
-  Future<PublicId> _investmentAccount(Account funding) async {
-    for (final a in _store.investmentAccounts(_workspace)) {
-      if (a.fundingCashAccountId == funding.id) return a.id;
-    }
-    final broker = PublicId.generate();
-    await _invest.registerBroker(
-      RegisterBroker(operation: _op(), brokerId: broker, name: '券商'),
-    );
-    final id = PublicId.generate();
-    await _invest.openAccount(
-      OpenInvestmentAccount(
-        operation: _op(),
-        accountId: id,
-        brokerId: broker,
-        fundingAccountId: funding.id,
-        name: '${funding.name}證券',
-      ),
-    );
-    return id;
-  }
-
-  /// The instrument listed as [code], registered the first time.
-  Future<PublicId> _instrument(String code) async {
-    final symbol = code.toUpperCase();
-    final etf = symbol.startsWith('00');
-    final listed = _store.listedInstrument('TWSE', symbol);
-    if (listed != null) return listed;
-    final id = PublicId.generate();
-    await _invest.registerInstrument(
-      RegisterInstrument(
-        operation: _op(),
-        instrumentId: id,
-        kind: etf ? InstrumentKind.etf : InstrumentKind.stock,
-        marketCode: 'TWSE',
-        symbol: symbol,
-        name: symbol,
-        currency: homeCurrency,
-      ),
-    );
-    return id;
-  }
-
-  /// The investment account, instrument and trade behind the entry [id].
-  (PublicId, PublicId, PublicId)? _tradeOf(String id) {
-    for (final account in _store.investmentAccounts(_workspace)) {
-      for (final r in _store.tradeRecords(account.id)) {
-        if (r['postingId'] != id && r['id'] != id) continue;
-        return (
-          account.id,
-          PublicId.parse(r['instrumentId']! as String),
-          PublicId.parse(r['id']! as String),
-        );
-      }
-    }
-    return null;
-  }
-
   // Budgets and recurring items.
 
   /// The budget plans that apply this month, by category (null for all
   /// spending): of several, the one that started last.
-  Map<PublicId?, BudgetPlan> _applying(Map<PublicId, Category> categories) {
+  /// The budget plans that apply this month, by the screens' name for
+  /// them: [ui.Ledger.allSpending], a category, or `#` and a tag.
+  Map<String, BudgetPlan> _applying(Map<PublicId, Category> categories) {
     final today = _clock.today();
     final now = today.year * 12 + today.month;
-    final plans = <PublicId?, BudgetPlan>{};
+    final plans = <String, BudgetPlan>{};
+    final key = _budgetKeys(categories);
     for (final plan in _store.budgetPlans(_workspace)) {
       final start = plan.month.year * 12 + plan.month.month;
       if (start > now || (start < now && !plan.repeats)) continue;
-      final category = plan.categoryId;
-      final key = category == null
-          ? null
-          : _live(categories, category, (c) => c.replacementId)?.id;
-      plans[key] = plan;
+      final name = key(plan);
+      if (name != null) plans[name] = plan;
     }
     return plans;
+  }
+
+  /// The screens' name for a plan: [ui.Ledger.allSpending], a category,
+  /// or `#` and a tag; null when its category or tag is gone.
+  String? Function(BudgetPlan plan) _budgetKeys(
+    Map<PublicId, Category> categories,
+  ) {
+    final tags = {for (final t in _store.tags(_workspace)) t.id: t};
+    return (plan) {
+      if (plan.tagIds.isNotEmpty) {
+        final tag = _live(tags, plan.tagIds.first, (t) => t.replacementId);
+        return tag == null || tag.archived ? null : '#${tag.name}';
+      }
+      final category = plan.categoryId;
+      if (category == null) return ui.Ledger.allSpending;
+      return _live(categories, category, (c) => c.replacementId)?.name;
+    };
   }
 
   Map<PublicId, Category> _categoryMap() => {
@@ -1235,10 +1039,13 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> setBudget(ui.Budget budget) async {
-    final category = budget.category == ui.Ledger.allSpending
+    final key = budget.category;
+    final tag = budget.tag;
+    final category = key == ui.Ledger.allSpending || tag != null
         ? null
-        : (await _category(budget.category, income: false)).id;
-    final current = _applying(_categoryMap())[category];
+        : (await _category(key, income: false)).id;
+    final tagId = tag == null ? null : (await _label(tag, merchant: false)).id;
+    final current = _applying(_categoryMap())[key];
     final today = _clock.today();
     await _planning.setBudget(
       SetBudget(
@@ -1248,6 +1055,7 @@ final class VaultJournal implements Journal {
         month: current?.month ?? ReportMonth(today.year, today.month),
         limit: _ntd(budget.limit),
         categoryId: category,
+        tagIds: {?tagId},
         warningPercent: budget.warning,
         repeats: true,
       ),
@@ -1256,16 +1064,9 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> removeBudget(String category) async {
-    final all = category == ui.Ledger.allSpending;
-    final id = all ? null : _categoryId(category, CategoryKind.expense);
-    if (!all && id == null) return;
-    final categories = _categoryMap();
+    final key = _budgetKeys(_categoryMap());
     for (final plan in _store.budgetPlans(_workspace)) {
-      final planned = plan.categoryId;
-      final key = planned == null
-          ? null
-          : _live(categories, planned, (c) => c.replacementId)?.id;
-      if (key != id) continue;
+      if (key(plan) != category) continue;
       await _planning.removeBudget(
         RemoveBudget(
           operation: _op(),
@@ -1312,6 +1113,7 @@ final class VaultJournal implements Journal {
   Future<void> saveRecurring(ui.Recurring item) async {
     final id = _parse(item.id) ?? PublicId.generate();
     final current = _template(id);
+    final account = _account(item.account);
     final category = item.category.isEmpty
         ? null
         : (await _category(item.category, income: item.income)).id;
@@ -1326,9 +1128,9 @@ final class VaultJournal implements Journal {
         operation: _op(),
         templateId: id,
         expectedVersion: current?.$1.version ?? 0,
-        accountId: _account(item.account).id,
+        accountId: account.id,
         label: item.name,
-        amount: _ntd(item.income ? item.amount : -item.amount),
+        amount: _in(account, item.income ? item.amount : -item.amount),
         firstDate: _day(first),
         unit: RecurrenceUnit.values.byName(item.unit.name),
         every: item.every,
@@ -1445,6 +1247,30 @@ final class VaultJournal implements Journal {
         closingDay: closing,
         dueDay: due,
         limit: limit == null || limit <= 0 ? null : _ntd(limit),
+      ),
+    );
+  }
+
+  @override
+  Future<void> moveClose(
+    ui.Account card,
+    DateTime scheduled,
+    DateTime closesOn,
+  ) async {
+    final id = _account(card.id).id;
+    final terms = _store.cardTerms(id);
+    if (terms == null) {
+      throw const AppFailure(FailureKind.rejected, 'card.no-terms');
+    }
+    await _cards.overrideCycle(
+      OverrideCardCycle(
+        operation: _op(),
+        cardId: id,
+        expectedVersion: terms.version,
+        scheduledClose: _day(scheduled),
+        closesOn: _day(closesOn),
+        // Still paid when that statement would have been.
+        dueOn: terms.cycleFor(_day(scheduled)).dueOn,
       ),
     );
   }

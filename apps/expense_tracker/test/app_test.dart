@@ -1,5 +1,6 @@
 import 'package:app_core/app_core.dart';
 import 'package:expense_tracker/src/app.dart';
+import 'package:expense_tracker/src/book/journal.dart';
 import 'package:expense_tracker/src/problems.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';
@@ -19,6 +20,12 @@ void main() {
     expect(
       describeProblem(const AppFailure(FailureKind.rejected, 'some.code')),
       '無法完成（some.code）。',
+    );
+    expect(
+      describeProblem(
+        const PartlyKept(2, 5, AppFailure(FailureKind.rejected, 'x.y')),
+      ),
+      '第 3 筆無法記下：無法完成（x.y）。前 2 筆已記下，其餘 2 筆沒有記。',
     );
   });
 

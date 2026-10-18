@@ -165,4 +165,19 @@ void main() {
     expect(again.balance(cash.id), 880);
     startup.lock();
   });
+
+  test('a ledger without a password can be given one', () async {
+    final startup = startupIn('quiet');
+    await startup.setUpWithoutPassword();
+    final vault = vaultOf(startup);
+    final keeper = VaultKeeper(startup, vault, VaultJournal(vault));
+    expect(keeper.hasPassword, isFalse);
+    await keeper.setPassword(changed);
+    expect(keeper.hasPassword, isTrue);
+    expect(startup.passwordless, isFalse);
+    await keeper.lock();
+    await startup.unlockWithPassword(changed);
+    expect(startup.state, isA<Ready>());
+    startup.lock();
+  });
 }

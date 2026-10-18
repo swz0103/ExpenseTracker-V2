@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
@@ -55,6 +56,45 @@ class CardPage extends StatelessWidget {
         tags: [reward ? '回饋' : '年費'],
       ),
     );
+  }
+
+  /// The account a card is paid from: the first open bank account, else
+  /// any open account that is not a debt.
+  String _payer() {
+    final open = [
+      for (final a in ledger.openAccounts)
+        if (!a.kind.isDebt && !a.foreign) a,
+    ];
+    for (final a in open) {
+      if (a.kind == AccountKind.bank) return a.id;
+    }
+    return open.isEmpty ? '' : open.first.id;
+  }
+
+  /// Lets the person move the next close of [card], [next], by up to a
+  /// week, as banks do around holidays.
+  Future<void> _moveClose(
+    BuildContext context,
+    Account card,
+    DateTime next,
+  ) async {
+    var scheduled = next;
+    for (final MapEntry(:key, :value) in card.closes.entries) {
+      if (value == next) scheduled = key;
+    }
+    final picked = await pickDate(
+      context,
+      title: '這期改在哪天結帳',
+      selected: next,
+      latest: scheduled.add(const Duration(days: 7)),
+      marked: {scheduled},
+    );
+    if (picked == null) return;
+    if (picked.difference(scheduled).inDays.abs() > 7) {
+      if (context.mounted) showNote(context, '結帳日最多只能前後移動 7 天');
+      return;
+    }
+    ledger.moveClose(card.id, scheduled, picked);
   }
 
   @override
@@ -117,7 +157,7 @@ class CardPage extends StatelessWidget {
                             date: today,
                             type: EntryType.transfer,
                             amount: owed,
-                            account: 'bank',
+                            account: _payer(),
                             category: '轉帳',
                             note: '${card.name}繳款',
                             to: card.id,
@@ -162,6 +202,17 @@ class CardPage extends StatelessWidget {
                     : '含分期未繳 ${money(pending)}',
               ),
             ]),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Tile(
+                icon: Glyph.calendar,
+                label: '下次結帳',
+                value: _day(next),
+                sub: '遇假日可以前後調整 7 天內',
+                trailing: const GlyphIcon(Glyph.edit, size: 16),
+                onTap: () => _moveClose(context, card, next),
+              ),
+            ),
             TileRow([
               Tile(
                 icon: Glyph.sparkle,

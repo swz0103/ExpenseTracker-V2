@@ -1,3 +1,4 @@
+import 'package:data_exchange/data_exchange.dart';
 import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/model/exchange.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
@@ -5,13 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('CSV fields are quoted and read back', () {
-    expect(csvField('午餐'), '午餐');
-    expect(csvField('a,b'), '"a,b"');
-    expect(csvField('說"好"'), '"說""好"""');
-    final rows = parseCsv('日期,備註\n2026-03-05,"a,b ""c"""\n\n');
+    final fields = ['午餐', 'a,b', '說"好"', '兩\n行'];
+    expect(parseCsv(writeCsv([fields])), [fields]);
+    final rows = parseCsv('\u{FEFF}日期,備註\r\n2026-03-05,"a,b ""c"""\n\n');
     expect(rows, [
       ['日期', '備註'],
       ['2026-03-05', 'a,b "c"'],
+    ]);
+    expect(parseCsv('日期,備註\n2026-03-05,"沒有收尾'), [
+      ['日期', '備註'],
+      ['2026-03-05', '沒有收尾'],
     ]);
     expect(readDay('2026/3/5'), DateTime.utc(2026, 3, 5));
     expect(readDay('20260305'), DateTime.utc(2026, 3, 5));
@@ -62,6 +66,39 @@ void main() {
     expect(found.entries.last.category, '交通通勤');
     ledger.addAll(found.entries);
     expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
+  });
+
+  test("the ministry's invoice CSV adds up each invoice's items", () {
+    final ledger = demoLedger();
+    const text =
+        '發票日期,發票號碼,賣方名稱,發票狀態,消費明細_品名,消費明細_金額\n'
+        '20261003,CD00000001,全聯福利中心,開立,鮮奶,199\n'
+        '20261003,CD00000001,全聯福利中心,開立,吐司,69\n'
+        '20261004,CD00000002,某店,作廢,飲料,50\n';
+    final found = importInvoices(ledger, text, account: 'card');
+    expect(found.entries, hasLength(1));
+    final first = found.entries.single;
+    expect((first.amount, first.merchant), (268, '全聯福利中心'));
+    expect(first.note, '鮮奶 等 2 項 發票 CD00000001');
+    ledger.addAll(found.entries);
+    expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
+    expect(importInvoices(ledger, '發票號碼\n壞', account: 'card').skipped, 1);
+  });
+
+  test('a foreign account imports in its own currency', () {
+    final ledger = demoLedger()
+      ..addAccount(
+        const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+      );
+    final found = importCsv(
+      ledger,
+      '日期,類型,金額,帳戶,分類\n2026-10-01,支出,12.5,美元,飲食日常\n',
+      fallback: 'bank',
+    );
+    final entry = found.entries.single;
+    expect((entry.account, entry.amount), ('usd', 1250));
+    expect(entry.home, (12.5 * 32.1).round());
+    expect(toCsv(ledger, [entry]), contains(',12.50,美元,'));
   });
 
   test('stock dividends add free shares, splits multiply them', () {

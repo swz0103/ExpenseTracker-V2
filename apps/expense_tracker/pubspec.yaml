@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/budgets
   categories:
     path: ../../packages/categories
+  data_exchange:
+    path: ../../packages/data_exchange
   foundation_values:
     path: ../../packages/foundation_values
   investments:
