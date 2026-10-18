@@ -34,12 +34,7 @@ enum _Tab { overview, ledger, accounts, more }
 /// bottom. Pages under 更多 and each account open in
 /// place with a back arrow; the system back closes them first.
 class AppShell extends StatefulWidget {
-  const AppShell({
-    super.key,
-    required this.ledger,
-    this.keeper,
-    this.calendar,
-  });
+  const AppShell({super.key, required this.ledger, this.keeper, this.calendar});
 
   final Ledger ledger;
 

@@ -188,10 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final written = await calendar.sync(widget.ledger);
       if (!mounted) return;
       setState(() {});
-      showNote(
-        context,
-        written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆',
-      );
+      showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
     } on Object catch (error) {
       if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
     }

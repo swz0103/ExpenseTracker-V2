@@ -90,6 +90,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.vault,
     market: MarketDataGateway(transport: const IoMarketTransport()),
   );
+
   /// The phone's calendar for due dates, on Android.
   late final _calendar = Platform.isAndroid
       ? CalendarSync(const AndroidCalendar(), widget.startup.directory)
