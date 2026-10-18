@@ -723,4 +723,3 @@ class _Readout extends StatelessWidget {
     style: const TextStyle(fontSize: 13),
   );
 }
-
