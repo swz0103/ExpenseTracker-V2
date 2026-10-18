@@ -133,14 +133,16 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Future<void> _pickRange() async {
+    final first = widget.ledger.firstDay;
+    final start = _from.isBefore(first) ? first : _from;
+    final end = _to.isAfter(_today) ? _today : _to;
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: widget.ledger.firstDay,
+      firstDate: first.isAfter(_today) ? _today : first,
       lastDate: _today,
-      initialDateRange: DateTimeRange(
-        start: _from,
-        end: _to.isAfter(_today) ? _today : _to,
-      ),
+      initialDateRange: start.isAfter(end)
+          ? null
+          : DateTimeRange(start: start, end: end),
       helpText: '選擇期間（以月為單位）',
     );
     if (picked == null || !mounted) return;
@@ -265,7 +267,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 (Glyph.payout, '支出', money(expense), Hue.negative),
                 (
                   Glyph.dividend,
-                  '股息',
+                  '其中股息',
                   money(ledger.dividendsBetween(from, to)),
                   Hue.investment,
                 ),

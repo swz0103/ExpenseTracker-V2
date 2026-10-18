@@ -24,7 +24,6 @@ class InvestmentsPage extends StatefulWidget {
 
 class _InvestmentsPageState extends State<InvestmentsPage> {
   late final _month = (widget.ledger.today.year, widget.ledger.today.month);
-  static const _scale = BarScale.proportional;
 
   /// A group of holdings two to a row in a white card, as 帳戶 shows
   /// accounts; each opens its own page.
@@ -90,7 +89,6 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             AxisBar(
               value: h.gain,
               largest: largest,
-              scale: _scale,
               axis: axis,
               height: 6,
               minimum: 0.1,

@@ -125,9 +125,27 @@ class _OpenedLedgerState extends State<OpenedLedger>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final code = widget.startup.takeRecoveryCode();
-    if (code == null) return;
+    final recovered = widget.startup.takeRecoveryNotice();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(showRecoveryCode(context, code));
+      if (!mounted) return;
+      if (code != null) unawaited(showRecoveryCode(context, code));
+      if (recovered) {
+        unawaited(
+          showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('已用救援碼打開'),
+              content: const Text('現在打開 App 不需要密碼。想要密碼的話，可以到「設定」重新設定。'),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('知道了'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     });
   }
 

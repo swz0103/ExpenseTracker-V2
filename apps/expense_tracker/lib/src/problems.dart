@@ -1,5 +1,6 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:foundation_values/foundation_values.dart';
 
 import 'book/journal.dart';
@@ -40,6 +41,8 @@ String describeProblem(Object error) => switch (error) {
   AppFailure(diagnostic: 'tag.duplicate') => '同一筆紀錄不能有重複的標籤。',
   AppFailure(:final diagnostic) => '無法完成（$diagnostic）。',
   MoneyException(code: MoneyError.precision) => '金額的小數位數太多。',
+  PlatformException(code: 'busy') => '上一個檔案還在處理，請稍候再試。',
+  PlatformException() => '手機沒有完成這個動作，請再試一次。',
   MoneyException() || FormatException() => '請輸入有效的金額。',
   _ => '發生未預期的錯誤。',
 };

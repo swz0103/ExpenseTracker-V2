@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../charts/bar_scale.dart';
 import '../charts/waterfall.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -31,7 +30,6 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  static const _scale = BarScale.proportional;
   var _week = 3;
 
   @override
@@ -52,13 +50,7 @@ class _AccountPageState extends State<AccountPage> {
         var inflow = 0;
         var outflow = 0;
         for (final e in entries) {
-          final change = switch (e.type) {
-            EntryType.income ||
-            EntryType.sell ||
-            EntryType.dividend => e.amount,
-            EntryType.transfer => e.to == account.id ? e.arrived : -e.amount,
-            _ => -e.amount,
-          };
+          final change = ledger.effect(e, account.id);
           if (change > 0) {
             inflow += change;
           } else {
@@ -99,7 +91,6 @@ class _AccountPageState extends State<AccountPage> {
                   Waterfall(
                     weeks: weeks,
                     balance: balance,
-                    scale: _scale,
                     selected: _week,
                     onSelect: (week) => setState(() => _week = week),
                     currency: code,

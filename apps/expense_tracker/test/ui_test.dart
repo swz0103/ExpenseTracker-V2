@@ -180,7 +180,11 @@ void main() {
     final ledger = demoLedger();
     final netflix = ledger.upcoming.first;
     ledger.confirm(netflix);
-    expect(ledger.confirmation(netflix, 2026, 10)!.amount, 390);
+    final booked = [
+      for (final e in ledger.entriesIn(2026, 10))
+        if (e.recurring == netflix.id) e.amount,
+    ];
+    expect(booked, [390]);
     expect([for (final r in ledger.upcoming) r.id], ['internet', 'yoga']);
   });
 

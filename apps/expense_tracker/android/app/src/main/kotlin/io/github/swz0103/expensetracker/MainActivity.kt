@@ -40,9 +40,12 @@ class MainActivity : FlutterFragmentActivity() {
                 return@registerForActivityResult
             }
             try {
-                contentResolver.openOutputStream(uri)?.use { output ->
-                    File(source).inputStream().use { it.copyTo(output) }
+                val output = contentResolver.openOutputStream(uri)
+                if (output == null) {
+                    result.error("export", "The chosen place cannot be written.", null)
+                    return@registerForActivityResult
                 }
+                output.use { File(source).inputStream().use { input -> input.copyTo(it) } }
                 result.success(true)
             } catch (e: Exception) {
                 result.error("export", e.message, null)
@@ -59,10 +62,13 @@ class MainActivity : FlutterFragmentActivity() {
                 return@registerForActivityResult
             }
             try {
-                val copy = File(cacheDir, "restore.etbk")
-                contentResolver.openInputStream(uri)?.use { input ->
-                    copy.outputStream().use { input.copyTo(it) }
+                val input = contentResolver.openInputStream(uri)
+                if (input == null) {
+                    result.error("pick", "The chosen file cannot be read.", null)
+                    return@registerForActivityResult
                 }
+                val copy = File(cacheDir, "restore.etbk")
+                input.use { copy.outputStream().use { output -> it.copyTo(output) } }
                 result.success(copy.absolutePath)
             } catch (e: Exception) {
                 result.error("pick", e.message, null)
@@ -79,6 +85,7 @@ class MainActivity : FlutterFragmentActivity() {
                         BiometricManager.from(this).canAuthenticate(BIOMETRIC_STRONG) ==
                             BiometricManager.BIOMETRIC_SUCCESS,
                     )
+                    "hasDeviceKey" -> result.success(existingKey() != null)
                     "wrap", "unwrap" -> {
                         val data = call.argument<ByteArray>("data")
                         val context = call.argument<ByteArray>("context")
@@ -91,7 +98,9 @@ class MainActivity : FlutterFragmentActivity() {
                     "exportFile" -> {
                         val path = call.argument<String>("path")
                         val name = call.argument<String>("name")
-                        if (path == null || name == null || pendingExport != null) {
+                        if (pendingExport != null) {
+                            result.error("busy", "A file is being saved.", null)
+                        } else if (path == null || name == null) {
                             result.error("bad-arguments", "path and name are required", null)
                         } else {
                             pendingExport = path to result
@@ -132,8 +141,15 @@ class MainActivity : FlutterFragmentActivity() {
                     result.error("bad-blob", "The blob is too short.", null)
                     return
                 }
+                // Opening never makes a key: a missing one was invalidated,
+                // and only a password unlock may enrol a new one.
+                val existing = existingKey()
+                if (existing == null) {
+                    result.error("key-invalidated", "The device key is gone.", null)
+                    return
+                }
                 val iv = GCMParameterSpec(TAG_BITS, data.copyOfRange(0, IV_BYTES))
-                cipher.init(Cipher.DECRYPT_MODE, key(), iv)
+                cipher.init(Cipher.DECRYPT_MODE, existing, iv)
             }
         } catch (e: KeyPermanentlyInvalidatedException) {
             // A fingerprint was added or removed: the key is gone for good,
@@ -178,10 +194,15 @@ class MainActivity : FlutterFragmentActivity() {
         prompt.authenticate(info, BiometricPrompt.CryptoObject(cipher))
     }
 
+    /** The Keystore key, if there is one. */
+    private fun existingKey(): SecretKey? {
+        val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
+        return store.getKey(ALIAS, null) as? SecretKey
+    }
+
     /** The Keystore key, made the first time; every use needs a confirmation. */
     private fun key(): SecretKey {
-        val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        existingKey()?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
         generator.init(
             KeyGenParameterSpec.Builder(

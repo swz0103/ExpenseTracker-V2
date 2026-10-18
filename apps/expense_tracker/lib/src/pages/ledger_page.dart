@@ -165,12 +165,8 @@ class _LedgerPageState extends State<LedgerPage> {
         final (year, month) = _month;
         final shown = _shown();
         final searching = _words.isNotEmpty;
-        final income = searching
-            ? shown.fold(0, (sum, e) => sum + e.earning)
-            : ledger.income(year, month);
-        final expense = searching
-            ? shown.fold(0, (sum, e) => sum + e.spending)
-            : ledger.expense(year, month);
+        final income = shown.fold(0, (sum, e) => sum + e.earning);
+        final expense = shown.fold(0, (sum, e) => sum + e.spending);
         final rows = <Widget>[];
         var group = <Widget>[];
         DateTime? day;

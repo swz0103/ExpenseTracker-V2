@@ -79,12 +79,8 @@ class _AppShellState extends State<AppShell> {
   String? get _parent =>
       _page?.startsWith('holding:') ?? false ? Pages.investments : null;
 
-  void _open(String page) {
-    setState(() {
-      _page = page;
-      _tab = page.startsWith('account:') ? _Tab.accounts : _Tab.more;
-    });
-  }
+  /// Opens [page] over the current tab, which back returns to.
+  void _open(String page) => setState(() => _page = page);
 
   Future<void> _compose({
     EntryType type = EntryType.expense,

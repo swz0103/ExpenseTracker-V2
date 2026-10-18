@@ -580,6 +580,10 @@ final class Ledger extends ChangeNotifier {
   /// Each card's [statementDue] as the journal's billing has it, by id.
   final Map<String, int> _dues;
   var _holdings = <Holding>[];
+
+  /// Each stock's shares after each trade, in date order; counts before a
+  /// split or reduction are scaled to today's shares.
+  var _shareSteps = <String, List<(DateTime, int)>>{};
   var _lots = <String, List<Lot>>{};
 
   /// Amounts are written as dots: the 隱藏金額 switch.
@@ -834,6 +838,9 @@ final class Ledger extends ChangeNotifier {
 
   // Balances.
 
+  /// What [e] does to [account]'s balance as of today.
+  int effect(Entry e, String account) => _effect(e, account, today);
+
   /// What [e] does to [account] by the end of [at].
   int _effect(Entry e, String account, DateTime at) {
     var change = 0;
@@ -899,7 +906,7 @@ final class Ledger extends ChangeNotifier {
     var month = DateTime.utc(e.date.year, e.date.month);
     while (!month.isAfter(at) && periods < e.installments) {
       final closing = closingOn(card, _lastDayOf(month));
-      if (closing.isAfter(e.date) && !closing.isAfter(at)) periods++;
+      if (!closing.isBefore(e.date) && !closing.isAfter(at)) periods++;
       month = DateTime.utc(month.year, month.month + 1);
     }
     return periods;
@@ -909,9 +916,9 @@ final class Ledger extends ChangeNotifier {
       DateTime.utc(month.year, month.month + 1, 0);
 
   /// The last closed statement of [card]: its first and last day and when
-  /// it must be paid.
+  /// it must be paid. A statement closing today is still open.
   (DateTime, DateTime, DateTime) statement(Account card) {
-    final end = closingOn(card, today);
+    final end = closingOn(card, today.subtract(const Duration(days: 1)));
     final start = closingOn(
       card,
       end.subtract(const Duration(days: 1)),
@@ -1144,10 +1151,18 @@ final class Ledger extends ChangeNotifier {
     return total < 0 ? 0 : total;
   }
 
-  /// Counted accounts less debts plus investments at today's value, at
-  /// the end of [day].
+  /// Counted accounts less debts plus the shares then held at today's
+  /// price, at the end of [day].
   int netWorthAt(DateTime day) {
-    var total = investValue;
+    var total = 0;
+    for (final h in _holdings) {
+      final steps = _shareSteps[h.code] ?? const [];
+      final held = steps.lastWhere(
+        (s) => !s.$1.isAfter(day),
+        orElse: () => (day, 0),
+      );
+      total += (h.price * held.$2).round();
+    }
     for (final a in _accounts) {
       if (a.inNetWorth) total += worthOf(a, until: day);
     }
@@ -1189,14 +1204,6 @@ final class Ledger extends ChangeNotifier {
     (b) => b.category == category,
     orElse: () => Budget(category, 0),
   );
-
-  /// The entry confirming [item] in [year]/[month], if any.
-  Entry? confirmation(Recurring item, int year, int month) {
-    for (final e in entriesIn(year, month)) {
-      if (e.recurring == item.id) return e;
-    }
-    return null;
-  }
 
   /// The entries booking [item] in [year]/[month], earliest first.
   List<Entry> confirmationsIn(Recurring item, int year, int month) => [
@@ -1667,6 +1674,9 @@ final class Ledger extends ChangeNotifier {
       final byDate = a.$2.date.compareTo(b.$2.date);
       return byDate != 0 ? byDate : a.$1.compareTo(b.$1);
     });
+    final steps = <String, List<(DateTime, int)>>{
+      for (final h in _startHoldings) h.code: [(opening, h.shares)],
+    };
     for (final (_, e) in trades) {
       final code = e.holding!;
       // A stock bought for the first time takes its first price per share
@@ -1732,8 +1742,20 @@ final class Ledger extends ChangeNotifier {
         default:
           break;
       }
+      final before = held.shares;
+      final after = byCode[code]?.shares ?? before;
+      final rescaled =
+          e.type == EntryType.dividend &&
+          before > 0 &&
+          (e.split || e.isReduction);
+      steps[code] = [
+        for (final (d, n) in steps[code] ?? const <(DateTime, int)>[])
+          (d, rescaled ? (n * after / before).round() : n),
+        (e.date, after),
+      ];
     }
     _lots = lots;
+    _shareSteps = steps;
     _holdings = [
       for (final h in byCode.values)
         if (h.shares > 0 || h.realized != 0) h,

@@ -6,6 +6,7 @@ import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
+import 'dialogs.dart';
 import 'nav.dart';
 
 /// 標籤與商家: every tag and merchant with how often it is used and what
@@ -97,7 +98,13 @@ class _LabelsPageState extends State<LabelsPage> {
       case 'save' when typed.isNotEmpty && typed != name:
         _rename(name, typed);
       case 'remove':
-        _rename(name, '');
+        final ok = await confirm(
+          context,
+          '刪除標籤「$name」？紀錄本身會保留。',
+          '刪除',
+          danger: true,
+        );
+        if (ok && mounted) _rename(name, '');
       case 'merge':
         final into = await pickOption<String>(
           context,

@@ -10,10 +10,14 @@ import 'package:ledger_vault/ledger_vault.dart';
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.
 final class DeviceUnlock {
-  const DeviceUnlock(this.id, this.wrapper);
+  const DeviceUnlock(this.id, this.wrapper, {this.hasKey});
 
   final String id;
   final DeviceKeyWrapper wrapper;
+
+  /// Whether the hardware key is still there; Android drops it when a
+  /// fingerprint is added or removed. Null when it cannot be lost.
+  final Future<bool> Function()? hasKey;
 }
 
 sealed class StartupState {
@@ -151,21 +155,44 @@ final class Startup extends ChangeNotifier {
     });
     // The restored ledger opens with the backup's own password.
     await forgetQuickKey();
-    if (recovery) await _openWithoutPassword(open);
+    if (recovery) {
+      _openedByRecovery = true;
+      await _openWithoutPassword(open);
+    }
     await _enrolDevice(open);
     _ready(open);
   }
 
   Future<void> unlockWithRecovery(String recoveryCode) async {
     final open = await _vault.unlockWithRecovery(recoveryCode);
+    _openedByRecovery = true;
     _ready(await _openWithoutPassword(open));
+  }
+
+  var _openedByRecovery = false;
+
+  /// True once after the recovery code opened the ledger, which has no
+  /// password from then on, so the screens can say so.
+  bool takeRecoveryNotice() {
+    final opened = _openedByRecovery;
+    _openedByRecovery = false;
+    return opened;
   }
 
   Future<void> unlockWithDevice() async {
     final device = this.device;
     if (device == null) throw StateError('No device key.');
+    final hasKey = device.hasKey;
+    if (hasKey != null && !await hasKey()) {
+      // The key is gone: the next password unlock enrols a new one.
+      _reEnrol = true;
+      throw const KeyringException(KeyringError.unknownDevice);
+    }
     _ready(await _vault.unlockWithDevice(device.id, device.wrapper));
   }
+
+  /// The device's key was lost and its old entry must be replaced.
+  var _reEnrol = false;
 
   /// Closes the database.
   void lock() {
@@ -180,12 +207,14 @@ final class Startup extends ChangeNotifier {
   /// fingerprint never blocks the unlock; the next one asks again.
   Future<void> _enrolDevice(OpenVault open) async {
     final device = this.device;
-    if (device == null || open.keys.keyring.deviceIds.contains(device.id)) {
-      return;
-    }
+    if (device == null) return;
+    final known = open.keys.keyring.deviceIds.contains(device.id);
+    if (known && !_reEnrol) return;
     try {
-      final keys = await open.keys.addDevice(device.id, device.wrapper);
+      final current = known ? open.keys.removeDevice(device.id) : open.keys;
+      final keys = await current.addDevice(device.id, device.wrapper);
       await open.updateKeys(keys);
+      _reEnrol = false;
     } on Object catch (error) {
       debugPrint('Device key not enrolled: $error');
     }

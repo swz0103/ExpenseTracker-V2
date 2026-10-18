@@ -54,11 +54,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
   Entry? draft,
   Entry? refundOf,
 }) async {
-  if (ledger.openAccounts.isEmpty) {
-    final add = await confirm(context, '先新增一個帳戶，才能記帳', '新增帳戶');
-    if (add && context.mounted) await editAccount(context, ledger);
-    if (ledger.openAccounts.isEmpty || !context.mounted) return null;
-  }
+  if (!await ensureAccount(context, ledger) || !context.mounted) return null;
   return showSheet<(ComposeOutcome, Entry)>(
     context,
     (_) => Composer(
@@ -533,6 +529,7 @@ class _ComposerState extends State<Composer> {
         income: income,
       ),
       colors: Hue.shades,
+      ledger: _ledger,
     );
     if (made == null) return;
     _ledger.addCategory(made);
