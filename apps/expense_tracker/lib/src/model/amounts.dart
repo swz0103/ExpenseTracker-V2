@@ -24,3 +24,14 @@ int? minorOf(String text, String currency) {
       : whole * 100 + int.parse(decimals.padRight(2, '0'));
   return match[1]!.isEmpty ? value : -value;
 }
+
+/// `1234567` → `1,234,567`; negatives keep a plain `-`.
+String groupDigits(int value) {
+  final digits = value.abs().toString();
+  final grouped = StringBuffer(value < 0 ? '-' : '');
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) grouped.write(',');
+    grouped.write(digits[i]);
+  }
+  return grouped.toString();
+}
