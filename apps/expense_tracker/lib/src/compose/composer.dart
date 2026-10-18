@@ -38,7 +38,7 @@ enum ComposeMode {
 }
 
 /// A form put aside with 暫存, by tab.
-final _drafts = <ComposeMode, Map<String, Object?>>{};
+final _drafts = <ComposeMode, Entry>{};
 
 /// How the composer was left, when not just closed.
 enum ComposeOutcome { saved, deleted, refund }
@@ -138,6 +138,10 @@ class _ComposerState extends State<Composer> {
   final _note = TextEditingController();
   String? _problem;
 
+  /// Shows the merchant, tags and note: hidden until asked for, or until
+  /// an entry that has them is opened, so a quick entry stays short.
+  var _more = false;
+
   /// An entry opened from a list is shown first; 編輯 unlocks it.
   late var _viewing = widget.entry != null;
 
@@ -164,7 +168,7 @@ class _ComposerState extends State<Composer> {
       _category = refunded.category;
     } else {
       final draft = _drafts[_mode];
-      if (draft != null) _restore(draft);
+      if (draft != null) _restoreDraft(draft);
     }
   }
 
@@ -180,6 +184,10 @@ class _ComposerState extends State<Composer> {
     _note.text = entry.note;
     _merchant = entry.merchant;
     _tags = [...entry.tags];
+    _more =
+        entry.merchant.isNotEmpty ||
+        entry.tags.isNotEmpty ||
+        entry.note.isNotEmpty;
     _parts = entry.parts.isEmpty ? null : [...entry.parts];
     _fee = entry.type == EntryType.transfer ? entry.fee : 0;
     _home = entry.home;
@@ -190,7 +198,16 @@ class _ComposerState extends State<Composer> {
     _splitShares = entry.split;
     _reduce = entry.isReduction;
     if (_reduce) _shares = -entry.shares;
+    if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
+      _kept = (entry.fee, entry.tax, _tradeKey);
+    }
   }
+
+  /// The fee and tax an opened trade was saved with, kept while its
+  /// amount, shares, day and stock stay as they were.
+  (int, int, Object)? _kept;
+
+  Object get _tradeKey => (_amount, _shares, _date, _holding);
 
   @override
   void dispose() {
@@ -244,37 +261,13 @@ class _ComposerState extends State<Composer> {
     return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
   }
 
-  Map<String, Object?> _save() => {
-    'trade': _trade,
-    'amount': _amount,
-    'date': _date,
-    'account': _account,
-    'to': _to,
-    'category': _category,
-    'holding': _holding,
-    'shares': _shares,
-    'note': _note.text,
-    'merchant': _merchant,
-    'tags': _tags,
-    'parts': _parts,
-    'fee': _fee,
-  };
-
-  void _restore(Map<String, Object?> s) {
-    _trade = s['trade']! as EntryType;
-    _amount = s['amount']! as int;
-    _date = s['date']! as DateTime;
-    _account = s['account']! as String;
-    _to = s['to']! as String;
-    _category = s['category']! as String;
-    _holding = s['holding'] as String?;
-    _shares = s['shares']! as int;
-    _note.text = s['note']! as String;
-    _merchant = s['merchant']! as String;
-    _tags = [...s['tags']! as List<String>];
-    final parts = s['parts'] as List<(String, int)>?;
-    _parts = parts == null ? null : [...parts];
-    _fee = s['fee']! as int;
+  /// Brings back a draft put aside, on accounts still open.
+  void _restoreDraft(Entry draft) {
+    _load(draft);
+    if (draft.isInvestment) _trade = draft.type;
+    final open = {for (final a in _ledger.openAccounts) a.id};
+    if (!open.contains(_account)) _account = _ledger.openAccounts.first.id;
+    if (!open.contains(_to)) _to = _account;
   }
 
   void _switch(ComposeMode mode) {
@@ -283,7 +276,7 @@ class _ComposerState extends State<Composer> {
       _mode = mode;
       _fresh();
       final draft = _drafts[mode];
-      if (draft != null && widget.entry == null) _restore(draft);
+      if (draft != null && widget.entry == null) _restoreDraft(draft);
     });
   }
 
@@ -339,6 +332,11 @@ class _ComposerState extends State<Composer> {
       _type == EntryType.expense &&
       _ledger.account(_account).kind == AccountKind.card;
 
+  /// A transfer with a fee field: from an NT$ account, whose fee counts
+  /// as NT$ spending, and not to a card, whose payment carries none.
+  bool get _takesFee =>
+      _currency == 'TWD' && _ledger.account(_to).kind != AccountKind.card;
+
   /// The currency of the account paying or receiving, and of a
   /// transfer's receiving account.
   String get _currency => _ledger.account(_account).currency;
@@ -376,6 +374,8 @@ class _ComposerState extends State<Composer> {
   /// The broker's fee and the tax on the trade being written.
   (int, int) get _charges {
     if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
+    final kept = _kept;
+    if (kept != null && kept.$3 == _tradeKey) return (kept.$1, kept.$2);
     final fee = brokerFee(_amount, _shares);
     final code = _holding ?? '';
     final tax = _type == EntryType.sell
@@ -419,7 +419,12 @@ class _ComposerState extends State<Composer> {
     if (day != null) setState(() => _date = day);
   }
 
+  /// An open account; for a refund, one in the purchase's currency.
   Future<String?> _pickAccount(String title, String selected) {
+    final refunded = _refunded;
+    final currency = refunded == null
+        ? null
+        : _ledger.account(refunded.account).currency;
     return pickOption<String>(
       context,
       title: title,
@@ -427,7 +432,8 @@ class _ComposerState extends State<Composer> {
       columns: 3,
       options: [
         for (final a in _ledger.openAccounts)
-          Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+          if (currency == null || a.currency == currency)
+            Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
       ],
     );
   }
@@ -579,57 +585,81 @@ class _ComposerState extends State<Composer> {
         _shares = 0;
         _amount = 0;
         _splitShares = false;
+        _reduce = false;
       }
       _trade = trade;
     });
   }
 
-  void _submit() {
-    final type = _type;
-    final parts = _type == EntryType.expense && !_foreign ? _parts : null;
-    final refunded = _refunded;
-    final (fee, tax) = _charges;
-    String? problem;
-    final splitTotal = parts?.fold(0, (sum, p) => sum + p.$2);
-    final stock = type == EntryType.dividend && _shares > 0;
-    final reducing = stock && _reduce;
+  /// The parts of a split being written; none for a foreign amount.
+  List<(String, int)>? get _splitParts =>
+      _type == EntryType.expense && !_foreign ? _parts : null;
+
+  /// A dividend that changes the shares held: a stock dividend, a split
+  /// or, with [_reduce], a capital reduction.
+  bool get _stock => _type == EntryType.dividend && _shares > 0;
+  bool get _reducing => _stock && _reduce;
+
+  /// The shares held of the stock being written, before the entry being
+  /// edited, when that one is a reduction of it.
+  int get _heldBefore {
     final held = _ledger.holding(_holding ?? '')?.shares ?? 0;
-    if (_amount <= 0 && !stock) {
-      problem = _trading ? '請輸入股數和成交價' : '請輸入金額';
-    } else if (type == EntryType.transfer && _account == _to) {
-      problem = '轉出與轉入不能是同一個帳戶';
-    } else if (_foreign && _homeValue == null) {
-      problem = '還沒有匯率，請輸入折合台幣的金額';
-    } else if (_crossing && _receivedValue == null) {
-      problem = '還沒有匯率，請輸入轉入金額';
-    } else if (type == EntryType.transfer &&
+    final edited = widget.entry;
+    if (edited == null || !edited.isReduction || edited.holding != _holding) {
+      return held;
+    }
+    return held - edited.shares;
+  }
+
+  /// Why the entry cannot be kept yet; null when it can.
+  String? get _check {
+    final type = _type;
+    final refunded = _refunded;
+    final splitTotal = _splitParts?.fold(0, (sum, p) => sum + p.$2);
+    if (_amount <= 0 && !_stock) {
+      return _trading ? '請輸入股數和成交價' : '請輸入金額';
+    }
+    if (type == EntryType.transfer && _account == _to) {
+      return '轉出與轉入不能是同一個帳戶';
+    }
+    if (_foreign && _homeValue == null) return '還沒有匯率，請輸入折合台幣的金額';
+    if (_crossing && _receivedValue == null) return '還沒有匯率，請輸入轉入金額';
+    if (type == EntryType.transfer &&
         _currency != 'TWD' &&
         _ledger.account(_to).kind == AccountKind.card) {
-      problem = '外幣帳戶不能直接繳卡費';
-    } else if (_mode == ComposeMode.investment && _currency != 'TWD') {
-      problem = '投資請用新台幣帳戶';
-    } else if (reducing && _shares > held) {
-      problem = '減少的股數超過持股（${groupDigits(held)} 股）';
-    } else if (type == EntryType.dividend && !reducing && _withheld > _amount) {
-      problem = '補充保費不能超過股息';
-    } else if (_mode == ComposeMode.investment && _holding == null) {
-      problem = '請選擇投資標的';
-    } else if ((type == EntryType.buy || type == EntryType.sell) &&
-        _shares <= 0) {
-      problem = '請輸入股數';
-    } else if (splitTotal != null && splitTotal != _amount) {
-      problem = '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
-    } else if (refunded != null &&
+      return '外幣帳戶不能直接繳卡費';
+    }
+    if (_mode == ComposeMode.investment && _currency != 'TWD') {
+      return '投資請用新台幣帳戶';
+    }
+    if (_reducing && _shares > _heldBefore) {
+      return '減少的股數超過持股（${groupDigits(_heldBefore)} 股）';
+    }
+    if (type == EntryType.dividend && !_reducing && _withheld > _amount) {
+      return '補充保費不能超過股息';
+    }
+    if (_mode == ComposeMode.investment && _holding == null) {
+      return '請選擇投資標的';
+    }
+    if ((type == EntryType.buy || type == EntryType.sell) && _shares <= 0) {
+      return '請輸入股數';
+    }
+    if (splitTotal != null && splitTotal != _amount) {
+      return '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
+    }
+    if (refunded != null &&
         _amount > _ledger.refundable(refunded) + (widget.entry?.amount ?? 0)) {
-      problem = '超過可退金額 ${groupDigits(_ledger.refundable(refunded))}';
+      return '超過可退金額 ${groupDigits(_ledger.refundable(refunded))}';
     }
-    if (problem != null) {
-      setState(() => _problem = problem);
-      return;
-    }
-    // A transfer's fee counts as NT$ spending: only an NT$ account pays one.
-    final transferFee = _currency == 'TWD' ? _fee : 0;
-    final entry = Entry(
+    return null;
+  }
+
+  /// The entry as the form now stands.
+  Entry _build() {
+    final type = _type;
+    final parts = _splitParts;
+    final (fee, tax) = _charges;
+    return Entry(
       id: widget.entry?.id ?? _ledger.newId(),
       date: _date,
       type: type,
@@ -646,22 +676,31 @@ class _ComposerState extends State<Composer> {
       holding: _mode == ComposeMode.investment ? _holding : null,
       shares: _mode != ComposeMode.investment
           ? 0
-          : reducing
+          : _reducing
           ? -_shares
           : _shares,
       recurring: widget.entry?.recurring ?? widget.draft?.recurring,
       merchant: type == EntryType.expense ? _merchant : '',
       tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
       parts: parts != null && parts.length > 1 ? parts : const [],
-      fee: type == EntryType.transfer ? transferFee : fee,
-      tax: type == EntryType.dividend ? (reducing ? 0 : _withheld) : tax,
-      refundOf: refunded?.id,
+      fee: type == EntryType.transfer ? (_takesFee ? _fee : 0) : fee,
+      tax: type == EntryType.dividend ? (_reducing ? 0 : _withheld) : tax,
+      refundOf: _refunded?.id ?? widget.entry?.refundOf,
       installments: _onCard ? _installments : 0,
       average: type == EntryType.sell && _average,
-      split: stock && _splitShares && !reducing,
+      split: _stock && _splitShares && !_reducing,
       home: _foreign ? _homeValue : null,
       received: _crossing ? _receivedValue : null,
     );
+  }
+
+  void _submit() {
+    final problem = _check;
+    if (problem != null) {
+      setState(() => _problem = problem);
+      return;
+    }
+    final entry = _build();
     try {
       if (widget.entry == null) {
         _ledger.add(entry);
@@ -677,7 +716,7 @@ class _ComposerState extends State<Composer> {
   }
 
   void _putAside() {
-    _drafts[_mode] = _save();
+    _drafts[_mode] = _build();
     Navigator.of(context).pop();
   }
 
@@ -771,7 +810,7 @@ class _ComposerState extends State<Composer> {
                     _ when refunded != null => '退款金額',
                     EntryType.transfer => '轉出金額',
                     EntryType.buy || EntryType.sell => '成交金額',
-                    EntryType.dividend when _reduce => '退還股款',
+                    EntryType.dividend when _reducing => '退還股款',
                     _ => '金額',
                   },
                   value: '$_sign${amountIn(_amount, _currency)}',
@@ -929,7 +968,7 @@ class _ComposerState extends State<Composer> {
       case ComposeMode.expense || ComposeMode.income:
         final expense = _mode == ComposeMode.expense;
         return [
-          if (expense)
+          if (expense && _more)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Tile(
@@ -958,8 +997,7 @@ class _ComposerState extends State<Composer> {
                 onTap: _pickInstallments,
               ),
             ),
-          _tagBlock(),
-          _noteField(),
+          if (_more) ...[_tagBlock(), _noteField()] else _moreLink(expense),
         ];
       case ComposeMode.transfer:
         final from = _ledger.account(_account);
@@ -1005,7 +1043,7 @@ class _ComposerState extends State<Composer> {
           ),
           if (_crossing) _receivedTile(),
           TileRow([
-            if (_currency == 'TWD')
+            if (_takesFee)
               Tile(
                 icon: Glyph.coins,
                 label: '手續費',
@@ -1140,6 +1178,20 @@ class _ComposerState extends State<Composer> {
     );
   }
 
+  /// Opens the fields a quick entry leaves out.
+  Widget _moreLink(bool expense) {
+    if (_viewing) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => setState(() => _more = true),
+        icon: const GlyphIcon(Glyph.add, size: 16, color: Hue.accent),
+        label: Text(expense ? '商家、標籤、備註' : '標籤、備註'),
+        style: TextButton.styleFrom(foregroundColor: Hue.accent),
+      ),
+    );
+  }
+
   Widget _tagBlock() {
     if (_viewing && _tags.isEmpty) return const SizedBox.shrink();
     return _Block(
@@ -1234,7 +1286,7 @@ class _ComposerState extends State<Composer> {
           padding: const EdgeInsets.only(top: 8),
           child: Tile(
             icon: Glyph.briefcase,
-            label: _reduce
+            label: _reducing
                 ? '減資減少股數'
                 : _splitShares
                 ? '分割增加股數'
@@ -1251,7 +1303,7 @@ class _ComposerState extends State<Composer> {
             },
           ),
         ),
-        if (_amount > 0 && !_reduce)
+        if (_amount > 0 && !_reducing)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Tile(

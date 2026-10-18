@@ -31,7 +31,7 @@ enum KindFilter {
 }
 
 /// 收支紀錄: the month's income against spending, then every entry by
-/// day, with search, filters and a CSV copy.
+/// day, with search and filters; 設定 exports it.
 class LedgerPage extends StatefulWidget {
   const LedgerPage({super.key, required this.ledger, required this.nav});
 
@@ -48,17 +48,20 @@ class _LedgerPageState extends State<LedgerPage> {
   String? _account;
   String? _search;
 
+  String get _words => (_search ?? '').trim();
+
+  /// The month's entries, or every month's that match the search.
   List<Entry> _shown() {
     final (year, month) = _month;
-    final words = (_search ?? '').trim();
+    final words = _words;
+    final ledger = widget.ledger;
+    final source = words.isEmpty
+        ? ledger.entriesIn(year, month)
+        : ledger.search(words);
     return [
-      for (final e in widget.ledger.entriesIn(year, month))
+      for (final e in source)
         if (_kind.shows(e) &&
-            (_account == null || e.account == _account || e.to == _account) &&
-            (words.isEmpty ||
-                e.note.contains(words) ||
-                e.merchant.contains(words) ||
-                e.category.contains(words)))
+            (_account == null || e.account == _account || e.to == _account))
           e,
     ];
   }
@@ -140,25 +143,17 @@ class _LedgerPageState extends State<LedgerPage> {
     }
   }
 
-  Future<void> _export() async {
-    final ledger = widget.ledger;
-    final (year, month) = _month;
-    final entries = ledger.entriesIn(year, month);
-    final lines = [
-      '日期,類型,金額,帳戶,分類,備註',
-      for (final e in entries.reversed)
-        [
-          '${e.date.year}-${e.date.month}-${e.date.day}',
-          e.type.name,
-          '${e.amount}',
-          ledger.account(e.account).name,
-          e.category,
-          e.note.replaceAll(',', '，'),
-        ].join(','),
-    ];
-    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
-    if (!mounted) return;
-    showNote(context, '已複製 $year 年 $month 月 ${entries.length} 筆紀錄的 CSV');
+  /// Deletes [entry] after a swipe, with a way back.
+  void _remove(Entry entry) {
+    HapticFeedback.mediumImpact();
+    final removed = widget.ledger.remove(entry.id);
+    if (removed == null) return;
+    showNote(
+      context,
+      '已刪除「${entry.title}」',
+      action: '復原',
+      onAction: () => widget.ledger.restore(removed),
+    );
   }
 
   @override
@@ -168,9 +163,14 @@ class _LedgerPageState extends State<LedgerPage> {
       listenable: ledger,
       builder: (context, _) {
         final (year, month) = _month;
-        final income = ledger.income(year, month);
-        final expense = ledger.expense(year, month);
         final shown = _shown();
+        final searching = _words.isNotEmpty;
+        final income = searching
+            ? shown.fold(0, (sum, e) => sum + e.earning)
+            : ledger.income(year, month);
+        final expense = searching
+            ? shown.fold(0, (sum, e) => sum + e.spending)
+            : ledger.expense(year, month);
         final rows = <Widget>[];
         var group = <Widget>[];
         DateTime? day;
@@ -194,23 +194,37 @@ class _LedgerPageState extends State<LedgerPage> {
             rows.add(
               DayHeading(
                 e.date,
-                total: spentToday == 0
-                    ? null
-                    : '支出 ${ledger.hidden ? '••••' : groupDigits(spentToday)}',
+                total: spentToday == 0 ? null : '支出 ${money(spentToday)}',
               ),
             );
           }
           group.add(
-            EntryTile(
-              ledger: ledger,
-              entry: e,
-              onTap: () => widget.nav.showEntry(e),
+            Dismissible(
+              key: ValueKey(e.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: Hue.danger,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                child: const Text(
+                  '刪除',
+                  style: TextStyle(
+                    color: Hue.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              onDismissed: (_) => _remove(e),
+              child: EntryTile(
+                ledger: ledger,
+                entry: e,
+                onTap: () => widget.nav.showEntry(e),
+              ),
             ),
           );
         }
         close();
         final transfers = shown.where((e) => e.type == EntryType.transfer);
-        String hide(int value) => ledger.hidden ? '••••' : groupDigits(value);
         final account = _account;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -226,22 +240,15 @@ class _LedgerPageState extends State<LedgerPage> {
             Tile(
               hero: true,
               icon: Glyph.records,
-              label: '$month 月結餘 · ${shown.length} 筆',
-              value: hide(income - expense),
+              label: searching
+                  ? '搜尋「$_words」· ${shown.length} 筆'
+                  : '$month 月結餘 · ${shown.length} 筆',
+              value: money(income - expense),
               valueColor: income < expense ? Hue.negative : Hue.ink,
               size: 28,
-              trailing: PopupMenuButton<String>(
-                tooltip: '更多動作',
-                color: Hue.panel,
-                icon: const GlyphIcon(Glyph.other, color: Hue.muted),
-                onSelected: (_) => _export(),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'csv', child: Text('複製本月 CSV')),
-                ],
-              ),
               child: TileStats([
-                (Glyph.income, '收入', hide(income), Hue.positive),
-                (Glyph.payout, '支出', hide(expense), Hue.negative),
+                (Glyph.income, '收入', money(income), Hue.positive),
+                (Glyph.payout, '支出', money(expense), Hue.negative),
                 (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
               ]),
             ),
@@ -251,7 +258,7 @@ class _LedgerPageState extends State<LedgerPage> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: '搜尋名稱、分類、商家',
+                      hintText: '搜尋全部紀錄：備註、商家、標籤、金額',
                       isDense: true,
                       filled: true,
                       fillColor: Hue.white,

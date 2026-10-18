@@ -44,9 +44,6 @@ const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
 String longDay(DateTime date) =>
     '${date.month} 月 ${date.day} 日 · 週${weekdayNames[date.weekday - 1]}';
 
-/// 「2026 年 10 月 4 日 · 週日」.
-String fullDay(DateTime date) => '${date.year} 年 ${longDay(date)}';
-
 /// While true, [money] and [moneySigned] write dots instead of amounts:
 /// the 隱藏金額 switch, set by the ledger.
 bool amountsHidden = false;

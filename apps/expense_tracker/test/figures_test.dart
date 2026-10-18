@@ -50,4 +50,36 @@ void main() {
     expect(dividendPremium(20000, day), 422);
     expect(dividendPremium(30000, day), 633);
   });
+
+  test('a card close moved into the next month still counts', () {
+    final card = Account(
+      'card',
+      '卡',
+      AccountKind.card,
+      0,
+      closingDay: 31,
+      dueDay: 31,
+      closes: {DateTime.utc(2026, 1, 31): DateTime.utc(2026, 2, 2)},
+    );
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 4, 5),
+      accounts: [card],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    expect(
+      ledger.closingOn(card, DateTime.utc(2026, 2, 1)),
+      DateTime.utc(2025, 12, 31),
+    );
+    expect(
+      ledger.closingOn(card, DateTime.utc(2026, 2, 3)),
+      DateTime.utc(2026, 2, 2),
+    );
+    // Due on the 31st, kept within April.
+    final (_, end, due) = ledger.statement(card);
+    expect((end, due), (DateTime.utc(2026, 3, 31), DateTime.utc(2026, 4, 30)));
+  });
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:accounts/accounts.dart';
 import 'package:app_core/app_core.dart';
@@ -144,10 +145,11 @@ final class VaultJournal implements Journal {
       );
       if (entry != null) entries.add(entry);
     }
-    final (trades, holdings) = _investments();
+    final (trades, holdings) = _investments(notes);
     entries.addAll(trades);
     final today = _clock.today();
     final applying = _applying(categories);
+    final removed = _removedTemplates();
     final accounts = _store.accounts(_workspace);
     return ui.Ledger(
       today: DateTime.utc(today.year, today.month, today.day),
@@ -170,12 +172,13 @@ final class VaultJournal implements Journal {
       rates: _rates,
       recurring: [
         for (final (template, active) in _store.recurringTemplates(_workspace))
-          _recurringOf(
-            template,
-            active: active,
-            category: nameOf,
-            merchant: merchantOf,
-          ),
+          if (!removed.contains(template.id.value))
+            _recurringOf(
+              template,
+              active: active,
+              category: nameOf,
+              merchant: merchantOf,
+            ),
       ],
       journal: this,
     );
@@ -391,7 +394,11 @@ final class VaultJournal implements Journal {
       case ui.EntryType.buy || ui.EntryType.sell || ui.EntryType.dividend:
         await _trade(id, e, account, day);
     }
-    if (_store.hasPosting(id)) await _note(id, e.note);
+    if (!_store.hasPosting(id)) return id;
+    await _note(id, e.note);
+    // A booking the ledger could not confirm, such as one on a card, is
+    // still this item's, so it is not offered again.
+    if (template != null) await _linkRecurring(id, template);
     return id;
   }
 
@@ -480,6 +487,7 @@ final class VaultJournal implements Journal {
         amount: _in(account, e.amount),
         allocations: shares,
         tags: await _tags(e.tags),
+        merchant: await _merchant(e.merchant),
         homeValue: _homeOf(account, e),
       ),
     );
@@ -534,13 +542,16 @@ final class VaultJournal implements Journal {
     final parts = posting?.allocations ?? const <Allocation>[];
     if (parts.isEmpty) return const [];
     final total = parts.fold(0, (sum, a) => sum + _int(a.amount));
-    var left = amount;
+    // Each part takes its share of the running total, so the parts always
+    // add up to [amount] exactly.
+    var running = 0;
+    var given = 0;
     final shares = <CategoryShare>[];
-    for (final (i, a) in parts.indexed) {
-      final value = i == parts.length - 1
-          ? left
-          : (amount * _int(a.amount) / total).round();
-      left -= value;
+    for (final a in parts) {
+      running += _int(a.amount);
+      final upTo = (amount * running / total).round();
+      final value = upTo - given;
+      given = upTo;
       if (value <= 0) continue;
       final version = a.expectedCategoryVersion ?? 1;
       final money = Money(refund.currency, BigInt.from(value));
@@ -581,6 +592,9 @@ final class VaultJournal implements Journal {
     if (from.currency != homeCurrency) {
       throw const AppFailure(FailureKind.rejected, 'app.foreign-card-payment');
     }
+    if (fee != null) {
+      throw const AppFailure(FailureKind.rejected, 'app.card-fee');
+    }
     await _cards.pay(
       PayCard(
         operation: _op(),
@@ -593,19 +607,6 @@ final class VaultJournal implements Journal {
         amount: _ntd(e.amount),
       ),
     );
-    if (fee != null) {
-      await _books.recordCashFlow(
-        RecordCashFlow(
-          operation: _op(),
-          postingId: PublicId.generate(),
-          flow: CashFlow.expense,
-          account: _ref(from),
-          date: day,
-          amount: fee,
-          allocations: feeShares,
-        ),
-      );
-    }
   }
 
   /// The close of the last statement before [day]: what a payment on
@@ -631,44 +632,65 @@ final class VaultJournal implements Journal {
     return id;
   }
 
-  static const _linkKind = '${appEventPrefix}recurring-link';
+  // The app's own facts the ledger has no command for, kept as `app.`
+  // events in its journal so backups carry them.
 
-  /// The recurring item behind each booking: the ones the ledger
-  /// confirmed, and edited bookings the app linked again.
-  Map<PublicId, PublicId> _recurringLinks() {
-    final links = _store.recurringByPosting(_workspace);
+  static const _linkKind = '${appEventPrefix}recurring-link';
+  static const _removedKind = '${appEventPrefix}recurring-removed';
+  static const _ratesKind = '${appEventPrefix}rates';
+
+  /// The payloads of the app events of [kind], oldest first.
+  List<Map<String, Object?>> _events(String kind) {
     final rows = _vault.store.select(
       'SELECT payload FROM events WHERE workspace = ? AND kind = ? '
       'ORDER BY seq',
-      [_workspace.toString(), _linkKind],
+      [_workspace.toString(), kind],
     );
-    for (final row in rows) {
-      final json =
-          jsonDecode(row['payload']! as String) as Map<String, Object?>;
+    return [
+      for (final row in rows)
+        jsonDecode(row['payload']! as String) as Map<String, Object?>,
+    ];
+  }
+
+  /// Adds an app event of [kind], queued behind the ledger's commands.
+  Future<void> _append(String kind, Map<String, Object?> payload) {
+    final text = jsonEncode(payload);
+    return _books.exclusive(() async {
+      await _vault.store.write((t) async {
+        t.append(
+          id: PublicId.generate(),
+          workspace: _workspace,
+          kind: kind,
+          payload: text,
+        );
+      });
+    });
+  }
+
+  /// The recurring item behind each booking: the ones the ledger
+  /// confirmed, and the bookings the app linked itself.
+  Map<PublicId, PublicId> _recurringLinks() {
+    final links = _store.recurringByPosting(_workspace);
+    for (final json in _events(_linkKind)) {
       final posting = PublicId.parse(json['posting']! as String);
       links[posting] = PublicId.parse(json['template']! as String);
     }
     return links;
   }
 
-  /// Keeps an edited booking linked to [template]: the ledger's own
-  /// confirmation stays with the entry it replaced.
+  /// Links [posting] to [template]: an edited booking, whose ledger
+  /// confirmation stays with the entry it replaced, or one the ledger
+  /// could not confirm.
   Future<void> _linkRecurring(PublicId posting, PublicId template) {
-    final payload = jsonEncode({
-      'posting': posting.value,
-      'template': template.value,
-    });
-    return _books.exclusive(() async {
-      await _vault.store.write((t) async {
-        t.append(
-          id: PublicId.generate(),
-          workspace: _workspace,
-          kind: _linkKind,
-          payload: payload,
-        );
-      });
-    });
+    final link = {'posting': posting.value, 'template': template.value};
+    return _append(_linkKind, link);
   }
+
+  /// The recurring items the person deleted: the ledger can only stop
+  /// them.
+  Set<String> _removedTemplates() => {
+    for (final json in _events(_removedKind)) json['template']! as String,
+  };
 
   Future<String> _replace(ui.Entry before, ui.Entry after) async {
     final id = _parse(before.id);
@@ -733,7 +755,13 @@ final class VaultJournal implements Journal {
       return replacement.value;
     }
     await removeEntry(before);
-    return (await _add(after)).value;
+    try {
+      return (await _add(after)).value;
+    } on Object {
+      // The new form was refused: put the old one back rather than lose it.
+      await _add(before.withId(PublicId.generate().value));
+      rethrow;
+    }
   }
 
   @override
@@ -903,19 +931,11 @@ final class VaultJournal implements Journal {
 
   // Prices and rates; trades are in vault_investments.dart.
 
-  static const _ratesKind = '${appEventPrefix}rates';
-
   /// The board last fetched, kept so foreign accounts are valued offline.
   Map<String, double> _keptRates() {
-    final rows = _vault.store.select(
-      'SELECT payload FROM events WHERE workspace = ? AND kind = ? '
-      'ORDER BY seq DESC LIMIT 1',
-      [_workspace.toString(), _ratesKind],
-    );
-    if (rows.isEmpty) return const {};
-    final json =
-        jsonDecode(rows.single['payload']! as String) as Map<String, Object?>;
-    final rates = json['rates']! as Map<String, Object?>;
+    final kept = _events(_ratesKind);
+    if (kept.isEmpty) return const {};
+    final rates = kept.last['rates']! as Map<String, Object?>;
     return {
       for (final MapEntry(:key, :value) in rates.entries)
         key: (value! as num).toDouble(),
@@ -938,17 +958,7 @@ final class VaultJournal implements Journal {
     _rates
       ..clear()
       ..addAll(fetched);
-    final payload = jsonEncode({'asOf': '${board.asOf}', 'rates': fetched});
-    await _books.exclusive(() async {
-      await _vault.store.write((t) async {
-        t.append(
-          id: PublicId.generate(),
-          workspace: _workspace,
-          kind: _ratesKind,
-          payload: payload,
-        );
-      });
-    });
+    await _append(_ratesKind, {'asOf': '${board.asOf}', 'rates': fetched});
     return true;
   }
 
@@ -1147,6 +1157,7 @@ final class VaultJournal implements Journal {
     final id = _parse(item.id);
     if (id == null || _template(id) == null) return;
     await saveRecurring(item.copyWith(active: false));
+    await _append(_removedKind, {'template': id.value});
   }
 
   // Accounts.
@@ -1239,6 +1250,9 @@ final class VaultJournal implements Journal {
         (kept == null ? null : _int(kept)) == limit) {
       return;
     }
+    final moved =
+        current != null &&
+        (current.closingDay != closing || current.dueDay != due);
     await _cards.setTerms(
       SetCardTerms(
         operation: _op(),
@@ -1247,8 +1261,21 @@ final class VaultJournal implements Journal {
         closingDay: closing,
         dueDay: due,
         limit: limit == null || limit <= 0 ? null : _ntd(limit),
+        // Statements already closed keep their dates.
+        effectiveFrom: moved ? _nextClose(closing) : null,
       ),
     );
+  }
+
+  /// The first close on [day] of the month after today.
+  BusinessDate _nextClose(int day) {
+    final today = _clock.today();
+    for (final month in [today.month, today.month + 1]) {
+      final last = DateTime.utc(today.year, month + 1, 0);
+      final close = DateTime.utc(last.year, last.month, min(day, last.day));
+      if (close.isAfter(_date(today))) return _day(close);
+    }
+    throw StateError('No close ahead.');
   }
 
   @override
@@ -1262,15 +1289,20 @@ final class VaultJournal implements Journal {
     if (terms == null) {
       throw const AppFailure(FailureKind.rejected, 'card.no-terms');
     }
+    // Still due when that statement was, also when it was moved before.
+    final close = _day(scheduled);
+    var dueOn = terms.cycleFor(close).dueOn;
+    for (final o in terms.overrides) {
+      if (o.scheduledClose == close) dueOn = o.dueOn;
+    }
     await _cards.overrideCycle(
       OverrideCardCycle(
         operation: _op(),
         cardId: id,
         expectedVersion: terms.version,
-        scheduledClose: _day(scheduled),
+        scheduledClose: close,
         closesOn: _day(closesOn),
-        // Still paid when that statement would have been.
-        dueOn: terms.cycleFor(_day(scheduled)).dueOn,
+        dueOn: dueOn,
       ),
     );
   }

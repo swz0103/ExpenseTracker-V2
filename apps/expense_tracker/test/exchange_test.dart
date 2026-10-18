@@ -138,4 +138,14 @@ void main() {
     final lots = ledger.lotsOf('2330');
     expect(lots.fold(0, (sum, l) => sum + l.shares), split.shares);
   });
+
+  test('search finds entries of every month, newest first', () {
+    final ledger = demoLedger();
+    final found = ledger.search('全聯');
+    expect(found.length, greaterThan(1));
+    expect(found.map((e) => e.date.month).toSet().length, greaterThan(1));
+    for (var i = 1; i < found.length; i++) {
+      expect(found[i].date.isAfter(found[i - 1].date), isFalse);
+    }
+  });
 }

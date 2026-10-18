@@ -555,7 +555,8 @@ void main() {
 
     ledger = await reopen(ledger);
     expect([for (final b in ledger.budgets) b.category], [Ledger.allSpending]);
-    expect(ledger.recurring.single.active, isFalse);
+    // Deleted, not just stopped; its bookings stay.
+    expect(ledger.recurring, isEmpty);
     expect(rentEntries(), hasLength(1));
   });
 
@@ -672,5 +673,125 @@ void main() {
     ledger = await reopen(ledger);
     expect(ledger.balance(bank.id), 500000 - 58250 - 30025 + 35000 - 135);
     expect(ledger.holding('0050')!.shares, 4000);
+  });
+
+  test('a year of entries loads quickly', () async {
+    final ledger = await create();
+    final cash = ledger.accounts.firstWhere((a) => a.name == '現金');
+    final journal = VaultJournal(open!, clock: clock);
+    final entries = [
+      for (var i = 0; i < 1200; i++)
+        Entry(
+          id: ledger.newId(),
+          date: DateTime.utc(2025, 10, 3).add(Duration(days: i * 365 ~/ 1200)),
+          type: EntryType.expense,
+          amount: 50 + i % 400,
+          account: cash.id,
+          category: '飲食日常',
+          note: i.isEven ? '午餐' : '',
+          tags: i % 7 == 0 ? const ['家用'] : const [],
+        ),
+    ];
+    final writing = Stopwatch()..start();
+    await journal.addEntries(entries);
+    writing.stop();
+    final loading = Stopwatch()..start();
+    final loaded = await journal.load();
+    loading.stop();
+    // Printed so a slow-down shows in the CI log before it fails.
+    print(
+      'Wrote 1200 entries in ${writing.elapsedMilliseconds} ms, '
+      'loaded them in ${loading.elapsedMilliseconds} ms',
+    );
+    expect(loaded.balance(cash.id), -entries.fold(0, (s, e) => s + e.amount));
+    // About 40 ms on CI (2026-10); a phone may take several times that.
+    expect(loading.elapsed, lessThan(const Duration(seconds: 1)));
+  });
+
+  test('what the review found stays fixed after reopening', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger
+      ..addAccount(bank)
+      ..addAccount(card);
+    await ledger.settled;
+    ledger
+      ..add(spend(ledger, card.id, 30000, installments: 3, note: '手機'))
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.income,
+          amount: 800,
+          account: bank.id,
+          category: '其他收入',
+          merchant: '舊衣回收',
+        ),
+      )
+      ..add(
+        Entry(
+          id: ledger.newId(),
+          date: day,
+          type: EntryType.buy,
+          amount: 10000,
+          account: bank.id,
+          category: '投資',
+          holding: '2330',
+          shares: 10,
+          fee: 20,
+          note: '定期定額',
+        ),
+      )
+      ..saveRecurring(
+        Recurring(
+          id: ledger.newId(),
+          name: '串流',
+          amount: 390,
+          day: 2,
+          account: card.id,
+          category: '購物休閒',
+          start: DateTime.utc(2026, 9, 2),
+        ),
+      )
+      ..saveRecurring(
+        Recurring(
+          id: ledger.newId(),
+          name: '健身房',
+          amount: 1200,
+          day: 20,
+          account: bank.id,
+          category: '購物休閒',
+          start: DateTime.utc(2026, 9, 20),
+        ),
+      );
+
+    ledger = await reopen(ledger);
+    final entries = ledger.entriesIn(2026, 10);
+    Entry of(EntryType type) => entries.firstWhere((e) => e.type == type);
+    expect(of(EntryType.income).merchant, '舊衣回收');
+    expect(of(EntryType.buy).note, '定期定額');
+    final stream = ledger.recurring.firstWhere((r) => r.name == '串流');
+    final gym = ledger.recurring.firstWhere((r) => r.name == '健身房');
+    ledger
+      ..confirm(stream)
+      ..removeRecurring(gym.id)
+      ..remove(entries.firstWhere((e) => e.installments == 3).id);
+
+    ledger = await reopen(ledger);
+    // A card booking counts as booked, so it is not offered again.
+    expect(ledger.pendingDate(ledger.recurring.single), isNull);
+    expect([for (final r in ledger.recurring) r.name], ['串流']);
+    // A purchase in instalments can be deleted.
+    final left = ledger.entriesIn(2026, 10);
+    expect(left.where((e) => e.installments == 3), isEmpty);
+    expect(left.where((e) => e.recurring != null), hasLength(1));
   });
 }

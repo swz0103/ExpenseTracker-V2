@@ -42,5 +42,8 @@ void main() {
     expect(libraries, isNot(contains('lib/src/bootstrap.dart')));
     const vault = 'package:ledger_vault/ledger_vault.dart';
     expect(libraries, isNot(contains(vault)));
+    // The web build has no database: nothing may reach the backups either.
+    const backups = 'package:ledger_backup/ledger_backup.dart';
+    expect(libraries, isNot(contains(backups)));
   });
 }

@@ -75,13 +75,26 @@ final class Startup extends ChangeNotifier {
   /// on this device opens it, and a password can be set later.
   Future<void> setUpWithoutPassword() async {
     await directory.create(recursive: true);
-    final random = Random.secure();
-    final secret = base64Url.encode([
-      for (var i = 0; i < 32; i++) random.nextInt(256),
-    ]);
+    final secret = _newSecret();
     await _quickKey.writeAsString(secret, flush: true);
     final (open, _) = await _vault.create(secret);
     _ready(open);
+  }
+
+  static String _newSecret() {
+    final random = Random.secure();
+    return base64Url.encode([for (var i = 0; i < 32; i++) random.nextInt(256)]);
+  }
+
+  /// After the recovery code opened [open], the ledger opens by itself
+  /// from now on, as one without a password: the code is often all the
+  /// person has, such as for a backup of a ledger that had no password.
+  /// A password can be set again in settings.
+  Future<OpenVault> _openWithoutPassword(OpenVault open) async {
+    final secret = _newSecret();
+    await open.updateKeys(await open.keys.changePassword(secret));
+    await _quickKey.writeAsString(secret, flush: true);
+    return open;
   }
 
   /// Opens a ledger set up without a password.
@@ -136,14 +149,16 @@ final class Startup extends ChangeNotifier {
     final open = await _vault.restore(keys, (staging) async {
       await LedgerBackup.restore(file: file, keys: keys, into: staging);
     });
-    // The restored ledger opens with the backup's own secrets.
+    // The restored ledger opens with the backup's own password.
     await forgetQuickKey();
+    if (recovery) await _openWithoutPassword(open);
     await _enrolDevice(open);
     _ready(open);
   }
 
   Future<void> unlockWithRecovery(String recoveryCode) async {
-    _ready(await _vault.unlockWithRecovery(recoveryCode));
+    final open = await _vault.unlockWithRecovery(recoveryCode);
+    _ready(await _openWithoutPassword(open));
   }
 
   Future<void> unlockWithDevice() async {

@@ -713,16 +713,13 @@ void main() {
       FailureKind.rejected,
       'card.no-terms',
     );
-    await rejects(
-      () => cards.voidCharge(
-        VoidCardCharge(
-          operation: op(),
-          chargeId: planned,
-          reversalId: PublicId.generate(),
-        ),
+    // A purchase in instalments can be voided, plan and all.
+    await cards.voidCharge(
+      VoidCardCharge(
+        operation: op(),
+        chargeId: planned,
+        reversalId: PublicId.generate(),
       ),
-      FailureKind.rejected,
-      'card.has-installments',
     );
   });
 }

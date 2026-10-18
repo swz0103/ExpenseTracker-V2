@@ -29,6 +29,7 @@ class _OriginalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currency = ledger.account(entry.account).currency;
     final category = ledger.category(entry.category);
     return Container(
       padding: const EdgeInsets.all(12),
@@ -58,7 +59,7 @@ class _OriginalTile extends StatelessWidget {
             ),
           ),
           Text(
-            spent(entry.amount),
+            '−${amountIn(entry.amount, currency)}',
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
