@@ -5,9 +5,9 @@ import 'package:flutter/painting.dart' show Color;
 import 'package:foundation_values/foundation_values.dart'
     show Currency, PublicId;
 
-import '../book/journal.dart';
 import 'amounts.dart';
 import 'card_cycle.dart';
+import 'journal.dart';
 import 'portfolio.dart';
 import 'records.dart';
 

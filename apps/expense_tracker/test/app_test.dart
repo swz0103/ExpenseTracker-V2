@@ -1,6 +1,6 @@
 import 'package:app_core/app_core.dart';
 import 'package:expense_tracker/src/app.dart';
-import 'package:expense_tracker/src/book/journal.dart';
+import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/problems.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foundation_values/foundation_values.dart';

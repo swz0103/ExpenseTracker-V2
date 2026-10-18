@@ -1,4 +1,4 @@
-import '../model/ledger.dart';
+import 'ledger.dart';
 
 /// Where the book is kept between launches. The [Ledger] changes itself
 /// first, so the screens answer at once, then passes each change here;

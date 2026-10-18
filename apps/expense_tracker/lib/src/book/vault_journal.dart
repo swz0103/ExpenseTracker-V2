@@ -17,9 +17,9 @@ import 'package:market_data/market_data.dart';
 import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:reports/reports.dart';
 
+import '../model/journal.dart';
 import '../model/ledger.dart' as ui;
 import '../perf.dart';
-import 'journal.dart';
 import 'looks.dart';
 
 part 'vault_app_events.dart';
