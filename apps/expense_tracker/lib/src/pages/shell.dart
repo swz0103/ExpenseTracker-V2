@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
+import '../calendar_sync.dart';
 import '../compose/composer.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -33,12 +34,20 @@ enum _Tab { overview, ledger, accounts, more }
 /// bottom. Pages under 更多 and each account open in
 /// place with a back arrow; the system back closes them first.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.ledger, this.keeper});
+  const AppShell({
+    super.key,
+    required this.ledger,
+    this.keeper,
+    this.calendar,
+  });
 
   final Ledger ledger;
 
   /// The encrypted ledger's keys and backups; none in the preview.
   final Keeper? keeper;
+
+  /// Where due dates go on the phone's calendar; none in the preview.
+  final CalendarSync? calendar;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -168,7 +177,12 @@ class _AppShellState extends State<AppShell> {
         Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
         Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
         Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
-        _ => SettingsPage(ledger: ledger, nav: _nav, keeper: widget.keeper),
+        _ => SettingsPage(
+          ledger: ledger,
+          nav: _nav,
+          keeper: widget.keeper,
+          calendar: widget.calendar,
+        ),
       };
     }
     return switch (_tab) {

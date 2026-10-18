@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
+import '../calendar_sync.dart';
 import '../demo/seed.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
@@ -23,11 +24,15 @@ class SettingsPage extends StatefulWidget {
     required this.ledger,
     required this.nav,
     this.keeper,
+    this.calendar,
   });
 
   final Ledger ledger;
   final Nav nav;
   final Keeper? keeper;
+
+  /// Where due dates are written; none in the preview.
+  final CalendarSync? calendar;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -132,6 +137,63 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) await showRecoveryCode(context, code);
     } on Object catch (error) {
       if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
+    }
+  }
+
+  /// Links a calendar, such as Google Calendar, for the due dates, or
+  /// changes or stops it.
+  Future<void> _linkCalendar(CalendarSync calendar) async {
+    try {
+      if (!await calendar.port.access()) {
+        if (mounted) showNote(context, '沒有取得日曆權限，可以到系統設定開啟');
+        return;
+      }
+      final choices = await calendar.port.calendars();
+      if (!mounted) return;
+      if (choices.isEmpty) {
+        showNote(context, '手機上沒有可寫入的日曆，請先在日曆 App 登入 Google 帳號');
+        return;
+      }
+      final chosen = calendar.chosen?.$1;
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          backgroundColor: Hue.panel,
+          title: const Text('同步到哪個日曆'),
+          children: [
+            for (final c in choices)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(c.id),
+                child: Text(
+                  '${c.id == chosen ? '✓ ' : ''}${c.name}'
+                  '${c.account.isEmpty ? '' : '\n${c.account}'}',
+                ),
+              ),
+            if (chosen != null)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(-1),
+                child: const Text('不再同步', style: TextStyle(color: Hue.danger)),
+              ),
+          ],
+        ),
+      );
+      if (picked == null || !mounted) return;
+      if (picked == -1) {
+        await calendar.forget(widget.ledger);
+        if (mounted) showNote(context, '已停止同步，之後的提醒已從日曆移除');
+        setState(() {});
+        return;
+      }
+      await calendar.choose(choices.firstWhere((c) => c.id == picked));
+      final written = await calendar.sync(widget.ledger);
+      if (!mounted) return;
+      setState(() {});
+      showNote(
+        context,
+        written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆',
+      );
+    } on Object catch (error) {
+      if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
     }
   }
 
@@ -268,6 +330,23 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ],
                         ],
+                      ),
+                    ),
+                  ],
+                  if (widget.calendar case final calendar?) ...[
+                    const SectionHead('Google 日曆'),
+                    SoftPanel(
+                      child: _Export(
+                        badge: '日曆',
+                        title: switch (calendar.chosen) {
+                          (_, final name)? => '同步到「$name」',
+                          null => '連結日曆',
+                        },
+                        detail: calendar.chosen == null
+                            ? '定期扣款與卡費繳款日放進 Google 日曆，由日曆提醒你'
+                            : '定期扣款與卡費繳款日會自動更新；點此更換或停止',
+                        icon: Glyph.calendar,
+                        onTap: () => _linkCalendar(calendar),
                       ),
                     ),
                   ],

@@ -8,11 +8,13 @@
         <exclude domain="file" path="device-id"/>
         <exclude domain="file" path="no-fingerprint"/>
         <exclude domain="file" path="exports"/>
+        <exclude domain="file" path="calendar"/>
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="."/>
         <exclude domain="file" path="device-id"/>
         <exclude domain="file" path="no-fingerprint"/>
         <exclude domain="file" path="exports"/>
+        <exclude domain="file" path="calendar"/>
     </device-transfer>
 </data-extraction-rules>

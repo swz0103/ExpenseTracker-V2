@@ -1,0 +1,16 @@
+name: drive_backup
+description: Google Drive transport for backup files - resumable chunked upload, a durable upload queue and a tolerant backup listing.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  cryptography: 2.9.0
+  storage_sqlcipher:
+    path: ../storage_sqlcipher
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher

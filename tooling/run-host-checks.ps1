@@ -30,6 +30,8 @@ $checks = @(
     @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/backup_security'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/market_adapters'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/drive_backup'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/backup_service'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/ledger_backup'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/posting_worker.dart' },
     @{ Path = 'infrastructure/ledger_vault'; Dirs = @('lib', 'test') },

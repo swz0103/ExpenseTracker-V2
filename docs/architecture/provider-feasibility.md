@@ -8,6 +8,7 @@
 - 每次備份是一個獨立、不覆寫的加密檔；保留政策由 App 自己管理（日、週、月分代）。
 - 上傳可續傳；完成後核對大小與 SHA-256 才算成功。下載分段並核對，還原時仍以備份本身的加密驗證為準。
 - token 不存在 App 裡，撤銷登入只會停掉雲端工作，本機記帳照常。
+- Google 端設定（Android OAuth client、簽章 SHA-1）見 [Google Drive 設定](../delivery/google-drive-setup.md)。
 
 ## 台股：TWSE 與 TPEx 每日收盤
 

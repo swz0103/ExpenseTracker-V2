@@ -10,6 +10,7 @@ import 'package:market_data/market_data.dart';
 import 'app.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
+import 'calendar_sync.dart';
 import 'look/widgets.dart';
 import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
@@ -89,6 +90,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     widget.vault,
     market: MarketDataGateway(transport: const IoMarketTransport()),
   );
+  /// The phone's calendar for due dates, on Android.
+  late final _calendar = Platform.isAndroid
+      ? CalendarSync(const AndroidCalendar(), widget.startup.directory)
+      : null;
+
   late final _keeper = VaultKeeper(
     widget.startup,
     widget.vault,
@@ -106,6 +112,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _loaded = ledger;
     unawaited(_quotes(ledger));
     unawaited(_weeklyBackup());
+    _calendar?.follow(ledger);
     return ledger;
   }
 
@@ -162,6 +169,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   @override
   void dispose() {
+    _calendar?.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -196,7 +204,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(ledger: ledger, keeper: _keeper);
+      return AppShell(ledger: ledger, keeper: _keeper, calendar: _calendar);
     },
   );
 }

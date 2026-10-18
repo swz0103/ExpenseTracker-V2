@@ -1,0 +1,23 @@
+name: backup_service
+description: Backups end to end - write the encrypted backup, upload it to Drive, keep the newest few and restore from Drive.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.13.0 <4.0.0'
+dependencies:
+  backup_security:
+    path: ../backup_security
+  drive_backup:
+    path: ../drive_backup
+  foundation_values:
+    path: ../../packages/foundation_values
+  ledger_backup:
+    path: ../ledger_backup
+  ledger_sqlcipher:
+    path: ../ledger_sqlcipher
+dev_dependencies:
+  test: 1.32.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlcipher

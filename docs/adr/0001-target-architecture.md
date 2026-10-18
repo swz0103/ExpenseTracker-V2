@@ -27,5 +27,5 @@
 ## 後續修訂（2026-10-04）
 
 - 沒有舊資料要搬：使用者確認當成新 App，第 7 點的 `legacy_import` 與舊備份匯入不做，舊 App 已整個移除。
-- Infrastructure 的實際套件：`storage_sqlcipher`、`ledger_sqlcipher`、`ledger_vault`、`backup_security`、`ledger_backup`、`market_adapters`（`drive_backup`、`backup_service` 已移除：離機備份改用 Android 自動備份）。
+- Infrastructure 的實際套件：`storage_sqlcipher`、`ledger_sqlcipher`、`ledger_vault`、`backup_security`、`ledger_backup`、`drive_backup`、`backup_service`、`market_adapters`。
 - 帳本 schema 從 1 開始重新編號，目前 12 步。
