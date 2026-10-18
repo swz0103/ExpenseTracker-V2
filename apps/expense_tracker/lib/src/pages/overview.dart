@@ -122,7 +122,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '每日紀錄',
         trailing: Text(
-          '本週 ${_m(groupDigits(weekSpent))}',
+          '本週 ${money(weekSpent)}',
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
@@ -192,7 +192,7 @@ class _OverviewPageState extends State<OverviewPage> {
           const Spacer(),
           const Text('支出 ', style: TextStyle(fontSize: 13, color: Hue.muted)),
           Text(
-            _m(groupDigits(ledger.spentOn(_day))),
+            money(ledger.spentOn(_day)),
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -238,6 +238,8 @@ class _OverviewPageState extends State<OverviewPage> {
   List<Widget> _market() {
     final ledger = widget.ledger;
     final holdings = ledger.holdings;
+    // Nothing to show before the first trade.
+    if (holdings.isEmpty) return const [];
     final change = ledger.dayChange;
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
@@ -250,7 +252,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '投資行情',
         trailing: Text(
-          '${today.month}/${today.day} 收盤 · 示意',
+          '${today.month}/${today.day} 收盤',
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
@@ -265,7 +267,7 @@ class _OverviewPageState extends State<OverviewPage> {
         Tile(
           icon: Glyph.briefcase,
           label: '持股市值',
-          value: _m(groupDigits(ledger.investValue)),
+          value: money(ledger.investValue),
           sub: '${holdings.length} 檔',
           onTap: () => widget.nav.open(Pages.investments),
         ),
@@ -286,7 +288,7 @@ class _OverviewPageState extends State<OverviewPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextSpan(text: '市值 ${_m(groupDigits(picked.value))}　累計 '),
+                TextSpan(text: '市值 ${money(picked.value)}　累計 '),
                 TextSpan(
                   text: _m(
                     '${signed(picked.gain)}'
@@ -371,7 +373,7 @@ class _OverviewPageState extends State<OverviewPage> {
         style: TextStyle(fontSize: 12, color: Hue.accent),
       ),
       lead: RingGauge(share: limit == 0 ? 0 : spent / limit, size: 50),
-      value: _m(groupDigits(limit - spent)),
+      value: money(limit - spent),
       valueColor: limit < spent ? Hue.negative : Hue.ink,
       size: 18,
       sub: '剩餘 · 時間 $pace%',
@@ -475,6 +477,7 @@ class _OverviewPageState extends State<OverviewPage> {
     final group = _assetGroup;
     final tile = _tile == null || _tile! >= parts.length ? null : _tile;
     final total = parts.fold<int>(0, (sum, p) => sum + p.$3);
+    if (total == 0 && group == null) return const [];
     final scope = switch (group) {
       null => '資產',
       'investment' => '資產 › 投資',
@@ -494,7 +497,7 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '財務分布',
         trailing: Text(
-          _m(groupDigits(shownAmount)),
+          money(shownAmount),
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -585,7 +588,7 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
           const Spacer(),
           Text(
-            '結餘 ${_m(groupDigits(left))}',
+            '結餘 ${money(left)}',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -599,19 +602,19 @@ class _OverviewPageState extends State<OverviewPage> {
         children: [
           const _Key(Hue.positive, '收入'),
           Text(
-            ' ${_m(groupDigits(shown.income))}',
+            ' ${money(shown.income)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const SizedBox(width: 12),
           const _Key(Hue.negative, '支出'),
           Text(
-            ' ${_m(groupDigits(shown.expense))}',
+            ' ${money(shown.expense)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const Spacer(),
           const _Key(Hue.investment, '淨資產', line: true),
           Text(
-            ' ${_m(groupDigits(shown.worth))}',
+            ' ${money(shown.worth)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
         ],
@@ -641,21 +644,20 @@ class _Summary extends StatelessWidget {
     final expense = ledger.expense(year, m);
     final left = income - expense;
     final rate = income == 0 ? 0 : (left * 100 / income).round();
-    String shown(int value) => ledger.hidden ? '••••' : groupDigits(value);
     return Tile(
       hero: true,
       icon: Glyph.wallet,
       label: '本月結餘',
-      value: shown(left),
+      value: money(left),
       valueColor: left < 0 ? Hue.negative : Hue.ink,
       trailing: Pill('結餘率 $rate%'),
       child: TileStats([
-        (Glyph.income, '收入', shown(income), Hue.positive),
-        (Glyph.payout, '支出', shown(expense), Hue.negative),
+        (Glyph.income, '收入', money(income), Hue.positive),
+        (Glyph.payout, '支出', money(expense), Hue.negative),
         (
           Glyph.dividend,
           '股息',
-          shown(ledger.dividends(year, m)),
+          money(ledger.dividends(year, m)),
           Hue.investment,
         ),
       ]),

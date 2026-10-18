@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -49,47 +47,6 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted && saved) showNote(context, '已下載$what');
     } on Object catch (error) {
       if (mounted) showNote(context, '下載失敗（$error）');
-    }
-  }
-
-  String _json() {
-    final ledger = widget.ledger;
-    final entries = <Map<String, Object?>>[];
-    for (var back = 0; back < 12; back++) {
-      final date = DateTime.utc(ledger.today.year, ledger.today.month - back);
-      for (final e in ledger.entriesIn(date.year, date.month)) {
-        entries.add({
-          'date': e.date.toIso8601String().substring(0, 10),
-          'type': e.type.name,
-          'amount': e.amount,
-          'account': e.account,
-          'category': e.category,
-          'note': e.note,
-          if (e.to != null) 'to': e.to,
-          if (e.holding != null) 'holding': e.holding,
-          if (e.shares != 0) 'shares': e.shares,
-        });
-      }
-    }
-    return const JsonEncoder.withIndent('  ').convert({
-      'accounts': [
-        for (final a in ledger.accounts)
-          {'id': a.id, 'name': a.name, 'kind': a.kind.name},
-      ],
-      'entries': entries,
-      'holdings': [
-        for (final h in ledger.holdings)
-          {'code': h.code, 'shares': h.shares, 'cost': h.cost},
-      ],
-    });
-  }
-
-  Future<void> _backUp(Keeper keeper) async {
-    try {
-      final path = await keeper.backUp();
-      if (mounted) showNote(context, '已備份到 $path');
-    } on Object catch (error) {
-      if (mounted) showNote(context, '備份失敗（$error）');
     }
   }
 
@@ -185,21 +142,6 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SectionHead('日常偏好'),
-                  _Setting(
-                    icon: Glyph.eye,
-                    label: '隱藏金額',
-                    trailing: Switch(
-                      value: ledger.hidden,
-                      onChanged: (_) => ledger.toggleHidden(),
-                    ),
-                  ),
-                  const Divider(),
-                  const _Setting(
-                    icon: Glyph.cash,
-                    label: '記帳幣別',
-                    trailing: Text('TWD', style: TextStyle(color: Hue.muted)),
-                  ),
                   const SectionHead('匯出帳本'),
                   SoftPanel(
                     child: Column(
@@ -228,13 +170,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             toCsv(ledger, entries),
                             ' ${entries.length} 筆紀錄的 CSV',
                           ),
-                        ),
-                        const Divider(),
-                        _Export(
-                          badge: 'JSON',
-                          title: '下載完整帳本',
-                          detail: '帳戶、紀錄與持股',
-                          onTap: () => _save('記帳本.json', _json(), '完整帳本 JSON'),
                         ),
                       ],
                     ),
@@ -269,15 +204,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         children: [
                           _Export(
                             badge: '備份',
-                            title: '立即備份',
-                            detail: '每週會自動備份，保留最近 5 份',
-                            onTap: () => _backUp(keeper),
-                          ),
-                          const Divider(),
-                          _Export(
-                            badge: '匯出',
-                            title: '匯出備份檔',
-                            detail: '存到下載資料夾或雲端硬碟，換手機時用來還原',
+                            title: '備份帳本',
+                            detail: '每週會自動備份；這裡另存一份到下載或雲端硬碟，換手機時用來還原',
                             icon: Glyph.download,
                             onTap: () => _export(keeper),
                           ),
@@ -337,34 +265,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         );
       },
-    );
-  }
-}
-
-class _Setting extends StatelessWidget {
-  const _Setting({
-    required this.icon,
-    required this.label,
-    required this.trailing,
-  });
-
-  final Glyph icon;
-  final String label;
-  final Widget trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          IconBadge(icon, Hue.gold, size: 36),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 15)),
-          const Spacer(),
-          trailing,
-        ],
-      ),
     );
   }
 }
