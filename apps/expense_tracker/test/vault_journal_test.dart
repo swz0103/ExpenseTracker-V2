@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:app_core/app_core.dart';
 import 'package:backup_security/backup_security.dart';
-import 'package:expense_tracker/src/book/journal.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
+import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
@@ -450,7 +450,7 @@ void main() {
       DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23),
     });
     expect(
-      ledger.closingOn(moved, DateTime.utc(2026, 10, 24)),
+      moved.closingOn(DateTime.utc(2026, 10, 24)),
       DateTime.utc(2026, 10, 23),
     );
   });

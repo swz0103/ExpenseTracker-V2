@@ -96,6 +96,21 @@ void main() {
     await binding.watchPerformance(scroll, reportKey: 'records_scroll');
     await tap('更多');
     await binding.watchPerformance(reports, reportKey: 'reports');
+
+    // One entry saved while the records show: written, then the whole
+    // book read back.
+    final saving = Stopwatch();
+    Future<void> save() async {
+      saving.start();
+      ledger.add(entries.first.withId(ledger.newId()));
+      await ledger.settled;
+      saving.stop();
+      await tester.pumpAndSettle();
+    }
+
+    await tap('紀錄');
+    await binding.watchPerformance(save, reportKey: 'save');
+    binding.reportData!['save_ms'] = saving.elapsedMilliseconds;
     open.close();
     directory.deleteSync(recursive: true);
   });

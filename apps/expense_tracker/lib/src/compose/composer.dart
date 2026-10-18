@@ -5,6 +5,7 @@ import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/checks.dart';
 import '../model/ledger.dart';
 import '../model/trading.dart';
 import '../pages/account_editor.dart';
@@ -604,56 +605,14 @@ class _ComposerState extends State<Composer> {
   bool get _stock => _type == EntryType.dividend && _shares > 0;
   bool get _reducing => _stock && _reduce;
 
-  /// The shares held of the stock being written, before the entry being
-  /// edited, when that one is a reduction of it.
-  int get _heldBefore {
-    final held = _ledger.holding(_holding ?? '')?.shares ?? 0;
-    final edited = widget.entry;
-    if (edited == null || !edited.isReduction || edited.holding != _holding) {
-      return held;
-    }
-    return held - edited.shares;
-  }
-
-  /// Why the entry cannot be kept yet; null when it can.
+  /// Why the entry cannot be kept yet; null when it can. The ledger's
+  /// own checks, and a split that must add up to the amount.
   String? get _check {
-    final type = _type;
-    final refunded = _refunded;
+    final problem = _ledger.problemWith(_build(), replacing: widget.entry);
+    if (problem != null) return problem;
     final splitTotal = _splitParts?.fold(0, (sum, p) => sum + p.$2);
-    if (_amount <= 0 && !_stock) {
-      return _trading ? '請輸入股數和成交價' : '請輸入金額';
-    }
-    if (type == EntryType.transfer && _account == _to) {
-      return '轉出與轉入不能是同一個帳戶';
-    }
-    if (_foreign && _homeValue == null) return '還沒有匯率，請輸入折合台幣的金額';
-    if (_crossing && _receivedValue == null) return '還沒有匯率，請輸入轉入金額';
-    if (type == EntryType.transfer &&
-        _currency != 'TWD' &&
-        _ledger.account(_to).kind == AccountKind.card) {
-      return '外幣帳戶不能直接繳卡費';
-    }
-    if (_mode == ComposeMode.investment && _currency != 'TWD') {
-      return '投資請用新台幣帳戶';
-    }
-    if (_reducing && _shares > _heldBefore) {
-      return '減少的股數超過持股（${groupDigits(_heldBefore)} 股）';
-    }
-    if (type == EntryType.dividend && !_reducing && _withheld > _amount) {
-      return '補充保費不能超過股息';
-    }
-    if (_mode == ComposeMode.investment && _holding == null) {
-      return '請選擇投資標的';
-    }
-    if ((type == EntryType.buy || type == EntryType.sell) && _shares <= 0) {
-      return '請輸入股數';
-    }
     if (splitTotal != null && splitTotal != _amount) {
       return '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
-    }
-    if (refunded != null &&
-        _amount > _ledger.refundable(refunded) + (widget.entry?.amount ?? 0)) {
-      return '超過可退金額 ${groupDigits(_ledger.refundable(refunded))}';
     }
     return null;
   }

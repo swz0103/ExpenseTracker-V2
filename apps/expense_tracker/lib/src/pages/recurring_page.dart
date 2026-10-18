@@ -10,6 +10,7 @@ import '../look/widgets.dart';
 import '../model/ledger.dart';
 import 'account_editor.dart';
 import 'dialogs.dart';
+import 'entry_tile.dart';
 import 'nav.dart';
 
 /// 定期交易: the next item, then items due, coming up, booked and
@@ -92,7 +93,7 @@ class _RecurringPageState extends State<RecurringPage> {
               trailing: next == null
                   ? null
                   : Text(
-                      ledger.recurringAmount(next),
+                      recurringAmount(ledger, next),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -320,7 +321,7 @@ class _Row extends StatelessWidget {
                 children: [
                   Text(
                     booked == null
-                        ? ledger.recurringAmount(item)
+                        ? recurringAmount(ledger, item)
                         : amountIn(booked, currency),
                     style: TextStyle(
                       fontSize: 16,

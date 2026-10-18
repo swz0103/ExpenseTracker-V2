@@ -5,6 +5,7 @@ import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
+import 'entry_tile.dart';
 import 'nav.dart';
 
 /// 更多: what falls due as the main tile, the four tools with the figure
@@ -29,7 +30,7 @@ class MorePage extends StatelessWidget {
         final limit = ledger.budgetFor(Ledger.allSpending).limit;
         final next = items.isEmpty ? null : items.first;
         String shown(Recurring r) =>
-            ledger.hidden ? '••••' : ledger.recurringAmount(r);
+            ledger.hidden ? '••••' : recurringAmount(ledger, r);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [

@@ -68,13 +68,14 @@ jobs:
           data = json.loads(path.read_text())
           print(json.dumps(data, ensure_ascii=False, indent=1))
           lines = ['| 項目 | 數值 |', '|---|---|']
-          for key in ('entries', 'write_ms', 'load_ms'):
+          for key in ('entries', 'write_ms', 'load_ms', 'save_ms'):
               lines.append(f'| {key} | {data.get(key)} |')
           for key, value in data.items():
               if isinstance(value, dict):
                   lines.append(
                       f"| {key} | build 平均 {value.get('average_frame_build_time_millis', 0):.1f} ms、"
-                      f"90% {value.get('90th_percentile_frame_build_time_millis', 0):.1f} ms；"
+                      f"90% {value.get('90th_percentile_frame_build_time_millis', 0):.1f} ms、"
+                      f"最慢 {value.get('worst_frame_build_time_millis', 0):.1f} ms；"
                       f"raster 平均 {value.get('average_frame_rasterizer_time_millis', 0):.1f} ms、"
                       f"90% {value.get('90th_percentile_frame_rasterizer_time_millis', 0):.1f} ms；"
                       f"掉格 {value.get('missed_frame_build_budget_count', 0)}/"

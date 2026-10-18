@@ -51,7 +51,7 @@ class CardPage extends StatelessWidget {
         type: type,
         amount: 0,
         account: card.id,
-        category: reward ? '其他收入' : Ledger.feeCategory,
+        category: reward ? '其他收入' : feeCategory,
         note: '${card.name}${reward ? '回饋' : '年費'}',
         tags: [reward ? '回饋' : '年費'],
       ),
@@ -118,13 +118,13 @@ class CardPage extends StatelessWidget {
         );
         final limit = card.limit;
         final debt = -ledger.balance(card.id);
-        final cycleDays = ledger
-            .closingOn(card, DateTime.utc(end.year, end.month + 1, end.day))
-            .difference(end)
-            .inDays;
+        final following = card.closingOn(
+          DateTime.utc(end.year, end.month + 1, end.day),
+        );
+        final cycleDays = following.difference(end).inDays;
         final gone = today.difference(end).inDays;
         final left = due.difference(today).inDays;
-        final next = ledger.closingOn(card, end.add(const Duration(days: 40)));
+        final next = card.closingOn(end.add(const Duration(days: 40)));
         final status = owed == 0
             ? '這期已繳清'
             : '繳款截止 ${_day(due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）';

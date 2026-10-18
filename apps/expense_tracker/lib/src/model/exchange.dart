@@ -2,7 +2,7 @@ import 'package:data_exchange/data_exchange.dart';
 import 'package:foundation_values/foundation_values.dart'
     show BusinessDate, Currency;
 
-import '../look/figures.dart';
+import 'amounts.dart';
 import 'ledger.dart';
 
 /// What an import found: the entries to add and how many lines were left
@@ -153,7 +153,7 @@ Import importCsv(Ledger ledger, String text, {required String fallback}) {
           ? named
           : income
           ? '其他收入'
-          : Ledger.feeCategory,
+          : feeCategory,
       note: cell(row, note),
       merchant: income ? '' : cell(row, merchant),
       tags: [
@@ -201,7 +201,7 @@ String guessCategory(Ledger ledger, String merchant, String items) {
     if (!known.contains(category)) continue;
     if (words.any((w) => text.contains(w.toUpperCase()))) return category;
   }
-  return Ledger.feeCategory;
+  return feeCategory;
 }
 
 /// Spending from the Ministry of Finance e-invoice export: an M line per

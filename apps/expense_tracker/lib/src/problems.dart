@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:foundation_values/foundation_values.dart';
 
-import 'book/journal.dart';
+import 'model/journal.dart';
 
 /// Shows why a command was refused, in words a person can act on.
 void showProblem(BuildContext context, Object error) {

@@ -71,13 +71,10 @@ void main() {
       recurring: const [],
     );
     expect(
-      ledger.closingOn(card, DateTime.utc(2026, 2, 1)),
+      card.closingOn(DateTime.utc(2026, 2, 1)),
       DateTime.utc(2025, 12, 31),
     );
-    expect(
-      ledger.closingOn(card, DateTime.utc(2026, 2, 3)),
-      DateTime.utc(2026, 2, 2),
-    );
+    expect(card.closingOn(DateTime.utc(2026, 2, 3)), DateTime.utc(2026, 2, 2));
     // Due on the 31st, kept within April.
     final (_, end, due) = ledger.statement(card);
     expect((end, due), (DateTime.utc(2026, 3, 31), DateTime.utc(2026, 4, 30)));
