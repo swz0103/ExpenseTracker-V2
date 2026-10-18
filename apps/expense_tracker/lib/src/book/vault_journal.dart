@@ -412,25 +412,12 @@ final class VaultJournal implements Journal {
     BusinessDate day,
   ) async {
     final shares = await _shares(e, income: false, account: account);
-    final tags = await _tags(e.tags);
-    final merchant = await _merchant(e.merchant);
     if (account.kind != AccountKind.creditCard) {
-      await _books.recordCashFlow(
-        RecordCashFlow(
-          operation: _op(),
-          postingId: id,
-          flow: CashFlow.expense,
-          account: _ref(account),
-          date: day,
-          amount: _in(account, e.amount),
-          allocations: shares,
-          tags: tags,
-          merchant: merchant,
-          homeValue: _homeOf(account, e),
-        ),
-      );
+      await _cashFlow(id, e, account, day, CashFlow.expense, shares);
       return;
     }
+    final tags = await _tags(e.tags);
+    final merchant = await _merchant(e.merchant);
     final charge = PublicId.generate();
     await _cards.post(
       PostCardCharge(
@@ -480,11 +467,23 @@ final class VaultJournal implements Journal {
       );
       return;
     }
+    await _cashFlow(id, e, account, day, CashFlow.income, shares);
+  }
+
+  /// Records [e] as money in or out of a cash, bank or wallet [account].
+  Future<void> _cashFlow(
+    PublicId id,
+    ui.Entry e,
+    Account account,
+    BusinessDate day,
+    CashFlow flow,
+    List<CategoryShare> shares,
+  ) async {
     await _books.recordCashFlow(
       RecordCashFlow(
         operation: _op(),
         postingId: id,
-        flow: CashFlow.income,
+        flow: flow,
         account: _ref(account),
         date: day,
         amount: _in(account, e.amount),
@@ -1011,10 +1010,9 @@ final class VaultJournal implements Journal {
 
   // Budgets and recurring items.
 
-  /// The budget plans that apply this month, by category (null for all
-  /// spending): of several, the one that started last.
   /// The budget plans that apply this month, by the screens' name for
-  /// them: [ui.Ledger.allSpending], a category, or `#` and a tag.
+  /// them: [ui.Ledger.allSpending], a category, or `#` and a tag. Of
+  /// several, the one that started last.
   Map<String, BudgetPlan> _applying(Map<PublicId, Category> categories) {
     final today = _clock.today();
     final now = today.year * 12 + today.month;
