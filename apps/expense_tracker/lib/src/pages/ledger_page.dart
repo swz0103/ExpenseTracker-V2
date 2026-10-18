@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -31,7 +30,7 @@ enum KindFilter {
 }
 
 /// 收支紀錄: the month's income against spending, then every entry by
-/// day, with search, filters and a CSV copy.
+/// day, with search and filters; 設定 exports it.
 class LedgerPage extends StatefulWidget {
   const LedgerPage({super.key, required this.ledger, required this.nav});
 
@@ -140,27 +139,6 @@ class _LedgerPageState extends State<LedgerPage> {
     }
   }
 
-  Future<void> _export() async {
-    final ledger = widget.ledger;
-    final (year, month) = _month;
-    final entries = ledger.entriesIn(year, month);
-    final lines = [
-      '日期,類型,金額,帳戶,分類,備註',
-      for (final e in entries.reversed)
-        [
-          '${e.date.year}-${e.date.month}-${e.date.day}',
-          e.type.name,
-          '${e.amount}',
-          ledger.account(e.account).name,
-          e.category,
-          e.note.replaceAll(',', '，'),
-        ].join(','),
-    ];
-    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
-    if (!mounted) return;
-    showNote(context, '已複製 $year 年 $month 月 ${entries.length} 筆紀錄的 CSV');
-  }
-
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -229,15 +207,6 @@ class _LedgerPageState extends State<LedgerPage> {
               value: money(income - expense),
               valueColor: income < expense ? Hue.negative : Hue.ink,
               size: 28,
-              trailing: PopupMenuButton<String>(
-                tooltip: '更多動作',
-                color: Hue.panel,
-                icon: const GlyphIcon(Glyph.other, color: Hue.muted),
-                onSelected: (_) => _export(),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'csv', child: Text('複製本月 CSV')),
-                ],
-              ),
               child: TileStats([
                 (Glyph.income, '收入', money(income), Hue.positive),
                 (Glyph.payout, '支出', money(expense), Hue.negative),
