@@ -930,10 +930,14 @@ final class Ledger extends ChangeNotifier {
   static DateTime _lastDayOf(DateTime month) =>
       DateTime.utc(month.year, month.month + 1, 0);
 
+  /// The last day whose statement closes are behind: a statement closes
+  /// at the end of its day, so one closing today is still open.
+  DateTime get closedBy => today.subtract(const Duration(days: 1));
+
   /// The last closed statement of [card]: its first and last day and when
-  /// it must be paid. A statement closing today is still open.
+  /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) {
-    final end = closingOn(card, today.subtract(const Duration(days: 1)));
+    final end = closingOn(card, closedBy);
     final start = closingOn(
       card,
       end.subtract(const Duration(days: 1)),
@@ -991,7 +995,7 @@ final class Ledger extends ChangeNotifier {
     for (final e in _entries)
       if (e.account == card.id &&
           e.installments > 1 &&
-          billedPeriods(e, today) < e.installments)
+          billedPeriods(e, closedBy) < e.installments)
         e,
   ];
 

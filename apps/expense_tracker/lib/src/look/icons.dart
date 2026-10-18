@@ -70,7 +70,7 @@ Color accountColor(AccountKind kind) => switch (kind) {
   AccountKind.wallet => Hue.wallet,
   AccountKind.card => Hue.card,
   AccountKind.loan => Hue.investment,
-  AccountKind.receivable => Hue.holdings,
+  AccountKind.receivable => Hue.receivable,
 };
 
 String groupName(AccountKind kind) => switch (kind) {

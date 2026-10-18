@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:backup_security/backup_security.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:ledger_backup/ledger_backup.dart';
 import 'package:ledger_vault/ledger_vault.dart';
 
@@ -228,7 +229,10 @@ final class Startup extends ChangeNotifier {
       _reEnrol = false;
     } on Object catch (error) {
       debugPrint('Device key not enrolled: $error');
-      await _noDevice.writeAsString('', flush: true);
+      // Only turning the prompt down stops it; a failure asks next time.
+      if (error is PlatformException && error.code == 'declined') {
+        await _noDevice.writeAsString('', flush: true);
+      }
     }
   }
 

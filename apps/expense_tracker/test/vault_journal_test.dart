@@ -348,6 +348,49 @@ void main() {
     expect([for (final e in ledger.entriesIn(2026, 10)) e.amount], [100]);
   });
 
+  test('on its closing day a statement is still open', () async {
+    // The ledger and the screens agree that today's close has not
+    // happened yet.
+    final closing = FixedClock(UtcInstant(DateTime.utc(2026, 9, 25, 4)));
+    final (vaultOpen, _) = await vault.create(password);
+    open = vaultOpen;
+    var ledger = await VaultJournal(vaultOpen, clock: closing).load();
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger.addAccount(card);
+    await ledger.settled;
+    for (final (amount, date) in [
+      (1000, DateTime.utc(2026, 8, 20)),
+      (300, DateTime.utc(2026, 9, 25)),
+    ]) {
+      ledger.add(
+        Entry(
+          id: ledger.newId(),
+          date: date,
+          type: EntryType.expense,
+          amount: amount,
+          account: card.id,
+          category: '購物休閒',
+        ),
+      );
+    }
+    await ledger.settled;
+    open?.close();
+    final again = await vault.unlockWithPassword(password);
+    open = again;
+    ledger = await VaultJournal(again, clock: closing).load();
+    final kept = ledger.account(card.id);
+    expect(ledger.statement(kept).$2, DateTime.utc(2026, 8, 25));
+    expect(ledger.dueFromEntries(kept), 1000);
+    expect(ledger.statementDue(kept), ledger.dueFromEntries(kept));
+  });
+
   test("a card's statement due matches the ledger's billing", () async {
     var ledger = await create();
     final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
@@ -793,5 +836,122 @@ void main() {
     final left = ledger.entriesIn(2026, 10);
     expect(left.where((e) => e.installments == 3), isEmpty);
     expect(left.where((e) => e.recurring != null), hasLength(1));
+  });
+
+  test('a card charge edited later stays on the card', () async {
+    var ledger = await create();
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger.addAccount(card);
+    await ledger.settled;
+    Entry charge(String id, int amount) => Entry(
+      id: id,
+      date: DateTime.utc(2026, 9, 20),
+      type: EntryType.expense,
+      amount: amount,
+      account: card.id,
+      category: '購物休閒',
+    );
+    ledger.add(charge(ledger.newId(), 1500));
+    ledger = await reopen(ledger);
+    final kept = ledger.entriesIn(2026, 9).single;
+    ledger.replace(charge(kept.id, 1800));
+
+    ledger = await reopen(ledger);
+    expect(ledger.entriesIn(2026, 9).single.amount, 1800);
+    expect(ledger.balance(card.id), -1800);
+    final account = ledger.account(card.id);
+    expect(ledger.statementDue(account), ledger.dueFromEntries(account));
+  });
+
+  test('a refused change leaves the book as it was', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '薪轉', AccountKind.bank, 50000);
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger
+      ..addAccount(bank)
+      ..addAccount(card);
+    await ledger.settled;
+    // Paying a card with a fee is refused by the ledger.
+    ledger.add(
+      Entry(
+        id: ledger.newId(),
+        date: day,
+        type: EntryType.transfer,
+        amount: 1000,
+        account: bank.id,
+        to: card.id,
+        category: '轉帳',
+        fee: 15,
+      ),
+    );
+    await ledger.settled;
+    expect(ledger.problem.value, isNotNull);
+    ledger.problem.value = null;
+    expect(ledger.entriesIn(day.year, day.month), isEmpty);
+    expect(ledger.balance(bank.id), 50000);
+
+    ledger = await reopen(ledger);
+    expect(ledger.entriesIn(day.year, day.month), isEmpty);
+  });
+
+  test('a sale at average cost matches the ledger', () async {
+    var ledger = await create();
+    final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
+    ledger.addAccount(bank);
+    await ledger.settled;
+    Entry trade(EntryType type, int amount, int shares, DateTime on) => Entry(
+      id: ledger.newId(),
+      date: on,
+      type: type,
+      amount: amount,
+      account: bank.id,
+      category: '投資',
+      holding: '0050',
+      shares: shares,
+      fee: 20,
+      average: type == EntryType.sell,
+    );
+    ledger
+      ..add(trade(EntryType.buy, 58200, 1000, DateTime.utc(2026, 9, 1)))
+      ..add(trade(EntryType.buy, 30000, 500, DateTime.utc(2026, 9, 15)))
+      ..add(trade(EntryType.sell, 35000, 500, day));
+
+    ledger = await reopen(ledger);
+    expect(ledger.holding('0050')!.shares, 1000);
+    expect(held('0050'), shown(ledger, '0050'));
+  });
+
+  test("a card's new closing day is kept", () async {
+    var ledger = await create();
+    final card = Account(
+      ledger.newId(),
+      '信用卡',
+      AccountKind.card,
+      0,
+      closingDay: 25,
+      dueDay: 10,
+    );
+    ledger.addAccount(card);
+    await ledger.settled;
+    ledger.updateAccount(card.copyWith(closingDay: 5, dueDay: 20));
+
+    ledger = await reopen(ledger);
+    final kept = ledger.account(card.id);
+    expect((kept.closingDay, kept.dueDay), (5, 20));
+    expect(ledger.statementDue(kept), ledger.dueFromEntries(kept));
   });
 }

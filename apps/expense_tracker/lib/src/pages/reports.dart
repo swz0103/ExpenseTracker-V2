@@ -315,7 +315,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   const SizedBox(width: 10),
                   const LegendKey(Hue.negative, '支出'),
                   const SizedBox(width: 10),
-                  LegendKey(Hue.investment, shortAmount(worthNow), line: true),
+                  const LegendKey(Hue.investment, '淨資產', line: true),
                 ],
               ),
             ),
@@ -330,6 +330,14 @@ class _ReportsPageState extends State<ReportsPage> {
               selected: selected,
               onSelect: (i) => setState(() => _stretch = i),
             ),
+            if (ledger.holdings.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  '過去的股票市值以今日股價估算',
+                  style: TextStyle(fontSize: 11.5, color: Hue.muted),
+                ),
+              ),
             const SizedBox(height: 8),
             _Readout(
               label: readout == null ? '整段期間' : _stretchName(readout),

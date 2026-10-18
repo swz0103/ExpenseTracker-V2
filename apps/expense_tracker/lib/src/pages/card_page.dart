@@ -250,7 +250,7 @@ class CardPage extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final e in plans)
-                      _plan(e, ledger.billedPeriods(e, today)),
+                      _plan(e, ledger.billedPeriods(e, ledger.closedBy)),
                   ],
                 ),
               ),

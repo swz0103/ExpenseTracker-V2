@@ -456,13 +456,13 @@ class _OverviewPageState extends State<OverviewPage> {
 
     final parts = [
       ('investment', '投資', ledger.investValue, Hue.holdings),
-      for (final (kind, color) in const [
-        (AccountKind.bank, Hue.bank),
-        (AccountKind.cash, Hue.cash),
-        (AccountKind.wallet, Hue.wallet),
-        (AccountKind.receivable, Color(0xFF8E7CC0)),
+      for (final kind in const [
+        AccountKind.bank,
+        AccountKind.cash,
+        AccountKind.wallet,
+        AccountKind.receivable,
       ])
-        (kind.name, groupName(kind), sumOf(kind), color),
+        (kind.name, groupName(kind), sumOf(kind), accountColor(kind)),
     ]..sort((a, b) => b.$3.compareTo(a.$3));
     return [
       for (final p in parts)
