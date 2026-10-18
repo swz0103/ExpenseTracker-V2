@@ -199,15 +199,15 @@ class _ComposerState extends State<Composer> {
     _reduce = entry.isReduction;
     if (_reduce) _shares = -entry.shares;
     if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
-      _kept = (entry.fee, entry.tax, _tradeKey);
+      _tradeFee = entry.fee;
+      _tradeTax = entry.tax;
     }
   }
 
-  /// The fee and tax an opened trade was saved with, kept while its
-  /// amount, shares, day and stock stay as they were.
-  (int, int, Object)? _kept;
-
-  Object get _tradeKey => (_amount, _shares, _date, _holding);
+  /// A trade's broker fee and tax as typed, or as it was saved; null
+  /// takes the suggestion.
+  int? _tradeFee;
+  int? _tradeTax;
 
   @override
   void dispose() {
@@ -232,6 +232,8 @@ class _ComposerState extends State<Composer> {
     _tags = [];
     _parts = null;
     _fee = 0;
+    _tradeFee = null;
+    _tradeTax = null;
     _home = null;
     _received = null;
     _premium = null;
@@ -371,17 +373,20 @@ class _ComposerState extends State<Composer> {
   /// The premium withheld from the cash dividend being written.
   int get _withheld => _premium ?? dividendPremium(_amount, _date);
 
-  /// The broker's fee and the tax on the trade being written.
+  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
+  /// trade being written.
+  (int, int) get _suggested {
+    final tax = _type == EntryType.sell
+        ? saleTax(_holding ?? '', _amount, _shares, _date)
+        : 0;
+    return (brokerFee(_amount, _shares), tax);
+  }
+
+  /// The trade's fee and tax: as typed, else as suggested.
   (int, int) get _charges {
     if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
-    final kept = _kept;
-    if (kept != null && kept.$3 == _tradeKey) return (kept.$1, kept.$2);
-    final fee = brokerFee(_amount, _shares);
-    final code = _holding ?? '';
-    final tax = _type == EntryType.sell
-        ? saleTax(code, _amount, _shares, _date)
-        : 0;
-    return (fee, tax);
+    final (fee, tax) = _suggested;
+    return (_tradeFee ?? fee, _tradeTax ?? tax);
   }
 
   Future<int?> _ask(String title, int initial, {String unit = 'TWD'}) {
@@ -587,6 +592,8 @@ class _ComposerState extends State<Composer> {
         _splitShares = false;
         _reduce = false;
       }
+      _tradeFee = null;
+      _tradeTax = null;
       _trade = trade;
     });
   }
@@ -1178,6 +1185,28 @@ class _ComposerState extends State<Composer> {
     );
   }
 
+  /// A trade's fee or tax: what the broker charged, typed in, or the
+  /// suggestion until then.
+  Widget _chargeTile(
+    String label,
+    int value,
+    int suggested,
+    void Function(int value) keep,
+  ) {
+    return Tile(
+      icon: Glyph.coins,
+      label: label,
+      value: groupDigits(value),
+      valueColor: value > 0 ? Hue.negative : Hue.ink,
+      size: 15,
+      sub: value == suggested ? '依費率試算，點此修改' : '試算 ${groupDigits(suggested)}',
+      onTap: () async {
+        final typed = await _ask(label, value);
+        if (typed != null) setState(() => keep(typed));
+      },
+    );
+  }
+
   /// Opens the fields a quick entry leaves out.
   Widget _moreLink(bool expense) {
     if (_viewing) return const SizedBox.shrink();
@@ -1222,6 +1251,7 @@ class _ComposerState extends State<Composer> {
     final code = _holding;
     final held = code == null ? null : _ledger.holding(code);
     final (fee, tax) = _charges;
+    final suggested = _suggested;
     final sell = _trade == EntryType.sell;
     final cost = sell && code != null && held != null && _shares <= held.shares
         ? _ledger.saleCost(code, _shares, average: _average)
@@ -1350,11 +1380,14 @@ class _ComposerState extends State<Composer> {
           ),
         ),
       if (_trading && _amount > 0)
+        TileRow([
+          _chargeTile('手續費', fee, suggested.$1, (v) => _tradeFee = v),
+          if (sell) _chargeTile('證交稅', tax, suggested.$2, (v) => _tradeTax = v),
+        ]),
+      if (_trading && _amount > 0)
         _Block(
           child: Column(
             children: [
-              _Line('手續費', groupDigits(fee)),
-              if (sell) _Line('證交稅', groupDigits(tax)),
               _Line(
                 sell ? '實收' : '應付',
                 groupDigits(sell ? _amount - fee - tax : _amount + fee),
