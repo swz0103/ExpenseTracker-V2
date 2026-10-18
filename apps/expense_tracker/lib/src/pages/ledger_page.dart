@@ -172,9 +172,7 @@ class _LedgerPageState extends State<LedgerPage> {
             rows.add(
               DayHeading(
                 e.date,
-                total: spentToday == 0
-                    ? null
-                    : '支出 ${money(spentToday)}',
+                total: spentToday == 0 ? null : '支出 ${money(spentToday)}',
               ),
             );
           }
