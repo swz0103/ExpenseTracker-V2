@@ -299,8 +299,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     final ledger = widget.ledger;
     final book = widget.initial.name.isEmpty ? null : ledger;
     final hasChildren =
-        ledger?.categories.any((c) => c.parent == widget.initial.name) ??
-        false;
+        ledger?.categories.any((c) => c.parent == widget.initial.name) ?? false;
     final parents = [
       if (ledger != null)
         for (final c in ledger.categoriesFor(income: widget.initial.income))
