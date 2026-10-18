@@ -702,6 +702,25 @@ final class Ledger extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  /// Entries of any month whose note, merchant, category or tags hold
+  /// [words], or whose amount is [words]; newest first.
+  List<Entry> search(String words) {
+    final found = [
+      for (final (i, e) in _entries.indexed)
+        if (e.note.contains(words) ||
+            e.merchant.contains(words) ||
+            e.category.contains(words) ||
+            e.tags.any((t) => t.contains(words)) ||
+            '${e.amount}' == words)
+          (i, e),
+    ];
+    found.sort((a, b) {
+      final byDate = b.$2.date.compareTo(a.$2.date);
+      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+    });
+    return [for (final (_, e) in found) e];
+  }
+
   List<Entry> entriesOn(DateTime day) => [
     for (final e in entriesIn(day.year, day.month))
       if (e.date == day) e,

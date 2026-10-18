@@ -47,17 +47,20 @@ class _LedgerPageState extends State<LedgerPage> {
   String? _account;
   String? _search;
 
+  String get _words => (_search ?? '').trim();
+
+  /// The month's entries, or every month's that match the search.
   List<Entry> _shown() {
     final (year, month) = _month;
-    final words = (_search ?? '').trim();
+    final words = _words;
+    final ledger = widget.ledger;
+    final source = words.isEmpty
+        ? ledger.entriesIn(year, month)
+        : ledger.search(words);
     return [
-      for (final e in widget.ledger.entriesIn(year, month))
+      for (final e in source)
         if (_kind.shows(e) &&
-            (_account == null || e.account == _account || e.to == _account) &&
-            (words.isEmpty ||
-                e.note.contains(words) ||
-                e.merchant.contains(words) ||
-                e.category.contains(words)))
+            (_account == null || e.account == _account || e.to == _account))
           e,
     ];
   }
@@ -146,9 +149,14 @@ class _LedgerPageState extends State<LedgerPage> {
       listenable: ledger,
       builder: (context, _) {
         final (year, month) = _month;
-        final income = ledger.income(year, month);
-        final expense = ledger.expense(year, month);
         final shown = _shown();
+        final searching = _words.isNotEmpty;
+        final income = searching
+            ? shown.fold(0, (sum, e) => sum + e.earning)
+            : ledger.income(year, month);
+        final expense = searching
+            ? shown.fold(0, (sum, e) => sum + e.spending)
+            : ledger.expense(year, month);
         final rows = <Widget>[];
         var group = <Widget>[];
         DateTime? day;
@@ -201,7 +209,9 @@ class _LedgerPageState extends State<LedgerPage> {
             Tile(
               hero: true,
               icon: Glyph.records,
-              label: '$month 月結餘 · ${shown.length} 筆',
+              label: searching
+                  ? '搜尋「$_words」· ${shown.length} 筆'
+                  : '$month 月結餘 · ${shown.length} 筆',
               value: money(income - expense),
               valueColor: income < expense ? Hue.negative : Hue.ink,
               size: 28,
@@ -217,7 +227,7 @@ class _LedgerPageState extends State<LedgerPage> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: '搜尋名稱、分類、商家',
+                      hintText: '搜尋全部紀錄：備註、商家、標籤、金額',
                       isDense: true,
                       filled: true,
                       fillColor: Hue.white,

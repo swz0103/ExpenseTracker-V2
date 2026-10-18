@@ -673,4 +673,36 @@ void main() {
     expect(ledger.balance(bank.id), 500000 - 58250 - 30025 + 35000 - 135);
     expect(ledger.holding('0050')!.shares, 4000);
   });
+
+  test('a year of entries loads quickly', () async {
+    final ledger = await create();
+    final cash = ledger.accounts.firstWhere((a) => a.name == '現金');
+    final journal = VaultJournal(open!, clock: clock);
+    final entries = [
+      for (var i = 0; i < 1200; i++)
+        Entry(
+          id: ledger.newId(),
+          date: DateTime.utc(2025, 10, 3).add(Duration(days: i * 365 ~/ 1200)),
+          type: EntryType.expense,
+          amount: 50 + i % 400,
+          account: cash.id,
+          category: '飲食日常',
+          note: i.isEven ? '午餐' : '',
+          tags: i % 7 == 0 ? const ['家用'] : const [],
+        ),
+    ];
+    final writing = Stopwatch()..start();
+    await journal.addEntries(entries);
+    writing.stop();
+    final loading = Stopwatch()..start();
+    final loaded = await journal.load();
+    loading.stop();
+    // Printed so a slow-down shows in the CI log before it fails.
+    print(
+      'Wrote 1200 entries in ${writing.elapsedMilliseconds} ms, '
+      'loaded them in ${loading.elapsedMilliseconds} ms',
+    );
+    expect(loaded.balance(cash.id), -entries.fold(0, (s, e) => s + e.amount));
+    expect(loading.elapsed, lessThan(const Duration(seconds: 5)));
+  });
 }
