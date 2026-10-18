@@ -12,6 +12,7 @@ import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
 import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
+import 'pages/recovery_code.dart';
 import 'pages/shell.dart';
 import 'platform.dart';
 import 'startup.dart';

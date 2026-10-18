@@ -10,8 +10,8 @@ import '../model/exchange.dart';
 import '../model/ledger.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
-import 'lock_screen.dart';
 import 'nav.dart';
+import 'recovery_code.dart';
 
 /// 設定與資料: preferences, exporting a month or the whole book, the
 /// encrypted ledger's backups and keys, and resetting the demo.

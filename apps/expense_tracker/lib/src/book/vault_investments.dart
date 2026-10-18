@@ -5,9 +5,7 @@ part of 'vault_journal.dart';
 extension _Investments on VaultJournal {
   /// The screens' trade entries and, for each instrument traded, a
   /// holding to replay them onto, priced at its last trade.
-  (List<ui.Entry>, List<ui.Holding>) _investments(
-    Map<PublicId, String> notes,
-  ) {
+  (List<ui.Entry>, List<ui.Holding>) _investments(Map<PublicId, String> notes) {
     final entries = <ui.Entry>[];
     final quotes = <String, (String, double)>{};
     final instruments = <String, InvestmentInstrument?>{};
