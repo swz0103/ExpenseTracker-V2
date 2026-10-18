@@ -16,7 +16,6 @@ const strictPackages = [
   'infrastructure/market_adapters',
   'infrastructure/storage_sqlcipher',
   'packages/accounts',
-  'packages/amount_input',
   'packages/app_core',
   'packages/bookkeeping',
   'packages/budgets',
