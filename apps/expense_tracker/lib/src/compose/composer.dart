@@ -130,6 +130,10 @@ class _ComposerState extends State<Composer> {
   var _average = false;
   var _splitShares = false;
 
+  /// A dividend that changes the shares held, opened from its link: most
+  /// dividends are cash only.
+  var _shareChange = false;
+
   /// A capital reduction: the shares go down and cash comes back.
   var _reduce = false;
   final _note = TextEditingController();
@@ -193,6 +197,7 @@ class _ComposerState extends State<Composer> {
     _installments = entry.installments;
     _average = entry.average;
     _splitShares = entry.split;
+    _shareChange = entry.type == EntryType.dividend && entry.shares != 0;
     _reduce = entry.isReduction;
     if (_reduce) _shares = -entry.shares;
     if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
@@ -237,6 +242,7 @@ class _ComposerState extends State<Composer> {
     _installments = 0;
     _average = false;
     _splitShares = false;
+    _shareChange = false;
     _reduce = false;
     _problem = null;
   }
@@ -573,6 +579,7 @@ class _ComposerState extends State<Composer> {
         _shares = 0;
         _amount = 0;
         _splitShares = false;
+        _shareChange = false;
         _reduce = false;
       }
       _tradeFee = null;
@@ -1252,29 +1259,43 @@ class _ComposerState extends State<Composer> {
             },
           ),
         ]),
-      if (_trade == EntryType.dividend) ...[
+      if (_trade == EntryType.dividend && !_shareChange && !_viewing)
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Tile(
-            icon: Glyph.briefcase,
-            label: _reducing
-                ? '減資減少股數'
-                : _splitShares
-                ? '分割增加股數'
-                : '配股股數',
-            value: groupDigits(_shares),
-            size: 15,
-            onTap: () async {
-              final value = await _ask(
-                _reduce ? '減少股數' : '增加股數',
-                _shares,
-                unit: '股',
-              );
-              if (value != null) setState(() => _shares = value);
-            },
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _Link(
+              '＋ 配股、分割或減資',
+              () => setState(() => _shareChange = true),
+            ),
           ),
         ),
-        if (_amount > 0 && !_reducing)
+      if (_trade == EntryType.dividend) ...[
+        if (_shareChange)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Tile(
+              icon: Glyph.briefcase,
+              label: _reducing
+                  ? '減資減少股數'
+                  : _splitShares
+                  ? '分割增加股數'
+                  : '配股股數',
+              value: groupDigits(_shares),
+              size: 15,
+              onTap: () async {
+                final value = await _ask(
+                  _reduce ? '減少股數' : '增加股數',
+                  _shares,
+                  unit: '股',
+                );
+                if (value != null) setState(() => _shares = value);
+              },
+            ),
+          ),
+        // The premium only applies from NT$20,000 a payment; below that
+        // there is nothing to show unless one was typed.
+        if (_amount > 0 && !_reducing && (_withheld > 0 || _premium != null))
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Tile(

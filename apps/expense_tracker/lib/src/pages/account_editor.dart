@@ -56,6 +56,10 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// Chosen when the account is opened; fixed after that.
   late var _currency = _old?.currency ?? 'TWD';
 
+  /// The currencies offered first; the rest open from 更多.
+  static const _common = {'TWD', 'USD', 'JPY', 'EUR', 'CNY'};
+  var _allCurrencies = false;
+
   String _startBalance() {
     final account = widget.account;
     if (account == null) return '';
@@ -309,10 +313,19 @@ class _AccountEditorState extends State<_AccountEditor> {
                 runSpacing: 6,
                 children: [
                   for (final code in Currency.supported)
+                    if (_allCurrencies ||
+                        _common.contains(code) ||
+                        code == _currency)
+                      _Choice(
+                        label: code,
+                        picked: code == _currency,
+                        onTap: () => setState(() => _currency = code),
+                      ),
+                  if (!_allCurrencies)
                     _Choice(
-                      label: code,
-                      picked: code == _currency,
-                      onTap: () => setState(() => _currency = code),
+                      label: '更多…',
+                      picked: false,
+                      onTap: () => setState(() => _allCurrencies = true),
                     ),
                 ],
               ),

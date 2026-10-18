@@ -85,8 +85,6 @@ jobs:
           $packages = @(
             'infrastructure/storage_sqlcipher', 'infrastructure/backup_security',
             'infrastructure/ledger_sqlcipher', 'infrastructure/market_adapters',
-            'infrastructure/drive_backup',
-            'infrastructure/backup_service',
             'infrastructure/ledger_backup',
             'infrastructure/ledger_vault'
           )
