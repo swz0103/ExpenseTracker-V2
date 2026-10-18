@@ -409,7 +409,26 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          if (book != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => _merge(book),
+                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    child: const Text('合併到其他分類'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _archive(book),
+                    style: TextButton.styleFrom(foregroundColor: Hue.danger),
+                    child: Text(widget.initial.archived ? '恢復' : '封存'),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
           Row(
             children: [
               TextButton(
@@ -417,18 +436,6 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 style: TextButton.styleFrom(foregroundColor: Hue.muted),
                 child: const Text('取消'),
               ),
-              if (book != null) ...[
-                TextButton(
-                  onPressed: () => _merge(book),
-                  style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                  child: const Text('合併'),
-                ),
-                TextButton(
-                  onPressed: () => _archive(book),
-                  style: TextButton.styleFrom(foregroundColor: Hue.danger),
-                  child: Text(widget.initial.archived ? '恢復' : '封存'),
-                ),
-              ],
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton(

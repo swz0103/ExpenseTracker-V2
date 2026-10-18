@@ -162,13 +162,14 @@ class _OverviewPageState extends State<OverviewPage> {
       ),
       const Padding(
         padding: EdgeInsets.only(top: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
           children: [
-            _Legend('支出', Hue.negative),
-            _Legend('收入', Hue.positive),
-            _Legend('轉帳', Hue.transfer),
-            _Legend('投資', Hue.investment),
+            LegendKey(Hue.negative, '支出'),
+            LegendKey(Hue.positive, '收入'),
+            LegendKey(Hue.transfer, '轉帳'),
+            LegendKey(Hue.investment, '投資'),
           ],
         ),
       ),
@@ -455,10 +456,13 @@ class _OverviewPageState extends State<OverviewPage> {
 
     final parts = [
       ('investment', '投資', ledger.investValue, Hue.holdings),
-      ('bank', '銀行', sumOf(AccountKind.bank), Hue.bank),
-      ('cash', '現金', sumOf(AccountKind.cash), Hue.cash),
-      ('wallet', '電子支付', sumOf(AccountKind.wallet), Hue.wallet),
-      ('receivable', '代墊應收', sumOf(AccountKind.receivable), Hue.shades[3]),
+      for (final (kind, color) in const [
+        (AccountKind.bank, Hue.bank),
+        (AccountKind.cash, Hue.cash),
+        (AccountKind.wallet, Hue.wallet),
+        (AccountKind.receivable, Color(0xFF8E7CC0)),
+      ])
+        (kind.name, groupName(kind), sumOf(kind), color),
     ]..sort((a, b) => b.$3.compareTo(a.$3));
     return [
       for (final p in parts)
@@ -485,7 +489,7 @@ class _OverviewPageState extends State<OverviewPage> {
     final scope = switch (group) {
       null => '資產',
       'investment' => '資產 › 投資',
-      _ => '資產 › ${_groupLabel(group)}',
+      _ => '資產 › ${groupName(AccountKind.values.byName(group))}',
     };
     final allName = switch (group) {
       null => '全部資產',
@@ -542,14 +546,6 @@ class _OverviewPageState extends State<OverviewPage> {
     ];
   }
 
-  String _groupLabel(String group) => switch (group) {
-    'bank' => '銀行',
-    'cash' => '現金',
-    'wallet' => '電子支付',
-    'receivable' => '代墊應收',
-    _ => group,
-  };
-
   List<Widget> _flow() {
     final ledger = widget.ledger;
     final (year, month) = _month;
@@ -605,19 +601,19 @@ class _OverviewPageState extends State<OverviewPage> {
       const SizedBox(height: 4),
       Row(
         children: [
-          const _Key(Hue.positive, '收入'),
+          const LegendKey(Hue.positive, '收入'),
           Text(
             ' ${money(shown.income)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const SizedBox(width: 12),
-          const _Key(Hue.negative, '支出'),
+          const LegendKey(Hue.negative, '支出'),
           Text(
             ' ${money(shown.expense)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const Spacer(),
-          const _Key(Hue.investment, '淨資產', line: true),
+          const LegendKey(Hue.investment, '淨資產', line: true),
           Text(
             ' ${money(shown.worth)}',
             style: const TextStyle(fontSize: 12, color: Hue.muted),
@@ -769,32 +765,6 @@ class _WeekStrip extends StatelessWidget {
   }
 }
 
-class _Legend extends StatelessWidget {
-  const _Legend(this.label, this.color);
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
-        ],
-      ),
-    );
-  }
-}
-
 /// A day's entries three to a row: icon and name above the amount.
 class _DayGrid extends StatelessWidget {
   const _DayGrid({
@@ -850,12 +820,7 @@ class _DayGrid extends StatelessWidget {
   }
 
   Widget _cell(Entry e) {
-    final category = ledger.category(e.category);
-    final icon = switch (e.type) {
-      EntryType.transfer => iconFor('transfer'),
-      EntryType.buy || EntryType.sell => iconFor('investment'),
-      _ => iconFor(category.icon),
-    };
+    final (icon, mark) = entryMark(ledger, e);
     final color = entryColor(e.type);
     final currency = ledger.account(e.account).currency;
     final amount = ledger.hidden ? '••••' : entryAmount(e, currency: currency);
@@ -864,7 +829,7 @@ class _DayGrid extends StatelessWidget {
       children: [
         Row(
           children: [
-            GlyphIcon(icon, size: 16, color: category.color),
+            GlyphIcon(icon, size: 16, color: mark),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -884,34 +849,6 @@ class _DayGrid extends StatelessWidget {
             color: color,
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// A legend mark, a square or a short line, with its label.
-class _Key extends StatelessWidget {
-  const _Key(this.color, this.label, {this.line = false});
-
-  final Color color;
-  final String label;
-  final bool line;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: line ? 12 : 8,
-          height: line ? 2 : 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
       ],
     );
   }

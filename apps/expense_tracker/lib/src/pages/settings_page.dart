@@ -8,6 +8,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
 import '../model/ledger.dart';
+import '../perf.dart';
 import '../problems.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
@@ -248,6 +249,33 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ],
+                  const SectionHead('效能'),
+                  SoftPanel(
+                    child: Column(
+                      children: [
+                        for (final (name, figure) in Perf.instance.report)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              children: [
+                                Text(name),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    figure,
+                                    textAlign: TextAlign.end,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Hue.muted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   // Only the preview's made-up book can be reset.
                   if (ledger.journal == null)

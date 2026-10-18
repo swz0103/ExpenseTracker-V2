@@ -18,6 +18,7 @@ import 'package:recurring_transactions/recurring_transactions.dart';
 import 'package:reports/reports.dart';
 
 import '../model/ledger.dart' as ui;
+import '../perf.dart';
 import 'journal.dart';
 import 'looks.dart';
 
@@ -92,7 +93,9 @@ final class VaultJournal implements Journal {
   // Loading.
 
   @override
-  Future<ui.Ledger> load() async {
+  Future<ui.Ledger> load() => Perf.instance.timeLoad(_load);
+
+  Future<ui.Ledger> _load() async {
     if (_store.categories(_workspace).isEmpty) await _addStarters();
     if (_store.accounts(_workspace).isEmpty) await _addStarterAccounts();
     final looks = _looks.all();

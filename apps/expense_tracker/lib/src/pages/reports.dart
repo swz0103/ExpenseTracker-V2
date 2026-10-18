@@ -311,11 +311,11 @@ class _ReportsPageState extends State<ReportsPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const _Key(Hue.positive, '收入'),
+                  const LegendKey(Hue.positive, '收入'),
                   const SizedBox(width: 10),
-                  const _Key(Hue.negative, '支出'),
+                  const LegendKey(Hue.negative, '支出'),
                   const SizedBox(width: 10),
-                  _Key(Hue.investment, shortAmount(worthNow), line: true),
+                  LegendKey(Hue.investment, shortAmount(worthNow), line: true),
                 ],
               ),
             ),
@@ -724,30 +724,3 @@ class _Readout extends StatelessWidget {
   );
 }
 
-/// A legend mark, a dot or a short line, with its label.
-class _Key extends StatelessWidget {
-  const _Key(this.color, this.label, {this.line = false});
-
-  final Color color;
-  final String label;
-  final bool line;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: line ? 12 : 8,
-          height: line ? 2.5 : 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
-      ],
-    );
-  }
-}

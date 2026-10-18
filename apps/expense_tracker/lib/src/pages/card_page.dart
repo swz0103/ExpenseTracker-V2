@@ -107,7 +107,10 @@ class CardPage extends StatelessWidget {
         final (start, end, due) = ledger.statement(card);
         final owed = ledger.statementDue(card);
         final unbilled = ledger.unbilled(card);
-        final spentSince = unbilled.fold(0, (sum, e) => sum + e.amount);
+        final spentSince = unbilled.fold(
+          0,
+          (sum, e) => sum - ledger.effect(e, card.id),
+        );
         final plans = ledger.instalmentsOn(card);
         final pending = plans.fold(
           0,
@@ -123,7 +126,7 @@ class CardPage extends StatelessWidget {
         final left = due.difference(today).inDays;
         final next = ledger.closingOn(card, end.add(const Duration(days: 40)));
         final status = owed == 0
-            ? '下次結帳 ${_day(next)}'
+            ? '這期已繳清'
             : '繳款截止 ${_day(due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）';
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),

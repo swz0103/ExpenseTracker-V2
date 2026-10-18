@@ -956,16 +956,18 @@ final class Ledger extends ChangeNotifier {
     return max(0, -balance(card.id, until: end) - paid);
   }
 
-  /// Purchases on [card] since its last statement closed.
+  /// Purchases on [card] since its last statement closed, and the
+  /// refunds and rewards credited against them.
   List<Entry> unbilled(Account card) {
     final (_, end, _) = statement(card);
+    bool posted(Entry e) => switch (e.type) {
+      EntryType.income => true,
+      EntryType.expense => e.installments < 2,
+      _ => false,
+    };
     return [
       for (final e in _entries)
-        if (e.account == card.id &&
-            e.type == EntryType.expense &&
-            e.installments < 2 &&
-            e.date.isAfter(end))
-          e,
+        if (e.account == card.id && posted(e) && e.date.isAfter(end)) e,
     ]..sort((a, b) => b.date.compareTo(a.date));
   }
 

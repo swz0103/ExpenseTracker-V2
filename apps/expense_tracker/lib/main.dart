@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'src/bootstrap.dart';
+import 'src/perf.dart';
 import 'src/platform.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Perf.instance.watchFrames();
   final directory = await applicationDirectory();
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
