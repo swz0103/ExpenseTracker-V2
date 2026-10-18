@@ -22,9 +22,11 @@ import '../perf.dart';
 import 'journal.dart';
 import 'looks.dart';
 
+part 'vault_app_events.dart';
 part 'vault_catalogs.dart';
 part 'vault_investments.dart';
 part 'vault_loading.dart';
+part 'vault_market.dart';
 part 'vault_values.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
@@ -392,66 +394,6 @@ final class VaultJournal implements Journal {
     return id;
   }
 
-  // The app's own facts the ledger has no command for, kept as `app.`
-  // events in its journal so backups carry them.
-
-  static const _linkKind = '${appEventPrefix}recurring-link';
-  static const _removedKind = '${appEventPrefix}recurring-removed';
-  static const _ratesKind = '${appEventPrefix}rates';
-
-  /// The payloads of the app events of [kind], oldest first.
-  List<Map<String, Object?>> _events(String kind) {
-    final rows = _vault.store.select(
-      'SELECT payload FROM events WHERE workspace = ? AND kind = ? '
-      'ORDER BY seq',
-      [_workspace.toString(), kind],
-    );
-    return [
-      for (final row in rows)
-        jsonDecode(row['payload']! as String) as Map<String, Object?>,
-    ];
-  }
-
-  /// Adds an app event of [kind], queued behind the ledger's commands.
-  Future<void> _append(String kind, Map<String, Object?> payload) {
-    final text = jsonEncode(payload);
-    return _books.exclusive(() async {
-      await _vault.store.write((t) async {
-        t.append(
-          id: PublicId.generate(),
-          workspace: _workspace,
-          kind: kind,
-          payload: text,
-        );
-      });
-    });
-  }
-
-  /// The recurring item behind each booking: the ones the ledger
-  /// confirmed, and the bookings the app linked itself.
-  Map<PublicId, PublicId> _recurringLinks() {
-    final links = _store.recurringByPosting(_workspace);
-    for (final json in _events(_linkKind)) {
-      final posting = PublicId.parse(json['posting']! as String);
-      links[posting] = PublicId.parse(json['template']! as String);
-    }
-    return links;
-  }
-
-  /// Links [posting] to [template]: an edited booking, whose ledger
-  /// confirmation stays with the entry it replaced, or one the ledger
-  /// could not confirm.
-  Future<void> _linkRecurring(PublicId posting, PublicId template) {
-    final link = {'posting': posting.value, 'template': template.value};
-    return _append(_linkKind, link);
-  }
-
-  /// The recurring items the person deleted: the ledger can only stop
-  /// them.
-  Set<String> _removedTemplates() => {
-    for (final json in _events(_removedKind)) json['template']! as String,
-  };
-
   Future<String> _replace(ui.Entry before, ui.Entry after) async {
     final id = _parse(before.id);
     if (id == null || !_store.hasPosting(id)) {
@@ -687,83 +629,6 @@ final class VaultJournal implements Journal {
       rethrow;
     }
     return true;
-  }
-
-  // Prices and rates; trades are in vault_investments.dart.
-
-  /// The board last fetched, kept so foreign accounts are valued offline.
-  Map<String, double> _keptRates() {
-    final kept = _events(_ratesKind);
-    if (kept.isEmpty) return const {};
-    final rates = kept.last['rates']! as Map<String, Object?>;
-    return {
-      for (final MapEntry(:key, :value) in rates.entries)
-        key: (value! as num).toDouble(),
-    };
-  }
-
-  /// Fetches 臺灣銀行's board: the spot buying rate of each currency, what
-  /// a foreign balance is worth in NT$. Returns whether any rate changed.
-  Future<bool> refreshRates() async {
-    final market = _market;
-    if (market == null) return false;
-    final board = (await market.bankRates()).value;
-    if (board == null) return false;
-    final fetched = <String, double>{};
-    for (final MapEntry(key: code, value: row) in board.rates.entries) {
-      final rate = row.valuation;
-      if (rate != null) fetched[code] = rate.numerator / rate.denominator;
-    }
-    if (fetched.isEmpty || mapEquals(fetched, _rates)) return false;
-    _rates
-      ..clear()
-      ..addAll(fetched);
-    await _append(_ratesKind, {'asOf': '${board.asOf}', 'rates': fetched});
-    return true;
-  }
-
-  /// Fetches the latest close of every instrument still held, for the
-  /// holdings' value; a TWSE listing not found there is tried on TPEx.
-  /// Returns whether any price changed.
-  Future<bool> refreshQuotes() async {
-    final market = _market;
-    if (market == null) return false;
-    final held = <String, InvestmentInstrument>{};
-    for (final account in _store.investmentAccounts(_workspace)) {
-      for (final id in _store.positions(account.id)) {
-        final instrument = _store.instrument(id);
-        if (instrument != null) held[instrument.symbol] = instrument;
-      }
-    }
-    var changed = false;
-    for (final MapEntry(key: symbol, value: instrument) in held.entries) {
-      try {
-        var result = await market.stockClose(instrument);
-        if (result.state == MarketState.missing &&
-            instrument.marketCode == 'TWSE') {
-          result = await market.stockClose(
-            InvestmentInstrument(
-              id: instrument.id,
-              kind: instrument.kind,
-              marketCode: 'TPEX',
-              symbol: instrument.symbol,
-              name: instrument.name,
-              tradingCurrency: instrument.tradingCurrency,
-            ),
-          );
-        }
-        final close = result.value;
-        final price = close == null
-            ? null
-            : double.tryParse(close.decimalPrice);
-        if (price == null || _quotes[symbol] == price) continue;
-        _quotes[symbol] = price;
-        changed = true;
-      } on Object {
-        continue;
-      }
-    }
-    return changed;
   }
 
   // Budgets and recurring items.
