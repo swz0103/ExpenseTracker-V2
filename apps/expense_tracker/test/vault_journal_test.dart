@@ -555,7 +555,8 @@ void main() {
 
     ledger = await reopen(ledger);
     expect([for (final b in ledger.budgets) b.category], [Ledger.allSpending]);
-    expect(ledger.recurring.single.active, isFalse);
+    // Deleted, not just stopped; its bookings stay.
+    expect(ledger.recurring, isEmpty);
     expect(rentEntries(), hasLength(1));
   });
 
