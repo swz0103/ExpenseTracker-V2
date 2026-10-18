@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -142,6 +143,19 @@ class _LedgerPageState extends State<LedgerPage> {
     }
   }
 
+  /// Deletes [entry] after a swipe, with a way back.
+  void _remove(Entry entry) {
+    HapticFeedback.mediumImpact();
+    final removed = widget.ledger.remove(entry.id);
+    if (removed == null) return;
+    showNote(
+      context,
+      '已刪除「${entry.title}」',
+      action: '復原',
+      onAction: () => widget.ledger.restore(removed),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -185,10 +199,27 @@ class _LedgerPageState extends State<LedgerPage> {
             );
           }
           group.add(
-            EntryTile(
-              ledger: ledger,
-              entry: e,
-              onTap: () => widget.nav.showEntry(e),
+            Dismissible(
+              key: ValueKey(e.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: Hue.danger,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                child: const Text(
+                  '刪除',
+                  style: TextStyle(
+                    color: Hue.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              onDismissed: (_) => _remove(e),
+              child: EntryTile(
+                ledger: ledger,
+                entry: e,
+                onTap: () => widget.nav.showEntry(e),
+              ),
             ),
           );
         }
