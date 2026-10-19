@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
+import 'package:expense_tracker/src/model/exchange.dart';
 import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
@@ -346,6 +347,36 @@ void main() {
     final partly = ledger.problem.value! as PartlyKept;
     expect((partly.kept, partly.total), (1, 3));
     expect([for (final e in ledger.entriesIn(2026, 10)) e.amount], [100]);
+  });
+
+  test('a CSV of every kind of entry is kept, with its new accounts', () async {
+    final ledger = await create();
+    const text =
+        '日期,類型,金額,帳戶,轉入帳戶,分類,商家,標籤,備註,代號,股數,手續費,稅,分期\n'
+        '2026-09-01,收入,52000,銀行帳戶,,薪資收入,,,薪水\n'
+        '2026-09-02,支出,300,玉山信用卡,,餐飲=200;居家生活=100,好市多\n'
+        '2026-09-03,轉帳,1000,銀行帳戶,零錢現金,,,,提款,,,15\n'
+        '2026-09-04,買進,60000,銀行帳戶,,,,,,0050,1000,85\n'
+        '2026-09-05,賣出,30000,銀行帳戶,,,,,,0050,500,42,90\n'
+        '2026-09-06,股息,1200,銀行帳戶,,,,,,0050,,,25\n'
+        '2026-09-07,退款,100,玉山信用卡,,,好市多,,退貨\n'
+        '2026-10-02,轉帳,200,銀行帳戶,玉山信用卡,,,,繳卡費\n';
+    final bank = ledger.accounts.firstWhere((a) => a.name == '銀行帳戶');
+    final found = importCsv(ledger, text, fallback: bank.id);
+    expect(found.problems, isEmpty);
+    expect(found.entries, hasLength(8));
+    addImport(ledger, found);
+    final again = await reopen(ledger);
+    expect(again.accounts.map((a) => a.name), containsAll(['玉山信用卡', '零錢現金']));
+    expect(again.categories.map((c) => c.name), contains('餐飲'));
+    expect(again.entries, hasLength(8));
+    expect(shown(again, '0050').$1, 500);
+    final card = again.accounts.firstWhere((a) => a.name == '玉山信用卡');
+    expect(again.balance(card.id), -300 + 100 + 200);
+    expect(
+      importCsv(again, toCsv(again, again.entries), fallback: bank.id).entries,
+      isEmpty,
+    );
   });
 
   test('on its closing day a statement is still open', () async {
