@@ -1,6 +1,6 @@
 # 精確匯率值型別
 
-範圍：`foundation_values` 的 `FxRate`，跨幣轉帳、外幣估值與牌告匯率都用它。
+範圍：`packages/core`（`foundation_values.dart`）的 `FxRate`，跨幣轉帳、外幣估值與牌告匯率都用它。
 
 ## 表示與換算
 

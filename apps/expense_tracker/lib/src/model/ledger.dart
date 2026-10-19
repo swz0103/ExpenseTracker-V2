@@ -1,8 +1,8 @@
 import 'dart:math';
 
+import 'package:core/foundation_values.dart' show Currency, PublicId;
 import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
-import 'package:core/foundation_values.dart' show Currency, PublicId;
 
 import 'amounts.dart';
 import 'card_cycle.dart';

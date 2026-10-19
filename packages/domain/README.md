@@ -28,7 +28,7 @@ dart test --reporter expanded
 - 帳戶規則（版本、幣別、狀態、開戶日）在寫入交易內檢查；違規轉成 `AppFailure`，代碼如 `account.versionConflict`、`ledger.sameAccount`。
 - 沖銷只新增反向分錄，原分錄保留；同一筆不能沖兩次；已結清帳戶不能被沖銷改動餘額。
 - `AccountCodec`／`PostingCodec`：版本化 JSON，解碼一律重新走 domain 工廠驗證。
-- 儲存介面 `BookkeepingTransaction`，SQLCipher 實作在 `infrastructure/ledger_sqlcipher`。
+- 儲存介面 `BookkeepingTransaction`，SQLCipher 實作在 `storage` 模組的 `ledger_sqlcipher`。
 - 也包含：分類／標籤／商家、退款、結清、期初替換、備註、更正、刪除（`Bookkeeping`）；信用卡（`CardBook`）；投資（`InvestmentBook`）；預算與定期交易（`PlanningBook`）。
 - `reportFact` 是分錄轉成月報／預算事實的唯一定義。
 - `package:bookkeeping/memory.dart`：記憶體版實作，供預覽與測試。
