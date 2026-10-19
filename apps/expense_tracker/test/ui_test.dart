@@ -286,7 +286,9 @@ void main() {
     expect(ledger.expense(2026, 10), 17519);
   });
 
-  testWidgets('picked entries are deleted at once and come back', (tester) async {
+  testWidgets('picked entries are deleted at once and come back', (
+    tester,
+  ) async {
     final ledger = await show(tester);
     await tester.tap(find.text('紀錄'));
     await tester.pumpAndSettle();
