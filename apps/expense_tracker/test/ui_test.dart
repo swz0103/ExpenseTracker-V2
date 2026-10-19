@@ -285,4 +285,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
   });
+
+  testWidgets('picked entries are deleted at once and come back', (tester) async {
+    final ledger = await show(tester);
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text('週末點心'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已選 1 筆'), findsOneWidget);
+    await tester.tap(find.text('刪除'));
+    await tester.pumpAndSettle();
+    expect(ledger.expense(2026, 10), 17519 - 200);
+    expect(ledger.trash.single.entry.note, '週末點心');
+    await tester.tap(find.text('復原'));
+    await tester.pumpAndSettle();
+    expect(ledger.expense(2026, 10), 17519);
+    expect(ledger.trash, isEmpty);
+  });
 }
