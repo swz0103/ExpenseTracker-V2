@@ -58,19 +58,6 @@ class CardPage extends StatelessWidget {
     );
   }
 
-  /// The account a card is paid from: the first open bank account, else
-  /// any open account that is not a debt.
-  String _payer() {
-    final open = [
-      for (final a in ledger.openAccounts)
-        if (!a.kind.isDebt && !a.foreign) a,
-    ];
-    for (final a in open) {
-      if (a.kind == AccountKind.bank) return a.id;
-    }
-    return open.isEmpty ? '' : open.first.id;
-  }
-
   /// Lets the person move the next close of [card], [next], by up to a
   /// week, as banks do around holidays.
   Future<void> _moveClose(
@@ -160,7 +147,7 @@ class CardPage extends StatelessWidget {
                             date: today,
                             type: EntryType.transfer,
                             amount: owed,
-                            account: _payer(),
+                            account: ledger.mainAccount,
                             category: '轉帳',
                             note: '${card.name}繳款',
                             to: card.id,

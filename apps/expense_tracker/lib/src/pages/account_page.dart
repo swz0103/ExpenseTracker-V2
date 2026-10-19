@@ -32,6 +32,28 @@ class AccountPage extends StatefulWidget {
 class _AccountPageState extends State<AccountPage> {
   var _week = 3;
 
+  /// Opens the composer on money paid for someone, from the main account
+  /// into [account] ([lend]), or on money paid back, all that is owed by
+  /// default.
+  void _move(Account account, {required bool lend}) {
+    final ledger = widget.ledger;
+    final main = ledger.mainAccount;
+    final owed = ledger.balance(account.id);
+    widget.nav.compose(
+      type: EntryType.transfer,
+      draft: Entry(
+        id: '',
+        date: ledger.today,
+        type: EntryType.transfer,
+        amount: lend || owed < 0 ? 0 : owed,
+        account: lend ? main : account.id,
+        category: '轉帳',
+        note: lend ? '代墊 ${account.name}' : '${account.name}還款',
+        to: lend ? account.id : main,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -87,6 +109,13 @@ class _AccountPageState extends State<AccountPage> {
                       (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
                   ),
+                  if (account.kind == AccountKind.receivable)
+                    _Owed(
+                      account: account,
+                      balance: balance,
+                      onLend: () => _move(account, lend: true),
+                      onRepaid: () => _move(account, lend: false),
+                    ),
                   const SectionHead('近四週'),
                   Waterfall(
                     weeks: weeks,
@@ -119,6 +148,71 @@ class _AccountPageState extends State<AccountPage> {
           ],
         );
       },
+    );
+  }
+}
+
+/// What [account], money paid for someone, still has owed, with the two
+/// things done with it: paying for them again, or taking money back.
+class _Owed extends StatelessWidget {
+  const _Owed({
+    required this.account,
+    required this.balance,
+    required this.onLend,
+    required this.onRepaid,
+  });
+
+  final Account account;
+  final int balance;
+  final VoidCallback onLend;
+  final VoidCallback onRepaid;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = OutlinedButton.styleFrom(
+      foregroundColor: Hue.accent,
+      minimumSize: const Size.fromHeight(44),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            balance > 0
+                ? '${account.name}還欠 ${moneyIn(balance, account.currency)}'
+                : '${account.name}沒有欠款',
+            style: const TextStyle(fontSize: 13, color: Hue.muted),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onLend,
+                  style: style,
+                  child: const Text('幫忙付'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: balance > 0 ? onRepaid : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Hue.accent,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(balance > 0 ? '收回全部' : '收回'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

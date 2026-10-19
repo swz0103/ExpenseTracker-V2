@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
+import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/batch.dart';
 import '../model/ledger.dart';
 import 'entry_tile.dart';
 import 'nav.dart';
@@ -51,7 +54,89 @@ class _LedgerPageState extends State<LedgerPage> {
   String? _category;
   String? _search;
 
+  /// The entries picked for a change at once; a long press starts it.
+  final _picked = <String>{};
+
   String get _words => (_search ?? '').trim();
+
+  void _toggle(Entry e) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_picked.remove(e.id)) _picked.add(e.id);
+    });
+  }
+
+  List<Entry> get _pickedEntries => [
+    for (final e in widget.ledger.entries)
+      if (_picked.contains(e.id)) e,
+  ];
+
+  /// Says how many of the picked entries a change reached, and ends the
+  /// picking.
+  void _done(String what, int changed) {
+    final total = _picked.length;
+    setState(_picked.clear);
+    showNote(
+      context,
+      changed == total
+          ? '已$what $changed 筆'
+          : '已$what $changed 筆，其餘 ${total - changed} 筆不適用',
+    );
+  }
+
+  Future<void> _pickCategory() async {
+    final ledger = widget.ledger;
+    final picked = _pickedEntries;
+    final income = picked.every((e) => e.type == EntryType.income);
+    final name = await pickOption<String>(
+      context,
+      title: '改成哪個分類',
+      selected: null,
+      options: [
+        for (final c in ledger.categoriesFor(income: income))
+          Option(c.name, c.name, iconFor(c.icon), c.color),
+      ],
+    );
+    if (name == null || !mounted) return;
+    _done('改分類', ledger.recategorize(picked, name));
+  }
+
+  Future<void> _pickAccount() async {
+    final ledger = widget.ledger;
+    final picked = _pickedEntries;
+    final id = await pickOption<String>(
+      context,
+      title: '改到哪個帳戶',
+      selected: null,
+      columns: 3,
+      options: [
+        for (final a in ledger.openAccounts)
+          Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+      ],
+    );
+    if (id == null || !mounted) return;
+    _done('改帳戶', ledger.moveToAccount(picked, id));
+  }
+
+  /// Deletes every picked entry, with one way back for all of them.
+  void _removePicked() {
+    final ledger = widget.ledger;
+    final removed = [
+      for (final e in _pickedEntries)
+        if (ledger.remove(e.id) case final r?) r,
+    ];
+    setState(_picked.clear);
+    showNote(
+      context,
+      '已刪除 ${removed.length} 筆',
+      action: '復原',
+      onAction: () {
+        for (final r in removed.reversed) {
+          ledger.restore(r);
+        }
+      },
+    );
+  }
 
   /// The month's entries, or every month's that match the search.
   List<Entry> _shown() {
@@ -226,6 +311,20 @@ class _LedgerPageState extends State<LedgerPage> {
               ),
             );
           }
+          if (_picked.isNotEmpty) {
+            final on = _picked.contains(e.id);
+            group.add(
+              Container(
+                color: on ? Hue.accent.withValues(alpha: 0.12) : null,
+                child: EntryTile(
+                  ledger: ledger,
+                  entry: e,
+                  onTap: () => _toggle(e),
+                ),
+              ),
+            );
+            continue;
+          }
           group.add(
             Dismissible(
               key: ValueKey(e.id),
@@ -243,10 +342,13 @@ class _LedgerPageState extends State<LedgerPage> {
                 ),
               ),
               onDismissed: (_) => _remove(e),
-              child: EntryTile(
-                ledger: ledger,
-                entry: e,
-                onTap: () => widget.nav.showEntry(e),
+              child: GestureDetector(
+                onLongPress: () => _toggle(e),
+                child: EntryTile(
+                  ledger: ledger,
+                  entry: e,
+                  onTap: () => widget.nav.showEntry(e),
+                ),
               ),
             ),
           );
@@ -266,6 +368,15 @@ class _LedgerPageState extends State<LedgerPage> {
                 onChanged: (m) => setState(() => _month = m),
               ),
             ),
+            if (_picked.isNotEmpty)
+              _PickBar(
+                count: _picked.length,
+                onCategory: _pickCategory,
+                onAccount: _pickAccount,
+                onRemove: _removePicked,
+                onCancel: () => setState(_picked.clear),
+              )
+            else
             Tile(
               hero: true,
               icon: Glyph.records,
@@ -380,6 +491,63 @@ class _LedgerPageState extends State<LedgerPage> {
           ],
         );
       },
+    );
+  }
+}
+
+/// What can be done to the picked entries at once.
+class _PickBar extends StatelessWidget {
+  const _PickBar({
+    required this.count,
+    required this.onCategory,
+    required this.onAccount,
+    required this.onRemove,
+    required this.onCancel,
+  });
+
+  final int count;
+  final VoidCallback onCategory;
+  final VoidCallback onAccount;
+  final VoidCallback onRemove;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget action(String label, VoidCallback onTap, {Color? color}) =>
+        TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(foregroundColor: color ?? Hue.accent),
+          child: Text(label),
+        );
+    return SoftPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '已選 $count 筆 · 點紀錄可加選或取消',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                tooltip: '取消',
+                onPressed: onCancel,
+                icon: const GlyphIcon(Glyph.close, size: 18),
+              ),
+            ],
+          ),
+          Wrap(
+            spacing: 4,
+            children: [
+              action('改分類', onCategory),
+              action('改帳戶', onAccount),
+              action('刪除', onRemove, color: Hue.danger),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

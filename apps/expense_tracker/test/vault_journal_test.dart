@@ -370,6 +370,7 @@ void main() {
     expect(again.accounts.map((a) => a.name), containsAll(['玉山信用卡', '零錢現金']));
     expect(again.categories.map((c) => c.name), contains('餐飲'));
     expect(again.entries, hasLength(8));
+    expect(VaultJournal(open!, clock: clock).mismatches(again), isEmpty);
     expect(shown(again, '0050').$1, 500);
     final card = again.accounts.firstWhere((a) => a.name == '玉山信用卡');
     expect(again.balance(card.id), -300 + 100 + 200);
@@ -377,6 +378,28 @@ void main() {
       importCsv(again, toCsv(again, again.entries), fallback: bank.id).entries,
       isEmpty,
     );
+  });
+
+  test('a deleted entry stays in the trash until restored', () async {
+    var ledger = await create();
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger.addAccount(cash);
+    ledger.add(spend(ledger, cash.id, 120, note: '早餐'));
+    await ledger.settled;
+    final entry = ledger.entriesIn(2026, 10).single;
+    ledger.remove(entry.id);
+    ledger = await reopen(ledger);
+    expect(ledger.entriesIn(2026, 10), isEmpty);
+    final trashed = ledger.trash.single;
+    expect((trashed.entry.amount, trashed.entry.note), (120, '早餐'));
+    expect(trashed.on, DateTime.utc(2026, 10, 3));
+    expect(VaultJournal(open!, clock: clock).mismatches(ledger), isEmpty);
+
+    ledger.restoreTrashed(trashed);
+    ledger = await reopen(ledger);
+    expect(ledger.trash, isEmpty);
+    expect(ledger.entriesIn(2026, 10).single.note, '早餐');
+    expect(ledger.balance(cash.id), 880);
   });
 
   test('on its closing day a statement is still open', () async {
@@ -567,7 +590,7 @@ void main() {
     ledger.addAccount(bank);
     await ledger.settled;
     ledger
-      ..setBudget('飲食日常', 6000, warning: 90)
+      ..setBudget('飲食日常', 6000, warning: 90, carry: true)
       ..setBudget(Ledger.allSpending, 30000)
       ..setBudget('#旅遊', 5000)
       ..add(spend(ledger, bank.id, 1200, tags: ['旅遊']))
@@ -586,6 +609,9 @@ void main() {
     ledger = await reopen(ledger);
     expect(ledger.budgetFor('飲食日常').limit, 6000);
     expect(ledger.budgetFor('飲食日常').warning, 90);
+    expect(ledger.budgetFor('飲食日常').carry, isTrue);
+    expect(ledger.budgetFor(Ledger.allSpending).carry, isFalse);
+    expect(ledger.budgetFor('飲食日常').since, DateTime.utc(2026, 10));
     expect(ledger.budgetFor(Ledger.allSpending).limit, 30000);
     expect(ledger.budgetFor('#旅遊').limit, 5000);
     expect(ledger.spentOnTag('旅遊', 2026, 10), 1200);

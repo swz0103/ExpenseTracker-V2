@@ -33,7 +33,9 @@ final class Ledger extends ChangeNotifier {
     this.journal,
     Map<String, double> rates = const {},
     Map<String, int> cardDues = const {},
+    List<Trashed> trash = const [],
   }) : _rates = {...rates},
+       _trash = [...trash],
        _dues = {...cardDues},
        _accounts = [...accounts],
        _categories = [...categories],
@@ -60,6 +62,9 @@ final class Ledger extends ChangeNotifier {
   final List<Holding> _startHoldings;
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
+
+  /// Entries deleted lately, newest first, until restored.
+  final List<Trashed> _trash;
   final Map<String, double> _rates;
 
   /// Each card's [statementDue] as the journal's billing has it, by id.
@@ -79,6 +84,7 @@ final class Ledger extends ChangeNotifier {
   List<Holding> get holdings => List.unmodifiable(_holdings);
   List<Budget> get budgets => List.unmodifiable(_budgets);
   List<Recurring> get recurring => List.unmodifiable(_recurring);
+  List<Trashed> get trash => List.unmodifiable(_trash);
 
   /// Categories offered for new entries: open ones of the kind.
   List<Category> categoriesFor({required bool income}) => [
@@ -361,6 +367,7 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
+    _trash.insert(0, Trashed(removed, today));
     _keep(
       (j) => j.removeEntry(removed.withId(_current(removed.id))),
       reload: false,
@@ -372,13 +379,35 @@ final class Ledger extends ChangeNotifier {
     final (index, entry) = removed;
     _entries.insert(index.clamp(0, _entries.length), entry);
     _replayOrUndo(() => _entries.remove(entry));
-    _keep((j) => j.addEntries([entry]));
+    _trash.removeWhere((t) => identical(t.entry, entry));
+    final kept = _current(entry.id);
+    _keep((j) async {
+      await j.addEntries([entry]);
+      await j.forgetTrashed(kept);
+    });
   }
 
-  void setBudget(String category, int limit, {int? warning}) {
+  /// Puts [trashed] back in the book as a new entry; a sale of more
+  /// shares than are held then is refused, as an [add] is.
+  void restoreTrashed(Trashed trashed) {
+    final entry = trashed.entry.withId(newId());
+    add(entry);
+    _trash.remove(trashed);
+    notifyListeners();
+    final kept = _current(trashed.entry.id);
+    _keep((j) => j.forgetTrashed(kept), reload: false);
+  }
+
+  void setBudget(String category, int limit, {int? warning, bool? carry}) {
     final old = budgetFor(category);
     _budgets.removeWhere((b) => b.category == category);
-    final budget = Budget(category, limit, warning: warning ?? old.warning);
+    final budget = Budget(
+      category,
+      limit,
+      warning: warning ?? old.warning,
+      carry: carry ?? old.carry,
+      since: old.since ?? DateTime.utc(today.year, today.month),
+    );
     _budgets.add(budget);
     notifyListeners();
     _keep((j) => j.setBudget(budget));
@@ -457,7 +486,7 @@ final class Ledger extends ChangeNotifier {
     _moveUses(from, to);
     for (final (i, b) in _budgets.indexed) {
       if (b.category == from) {
-        _budgets[i] = Budget(to, b.limit, warning: b.warning);
+        _budgets[i] = b.renamed(to);
       }
     }
     notifyListeners();
@@ -555,7 +584,7 @@ final class Ledger extends ChangeNotifier {
   void renameTag(String from, String to) {
     for (final (i, b) in _budgets.indexed) {
       if (b.tag == from && to.isNotEmpty) {
-        _budgets[i] = Budget('#$to', b.limit, warning: b.warning);
+        _budgets[i] = b.renamed('#$to');
       }
     }
     if (to.isEmpty) _budgets.removeWhere((b) => b.tag == from);
@@ -615,6 +644,9 @@ final class Ledger extends ChangeNotifier {
     _dues
       ..clear()
       ..addAll(fresh._dues);
+    _trash
+      ..clear()
+      ..addAll(fresh._trash);
     _replay();
     notifyListeners();
   }

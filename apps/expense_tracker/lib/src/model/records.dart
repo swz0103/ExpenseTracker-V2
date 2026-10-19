@@ -267,6 +267,7 @@ final class Entry {
   /// This entry with the given fields changed.
   Entry _with({
     String? id,
+    String? account,
     String? category,
     String? merchant,
     List<String>? tags,
@@ -276,7 +277,7 @@ final class Entry {
     date: date,
     type: type,
     amount: amount,
-    account: account,
+    account: account ?? this.account,
     category: category ?? this.category,
     note: note,
     to: to,
@@ -298,6 +299,9 @@ final class Entry {
 
   /// This entry under another [id], as the store knows it after an edit.
   Entry withId(String id) => _with(id: id);
+
+  /// This entry kept in [account] instead.
+  Entry withAccount(String account) => _with(account: account);
 
   /// This entry with its merchant or tags changed.
   Entry withLabels({String? merchant, List<String>? tags}) =>
@@ -391,7 +395,13 @@ final class Lot {
 }
 
 final class Budget {
-  const Budget(this.category, this.limit, {this.warning = 80});
+  const Budget(
+    this.category,
+    this.limit, {
+    this.warning = 80,
+    this.carry = false,
+    this.since,
+  });
 
   /// A category name, [Ledger.allSpending] for the total, or `#` and a
   /// tag for the spending carrying it, such as `#旅遊`.
@@ -403,6 +413,17 @@ final class Budget {
 
   /// The share used, in percent, at which the budget warns.
   final int warning;
+
+  /// Whether what was left of last month's limit is added to this month's.
+  final bool carry;
+
+  /// The first day of the first month the budget counts; null when not
+  /// known.
+  final DateTime? since;
+
+  /// This budget under the name [category], as when it is renamed.
+  Budget renamed(String category) =>
+      Budget(category, limit, warning: warning, carry: carry, since: since);
 }
 
 /// How often a recurring item comes round.
@@ -532,4 +553,12 @@ final class Recurring {
     }
     return dates;
   }
+}
+
+/// An entry deleted on [on], kept for a while to be restored.
+final class Trashed {
+  const Trashed(this.entry, this.on);
+
+  final Entry entry;
+  final DateTime on;
 }

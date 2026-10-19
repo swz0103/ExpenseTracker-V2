@@ -19,6 +19,7 @@ extension _Loading on VaultJournal {
     final notes = _store.postingNotes(_workspace);
     final homes = _store.postingHomeValues(_workspace);
     if (_rates.isEmpty) _rates.addAll(_keptRates());
+    final carries = _carries();
     String nameOf(PublicId id) =>
         _live(categories, id, (c) => c.replacementId)?.name ?? '';
     String merchantOf(PublicId? id) {
@@ -79,9 +80,16 @@ extension _Loading on VaultJournal {
       holdings: holdings,
       budgets: [
         for (final MapEntry(key: key, value: plan) in applying.entries)
-          ui.Budget(key, _int(plan.limit), warning: plan.warningPercent),
+          ui.Budget(
+            key,
+            _int(plan.limit),
+            warning: plan.warningPercent,
+            carry: carries[plan.id.value] ?? false,
+            since: DateTime.utc(plan.month.year, plan.month.month),
+          ),
       ],
       rates: _rates,
+      trash: _trash(),
       recurring: [
         for (final (template, active) in _store.recurringTemplates(_workspace))
           if (!removed.contains(template.id.value))

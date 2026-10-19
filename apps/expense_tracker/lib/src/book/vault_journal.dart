@@ -17,6 +17,7 @@ import 'package:market/market_data.dart';
 import 'package:storage/ledger_sqlcipher.dart';
 import 'package:vault/ledger_vault.dart';
 
+import '../model/entry_json.dart';
 import '../model/journal.dart';
 import '../model/ledger.dart' as ui;
 import '../perf.dart';
@@ -469,15 +470,15 @@ final class VaultJournal implements Journal {
       }
       if (added != null) {
         try {
-          await removeEntry(before);
+          await _remove(before);
         } on Object {
-          await removeEntry(after.withId(added.value));
+          await _remove(after.withId(added.value));
           rethrow;
         }
         return added.value;
       }
     }
-    await removeEntry(before);
+    await _remove(before);
     try {
       return (await _add(after)).value;
     } on Object {
@@ -489,6 +490,20 @@ final class VaultJournal implements Journal {
 
   @override
   Future<void> removeEntry(ui.Entry entry) async {
+    await _remove(entry);
+    await _append(_trashKind, {
+      'on': _clock.today().toString(),
+      'entry': entryToJson(entry),
+    });
+  }
+
+  @override
+  Future<void> forgetTrashed(String id) =>
+      _append(_restoredKind, {'entry': id});
+
+  /// Takes [entry] out of the ledger: the trade voided, the card charge or
+  /// payment voided, or the posting deleted.
+  Future<void> _remove(ui.Entry entry) async {
     final trade = _tradeOf(entry.id);
     if (trade != null) {
       final (account, instrument, tradeId) = trade;
@@ -702,10 +717,11 @@ final class VaultJournal implements Journal {
     final tagId = tag == null ? null : (await _label(tag, merchant: false)).id;
     final current = _applying(_categoryMap())[key];
     final today = _clock.today();
+    final id = current?.id ?? PublicId.generate();
     await _planning.setBudget(
       SetBudget(
         operation: _op(),
-        budgetId: current?.id ?? PublicId.generate(),
+        budgetId: id,
         expectedVersion: current?.version ?? 0,
         month: current?.month ?? ReportMonth(today.year, today.month),
         limit: _ntd(budget.limit),
@@ -715,6 +731,9 @@ final class VaultJournal implements Journal {
         repeats: true,
       ),
     );
+    if ((_carries()[id.value] ?? false) != budget.carry) {
+      await _append(_carryKind, {'budget': id.value, 'carry': budget.carry});
+    }
   }
 
   @override
@@ -980,6 +999,18 @@ final class VaultJournal implements Journal {
       ),
     );
   }
+
+  /// Accounts whose balance on the screens differs from the ledger's own,
+  /// as 「名稱：畫面 X，帳本 Y」; none when they agree. Cards are left out:
+  /// the screens count an instalment purchase as it is billed.
+  List<String> mismatches(ui.Ledger ledger) => [
+    for (final a in ledger.accounts)
+      if (a.kind != ui.AccountKind.card)
+        if (_findAccount(a.id) case final kept?)
+          if (_store.balance(kept).minorUnits.toInt() case final stored
+              when stored != ledger.balance(a.id))
+            '${a.name}：畫面 ${ledger.balance(a.id)}，帳本 $stored',
+  ];
 
   Account? _findAccount(String id) {
     for (final a in _store.accounts(_workspace)) {
