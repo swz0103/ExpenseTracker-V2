@@ -142,7 +142,7 @@ class _LotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opening = lot.date == DateTime.utc(2025);
+    final opening = lot.isOpening;
     final gain = worth - lot.cost;
     Widget bar(int value, Color color, double height) => ClipRRect(
       borderRadius: BorderRadius.circular(height / 2),

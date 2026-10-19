@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:foundation_values/foundation_values.dart';
-import 'package:ledger_backup/ledger_backup.dart';
-import 'package:ledger_vault/ledger_vault.dart';
+import 'package:core/foundation_values.dart';
+import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 import '../startup.dart';
 import 'keeper.dart';
@@ -143,8 +143,14 @@ final class VaultKeeper implements Keeper {
   Future<String> newRecoveryCode() async {
     final rotated = await _vault.keys.rotateRecovery();
     await _vault.updateKeys(rotated.unlocked);
+    await _given.writeAsString('', flush: true);
     return rotated.recoveryCode;
   }
+
+  @override
+  bool get recoveryGiven => _given.existsSync();
+
+  File get _given => File('${_startup.directory.path}/recovery-given');
 
   /// Locks once queued changes, a running backup and any other job on
   /// the ledger are done, so nothing writes to a closed store.

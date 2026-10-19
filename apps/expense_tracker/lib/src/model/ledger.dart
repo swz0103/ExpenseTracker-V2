@@ -1,9 +1,8 @@
 import 'dart:math';
 
+import 'package:core/foundation_values.dart' show Currency, PublicId;
 import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
-import 'package:foundation_values/foundation_values.dart'
-    show Currency, PublicId;
 
 import 'amounts.dart';
 import 'card_cycle.dart';
@@ -143,6 +142,7 @@ final class Ledger extends ChangeNotifier {
   Map<int, List<Entry>>? _months;
   Map<DateTime, List<Entry>>? _days;
   DateTime? _first;
+  Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
 
@@ -150,6 +150,7 @@ final class Ledger extends ChangeNotifier {
     _months = null;
     _days = null;
     _first = null;
+    _running = null;
     _balances.clear();
     _accountIndex = null;
   }
@@ -162,13 +163,18 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
+  /// Every entry, in the order written; the list cannot be changed.
+  List<Entry> get entries => List.unmodifiable(_entries);
+
   List<Entry> search(String words) {
+    final lower = words.toLowerCase();
+    bool holds(String text) => text.toLowerCase().contains(lower);
     final found = [
       for (final (i, e) in _entries.indexed)
-        if (e.note.contains(words) ||
-            e.merchant.contains(words) ||
-            e.category.contains(words) ||
-            e.tags.any((t) => t.contains(words)) ||
+        if (holds(e.note) ||
+            holds(e.merchant) ||
+            holds(e.category) ||
+            e.tags.any(holds) ||
             plainIn(e.amount, account(e.account).currency) == words ||
             '${e.amount}' == words)
           (i, e),
@@ -634,5 +640,29 @@ final class Ledger extends ChangeNotifier {
   void _replay() {
     _touch();
     _portfolio = Portfolio.replay(_startHoldings, _entries);
+  }
+}
+
+/// One account's entries in date order with the balance change up to each
+/// of them, so a balance on any day is one search. Instalment purchases
+/// are kept apart: what they have billed depends on the day asked about.
+final class _Running {
+  final days = <DateTime>[];
+  final totals = <int>[];
+  final plans = <Entry>[];
+
+  /// The change of the entries on or before [day].
+  int until(DateTime day) {
+    var low = 0;
+    var high = days.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (days[middle].isAfter(day)) {
+        high = middle;
+      } else {
+        low = middle + 1;
+      }
+    }
+    return low == 0 ? 0 : totals[low - 1];
   }
 }

@@ -378,9 +378,16 @@ final class Holding {
 final class Lot {
   const Lot(this.date, this.shares, this.cost);
 
+  /// The date a starting position is held from: before any entry, so the
+  /// first trade of a stock always comes after it.
+  static final opening = DateTime.utc(1970);
+
   final DateTime date;
   final int shares;
   final int cost;
+
+  /// Whether this lot is part of a starting position.
+  bool get isOpening => date == opening;
 }
 
 final class Budget {

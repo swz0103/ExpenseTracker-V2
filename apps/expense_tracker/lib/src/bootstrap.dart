@@ -1,19 +1,24 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
-import 'package:backup_security/backup_security.dart';
 import 'package:flutter/material.dart';
-import 'package:ledger_vault/ledger_vault.dart';
-import 'package:market_adapters/market_adapters.dart';
-import 'package:market_data/market_data.dart';
+import 'package:market/market_adapters.dart';
+import 'package:market/market_data.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_vault.dart';
 
 import 'app.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
+import 'calendar_sync.dart';
+import 'look/widgets.dart';
 import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/recovery_code.dart';
 import 'pages/shell.dart';
+import 'perf.dart';
 import 'platform.dart';
 import 'startup.dart';
 
@@ -86,8 +91,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   late final _journal = VaultJournal(
     widget.vault,
-    market: MarketDataGateway(transport: const IoMarketTransport()),
+    market: MarketDataGateway(
+      transport: const IoMarketTransport(),
+      // The exchanges' snapshots are a few MiB of JSON.
+      decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
+    ),
   );
+
+  /// The phone's calendar for due dates, on Android.
+  late final _calendar = Platform.isAndroid
+      ? CalendarSync(const AndroidCalendar(), widget.startup.directory)
+      : null;
+
   late final _keeper = VaultKeeper(
     widget.startup,
     widget.vault,
@@ -104,8 +119,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final ledger = await _journal.load();
     _loaded = ledger;
     unawaited(_quotes(ledger));
-    unawaited(_keeper.backUpIfDue().catchError((Object _) => null));
+    unawaited(_weeklyBackup());
+    _calendar?.follow(ledger);
     return ledger;
+  }
+
+  /// Takes the weekly backup; a failure is said, not kept quiet.
+  Future<void> _weeklyBackup() async {
+    try {
+      await _keeper.backUpIfDue();
+    } on Object catch (error) {
+      Perf.instance.problem('每週備份', error);
+      if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
+    }
   }
 
   Future<void> _quotes(Ledger ledger) async {
@@ -116,7 +142,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     } on Object catch (error) {
       // Prices and rates are only informational; the ledger may have
       // locked.
-      debugPrint('Closing prices or rates not refreshed: $error');
+      Perf.instance.problem('收盤價與匯率', error);
     }
   }
 
@@ -151,6 +177,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   @override
   void dispose() {
+    _calendar?.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -185,7 +212,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(ledger: ledger, keeper: _keeper);
+      return AppShell(ledger: ledger, keeper: _keeper, calendar: _calendar);
     },
   );
 }

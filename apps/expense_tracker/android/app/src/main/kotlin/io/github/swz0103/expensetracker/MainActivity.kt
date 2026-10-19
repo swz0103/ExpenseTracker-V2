@@ -1,5 +1,7 @@
 package io.github.swz0103.expensetracker
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
@@ -27,6 +29,19 @@ import javax.crypto.spec.GCMParameterSpec
 class MainActivity : FlutterFragmentActivity() {
     private var pendingExport: Pair<String, MethodChannel.Result>? = null
     private var pendingPick: MethodChannel.Result? = null
+    private var pendingCalendar: MethodChannel.Result? = null
+
+    /** Asks once for the calendar, where the ledger's due dates go. */
+    private val askCalendar =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            val result = pendingCalendar ?: return@registerForActivityResult
+            pendingCalendar = null
+            result.success(granted.values.all { it })
+        }
+
+    private fun calendarGranted(): Boolean = CALENDAR_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
 
     /** Copies a backup to where the person chooses: Downloads, Drive, ... */
     private val createDocument =
@@ -105,6 +120,43 @@ class MainActivity : FlutterFragmentActivity() {
                         } else {
                             pendingExport = path to result
                             createDocument.launch(name)
+                        }
+                    }
+                    "calendarAccess" -> {
+                        if (calendarGranted()) {
+                            result.success(true)
+                        } else if (pendingCalendar != null) {
+                            result.error("busy", "Already asking.", null)
+                        } else {
+                            pendingCalendar = result
+                            askCalendar.launch(CALENDAR_PERMISSIONS)
+                        }
+                    }
+                    "calendars" -> {
+                        if (!calendarGranted()) {
+                            result.error("no-access", "Calendar access was not given.", null)
+                        } else {
+                            result.success(CalendarBridge.calendars(contentResolver))
+                        }
+                    }
+                    "replaceCalendarEvents" -> {
+                        val calendar = (call.argument<Any>("calendar") as? Number)?.toLong()
+                        val from = (call.argument<Any>("from") as? Number)?.toLong()
+                        val events = call.argument<List<Map<String, Any?>>>("events")
+                        if (!calendarGranted()) {
+                            result.error("no-access", "Calendar access was not given.", null)
+                        } else if (calendar == null || from == null || events == null) {
+                            result.error("bad-arguments", "calendar, from and events are required", null)
+                        } else {
+                            // Off the main thread: a calendar provider can be slow.
+                            Thread {
+                                try {
+                                    val written = CalendarBridge.replace(contentResolver, calendar, from, events)
+                                    runOnUiThread { result.success(written) }
+                                } catch (e: Exception) {
+                                    runOnUiThread { result.error("calendar", e.message, null) }
+                                }
+                            }.start()
                         }
                     }
                     "pickFile" -> {
@@ -233,5 +285,9 @@ class MainActivity : FlutterFragmentActivity() {
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
         const val TAG_BITS = 128
+        val CALENDAR_PERMISSIONS = arrayOf(
+            Manifest.permission.READ_CALENDAR,
+            Manifest.permission.WRITE_CALENDAR,
+        )
     }
 }

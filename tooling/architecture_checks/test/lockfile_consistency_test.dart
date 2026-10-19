@@ -31,7 +31,7 @@ void main() {
         }
       }
     }
-    expect(checked, greaterThan(20));
+    expect(checked, greaterThanOrEqualTo(6));
     final drifted = {
       for (final MapEntry(key: package, value: byVersion) in versions.entries)
         if (byVersion.length > 1) package: byVersion,

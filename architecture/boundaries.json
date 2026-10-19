@@ -9,179 +9,91 @@
     "dart:typed_data"
   ],
   "modules": {
-    "foundation_values": {
-      "directory": "packages/foundation_values",
+    "core": {
+      "directory": "packages/core",
       "publicEntrypoints": [
-        "foundation_values.dart"
-      ],
-      "dependencies": [
-        "uuid"
-      ]
-    },
-    "bookkeeping": {
-      "directory": "packages/bookkeeping",
-      "publicEntrypoints": ["bookkeeping.dart", "memory.dart"],
-      "dependencies": ["accounts", "app_core", "budgets", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "recurring_transactions", "reports", "tags"]
-    },
-    "app_core": {
-      "directory": "packages/app_core",
-      "publicEntrypoints": [
+        "foundation_values.dart",
         "app_core.dart"
       ],
       "testEntrypoints": [
         "testing.dart"
       ],
-      "dependencies": [
-        "foundation_values"
-      ]
+      "dependencies": ["uuid"]
     },
-    "accounts": {
-      "directory": "packages/accounts",
+    "domain": {
+      "directory": "packages/domain",
       "publicEntrypoints": [
-        "accounts.dart"
-      ],
-      "dependencies": [
-        "foundation_values"
-      ]
-    },
-    "categories": {
-      "directory": "packages/categories",
-      "publicEntrypoints": [
-        "categories.dart"
-      ],
-      "dependencies": [
-        "foundation_values"
-      ]
-    },
-    "ledger": {
-      "directory": "packages/ledger",
-      "publicEntrypoints": [
-        "ledger.dart"
-      ],
-      "dependencies": [
-        "foundation_values"
-      ]
-    },
-    "reports": {
-      "directory": "packages/reports",
-      "publicEntrypoints": [
-        "reports.dart"
-      ],
-      "dependencies": [
-        "foundation_values",
-        "ledger"
-      ]
-    },
-    "budgets": {
-      "directory": "packages/budgets",
-      "publicEntrypoints": ["budgets.dart"],
-      "dependencies": ["categories", "foundation_values", "reports"]
-    },
-    "credit_cards": {
-      "directory": "packages/credit_cards",
-      "publicEntrypoints": ["credit_cards.dart"],
-      "dependencies": ["foundation_values"]
-    },
-    "investments": {
-      "directory": "packages/investments",
-      "publicEntrypoints": ["investments.dart"],
-      "dependencies": ["foundation_values"]
-    },
-    "market_data": {
-      "directory": "packages/market_data",
-      "publicEntrypoints": ["market_data.dart"],
-      "dependencies": ["foundation_values", "investments"]
-    },
-    "recurring_transactions": {
-      "directory": "packages/recurring_transactions",
-      "publicEntrypoints": ["recurring_transactions.dart"],
-      "dependencies": ["foundation_values"]
-    },
-    "data_exchange": {
-      "directory": "packages/data_exchange",
-      "publicEntrypoints": [
-        "data_exchange.dart"
-      ],
-      "dependencies": [
-        "accounts",
-        "foundation_values",
-        "ledger"
-      ]
-    },
-    "tags": {
-      "directory": "packages/tags",
-      "publicEntrypoints": [
+        "accounts.dart",
+        "bookkeeping.dart",
+        "budgets.dart",
+        "categories.dart",
+        "credit_cards.dart",
+        "data_exchange.dart",
+        "investments.dart",
+        "ledger.dart",
+        "memory.dart",
+        "merchants.dart",
+        "recurring_transactions.dart",
+        "reports.dart",
         "tags.dart"
       ],
       "dependencies": [
-        "foundation_values"
-      ]
-    },
-    "merchants": {
-      "directory": "packages/merchants",
-      "publicEntrypoints": [
-        "merchants.dart"
-      ],
-      "dependencies": [
-        "foundation_values"
-      ]
-    },
-    "amount_input": {
-      "directory": "packages/amount_input",
-      "publicEntrypoints": [
-        "amount_input.dart"
-      ],
-      "dependencies": [
-        "foundation_values"
+        "core"
       ]
     }
   },
   "runtimeModules": {
-    "ledger_vault": {
-      "directory": "infrastructure/ledger_vault",
-      "publicEntrypoints": ["ledger_vault.dart"],
-      "dependencies": ["backup_security", "foundation_values", "ledger_sqlcipher", "storage_sqlcipher"]
+    "market": {
+      "directory": "infrastructure/market",
+      "publicEntrypoints": [
+        "market_data.dart",
+        "market_adapters.dart"
+      ],
+      "dependencies": [
+        "core",
+        "domain"
+      ]
     },
-    "backup_service": {
-      "directory": "infrastructure/backup_service",
-      "publicEntrypoints": ["backup_service.dart"],
-      "dependencies": ["backup_security", "drive_backup", "foundation_values", "ledger_backup", "ledger_sqlcipher"]
+    "storage": {
+      "directory": "infrastructure/storage",
+      "publicEntrypoints": [
+        "storage_sqlcipher.dart",
+        "ledger_sqlcipher.dart"
+      ],
+      "testEntrypoints": [
+        "testing.dart"
+      ],
+      "dependencies": [
+        "core",
+        "domain"
+      ]
     },
-    "drive_backup": {
-      "directory": "infrastructure/drive_backup",
-      "publicEntrypoints": ["drive_backup.dart"],
-      "testEntrypoints": ["testing.dart"],
-      "dependencies": ["storage_sqlcipher"]
-    },
-    "ledger_backup": {
-      "directory": "infrastructure/ledger_backup",
-      "publicEntrypoints": ["ledger_backup.dart"],
-      "dependencies": ["app_core", "backup_security", "foundation_values", "ledger_sqlcipher", "storage_sqlcipher"]
+    "vault": {
+      "directory": "infrastructure/vault",
+      "publicEntrypoints": [
+        "backup_security.dart",
+        "ledger_vault.dart",
+        "ledger_backup.dart",
+        "backup_service.dart",
+        "drive_backup.dart"
+      ],
+      "testEntrypoints": [
+        "testing.dart"
+      ],
+      "dependencies": [
+        "core",
+        "storage"
+      ]
     },
     "expense_tracker": {
       "directory": "apps/expense_tracker",
-      "dependencies": ["accounts", "app_core", "backup_security", "bookkeeping", "budgets", "categories", "data_exchange", "foundation_values", "investments", "ledger", "ledger_backup", "ledger_sqlcipher", "ledger_vault", "market_adapters", "market_data", "recurring_transactions", "reports", "storage_sqlcipher"]
-    },
-    "market_adapters": {
-      "directory": "infrastructure/market_adapters",
-      "publicEntrypoints": ["market_adapters.dart"],
-      "dependencies": ["market_data"]
-    },
-    "ledger_sqlcipher": {
-      "directory": "infrastructure/ledger_sqlcipher",
-      "publicEntrypoints": ["ledger_sqlcipher.dart"],
-      "testEntrypoints": ["testing.dart"],
-      "dependencies": ["accounts", "app_core", "bookkeeping", "budgets", "categories", "credit_cards", "foundation_values", "investments", "ledger", "merchants", "recurring_transactions", "reports", "storage_sqlcipher", "tags"]
-    },
-    "backup_security": {
-      "directory": "infrastructure/backup_security",
-      "publicEntrypoints": ["backup_security.dart"],
-      "dependencies": []
-    },
-    "storage_sqlcipher": {
-      "directory": "infrastructure/storage_sqlcipher",
-      "publicEntrypoints": ["storage_sqlcipher.dart"],
-      "dependencies": ["app_core", "foundation_values"]
+      "dependencies": [
+        "core",
+        "domain",
+        "market",
+        "storage",
+        "vault"
+      ]
     }
   }
 }

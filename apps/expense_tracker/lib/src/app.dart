@@ -15,7 +15,7 @@ class ExpenseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '日々記帳',
+      title: '記帳本',
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
       // Phones show no scroll bar; on the web one would cover the amounts.

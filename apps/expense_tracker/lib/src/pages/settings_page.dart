@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
+import '../calendar_sync.dart';
 import '../demo/seed.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
@@ -23,11 +24,15 @@ class SettingsPage extends StatefulWidget {
     required this.ledger,
     required this.nav,
     this.keeper,
+    this.calendar,
   });
 
   final Ledger ledger;
   final Nav nav;
   final Keeper? keeper;
+
+  /// Where due dates are written; none in the preview.
+  final CalendarSync? calendar;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -57,7 +62,11 @@ class _SettingsPageState extends State<SettingsPage> {
   /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(Keeper keeper) async {
     try {
-      final code = keeper.hasPassword ? null : await keeper.newRecoveryCode();
+      // A ledger without a password restores with its recovery code: one
+      // is made the first time, and kept after that.
+      final code = keeper.hasPassword || keeper.recoveryGiven
+          ? null
+          : await keeper.newRecoveryCode();
       final saved = await keeper.exportBackup();
       if (!mounted) return;
       if (code != null) {
@@ -70,7 +79,10 @@ class _SettingsPageState extends State<SettingsPage> {
               : '救援碼已更新，之前的不再適用。請抄下來放在安全的地方，它只會顯示這一次。',
         );
       } else if (saved) {
-        showNote(context, '已匯出備份檔');
+        showNote(
+          context,
+          keeper.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
+        );
       }
     } on Object catch (error) {
       if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
@@ -120,8 +132,69 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _newRecovery(Keeper keeper) async {
     final ok = await confirm(context, '換一組新的救援碼？舊的會立刻失效。', '更換');
     if (!ok) return;
-    final code = await keeper.newRecoveryCode();
-    if (mounted) await showRecoveryCode(context, code);
+    try {
+      final code = await keeper.newRecoveryCode();
+      if (mounted) await showRecoveryCode(context, code);
+    } on Object catch (error) {
+      if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
+    }
+  }
+
+  /// Links a calendar, such as Google Calendar, for the due dates, or
+  /// changes or stops it.
+  Future<void> _linkCalendar(CalendarSync calendar) async {
+    try {
+      if (!await calendar.port.access()) {
+        if (mounted) showNote(context, '沒有取得日曆權限，可以到系統設定開啟');
+        return;
+      }
+      final choices = await calendar.port.calendars();
+      if (!mounted) return;
+      if (choices.isEmpty) {
+        showNote(context, '手機上沒有可寫入的日曆，請先在日曆 App 登入 Google 帳號');
+        return;
+      }
+      final chosen = calendar.chosen?.$1;
+      final picked = await showDialog<int>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          backgroundColor: Hue.panel,
+          title: const Text('同步到哪個日曆'),
+          children: [
+            for (final c in choices)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(c.id),
+                child: Text(
+                  '${c.id == chosen ? '✓ ' : ''}${c.name}'
+                  '${c.account.isEmpty ? '' : '\n${c.account}'}',
+                ),
+              ),
+            if (chosen != null)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(-1),
+                child: const Text('不再同步', style: TextStyle(color: Hue.danger)),
+              ),
+          ],
+        ),
+      );
+      if (picked == null || !mounted) return;
+      if (picked == -1) {
+        await calendar.forget(widget.ledger);
+        if (mounted) showNote(context, '已停止同步，之後的提醒已從日曆移除');
+        setState(() {});
+        return;
+      }
+      await calendar.choose(
+        choices.firstWhere((c) => c.id == picked),
+        widget.ledger,
+      );
+      final written = await calendar.sync(widget.ledger);
+      if (!mounted) return;
+      setState(() {});
+      showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
+    }
   }
 
   Future<void> _reset() async {
@@ -175,6 +248,17 @@ class _SettingsPageState extends State<SettingsPage> {
                             '記帳本-$year-${'$month'.padLeft(2, '0')}.csv',
                             toCsv(ledger, entries),
                             ' ${entries.length} 筆紀錄的 CSV',
+                          ),
+                        ),
+                        const Divider(),
+                        _Export(
+                          badge: 'CSV',
+                          title: '下載全部紀錄',
+                          detail: '所有月份 · ${ledger.entries.length} 筆紀錄',
+                          onTap: () => _save(
+                            '記帳本-全部.csv',
+                            toCsv(ledger, ledger.entries),
+                            ' ${ledger.entries.length} 筆紀錄的 CSV',
                           ),
                         ),
                       ],
@@ -246,6 +330,23 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ],
                         ],
+                      ),
+                    ),
+                  ],
+                  if (widget.calendar case final calendar?) ...[
+                    const SectionHead('Google 日曆'),
+                    SoftPanel(
+                      child: _Export(
+                        badge: '日曆',
+                        title: switch (calendar.chosen) {
+                          (_, final name)? => '同步到「$name」',
+                          null => '連結日曆',
+                        },
+                        detail: calendar.chosen == null
+                            ? '定期扣款與卡費繳款日放進 Google 日曆，由日曆提醒你'
+                            : '定期扣款與卡費繳款日會自動更新；點此更換或停止',
+                        icon: Glyph.calendar,
+                        onTap: () => _linkCalendar(calendar),
                       ),
                     ),
                   ],

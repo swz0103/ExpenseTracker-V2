@@ -1,4 +1,4 @@
-import 'package:data_exchange/data_exchange.dart';
+import 'package:domain/data_exchange.dart';
 import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/model/exchange.dart';
 import 'package:expense_tracker/src/model/ledger.dart';

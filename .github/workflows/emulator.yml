@@ -7,9 +7,14 @@ name: Emulator timings
 on:
   pull_request:
     branches: [main]
+    # Where speed is decided: the model, the store and the bench itself.
     paths:
       - '.github/workflows/emulator.yml'
-      - 'apps/expense_tracker/**'
+      - 'apps/expense_tracker/integration_test/**'
+      - 'apps/expense_tracker/lib/src/book/**'
+      - 'apps/expense_tracker/lib/src/model/**'
+      - 'infrastructure/**'
+      - 'packages/**'
   workflow_dispatch:
 
 permissions:

@@ -1,6 +1,5 @@
-import 'package:data_exchange/data_exchange.dart';
-import 'package:foundation_values/foundation_values.dart'
-    show BusinessDate, Currency;
+import 'package:core/foundation_values.dart' show BusinessDate, Currency;
+import 'package:domain/data_exchange.dart';
 
 import 'amounts.dart';
 import 'ledger.dart';

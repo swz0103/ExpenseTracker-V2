@@ -1,4 +1,4 @@
-import 'package:foundation_values/foundation_values.dart' show Currency;
+import 'package:core/foundation_values.dart' show Currency;
 
 import '../model/amounts.dart';
 

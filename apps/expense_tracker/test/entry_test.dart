@@ -32,18 +32,18 @@ void main() {
   test('the production entry never reaches the memory preview', () {
     final libraries = reachable('lib/main.dart');
     expect(libraries, contains('lib/src/bootstrap.dart'));
-    expect(libraries, contains('package:ledger_vault/ledger_vault.dart'));
-    expect(libraries, isNot(contains('package:bookkeeping/memory.dart')));
+    expect(libraries, contains('package:vault/ledger_vault.dart'));
+    expect(libraries, isNot(contains('package:domain/memory.dart')));
   });
 
   test('the preview entry uses made-up data only', () {
     final libraries = reachable('lib/main_preview.dart');
     expect(libraries, contains('lib/src/demo/seed.dart'));
     expect(libraries, isNot(contains('lib/src/bootstrap.dart')));
-    const vault = 'package:ledger_vault/ledger_vault.dart';
+    const vault = 'package:vault/ledger_vault.dart';
     expect(libraries, isNot(contains(vault)));
     // The web build has no database: nothing may reach the backups either.
-    const backups = 'package:ledger_backup/ledger_backup.dart';
+    const backups = 'package:vault/ledger_backup.dart';
     expect(libraries, isNot(contains(backups)));
   });
 }

@@ -167,11 +167,42 @@ extension LedgerReports on Ledger {
   }
 
   int _balanceOn(String account, DateTime end) {
+    final running = (_running ??= _runningTotals())[account];
     var total = this.account(account).opening;
-    for (final e in _entries) {
+    if (running == null) return total;
+    total += running.until(end);
+    for (final e in running.plans) {
       if (!e.date.isAfter(end)) total += _effect(e, account, end);
     }
     return total;
+  }
+
+  /// [_Running] for every account an entry touches, built once per change.
+  Map<String, _Running> _runningTotals() {
+    final changes = <String, List<(DateTime, int)>>{};
+    final running = <String, _Running>{};
+    for (final e in _entries) {
+      for (final id in {e.account, ?e.to}) {
+        final kept = running[id] ??= _Running();
+        if (e.type == EntryType.expense && e.installments > 1) {
+          if (id == e.account) kept.plans.add(e);
+          continue;
+        }
+        // Anything but an instalment purchase has its full effect at once.
+        (changes[id] ??= []).add((e.date, _effect(e, id, e.date)));
+      }
+    }
+    for (final MapEntry(key: id, value: list) in changes.entries) {
+      list.sort((a, b) => a.$1.compareTo(b.$1));
+      final kept = running[id]!;
+      var total = 0;
+      for (final (day, change) in list) {
+        total += change;
+        kept.days.add(day);
+        kept.totals.add(total);
+      }
+    }
+    return running;
   }
 
   int get investValue => _holdings.fold(0, (sum, h) => sum + h.value);
@@ -286,5 +317,20 @@ extension LedgerReports on Ledger {
       result.add((start, change));
     }
     return result;
+  }
+
+  /// Open spending or [income] categories, the most used over this month
+  /// and the last first, so a new entry starts on the likely one.
+  List<String> categoriesByUse({required bool income}) {
+    final type = income ? EntryType.income : EntryType.expense;
+    final counts = <String, int>{};
+    for (final back in const [0, 1]) {
+      final month = DateTime.utc(today.year, today.month - back);
+      for (final e in entriesIn(month.year, month.month)) {
+        if (e.type == type) counts[e.category] = (counts[e.category] ?? 0) + 1;
+      }
+    }
+    final names = [for (final c in categoriesFor(income: income)) c.name];
+    return names..sort((a, b) => (counts[b] ?? 0).compareTo(counts[a] ?? 0));
   }
 }
