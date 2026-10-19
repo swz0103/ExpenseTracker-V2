@@ -92,7 +92,7 @@ void main() {
     write('packages/values/lib/src/value.dart', 'class Value {}');
     write(
       'prototypes/app/lib/app.dart',
-      "import 'package:ledger/ledger.dart';",
+      "import 'package:domain/ledger.dart';",
     );
     expect(checkWorkspace(root), isEmpty);
   });
@@ -127,7 +127,7 @@ void main() {
     () {
       write(
         'prototypes/app/lib/app.dart',
-        "import 'package:values/src/value.dart';\nexport 'package:ledger/helper.dart';",
+        "import 'package:values/src/value.dart';\nexport 'package:domain/helper.dart';",
       );
       expect(
         checkWorkspace(root).where((e) => e.code == 'private-import').length,
@@ -138,7 +138,7 @@ void main() {
   test('comments and literal text do not create false import violations', () {
     write('packages/values/lib/values.dart', r'''
 // import 'dart:io';
-/* export 'package:ledger/src/private.dart'; */
+/* export 'package:domain/src/ledger/private.dart'; */
 const text = "import 'dart:ui';";
 ''');
     expect(checkWorkspace(root), isEmpty);

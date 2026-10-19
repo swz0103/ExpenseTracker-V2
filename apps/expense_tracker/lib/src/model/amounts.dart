@@ -1,4 +1,4 @@
-import 'package:foundation_values/foundation_values.dart' show Currency;
+import 'package:core/foundation_values.dart' show Currency;
 
 /// [minor] units of [currency] as typed into a field, without grouping:
 /// `1234.50` for 123450 US cents.

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:foundation_values/foundation_values.dart';
-import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
-import 'package:storage_sqlcipher/storage_sqlcipher.dart';
+import 'package:core/foundation_values.dart';
+import 'package:storage/ledger_sqlcipher.dart';
+import 'package:storage/storage_sqlcipher.dart';
 
 /// A mark from the app's icon set, with a colour as 0xAARRGGBB or none
 /// for the default of its kind.

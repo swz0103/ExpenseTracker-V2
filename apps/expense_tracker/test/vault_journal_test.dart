@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:app_core/app_core.dart';
-import 'package:backup_security/backup_security.dart';
+import 'package:core/app_core.dart';
+import 'package:vault/backup_security.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foundation_values/foundation_values.dart';
-import 'package:ledger_vault/ledger_vault.dart';
+import 'package:core/foundation_values.dart';
+import 'package:vault/ledger_vault.dart';
 
 /// The screens' ledger on the real encrypted store: every change is kept
 /// as ledger commands and comes back after closing and reopening.

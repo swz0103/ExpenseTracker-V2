@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:backup_security/backup_security.dart';
+import 'package:vault/backup_security.dart';
 import 'package:expense_tracker/src/app.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
@@ -8,7 +8,7 @@ import 'package:expense_tracker/src/pages/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:ledger_vault/ledger_vault.dart';
+import 'package:vault/ledger_vault.dart';
 
 /// Times the app on an emulator in profile mode: writing and loading
 /// three years of entries in the encrypted ledger, then switching tabs,

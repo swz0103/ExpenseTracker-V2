@@ -1,5 +1,5 @@
 name: expense_tracker
-description: "記帳本 V2：建立在 app_core 與 bookkeeping 上的新 App（階段 4）。"
+description: "記帳本：個人記帳 Android App。"
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -9,42 +9,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  accounts:
-    path: ../../packages/accounts
-  app_core:
-    path: ../../packages/app_core
-  backup_security:
-    path: ../../infrastructure/backup_security
-  bookkeeping:
-    path: ../../packages/bookkeeping
-  budgets:
-    path: ../../packages/budgets
-  categories:
-    path: ../../packages/categories
-  data_exchange:
-    path: ../../packages/data_exchange
-  foundation_values:
-    path: ../../packages/foundation_values
-  investments:
-    path: ../../packages/investments
-  ledger:
-    path: ../../packages/ledger
-  ledger_backup:
-    path: ../../infrastructure/ledger_backup
-  ledger_sqlcipher:
-    path: ../../infrastructure/ledger_sqlcipher
-  ledger_vault:
-    path: ../../infrastructure/ledger_vault
-  market_adapters:
-    path: ../../infrastructure/market_adapters
-  market_data:
-    path: ../../packages/market_data
-  recurring_transactions:
-    path: ../../packages/recurring_transactions
-  reports:
-    path: ../../packages/reports
-  storage_sqlcipher:
-    path: ../../infrastructure/storage_sqlcipher
+  core:
+    path: ../../packages/core
+  domain:
+    path: ../../packages/domain
+  market:
+    path: ../../infrastructure/market
+  storage:
+    path: ../../infrastructure/storage
+  vault:
+    path: ../../infrastructure/vault
 
 dev_dependencies:
   flutter_test:

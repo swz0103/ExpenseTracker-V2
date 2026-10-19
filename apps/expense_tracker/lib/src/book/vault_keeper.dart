@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:foundation_values/foundation_values.dart';
-import 'package:ledger_backup/ledger_backup.dart';
-import 'package:ledger_vault/ledger_vault.dart';
+import 'package:core/foundation_values.dart';
+import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 import '../startup.dart';
 import 'keeper.dart';

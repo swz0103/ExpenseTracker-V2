@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:backup_security/backup_security.dart';
+import 'package:vault/backup_security.dart';
 import 'package:flutter/material.dart';
-import 'package:ledger_vault/ledger_vault.dart';
-import 'package:market_adapters/market_adapters.dart';
-import 'package:market_data/market_data.dart';
+import 'package:vault/ledger_vault.dart';
+import 'package:market/market_adapters.dart';
+import 'package:market/market_data.dart';
 
 import 'app.dart';
 import 'book/vault_journal.dart';

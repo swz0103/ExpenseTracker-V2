@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
-import 'package:foundation_values/foundation_values.dart'
+import 'package:core/foundation_values.dart'
     show Currency, PublicId;
 
 import 'amounts.dart';

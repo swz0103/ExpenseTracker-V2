@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:backup_security/backup_security.dart';
+import 'package:vault/backup_security.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:ledger_backup/ledger_backup.dart';
-import 'package:ledger_vault/ledger_vault.dart';
+import 'package:vault/ledger_backup.dart';
+import 'package:vault/ledger_vault.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.

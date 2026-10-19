@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:foundation_values/foundation_values.dart' show Currency;
+import 'package:core/foundation_values.dart' show Currency;
 
 import '../compose/pickers.dart';
 import '../look/figures.dart';

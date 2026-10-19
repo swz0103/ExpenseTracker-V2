@@ -13,29 +13,11 @@ Set-StrictMode -Version Latest
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('lib', 'bin', 'test'); Architecture = $true },
-    @{ Path = 'packages/foundation_values'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/app_core'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/bookkeeping'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/accounts'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/categories'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/tags'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/merchants'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/ledger'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/reports'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/budgets'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/credit_cards'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/investments'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/market_data'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/recurring_transactions'; Dirs = @('lib', 'test') },
-    @{ Path = 'packages/data_exchange'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/backup_security'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/market_adapters'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/drive_backup'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/backup_service'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/ledger_backup'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/ledger_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/posting_worker.dart' },
-    @{ Path = 'infrastructure/ledger_vault'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/storage_sqlcipher'; Dirs = @('lib', 'bin', 'test'); Worker = 'bin/crash_worker.dart' },
+    @{ Path = 'packages/core'; Dirs = @('lib', 'test') },
+    @{ Path = 'packages/domain'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart', 'bin/posting_worker.dart') },
+    @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test') },
+    @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test') },
     @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true }
 )
 
@@ -83,8 +65,15 @@ foreach ($check in $selected) {
             throw "dart format found unformatted files in $($check.Path)."
         }
         Invoke-CheckCommand $driver @('analyze')
-        if ($check.ContainsKey('Worker')) {
-            Invoke-CheckCommand $Dart @('build', 'cli', '--target', $check.Worker, '--output', '.dart_tool/worker')
+        if ($check.ContainsKey('Workers')) {
+            # Each worker is built on its own, then gathered in one bundle
+            # where the tests look for it.
+            New-Item -ItemType Directory -Force '.dart_tool/worker/bundle' | Out-Null
+            foreach ($worker in $check.Workers) {
+                $out = ".dart_tool/build-$([IO.Path]::GetFileNameWithoutExtension($worker))"
+                Invoke-CheckCommand $Dart @('build', 'cli', '--target', $worker, '--output', $out)
+                Copy-Item -Recurse -Force "$out/bundle/*" '.dart_tool/worker/bundle/'
+            }
         }
         $testArguments = @('test', '--reporter', 'expanded')
         if ($isFlutter) { $testArguments += '--concurrency=1' }

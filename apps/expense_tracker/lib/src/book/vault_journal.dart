@@ -1,21 +1,21 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:accounts/accounts.dart';
-import 'package:app_core/app_core.dart';
-import 'package:bookkeeping/bookkeeping.dart';
-import 'package:budgets/budgets.dart';
-import 'package:categories/categories.dart';
+import 'package:domain/accounts.dart';
+import 'package:core/app_core.dart';
+import 'package:domain/bookkeeping.dart';
+import 'package:domain/budgets.dart';
+import 'package:domain/categories.dart';
 import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:flutter/painting.dart' show Color;
-import 'package:foundation_values/foundation_values.dart';
-import 'package:investments/investments.dart';
-import 'package:ledger/ledger.dart';
-import 'package:ledger_sqlcipher/ledger_sqlcipher.dart';
-import 'package:ledger_vault/ledger_vault.dart';
-import 'package:market_data/market_data.dart';
-import 'package:recurring_transactions/recurring_transactions.dart';
-import 'package:reports/reports.dart';
+import 'package:core/foundation_values.dart';
+import 'package:domain/investments.dart';
+import 'package:domain/ledger.dart';
+import 'package:storage/ledger_sqlcipher.dart';
+import 'package:vault/ledger_vault.dart';
+import 'package:market/market_data.dart';
+import 'package:domain/recurring_transactions.dart';
+import 'package:domain/reports.dart';
 
 import '../model/journal.dart';
 import '../model/ledger.dart' as ui;

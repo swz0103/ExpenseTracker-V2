@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:backup_security/backup_security.dart';
+import 'package:vault/backup_security.dart';
 import 'package:flutter/services.dart';
-import 'package:foundation_values/foundation_values.dart';
+import 'package:core/foundation_values.dart';
 
 import 'calendar_sync.dart';
 import 'model/reminders.dart';

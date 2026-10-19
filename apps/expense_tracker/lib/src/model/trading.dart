@@ -1,5 +1,5 @@
-import 'package:foundation_values/foundation_values.dart';
-import 'package:investments/investments.dart';
+import 'package:core/foundation_values.dart';
+import 'package:domain/investments.dart';
 
 /// Suggested charges for the composer, from the ledger's own Taiwan rules
 /// (`TaiwanTradeCharges`, `TaiwanRates`), so what it suggests is what the
