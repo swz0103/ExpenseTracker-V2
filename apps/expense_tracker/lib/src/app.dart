@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'look/theme.dart';
 
-/// The app shell. The screens are being rebuilt on the new architecture;
-/// until then the shell shows [home], or that the ledger is ready.
+/// The app shell: the theme, the scrolling and [home].
 class ExpenseApp extends StatelessWidget {
   const ExpenseApp({super.key, this.home, this.frame});
 
@@ -18,12 +17,15 @@ class ExpenseApp extends StatelessWidget {
       title: '記帳本',
       debugShowCheckedModeBanner: false,
       theme: appTheme(),
-      // Phones show no scroll bar; on the web one would cover the amounts.
+      // No scroll bar (on the web one would cover the amounts), and a list
+      // stops at its end: no stretch or bounce, as a web page would do.
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         scrollbars: false,
+        overscroll: false,
+        physics: const ClampingScrollPhysics(),
       ),
       builder: frame,
-      home: home ?? const Scaffold(body: Center(child: Text('記帳本 V2：介面重建中'))),
+      home: home ?? const Scaffold(body: Center(child: Text('記帳本'))),
     );
   }
 }
