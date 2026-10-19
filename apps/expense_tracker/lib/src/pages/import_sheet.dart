@@ -24,8 +24,7 @@ Future<void> importInto(
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
   await showSheet<void>(
     context,
-    (_) =>
-        _ImportSheet(ledger: ledger, invoices: invoices, readFile: readFile),
+    (_) => _ImportSheet(ledger: ledger, invoices: invoices, readFile: readFile),
   );
 }
 
@@ -198,9 +197,7 @@ class _ImportSheetState extends State<_ImportSheet> {
               '（信用卡預設 1 日結帳、15 日繳款，可到帳戶修改）',
             ),
           if (found != null && found.categories.isNotEmpty)
-            _Note(
-              '會新增分類：${found.categories.map((c) => c.name).join('、')}',
-            ),
+            _Note('會新增分類：${found.categories.map((c) => c.name).join('、')}'),
           for (final problem in found?.problems ?? const <String>[])
             _Note(problem, color: Hue.danger),
           if (found != null)

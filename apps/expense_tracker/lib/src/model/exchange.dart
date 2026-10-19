@@ -75,10 +75,7 @@ String _typeOf(Entry e) => switch (e) {
 /// 分類=金額;分類=金額, fees and taxes in NT$.
 String toCsv(Ledger ledger, List<Entry> entries) {
   final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
-  return writeCsv([
-    _header,
-    for (final e in sorted) _row(ledger, e),
-  ]);
+  return writeCsv([_header, for (final e in sorted) _row(ledger, e)]);
 }
 
 List<String> _row(Ledger ledger, Entry e) {
@@ -167,7 +164,18 @@ int? _amount(String text, [String currency = 'TWD']) {
 }
 
 /// The kinds a CSV line can be, by the names it may use.
-enum _Kind { expense, income, transfer, buy, sell, cash, stock, split, cut, refund }
+enum _Kind {
+  expense,
+  income,
+  transfer,
+  buy,
+  sell,
+  cash,
+  stock,
+  split,
+  cut,
+  refund,
+}
 
 const _kinds = {
   '支出': _Kind.expense,
@@ -215,11 +223,7 @@ Import importCsv(Ledger ledger, String text, {required String fallback}) {
   if (rows.isEmpty) return const Import([], 0);
   final head = [for (final h in rows.first) h.trim()];
   if (!head.contains('日期') || !head.contains('金額')) {
-    return Import(
-      const [],
-      rows.length,
-      problems: const ['第一行要有「日期」和「金額」欄位'],
-    );
+    return Import(const [], rows.length, problems: const ['第一行要有「日期」和「金額」欄位']);
   }
   final reader = _Reader(ledger, fallback);
   for (final (i, row) in rows.skip(1).indexed) {
@@ -546,7 +550,9 @@ final class _Reader {
       }
       kept.add(e);
     }
-    final used = {for (final e in kept) ...[e.account, ?e.to]};
+    final used = {
+      for (final e in kept) ...[e.account, ?e.to],
+    };
     final cats = {
       for (final e in kept) ...[e.category, for (final (c, _) in e.parts) c],
     };

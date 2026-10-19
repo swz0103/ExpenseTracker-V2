@@ -367,10 +367,7 @@ void main() {
     expect(found.entries, hasLength(8));
     addImport(ledger, found);
     final again = await reopen(ledger);
-    expect(
-      again.accounts.map((a) => a.name),
-      containsAll(['玉山信用卡', '零錢現金']),
-    );
+    expect(again.accounts.map((a) => a.name), containsAll(['玉山信用卡', '零錢現金']));
     expect(again.categories.map((c) => c.name), contains('餐飲'));
     expect(again.entries, hasLength(8));
     expect(shown(again, '0050').$1, 500);
