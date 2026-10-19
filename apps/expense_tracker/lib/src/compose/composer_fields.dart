@@ -431,10 +431,7 @@ extension _Fields on _ComposerState {
           padding: const EdgeInsets.only(top: 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: _Link(
-              '＋ 配股、分割或減資',
-              () => _set(() => _shareChange = true),
-            ),
+            child: _Link('＋ 配股、分割或減資', () => _set(() => _shareChange = true)),
           ),
         ),
       if (_trade == EntryType.dividend) ...[
