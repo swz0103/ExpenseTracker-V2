@@ -223,8 +223,7 @@ extension LedgerReports on Ledger {
   String get mainAccount {
     final open = [
       for (final a in openAccounts)
-        if (!a.kind.isDebt && !a.foreign && a.kind != AccountKind.receivable)
-          a,
+        if (!a.kind.isDebt && !a.foreign && a.kind != AccountKind.receivable) a,
     ];
     for (final a in open) {
       if (a.kind == AccountKind.bank) return a.id;

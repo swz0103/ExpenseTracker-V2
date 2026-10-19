@@ -172,11 +172,7 @@ class _AppShellState extends State<AppShell> {
         Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
         Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
         Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
-        _ => SettingsPage(
-          ledger: ledger,
-          nav: _nav,
-          services: widget.services,
-        ),
+        _ => SettingsPage(ledger: ledger, nav: _nav, services: widget.services),
       };
     }
     return switch (_tab) {

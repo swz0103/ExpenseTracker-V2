@@ -19,18 +19,15 @@ void main() {
     expect(ledger.entries, hasLength(count));
     final back = ledger.entries.last;
     expect(back.id, isNot(entry.id));
-    expect((back.amount, back.account, back.date), (
-      entry.amount,
-      entry.account,
-      entry.date,
-    ));
+    expect(
+      (back.amount, back.account, back.date),
+      (entry.amount, entry.account, entry.date),
+    );
   });
 
   test('an undone delete leaves the trash', () {
     final ledger = demoLedger();
-    final entry = ledger.entries.firstWhere(
-      (e) => e.type == EntryType.expense,
-    );
+    final entry = ledger.entries.firstWhere((e) => e.type == EntryType.expense);
     final removed = ledger.remove(entry.id)!;
     ledger.restore(removed);
     expect(ledger.trash, isEmpty);

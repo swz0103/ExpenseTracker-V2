@@ -346,10 +346,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           Row(
             children: [
               const Expanded(
-                child: Text(
-                  '上個月沒用完的，加到這個月',
-                  style: TextStyle(fontSize: 14),
-                ),
+                child: Text('上個月沒用完的，加到這個月', style: TextStyle(fontSize: 14)),
               ),
               Switch(
                 value: _carry,

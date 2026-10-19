@@ -377,21 +377,21 @@ class _LedgerPageState extends State<LedgerPage> {
                 onCancel: () => setState(_picked.clear),
               )
             else
-            Tile(
-              hero: true,
-              icon: Glyph.records,
-              label: searching
-                  ? '搜尋「$_words」· ${shown.length} 筆'
-                  : '$month 月結餘 · ${shown.length} 筆',
-              value: money(income - expense),
-              valueColor: income < expense ? Hue.negative : Hue.ink,
-              size: 28,
-              child: TileStats([
-                (Glyph.income, '收入', money(income), Hue.positive),
-                (Glyph.payout, '支出', money(expense), Hue.negative),
-                (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
-              ]),
-            ),
+              Tile(
+                hero: true,
+                icon: Glyph.records,
+                label: searching
+                    ? '搜尋「$_words」· ${shown.length} 筆'
+                    : '$month 月結餘 · ${shown.length} 筆',
+                value: money(income - expense),
+                valueColor: income < expense ? Hue.negative : Hue.ink,
+                size: 28,
+                child: TileStats([
+                  (Glyph.income, '收入', money(income), Hue.positive),
+                  (Glyph.payout, '支出', money(expense), Hue.negative),
+                  (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
+                ]),
+              ),
             const SizedBox(height: 10),
             Row(
               children: [

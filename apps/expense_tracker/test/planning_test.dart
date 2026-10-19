@@ -45,9 +45,7 @@ void main() {
   test('money comes from and goes back to the first bank account', () {
     final ledger = demoLedger();
     expect(ledger.mainAccount, 'bank');
-    ledger.updateAccount(
-      ledger.account('bank').copyWith(archived: true),
-    );
+    ledger.updateAccount(ledger.account('bank').copyWith(archived: true));
     expect(ledger.account(ledger.mainAccount).kind, isNot(AccountKind.card));
     expect(ledger.mainAccount, isNot('bank'));
   });
