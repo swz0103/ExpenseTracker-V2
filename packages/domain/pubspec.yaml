@@ -1,5 +1,5 @@
 name: domain
-description: Bookkeeping rules: accounts, categories, tags, merchants, postings, reports, budgets, cards, investments, recurring items and CSV exchange.
+description: "Bookkeeping rules: accounts, categories, tags, merchants, postings, reports, budgets, cards, investments, recurring items and CSV exchange."
 version: 0.1.0
 publish_to: none
 environment:

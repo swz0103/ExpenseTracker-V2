@@ -1,5 +1,5 @@
 name: market
-description: Closing prices and bank rates: the gateway and its dart:io transport.
+description: "Closing prices and bank rates: the gateway and its dart:io transport."
 version: 0.1.0
 publish_to: none
 environment:
