@@ -3,9 +3,8 @@ name: Flutter tools
 # What needs the Flutter SDK, for work prepared where there is none: push a
 # branch as tools/<name> and this formats the Dart code and refreshes the
 # pubspec.lock of every pubspec changed since main (a dependency added, a
-# package moved), then
-# pushes the result to tools/<name>-done to be taken in. Pushes made with
-# the workflow's own token start no further workflows.
+# package moved), then pushes the result to tools/<name>-done to be taken
+# in. Pushes made with the workflow's own token start no further workflows.
 on:
   push:
     branches:
