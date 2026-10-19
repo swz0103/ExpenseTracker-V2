@@ -1,0 +1,61 @@
+name: Flutter tools
+
+# What needs the Flutter SDK, for work prepared where there is none: push a
+# branch as tools/<name> and this formats the Dart code and refreshes every
+# pubspec.lock (after a dependency is added or a package moved), then
+# pushes the result to tools/<name>-done to be taken in. Pushes made with
+# the workflow's own token start no further workflows.
+on:
+  push:
+    branches:
+      - 'tools/**'
+      - '!tools/**-done'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flutter-tools-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - name: Refresh the lockfiles
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          for spec in $(git ls-files '*pubspec.yaml'); do
+            dir=$(dirname "$spec")
+            echo "::group::$dir"
+            (cd "$dir" && flutter pub get)
+            echo "::endgroup::"
+          done
+      - name: Format
+        run: |
+          set -euo pipefail
+          for spec in $(git ls-files '*pubspec.yaml'); do
+            dir=$(dirname "$spec")
+            for part in lib test bin integration_test test_driver; do
+              if [ -d "$dir/$part" ]; then dart format "$dir/$part"; fi
+            done
+          done
+      - name: Push the result
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git status --short
+          if ! git diff --cached --quiet; then
+            git commit -q -m 'Format and refresh lockfiles'
+          fi
+          git push --force origin "HEAD:refs/heads/${GITHUB_REF_NAME}-done"
