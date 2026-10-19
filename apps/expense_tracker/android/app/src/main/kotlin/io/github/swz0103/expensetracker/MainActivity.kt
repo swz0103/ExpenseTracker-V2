@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
+import android.view.WindowManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
@@ -158,6 +159,14 @@ class MainActivity : FlutterFragmentActivity() {
                                 }
                             }.start()
                         }
+                    }
+                    "secureScreen" -> {
+                        if (call.argument<Boolean>("on") == true) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        }
+                        result.success(null)
                     }
                     "pickFile" -> {
                         if (pendingPick != null) {

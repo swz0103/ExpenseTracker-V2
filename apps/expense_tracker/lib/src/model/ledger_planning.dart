@@ -17,6 +17,32 @@ extension LedgerPlanning on Ledger {
     orElse: () => Budget(category, 0),
   );
 
+  /// What counts against [budget] in [year]/[month]: all spending, the
+  /// spending carrying its tag, or its category's share of spending.
+  int spentAgainst(Budget budget, int year, int month) {
+    if (budget.category == Ledger.allSpending) return expense(year, month);
+    if (budget.tag case final tag?) return spentOnTag(tag, year, month);
+    var total = 0;
+    for (final e in entriesIn(year, month)) {
+      for (final (name, value) in e.spendingParts) {
+        if (name == budget.category) total += value;
+      }
+    }
+    return total;
+  }
+
+  /// [budget]'s limit for [year]/[month]: with [Budget.carry], plus what
+  /// was left of it the month before, when it counted then. Only the
+  /// month before: a leftover does not pile up.
+  int allowance(Budget budget, int year, int month) {
+    if (!budget.carry || budget.limit == 0) return budget.limit;
+    final last = DateTime.utc(year, month - 1);
+    final since = budget.since;
+    if (since != null && last.isBefore(since)) return budget.limit;
+    final left = budget.limit - spentAgainst(budget, last.year, last.month);
+    return budget.limit + (left > 0 ? left : 0);
+  }
+
   /// The entries booking [item] in [year]/[month], earliest first.
   List<Entry> confirmationsIn(Recurring item, int year, int month) => [
     for (final e in entriesIn(year, month).reversed)

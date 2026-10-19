@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../book/keeper.dart';
-import '../calendar_sync.dart';
 import '../compose/composer.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -12,6 +10,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
 import '../problems.dart';
+import '../services.dart';
 import 'account_page.dart';
 import 'accounts.dart';
 import 'budgets.dart';
@@ -34,15 +33,16 @@ enum _Tab { overview, ledger, accounts, more }
 /// bottom. Pages under 更多 and each account open in
 /// place with a back arrow; the system back closes them first.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.ledger, this.keeper, this.calendar});
+  const AppShell({
+    super.key,
+    required this.ledger,
+    this.services = const Services(),
+  });
 
   final Ledger ledger;
 
-  /// The encrypted ledger's keys and backups; none in the preview.
-  final Keeper? keeper;
-
-  /// Where due dates go on the phone's calendar; none in the preview.
-  final CalendarSync? calendar;
+  /// Keys, backups, the calendar and screen hiding; none in the preview.
+  final Services services;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -172,12 +172,7 @@ class _AppShellState extends State<AppShell> {
         Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
         Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
         Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
-        _ => SettingsPage(
-          ledger: ledger,
-          nav: _nav,
-          keeper: widget.keeper,
-          calendar: widget.calendar,
-        ),
+        _ => SettingsPage(ledger: ledger, nav: _nav, services: widget.services),
       };
     }
     return switch (_tab) {

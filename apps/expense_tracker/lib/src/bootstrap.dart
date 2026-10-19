@@ -20,6 +20,8 @@ import 'pages/recovery_code.dart';
 import 'pages/shell.dart';
 import 'perf.dart';
 import 'platform.dart';
+import 'screen_privacy.dart';
+import 'services.dart';
 import 'startup.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
@@ -47,9 +49,12 @@ Future<Directory> applicationDirectory() async {
 /// Follows [startup]: the lock screen until a ledger is open, then the
 /// app on that ledger.
 class VaultRoot extends StatelessWidget {
-  const VaultRoot({super.key, required this.startup});
+  const VaultRoot({super.key, required this.startup, this.privacy});
 
   final Startup startup;
+
+  /// Hiding the screens from screenshots, on Android.
+  final ScreenPrivacy? privacy;
 
   @override
   Widget build(BuildContext context) => ExpenseApp(
@@ -60,6 +65,7 @@ class VaultRoot extends StatelessWidget {
           key: ObjectKey(vault),
           startup: startup,
           vault: vault,
+          privacy: privacy,
         ),
         final state => LockScreen(
           key: ValueKey(state.runtimeType),
@@ -73,10 +79,16 @@ class VaultRoot extends StatelessWidget {
 /// The app on an unlocked [vault]: it loads the book, then shows it. A
 /// ledger just created shows its recovery code first.
 class OpenedLedger extends StatefulWidget {
-  const OpenedLedger({super.key, required this.startup, required this.vault});
+  const OpenedLedger({
+    super.key,
+    required this.startup,
+    required this.vault,
+    this.privacy,
+  });
 
   final Startup startup;
   final OpenVault vault;
+  final ScreenPrivacy? privacy;
 
   @override
   State<OpenedLedger> createState() => _OpenedLedgerState();
@@ -122,6 +134,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_quotes(ledger));
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
+    // The screens' sums are worked out apart from the ledger's own: any
+    // difference is a fault to report, not to hide.
+    for (final mismatch in _journal.mismatches(ledger)) {
+      Perf.instance.problem('帳本核對', mismatch);
+    }
     return ledger;
   }
 
@@ -213,7 +230,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(ledger: ledger, keeper: _keeper, calendar: _calendar);
+      return AppShell(
+        ledger: ledger,
+        services: Services(
+          keeper: _keeper,
+          calendar: _calendar,
+          privacy: widget.privacy,
+        ),
+      );
     },
   );
 }

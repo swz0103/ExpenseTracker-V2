@@ -11,10 +11,13 @@ import '../model/exchange.dart';
 import '../model/ledger.dart';
 import '../perf.dart';
 import '../problems.dart';
+import '../screen_privacy.dart';
+import '../services.dart';
 import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';
 import 'recovery_code.dart';
+import 'trash_sheet.dart';
 
 /// 設定與資料: preferences, exporting a month or the whole book, the
 /// encrypted ledger's backups and keys, and resetting the demo.
@@ -23,16 +26,14 @@ class SettingsPage extends StatefulWidget {
     super.key,
     required this.ledger,
     required this.nav,
-    this.keeper,
-    this.calendar,
+    this.services = const Services(),
   });
 
   final Ledger ledger;
   final Nav nav;
-  final Keeper? keeper;
 
-  /// Where due dates are written; none in the preview.
-  final CalendarSync? calendar;
+  /// Keys, backups, the calendar and screen hiding; none in the preview.
+  final Services services;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -48,7 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Saves [text] as the file [name] when the ledger can, else copies it.
   Future<void> _save(String name, String text, String what) async {
-    final keeper = widget.keeper;
+    final keeper = widget.services.keeper;
     if (keeper == null) return _copy(text, '已複製$what');
     try {
       final saved = await keeper.exportFile(name, text);
@@ -138,6 +139,16 @@ class _SettingsPageState extends State<SettingsPage> {
     } on Object catch (error) {
       if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
     }
+  }
+
+  /// Turns screen hiding on or off.
+  Future<void> _hideScreen(ScreenPrivacy privacy, bool on) async {
+    try {
+      await privacy.turn(on: on);
+    } on Object {
+      if (mounted) showNote(context, '這支手機無法切換截圖設定');
+    }
+    if (mounted) setState(() {});
   }
 
   /// Links a calendar, such as Google Calendar, for the due dates, or
@@ -276,7 +287,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           onTap: () => importInto(
                             context,
                             ledger,
-                            readFile: widget.keeper?.readFile,
+                            readFile: widget.services.keeper?.readFile,
                           ),
                         ),
                         const Divider(),
@@ -289,13 +300,25 @@ class _SettingsPageState extends State<SettingsPage> {
                             context,
                             ledger,
                             invoices: true,
-                            readFile: widget.keeper?.readFile,
+                            readFile: widget.services.keeper?.readFile,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (widget.keeper case final keeper?) ...[
+                  const SectionHead('最近刪除'),
+                  SoftPanel(
+                    child: _Export(
+                      badge: '刪除',
+                      title: '最近刪除',
+                      detail: ledger.trash.isEmpty
+                          ? '30 天內沒有刪除的紀錄'
+                          : '${ledger.trash.length} 筆，30 天內可以放回',
+                      icon: Glyph.reset,
+                      onTap: () => showTrash(context, ledger),
+                    ),
+                  ),
+                  if (widget.services.keeper case final keeper?) ...[
                     const SectionHead('帳本安全'),
                     SoftPanel(
                       child: Column(
@@ -341,7 +364,36 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                   ],
-                  if (widget.calendar case final calendar?) ...[
+                  if (widget.services.privacy case final privacy?) ...[
+                    const SectionHead('螢幕隱私'),
+                    SoftPanel(
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('不讓截圖', style: TextStyle(fontSize: 14)),
+                                SizedBox(height: 2),
+                                Text(
+                                  '也不在最近使用的 App 裡顯示畫面',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Hue.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: privacy.on,
+                            onChanged: (on) => _hideScreen(privacy, on),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (widget.services.calendar case final calendar?) ...[
                     const SectionHead('Google 日曆'),
                     SoftPanel(
                       child: _Export(

@@ -77,6 +77,11 @@ Future<bool> androidExportFile(String path, String name) async {
   return saved ?? false;
 }
 
+/// Hides the app from screenshots, recordings and the recent-apps preview
+/// while [on] (Android's `FLAG_SECURE`).
+Future<void> androidSecureScreen(bool on) =>
+    platformChannel.invokeMethod<void>('secureScreen', {'on': on});
+
 /// Lets the person choose a file and returns a copy the app can read, or
 /// null when they cancel.
 Future<String?> androidPickFile() =>

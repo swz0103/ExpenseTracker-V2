@@ -362,7 +362,11 @@ class _OverviewPageState extends State<OverviewPage> {
     final ledger = widget.ledger;
     final (year, month) = _month;
     final spent = ledger.expense(year, month);
-    final limit = ledger.budgetFor(Ledger.allSpending).limit;
+    final limit = ledger.allowance(
+      ledger.budgetFor(Ledger.allSpending),
+      year,
+      month,
+    );
     final pace = (_pace(year, month) * 100).round();
     return Tile(
       icon: Glyph.budget,

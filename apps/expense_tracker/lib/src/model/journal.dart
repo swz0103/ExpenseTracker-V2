@@ -13,7 +13,11 @@ abstract interface class Journal {
   /// Returns the id the entry has from now on.
   Future<String> replaceEntry(Entry before, Entry after);
 
+  /// Deletes [entry], keeping it a while to be restored.
   Future<void> removeEntry(Entry entry);
+
+  /// Stops keeping the deleted entry that had [id]: it was restored.
+  Future<void> forgetTrashed(String id);
 
   /// Opens [after] when [before] is null, otherwise changes it.
   Future<void> saveAccount(Account? before, Account after);

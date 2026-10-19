@@ -59,26 +59,22 @@ class _BudgetsPageState extends State<BudgetsPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final spent = ledger.expense(year, month);
-        final total = ledger.budgetFor(Ledger.allSpending).limit;
-        final used = {
-          for (final (c, amount) in ledger.expenseByCategory(year, month))
-            c.name: amount,
-        };
+        final whole = ledger.budgetFor(Ledger.allSpending);
+        final total = ledger.allowance(whole, year, month);
+        final carried = total - whole.limit;
         final rows = [
           for (final b in ledger.budgets)
             if (b.category != Ledger.allSpending)
               (
                 b,
-                switch (b.tag) {
-                  final tag? => ledger.spentOnTag(tag, year, month),
-                  _ => used[b.category] ?? 0,
-                },
+                ledger.spentAgainst(b, year, month),
+                ledger.allowance(b, year, month),
               ),
         ];
         // Overspent first, then by the share used.
         rows.sort((a, b) {
-          double share((Budget, int) row) =>
-              row.$1.limit == 0 ? 0 : row.$2 / row.$1.limit;
+          double share((Budget, int, int) row) =>
+              row.$3 == 0 ? 0 : row.$2 / row.$3;
           return share(b).compareTo(share(a));
         });
         final left = total - spent;
@@ -122,7 +118,9 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     valueColor: left < 0 && total > 0 ? Hue.negative : Hue.ink,
                     sub: total == 0
                         ? '已用 ${money(spent)} · 點右邊的鉛筆設定'
-                        : '總預算 ${money(total)} · 已用 ${money(spent)}',
+                        : '總預算 ${money(total)}'
+                              '${carried > 0 ? '（含上月剩 ${money(carried)}）' : ''}'
+                              ' · 已用 ${money(spent)}',
                   ),
                   TileRow([
                     Tile(
@@ -146,7 +144,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Column(
                       children: [
-                        for (final (budget, amount) in rows)
+                        for (final (budget, amount, allowed) in rows)
                           _CategoryLimit(
                             category: budget.tag == null
                                 ? ledger.category(budget.category)
@@ -156,7 +154,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                                     Hue.accent,
                                   ),
                             warning: budget.warning,
-                            limit: budget.limit,
+                            limit: allowed,
                             used: amount,
                             onEdit: () => _edit(budget.category),
                           ),
@@ -296,6 +294,7 @@ class _BudgetEditor extends StatefulWidget {
 class _BudgetEditorState extends State<_BudgetEditor> {
   late var _limit = widget.budget.limit;
   late var _warning = widget.budget.warning;
+  late var _carry = widget.budget.carry;
 
   static const _shares = [70, 80, 90, 100];
 
@@ -343,7 +342,19 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                 : 1,
             onChanged: (i) => setState(() => _warning = _shares[i]),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('上個月沒用完的，加到這個月', style: TextStyle(fontSize: 14)),
+              ),
+              Switch(
+                value: _carry,
+                onChanged: (on) => setState(() => _carry = on),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               if (!total)
@@ -362,7 +373,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               Expanded(
                 child: FilledButton(
                   onPressed: () {
-                    widget.ledger.setBudget(name, _limit, warning: _warning);
+                    widget.ledger.setBudget(
+                      name,
+                      _limit,
+                      warning: _warning,
+                      carry: _carry,
+                    );
                     Navigator.of(context).pop();
                   },
                   style: FilledButton.styleFrom(

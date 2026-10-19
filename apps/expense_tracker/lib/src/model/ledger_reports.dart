@@ -217,6 +217,20 @@ extension LedgerReports on Ledger {
       if (!a.archived) a,
   ];
 
+  /// The account money usually comes from or goes back to, as for a card
+  /// payment or money paid back: the first open NT$ bank account, else
+  /// any open NT$ account that is not a debt; empty when there is none.
+  String get mainAccount {
+    final open = [
+      for (final a in openAccounts)
+        if (!a.kind.isDebt && !a.foreign && a.kind != AccountKind.receivable) a,
+    ];
+    for (final a in open) {
+      if (a.kind == AccountKind.bank) return a.id;
+    }
+    return open.isEmpty ? '' : open.first.id;
+  }
+
   // Currencies.
 
   /// NT$ for one unit of each foreign currency: 臺灣銀行's spot buying

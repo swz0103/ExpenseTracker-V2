@@ -27,7 +27,11 @@ class MorePage extends StatelessWidget {
         final income = ledger.income(today.year, today.month);
         final expense = ledger.expense(today.year, today.month);
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
-        final limit = ledger.budgetFor(Ledger.allSpending).limit;
+        final limit = ledger.allowance(
+          ledger.budgetFor(Ledger.allSpending),
+          today.year,
+          today.month,
+        );
         final next = items.isEmpty ? null : items.first;
         String shown(Recurring r) =>
             ledger.hidden ? '••••' : recurringAmount(ledger, r);
