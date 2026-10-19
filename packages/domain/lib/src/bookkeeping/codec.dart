@@ -1,5 +1,5 @@
-import 'package:domain/accounts.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
 import 'package:domain/ledger.dart';
 
 /// Thrown when stored JSON does not decode to a valid domain object.

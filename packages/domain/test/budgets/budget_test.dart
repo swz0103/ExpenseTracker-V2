@@ -1,6 +1,6 @@
+import 'package:core/foundation_values.dart';
 import 'package:domain/budgets.dart';
 import 'package:domain/categories.dart';
-import 'package:core/foundation_values.dart';
 import 'package:domain/ledger.dart';
 import 'package:domain/reports.dart';
 import 'package:test/test.dart';

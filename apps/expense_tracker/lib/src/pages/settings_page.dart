@@ -184,7 +184,10 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() {});
         return;
       }
-      await calendar.choose(choices.firstWhere((c) => c.id == picked));
+      await calendar.choose(
+        choices.firstWhere((c) => c.id == picked),
+        widget.ledger,
+      );
       final written = await calendar.sync(widget.ledger);
       if (!mounted) return;
       setState(() {});

@@ -1,6 +1,6 @@
+import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:core/foundation_values.dart' show Currency;
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';

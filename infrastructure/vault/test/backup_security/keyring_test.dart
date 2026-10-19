@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:vault/backup_security.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:test/test.dart';
+import 'package:vault/backup_security.dart';
 
 /// Stands in for an Android Keystore key bound to one device.
 final class _FakeDevice implements DeviceKeyWrapper {

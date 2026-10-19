@@ -1,7 +1,7 @@
 import 'package:core/app_core.dart';
+import 'package:core/foundation_values.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:core/foundation_values.dart';
 
 import 'model/journal.dart';
 

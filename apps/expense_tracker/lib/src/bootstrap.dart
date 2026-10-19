@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:vault/backup_security.dart';
 import 'package:flutter/material.dart';
-import 'package:vault/ledger_vault.dart';
 import 'package:market/market_adapters.dart';
 import 'package:market/market_data.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_vault.dart';
 
 import 'app.dart';
 import 'book/vault_journal.dart';
@@ -16,6 +16,7 @@ import 'model/ledger.dart';
 import 'pages/lock_screen.dart';
 import 'pages/recovery_code.dart';
 import 'pages/shell.dart';
+import 'perf.dart';
 import 'platform.dart';
 import 'startup.dart';
 
@@ -122,7 +123,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       await _keeper.backUpIfDue();
     } on Object catch (error) {
-      debugPrint('Weekly backup failed: $error');
+      Perf.instance.problem('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
     }
   }
@@ -135,7 +136,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     } on Object catch (error) {
       // Prices and rates are only informational; the ledger may have
       // locked.
-      debugPrint('Closing prices or rates not refreshed: $error');
+      Perf.instance.problem('收盤價與匯率', error);
     }
   }
 

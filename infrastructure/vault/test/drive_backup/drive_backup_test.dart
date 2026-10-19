@@ -2,10 +2,10 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:vault/drive_backup.dart';
-import 'package:vault/testing.dart';
 import 'package:storage/storage_sqlcipher.dart';
 import 'package:test/test.dart';
+import 'package:vault/drive_backup.dart';
+import 'package:vault/testing.dart';
 
 const principal = 'google-account-1';
 final t0 = DateTime.utc(2026, 10, 3, 9);

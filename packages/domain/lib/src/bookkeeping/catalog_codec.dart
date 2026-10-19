@@ -1,5 +1,5 @@
-import 'package:domain/categories.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/categories.dart';
 import 'package:domain/merchants.dart';
 import 'package:domain/tags.dart';
 

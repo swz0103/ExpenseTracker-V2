@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
-
 import 'model/ledger.dart';
 import 'model/reminders.dart';
+import 'perf.dart';
 
 /// A calendar on the phone, such as one synced with Google Calendar.
 final class CalendarChoice {
@@ -49,8 +48,19 @@ final class CalendarSync {
     return (id, lines.length > 1 ? lines[1] : '');
   }
 
-  Future<void> choose(CalendarChoice calendar) =>
-      _file.writeAsString('${calendar.id}\n${calendar.name}', flush: true);
+  /// Syncs to [calendar] from now on; reminders still to come leave the
+  /// calendar chosen before, so they are not shown twice.
+  Future<void> choose(CalendarChoice calendar, Ledger ledger) async {
+    final before = chosen;
+    if (before != null && before.$1 != calendar.id) {
+      try {
+        await port.replace(before.$1, ledger.today, const []);
+      } on Object catch (error) {
+        Perf.instance.problem('清除舊日曆的提醒', error);
+      }
+    }
+    await _file.writeAsString('${calendar.id}\n${calendar.name}', flush: true);
+  }
 
   /// Stops syncing and takes the reminders still to come off the calendar.
   Future<void> forget(Ledger ledger) async {
@@ -92,7 +102,7 @@ final class CalendarSync {
     try {
       return await port.replace(calendar.$1, ledger.today, ledger.reminders());
     } on Object catch (error) {
-      debugPrint('Calendar not synced: $error');
+      Perf.instance.problem('日曆同步', error);
       return null;
     }
   }

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:vault/drive_backup.dart';
 import 'package:test/test.dart';
+import 'package:vault/drive_backup.dart';
 
 /// The real HTTP transport against a server on this machine (health check
 /// G5-09, G8-16): no redirects, capped responses, every failure the same

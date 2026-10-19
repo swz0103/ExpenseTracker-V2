@@ -1,9 +1,9 @@
 import 'package:core/app_core.dart';
+import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app.dart';
 import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/problems.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:core/foundation_values.dart';
 
 void main() {
   test('refused changes are explained in words', () {

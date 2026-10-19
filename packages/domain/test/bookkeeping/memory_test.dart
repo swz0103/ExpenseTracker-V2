@@ -1,8 +1,8 @@
-import 'package:domain/accounts.dart';
 import 'package:core/app_core.dart';
+import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/memory.dart';
-import 'package:core/foundation_values.dart';
 import 'package:test/test.dart';
 
 void main() {

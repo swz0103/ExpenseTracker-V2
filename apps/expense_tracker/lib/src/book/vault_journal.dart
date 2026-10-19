@@ -1,21 +1,21 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:domain/accounts.dart';
 import 'package:core/app_core.dart';
+import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/budgets.dart';
 import 'package:domain/categories.dart';
-import 'package:flutter/foundation.dart' show listEquals, mapEquals;
-import 'package:flutter/painting.dart' show Color;
-import 'package:core/foundation_values.dart';
 import 'package:domain/investments.dart';
 import 'package:domain/ledger.dart';
-import 'package:storage/ledger_sqlcipher.dart';
-import 'package:vault/ledger_vault.dart';
-import 'package:market/market_data.dart';
 import 'package:domain/recurring_transactions.dart';
 import 'package:domain/reports.dart';
+import 'package:flutter/foundation.dart' show listEquals, mapEquals;
+import 'package:flutter/painting.dart' show Color;
+import 'package:market/market_data.dart';
+import 'package:storage/ledger_sqlcipher.dart';
+import 'package:vault/ledger_vault.dart';
 
 import '../model/journal.dart';
 import '../model/ledger.dart' as ui;

@@ -1,5 +1,5 @@
-import 'package:domain/credit_cards.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/credit_cards.dart';
 import 'package:test/test.dart';
 
 import 'fails.dart';

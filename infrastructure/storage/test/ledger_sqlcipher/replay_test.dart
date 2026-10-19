@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:core/foundation_values.dart';
 import 'package:storage/ledger_sqlcipher.dart';
-import 'package:storage/testing.dart';
 import 'package:storage/storage_sqlcipher.dart';
+import 'package:storage/testing.dart';
 import 'package:test/test.dart';
 
 void main() {

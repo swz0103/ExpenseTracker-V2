@@ -1,5 +1,5 @@
-import 'package:domain/tags.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/tags.dart';
 import 'package:test/test.dart';
 
 Matcher fails(TagError code) =>

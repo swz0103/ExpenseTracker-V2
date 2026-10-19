@@ -1,6 +1,6 @@
+import 'package:core/foundation_values.dart';
 import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
-import 'package:core/foundation_values.dart';
 import 'package:domain/ledger.dart';
 import 'package:test/test.dart';
 

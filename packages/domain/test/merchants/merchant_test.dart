@@ -1,5 +1,5 @@
-import 'package:domain/merchants.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/merchants.dart';
 import 'package:test/test.dart';
 
 Matcher fails(MerchantError code) =>

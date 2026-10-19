@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:domain/accounts.dart';
-import 'package:vault/backup_security.dart';
-import 'package:domain/bookkeeping.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
+import 'package:domain/bookkeeping.dart';
 import 'package:storage/ledger_sqlcipher.dart';
-import 'package:vault/ledger_vault.dart';
 import 'package:test/test.dart';
+import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_vault.dart';
 
 const password = 'correct horse battery';
 final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);

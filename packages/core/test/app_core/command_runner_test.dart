@@ -1,6 +1,6 @@
 import 'package:core/app_core.dart';
-import 'package:core/testing.dart';
 import 'package:core/foundation_values.dart';
+import 'package:core/testing.dart';
 import 'package:test/test.dart';
 
 final class _Append implements Command<int> {

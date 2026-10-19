@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/scheduler.dart';
 
 /// How fast this phone runs the app: the last ledger loads and recent
@@ -13,6 +14,21 @@ final class Perf {
   /// The slower of build and raster of each recent frame, in
   /// microseconds.
   final _frames = <int>[];
+
+  /// Background work that did not finish, oldest first: what it was and
+  /// when.
+  final _problems = <(DateTime, String)>[];
+
+  /// Keeps that [what] did not work, for 設定 › 效能, rather than letting
+  /// it pass unseen.
+  void problem(String what, Object error) {
+    debugPrint('$what: $error');
+    _problems.add((DateTime.now(), '$what：$error'));
+    if (_problems.length > 20) _problems.removeAt(0);
+  }
+
+  /// The problems kept, newest first.
+  List<(DateTime, String)> get problems => _problems.reversed.toList();
 
   /// Starts counting frames.
   void watchFrames() {
@@ -52,6 +68,13 @@ final class Perf {
       final slow = frames.where((f) => f > 16667).length;
       drawn = '九成在 $most ms 內 · 超過 16 ms 的 $slow 格';
     }
-    return [('載入帳本', loads), ('畫面（最近 ${frames.length} 格）', drawn)];
+    String two(int n) => '$n'.padLeft(2, '0');
+    return [
+      ('載入帳本', loads),
+      ('畫面（最近 ${frames.length} 格）', drawn),
+      if (_problems.isEmpty) ('背景工作', '都正常'),
+      for (final (at, what) in problems.take(5))
+        ('${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)}', what),
+    ];
   }
 }

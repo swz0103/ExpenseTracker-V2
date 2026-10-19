@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import 'package:core/app_core.dart';
-import 'package:vault/backup_security.dart';
+import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/book/vault_journal.dart';
 import 'package:expense_tracker/src/book/vault_keeper.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:expense_tracker/src/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:core/foundation_values.dart';
+import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 /// Backups, restore and keys of the encrypted ledger, as the settings

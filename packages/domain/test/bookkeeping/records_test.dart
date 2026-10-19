@@ -1,7 +1,7 @@
+import 'package:core/foundation_values.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/categories.dart';
 import 'package:domain/credit_cards.dart';
-import 'package:core/foundation_values.dart';
 import 'package:domain/merchants.dart';
 import 'package:domain/tags.dart';
 import 'package:test/test.dart';

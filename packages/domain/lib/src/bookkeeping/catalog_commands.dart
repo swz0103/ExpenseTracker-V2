@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:core/app_core.dart';
-import 'package:domain/categories.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/categories.dart';
 
 enum CatalogType { category, tag, merchant }
 

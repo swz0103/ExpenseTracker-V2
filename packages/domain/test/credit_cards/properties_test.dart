@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:domain/credit_cards.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/credit_cards.dart';
 import 'package:test/test.dart';
 
 /// Billing-cycle properties over every closing and due day and many seeded

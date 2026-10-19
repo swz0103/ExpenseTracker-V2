@@ -12,7 +12,7 @@ final class Portfolio {
   /// order and in the order written within a day. An oversold trade
   /// throws a [StateError].
   factory Portfolio.replay(List<Holding> start, List<Entry> entries) {
-    final opening = DateTime.utc(2025);
+    final opening = Lot.opening;
     final byCode = {for (final h in start) h.code: h};
     final lots = <String, List<Lot>>{
       for (final h in start)

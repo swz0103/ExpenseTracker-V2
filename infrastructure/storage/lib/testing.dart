@@ -2,10 +2,10 @@
 /// (`testEntrypoints` in architecture/boundaries.json).
 library;
 
+import 'package:core/foundation_values.dart';
 import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/categories.dart';
-import 'package:core/foundation_values.dart';
 import 'package:domain/investments.dart';
 import 'package:domain/ledger.dart';
 import 'package:domain/recurring_transactions.dart';

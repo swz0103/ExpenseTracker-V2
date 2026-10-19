@@ -1,5 +1,5 @@
-import 'package:domain/data_exchange.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/data_exchange.dart';
 import 'package:test/test.dart';
 
 /// Columns in a different order from the platform's download, to show

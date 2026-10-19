@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:domain/accounts.dart';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
 import 'package:domain/ledger.dart';
 
 /// Account commands return the account version after the change.

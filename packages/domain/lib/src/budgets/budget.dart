@@ -1,5 +1,5 @@
-import 'package:domain/categories.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/categories.dart';
 import 'package:domain/reports.dart';
 
 /// A monthly, single-currency expense limit. Empty account/tag sets mean all;

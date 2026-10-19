@@ -1,5 +1,5 @@
-import 'package:domain/accounts.dart';
 import 'package:core/foundation_values.dart';
+import 'package:domain/accounts.dart';
 import 'package:test/test.dart';
 
 void main() {
