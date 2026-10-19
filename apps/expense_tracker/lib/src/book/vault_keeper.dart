@@ -16,8 +16,10 @@ final class VaultKeeper implements Keeper {
     this._journal, {
     Future<void> Function()? beforeLock,
     Future<bool> Function(String path, String name)? export,
+    Future<String?> Function()? pick,
   }) : _beforeLock = beforeLock,
-       _export = export ?? _toDownloads;
+       _export = export ?? _toDownloads,
+       _pick = pick;
 
   final Startup _startup;
   final OpenVault _vault;
@@ -30,6 +32,10 @@ final class VaultKeeper implements Keeper {
   /// Hands a backup file to the person: the system's save dialog on a
   /// phone, the Downloads folder on a computer.
   final Future<bool> Function(String path, String name) _export;
+
+  /// Lets the person choose a file and returns the path of a copy: the
+  /// system's file picker on a phone; none on a computer.
+  final Future<String?> Function()? _pick;
 
   static Future<bool> _toDownloads(String path, String name) async {
     final home =
@@ -58,6 +64,18 @@ final class VaultKeeper implements Keeper {
       return await _export(file.path, name);
     } finally {
       await file.delete();
+    }
+  }
+
+  @override
+  Future<String?> readFile() async {
+    final path = await _pick?.call();
+    if (path == null) return null;
+    final file = File(path);
+    try {
+      return await file.readAsString();
+    } finally {
+      if (file.existsSync()) await file.delete();
     }
   }
 

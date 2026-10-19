@@ -15,6 +15,10 @@ abstract interface class Keeper {
   /// [exportBackup] does. False when the person cancels.
   Future<bool> exportFile(String name, String text);
 
+  /// Lets the person choose a text file, such as a CSV to import, and
+  /// returns its text; null when they cancel or there is no file picker.
+  Future<String?> readFile();
+
   /// False for a ledger that opens without a password.
   bool get hasPassword;
 

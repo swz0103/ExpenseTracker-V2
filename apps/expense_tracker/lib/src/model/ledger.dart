@@ -635,6 +635,17 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether [extra] can join the entries: none of their trades sells
+  /// more shares than are held by then.
+  bool holdsWith(List<Entry> extra) {
+    try {
+      Portfolio.replay(_startHoldings, [..._entries, ...extra]);
+      return true;
+    } on StateError {
+      return false;
+    }
+  }
+
   /// Rebuilds the holdings from the starting positions and every
   /// investment entry; an oversold trade throws a [StateError].
   void _replay() {

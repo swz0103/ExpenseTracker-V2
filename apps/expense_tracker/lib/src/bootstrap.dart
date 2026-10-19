@@ -109,6 +109,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _journal,
     beforeLock: () async => _loaded?.settled,
     export: Platform.isAndroid ? androidExportFile : null,
+    pick: Platform.isAndroid ? androidPickFile : null,
   );
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();

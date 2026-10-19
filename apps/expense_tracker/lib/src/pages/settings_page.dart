@@ -271,9 +271,13 @@ class _SettingsPageState extends State<SettingsPage> {
                         _Export(
                           badge: 'CSV',
                           title: '從 CSV 匯入',
-                          detail: '貼上其他記帳 App 或本 App 匯出的 CSV',
+                          detail: '選檔案或貼上；本 App 下載的紀錄可以完整匯回',
                           icon: Glyph.add,
-                          onTap: () => importInto(context, ledger),
+                          onTap: () => importInto(
+                            context,
+                            ledger,
+                            readFile: widget.keeper?.readFile,
+                          ),
                         ),
                         const Divider(),
                         _Export(
@@ -281,8 +285,12 @@ class _SettingsPageState extends State<SettingsPage> {
                           title: '匯入電子發票',
                           detail: '貼上財政部載具消費明細，自動帶入商家與分類',
                           icon: Glyph.add,
-                          onTap: () =>
-                              importInto(context, ledger, invoices: true),
+                          onTap: () => importInto(
+                            context,
+                            ledger,
+                            invoices: true,
+                            readFile: widget.keeper?.readFile,
+                          ),
                         ),
                       ],
                     ),

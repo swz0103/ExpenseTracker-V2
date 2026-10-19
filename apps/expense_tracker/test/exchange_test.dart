@@ -28,7 +28,8 @@ void main() {
     final month = ledger.entriesIn(2026, 9);
     final csv = toCsv(ledger, month);
     final again = importCsv(ledger, csv, fallback: 'cash');
-    expect(again.entries.where((e) => e.type == EntryType.expense), isEmpty);
+    expect(again.entries, isEmpty);
+    expect(again.accounts, isEmpty);
     final fresh = importCsv(
       ledger,
       '日期,類型,金額,帳戶,分類,商家,標籤,備註\n'
@@ -41,11 +42,71 @@ void main() {
     expect(fresh.skipped, 1);
     expect(fresh.entries.first.merchant, '早餐店');
     expect(fresh.entries.first.tags, ['家用']);
-    expect(fresh.entries.last.account, 'bank');
-    expect(fresh.entries.last.category, '其他收入');
+    expect(fresh.problems.single, startsWith('第 4 行：'));
+    // A new account and category are added, not filed elsewhere.
+    final made = fresh.accounts.single;
+    expect((made.name, made.kind), ('不存在的帳戶', AccountKind.bank));
+    expect(fresh.entries.last.account, made.id);
+    expect(fresh.entries.last.category, '不存在');
+    expect(fresh.categories.single.income, isTrue);
     final before = ledger.expense(2026, 10);
-    ledger.addAll(fresh.entries);
+    addImport(ledger, fresh);
+    expect(ledger.account(made.id).name, '不存在的帳戶');
     expect(ledger.expense(2026, 10), before + 120);
+  });
+
+  test('every kind of entry imports, and reads back as nothing new', () {
+    final ledger = demoLedger();
+    const text =
+        '日期,類型,金額,帳戶,轉入帳戶,分類,商家,標籤,備註,代號,股數,手續費,稅,分期\n'
+        '2026-10-01,支出,300,新信用卡,,餐飲=200;居家生活=100,好市多,,,,,,,3\n'
+        '2026-10-02,轉帳,5000,日常銀行,新信用卡,,,,繳卡費\n'
+        '2026-10-02,轉帳,1000,日常銀行,零錢包現金,,,,提款,,,15\n'
+        '2026-10-03,買進,60000,日常銀行,,,,,,006208,1000,85\n'
+        '2026-10-04,賣出,30000,日常銀行,,,,,,006208,500,42,90\n'
+        '2026-10-05,股息,1200,日常銀行,,,,,,006208,,,25\n'
+        '2026-10-06,配股,,日常銀行,,,,,,006208,50\n'
+        '2026-10-07,退款,100,新信用卡,,,好市多,,退貨\n'
+        '2026-10-08,賣出,1,日常銀行,,,,,,006208,999999\n'
+        '2026-10-09,魔法,1,日常銀行\n';
+    final found = importCsv(ledger, text, fallback: 'bank');
+    expect(found.entries.map((e) => e.type), [
+      EntryType.expense,
+      EntryType.transfer,
+      EntryType.transfer,
+      EntryType.buy,
+      EntryType.sell,
+      EntryType.dividend,
+      EntryType.dividend,
+      EntryType.income,
+    ]);
+    expect(found.skipped, 2);
+    expect(found.problems, hasLength(2));
+    expect(found.problems.first, contains('魔法'));
+    expect(found.problems.last, contains('超過'));
+    final [card, cash] = found.accounts;
+    expect((card.name, card.kind), ('新信用卡', AccountKind.card));
+    expect((cash.name, cash.kind), ('零錢包現金', AccountKind.cash));
+    expect(found.categories.map((c) => c.name), ['餐飲']);
+    final spent = found.entries.first;
+    expect(spent.parts, [('餐飲', 200), ('居家生活', 100)]);
+    expect((spent.account, spent.installments), (card.id, 3));
+    expect(found.entries[1].to, card.id);
+    expect(found.entries[2].fee, 15);
+    expect((found.entries[4].fee, found.entries[4].tax), (42, 90));
+    expect(found.entries[5].tax, 25);
+    expect(found.entries[6].shares, 50);
+    expect(found.entries.last.refundOf, spent.id);
+
+    addImport(ledger, found);
+    expect(ledger.holding('006208')!.shares, 550);
+    final again = importCsv(
+      ledger,
+      toCsv(ledger, found.entries),
+      fallback: 'bank',
+    );
+    expect(again.entries, isEmpty);
+    expect(again.accounts, isEmpty);
   });
 
   test('e-invoices become spending at the shop, once', () {
