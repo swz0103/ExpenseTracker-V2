@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:market/market_adapters.dart';
@@ -89,7 +91,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   late final _journal = VaultJournal(
     widget.vault,
-    market: MarketDataGateway(transport: const IoMarketTransport()),
+    market: MarketDataGateway(
+      transport: const IoMarketTransport(),
+      // The exchanges' snapshots are a few MiB of JSON.
+      decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
+    ),
   );
 
   /// The phone's calendar for due dates, on Android.

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:core/foundation_values.dart';
 import 'package:domain/investments.dart';
@@ -188,6 +189,31 @@ void main() {
         reason: body,
       );
     }
+  });
+
+  test('the JSON decoder is the one passed in, once per snapshot', () async {
+    final decoded = <String>[];
+    final market = MarketDataGateway(
+      transport: FakeTransport(
+        (_) async => const MarketResponse(200, twseRows),
+      ),
+      clock: () => now,
+      decodeJson: (body) async {
+        decoded.add(body);
+        return jsonDecode(body);
+      },
+    );
+    await market.stockClose(instrument('2330'));
+    await market.stockClose(instrument('0050', kind: InstrumentKind.etf));
+    expect(decoded, [twseRows]);
+
+    final broken = gateway(
+      FakeTransport((_) async => const MarketResponse(200, '[{')),
+    );
+    expect(
+      (await broken.stockClose(instrument('2330'))).state,
+      MarketState.failed,
+    );
   });
 
   test('the bank board gives exact rates for the currencies used', () async {

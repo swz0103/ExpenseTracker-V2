@@ -12,6 +12,7 @@
 - `bankRates`：臺灣銀行牌告（`rate.bot.com.tw/xrt/flcsv/0/day`），每個幣別有現金與即期的買入、賣出。外幣帳戶估值用即期買入（`valuation`）。App 沒用到的幣別略過。
 - 結果是 `available`、`stale`、`missing`、`unsupported`、`failed` 之一。缺值不會變成 0；收盤日超過 4 天、或更新失敗而沿用上一份，都標為 `stale`。
 - 同一份快照 20 分鐘內共用，同時的查詢只發一次請求；失敗後 1 分鐘內不重試。
+- 證交所、櫃買中心的快照是數 MiB 的 JSON，每份只解析一次；`decodeJson` 可換成在其他 isolate 解析的版本（App 用 `Isolate.run`），避免畫面卡頓。
 
 ## market_adapters
 

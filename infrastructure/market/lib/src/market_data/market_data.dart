@@ -100,8 +100,10 @@ final class MarketDataGateway {
     this.cacheTtl = const Duration(minutes: 20),
     this.retryAfter = const Duration(minutes: 1),
     this.maximumObservationAge = const Duration(days: 4),
+    Future<Object?> Function(String body)? decodeJson,
   }) : _transport = transport,
-       _clock = clock ?? DateTime.now {
+       _clock = clock ?? DateTime.now,
+       _decode = decodeJson ?? _decodeHere {
     if (cacheTtl <= Duration.zero ||
         retryAfter < Duration.zero ||
         maximumObservationAge < Duration.zero) {
@@ -121,6 +123,10 @@ final class MarketDataGateway {
 
   final MarketTransport _transport;
   final DateTime Function() _clock;
+
+  /// Decodes an exchange's JSON snapshot, a few MiB: the app passes one
+  /// that runs on another isolate so the screen does not stall.
+  final Future<Object?> Function(String body) _decode;
   final Duration cacheTtl;
   final Duration retryAfter;
   final Duration maximumObservationAge;
@@ -225,6 +231,13 @@ final class MarketDataGateway {
       if (response.statusCode == 200 &&
           response.body.length <= marketResponseLimit) {
         final snapshot = _Snapshot(response.body, now);
+        if (uri != bankRatesUri) {
+          try {
+            snapshot.decoded = await _decode(response.body);
+          } on FormatException {
+            // Left undecoded: every lookup reports a bad snapshot.
+          }
+        }
         _cache[uri] = snapshot;
         _failedAt.remove(uri);
         return _Fetch(snapshot, MarketState.available);
@@ -301,6 +314,9 @@ final class _Snapshot {
 
   final String body;
   final UtcInstant fetchedAt;
+
+  /// The exchange's rows as decoded JSON; null when they did not decode.
+  Object? decoded;
   Map<String, Map<String, Object?>>? _rows;
   BankRates? bankRates;
 
@@ -316,7 +332,7 @@ final class _Snapshot {
   }
 
   Map<String, Map<String, Object?>> _index(String key) {
-    final decoded = jsonDecode(body);
+    final decoded = this.decoded;
     if (decoded is! List) throw const FormatException('Expected rows');
     final rows = <String, Map<String, Object?>>{};
     for (final row in decoded) {
@@ -332,6 +348,8 @@ final class _Snapshot {
 }
 
 const Map<String, Object?> _duplicate = {};
+
+Future<Object?> _decodeHere(String body) async => jsonDecode(body);
 
 final _twd = Currency.of('TWD');
 
