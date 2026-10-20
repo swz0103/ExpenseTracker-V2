@@ -33,9 +33,8 @@ void main() {
       MaterialApp(
         theme: appTheme(),
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(text)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(text)),
           child: child!,
         ),
         home: AppShell(ledger: demoLedger()),
@@ -66,9 +65,7 @@ void main() {
     }
   }
 
-  testWidgets('tap targets are 48 dp and named on every page', (
-    tester,
-  ) async {
+  testWidgets('tap targets are 48 dp and named on every page', (tester) async {
     final semantics = tester.ensureSemantics();
     final faults = <String>[];
     Future<void> check(String where) async {

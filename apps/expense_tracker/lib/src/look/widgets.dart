@@ -651,32 +651,32 @@ class Segments extends StatelessWidget {
                 selected: i == selected,
                 inMutuallyExclusiveGroup: true,
                 child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (i != selected) Haptics.selection();
-                  onChanged(i);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  constraints: const BoxConstraints(minHeight: 48),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: i == selected ? Hue.white : null,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: i == selected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: i == selected ? selectedColor : Hue.accent,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (i != selected) Haptics.selection();
+                    onChanged(i);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    constraints: const BoxConstraints(minHeight: 48),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: i == selected ? Hue.white : null,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: i == selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: i == selected ? selectedColor : Hue.accent,
+                      ),
                     ),
                   ),
                 ),
-              ),
               ),
             ),
         ],
