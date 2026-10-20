@@ -51,6 +51,9 @@ class PeriodBars extends StatelessWidget {
           builder: (context, constraints) {
             final width = constraints.maxWidth;
             return GestureDetector(
+              // Picking by position means nothing to a screen reader, which
+              // reads the summary the page gives the chart.
+              excludeFromSemantics: true,
               onTapDown: (d) {
                 final i = (d.localPosition.dx / width * buckets.length).floor();
                 if (i < 0 || i >= buckets.length || buckets[i].ahead) return;

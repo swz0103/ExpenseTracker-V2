@@ -52,6 +52,9 @@ class FlowChart extends StatelessWidget {
             }
 
             return GestureDetector(
+              // Picking by position means nothing to a screen reader, which
+              // reads the summary the page gives the chart.
+              excludeFromSemantics: true,
               onTapDown: (d) => pick(d.localPosition),
               onHorizontalDragUpdate: (d) => pick(d.localPosition),
               child: TweenAnimationBuilder<double>(

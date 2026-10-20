@@ -11,17 +11,27 @@ import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
+import '../preferences.dart';
 import 'entry_tile.dart';
+import 'getting_started.dart';
 import 'nav.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
 /// the chosen day's entries, the market, spending against the budget,
 /// where the assets are and six months of income and spending.
 class OverviewPage extends StatefulWidget {
-  const OverviewPage({super.key, required this.ledger, required this.nav});
+  const OverviewPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    this.preferences,
+  });
 
   final Ledger ledger;
   final Nav nav;
+
+  /// Where the 開始使用 card keeps its progress; none hides the card.
+  final Preferences? preferences;
 
   @override
   State<OverviewPage> createState() => _OverviewPageState();
@@ -90,6 +100,12 @@ class _OverviewPageState extends State<OverviewPage> {
               ],
             ),
           ),
+          if (widget.preferences case final preferences?)
+            GettingStarted(
+              ledger: ledger,
+              preferences: preferences,
+              nav: widget.nav,
+            ),
           _Summary(ledger: ledger, month: _month),
           TileRow([_budgetTile(), _dueTile()]),
           ..._daily(),
@@ -201,13 +217,29 @@ class _OverviewPageState extends State<OverviewPage> {
             style: const TextStyle(fontSize: 12, color: Hue.muted),
           ),
           const Spacer(),
-          const Text('支出 ', style: TextStyle(fontSize: 13, color: Hue.muted)),
-          Text(
-            money(ledger.spentOn(_day)),
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Hue.negative,
+          // Shrinks rather than overflows when the phone's text is large.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(
+                      text: '支出 ',
+                      style: TextStyle(fontSize: 13, color: Hue.muted),
+                    ),
+                    TextSpan(
+                      text: money(ledger.spentOn(_day)),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Hue.negative,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -323,7 +355,8 @@ class _OverviewPageState extends State<OverviewPage> {
       onTap: () => setState(() => _holding = picked ? null : h.code),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
           borderRadius: BorderRadius.circular(8),
@@ -560,13 +593,19 @@ class _OverviewPageState extends State<OverviewPage> {
             child: child,
           ),
         ),
-        child: Treemap(
+        child: Semantics(
           key: ValueKey(group),
+          container: true,
+          label:
+              '$allName：'
+              '${[for (final p in parts) '${p.$2} ${money(p.$3)}'].join('、')}',
+          child: Treemap(
           tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
           selected: tile,
           onSelect: (index) => setState(() => _tile = index),
           onOpen: (index) =>
               _openAssets(group == null ? parts[index].$1 : null),
+          ),
         ),
       ),
     ];
@@ -647,10 +686,17 @@ class _OverviewPageState extends State<OverviewPage> {
         ],
       ),
       const SizedBox(height: 10),
-      FlowChart(
-        months: months,
-        selected: picked,
-        onSelect: (index) => setState(() => _flowMonth = index),
+      Semantics(
+        container: true,
+        label: [
+          for (final m in months)
+            '${m.label} 收入 ${money(m.income)}，支出 ${money(m.expense)}',
+        ].join('；'),
+        child: FlowChart(
+          months: months,
+          selected: picked,
+          onSelect: (index) => setState(() => _flowMonth = index),
+        ),
       ),
     ];
   }

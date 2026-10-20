@@ -31,6 +31,8 @@ final class Preferences extends ChangeNotifier {
       _dueAlerts = json['dueAlerts'] as bool? ?? false;
       _dailyNudge = json['dailyNudge'] as bool? ?? false;
       _nudgeHour = (json['nudgeHour'] as num?)?.toInt() ?? 21;
+      _started = json['started'] as bool? ?? false;
+      _widgetShown = json['widgetShown'] as bool? ?? false;
     } on Object {
       // An unreadable file leaves the defaults.
     }
@@ -57,18 +59,30 @@ final class Preferences extends ChangeNotifier {
   int get nudgeHour => _nudgeHour;
   var _nudgeHour = 21;
 
+  /// The 開始使用 card was put away.
+  bool get started => _started;
+  var _started = false;
+
+  /// The way to the home-screen widget was shown.
+  bool get widgetShown => _widgetShown;
+  var _widgetShown = false;
+
   void update({
     Appearance? appearance,
     bool? haptics,
     bool? dueAlerts,
     bool? dailyNudge,
     int? nudgeHour,
+    bool? started,
+    bool? widgetShown,
   }) {
     _appearance = appearance ?? _appearance;
     _haptics = haptics ?? _haptics;
     _dueAlerts = dueAlerts ?? _dueAlerts;
     _dailyNudge = dailyNudge ?? _dailyNudge;
     _nudgeHour = (nudgeHour ?? _nudgeHour).clamp(0, 23);
+    _started = started ?? _started;
+    _widgetShown = widgetShown ?? _widgetShown;
     notifyListeners();
     _save();
   }
@@ -85,6 +99,8 @@ final class Preferences extends ChangeNotifier {
           'dueAlerts': _dueAlerts,
           'dailyNudge': _dailyNudge,
           'nudgeHour': _nudgeHour,
+          'started': _started,
+          'widgetShown': _widgetShown,
         }),
         flush: true,
       );
