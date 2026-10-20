@@ -87,9 +87,8 @@ class _AppShellState extends State<AppShell> {
     if (quick == null || asked == null || !mounted) return;
     quick.value = null;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    _compose(
-      type: asked == 'income' ? EntryType.income : EntryType.expense,
-    ).ignore();
+    _compose(type: asked == 'income' ? EntryType.income : EntryType.expense)
+        .ignore();
   }
 
   /// Says why the ledger refused a change; the screens already show what

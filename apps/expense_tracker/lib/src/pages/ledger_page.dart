@@ -198,7 +198,8 @@ class _LedgerPageState extends State<LedgerPage> {
 
   /// The amount bounds as words, such as 100 – 500.
   String _amountLabel() => switch ((_least, _most)) {
-    (final least?, final most?) => '金額 ${groupDigits(least)}–${groupDigits(most)}',
+    (final least?, final most?) =>
+      '金額 ${groupDigits(least)}–${groupDigits(most)}',
     (final least?, null) => '金額 ${groupDigits(least)} 以上',
     (null, final most?) => '金額 ${groupDigits(most)} 以下',
     _ => '',
@@ -261,16 +262,18 @@ class _LedgerPageState extends State<LedgerPage> {
                       onSelected: (_) => setSheet(() => range = null),
                     ),
                     ChoiceChip(
-                      label: Text(
-                        range == null ? '自訂區間' : _rangeLabel(range!),
-                      ),
+                      label: Text(range == null ? '自訂區間' : _rangeLabel(range!)),
                       selected: range != null,
                       onSelected: (_) async {
                         final today = ledger.today;
                         final picked = await showDateRangePicker(
                           context: context,
                           firstDate: DateTime(2000),
-                          lastDate: DateTime(today.year, today.month, today.day),
+                          lastDate: DateTime(
+                            today.year,
+                            today.month,
+                            today.day,
+                          ),
                           initialDateRange: range,
                           helpText: '選擇日期區間',
                           saveText: '確定',
@@ -412,7 +415,10 @@ class _LedgerPageState extends State<LedgerPage> {
               padding: const EdgeInsets.only(right: 20),
               child: const Text(
                 '刪除',
-                style: TextStyle(color: Hue.onAccent, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: Hue.onAccent,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             onDismissed: (_) => _remove(e),

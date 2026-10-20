@@ -232,11 +232,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// Turns a kind of notification on, once the phone allows them.
-  Future<void> _notify(
-    Notifier notifier, {
-    bool? due,
-    bool? nudge,
-  }) async {
+  Future<void> _notify(Notifier notifier, {bool? due, bool? nudge}) async {
     final turningOn = (due ?? false) || (nudge ?? false);
     if (turningOn) {
       bool allowed;

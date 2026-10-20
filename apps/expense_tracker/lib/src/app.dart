@@ -81,8 +81,7 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
           physics: const ClampingScrollPhysics(),
         ),
         builder: widget.frame,
-        home:
-            widget.home ?? const Scaffold(body: Center(child: Text('記帳本'))),
+        home: widget.home ?? const Scaffold(body: Center(child: Text('記帳本'))),
       ),
     );
   }

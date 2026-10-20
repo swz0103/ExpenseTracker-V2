@@ -193,7 +193,8 @@ final quickAction = ValueNotifier<String?>(null);
 /// that arrive while it runs.
 Future<void> listenForQuickActions() async {
   platformChannel.setMethodCallHandler((call) async {
-    if (call.method == 'quickAction') quickAction.value = call.arguments as String?;
+    if (call.method == 'quickAction')
+      quickAction.value = call.arguments as String?;
   });
   final first = await platformChannel.invokeMethod<String>('takeQuickAction');
   if (first != null) quickAction.value = first;

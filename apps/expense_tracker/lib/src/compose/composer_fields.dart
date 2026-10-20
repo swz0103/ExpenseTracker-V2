@@ -405,12 +405,7 @@ extension _Fields on _ComposerState {
             const GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
             const SizedBox(width: 8),
             Text(
-              [
-                if (expense) '商家',
-                '標籤',
-                '備註',
-                if (withPhoto) '收據',
-              ].join('、'),
+              [if (expense) '商家', '標籤', '備註', if (withPhoto) '收據'].join('、'),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

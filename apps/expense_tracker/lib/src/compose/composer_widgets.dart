@@ -385,7 +385,10 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, color: solid ? Hue.onAccent : Hue.accent),
+        style: TextStyle(
+          fontSize: 12,
+          color: solid ? Hue.onAccent : Hue.accent,
+        ),
       ),
     );
   }
