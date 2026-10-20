@@ -261,13 +261,10 @@ class _OverviewPageState extends State<OverviewPage> {
     return [
       SectionHead(
         '投資行情',
-        trailing: Text(
-          switch (ledger.quotedOn) {
-            final d? => '${d.month}/${d.day} 收盤',
-            null => '尚未取得收盤價',
-          },
-          style: const TextStyle(fontSize: 12, color: Hue.muted),
-        ),
+        trailing: Text(switch (ledger.quotedOn) {
+          final d? => '${d.month}/${d.day} 收盤',
+          null => '尚未取得收盤價',
+        }, style: const TextStyle(fontSize: 12, color: Hue.muted)),
       ),
       TileRow([
         Tile(

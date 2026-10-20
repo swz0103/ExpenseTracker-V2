@@ -98,9 +98,7 @@ class AccountsPage extends StatelessWidget {
                 width: 1,
                 indent: 10,
                 endIndent: 10,
-                color: i + 1 < accounts.length
-                    ? Hue.line
-                    : Colors.transparent,
+                color: i + 1 < accounts.length ? Hue.line : Colors.transparent,
               ),
               Expanded(
                 child: i + 1 < accounts.length
