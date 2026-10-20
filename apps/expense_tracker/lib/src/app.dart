@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'look/haptics.dart';
 import 'look/theme.dart';
@@ -71,6 +72,21 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
       child: MaterialApp(
         title: '記帳本',
         debugShowCheckedModeBanner: false,
+        // Every word the framework shows is Traditional Chinese, as the
+        // app's own are.
+        locale: const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+        supportedLocales: const [
+          Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
+            countryCode: 'TW',
+          ),
+        ],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         theme: appTheme(),
         // No scroll bar (on the web one would cover the amounts), and a
         // list stops at its end: no stretch or bounce, as a web page would

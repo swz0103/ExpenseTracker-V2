@@ -547,20 +547,25 @@ class _LedgerPageState extends State<LedgerPage> {
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 36,
+                      height: 48,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          for (final option in KindFilter.values)
+                          for (final (i, option) in KindFilter.values.indexed)
                             Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: GestureDetector(
+                              // Five 48 dp targets fit beside the search and
+                              // filter buttons.
+                              padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
+                              child: TapArea(
+                                selected: option == _kind,
                                 onTap: () => setState(() => _kind = option),
                                 child: Container(
-                                  // Narrow enough for all five beside
-                                  // the search and filter buttons.
+                                  height: 36,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 48,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 11,
+                                    horizontal: 10,
                                   ),
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
@@ -752,7 +757,7 @@ class _RoundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 6),
+    padding: const EdgeInsets.only(left: 2),
     child: Material(
       color: Hue.white,
       shape: const CircleBorder(),
@@ -760,7 +765,6 @@ class _RoundButton extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onTap,
-        visualDensity: VisualDensity.compact,
         icon: GlyphIcon(glyph, size: 18),
       ),
     ),

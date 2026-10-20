@@ -16,9 +16,10 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final back = onBack;
-    // Clear room under the status bar before the title.
+    // Clear room under the status bar before the title; taller when the
+    // phone's text is larger.
     return Container(
-      height: 60,
+      constraints: const BoxConstraints(minHeight: 60),
       margin: const EdgeInsets.only(top: 6),
       child: Row(
         children: [
@@ -27,14 +28,21 @@ class PageHeader extends StatelessWidget {
               tooltip: '返回',
               onPressed: back,
               icon: const GlyphIcon(Glyph.back, size: 24),
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
             ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
-          const Spacer(),
           ?trailing,
         ],
       ),
@@ -103,11 +111,18 @@ class SectionHead extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
-          const Spacer(),
           ?trailing,
         ],
       ),
@@ -337,7 +352,7 @@ class Tile extends StatelessWidget {
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Shade(0xFFD3DEE0, 0xFF27404A), Hue.hero],
+                colors: [Shade(0xFFDFE7E8, 0xFF233840), Hue.hero],
               )
             : null,
       ),
@@ -620,8 +635,9 @@ class Segments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Each choice is a 48 dp target inside a thin track.
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: Hue.tile,
         borderRadius: BorderRadius.circular(14),
@@ -630,13 +646,19 @@ class Segments extends StatelessWidget {
         children: [
           for (final (i, label) in labels.indexed)
             Expanded(
-              child: GestureDetector(
+              child: Semantics(
+                button: true,
+                selected: i == selected,
+                inMutuallyExclusiveGroup: true,
+                child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   if (i != selected) Haptics.selection();
                   onChanged(i);
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
+                  constraints: const BoxConstraints(minHeight: 48),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
                     color: i == selected ? Hue.white : null,
@@ -654,6 +676,7 @@ class Segments extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
               ),
             ),
         ],
@@ -694,6 +717,49 @@ class _PressableState extends State<Pressable> {
         duration: Duration(milliseconds: _down ? 90 : 220),
         curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+/// A small control with a 48 dp target around it: [child] keeps its look,
+/// the finger and the screen reader get the larger area and a [label].
+class TapArea extends StatelessWidget {
+  const TapArea({
+    super.key,
+    required this.onTap,
+    required this.child,
+    this.label,
+    this.selected,
+  });
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  /// What a screen reader says; the words inside when null.
+  final String? label;
+  final bool? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final tap = onTap;
+    return Semantics(
+      button: true,
+      enabled: tap != null,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap == null
+            ? null
+            : () {
+                Haptics.selection();
+                tap();
+              },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Center(widthFactor: 1, heightFactor: 1, child: child),
+        ),
       ),
     );
   }

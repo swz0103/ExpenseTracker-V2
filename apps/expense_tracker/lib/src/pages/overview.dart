@@ -907,14 +907,13 @@ class _SmallLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return TapArea(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Hue.accent),
+          style: const TextStyle(fontSize: 13, color: Hue.accent),
         ),
       ),
     );

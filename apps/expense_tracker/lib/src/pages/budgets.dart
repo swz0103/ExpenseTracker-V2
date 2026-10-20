@@ -206,7 +206,7 @@ class _CategoryLimit extends StatelessWidget {
     final tone = left < 0 && limit > 0
         ? Hue.negative
         : near
-        ? Hue.gold
+        ? Hue.goldText
         : category.color;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
