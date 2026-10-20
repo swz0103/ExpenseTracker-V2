@@ -530,10 +530,7 @@ class _OverviewPageState extends State<OverviewPage> {
         height: 36,
         child: Row(
           children: [
-            Text(
-              scope,
-              style: const TextStyle(fontSize: 12, color: Hue.muted),
-            ),
+            Text(scope, style: const TextStyle(fontSize: 12, color: Hue.muted)),
             const SizedBox(width: 6),
             Flexible(
               child: Text(

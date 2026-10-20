@@ -270,11 +270,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 glyph: Glyph.add,
                 title: '匯入 CSV',
                 detail: '選檔案或貼上',
-                onTap: () => importInto(
-                  context,
-                  ledger,
-                  readFile: keeper?.readFile,
-                ),
+                onTap: () =>
+                    importInto(context, ledger, readFile: keeper?.readFile),
               ),
               _Item(
                 glyph: Glyph.scan,

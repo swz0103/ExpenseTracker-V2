@@ -76,4 +76,3 @@ void main() {
     expect(ledger.dayChange, -5500);
   });
 }
-

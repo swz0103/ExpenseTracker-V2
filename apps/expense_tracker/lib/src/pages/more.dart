@@ -152,29 +152,31 @@ class _Row extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Hue.tile,
-                shape: BoxShape.circle,
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: Hue.tile,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: GlyphIcon(icon, size: 18, color: Hue.accent),
               ),
-              alignment: Alignment.center,
-              child: GlyphIcon(icon, size: 18, color: Hue.accent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 15))),
-            Text(
-              detail,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
-            ),
-            const SizedBox(width: 4),
-            const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 15)),
+              ),
+              Text(
+                detail,
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
+              ),
+              const SizedBox(width: 4),
+              const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

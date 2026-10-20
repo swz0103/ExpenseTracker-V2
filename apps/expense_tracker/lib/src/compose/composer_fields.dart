@@ -419,11 +419,7 @@ extension _Fields on _ComposerState {
             if (!_viewing)
               RotatedBox(
                 quarterTurns: open ? 3 : 1,
-                child: const GlyphIcon(
-                  Glyph.next,
-                  size: 16,
-                  color: Hue.accent,
-                ),
+                child: const GlyphIcon(Glyph.next, size: 16, color: Hue.accent),
               ),
           ],
         ),

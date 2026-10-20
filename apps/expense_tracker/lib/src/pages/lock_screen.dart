@@ -598,4 +598,3 @@ class _Splash extends StatelessWidget {
     );
   }
 }
-

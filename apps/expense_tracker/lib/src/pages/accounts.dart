@@ -224,7 +224,11 @@ class _Balance extends StatelessWidget {
         child: Row(
           children: [
             for (final (value, color) in parts)
-              if (value > 0) Expanded(flex: value, child: ColoredBox(color: color)),
+              if (value > 0)
+                Expanded(
+                  flex: value,
+                  child: ColoredBox(color: color),
+                ),
             if (scale - parts.fold(0, (s, p) => s + max(0, p.$1)) > 0)
               Expanded(
                 flex: scale - parts.fold(0, (s, p) => s + max(0, p.$1)),
