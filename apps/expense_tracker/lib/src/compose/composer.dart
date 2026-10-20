@@ -271,8 +271,7 @@ class _ComposerState extends State<Composer> {
     if (_ledger.account(to).kind == AccountKind.receivable) {
       _mode = ComposeMode.lend;
       _back = false;
-    } else if (_ledger.account(entry.account).kind ==
-        AccountKind.receivable) {
+    } else if (_ledger.account(entry.account).kind == AccountKind.receivable) {
       // Saved from the person to the account; the form keeps the person
       // in [_to] either way.
       _mode = ComposeMode.lend;
