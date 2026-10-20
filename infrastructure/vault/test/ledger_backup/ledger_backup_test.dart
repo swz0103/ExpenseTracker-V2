@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:core/foundation_values.dart';
+import 'package:cryptography/cryptography.dart' show SecretBoxAuthenticationError;
 import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:storage/ledger_sqlcipher.dart';
@@ -158,12 +159,12 @@ void main() {
     final box = await FileBox.derive(keys.unlocked, 'receipts');
     final sealed = await box.seal('a.etr', [1, 2, 3, 4]);
     expect(await box.open('a.etr', sealed), [1, 2, 3, 4]);
-    await expectLater(box.open('b.etr', sealed), throwsA(anything));
+    await expectLater(box.open('b.etr', sealed), throwsA(isA<SecretBoxAuthenticationError>()));
     final other = await FileBox.derive(
       (await codec.create(password)).unlocked,
       'receipts',
     );
-    await expectLater(other.open('a.etr', sealed), throwsA(anything));
+    await expectLater(other.open('a.etr', sealed), throwsA(isA<SecretBoxAuthenticationError>()));
     final again = await FileBox.derive(keys.unlocked, 'receipts');
     expect(await again.open('a.etr', sealed), [1, 2, 3, 4]);
   });
