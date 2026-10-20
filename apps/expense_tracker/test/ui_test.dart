@@ -270,6 +270,48 @@ void main() {
     expect(ledger.expense(2026, 10), 17519 + 180);
   });
 
+  testWidgets('lending sits under expense and repayment under income', (
+    tester,
+  ) async {
+    final ledger = await show(tester);
+    Finder inSheet(String text) =>
+        find.descendant(of: find.byType(Composer), matching: find.text(text));
+    Future<void> type(String label, List<String> keys) async {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      for (final key in [...keys, '完成']) {
+        await tester.tap(find.text(key).last);
+        await tester.pumpAndSettle();
+      }
+    }
+
+    await tester.tap(find.byTooltip('記一筆'));
+    await tester.pumpAndSettle();
+    expect(inSheet('代墊'), findsOneWidget);
+    await tester.tap(inSheet('代墊'));
+    await tester.pumpAndSettle();
+    expect(inSheet('幫誰付'), findsOneWidget);
+    expect(inSheet('代墊朋友'), findsOneWidget);
+    await type('代墊金額', ['5', '0', '0']);
+    await tester.tap(find.text('記下代墊'));
+    await tester.pumpAndSettle();
+    expect(ledger.balance('lent'), 3200 + 500);
+    expect(ledger.expense(2026, 10), 17519);
+
+    await tester.tap(find.byTooltip('記一筆'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('收入'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('對方還錢'));
+    await tester.pumpAndSettle();
+    expect(inSheet('誰還錢'), findsOneWidget);
+    await type('還款金額', ['3', '0', '0']);
+    await tester.tap(find.text('記下還款'));
+    await tester.pumpAndSettle();
+    expect(ledger.balance('lent'), 3700 - 300);
+    expect(ledger.income(2026, 10), 52000);
+  });
+
   testWidgets('a deleted entry can be restored', (tester) async {
     final ledger = await show(tester);
     await tester.tap(find.text('紀錄'));

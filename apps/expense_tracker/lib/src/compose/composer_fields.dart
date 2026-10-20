@@ -176,34 +176,25 @@ extension _Fields on _ComposerState {
     }
   }
 
-  /// 代墊: money paid for someone, or paid back by them. Each person has
-  /// an account of their own that keeps what they owe.
+  /// 代墊 under 支出 (paid for someone) or 對方還錢 under 收入. Each
+  /// person has an account of their own that keeps what they owe.
   List<Widget> _lendFields() {
     final person = _to.isEmpty ? null : _ledger.account(_to);
     final owed = person == null ? 0 : _ledger.balance(person.id);
     return [
-      Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Segments(
-          labels: const ['幫忙付', '對方還錢'],
-          selected: _back ? 1 : 0,
-          selectedColor: ComposeMode.lend.color,
-          onChanged: (i) => _set(() => _back = i == 1),
-        ),
-      ),
+      _categories(!_back),
       TileRow([
         Tile(
           icon: Glyph.heart,
-          label: '代墊對象',
+          label: _back ? '誰還錢' : '幫誰付',
           value: person?.name ?? '新增對象',
           valueColor: person == null ? Hue.accent : Hue.ink,
           sub: person == null || owed == 0 ? null : '目前欠 ${groupDigits(owed)}',
           size: 15,
           onTap: _pickPerson,
         ),
-        _accountTile(_back ? '收到' : '付款帳戶'),
       ]),
-      TileRow([_dateTile()]),
+      TileRow([_accountTile(_back ? '收款帳戶' : '付款帳戶'), _dateTile()]),
       _extras(false),
     ];
   }
@@ -268,7 +259,9 @@ extension _Fields on _ComposerState {
     final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);
     final left = _amount - used;
     final choices = _categoryChoices();
-    final shown = choices.take(6).toList();
+    // Five, then 更多, 代墊 and 新增 fill two rows of four.
+    final shown = choices.take(5).toList();
+    final lending = _mode == ComposeMode.lend;
     if (shown.isNotEmpty &&
         !shown.contains(_category) &&
         _category.isNotEmpty) {
@@ -295,7 +288,7 @@ extension _Fields on _ComposerState {
                 _Chip('均分', _evenly),
                 const SizedBox(width: 6),
               ],
-              if (expense && !_viewing && !_foreign)
+              if (expense && !_viewing && !_foreign && !lending)
                 _Chip(parts == null ? '拆分' : '不拆分', _split),
             ],
           ),
@@ -307,8 +300,8 @@ extension _Fields on _ComposerState {
                 for (final name in shown)
                   _CategoryChoice(
                     category: _ledger.category(name),
-                    picked: name == _category,
-                    onTap: () => _set(() => _category = name),
+                    picked: !lending && name == _category,
+                    onTap: () => _pickCategoryName(name),
                   ),
                 if (choices.length > shown.length)
                   _CategoryChoice(
@@ -316,8 +309,18 @@ extension _Fields on _ComposerState {
                     picked: false,
                     onTap: () async {
                       final picked = await _pickCategory(_category);
-                      if (picked != null) _set(() => _category = picked);
+                      if (picked != null) _pickCategoryName(picked);
                     },
+                  ),
+                if ((!_viewing && !_foreign) || lending)
+                  _CategoryChoice(
+                    category: Category(
+                      expense ? '代墊' : '對方還錢',
+                      'heart',
+                      Hue.receivable,
+                    ),
+                    picked: lending,
+                    onTap: () => _lend(back: !expense),
                   ),
                 if (!_viewing)
                   _CategoryChoice(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
@@ -17,7 +19,8 @@ import 'pickers.dart';
 part 'composer_fields.dart';
 part 'composer_widgets.dart';
 
-/// The four tabs of the composer.
+/// The kinds of record the composer makes. 代墊 has no tab of its own:
+/// it is picked inside 支出 (paid for someone) or 收入 (paid back).
 enum ComposeMode {
   expense('支出', Glyph.bag, Hue.negative, Hue.expenseSoft),
   income('收入', Glyph.income, Hue.positive, Hue.incomeSoft),
@@ -167,6 +170,7 @@ class _ComposerState extends State<Composer> {
     final refunded = _refunded;
     if (source != null) {
       _load(source);
+      _findLending(source);
     } else if (refunded != null) {
       _mode = ComposeMode.income;
       _amount = _ledger.refundable(refunded);
@@ -259,6 +263,60 @@ class _ComposerState extends State<Composer> {
     }
   }
 
+  /// Opens a transfer to or from someone's account as 代墊 or 還款.
+  void _findLending(Entry entry) {
+    if (entry.type != EntryType.transfer) return;
+    final to = entry.to;
+    if (to == null) return;
+    if (_ledger.account(to).kind == AccountKind.receivable) {
+      _mode = ComposeMode.lend;
+      _back = false;
+    } else if (_ledger.account(entry.account).kind == AccountKind.receivable) {
+      // Saved from the person to the account; the form keeps the person
+      // in [_to] either way.
+      _mode = ComposeMode.lend;
+      _back = true;
+      _account = to;
+      _to = entry.account;
+    }
+  }
+
+  /// The tab showing: 代墊 sits under 支出, 還款 under 收入.
+  ComposeMode get _tab => switch (_mode) {
+    ComposeMode.lend => _back ? ComposeMode.income : ComposeMode.expense,
+    final mode => mode,
+  };
+
+  /// The tabs along the top.
+  static const _tabs = [
+    ComposeMode.expense,
+    ComposeMode.income,
+    ComposeMode.transfer,
+    ComposeMode.investment,
+  ];
+
+  /// 代墊 from the expense tab, 對方還錢 from the income tab; the amount,
+  /// date and notes stay.
+  void _lend({required bool back}) {
+    _set(() {
+      _mode = ComposeMode.lend;
+      _back = back;
+      _parts = null;
+      _installments = 0;
+      final main = _ledger.mainAccount;
+      if (main.isNotEmpty) _account = main;
+      final known = {for (final a in _people) a.id};
+      if (!known.contains(_to)) _to = _people.isEmpty ? '' : _people.first.id;
+    });
+    if (_people.isEmpty) unawaited(_pickPerson());
+  }
+
+  /// A category picked: back to a plain expense or income from 代墊.
+  void _pickCategoryName(String name) => _set(() {
+    _mode = _tab;
+    _category = name;
+  });
+
   /// The accounts that keep what someone owes, one per person.
   List<Account> get _people => [
     for (final a in _ledger.openAccounts)
@@ -267,11 +325,12 @@ class _ComposerState extends State<Composer> {
 
   /// Categories of this tab, the most used lately first.
   List<String> _categoryChoices() =>
-      _ledger.categoriesByUse(income: _mode == ComposeMode.income);
+      _ledger.categoriesByUse(income: _tab == ComposeMode.income);
 
   /// Brings back a draft put aside, on accounts still open.
   void _restoreDraft(Entry draft) {
     _load(draft);
+    _findLending(draft);
     if (draft.isInvestment) _trade = draft.type;
     final open = {for (final a in _ledger.openAccounts) a.id};
     if (!open.contains(_account)) _account = _ledger.openAccounts.first.id;
@@ -297,7 +356,7 @@ class _ComposerState extends State<Composer> {
 
   Color get _color {
     if (_refunded != null) return Hue.positive;
-    if (_mode != ComposeMode.investment) return _mode.color;
+    if (_mode != ComposeMode.investment) return _tab.color;
     return _trade == EntryType.sell ? Hue.positive : Hue.investment;
   }
 
@@ -307,7 +366,8 @@ class _ComposerState extends State<Composer> {
     return switch (_type) {
       EntryType.expense => '新增支出',
       EntryType.income => '新增收入',
-      EntryType.transfer when _mode == ComposeMode.lend => '代墊與還款',
+      EntryType.transfer when _mode == ComposeMode.lend =>
+        _back ? '對方還錢' : '幫忙付（代墊）',
       EntryType.transfer => '帳戶轉帳',
       _ => '新增投資',
     };
@@ -695,12 +755,12 @@ class _ComposerState extends State<Composer> {
       setState(() => _problem = error.message);
       return;
     }
-    _drafts.remove(_mode);
+    _drafts.remove(_tab);
     Navigator.of(context).pop((ComposeOutcome.saved, entry));
   }
 
   void _putAside() {
-    _drafts[_mode] = _build();
+    _drafts[_tab] = _build();
     Navigator.of(context).pop();
   }
 
@@ -738,7 +798,8 @@ class _ComposerState extends State<Composer> {
                 visible: !_viewing && entry == null,
                 child: TextButton(
                   onPressed: () => setState(() {
-                    _drafts.remove(_mode);
+                    _drafts.remove(_tab);
+                    _mode = _tab;
                     _fresh();
                   }),
                   style: TextButton.styleFrom(foregroundColor: Hue.ink),
@@ -768,10 +829,10 @@ class _ComposerState extends State<Composer> {
             Center(child: Pill(_mode.label, color: _mode.color))
           else if (entry == null)
             Segments(
-              labels: [for (final m in ComposeMode.values) m.label],
-              selected: _mode.index,
-              selectedColor: _mode.color,
-              onChanged: (i) => _switch(ComposeMode.values[i]),
+              labels: [for (final m in _tabs) m.label],
+              selected: _tabs.indexOf(_tab),
+              selectedColor: _tab.color,
+              onChanged: (i) => _switch(_tabs[i]),
             ),
           if (_mode == ComposeMode.investment && refunded == null) ...[
             const SizedBox(height: 8),
