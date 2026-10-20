@@ -185,7 +185,7 @@ class _CalendarState extends State<_Calendar> {
                 child: Text(
                   name,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ),
           ],

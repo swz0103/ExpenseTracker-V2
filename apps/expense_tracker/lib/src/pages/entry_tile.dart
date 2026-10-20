@@ -111,7 +111,7 @@ class EntryTile extends StatelessWidget {
                       entryDetail(ledger, entry),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                   ],
                 ),
@@ -155,7 +155,7 @@ class DayHeading extends StatelessWidget {
           ),
           const Spacer(),
           if (sum != null)
-            Text(sum, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+            Text(sum, style: const TextStyle(fontSize: 13, color: Hue.muted)),
         ],
       ),
     );

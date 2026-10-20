@@ -165,7 +165,7 @@ class _Tile extends StatelessWidget {
               '‹ $parent',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10.5, color: Hue.muted),
+              style: const TextStyle(fontSize: 11.5, color: Hue.muted),
             ),
         ],
       ),
@@ -345,7 +345,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               padding: const EdgeInsets.only(top: 10, bottom: 6),
               child: Text(
                 group,
-                style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
             ),
             Wrap(

@@ -232,7 +232,7 @@ class _CategoryLimit extends StatelessWidget {
                     const Spacer(),
                     Text(
                       left < 0 ? '超支 ' : '剩餘 ',
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                     Text(
                       money(left.abs()),
@@ -261,7 +261,7 @@ class _CategoryLimit extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       money(limit),
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                   ],
                 ),
@@ -332,7 +332,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           const SizedBox(height: 12),
           const Text(
             '用到幾成時提醒',
-            style: TextStyle(fontSize: 12.5, color: Hue.accent),
+            style: TextStyle(fontSize: 13, color: Hue.accent),
           ),
           const SizedBox(height: 6),
           Segments(

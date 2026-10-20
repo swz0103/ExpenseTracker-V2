@@ -222,7 +222,7 @@ class _Heading extends StatelessWidget {
       title,
       trailing: Text(
         '$count 筆',
-        style: const TextStyle(fontSize: 12, color: Hue.muted),
+        style: const TextStyle(fontSize: 13, color: Hue.muted),
       ),
     );
   }
@@ -282,7 +282,7 @@ class _Row extends StatelessWidget {
                           Text(
                             '${date.month}月',
                             style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               color: Hue.muted,
                             ),
                           ),
@@ -311,7 +311,7 @@ class _Row extends StatelessWidget {
                     ),
                     Text(
                       '${item.category} · ${account.name}',
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                   ],
                 ),
@@ -335,7 +335,7 @@ class _Row extends StatelessWidget {
                   ),
                   Text(
                     status,
-                    style: const TextStyle(fontSize: 12, color: Hue.muted),
+                    style: const TextStyle(fontSize: 13, color: Hue.muted),
                   ),
                 ],
               ),
@@ -610,7 +610,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                         every: _every,
                         start: _start,
                       ).rhythm,
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                   ],
                 ),

@@ -183,7 +183,7 @@ class _LotRow extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '${groupDigits(lot.shares)} 股',
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
               const Spacer(),
               Text(
@@ -203,7 +203,7 @@ class _LotRow extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '市值 ${money(worth)} · 成本 ${money(lot.cost)}',
-            style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+            style: const TextStyle(fontSize: 12.5, color: Hue.muted),
           ),
         ],
       ),

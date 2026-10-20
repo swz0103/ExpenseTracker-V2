@@ -335,7 +335,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 padding: EdgeInsets.only(top: 4),
                 child: Text(
                   '過去的股票市值以今日股價估算',
-                  style: TextStyle(fontSize: 11.5, color: Hue.muted),
+                  style: TextStyle(fontSize: 12.5, color: Hue.muted),
                 ),
               ),
             const SizedBox(height: 8),
@@ -411,7 +411,7 @@ class _ReportsPageState extends State<ReportsPage> {
         '分類',
         trailing: Text(
           '對照去年同期',
-          style: TextStyle(fontSize: 12, color: Hue.muted),
+          style: TextStyle(fontSize: 13, color: Hue.muted),
         ),
       ),
       MixBars(
@@ -473,7 +473,7 @@ class _ReportsPageState extends State<ReportsPage> {
                           Text(
                             '$count 次',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: Hue.muted,
                             ),
                           ),
@@ -593,7 +593,7 @@ class _CategoryRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         '${(share * 100).round()}%',
-                        style: const TextStyle(fontSize: 12, color: Hue.muted),
+                        style: const TextStyle(fontSize: 13, color: Hue.muted),
                       ),
                       const Spacer(),
                       Text(
@@ -617,7 +617,7 @@ class _CategoryRow extends StatelessWidget {
                       Text(
                         '去年同期 ${money(last)}',
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12.5,
                           color: Hue.muted,
                         ),
                       ),
@@ -627,7 +627,7 @@ class _CategoryRow extends StatelessWidget {
                             ? '新的支出'
                             : '${change > 0 ? '+' : ''}$change%',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: tone,
                         ),

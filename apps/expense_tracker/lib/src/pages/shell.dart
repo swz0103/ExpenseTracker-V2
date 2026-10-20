@@ -358,7 +358,7 @@ class _BottomBar extends StatelessWidget {
                         Text(
                           label,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: item == tab ? Hue.accent : Hue.muted,
                             fontWeight: item == tab
                                 ? FontWeight.w700

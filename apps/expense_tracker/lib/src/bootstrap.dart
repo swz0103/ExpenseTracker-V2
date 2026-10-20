@@ -13,6 +13,7 @@ import 'app.dart';
 import 'book/vault_journal.dart';
 import 'book/vault_keeper.dart';
 import 'calendar_sync.dart';
+import 'compose/receipt_photos.dart';
 import 'look/widgets.dart';
 import 'model/ledger.dart';
 import 'notifications.dart';
@@ -148,6 +149,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
   Future<Ledger> _open() async {
     final ledger = await _journal.load();
     _loaded = ledger;
+    if (Platform.isAndroid) {
+      receiptPhotos = AndroidReceipts(
+        widget.startup.directory,
+        await FileBox.derive(widget.vault.keys, 'receipts'),
+      );
+    }
     unawaited(_quotes(ledger));
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
@@ -215,6 +222,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void dispose() {
     _calendar?.stop();
     _notifier?.stop();
+    receiptPhotos = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

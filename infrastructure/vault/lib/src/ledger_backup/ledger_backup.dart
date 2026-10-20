@@ -128,6 +128,9 @@ final class BackupHeader {
 
 /// Backup format v2.
 ///
+/// After the operations a backup may carry files kept beside the ledger,
+/// such as receipt photos: one `file` chunk each, counted in the last.
+///
 /// File: an 8-byte magic, then length-prefixed frames. Frame 0 is the
 /// header in plain JSON. Every later frame is one gzip-compressed JSON chunk
 /// sealed with AES-256-GCM under the keyring's backup key; its AAD binds
@@ -154,8 +157,9 @@ abstract final class LedgerBackup {
     required PublicId backupId,
     required UtcInstant createdAt,
     int chunkSize = 1000,
+    Map<String, File> files = const {},
   }) => store.write(
-    (_) => _capture(store, keys, file, backupId, createdAt, chunkSize),
+    (_) => _capture(store, keys, file, backupId, createdAt, chunkSize, files),
   );
 
   static Future<BackupHeader> _capture(
@@ -165,6 +169,7 @@ abstract final class LedgerBackup {
     PublicId backupId,
     UtcInstant createdAt,
     int chunkSize,
+    Map<String, File> files,
   ) async {
     final epoch = keys.currentBackupEpoch;
     final key = SecretKey(keys.backupKey(epoch));
@@ -220,11 +225,19 @@ abstract final class LedgerBackup {
       if (events != header.events || operations != header.operations) {
         throw StateError('The ledger changed during the backup.');
       }
+      for (final MapEntry(key: name, value: source) in files.entries) {
+        await seal({
+          'type': 'file',
+          'name': name,
+          'data': base64Encode(await source.readAsBytes()),
+        });
+      }
       await seal({
         'type': 'end',
         'chunks': index,
         'events': events,
         'operations': operations,
+        if (files.isNotEmpty) 'files': files.length,
       });
       await sink.flush();
     } finally {
@@ -253,10 +266,14 @@ abstract final class LedgerBackup {
   ///
   /// When this throws, [into] may hold part of the backup; discard that
   /// store file instead of using it.
+  ///
+  /// Each file the backup carries is handed to [onFile] by name; without
+  /// one they are skipped.
   static Future<BackupHeader> restore({
     required File file,
     required UnlockedKeyring keys,
     required LedgerStore into,
+    Future<void> Function(String name, List<int> bytes)? onFile,
   }) async {
     final intoStore = into.store;
     if (intoStore.eventCount != 0 || intoStore.operationCount != 0) {
@@ -283,6 +300,7 @@ abstract final class LedgerBackup {
       var index = 0;
       var events = 0;
       var operations = 0;
+      var files = 0;
       var ended = false;
       while (true) {
         final frame = await reader.next();
@@ -309,10 +327,19 @@ abstract final class LedgerBackup {
               }
             });
             operations += items.length;
+          case 'file':
+            final name = chunk['name'];
+            final data = chunk['data'];
+            if (name is! String || data is! String) {
+              throw const BackupException(BackupProblem.invalidFormat, 'file');
+            }
+            files++;
+            await onFile?.call(name, base64Decode(data));
           case 'end':
             if (chunk['chunks'] != index - 1 ||
                 chunk['events'] != events ||
-                chunk['operations'] != operations) {
+                chunk['operations'] != operations ||
+                (chunk['files'] ?? 0) != files) {
               throw const BackupException(BackupProblem.invalidFormat, 'end');
             }
             ended = true;

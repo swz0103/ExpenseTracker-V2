@@ -138,7 +138,7 @@ class _WaterfallPainter extends CustomPainter {
         canvas,
         label,
         TextStyle(
-          fontSize: 11,
+          fontSize: 12,
           color: picked ? Hue.ink : Hue.muted,
           fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
         ),
@@ -158,7 +158,7 @@ class _WaterfallPainter extends CustomPainter {
           currency == 'TWD'
               ? signed(change)
               : '${change > 0 ? '+' : ''}${amountIn(change, currency)}',
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+          TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
           Offset(centre, rect.top - 4),
           anchor: const Offset(0.5, 1),
           maxWidth: slot - 4,

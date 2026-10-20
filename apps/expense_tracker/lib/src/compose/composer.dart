@@ -811,7 +811,7 @@ class _ComposerState extends State<Composer> {
                     _fresh();
                   }),
                   style: TextButton.styleFrom(foregroundColor: Hue.ink),
-                  child: const Text('重填', style: TextStyle(fontSize: 12)),
+                  child: const Text('重填', style: TextStyle(fontSize: 13)),
                 ),
               ),
               Expanded(

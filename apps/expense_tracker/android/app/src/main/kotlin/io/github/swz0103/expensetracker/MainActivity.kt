@@ -77,8 +77,10 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     /**
-     * Keeps a receipt photo in the private `receipts` folder: turned upright,
-     * at most 1600 pixels on its long side, as a JPEG. Off the main thread.
+     * Makes a receipt photo ready to keep: turned upright, at most 1600
+     * pixels on its long side, as a JPEG in the cache. The app seals it
+     * into the private `receipts` folder and deletes this copy. Off the
+     * main thread.
      */
     private fun keepPhoto(source: Uri) {
         Thread {
@@ -112,11 +114,10 @@ class MainActivity : FlutterFragmentActivity() {
                     postRotate(turn)
                 }
                 val photo = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-                val folder = File(filesDir, "receipts").apply { mkdirs() }
-                val name = "${System.currentTimeMillis()}.jpg"
-                File(folder, name).outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
+                val ready = File(cacheDir, "receipt-ready.jpg")
+                ready.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
                 cameraFile.delete()
-                runOnUiThread { finishPhoto(name) }
+                runOnUiThread { finishPhoto(ready.absolutePath) }
             } catch (e: Exception) {
                 runOnUiThread {
                     val result = pendingPhoto

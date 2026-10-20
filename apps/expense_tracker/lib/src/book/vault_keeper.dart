@@ -47,9 +47,21 @@ final class VaultKeeper implements Keeper {
     return true;
   }
 
+  /// The sealed receipt photos, by name, for a backup to carry.
+  Map<String, File> _receipts() {
+    final folder = Directory('${_startup.directory.path}/receipts');
+    if (!folder.existsSync()) return const {};
+    return {
+      for (final entity in folder.listSync())
+        if (entity is File) entity.uri.pathSegments.last: entity,
+    };
+  }
+
   @override
   Future<bool> exportBackup() async {
-    final path = await backUp();
+    // A backup taken out of the phone carries the receipt photos too; the
+    // weekly ones on the phone stay small.
+    final path = await backUp(withPhotos: true);
     return _export(path, path.split(RegExp(r'[/\\]')).last);
   }
 
@@ -85,7 +97,7 @@ final class VaultKeeper implements Keeper {
   String get backupFolder => _folder.path;
 
   @override
-  Future<String> backUp() async {
+  Future<String> backUp({bool withPhotos = false}) async {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp =
@@ -101,6 +113,7 @@ final class VaultKeeper implements Keeper {
         file: file,
         backupId: PublicId.generate(),
         createdAt: UtcInstant(now),
+        files: withPhotos ? _receipts() : const {},
       ),
     );
     return file.path;

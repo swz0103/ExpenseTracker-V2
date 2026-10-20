@@ -138,7 +138,7 @@ class _OverviewPageState extends State<OverviewPage> {
         '每日紀錄',
         trailing: Text(
           '本週 ${money(weekSpent)}',
-          style: const TextStyle(fontSize: 12, color: Hue.muted),
+          style: const TextStyle(fontSize: 13, color: Hue.muted),
         ),
       ),
       Row(
@@ -214,7 +214,7 @@ class _OverviewPageState extends State<OverviewPage> {
           const SizedBox(width: 8),
           Text(
             '${entries.length} 筆',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
+            style: const TextStyle(fontSize: 13, color: Hue.muted),
           ),
           const Spacer(),
           // Shrinks rather than overflows when the phone's text is large.
@@ -296,7 +296,7 @@ class _OverviewPageState extends State<OverviewPage> {
         trailing: Text(switch (ledger.quotedOn) {
           final d? => '${d.month}/${d.day} 收盤',
           null => '尚未取得收盤價',
-        }, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        }, style: const TextStyle(fontSize: 13, color: Hue.muted)),
       ),
       TileRow([
         Tile(
@@ -321,7 +321,7 @@ class _OverviewPageState extends State<OverviewPage> {
           padding: const EdgeInsets.only(top: 8),
           child: Text.rich(
             TextSpan(
-              style: const TextStyle(fontSize: 12, color: Hue.muted),
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
               children: [
                 TextSpan(
                   text: '${picked.name} ${picked.code}　',
@@ -416,7 +416,7 @@ class _OverviewPageState extends State<OverviewPage> {
       label: '預算',
       trailing: const Text(
         '調整',
-        style: TextStyle(fontSize: 12, color: Hue.accent),
+        style: TextStyle(fontSize: 13, color: Hue.accent),
       ),
       lead: RingGauge(share: limit == 0 ? 0 : spent / limit, size: 50),
       value: money(limit - spent),
@@ -562,7 +562,7 @@ class _OverviewPageState extends State<OverviewPage> {
         height: 36,
         child: Row(
           children: [
-            Text(scope, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+            Text(scope, style: const TextStyle(fontSize: 13, color: Hue.muted)),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -570,7 +570,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -643,7 +643,7 @@ class _OverviewPageState extends State<OverviewPage> {
         '收支對照',
         trailing: Text(
           '近六個月',
-          style: TextStyle(fontSize: 12, color: Hue.muted),
+          style: TextStyle(fontSize: 13, color: Hue.muted),
         ),
       ),
       Row(
@@ -681,7 +681,7 @@ class _OverviewPageState extends State<OverviewPage> {
                 LegendKey(color, name, line: line),
                 Text(
                   ' ${money(value)}',
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ],
             ),
@@ -802,7 +802,7 @@ class _WeekStrip extends StatelessWidget {
           children: [
             Text(
               weekdayNames[day.weekday - 1],
-              style: TextStyle(fontSize: 12, color: ink),
+              style: TextStyle(fontSize: 13, color: ink),
             ),
             const SizedBox(height: 4),
             Text(

@@ -57,7 +57,7 @@ class AccountsPage extends StatelessWidget {
                 child: Text(
                   '尚未取得臺銀匯率，${ledger.unrated.map((a) => a.name).join('、')}'
                   '暫不計入總額',
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ),
             for (final kind in AccountKind.values) ..._group(kind),
@@ -232,13 +232,13 @@ class _Balance extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
               const Spacer(),
               Text(
                 money(value),
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -342,6 +342,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   readFile: keeper?.readFile,
                 ),
               ),
+              if (keeper != null)
+                _Item(
+                  glyph: Glyph.note,
+                  title: '匯出診斷紀錄',
+                  detail: '回報問題用',
+                  onTap: () =>
+                      _save('記帳本-診斷紀錄.txt', Perf.instance.text, '診斷紀錄'),
+                ),
               _Item(
                 glyph: Glyph.reset,
                 title: '最近刪除',
@@ -408,7 +416,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   _Item(
                     glyph: Glyph.safe,
                     title: '備份帳本',
-                    detail: '存到下載或雲端硬碟',
+                    detail: '含收據照片 · 存到雲端硬碟',
                     onTap: () => _export(keeper),
                   ),
                   _Item(

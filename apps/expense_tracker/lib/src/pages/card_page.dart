@@ -225,7 +225,7 @@ class CardPage extends StatelessWidget {
                 '分期中',
                 trailing: Text(
                   '${plans.length} 筆',
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ),
               SoftPanel(
@@ -246,7 +246,7 @@ class CardPage extends StatelessWidget {
               '本期未出帳',
               trailing: Text(
                 '${_day(end.add(const Duration(days: 1)))} 起',
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
             ),
             if (unbilled.isEmpty)
@@ -331,7 +331,7 @@ class CardPage extends StatelessWidget {
                 Text(
                   '第 $periods / ${e.installments} 期 · '
                   '剩 ${money(e.amount - ledger.billed(e, ledger.today))}',
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ],
             ),

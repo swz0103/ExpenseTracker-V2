@@ -180,7 +180,7 @@ class _LabelsPageState extends State<LabelsPage> {
                                     Text(
                                       '$count 筆',
                                       style: const TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 13,
                                         color: Hue.muted,
                                       ),
                                     ),

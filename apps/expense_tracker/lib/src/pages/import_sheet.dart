@@ -143,7 +143,7 @@ class _ImportSheetState extends State<_ImportSheet> {
             minLines: 5,
             maxLines: 8,
             onChanged: (_) => _read(),
-            style: const TextStyle(fontSize: 12.5, fontFamily: 'monospace'),
+            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
             decoration: InputDecoration(
               hintText: widget.invoices
                   ? '財政部消費明細 CSV，或 M|手機條碼|…|全聯|AB12345678|268|開立'
@@ -208,7 +208,7 @@ class _ImportSheetState extends State<_ImportSheet> {
                   children: [
                     Text(
                       '${e.date.month}/${e.date.day}',
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -270,6 +270,6 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
-    child: Text(text, style: TextStyle(fontSize: 12.5, color: color)),
+    child: Text(text, style: TextStyle(fontSize: 13, color: color)),
   );
 }
