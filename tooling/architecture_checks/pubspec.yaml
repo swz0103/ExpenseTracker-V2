@@ -1,5 +1,5 @@
 name: architecture_checks
-description: Repository-only checks: test hygiene, lockfile consistency and platform-free domain packages.
+description: "Repository-only checks: test hygiene, lockfile consistency and platform-free domain packages."
 version: 0.1.0
 publish_to: none
 environment:

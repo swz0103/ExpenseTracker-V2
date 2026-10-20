@@ -1,5 +1,5 @@
 name: vault
-description: Keys, the vault that opens the ledger, and encrypted backups.
+description: "Keys, the vault that opens the ledger, and encrypted backups."
 version: 0.1.0
 publish_to: none
 environment:
