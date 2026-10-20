@@ -651,10 +651,7 @@ class _OverviewPageState extends State<OverviewPage> {
           Expanded(
             child: Text(
               scope,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
           Text(
