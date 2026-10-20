@@ -5,9 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
-import '../look/glyphs.dart';
+import '../look/app_mark.dart';
 import '../look/theme.dart';
-import '../look/widgets.dart';
 import '../platform.dart';
 import '../startup.dart';
 
@@ -256,7 +255,7 @@ class _LockScreenState extends State<LockScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Center(
-                      child: IconBadge(Glyph.wallet, Hue.accent, size: 64),
+                      child: AppMark(size: 72),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -406,7 +405,7 @@ class _LockScreenState extends State<LockScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Center(
-                    child: IconBadge(Glyph.wallet, Hue.accent, size: 84),
+                    child: AppMark(size: 96),
                   ),
                   const SizedBox(height: 20),
                   const Text(
@@ -554,11 +553,7 @@ class _Splash extends StatelessWidget {
                       opacity: t,
                       child: Transform.scale(
                         scale: 0.8 + 0.2 * t,
-                        child: const IconBadge(
-                          Glyph.wallet,
-                          Hue.accent,
-                          size: 84,
-                        ),
+                        child: const AppMark(size: 96),
                       ),
                     ),
                     const SizedBox(height: 18),
