@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart';
 
 import 'buy.dart';
+import 'lot_math.dart';
 
 enum InvestmentSellError {
   invalidInput,
@@ -209,70 +210,24 @@ final class InvestmentSellPreview {
       throw const InvestmentSellException(InvestmentSellError.overflow);
     }
 
-    var toSell = saleQuantity;
-    final sold = <BigInt>[];
-    final remaining = <BigInt>[];
-    for (final lotQuantity in quantities) {
-      final disposed = toSell < lotQuantity ? toSell : lotQuantity;
-      sold.add(disposed);
-      remaining.add(lotQuantity - disposed);
-      toSell -= disposed;
-    }
-    assert(toSell == BigInt.zero);
-
-    final saleCosts = List<BigInt>.filled(ordered.length, BigInt.zero);
-    final remainingCosts = List<BigInt>.filled(ordered.length, BigInt.zero);
-    final BigInt allocatedUnits;
-    if (costMethod == InvestmentCostMethod.fifo) {
-      var cost = BigInt.zero;
-      for (var index = 0; index < ordered.length; index++) {
-        final lotCost = ordered[index].remainingCost.minorUnits;
-        final consumed = sold[index] == quantities[index]
-            ? lotCost
-            : lotCost * sold[index] ~/ quantities[index];
-        saleCosts[index] = consumed;
-        remainingCosts[index] = lotCost - consumed;
-        cost += consumed;
-      }
-      allocatedUnits = cost;
-    } else {
-      // Pooled average cost is rounded only once. On a final sale every
-      // residual minor unit is consumed; partial sales truncate toward zero.
-      allocatedUnits = saleQuantity == totalQuantity
-          ? totalCost
-          : totalCost * saleQuantity ~/ totalQuantity;
-      var costRemainder = allocatedUnits;
-      final lastSold = sold.lastIndexWhere((units) => units > BigInt.zero);
-      for (var index = 0; index <= lastSold; index++) {
-        if (sold[index] == BigInt.zero) continue;
-        final share = index == lastSold
-            ? costRemainder
-            : allocatedUnits * sold[index] ~/ saleQuantity;
-        saleCosts[index] = share;
-        costRemainder -= share;
-      }
-      final remainingTotal = totalCost - allocatedUnits;
-      final remainingQuantity = totalQuantity - saleQuantity;
-      var remainingRemainder = remainingTotal;
-      final lastOpen = remaining.lastIndexWhere((units) => units > BigInt.zero);
-      for (var index = 0; index <= lastOpen; index++) {
-        if (remaining[index] == BigInt.zero) continue;
-        final share = index == lastOpen
-            ? remainingRemainder
-            : remainingTotal * remaining[index] ~/ remainingQuantity;
-        remainingCosts[index] = share;
-        remainingRemainder -= share;
-      }
-    }
+    final sale = sellFromLots(
+      [
+        for (final (index, lot) in ordered.indexed)
+          LotPosition(quantities[index], lot.remainingCost.minorUnits),
+      ],
+      saleQuantity,
+      costMethod,
+    );
+    final allocatedUnits = sale.cost;
     final allocations = <InvestmentLotSaleAllocation>[];
     for (var index = 0; index < ordered.length; index++) {
       allocations.add(
         InvestmentLotSaleAllocation(
           lot: ordered[index],
-          soldQuantityUnits: sold[index],
-          allocatedSaleCost: Money(currency, saleCosts[index]),
-          remainingQuantityUnits: remaining[index],
-          remainingCost: Money(currency, remainingCosts[index]),
+          soldQuantityUnits: sale.sold[index],
+          allocatedSaleCost: Money(currency, sale.saleCosts[index]),
+          remainingQuantityUnits: sale.remaining[index].units,
+          remainingCost: Money(currency, sale.remaining[index].cost),
         ),
       );
     }

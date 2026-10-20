@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart';
 
 import 'buy.dart';
+import 'lot_math.dart';
 import 'sell.dart';
 
 enum StockSplitError {
@@ -93,12 +94,10 @@ final class StockSplitPreview {
       final units =
           lot.remainingQuantity.coefficient *
           BigInt.from(10).pow(12 - lot.remainingQuantity.scale);
-      final expanded = units * BigInt.from(newShares);
-      final divisor = BigInt.from(oldShares);
-      if (expanded.remainder(divisor) != BigInt.zero) {
+      final afterUnits = reratioUnits(units, newShares, oldShares);
+      if (afterUnits == null) {
         throw const StockSplitException(StockSplitError.fractionalPrecision);
       }
-      final afterUnits = expanded ~/ divisor;
       final whole = afterUnits ~/ BigInt.from(10).pow(12);
       final fraction = (afterUnits % BigInt.from(10).pow(12))
           .toString()

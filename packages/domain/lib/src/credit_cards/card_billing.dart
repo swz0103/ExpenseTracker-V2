@@ -55,28 +55,18 @@ final class CardCycleOverride {
   final BusinessDate dueOn;
 }
 
-/// Card settings are not a Ledger balance or an issuer-specific limit engine.
-final class CreditCardTerms {
-  CreditCardTerms({
-    required this.workspace,
-    required this.cardId,
-    required this.currency,
+/// A card's billing days over time and the issuer's moved closes: which
+/// statement a day falls in, when it closes and when it is due. The ledger
+/// and the screens both ask this.
+final class CardSchedule {
+  CardSchedule({
     required this.closingDay,
     required this.dueDay,
-    this.limit,
-    this.version = 1,
     List<CardScheduleChange> history = const [],
     List<CardCycleOverride> overrides = const [],
   }) : history = List.unmodifiable(history),
        overrides = List.unmodifiable(overrides) {
-    if (version < 1) {
-      throw const CreditCardException(CreditCardError.invalidInput);
-    }
     _checkDays(closingDay, dueDay);
-    if (limit != null &&
-        (limit!.currency != currency || limit!.minorUnits <= BigInt.zero)) {
-      throw const CreditCardException(CreditCardError.invalidInput);
-    }
     for (final (i, change) in this.history.indexed) {
       final until = change.until;
       // A change takes effect on a close of the newer closing day.
@@ -98,20 +88,138 @@ final class CreditCardTerms {
     }
   }
 
-  final WorkspaceId workspace;
-  final PublicId cardId;
-  final Currency currency;
-
   /// The billing days in effect now, since the last [history] change.
   final int closingDay;
   final int dueDay;
-  final Money? limit;
-  final int version;
 
   /// Earlier billing days, oldest first, so past statements keep their
   /// dates after a change.
   final List<CardScheduleChange> history;
   final List<CardCycleOverride> overrides;
+
+  /// The statement cycle containing [date], with the billing days in
+  /// effect then and any actual dates the issuer used. A statement closes
+  /// at the end of its day.
+  CardCycle cycleFor(BusinessDate date) {
+    final closes = _closesAround(date);
+    final actual = [for (final close in closes) datesOf(close)];
+    for (var i = 1; i < closes.length; i++) {
+      if (date.compareTo(actual[i].$1) <= 0) {
+        return CardCycle(
+          startsAfter: actual[i - 1].$1,
+          closesOn: actual[i].$1,
+          dueOn: actual[i].$2,
+          scheduledStartsAfter: closes[i - 1],
+          scheduledClose: closes[i],
+        );
+      }
+    }
+    throw const CreditCardException(CreditCardError.invalidInput);
+  }
+
+  /// The last statement close on or before [date].
+  BusinessDate lastCloseOn(BusinessDate date) {
+    final cycle = cycleFor(date);
+    return date == cycle.closesOn ? cycle.closesOn : cycle.startsAfter;
+  }
+
+  /// When the statement scheduled to close on [scheduledClose] actually
+  /// closes and is due.
+  (BusinessDate, BusinessDate) datesOf(BusinessDate scheduledClose) {
+    for (final override in overrides) {
+      if (override.scheduledClose == scheduledClose) {
+        return (override.closesOn, override.dueOn);
+      }
+    }
+    // Due on the first due day after the close: the same month when the
+    // due day comes later in it, otherwise the next.
+    final close = scheduledClose;
+    final (_, dueDay) = _daysOn(close);
+    var due = _day(close.year, close.month, dueDay);
+    if (due.compareTo(close) <= 0) {
+      final following = _month(close.year, close.month, 1);
+      due = _day(following.$1, following.$2, dueDay);
+    }
+    return (close, due);
+  }
+
+  /// Scheduled closes from three months before [date] to three after.
+  List<BusinessDate> _closesAround(BusinessDate date) {
+    final closes = <BusinessDate>[];
+    for (var offset = -3; offset <= 3; offset++) {
+      final (year, month) = _month(date.year, date.month, offset);
+      final days = {...history.map((h) => h.closingDay), closingDay};
+      final found = <BusinessDate>{
+        for (final day in days)
+          if (_daysOn(_day(year, month, day)).$1 == day) _day(year, month, day),
+      };
+      closes.addAll(found.toList()..sort());
+    }
+    return closes;
+  }
+
+  /// The closing day in effect on [date].
+  int closingDayOn(BusinessDate date) => _daysOn(date).$1;
+
+  BusinessDate _nominalClose(BusinessDate date) {
+    final (closing, _) = _daysOn(date);
+    return _day(date.year, date.month, closing);
+  }
+
+  (int, int) _daysOn(BusinessDate date) {
+    for (final change in history) {
+      if (date.compareTo(change.until) < 0) {
+        return (change.closingDay, change.dueDay);
+      }
+    }
+    return (closingDay, dueDay);
+  }
+}
+
+/// Card settings are not a Ledger balance or an issuer-specific limit engine.
+final class CreditCardTerms {
+  CreditCardTerms({
+    required this.workspace,
+    required this.cardId,
+    required this.currency,
+    required int closingDay,
+    required int dueDay,
+    this.limit,
+    this.version = 1,
+    List<CardScheduleChange> history = const [],
+    List<CardCycleOverride> overrides = const [],
+  }) : schedule = CardSchedule(
+         closingDay: closingDay,
+         dueDay: dueDay,
+         history: history,
+         overrides: overrides,
+       ) {
+    if (version < 1) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+    if (limit != null &&
+        (limit!.currency != currency || limit!.minorUnits <= BigInt.zero)) {
+      throw const CreditCardException(CreditCardError.invalidInput);
+    }
+  }
+
+  final WorkspaceId workspace;
+  final PublicId cardId;
+  final Currency currency;
+
+  /// The billing days, their history and the moved closes.
+  final CardSchedule schedule;
+
+  /// The billing days in effect now, since the last [history] change.
+  int get closingDay => schedule.closingDay;
+  int get dueDay => schedule.dueDay;
+  final Money? limit;
+  final int version;
+
+  /// Earlier billing days, oldest first, so past statements keep their
+  /// dates after a change.
+  List<CardScheduleChange> get history => schedule.history;
+  List<CardCycleOverride> get overrides => schedule.overrides;
 
   /// New billing days from the close on [from] onward, or for the whole
   /// card when [from] is null. Earlier statements keep their dates.
@@ -178,73 +286,11 @@ final class CreditCardTerms {
     );
   }
 
-  /// The statement cycle containing [date], with the billing days in
-  /// effect then and any actual dates the issuer used.
-  CardCycle cycleFor(BusinessDate date) {
-    final closes = _closesAround(date);
-    final actual = [for (final close in closes) _actual(close)];
-    for (var i = 1; i < closes.length; i++) {
-      if (date.compareTo(actual[i].$1) <= 0) {
-        return CardCycle(
-          startsAfter: actual[i - 1].$1,
-          closesOn: actual[i].$1,
-          dueOn: actual[i].$2,
-          scheduledStartsAfter: closes[i - 1],
-          scheduledClose: closes[i],
-        );
-      }
-    }
-    throw const CreditCardException(CreditCardError.invalidInput);
-  }
-
-  (BusinessDate, BusinessDate) _actual(BusinessDate close) {
-    for (final override in overrides) {
-      if (override.scheduledClose == close) {
-        return (override.closesOn, override.dueOn);
-      }
-    }
-    // Due on the first due day after the close: the same month when the
-    // due day comes later in it, otherwise the next.
-    final (_, dueDay) = _daysOn(close);
-    var due = _day(close.year, close.month, dueDay);
-    if (due.compareTo(close) <= 0) {
-      final following = _month(close.year, close.month, 1);
-      due = _day(following.$1, following.$2, dueDay);
-    }
-    return (close, due);
-  }
-
-  /// Scheduled closes from three months before [date] to three after.
-  List<BusinessDate> _closesAround(BusinessDate date) {
-    final closes = <BusinessDate>[];
-    for (var offset = -3; offset <= 3; offset++) {
-      final (year, month) = _month(date.year, date.month, offset);
-      final days = {...history.map((h) => h.closingDay), closingDay};
-      final found = <BusinessDate>{
-        for (final day in days)
-          if (_daysOn(_day(year, month, day)).$1 == day) _day(year, month, day),
-      };
-      closes.addAll(found.toList()..sort());
-    }
-    return closes;
-  }
+  /// The statement cycle containing [date]; see [CardSchedule.cycleFor].
+  CardCycle cycleFor(BusinessDate date) => schedule.cycleFor(date);
 
   /// The closing day in effect on [date].
-  int closingDayOn(BusinessDate date) => _daysOn(date).$1;
-
-  BusinessDate _nominalClose(BusinessDate date) {
-    final (closing, _) = _daysOn(date);
-    return _day(date.year, date.month, closing);
-  }
-
-  (int, int) _daysOn(BusinessDate date) {
-    for (final change in history) {
-      if (date.compareTo(change.until) < 0) {
-        return (change.closingDay, change.dueDay);
-      }
-    }
-    return (closingDay, dueDay);
-  }
+  int closingDayOn(BusinessDate date) => schedule.closingDayOn(date);
 }
 
 void _checkDays(int closingDay, int dueDay) {

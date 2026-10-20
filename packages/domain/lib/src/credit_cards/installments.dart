@@ -61,27 +61,45 @@ final class CardInstallmentSchedule {
   List<CardInstallment> get installments {
     final principals = _splitFirst(principal, count);
     final fees = _splitFirst(fixedFee, count);
+    final closes = installmentCloses(firstScheduledClose, closingDay, count);
     return List.unmodifiable(
-      List.generate(count, (index) {
-        final month = DateTime.utc(
-          firstScheduledClose.year,
-          firstScheduledClose.month + index,
-          1,
-        );
-        final lastDay = DateTime.utc(month.year, month.month + 1, 0).day;
-        return CardInstallment(
+      List.generate(
+        count,
+        (index) => CardInstallment(
           number: index + 1,
-          scheduledClose: BusinessDate(
-            month.year,
-            month.month,
-            closingDay <= lastDay ? closingDay : lastDay,
-          ),
+          scheduledClose: closes[index],
           principal: principals[index],
           fee: fees[index],
-        );
-      }),
+        ),
+      ),
     );
   }
+}
+
+/// The scheduled closes [count] installments are billed on: one a month
+/// from [first], on [closingDay] or the month's last day.
+List<BusinessDate> installmentCloses(
+  BusinessDate first,
+  int closingDay,
+  int count,
+) => [
+  for (var index = 0; index < count; index++)
+    () {
+      final month = DateTime.utc(first.year, first.month + index, 1);
+      final lastDay = DateTime.utc(month.year, month.month + 1, 0).day;
+      return BusinessDate(
+        month.year,
+        month.month,
+        closingDay <= lastDay ? closingDay : lastDay,
+      );
+    }(),
+];
+
+/// The first scheduled close of installments of a purchase posted on
+/// [postedOn], and the closing day they keep.
+(BusinessDate, int) installmentStart(CardSchedule schedule, BusinessDate postedOn) {
+  final first = schedule.cycleFor(postedOn).scheduledClose;
+  return (first, schedule.closingDayOn(first));
 }
 
 List<Money> _splitFirst(Money total, int count) {

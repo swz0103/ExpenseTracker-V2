@@ -409,7 +409,10 @@ final class CardBook<T extends CardTransaction> {
       throw const AppFailure(FailureKind.conflict, 'card.plan-exists');
     }
     final terms = await _terms(t, charge.cardId);
-    final first = terms.cycleFor(charge.postedOn!).scheduledClose;
+    final (first, closingDay) = installmentStart(
+      terms.schedule,
+      charge.postedOn!,
+    );
     final plan = CardInstallmentSchedule(
       purchaseEventId: charge.ledgerEventId!,
       workspace: charge.workspace,
@@ -417,7 +420,7 @@ final class CardBook<T extends CardTransaction> {
       principal: charge.settledAmount!,
       fixedFee: command.fixedFee,
       firstScheduledClose: first,
-      closingDay: terms.closingDayOn(first),
+      closingDay: closingDay,
       count: command.count,
     );
     await t.saveInstallmentPlan(plan);

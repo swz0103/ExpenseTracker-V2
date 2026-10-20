@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart';
 
 import 'buy.dart';
+import 'lot_math.dart';
 import 'sell.dart';
 import 'stock_split.dart';
 
@@ -74,7 +75,6 @@ final class CorporateActionPreview {
         return byDate != 0 ? byDate : a.id.value.compareTo(b.id.value);
       });
     final seen = <PublicId>{};
-    final units = <BigInt>[];
     for (final lot in ordered) {
       if (!seen.add(lot.id)) {
         throw const StockSplitException(StockSplitError.duplicateLot);
@@ -88,52 +88,34 @@ final class CorporateActionPreview {
       if (lot.acquiredOn.compareTo(effectiveOn) > 0) {
         throw const StockSplitException(StockSplitError.invalidDate);
       }
-      final before =
-          lot.remainingQuantity.coefficient *
-          BigInt.from(10).pow(12 - lot.remainingQuantity.scale);
-      final expanded = before * BigInt.from(newShares);
-      if (expanded.remainder(BigInt.from(oldShares)) != BigInt.zero) {
-        throw const StockSplitException(StockSplitError.fractionalPrecision);
-      }
-      units.add(expanded ~/ BigInt.from(oldShares));
     }
-    final costs = [for (final lot in ordered) lot.remainingCost.minorUnits];
-
-    // Drop the fraction of a share, newest lots first.
-    var realized = BigInt.zero;
-    final share = BigInt.from(10).pow(12);
-    final total = units.fold(BigInt.zero, (sum, unit) => sum + unit);
-    var drop = instrument.wholeSharesOnly ? total % share : BigInt.zero;
-    if (drop == BigInt.zero && cashInLieu != null) {
+    final after = reratioLots(
+      [
+        for (final lot in ordered)
+          LotPosition(
+            lot.remainingQuantity.coefficient *
+                BigInt.from(10).pow(12 - lot.remainingQuantity.scale),
+            lot.remainingCost.minorUnits,
+          ),
+      ],
+      newShares: newShares,
+      oldShares: oldShares,
+      currency: currency,
+      wholeSharesOnly: instrument.wholeSharesOnly,
+      capitalReturned: capitalReturned?.minorUnits,
+    );
+    if (after == null) {
+      throw const StockSplitException(StockSplitError.fractionalPrecision);
+    }
+    if (after.droppedUnits == BigInt.zero && cashInLieu != null) {
       throw const InvestmentException(InvestmentError.invalidInput);
     }
-    for (var i = units.length - 1; i >= 0 && drop > BigInt.zero; i--) {
-      if (units[i] == BigInt.zero) continue;
-      final taken = drop < units[i] ? drop : units[i];
-      final cost = _divideRounded(costs[i] * taken, units[i]);
-      costs[i] -= cost;
-      realized -= cost;
-      units[i] -= taken;
-      drop -= taken;
-    }
-    realized += cashInLieu?.minorUnits ?? BigInt.zero;
-
-    // Returned capital lowers the basis; past it, it is a gain.
     final returned = capitalReturned?.minorUnits ?? BigInt.zero;
-    final basis = costs.fold(BigInt.zero, (sum, cost) => sum + cost);
-    final lowered = returned < basis ? returned : basis;
-    realized += returned - lowered;
-    if (lowered > BigInt.zero) {
-      final weighted = [
-        for (var i = 0; i < costs.length; i++)
-          if (costs[i] > BigInt.zero) i,
-      ];
-      final lowering = Money(currency, lowered);
-      final parts = lowering.allocate([for (final i in weighted) costs[i]]);
-      for (final (n, i) in weighted.indexed) {
-        costs[i] -= parts[n].minorUnits;
-      }
-    }
+    final realized =
+        (cashInLieu?.minorUnits ?? BigInt.zero) -
+        after.droppedCost +
+        returned -
+        after.basisLowered;
 
     final cash = (cashInLieu?.minorUnits ?? BigInt.zero) + returned;
     return CorporateActionPreview._(
@@ -142,8 +124,8 @@ final class CorporateActionPreview {
         for (var i = 0; i < ordered.length; i++)
           CorporateActionLotChange(
             before: ordered[i],
-            afterUnits: units[i],
-            afterCost: Money(currency, costs[i]),
+            afterUnits: after.lots[i].units,
+            afterCost: Money(currency, after.lots[i].cost),
           ),
       ]),
       cash: Money(currency, cash),
@@ -160,12 +142,4 @@ final class CorporateActionPreview {
   /// Cash in lieu less the cost of the dropped fraction, plus any capital
   /// returned beyond the basis.
   final Money realized;
-}
-
-BigInt _divideRounded(BigInt numerator, BigInt denominator) {
-  final quotient = numerator ~/ denominator;
-  if (numerator.remainder(denominator) * BigInt.two >= denominator) {
-    return quotient + BigInt.one;
-  }
-  return quotient;
 }

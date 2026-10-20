@@ -212,6 +212,7 @@ extension _Loading on VaultJournal {
           for (final o in terms.overrides)
             _date(o.scheduledClose): _date(o.closesOn),
       },
+      history: terms?.history ?? const [],
       icon: look?.icon,
       closingDay: terms?.closingDay,
       dueDay: terms?.dueDay,

@@ -162,9 +162,10 @@ void main() {
     expect(toCsv(ledger, [entry]), contains(',12.50,美元,'));
   });
 
-  test('stock dividends add free shares, splits multiply them', () {
+  test('stock dividends and splits grow every lot at its own cost', () {
     final ledger = demoLedger();
     final before = ledger.holding('2330')!;
+    final lotsBefore = ledger.lotsOf('2330');
     ledger.add(
       Entry(
         id: 'stock',
@@ -179,7 +180,12 @@ void main() {
     final after = ledger.holding('2330')!;
     expect(after.shares, before.shares + 10);
     expect(after.cost, before.cost);
-    expect(ledger.lotsOf('2330').last.cost, 0);
+    // As the ledger records it: each lot grows, none is added at no cost.
+    expect(ledger.lotsOf('2330'), hasLength(lotsBefore.length));
+    expect(
+      ledger.lotsOf('2330').fold(0, (sum, l) => sum + l.cost),
+      before.cost,
+    );
     ledger.add(
       Entry(
         id: 'split',

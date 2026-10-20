@@ -1,36 +1,29 @@
-import 'dart:math';
+import 'package:core/foundation_values.dart' show BusinessDate;
+import 'package:domain/credit_cards.dart';
 
 import 'records.dart';
 
-/// A card's billing cycle: when its statements close, moved closes
-/// included, and how much of a purchase each statement has billed. A
-/// statement closes at the end of its day.
-extension CardCycle on Account {
+/// A card's billing cycle, by the ledger's own schedule: when its
+/// statements close, moved closes and earlier billing days included, and
+/// how much of a purchase each statement has billed. A statement closes at
+/// the end of its day.
+extension CardBilling on Account {
+  /// The billing days, their history and the moved closes, as the ledger
+  /// keeps them.
+  CardSchedule get schedule => _schedules[this] ??= _scheduleOf(this);
+
   /// The last statement closing on or before [day].
-  DateTime closingOn(DateTime day) {
-    DateTime closing(int year, int month) {
-      final scheduled = scheduledClose(year, month);
-      return closes[scheduled] ?? scheduled;
-    }
+  DateTime closingOn(DateTime day) => _utc(schedule.lastCloseOn(_day(day)));
 
-    // A close moved by up to a week may fall in the month before or
-    // after its own: the latest of the three not after [day].
-    DateTime? latest;
-    for (final back in const [1, 0, -1]) {
-      final close = closing(day.year, day.month - back);
-      if (!close.isAfter(day) && (latest == null || close.isAfter(latest))) {
-        latest = close;
-      }
-    }
-    return latest ?? closing(day.year, day.month - 2);
+  /// The statement whose last day is [end]: its first day and when it
+  /// must be paid.
+  (DateTime, DateTime) cycleEnding(DateTime end) {
+    final cycle = schedule.cycleFor(_day(end));
+    return (
+      _utc(cycle.startsAfter).add(const Duration(days: 1)),
+      _utc(cycle.dueOn),
+    );
   }
-
-  /// The close the billing day sets in [year]/[month], before any move.
-  DateTime scheduledClose(int year, int month) => DateTime.utc(
-    year,
-    month,
-    min(closingDay ?? 1, DateTime.utc(year, month + 1, 0).day),
-  );
 
   /// How much of [e], charged on this card, has reached its statements by
   /// [at]: all of it, or the instalments billed so far.
@@ -45,18 +38,66 @@ extension CardCycle on Account {
     return periods >= count ? e.amount : e.amount - each * (count - periods);
   }
 
-  /// How many instalments of [e] have been billed by [at].
+  /// How many instalments of [e] have been billed by [at]: those whose
+  /// statement has closed, on the ledger's own instalment schedule.
   int billedPeriods(Entry e, DateTime at) {
+    if (e.installments < 1) return 0;
+    final (first, closingDay) = installmentStart(schedule, _day(e.date));
+    final until = _day(at);
     var periods = 0;
-    var month = DateTime.utc(e.date.year, e.date.month);
-    while (!month.isAfter(at) && periods < e.installments) {
-      final closing = closingOn(_lastDayOf(month));
-      if (!closing.isBefore(e.date) && !closing.isAfter(at)) periods++;
-      month = DateTime.utc(month.year, month.month + 1);
+    for (final close in installmentCloses(first, closingDay, e.installments)) {
+      if (schedule.datesOf(close).$1.compareTo(until) > 0) break;
+      periods++;
     }
     return periods;
   }
-
-  static DateTime _lastDayOf(DateTime month) =>
-      DateTime.utc(month.year, month.month + 1, 0);
 }
+
+final _schedules = Expando<CardSchedule>('card schedule');
+
+/// The card's schedule; moved closes the schedule cannot hold are left out.
+CardSchedule _scheduleOf(Account a) {
+  CardSchedule plain;
+  try {
+    plain = CardSchedule(
+      closingDay: a.closingDay ?? 1,
+      dueDay: a.dueDay ?? 15,
+      history: a.history,
+    );
+  } on CreditCardException {
+    // Billing days changed twice before one close: the latest stand.
+    plain = CardSchedule(closingDay: a.closingDay ?? 1, dueDay: a.dueDay ?? 15);
+  }
+  final overrides = <CardCycleOverride>[];
+  for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries) {
+    try {
+      final close = _day(scheduled);
+      final override = CardCycleOverride(
+        scheduledClose: close,
+        closesOn: _day(closesOn),
+        dueOn: plain.datesOf(close).$2,
+      );
+      CardSchedule(
+        closingDay: plain.closingDay,
+        dueDay: plain.dueDay,
+        history: plain.history,
+        overrides: [override],
+      );
+      overrides.add(override);
+    } on CreditCardException {
+      continue;
+    }
+  }
+  return overrides.isEmpty
+      ? plain
+      : CardSchedule(
+          closingDay: plain.closingDay,
+          dueDay: plain.dueDay,
+          history: plain.history,
+          overrides: overrides,
+        );
+}
+
+BusinessDate _day(DateTime d) => BusinessDate(d.year, d.month, d.day);
+
+DateTime _utc(BusinessDate d) => DateTime.utc(d.year, d.month, d.day);

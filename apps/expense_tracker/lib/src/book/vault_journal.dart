@@ -1019,16 +1019,30 @@ final class VaultJournal implements Journal {
   }
 
   /// Accounts whose balance on the screens differs from the ledger's own,
-  /// as 「名稱：畫面 X，帳本 Y」; none when they agree. Cards are left out:
-  /// the screens count an instalment purchase as it is billed.
-  List<String> mismatches(ui.Ledger ledger) => [
-    for (final a in ledger.accounts)
-      if (a.kind != ui.AccountKind.card)
-        if (_findAccount(a.id) case final kept?)
-          if (_store.balance(kept).minorUnits.toInt() case final stored
-              when stored != ledger.balance(a.id))
-            '${a.name}：畫面 ${ledger.balance(a.id)}，帳本 $stored',
-  ];
+  /// and stocks whose shares or cost do, as 「名稱：畫面 X，帳本 Y」; none
+  /// when they agree. Cards are left out: the screens count an instalment
+  /// purchase as it is billed.
+  List<String> mismatches(ui.Ledger ledger) {
+    final held = positions();
+    final codes = {
+      ...held.keys,
+      for (final h in ledger.holdings)
+        if (h.shares > 0) h.code,
+    };
+    return [
+      for (final a in ledger.accounts)
+        if (a.kind != ui.AccountKind.card)
+          if (_findAccount(a.id) case final kept?)
+            if (_store.balance(kept).minorUnits.toInt() case final stored
+                when stored != ledger.balance(a.id))
+              '${a.name}：畫面 ${ledger.balance(a.id)}，帳本 $stored',
+      for (final code in codes)
+        if ((ledger.holding(code)?.shares ?? 0, ledger.holding(code)?.cost ?? 0)
+            case final shown when shown != (held[code] ?? (0, 0)))
+          '$code：畫面 ${shown.$1} 股 ${shown.$2}，'
+              '帳本 ${held[code]?.$1 ?? 0} 股 ${held[code]?.$2 ?? 0}',
+    ];
+  }
 
   Account? _findAccount(String id) {
     for (final a in _store.accounts(_workspace)) {

@@ -1,6 +1,8 @@
 import 'dart:math';
 
-import 'package:core/foundation_values.dart' show Currency, PublicId;
+import 'package:core/foundation_values.dart'
+    show BusinessDate, Currency, PublicId;
+import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
 
@@ -470,9 +472,44 @@ final class Ledger extends ChangeNotifier {
     final index = _accounts.indexWhere((a) => a.id == account.id);
     if (index < 0) return addAccount(account);
     final before = _accounts[index];
+    account = _rescheduled(before, account);
     _accounts[index] = account;
     notifyListeners();
     _keep((j) => j.saveAccount(before, account));
+  }
+
+  /// [after] keeping [before]'s billing days for the statements closing
+  /// before the next close on the new day, as the ledger keeps them.
+  Account _rescheduled(Account before, Account after) {
+    final closing = before.closingDay;
+    final due = before.dueDay;
+    if (after.kind != AccountKind.card ||
+        closing == null ||
+        due == null ||
+        ((after.closingDay ?? closing) == closing &&
+            (after.dueDay ?? due) == due)) {
+      return after;
+    }
+    final day = after.closingDay ?? closing;
+    var from = DateTime.utc(today.year, today.month + 1, 0);
+    for (final month in [today.month, today.month + 1]) {
+      final last = DateTime.utc(today.year, month + 1, 0);
+      final close = DateTime.utc(last.year, last.month, min(day, last.day));
+      if (close.isAfter(today)) {
+        from = close;
+        break;
+      }
+    }
+    return after.copyWith(
+      history: [
+        ...before.history,
+        CardScheduleChange(
+          until: BusinessDate(from.year, from.month, from.day),
+          closingDay: closing,
+          dueDay: due,
+        ),
+      ],
+    );
   }
 
   /// Corrects [id]'s balance today to [target] by moving its opening
