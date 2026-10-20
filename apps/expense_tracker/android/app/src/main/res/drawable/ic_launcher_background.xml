@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The deep teal behind the ledger-book mark (source: tool/app_icon.svg). -->
+<!-- The misty blue behind the rising bars (source: tool/app_icon.svg). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <gradient
         android:angle="290"
-        android:endColor="#244B5C"
-        android:startColor="#447A8F" />
+        android:endColor="#2E5A6C"
+        android:startColor="#4A7E92" />
 </shape>

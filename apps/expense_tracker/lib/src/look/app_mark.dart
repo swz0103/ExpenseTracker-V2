@@ -1,7 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-/// The app icon drawn in place: a ledger book with a bookmark on deep
-/// teal, the same shapes as `tool/app_icon.svg` (its visible 300 units).
+/// The app icon drawn in place: three rising bars and a growth arrow on
+/// misty blue, the same shapes as `tool/app_icon.svg` (its visible 300
+/// units).
 class AppMark extends StatelessWidget {
   const AppMark({super.key, this.size = 96});
 
@@ -27,65 +28,47 @@ class _MarkPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment(-0.2, 1),
-          colors: [Color(0xFF447A8F), Color(0xFF244B5C)],
+          colors: [Color(0xFF4A7E92), Color(0xFF2E5A6C)],
         ).createShader(square),
     );
-    // The book sits at three quarters size, inside the launcher's safe zone.
+    // From the drawing's 432-unit canvas, as the SVG places the artwork.
     canvas
-      ..translate(150, 154)
-      ..scale(0.76)
-      ..translate(-150, -150);
-    const corner = Radius.circular(26);
-    canvas.drawRRect(
-      RRect.fromLTRBR(62, 44, 244, 276, corner),
-      Paint()..color = const Color(0x380E2A36),
-    );
-    canvas.drawRRect(
-      RRect.fromLTRBR(62, 34, 244, 266, corner),
-      Paint()..color = const Color(0xFFFBF8F1),
-    );
-    canvas.drawRRect(
-      RRect.fromLTRBAndCorners(
-        62,
-        34,
-        88,
-        266,
-        topLeft: corner,
-        bottomLeft: corner,
-      ),
-      Paint()..color = const Color(0xFFE6C77A),
-    );
-    canvas.drawRect(
-      const Rect.fromLTWH(86, 34, 7, 232),
-      Paint()..color = const Color(0xFFCFA94F),
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(196, 26)
-        ..lineTo(226, 26)
-        ..lineTo(226, 100)
-        ..lineTo(211, 87)
-        ..lineTo(196, 100)
-        ..close(),
-      Paint()..color = const Color(0xFFC8604A),
-    );
-    for (final (top, width, color) in const [
-      (116.0, 96.0, Color(0xFF3B6C80)),
-      (148.0, 70.0, Color(0xFFA9C0C8)),
-      (180.0, 84.0, Color(0xFFA9C0C8)),
-      (212.0, 54.0, Color(0xFFA9C0C8)),
+      ..translate(-66, -66)
+      ..translate(216, 222)
+      ..scale(0.9)
+      ..translate(-216, -214);
+    for (final (left, top, color) in const [
+      (126.0, 246.0, Color(0xFFCAD6D8)),
+      (194.0, 208.0, Color(0xFFF3F4F1)),
+      (262.0, 168.0, Color(0xFFC9A34A)),
     ]) {
       canvas.drawRRect(
-        RRect.fromLTRBR(
-          118,
-          top,
-          118 + width,
-          top + 14,
-          const Radius.circular(7),
-        ),
+        RRect.fromLTRBR(left, top, left + 44, 310, const Radius.circular(22)),
         Paint()..color = color,
       );
     }
+    final line = Paint()
+      ..color = const Color(0xFFF3F4F1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 15
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawPath(
+        Path()
+          ..moveTo(118, 206)
+          ..lineTo(182, 160)
+          ..lineTo(224, 182)
+          ..lineTo(292, 118),
+        line,
+      )
+      ..drawPath(
+        Path()
+          ..moveTo(256, 114)
+          ..lineTo(298, 112)
+          ..lineTo(296, 154),
+        line,
+      );
   }
 
   @override
