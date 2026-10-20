@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/look/theme.dart';
@@ -43,9 +44,52 @@ void main() {
     Shade.dark = true;
     expect(ink.toARGB32(), 0xFFE3E8EA);
     expect(Hue.paper.computeLuminance(), lessThan(0.05));
-    expect(Hue.onAccent, const Color(0xFFFFFFFF));
+    expect(Hue.onAccent.toARGB32(), 0xFF0F1A1F);
     Shade.dark = false;
     expect(Hue.paper.computeLuminance(), greaterThan(0.8));
+  });
+
+  test('words read at 4.5:1 or more on every surface, light and dark', () {
+    addTearDown(() => Shade.dark = false);
+    double contrast(Color a, Color b) {
+      final (x, y) = (a.computeLuminance(), b.computeLuminance());
+      return (max(x, y) + 0.05) / (min(x, y) + 0.05);
+    }
+
+    const words = {
+      'ink': Hue.ink,
+      'muted': Hue.muted,
+      'hint': Hue.hint,
+      'accent': Hue.accent,
+      'positive': Hue.positive,
+      'negative': Hue.negative,
+      'investment': Hue.investment,
+      'goldText': Hue.goldText,
+      'transfer': Hue.transfer,
+      'receivable': Hue.receivable,
+    };
+    const surfaces = {
+      'paper': Hue.paper,
+      'panel': Hue.panel,
+      'tile': Hue.tile,
+      'hero': Hue.hero,
+      'selected': Hue.selected,
+    };
+    for (final dark in [false, true]) {
+      Shade.dark = dark;
+      for (final MapEntry(key: w, value: word) in words.entries) {
+        for (final MapEntry(key: s, value: surface) in surfaces.entries) {
+          expect(
+            contrast(word, surface),
+            greaterThanOrEqualTo(4.5),
+            reason: '$w on $s, ${dark ? 'dark' : 'light'}',
+          );
+        }
+      }
+      for (final fill in [Hue.accent, Hue.positive, Hue.negative]) {
+        expect(contrast(Hue.onAccent, fill), greaterThanOrEqualTo(4.5));
+      }
+    }
   });
 
   group('notifications', () {

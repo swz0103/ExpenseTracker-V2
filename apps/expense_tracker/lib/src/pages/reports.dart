@@ -704,12 +704,23 @@ class _Readout extends StatelessWidget {
             label,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
-          const Spacer(),
-          _figure('收', income, Hue.positive),
           const SizedBox(width: 12),
-          _figure('支', expense, Hue.negative),
-          const SizedBox(width: 12),
-          _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
+          // Shrinks rather than overflows when the phone's text is large.
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                children: [
+                  _figure('收', income, Hue.positive),
+                  const SizedBox(width: 12),
+                  _figure('支', expense, Hue.negative),
+                  const SizedBox(width: 12),
+                  _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

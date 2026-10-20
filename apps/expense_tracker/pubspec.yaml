@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Material's own words (date and time pickers, the copy and paste
+  # menu) in Traditional Chinese.
+  flutter_localizations:
+    sdk: flutter
   core:
     path: ../../packages/core
   domain:

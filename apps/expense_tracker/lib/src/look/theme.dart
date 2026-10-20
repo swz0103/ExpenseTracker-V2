@@ -38,38 +38,46 @@ abstract final class Hue {
   static const panel = Shade(0xFFFFFFFF, 0xFF1C2226);
   static const white = Shade(0xFFFFFFFF, 0xFF1C2226);
   static const surface = Shade(0xFFE9ECEA, 0xFF262D31);
-  static const selected = Shade(0xFFDCE8EC, 0xFF23414D);
+  static const selected = Shade(0xFFDCE8EC, 0xFF1E3742);
   static const ink = Shade(0xFF26323A, 0xFFE3E8EA);
-  static const muted = Shade(0xFF5E6A70, 0xFF9AA6AC);
+  static const muted = Shade(0xFF525D63, 0xFFA6B1B6);
   static const faint = Shade(0xFFA7B0B3, 0xFF5E6A70);
   static const line = Shade(0xFFE1E4E0, 0xFF2C3438);
 
-  /// Text and icons on a coloured fill.
-  static const onAccent = Color(0xFFFFFFFF);
+  /// Text and icons on a coloured fill: white on the light theme's deep
+  /// colours, near-black on the dark theme's light ones (4.5:1 or more).
+  static const onAccent = Shade(0xFFFFFFFF, 0xFF0F1A1F);
+
+  /// Words that wait to be filled in, such as 未填: quieter than [muted],
+  /// still 4.5:1 on every surface.
+  static const hint = Shade(0xFF586369, 0xFF98A3A9);
+
+  /// Gold as words, darker than [gold], which is for marks and fills.
+  static const goldText = Shade(0xFF7A5E18, 0xFFDDBC66);
 
   /// Cards: white on the paper, lifted by [cardShadow].
   static const mist = Shade(0xFFFFFFFF, 0xFF1C2226);
 
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
-  static const hero = Shade(0xFFCAD6D8, 0xFF22343C);
+  static const hero = Shade(0xFFD8E1E2, 0xFF1F2E35);
   static const tile = Shade(0xFFE0E6E5, 0xFF20282C);
 
   /// Empty track behind bars.
   static const track = Shade(0xFFE9ECEA, 0xFF2C3438);
 
   /// The interface colour: tabs, buttons, links, the chosen day.
-  static const accent = Shade(0xFF3B6C80, 0xFF5B93A8);
+  static const accent = Shade(0xFF35657A, 0xFF72A8BC);
 
   /// Income, gains and refunds.
-  static const positive = Shade(0xFF2F7A65, 0xFF5CB394);
+  static const positive = Shade(0xFF276B58, 0xFF66BD9E);
 
   /// Spending and losses.
-  static const negative = Shade(0xFFB5523E, 0xFFE07A64);
-  static const transfer = Shade(0xFF4E8A9A, 0xFF6FA9B8);
-  static const investment = Shade(0xFF5A6FA8, 0xFF8A9BD6);
+  static const negative = Shade(0xFF9F4535, 0xFFEA8A74);
+  static const transfer = Shade(0xFF356672, 0xFF7DB4C2);
+  static const investment = Shade(0xFF4A5D99, 0xFF97A7DE);
   static const gold = Shade(0xFFC9A34A, 0xFFD9B65E);
-  static const danger = Shade(0xFFB5523E, 0xFFE07A64);
+  static const danger = Shade(0xFF9F4535, 0xFFEA8A74);
 
   /// Soft backgrounds behind each kind of entry.
   static const expenseSoft = Shade(0xFFF6E3DE, 0xFF3A2723);
@@ -83,7 +91,7 @@ abstract final class Hue {
   static const wallet = Shade(0xFF5B8DB0, 0xFF78A6C8);
   static const card = Shade(0xFFB5523E, 0xFFE07A64);
   static const holdings = Shade(0xFFD08B5B, 0xFFE0A073);
-  static const receivable = Shade(0xFF8E7CC0, 0xFFA898D6);
+  static const receivable = Shade(0xFF625199, 0xFFB2A4DD);
 
   /// Colours for parts of a whole, in order: categories, the second level
   /// of 財務分布.

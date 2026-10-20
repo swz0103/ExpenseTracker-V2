@@ -38,6 +38,9 @@ class Waterfall extends StatelessWidget {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           return GestureDetector(
+            // Picking by position means nothing to a screen reader, which
+            // reads the summary the page gives the chart.
+            excludeFromSemantics: true,
             onTapDown: (d) {
               final index = (d.localPosition.dx / width * weeks.length).floor();
               if (index >= 0 && index < weeks.length) onSelect(index);

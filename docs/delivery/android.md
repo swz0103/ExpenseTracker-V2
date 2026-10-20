@@ -6,7 +6,7 @@
 
 每次 main 有變更，`Android APK` 工作流程會建好 APK，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）。PR 只檢查能否建置。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝。
 
-沒有設定簽章 Secrets 時，APK 用 debug 金鑰簽章：可以安裝，但之後換成正式金鑰時要先移除舊版（資料會跟著刪掉，先匯出備份）。
+APK 只含 arm64（現行手機都是），約 28 MB；除錯符號不放進安裝檔。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。PR 的檢查沒有 Secrets 也能用 debug 金鑰建置。
 
 ## 專案設定
 

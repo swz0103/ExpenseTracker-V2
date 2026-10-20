@@ -24,6 +24,9 @@
 
 ## 品質
 
+- 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1（`test/preferences_test.dart`）。
+- 系統元件（日期、時間選擇器、複製貼上）為繁體中文；字型涵蓋程式用到的每個中文字（`test/font_coverage_test.dart`）。
+
 - 5 個模組加 App，同一份嚴格 lint；架構邊界、lockfile 一致性在 CI 檢查。
 - 記憶體版與 SQLCipher 版對照、重播、升級、強制結束、拒絕案例、完整備份來回、1 萬筆規模測試。
 - 模擬器 3,600 筆：載入 80–175 ms、存一筆 2–11 ms、捲動九成影格 4 ms 內。
@@ -40,7 +43,7 @@
 
 ## 待辦（需要使用者）
 
-- [ ] 固定簽章：建立金鑰並設定下表 GitHub Secrets（見 [Android 建置](delivery/android.md)）。
+- [x] 固定簽章：金鑰已建立、4 個 Secrets 已設定（2026-10-20）；之後的版本都能直接覆蓋安裝。
 - [ ] 真機驗收：解鎖與指紋、背景鎖定、備份還原、Android 自動備份換機、日曆提醒、收盤價。
 - [ ] 真機效能數據。
 - [ ] 決定 Drive 備份方式：Google 登入（需 Google Cloud 設定）或改用系統存檔選到 Drive 資料夾。

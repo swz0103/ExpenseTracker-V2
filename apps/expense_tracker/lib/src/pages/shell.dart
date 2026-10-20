@@ -190,7 +190,11 @@ class _AppShellState extends State<AppShell> {
       };
     }
     return switch (_tab) {
-      _Tab.overview => OverviewPage(ledger: ledger, nav: _nav),
+      _Tab.overview => OverviewPage(
+        ledger: ledger,
+        nav: _nav,
+        preferences: widget.services.preferences,
+      ),
       _Tab.ledger => LedgerPage(ledger: ledger, nav: _nav),
       _Tab.accounts => AccountsPage(ledger: ledger, nav: _nav),
       _Tab.more => MorePage(ledger: ledger, nav: _nav),

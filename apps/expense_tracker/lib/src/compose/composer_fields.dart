@@ -30,7 +30,7 @@ extension _Fields on _ComposerState {
         icon: Glyph.coins,
         label: '折合台幣',
         value: value == null ? '請輸入' : groupDigits(value),
-        valueColor: value == null ? Hue.faint : Hue.ink,
+        valueColor: value == null ? Hue.hint : Hue.ink,
         size: 15,
         sub: _home != null || rate == null ? null : '臺銀即期買入 $rate',
         onTap: () async {
@@ -242,7 +242,7 @@ extension _Fields on _ComposerState {
         icon: Glyph.coins,
         label: '轉入金額',
         value: value == null ? '請輸入' : amountIn(value, _toCurrency),
-        valueColor: value == null ? Hue.faint : Hue.ink,
+        valueColor: value == null ? Hue.hint : Hue.ink,
         size: 15,
         sub: _received == null && value != null ? '依臺銀即期匯率換算' : null,
         onTap: () async {
@@ -450,7 +450,7 @@ extension _Fields on _ComposerState {
                           icon: Glyph.store,
                           label: '商家',
                           value: _merchant.isEmpty ? '未填' : _merchant,
-                          valueColor: _merchant.isEmpty ? Hue.faint : Hue.ink,
+                          valueColor: _merchant.isEmpty ? Hue.hint : Hue.ink,
                           size: 15,
                           onTap: _pickMerchant,
                         ),

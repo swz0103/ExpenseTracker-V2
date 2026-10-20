@@ -124,6 +124,9 @@ class Treemap extends StatelessWidget {
               Offset.zero & constraints.biggest,
             );
             return GestureDetector(
+              // Picking by position means nothing to a screen reader, which
+              // reads the summary the page gives the chart.
+              excludeFromSemantics: true,
               onTapDown: (details) {
                 for (final (i, rect) in rects.indexed) {
                   if (rect.contains(details.localPosition)) {
