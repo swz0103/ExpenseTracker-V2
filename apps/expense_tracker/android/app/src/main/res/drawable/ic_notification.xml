@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ledger book of the app icon, in one colour for the status bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7,3h10a2.5,2.5 0,0 1,2.5 2.5v13a2.5,2.5 0,0 1,-2.5 2.5h-10a2.5,2.5 0,0 1,-2.5 -2.5v-13a2.5,2.5 0,0 1,2.5 -2.5zM9,8.5v1.6h7v-1.6zM9,11.5v1.6h5v-1.6zM9,14.5v1.6h6v-1.6z" />
+</vector>

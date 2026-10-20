@@ -389,7 +389,10 @@ extension _Fields on _ComposerState {
       if (expense && _merchant.isNotEmpty) _merchant,
       for (final tag in _tags) '#$tag',
       if (_note.text.trim().isNotEmpty) _note.text.trim(),
+      if (_receipt != null) '收據',
     ];
+    final photos = receiptPhotos;
+    final withPhoto = photos != null || _receipt != null;
     if (_viewing && filled.isEmpty) return const SizedBox.shrink();
     final open = _more || _viewing;
     final heading = InkWell(
@@ -402,7 +405,12 @@ extension _Fields on _ComposerState {
             const GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
             const SizedBox(width: 8),
             Text(
-              expense ? '商家、標籤、備註' : '標籤、備註',
+              [
+                if (expense) '商家',
+                '標籤',
+                '備註',
+                if (withPhoto) '收據',
+              ].join('、'),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -453,6 +461,7 @@ extension _Fields on _ComposerState {
                         ),
                       _tagBlock(),
                       _noteField(),
+                      if (photos != null) _receiptBlock(photos),
                     ],
                   )
                 : const SizedBox(width: double.infinity),
@@ -461,6 +470,84 @@ extension _Fields on _ComposerState {
       ),
     );
   }
+
+  /// The receipt photo: a thumbnail that opens it whole, or buttons to
+  /// take one or pick one from the gallery.
+  Widget _receiptBlock(ReceiptPhotos photos) {
+    final receipt = _receipt;
+    if (_viewing && receipt == null) return const SizedBox.shrink();
+    Future<void> take({required bool camera}) async {
+      try {
+        final name = await photos.take(camera: camera);
+        if (name != null) _set(() => _receipt = name);
+      } on Object {
+        _set(() => _problem = camera ? '無法開啟相機' : '無法讀取這張照片');
+      }
+    }
+
+    return _Block(
+      child: Row(
+        children: [
+          const IconChip(Glyph.image),
+          const SizedBox(width: 8),
+          const Text(
+            '收據',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: Hue.accent,
+            ),
+          ),
+          const Spacer(),
+          if (receipt == null) ...[
+            _Chip('拍照', () => unawaited(take(camera: true))),
+            const SizedBox(width: 6),
+            _Chip('從相簿', () => unawaited(take(camera: false))),
+          ] else ...[
+            GestureDetector(
+              onTap: () => unawaited(_showReceipt(photos.image(receipt))),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image(
+                  image: photos.image(receipt),
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Center(
+                      child: GlyphIcon(Glyph.image, color: Hue.faint),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (!_viewing) ...[
+              const SizedBox(width: 8),
+              _Chip('移除', () => _set(() => _receipt = null)),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The whole receipt, to zoom into.
+  Future<void> _showReceipt(ImageProvider image) => showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).pop(),
+        child: InteractiveViewer(
+          maxScale: 5,
+          child: Image(image: image, fit: BoxFit.contain),
+        ),
+      ),
+    ),
+  );
 
   Widget _tagBlock() {
     if (_viewing && _tags.isEmpty) return const SizedBox.shrink();

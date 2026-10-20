@@ -823,25 +823,44 @@ class _DayGrid extends StatelessWidget {
         ),
       );
     }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth / 3;
-        return Wrap(
-          children: [
-            for (final e in entries)
-              SizedBox(
-                width: width,
-                child: InkWell(
-                  onTap: () => onTap(e),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: _cell(e),
+    // Three to a row on a white card, each set apart by thin rules.
+    const across = 3;
+    final rows = <Widget>[];
+    for (var i = 0; i < entries.length; i += across) {
+      if (i > 0) rows.add(const Divider(height: 1, indent: 12, endIndent: 12));
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            children: [
+              for (var k = i; k < i + across; k++) ...[
+                if (k > i)
+                  VerticalDivider(
+                    width: 1,
+                    indent: 10,
+                    endIndent: 10,
+                    color: k < entries.length ? Hue.line : Colors.transparent,
                   ),
+                Expanded(
+                  child: k < entries.length
+                      ? InkWell(
+                          onTap: () => onTap(entries[k]),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                            child: _cell(entries[k]),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
-          ],
-        );
-      },
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+    return SoftPanel(
+      color: Hue.white,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(children: rows),
     );
   }
 

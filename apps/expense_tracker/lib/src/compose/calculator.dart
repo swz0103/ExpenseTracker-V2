@@ -1,9 +1,9 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';
+import '../look/haptics.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 
@@ -131,7 +131,7 @@ class _CalculatorState extends State<_Calculator> {
   late var _expression = widget.initial;
 
   void _press(String key) {
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       switch (key) {
         case 'C':
@@ -275,7 +275,7 @@ class _CalculatorState extends State<_Calculator> {
         ? Hue.hero
         : Hue.tile;
     final ink = done
-        ? Hue.white
+        ? Hue.onAccent
         : operator || key == 'C' || key == '⌫'
         ? Hue.accent
         : Hue.ink;

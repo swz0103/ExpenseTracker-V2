@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
+import '../look/haptics.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -54,6 +54,13 @@ class _LedgerPageState extends State<LedgerPage> {
   String? _category;
   String? _search;
 
+  /// A span of days in place of the month; null shows the month.
+  DateTimeRange? _range;
+
+  /// The smallest and largest amount shown; null for no bound.
+  int? _least;
+  int? _most;
+
   /// Whether the search field is shown in place of the kind chips.
   var _searchOpen = false;
 
@@ -63,7 +70,7 @@ class _LedgerPageState extends State<LedgerPage> {
   String get _words => (_search ?? '').trim();
 
   void _toggle(Entry e) {
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       if (!_picked.remove(e.id)) _picked.add(e.id);
     });
@@ -141,22 +148,61 @@ class _LedgerPageState extends State<LedgerPage> {
     );
   }
 
-  /// The month's entries, or every month's that match the search.
+  /// The month's entries, the chosen days', or every month's that match
+  /// the search; newest first.
   List<Entry> _shown() {
     final (year, month) = _month;
     final words = _words;
     final ledger = widget.ledger;
-    final source = words.isEmpty
-        ? ledger.entriesIn(year, month)
-        : ledger.search(words);
+    final range = _range;
+    final Iterable<Entry> source;
+    if (words.isNotEmpty) {
+      source = ledger.search(words);
+    } else if (range != null) {
+      source = [
+        for (
+          var m = DateTime.utc(range.end.year, range.end.month);
+          !m.isBefore(DateTime.utc(range.start.year, range.start.month));
+          m = DateTime.utc(m.year, m.month - 1)
+        )
+          ...ledger.entriesIn(m.year, m.month),
+      ];
+    } else {
+      source = ledger.entriesIn(year, month);
+    }
+    bool inRange(Entry e) {
+      if (range == null) return true;
+      final day = DateTime.utc(e.date.year, e.date.month, e.date.day);
+      return !day.isBefore(_utcDay(range.start)) &&
+          !day.isAfter(_utcDay(range.end));
+    }
+
     return [
       for (final e in source)
         if (_kind.shows(e) &&
+            inRange(e) &&
+            (_least == null || e.amount >= _least!) &&
+            (_most == null || e.amount <= _most!) &&
             (_account == null || e.account == _account || e.to == _account) &&
             (_category == null || _inCategory(e, _category!)))
           e,
     ];
   }
+
+  static DateTime _utcDay(DateTime d) => DateTime.utc(d.year, d.month, d.day);
+
+  /// The chosen days as words, such as 9/1–10/4.
+  String _rangeLabel(DateTimeRange range) =>
+      '${range.start.month}/${range.start.day}–'
+      '${range.end.month}/${range.end.day}';
+
+  /// The amount bounds as words, such as 100 – 500.
+  String _amountLabel() => switch ((_least, _most)) {
+    (final least?, final most?) => '金額 ${groupDigits(least)}–${groupDigits(most)}',
+    (final least?, null) => '金額 ${groupDigits(least)} 以上',
+    (null, final most?) => '金額 ${groupDigits(most)} 以下',
+    _ => '',
+  };
 
   bool _inCategory(Entry e, String name) =>
       e.category == name ||
@@ -168,6 +214,9 @@ class _LedgerPageState extends State<LedgerPage> {
     var kind = _kind;
     var account = _account;
     var category = _category;
+    var range = _range;
+    final least = TextEditingController(text: _least?.toString() ?? '');
+    final most = TextEditingController(text: _most?.toString() ?? '');
     final applied = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Hue.panel,
@@ -197,6 +246,51 @@ class _LedgerPageState extends State<LedgerPage> {
                         selected: option == kind,
                         onSelected: (_) => setSheet(() => kind = option),
                       ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text('日期', style: TextStyle(color: Hue.muted)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('依月份'),
+                      selected: range == null,
+                      onSelected: (_) => setSheet(() => range = null),
+                    ),
+                    ChoiceChip(
+                      label: Text(
+                        range == null ? '自訂區間' : _rangeLabel(range!),
+                      ),
+                      selected: range != null,
+                      onSelected: (_) async {
+                        final today = ledger.today;
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(today.year, today.month, today.day),
+                          initialDateRange: range,
+                          helpText: '選擇日期區間',
+                          saveText: '確定',
+                        );
+                        if (picked != null) setSheet(() => range = picked);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text('金額', style: TextStyle(color: Hue.muted)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(child: _AmountField(least, '最少')),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('–', style: TextStyle(color: Hue.muted)),
+                    ),
+                    Expanded(child: _AmountField(most, '最多')),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -259,13 +353,18 @@ class _LedgerPageState extends State<LedgerPage> {
         _kind = kind;
         _account = account;
         _category = category;
+        _range = range;
+        _least = int.tryParse(least.text.trim());
+        _most = int.tryParse(most.text.trim());
       });
     }
+    least.dispose();
+    most.dispose();
   }
 
   /// Deletes [entry] after a swipe, with a way back.
   void _remove(Entry entry) {
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     final removed = widget.ledger.remove(entry.id);
     if (removed == null) return;
     showNote(
@@ -313,7 +412,7 @@ class _LedgerPageState extends State<LedgerPage> {
               padding: const EdgeInsets.only(right: 20),
               child: const Text(
                 '刪除',
-                style: TextStyle(color: Hue.white, fontWeight: FontWeight.w700),
+                style: TextStyle(color: Hue.onAccent, fontWeight: FontWeight.w700),
               ),
             ),
             onDismissed: (_) => _remove(e),
@@ -389,7 +488,11 @@ class _LedgerPageState extends State<LedgerPage> {
                 icon: Glyph.records,
                 label: searching
                     ? '搜尋「$_words」· ${shown.length} 筆'
-                    : '$month 月結餘 · ${shown.length} 筆',
+                    : switch (_range) {
+                        final range? =>
+                          '${_rangeLabel(range)} 結餘 · ${shown.length} 筆',
+                        null => '$month 月結餘 · ${shown.length} 筆',
+                      },
                 value: money(income - expense),
                 valueColor: income < expense ? Hue.negative : Hue.ink,
                 size: 28,
@@ -448,8 +551,10 @@ class _LedgerPageState extends State<LedgerPage> {
                               child: GestureDetector(
                                 onTap: () => setState(() => _kind = option),
                                 child: Container(
+                                  // Narrow enough for all five beside
+                                  // the search and filter buttons.
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
+                                    horizontal: 11,
                                   ),
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
@@ -464,7 +569,7 @@ class _LedgerPageState extends State<LedgerPage> {
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: option == _kind
-                                          ? Hue.white
+                                          ? Hue.onAccent
                                           : Hue.accent,
                                     ),
                                   ),
@@ -486,6 +591,28 @@ class _LedgerPageState extends State<LedgerPage> {
                     onTap: _filter,
                   ),
                 ],
+              ),
+            if (_range != null || _least != null || _most != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    if (_range case final range?)
+                      InputChip(
+                        label: Text(_rangeLabel(range)),
+                        onDeleted: () => setState(() => _range = null),
+                      ),
+                    if (_least != null || _most != null)
+                      InputChip(
+                        label: Text(_amountLabel()),
+                        onDeleted: () => setState(() {
+                          _least = null;
+                          _most = null;
+                        }),
+                      ),
+                  ],
+                ),
               ),
             if (account != null)
               Padding(
@@ -522,6 +649,30 @@ class _LedgerPageState extends State<LedgerPage> {
       },
     );
   }
+}
+
+/// A bound for the amount filter, digits only.
+class _AmountField extends StatelessWidget {
+  const _AmountField(this.controller, this.hint);
+
+  final TextEditingController controller;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    keyboardType: TextInputType.number,
+    decoration: InputDecoration(
+      hintText: hint,
+      isDense: true,
+      filled: true,
+      fillColor: Hue.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    ),
+  );
 }
 
 /// What can be done to the picked entries at once.

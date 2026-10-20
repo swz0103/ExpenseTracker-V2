@@ -52,6 +52,10 @@ abstract interface class Journal {
 
   /// Stops [item]; the entries it booked stay.
   Future<void> removeRecurring(Recurring item);
+
+  /// Links the receipt photo [file] to the entry with [entryId], or
+  /// unlinks it when null.
+  Future<void> setReceipt(String entryId, String? file);
 }
 
 /// A batch of entries, such as an import, kept only in part: the first

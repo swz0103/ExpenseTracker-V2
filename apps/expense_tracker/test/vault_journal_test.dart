@@ -402,6 +402,40 @@ void main() {
     expect(ledger.balance(cash.id), 880);
   });
 
+  test('a receipt photo stays with its entry through an edit', () async {
+    var ledger = await create();
+    final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
+    ledger.addAccount(cash);
+    ledger.add(spend(ledger, cash.id, 120, note: '午餐'));
+    await ledger.settled;
+    var entry = ledger.entriesIn(2026, 10).single;
+    ledger.setReceipt(entry.id, 'lunch.jpg');
+    ledger = await reopen(ledger);
+    entry = ledger.entriesIn(2026, 10).single;
+    expect(ledger.receiptOf(entry.id), 'lunch.jpg');
+
+    // A changed amount is a correction with a new id.
+    ledger.replace(
+      Entry(
+        id: entry.id,
+        date: day,
+        type: EntryType.expense,
+        amount: 150,
+        account: cash.id,
+        category: '飲食日常',
+        note: '午餐',
+      ),
+    );
+    ledger = await reopen(ledger);
+    entry = ledger.entriesIn(2026, 10).single;
+    expect(entry.amount, 150);
+    expect(ledger.receiptOf(entry.id), 'lunch.jpg');
+
+    ledger.setReceipt(entry.id, null);
+    ledger = await reopen(ledger);
+    expect(ledger.receiptOf(ledger.entriesIn(2026, 10).single.id), isNull);
+  });
+
   test('on its closing day a statement is still open', () async {
     // The ledger and the screens agree that today's close has not
     // happened yet.

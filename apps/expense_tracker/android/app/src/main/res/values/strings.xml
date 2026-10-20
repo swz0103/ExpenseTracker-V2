@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_expense">記支出</string>
+    <string name="shortcut_income">記收入</string>
+    <string name="widget_description">一點就記支出或收入</string>
+</resources>

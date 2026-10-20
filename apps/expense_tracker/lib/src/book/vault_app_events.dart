@@ -7,6 +7,7 @@ const _carryKind = '${appEventPrefix}budget-carry';
 const _quotesKind = '${appEventPrefix}quotes';
 const _trashKind = '${appEventPrefix}trash';
 const _restoredKind = '${appEventPrefix}trash-restored';
+const _receiptKind = '${appEventPrefix}receipt';
 
 /// How long a deleted entry is kept to be restored.
 const _keptInTrash = Duration(days: 30);
@@ -97,6 +98,20 @@ extension _AppEvents on VaultJournal {
       kept.add(ui.Trashed(entry, day));
     }
     return kept.reversed.toList();
+  }
+
+  /// Each entry's receipt photo, by entry id; the last word counts.
+  Map<String, String> _receipts() {
+    final found = <String, String>{};
+    for (final json in _events(_receiptKind)) {
+      final entry = json['entry']! as String;
+      if (json['file'] case final String file) {
+        found[entry] = file;
+      } else {
+        found.remove(entry);
+      }
+    }
+    return found;
   }
 
   /// The closes last fetched, kept so holdings are valued offline: the

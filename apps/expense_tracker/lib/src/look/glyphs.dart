@@ -93,6 +93,10 @@ enum Glyph {
   calculator,
   backspace,
   reset,
+  bell,
+  moon,
+  vibrate,
+  image,
 }
 
 /// A [Glyph] at [size], in [color] or the surrounding icon colour. With
@@ -1042,5 +1046,48 @@ void _draw(Glyph glyph, Path t, Path p, Path f) {
     case Glyph.reset:
       _arc(p, 12, 12, 7, 210, 290);
       _poly(p, [5.5, 4.4, 5.9, 8.5, 9.9, 8]);
+    case Glyph.bell:
+      t.moveTo(6, 16.5);
+      t.lineTo(6, 11);
+      t.quadraticBezierTo(6, 5, 12, 5);
+      t.quadraticBezierTo(18, 5, 18, 11);
+      t.lineTo(18, 16.5);
+      t.close();
+      p.moveTo(6, 16.5);
+      p.lineTo(6, 11);
+      p.quadraticBezierTo(6, 5, 12, 5);
+      p.quadraticBezierTo(18, 5, 18, 11);
+      p.lineTo(18, 16.5);
+      _poly(p, [4, 16.5, 20, 16.5]);
+      _poly(p, [12, 3, 12, 5]);
+      p.moveTo(10, 19.5);
+      p.quadraticBezierTo(12, 21.5, 14, 19.5);
+    case Glyph.moon:
+      t.moveTo(19, 14.5);
+      t.quadraticBezierTo(12, 17, 10, 10.5);
+      t.quadraticBezierTo(9, 7, 11, 4);
+      t.quadraticBezierTo(4, 5, 4.5, 12.5);
+      t.quadraticBezierTo(6, 20, 13, 20);
+      t.quadraticBezierTo(17.5, 19.5, 19, 14.5);
+      t.close();
+      p.moveTo(19, 14.5);
+      p.quadraticBezierTo(12, 17, 10, 10.5);
+      p.quadraticBezierTo(9, 7, 11, 4);
+      p.quadraticBezierTo(4, 5, 4.5, 12.5);
+      p.quadraticBezierTo(6, 20, 13, 20);
+      p.quadraticBezierTo(17.5, 19.5, 19, 14.5);
+      p.close();
+    case Glyph.vibrate:
+      _box(t, 8, 4, 16, 20, 2);
+      _box(p, 8, 4, 16, 20, 2);
+      _poly(p, [4.5, 8, 4.5, 16]);
+      _poly(p, [19.5, 8, 19.5, 16]);
+      _poly(p, [2, 10, 2, 14]);
+      _poly(p, [22, 10, 22, 14]);
+    case Glyph.image:
+      _box(t, 3.5, 5, 20.5, 19, 2.5);
+      _box(p, 3.5, 5, 20.5, 19, 2.5);
+      _poly(p, [3.5, 16.5, 9, 11.5, 13, 15, 15.5, 12.5, 20.5, 17]);
+      _ring(f, 15.5, 9, 1.4);
   }
 }

@@ -9,6 +9,8 @@
         <exclude domain="file" path="no-fingerprint"/>
         <exclude domain="file" path="exports"/>
         <exclude domain="file" path="calendar"/>
+        <!-- Receipt photos would soon fill the 25 MB backup allowance. -->
+        <exclude domain="file" path="receipts"/>
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="."/>

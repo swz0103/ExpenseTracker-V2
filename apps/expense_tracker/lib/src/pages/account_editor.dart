@@ -513,7 +513,7 @@ class _Choice extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: picked ? Hue.white : Hue.accent,
+            color: picked ? Hue.onAccent : Hue.accent,
           ),
         ),
       ),
@@ -542,7 +542,7 @@ class _DayKey extends StatelessWidget {
           '$day',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: picked ? Hue.white : Hue.ink,
+            color: picked ? Hue.onAccent : Hue.ink,
           ),
         ),
       ),
