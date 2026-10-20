@@ -50,7 +50,10 @@ void main() {
     expect(CatalogCodec.readMerchant(json).name, '全聯');
     // Rows from builds that had merchant aliases still read; the aliases
     // are ignored, and a row without the key reads too.
-    final legacy = {...json, 'aliases': ['PX Mart']};
+    final legacy = {
+      ...json,
+      'aliases': ['PX Mart'],
+    };
     expect(CatalogCodec.readMerchant(legacy).name, '全聯');
     expect(
       CatalogCodec.readMerchant({...json}..remove('aliases')).id,
