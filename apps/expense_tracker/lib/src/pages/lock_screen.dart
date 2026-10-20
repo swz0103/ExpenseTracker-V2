@@ -340,7 +340,7 @@ class _LockScreenState extends State<LockScreen> {
                               dimension: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Hue.white,
+                                color: Hue.onAccent,
                               ),
                             )
                           : Text(
@@ -430,7 +430,7 @@ class _LockScreenState extends State<LockScreen> {
                             dimension: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Hue.white,
+                              color: Hue.onAccent,
                             ),
                           )
                         : const Text(

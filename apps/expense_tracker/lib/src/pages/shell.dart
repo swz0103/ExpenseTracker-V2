@@ -1,11 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../compose/composer.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
+import '../look/haptics.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
@@ -64,10 +62,14 @@ class _AppShellState extends State<AppShell> {
     widget.ledger.problem.addListener(_report);
     widget.ledger.addListener(_hideAmounts);
     _hideAmounts();
+    widget.services.quick?.addListener(_quickAction);
+    // An action the app was opened with waits for the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _quickAction());
   }
 
   @override
   void dispose() {
+    widget.services.quick?.removeListener(_quickAction);
     widget.ledger.problem.removeListener(_report);
     widget.ledger.removeListener(_hideAmounts);
     super.dispose();
@@ -76,6 +78,18 @@ class _AppShellState extends State<AppShell> {
   /// Follows the ledger's 隱藏金額 switch in every [money] on screen. Added
   /// before any page listens, so the pages redraw with it already set.
   void _hideAmounts() => amountsHidden = widget.ledger.hidden;
+
+  /// Opens the composer a shortcut, the widget or a notification asked
+  /// for, once.
+  void _quickAction() {
+    final quick = widget.services.quick;
+    final asked = quick?.value;
+    if (quick == null || asked == null || !mounted) return;
+    quick.value = null;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _compose(type: asked == 'income' ? EntryType.income : EntryType.expense)
+        .ignore();
+  }
 
   /// Says why the ledger refused a change; the screens already show what
   /// was kept instead.
@@ -116,7 +130,7 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     if (outcome == ComposeOutcome.deleted) {
-      unawaited(HapticFeedback.mediumImpact());
+      Haptics.medium();
       final removed = ledger.remove(saved.id);
       if (removed == null) return;
       showNote(
@@ -127,7 +141,7 @@ class _AppShellState extends State<AppShell> {
       );
       return;
     }
-    unawaited(HapticFeedback.lightImpact());
+    Haptics.light();
     showNote(
       context,
       entry == null ? '已記下' : '已更新',
@@ -197,39 +211,44 @@ class _AppShellState extends State<AppShell> {
           }
         });
       },
-      child: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 240),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            // Only the page coming in is drawn: the one going out fading
-            // under it leaves its words as a ghost.
-            layoutBuilder: (current, previous) => current ?? const SizedBox(),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween(
-                  begin: const Offset(0, 0.03),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
+      // Built anew when the colours change: boxes keep the paint they
+      // made, and a new subtree makes them paint with the new palette.
+      child: KeyedSubtree(
+        key: ValueKey(Shade.dark),
+        child: Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              // Only the page coming in is drawn: the one going out fading
+              // under it leaves its words as a ghost.
+              layoutBuilder: (current, previous) => current ?? const SizedBox(),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, 0.03),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
               ),
+              child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
             ),
-            child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
-        ),
-        bottomNavigationBar: _BottomBar(
-          tab: _tab,
-          onTab: (tab) {
-            if (tab != _tab || _page != null) HapticFeedback.selectionClick();
-            setState(() {
-              _tab = tab;
-              _page = null;
-            });
-          },
-          onRecord: () => _compose(),
+          bottomNavigationBar: _BottomBar(
+            tab: _tab,
+            onTab: (tab) {
+              if (tab != _tab || _page != null) Haptics.selection();
+              setState(() {
+                _tab = tab;
+                _page = null;
+              });
+            },
+            onRecord: () => _compose(),
+          ),
         ),
       ),
     );
@@ -292,7 +311,7 @@ class _BottomBar extends StatelessWidget {
                               child: InkWell(
                                 customBorder: const CircleBorder(),
                                 onTap: () {
-                                  HapticFeedback.lightImpact();
+                                  Haptics.light();
                                   onRecord();
                                 },
                                 child: const SizedBox(
@@ -301,7 +320,7 @@ class _BottomBar extends StatelessWidget {
                                   child: Center(
                                     child: GlyphIcon(
                                       Glyph.add,
-                                      color: Hue.white,
+                                      color: Hue.onAccent,
                                       weight: 2,
                                     ),
                                   ),

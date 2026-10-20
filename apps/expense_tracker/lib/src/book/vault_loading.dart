@@ -81,6 +81,7 @@ extension _Loading on VaultJournal {
       holdings: holdings,
       moves: _moves,
       quotedOn: _quotedOn,
+      receipts: _receipts(),
       budgets: [
         for (final MapEntry(key: key, value: plan) in applying.entries)
           ui.Budget(

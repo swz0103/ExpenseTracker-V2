@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'glyphs.dart';
+import 'haptics.dart';
 import 'theme.dart';
 
 /// A page's title row: an optional back arrow, the title in 22 px and
@@ -145,7 +145,7 @@ class IconBadge extends StatelessWidget {
       child: GlyphIcon(
         icon,
         size: size * 0.55,
-        color: filled ? Hue.white : color,
+        color: filled ? Hue.onAccent : color,
       ),
     );
   }
@@ -252,7 +252,7 @@ class IconChip extends StatelessWidget {
       width: size,
       height: size,
       decoration: const BoxDecoration(
-        color: Color(0xCCFFFFFF),
+        color: Shade(0xCCFFFFFF, 0x1FFFFFFF),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -337,7 +337,7 @@ class Tile extends StatelessWidget {
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFD3DEE0), Hue.hero],
+                colors: [Shade(0xFFD3DEE0, 0xFF27404A), Hue.hero],
               )
             : null,
       ),
@@ -349,7 +349,7 @@ class Tile extends StatelessWidget {
           onTap: tap == null
               ? null
               : () {
-                  HapticFeedback.selectionClick();
+                  Haptics.selection();
                   tap();
                 },
           child: Padding(
@@ -524,7 +524,7 @@ class Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xB3FFFFFF),
+        color: const Shade(0xB3FFFFFF, 0x1FFFFFFF),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(text, style: TextStyle(fontSize: 11.5, color: color)),
@@ -632,7 +632,7 @@ class Segments extends StatelessWidget {
             Expanded(
               child: GestureDetector(
                 onTap: () {
-                  if (i != selected) HapticFeedback.selectionClick();
+                  if (i != selected) Haptics.selection();
                   onChanged(i);
                 },
                 child: AnimatedContainer(

@@ -1,11 +1,15 @@
 import 'dart:io';
 
 import 'package:core/foundation_values.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:vault/backup_security.dart';
 
 import 'calendar_sync.dart';
+import 'compose/receipt_photos.dart';
 import 'model/reminders.dart';
+import 'notifications.dart';
 import 'startup.dart';
 
 /// What the Android side of the app provides: its private files folder
@@ -138,4 +142,60 @@ final class AndroidCalendar implements CalendarPort {
     );
     return written ?? 0;
   }
+}
+
+/// Receipt photos in the app's private `receipts` folder, made smaller
+/// on the phone (`MainActivity.kt`) before they are kept.
+final class AndroidReceipts implements ReceiptPhotos {
+  const AndroidReceipts(this.directory);
+
+  final Directory directory;
+
+  @override
+  Future<String?> take({required bool camera}) =>
+      platformChannel.invokeMethod<String>('takePhoto', {'camera': camera});
+
+  @override
+  ImageProvider image(String name) =>
+      FileImage(File('${directory.path}/receipts/$name'));
+}
+
+/// Notifications through `Reminders.kt`: each alert is an alarm that
+/// posts it, kept across restarts of the phone.
+final class AndroidNotifications implements NotifyPort {
+  const AndroidNotifications();
+
+  @override
+  Future<bool> access() async =>
+      await platformChannel.invokeMethod<bool>('notificationAccess') ?? false;
+
+  @override
+  Future<void> schedule(List<Alert> alerts) =>
+      platformChannel.invokeMethod<void>('scheduleNotifications', {
+        'alerts': [
+          for (final a in alerts)
+            {
+              'at': a.at.millisecondsSinceEpoch,
+              'title': a.title,
+              'text': a.text,
+              'quick': a.quick,
+            },
+        ],
+      });
+}
+
+/// What a home-screen shortcut, the widget or a notification asked for:
+/// `expense` or `income` opens the composer. Held until the app is open
+/// to act on it.
+final quickAction = ValueNotifier<String?>(null);
+
+/// Takes the action the app was opened with, then listens for those
+/// that arrive while it runs.
+Future<void> listenForQuickActions() async {
+  platformChannel.setMethodCallHandler((call) async {
+    if (call.method == 'quickAction')
+      quickAction.value = call.arguments as String?;
+  });
+  final first = await platformChannel.invokeMethod<String>('takeQuickAction');
+  if (first != null) quickAction.value = first;
 }

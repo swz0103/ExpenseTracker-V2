@@ -9,7 +9,9 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
 import '../model/ledger.dart';
+import '../notifications.dart';
 import '../perf.dart';
+import '../preferences.dart';
 import '../problems.dart';
 import '../screen_privacy.dart';
 import '../services.dart';
@@ -208,6 +210,60 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// Light, dark, or as the phone is.
+  Future<void> _pickAppearance(Preferences preferences) async {
+    final picked = await showDialog<Appearance>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        backgroundColor: Hue.panel,
+        title: const Text('外觀'),
+        children: [
+          for (final a in Appearance.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(a),
+              child: Text(
+                a.label,
+                style: a == preferences.appearance
+                    ? const TextStyle(
+                        color: Hue.accent,
+                        fontWeight: FontWeight.w700,
+                      )
+                    : null,
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked != null) preferences.update(appearance: picked);
+  }
+
+  /// Turns a kind of notification on, once the phone allows them.
+  Future<void> _notify(Notifier notifier, {bool? due, bool? nudge}) async {
+    final turningOn = (due ?? false) || (nudge ?? false);
+    if (turningOn) {
+      bool allowed;
+      try {
+        allowed = await notifier.port.access();
+      } on Object {
+        allowed = false;
+      }
+      if (!allowed) {
+        if (mounted) showNote(context, '沒有取得通知權限，可以到系統設定開啟');
+        return;
+      }
+    }
+    notifier.preferences.update(dueAlerts: due, dailyNudge: nudge);
+  }
+
+  Future<void> _pickNudgeHour(Preferences preferences) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: preferences.nudgeHour, minute: 0),
+      helpText: '每天幾點提醒（以整點計）',
+    );
+    if (picked != null) preferences.update(nudgeHour: picked.hour);
+  }
+
   Future<void> _reset() async {
     final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
     if (!ok) return;
@@ -218,8 +274,10 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
+    final preferences = widget.services.preferences;
+    final notifier = widget.services.notifier;
     return ListenableBuilder(
-      listenable: ledger,
+      listenable: Listenable.merge([ledger, ?preferences]),
       builder: (context, _) {
         final (year, month) = _month;
         final entries = ledger.entriesIn(year, month);
@@ -293,6 +351,56 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: () => showTrash(context, ledger),
               ),
             ]),
+            if (preferences != null) ...[
+              const SectionHead('外觀與操作'),
+              _Panel([
+                _Item(
+                  glyph: Glyph.moon,
+                  title: '外觀',
+                  detail: preferences.appearance.label,
+                  onTap: () => _pickAppearance(preferences),
+                ),
+                _Item(
+                  glyph: Glyph.vibrate,
+                  title: '震動',
+                  detail: '點選與存檔時輕震',
+                  trailing: Switch(
+                    value: preferences.haptics,
+                    onChanged: (on) => preferences.update(haptics: on),
+                  ),
+                ),
+              ]),
+            ],
+            if (notifier != null) ...[
+              const SectionHead('通知'),
+              _Panel([
+                _Item(
+                  glyph: Glyph.bell,
+                  title: '到期提醒',
+                  detail: '定期扣款、卡費',
+                  trailing: Switch(
+                    value: notifier.preferences.dueAlerts,
+                    onChanged: (on) => _notify(notifier, due: on),
+                  ),
+                ),
+                _Item(
+                  glyph: Glyph.records,
+                  title: '每日記帳提醒',
+                  detail: '當天沒記帳才提醒',
+                  trailing: Switch(
+                    value: notifier.preferences.dailyNudge,
+                    onChanged: (on) => _notify(notifier, nudge: on),
+                  ),
+                ),
+                if (notifier.preferences.dailyNudge)
+                  _Item(
+                    glyph: Glyph.calendar,
+                    title: '提醒時間',
+                    detail: '每天 ${notifier.preferences.nudgeHour}:00',
+                    onTap: () => _pickNudgeHour(notifier.preferences),
+                  ),
+              ]),
+            ],
             if (keeper != null || privacy != null) ...[
               const SectionHead('安全'),
               _Panel([

@@ -15,6 +15,7 @@ import '../pages/categories_page.dart';
 import '../pages/dialogs.dart';
 import 'calculator.dart';
 import 'pickers.dart';
+import 'receipt_photos.dart';
 
 part 'composer_fields.dart';
 part 'composer_widgets.dart';
@@ -144,6 +145,9 @@ class _ComposerState extends State<Composer> {
 
   /// 代墊: money coming back from the person rather than paid for them.
   var _back = false;
+
+  /// The receipt photo's file name; null when none.
+  String? _receipt;
   final _note = TextEditingController();
   String? _problem;
 
@@ -168,6 +172,8 @@ class _ComposerState extends State<Composer> {
     _fresh();
     final source = widget.entry ?? widget.draft;
     final refunded = _refunded;
+    final editing = widget.entry;
+    if (editing != null) _receipt = _ledger.receiptOf(editing.id);
     if (source != null) {
       _load(source);
       _findLending(source);
@@ -254,6 +260,7 @@ class _ComposerState extends State<Composer> {
     _shareChange = false;
     _reduce = false;
     _back = false;
+    _receipt = null;
     _problem = null;
     if (_mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
@@ -755,6 +762,7 @@ class _ComposerState extends State<Composer> {
       setState(() => _problem = error.message);
       return;
     }
+    _ledger.setReceipt(entry.id, _receipt);
     _drafts.remove(_tab);
     Navigator.of(context).pop((ComposeOutcome.saved, entry));
   }

@@ -215,7 +215,7 @@ class _CalendarState extends State<_Calendar> {
         ? Hue.selected
         : Hue.surface;
     final ink = picked
-        ? Hue.white
+        ? Hue.onAccent
         : !inMonth || future
         ? Hue.faint
         : weekend

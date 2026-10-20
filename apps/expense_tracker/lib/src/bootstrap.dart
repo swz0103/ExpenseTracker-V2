@@ -15,11 +15,13 @@ import 'book/vault_keeper.dart';
 import 'calendar_sync.dart';
 import 'look/widgets.dart';
 import 'model/ledger.dart';
+import 'notifications.dart';
 import 'pages/lock_screen.dart';
 import 'pages/recovery_code.dart';
 import 'pages/shell.dart';
 import 'perf.dart';
 import 'platform.dart';
+import 'preferences.dart';
 import 'screen_privacy.dart';
 import 'services.dart';
 import 'startup.dart';
@@ -49,15 +51,22 @@ Future<Directory> applicationDirectory() async {
 /// Follows [startup]: the lock screen until a ledger is open, then the
 /// app on that ledger.
 class VaultRoot extends StatelessWidget {
-  const VaultRoot({super.key, required this.startup, this.privacy});
+  const VaultRoot({
+    super.key,
+    required this.startup,
+    required this.preferences,
+    this.privacy,
+  });
 
   final Startup startup;
 
   /// Hiding the screens from screenshots, on Android.
   final ScreenPrivacy? privacy;
+  final Preferences preferences;
 
   @override
   Widget build(BuildContext context) => ExpenseApp(
+    preferences: preferences,
     home: ListenableBuilder(
       listenable: startup,
       builder: (context, _) => switch (startup.state) {
@@ -66,6 +75,7 @@ class VaultRoot extends StatelessWidget {
           startup: startup,
           vault: vault,
           privacy: privacy,
+          preferences: preferences,
         ),
         final state => LockScreen(
           key: ValueKey(state.runtimeType),
@@ -83,12 +93,14 @@ class OpenedLedger extends StatefulWidget {
     super.key,
     required this.startup,
     required this.vault,
+    required this.preferences,
     this.privacy,
   });
 
   final Startup startup;
   final OpenVault vault;
   final ScreenPrivacy? privacy;
+  final Preferences preferences;
 
   @override
   State<OpenedLedger> createState() => _OpenedLedgerState();
@@ -115,6 +127,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
       ? CalendarSync(const AndroidCalendar(), widget.startup.directory)
       : null;
 
+  /// The phone's notifications, on Android.
+  late final _notifier = Platform.isAndroid
+      ? Notifier(const AndroidNotifications(), widget.preferences)
+      : null;
+
   late final _keeper = VaultKeeper(
     widget.startup,
     widget.vault,
@@ -134,6 +151,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_quotes(ledger));
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
+    _notifier?.follow(ledger);
     // The screens' sums are worked out apart from the ledger's own: any
     // difference is a fault to report, not to hide.
     for (final mismatch in _journal.mismatches(ledger)) {
@@ -196,6 +214,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   @override
   void dispose() {
     _calendar?.stop();
+    _notifier?.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -236,6 +255,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
           keeper: _keeper,
           calendar: _calendar,
           privacy: widget.privacy,
+          preferences: widget.preferences,
+          notifier: _notifier,
+          quick: Platform.isAndroid ? quickAction : null,
         ),
       );
     },

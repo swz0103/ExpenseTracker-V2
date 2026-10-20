@@ -1,7 +1,14 @@
 package io.github.swz0103.expensetracker
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.net.Uri
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
@@ -11,6 +18,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -25,12 +33,113 @@ import javax.crypto.spec.GCMParameterSpec
  * Hosts the app and answers `expense_tracker/platform` (lib/src/platform.dart):
  * the private files folder; a Keystore AES key that only a fingerprint or face
  * can use, which wraps the ledger key for unlocking without the password; and
- * the system's save and open dialogs, for taking backups out and back in.
+ * the system's save and open dialogs, for taking backups out and back in;
+ * notifications, receipt photos, and the shortcuts and widget that open the
+ * composer.
  */
 class MainActivity : FlutterFragmentActivity() {
     private var pendingExport: Pair<String, MethodChannel.Result>? = null
     private var pendingPick: MethodChannel.Result? = null
     private var pendingCalendar: MethodChannel.Result? = null
+    private var pendingNotify: MethodChannel.Result? = null
+    private var pendingPhoto: MethodChannel.Result? = null
+    private var channel: MethodChannel? = null
+
+    /** What a shortcut, the widget or a notification asked for, until taken. */
+    private var pendingQuick: String? = null
+
+    /** Asks once to post notifications (Android 13 and later). */
+    private val askNotify =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val result = pendingNotify ?: return@registerForActivityResult
+            pendingNotify = null
+            result.success(granted && Reminders.allowed(this))
+        }
+
+    /** Where the camera writes before the photo is made smaller. */
+    private val cameraFile: File
+        get() = File(cacheDir, "camera").apply { mkdirs() }.resolve("receipt.jpg")
+
+    private val takePicture =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+            if (taken) keepPhoto(Uri.fromFile(cameraFile)) else finishPhoto(null)
+        }
+
+    private val pickImage =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) keepPhoto(uri) else finishPhoto(null)
+        }
+
+    private fun finishPhoto(name: String?) {
+        val result = pendingPhoto ?: return
+        pendingPhoto = null
+        result.success(name)
+    }
+
+    /**
+     * Keeps a receipt photo in the private `receipts` folder: turned upright,
+     * at most 1600 pixels on its long side, as a JPEG. Off the main thread.
+     */
+    private fun keepPhoto(source: Uri) {
+        Thread {
+            try {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                contentResolver.openInputStream(source)?.use {
+                    BitmapFactory.decodeStream(it, null, bounds)
+                }
+                var sample = 1
+                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
+                val decoded = contentResolver.openInputStream(source)?.use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                } ?: throw IllegalStateException("The photo cannot be read.")
+                // Cameras save sideways and note the turn in the EXIF tags.
+                val turn = if (Build.VERSION.SDK_INT < 24) {
+                    0f
+                } else {
+                    contentResolver.openInputStream(source)?.use {
+                        when (ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1)) {
+                            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                            else -> 0f
+                        }
+                    } ?: 0f
+                }
+                val longSide = maxOf(decoded.width, decoded.height)
+                val scale = if (longSide > 1600) 1600f / longSide else 1f
+                val matrix = Matrix().apply {
+                    postScale(scale, scale)
+                    postRotate(turn)
+                }
+                val photo = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                val folder = File(filesDir, "receipts").apply { mkdirs() }
+                val name = "${System.currentTimeMillis()}.jpg"
+                File(folder, name).outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
+                cameraFile.delete()
+                runOnUiThread { finishPhoto(name) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    val result = pendingPhoto
+                    pendingPhoto = null
+                    result?.error("photo", e.message, null)
+                }
+            }
+        }.start()
+    }
+
+    /** Takes the shortcut or widget action out of [intent], so it runs once. */
+    private fun quickOf(intent: Intent?): String? {
+        val quick = intent?.getStringExtra(EXTRA_QUICK) ?: return null
+        intent.removeExtra(EXTRA_QUICK)
+        return quick
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val quick = quickOf(intent) ?: return
+        val open = channel
+        if (open == null) pendingQuick = quick else open.invokeMethod("quickAction", quick)
+    }
 
     /** Asks once for the calendar, where the ledger's due dates go. */
     private val askCalendar =
@@ -93,9 +202,52 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        quickOf(intent)?.let { pendingQuick = it }
+        val methods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        channel = methods
+        methods
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "takeQuickAction" -> {
+                        result.success(pendingQuick)
+                        pendingQuick = null
+                    }
+                    "notificationAccess" -> {
+                        if (Reminders.allowed(this)) {
+                            result.success(true)
+                        } else if (Build.VERSION.SDK_INT < 33) {
+                            // Turned off in the system settings: only the
+                            // person can turn it back on there.
+                            result.success(false)
+                        } else if (pendingNotify != null) {
+                            result.error("busy", "Already asking.", null)
+                        } else {
+                            pendingNotify = result
+                            askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                    "scheduleNotifications" -> {
+                        val alerts = call.argument<List<Map<String, Any?>>>("alerts")
+                        if (alerts == null) {
+                            result.error("bad-arguments", "alerts are required", null)
+                        } else {
+                            Reminders.replace(this, alerts)
+                            result.success(null)
+                        }
+                    }
+                    "takePhoto" -> {
+                        if (pendingPhoto != null) {
+                            result.error("busy", "A photo is being taken.", null)
+                        } else {
+                            pendingPhoto = result
+                            if (call.argument<Boolean>("camera") == true) {
+                                val uri = FileProvider.getUriForFile(this, "$packageName.files", cameraFile)
+                                takePicture.launch(uri)
+                            } else {
+                                pickImage.launch("image/*")
+                            }
+                        }
+                    }
                     "filesDir" -> result.success(filesDir.absolutePath)
                     "canUseBiometrics" -> result.success(
                         BiometricManager.from(this).canAuthenticate(BIOMETRIC_STRONG) ==
@@ -287,14 +439,16 @@ class MainActivity : FlutterFragmentActivity() {
         KeyStore.getInstance(KEYSTORE).apply { load(null) }.deleteEntry(ALIAS)
     }
 
-    private companion object {
-        const val CHANNEL = "expense_tracker/platform"
-        const val KEYSTORE = "AndroidKeyStore"
-        const val ALIAS = "ledger-device-key"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
-        const val IV_BYTES = 12
-        const val TAG_BITS = 128
-        val CALENDAR_PERMISSIONS = arrayOf(
+    companion object {
+        /** The intent extra of a shortcut, the widget or a notification. */
+        const val EXTRA_QUICK = "quick"
+        private const val CHANNEL = "expense_tracker/platform"
+        private const val KEYSTORE = "AndroidKeyStore"
+        private const val ALIAS = "ledger-device-key"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val IV_BYTES = 12
+        private const val TAG_BITS = 128
+        private val CALENDAR_PERMISSIONS = arrayOf(
             Manifest.permission.READ_CALENDAR,
             Manifest.permission.WRITE_CALENDAR,
         )

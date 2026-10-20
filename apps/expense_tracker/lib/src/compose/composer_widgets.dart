@@ -111,7 +111,7 @@ class _TradeChips extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: type == trade ? Hue.white : Hue.accent,
+                      color: type == trade ? Hue.onAccent : Hue.accent,
                     ),
                   ),
                 ),
@@ -385,7 +385,10 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, color: solid ? Hue.white : Hue.accent),
+        style: TextStyle(
+          fontSize: 12,
+          color: solid ? Hue.onAccent : Hue.accent,
+        ),
       ),
     );
   }

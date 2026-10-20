@@ -393,6 +393,12 @@ final class VaultJournal implements Journal {
   @override
   Future<String> replaceEntry(ui.Entry before, ui.Entry after) async {
     final id = await _replace(before, after);
+    // The receipt photo follows the entry to its new id.
+    if (id != before.id) {
+      if (_receipts()[before.id] case final file?) {
+        await _append(_receiptKind, {'entry': id, 'file': file});
+      }
+    }
     final template = _parse(after.recurring ?? '');
     final posting = _parse(id);
     if (template != null &&
@@ -508,6 +514,10 @@ final class VaultJournal implements Journal {
   @override
   Future<void> forgetTrashed(String id) =>
       _append(_restoredKind, {'entry': id});
+
+  @override
+  Future<void> setReceipt(String entryId, String? file) =>
+      _append(_receiptKind, {'entry': entryId, 'file': file});
 
   /// Takes [entry] out of the ledger: the trade voided, the card charge or
   /// payment voided, or the posting deleted.

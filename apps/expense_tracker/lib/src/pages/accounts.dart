@@ -206,7 +206,7 @@ class _Balance extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: Container(
           height: 8,
-          color: const Color(0x14000000),
+          color: Hue.track,
           alignment: Alignment.centerLeft,
           child: Row(
             mainAxisSize: MainAxisSize.min,

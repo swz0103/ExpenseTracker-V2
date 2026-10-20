@@ -36,7 +36,9 @@ final class Ledger extends ChangeNotifier {
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
     DateTime? quotedOn,
+    Map<String, String> receipts = const {},
   }) : _quotedOn = quotedOn,
+       _receipts = {...receipts},
        _rates = {...rates},
        _moves = {...moves},
        _trash = [...trash],
@@ -69,6 +71,23 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries deleted lately, newest first, until restored.
   final List<Trashed> _trash;
+
+  /// The photo of each entry's receipt, by entry id: a file name the
+  /// phone keeps.
+  final Map<String, String> _receipts;
+
+  /// The receipt photo of the entry with [id]; null when none.
+  String? receiptOf(String id) => _receipts[id] ?? _receipts[_current(id)];
+
+  /// Gives the entry with [id] the receipt photo [file], or takes its
+  /// photo away when null.
+  void setReceipt(String id, String? file) {
+    if (receiptOf(id) == file) return;
+    _receipts.remove(id);
+    if (file != null) _receipts[id] = file;
+    notifyListeners();
+    _keep((j) => j.setReceipt(_current(id), file), reload: false);
+  }
 
   /// The trading day of the newest closing price the holdings are
   /// valued at; null when none was fetched yet.
@@ -671,6 +690,9 @@ final class Ledger extends ChangeNotifier {
     _moves
       ..clear()
       ..addAll(fresh._moves);
+    _receipts
+      ..clear()
+      ..addAll(fresh._receipts);
     _quotedOn = fresh._quotedOn;
     _replay();
     notifyListeners();
