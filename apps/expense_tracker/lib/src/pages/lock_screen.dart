@@ -254,9 +254,7 @@ class _LockScreenState extends State<LockScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: AppMark(size: 72),
-                    ),
+                    const Center(child: AppMark(size: 72)),
                     const SizedBox(height: 16),
                     Text(
                       title,
@@ -404,9 +402,7 @@ class _LockScreenState extends State<LockScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Center(
-                    child: AppMark(size: 96),
-                  ),
+                  const Center(child: AppMark(size: 96)),
                   const SizedBox(height: 20),
                   const Text(
                     '歡迎使用記帳本',

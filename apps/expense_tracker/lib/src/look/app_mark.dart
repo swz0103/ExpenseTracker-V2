@@ -71,7 +71,13 @@ class _MarkPainter extends CustomPainter {
       (212.0, 54.0, Color(0xFFA9C0C8)),
     ]) {
       canvas.drawRRect(
-        RRect.fromLTRBR(118, top, 118 + width, top + 14, const Radius.circular(7)),
+        RRect.fromLTRBR(
+          118,
+          top,
+          118 + width,
+          top + 14,
+          const Radius.circular(7),
+        ),
         Paint()..color = color,
       );
     }
