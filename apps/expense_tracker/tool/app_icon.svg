@@ -1,8 +1,8 @@
-<!-- App icon: a ledger book with a bookmark on deep teal. 432x432 = the 108dp adaptive canvas; keep the mark inside the centre 264 (66dp). -->
+<!-- App icon: a ledger book with a bookmark on deep teal. 432x432 = the 108dp adaptive canvas; launchers show about the centre 288 (72dp). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">
 <defs><linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#447A8F"/><stop offset="1" stop-color="#244B5C"/></linearGradient></defs>
 <rect width="432" height="432" fill="url(#bg)"/>
-<g>
+<g transform="translate(216 220) scale(0.76) translate(-216 -216)">
  <rect x="128" y="100" width="182" height="232" rx="26" fill="#0E2A36" opacity=".22" transform="translate(0 10)"/>
  <rect x="128" y="100" width="182" height="232" rx="26" fill="#FBF8F1"/>
  <path d="M154 100 a26 26 0 0 0 -26 26 v180 a26 26 0 0 0 26 26 z" fill="#E6C77A"/>

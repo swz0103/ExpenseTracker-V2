@@ -30,6 +30,11 @@ class _MarkPainter extends CustomPainter {
           colors: [Color(0xFF447A8F), Color(0xFF244B5C)],
         ).createShader(square),
     );
+    // The book sits at three quarters size, inside the launcher's safe zone.
+    canvas
+      ..translate(150, 154)
+      ..scale(0.76)
+      ..translate(-150, -150);
     const corner = Radius.circular(26);
     canvas.drawRRect(
       RRect.fromLTRBR(62, 44, 244, 276, corner),
