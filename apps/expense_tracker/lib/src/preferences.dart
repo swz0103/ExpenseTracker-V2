@@ -41,7 +41,7 @@ final class Preferences extends ChangeNotifier {
   Appearance get appearance => _appearance;
   var _appearance = Appearance.system;
 
-  /// 震動回饋: a tick on choices, a tap on saving.
+  /// 震動: a tick on choices, a tap on saving.
   bool get haptics => _haptics;
   var _haptics = true;
 

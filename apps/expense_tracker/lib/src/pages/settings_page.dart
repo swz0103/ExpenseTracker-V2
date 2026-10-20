@@ -222,7 +222,13 @@ class _SettingsPageState extends State<SettingsPage> {
             SimpleDialogOption(
               onPressed: () => Navigator.of(context).pop(a),
               child: Text(
-                '${a == preferences.appearance ? '✓ ' : '　 '}${a.label}',
+                a.label,
+                style: a == preferences.appearance
+                    ? const TextStyle(
+                        color: Hue.accent,
+                        fontWeight: FontWeight.w700,
+                      )
+                    : null,
               ),
             ),
         ],
@@ -356,7 +362,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 _Item(
                   glyph: Glyph.vibrate,
-                  title: '震動回饋',
+                  title: '震動',
                   detail: '點選與存檔時輕震',
                   trailing: Switch(
                     value: preferences.haptics,

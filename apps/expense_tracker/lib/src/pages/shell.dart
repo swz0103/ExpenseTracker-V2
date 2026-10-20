@@ -211,7 +211,11 @@ class _AppShellState extends State<AppShell> {
           }
         });
       },
-      child: Scaffold(
+      // Built anew when the colours change: boxes keep the paint they
+      // made, and a new subtree makes them paint with the new palette.
+      child: KeyedSubtree(
+        key: ValueKey(Shade.dark),
+        child: Scaffold(
         body: SafeArea(
           bottom: false,
           child: AnimatedSwitcher(
@@ -245,6 +249,7 @@ class _AppShellState extends State<AppShell> {
           },
           onRecord: () => _compose(),
         ),
+      ),
       ),
     );
   }
