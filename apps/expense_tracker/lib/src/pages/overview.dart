@@ -600,11 +600,11 @@ class _OverviewPageState extends State<OverviewPage> {
               '$allName：'
               '${[for (final p in parts) '${p.$2} ${money(p.$3)}'].join('、')}',
           child: Treemap(
-          tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
-          selected: tile,
-          onSelect: (index) => setState(() => _tile = index),
-          onOpen: (index) =>
-              _openAssets(group == null ? parts[index].$1 : null),
+            tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
+            selected: tile,
+            onSelect: (index) => setState(() => _tile = index),
+            onOpen: (index) =>
+                _openAssets(group == null ? parts[index].$1 : null),
           ),
         ),
       ),
