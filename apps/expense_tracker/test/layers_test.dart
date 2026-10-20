@@ -45,4 +45,33 @@ void main() {
       }
     }
   });
+
+  test('the composer and the look need no pages', () {
+    for (final folder in ['lib/src/compose', 'lib/src/look']) {
+      for (final MapEntry(key: file, value: imports)
+          in importsIn(folder).entries) {
+        for (final uri in imports) {
+          expect(uri.startsWith('../pages/'), isFalse, reason: '$file: $uri');
+        }
+      }
+    }
+  });
+
+  test('only the preview reaches the made-up book', () {
+    for (final folder in [
+      'lib/src',
+      'lib/src/book',
+      'lib/src/compose',
+      'lib/src/look',
+      'lib/src/model',
+      'lib/src/pages',
+    ]) {
+      for (final MapEntry(key: file, value: imports)
+          in importsIn(folder).entries) {
+        for (final uri in imports) {
+          expect(uri.contains('demo/'), isFalse, reason: '$file: $uri');
+        }
+      }
+    }
+  });
 }
