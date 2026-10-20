@@ -48,7 +48,6 @@ class _AccountPageState extends State<AccountPage> {
         amount: lend || owed < 0 ? 0 : owed,
         account: lend ? main : account.id,
         category: '轉帳',
-        note: lend ? '代墊 ${account.name}' : '${account.name}還款',
         to: lend ? account.id : main,
       ),
     );
