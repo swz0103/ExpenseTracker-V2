@@ -25,7 +25,7 @@
 - Android 通道在 `android/app/src/main/kotlin/`：Keystore 指紋金鑰、匯出與選取檔案、Google 日曆（`CalendarBridge.kt`）、通知（`Reminders.kt`）、桌面小工具（`QuickWidget.kt`）、捷徑（`res/xml/shortcuts.xml`）、收據照片。
 - 深色模式：`look/theme.dart` 的 `Shade` 同時帶淺色與深色值，畫的時候才決定，所以 const 元件也會跟著換；文字或圖示放在有色底上用 `Hue.onAccent`。
 - 字型：Noto Sans TC 常用字子集，OFL 授權見 `fonts/LICENSE.txt`。
-- App 圖示：`tool/app_icon.svg` 是原稿（108dp 畫布），`android/.../mipmap-*` 由它輸出；畫面裡用 `look/app_mark.dart` 畫同一個圖。
+- App 圖示（霧藍底、三根上升長條加成長箭頭）：`tool/app_icon.svg` 是原稿（108dp 畫布），`android/.../mipmap-*` 由它輸出；畫面裡用 `look/app_mark.dart` 畫同一個圖。
 - 圖示：`tool/glyphs.py` 定義所有圖示並產生 `lib/src/look/glyphs.dart`，不要手改產生的檔案。
 
 ## 測試
