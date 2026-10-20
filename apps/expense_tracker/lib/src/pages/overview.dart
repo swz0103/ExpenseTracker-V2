@@ -255,7 +255,6 @@ class _OverviewPageState extends State<OverviewPage> {
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
     final anyLoss = holdings.any((h) => h.change < 0);
-    final today = ledger.today;
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
     final tone = change < 0 ? Hue.negative : Hue.positive;
@@ -263,14 +262,17 @@ class _OverviewPageState extends State<OverviewPage> {
       SectionHead(
         '投資行情',
         trailing: Text(
-          '${today.month}/${today.day} 收盤',
+          switch (ledger.quotedOn) {
+            final d? => '${d.month}/${d.day} 收盤',
+            null => '尚未取得收盤價',
+          },
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ),
       TileRow([
         Tile(
           icon: Glyph.investment,
-          label: '今日損益',
+          label: '當日損益',
           value: _m(signed(change)),
           valueColor: tone,
           sub: '當日 ${percentOf(change, before)}',

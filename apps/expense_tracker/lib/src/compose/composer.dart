@@ -792,6 +792,7 @@ class _ComposerState extends State<Composer> {
                   icon: Glyph.calculator,
                   label: switch (_type) {
                     _ when refunded != null => '退款金額',
+                    _ when _mode == ComposeMode.lend => _back ? '還款金額' : '代墊金額',
                     EntryType.transfer => '轉出金額',
                     EntryType.buy || EntryType.sell => '成交金額',
                     EntryType.dividend when _reducing => '退還股款',

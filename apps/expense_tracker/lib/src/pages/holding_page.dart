@@ -68,10 +68,17 @@ class HoldingPage extends StatelessWidget {
             TileRow([
               Tile(
                 icon: Glyph.investment,
-                label: '今日',
-                value: moneySigned(held.change),
+                label: switch (ledger.quotedOn) {
+                  final d? => '${d.month}/${d.day} 漲跌',
+                  null => '漲跌',
+                },
+                value: ledger.quotedOn == null
+                    ? '—'
+                    : moneySigned(held.change),
                 valueColor: held.change < 0 ? Hue.negative : Hue.positive,
-                sub: '參考價 ${held.price}',
+                sub: ledger.quotedOn == null
+                    ? '參考價 ${held.price}'
+                    : '收盤 ${held.price}',
               ),
               Tile(
                 icon: Glyph.dividend,
