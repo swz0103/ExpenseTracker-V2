@@ -91,11 +91,14 @@ void main() {
     expect(faults, isEmpty, reason: faults.join('\n'));
   });
 
-  testWidgets('every page holds with the text at 150%', (tester) async {
-    for (final (_, taps) in places) {
+  // One test per place, so a page that overflows is named.
+  for (final (name, taps) in places) {
+    testWidgets('$name holds with the text at 150%', (tester) async {
       await show(tester, text: 1.5);
       await go(tester, taps);
-    }
+    });
+  }
+  testWidgets('記一筆 holds with the text at 150%', (tester) async {
     await show(tester, text: 1.5);
     await tester.tap(find.byTooltip('記一筆'));
     await tester.pumpAndSettle();

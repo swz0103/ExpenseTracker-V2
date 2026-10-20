@@ -648,11 +648,15 @@ class _OverviewPageState extends State<OverviewPage> {
       ),
       Row(
         children: [
-          Text(
-            scope,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          Expanded(
+            child: Text(
+              scope,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          const Spacer(),
           Text(
             '結餘 ${money(left)}',
             style: TextStyle(
@@ -664,25 +668,26 @@ class _OverviewPageState extends State<OverviewPage> {
         ],
       ),
       const SizedBox(height: 4),
-      Row(
+      // Wraps to a second line when the phone's text is large.
+      Wrap(
+        spacing: 12,
+        runSpacing: 4,
         children: [
-          const LegendKey(Hue.positive, '收入'),
-          Text(
-            ' ${money(shown.income)}',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-          const SizedBox(width: 12),
-          const LegendKey(Hue.negative, '支出'),
-          Text(
-            ' ${money(shown.expense)}',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
-          const Spacer(),
-          const LegendKey(Hue.investment, '淨資產', line: true),
-          Text(
-            ' ${money(shown.worth)}',
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
-          ),
+          for (final (color, name, value, line) in [
+            (Hue.positive, '收入', shown.income, false),
+            (Hue.negative, '支出', shown.expense, false),
+            (Hue.investment, '淨資產', shown.worth, true),
+          ])
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LegendKey(color, name, line: line),
+                Text(
+                  ' ${money(value)}',
+                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                ),
+              ],
+            ),
         ],
       ),
       const SizedBox(height: 10),
