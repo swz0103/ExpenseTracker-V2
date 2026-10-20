@@ -227,7 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
         final privacy = widget.services.privacy;
         final calendar = widget.services.calendar;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             // A long press on the title shows the timings and background
             // faults, for looking into a problem.

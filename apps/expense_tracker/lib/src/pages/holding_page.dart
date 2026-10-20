@@ -34,7 +34,7 @@ class HoldingPage extends StatelessWidget {
         final trades = ledger.tradesOf(code);
         if (held == null) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             children: [
               PageHeader(code, onBack: nav.back),
               const Text('已不再持有', style: TextStyle(color: Hue.muted)),
@@ -50,7 +50,7 @@ class HoldingPage extends StatelessWidget {
         }
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader(held.name, onBack: nav.back),
             Tile(

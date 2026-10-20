@@ -205,7 +205,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ? null
             : buckets[selected];
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('財務報表', onBack: widget.nav.back),
             Segments(

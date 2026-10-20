@@ -120,7 +120,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
         final today = ledger.today;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
             Column(

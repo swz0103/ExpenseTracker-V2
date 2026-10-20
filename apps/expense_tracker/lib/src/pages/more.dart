@@ -36,7 +36,7 @@ class MorePage extends StatelessWidget {
         String shown(Recurring r) =>
             ledger.hidden ? '••••' : recurringAmount(ledger, r);
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             const PageHeader('更多'),
             Tile(

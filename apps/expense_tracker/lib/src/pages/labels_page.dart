@@ -129,7 +129,7 @@ class _LabelsPageState extends State<LabelsPage> {
         final rows = _merchants ? ledger.merchantStats : ledger.tagStats;
         final names = [for (final (name, _, _) in rows) name];
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('標籤與商家', onBack: widget.nav.back),
             Segments(

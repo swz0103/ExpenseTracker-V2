@@ -365,7 +365,7 @@ class _LedgerPageState extends State<LedgerPage> {
         final account = _account;
         final category = _category;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader(
               '收支紀錄',

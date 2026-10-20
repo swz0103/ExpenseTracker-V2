@@ -63,7 +63,7 @@ class _OverviewPageState extends State<OverviewPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) => ListView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         children: [
           PageHeader(
             '總覽',

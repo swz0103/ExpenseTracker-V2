@@ -32,7 +32,7 @@ class AccountsPage extends StatelessWidget {
             if (a.archived) a,
         ];
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader(
               '我的帳戶',
@@ -51,23 +51,6 @@ class AccountsPage extends StatelessWidget {
               valueColor: ledger.assets < debt ? Hue.negative : Hue.ink,
               child: _Balance(cash: cash, invest: invest, debt: debt),
             ),
-            TileRow([
-              Tile(icon: Glyph.bank, label: '存款', value: money(cash), size: 17),
-              Tile(
-                icon: Glyph.investment,
-                label: '投資',
-                value: money(invest),
-                size: 17,
-                onTap: () => nav.open(Pages.investments),
-              ),
-              Tile(
-                icon: Glyph.card,
-                label: '負債',
-                value: money(debt),
-                valueColor: debt > 0 ? Hue.negative : Hue.ink,
-                size: 17,
-              ),
-            ]),
             if (ledger.unrated.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -111,11 +94,13 @@ class AccountsPage extends StatelessWidget {
           child: Row(
             children: [
               Expanded(child: _cell(accounts[i])),
-              const VerticalDivider(
+              VerticalDivider(
                 width: 1,
                 indent: 10,
                 endIndent: 10,
-                color: Hue.line,
+                color: i + 1 < accounts.length
+                    ? Hue.line
+                    : Colors.transparent,
               ),
               Expanded(
                 child: i + 1 < accounts.length
@@ -217,24 +202,26 @@ class _Balance extends StatelessWidget {
     final assets = cash + invest;
     final scale = max(1, max(assets, debt));
     final share = assets <= 0 ? 0 : (invest * 100 / assets).round();
-    Widget bar(List<(int, Color)> parts) => ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 8,
-        child: Row(
-          children: [
-            for (final (value, color) in parts)
-              if (value > 0)
-                Expanded(
-                  flex: value,
-                  child: ColoredBox(color: color),
-                ),
-            if (scale - parts.fold(0, (s, p) => s + max(0, p.$1)) > 0)
-              Expanded(
-                flex: scale - parts.fold(0, (s, p) => s + max(0, p.$1)),
-                child: const ColoredBox(color: Color(0x14000000)),
-              ),
-          ],
+    // Widths from fractions of the larger side, so both bars share a scale.
+    Widget bar(List<(int, Color)> parts) => LayoutBuilder(
+      builder: (context, box) => ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          height: 8,
+          color: const Color(0x14000000),
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (value, color) in parts)
+                if (value > 0)
+                  Container(
+                    width: box.maxWidth * min(1, value / scale),
+                    height: 8,
+                    color: color,
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -272,10 +259,10 @@ class _Balance extends StatelessWidget {
         const SizedBox(height: 8),
         Wrap(
           spacing: 12,
+          runSpacing: 4,
           children: [
-            LegendKey(Hue.bank, '存款 ${100 - share}%'),
-            LegendKey(Hue.investment, '投資 $share%'),
-            const LegendKey(Hue.negative, '負債'),
+            LegendKey(Hue.bank, '存款 ${money(cash)}・${100 - share}%'),
+            LegendKey(Hue.investment, '投資 ${money(invest)}・$share%'),
           ],
         ),
       ],
