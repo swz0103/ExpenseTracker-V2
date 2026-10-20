@@ -90,8 +90,7 @@ class _AppShellState extends State<AppShell> {
     Navigator.of(context).popUntil((route) => route.isFirst);
     _compose(
       type: asked == QuickAction.income ? EntryType.income : EntryType.expense,
-    )
-        .ignore();
+    ).ignore();
   }
 
   /// Says why the ledger refused a change; the screens already show what
