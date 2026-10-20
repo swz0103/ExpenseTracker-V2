@@ -61,9 +61,19 @@ class _LockScreenState extends State<LockScreen> {
     _ => false,
   };
 
+  /// Starts a new ledger once the opening animation has played, unless
+  /// the person chose to restore a backup instead.
+  Timer? _autoStart;
+
   @override
   void initState() {
     super.initState();
+    if (_welcome) {
+      _autoStart = Timer(const Duration(milliseconds: 1600), () {
+        if (mounted && _welcome) unawaited(_start());
+      });
+      return;
+    }
     if (_quiet) {
       _busy = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -121,6 +131,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   void dispose() {
+    _autoStart?.cancel();
     _password.dispose();
     _again.dispose();
     _file.dispose();
@@ -187,13 +198,21 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_welcome) return _welcomeScreen();
-    if (_quiet && _problem == null) {
-      return const Scaffold(
-        backgroundColor: Hue.paper,
-        body: Center(child: CircularProgressIndicator()),
+    // A new ledger starts by itself, without a password: one can be set
+    // later in settings. Until then the opening animation plays, with a
+    // way to restore a backup instead.
+    if (_welcome && _problem == null) {
+      return _Splash(
+        onRestore: _busy
+            ? null
+            : () {
+                _autoStart?.cancel();
+                setState(() => _restoring = true);
+              },
       );
     }
+    if (_welcome) return _welcomeScreen();
+    if (_quiet && _problem == null) return const _Splash();
     final creating = _creating;
     final empty = widget.startup.state is NeedsSetup;
     final title = creating
@@ -219,6 +238,11 @@ class _LockScreenState extends State<LockScreen> {
           _restoring = false;
           _problem = null;
         });
+        // Back on the opening screen: a new ledger is not started behind
+        // the person's back; the welcome choices show instead.
+        if (widget.startup.state is NeedsSetup) {
+          setState(() => _problem = '');
+        }
       },
       child: Scaffold(
         backgroundColor: Hue.paper,
@@ -422,7 +446,7 @@ class _LockScreenState extends State<LockScreen> {
                             ),
                           ),
                   ),
-                  if (problem != null)
+                  if (problem != null && problem.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: Text(
@@ -495,6 +519,80 @@ class _Secret extends StatelessWidget {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+/// The opening animation: the mark grows in and the name fades up, on
+/// the paper colour of the app.
+class _Splash extends StatelessWidget {
+  const _Splash({this.onRestore});
+
+  /// Restoring a backup instead of starting a new ledger; none when the
+  /// ledger exists already.
+  final VoidCallback? onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final restore = onRestore;
+    return Scaffold(
+      backgroundColor: Hue.paper,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                builder: (context, t, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Opacity(
+                      opacity: t,
+                      child: Transform.scale(
+                        scale: 0.8 + 0.2 * t,
+                        child: const IconBadge(
+                          Glyph.wallet,
+                          Hue.accent,
+                          size: 84,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Opacity(
+                      opacity: t,
+                      child: Transform.translate(
+                        offset: Offset(0, 12 * (1 - t)),
+                        child: const Text(
+                          '記帳本',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: Hue.ink,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (restore != null)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: TextButton(
+                    onPressed: restore,
+                    style: TextButton.styleFrom(foregroundColor: Hue.muted),
+                    child: const Text('換手機？從備份還原'),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

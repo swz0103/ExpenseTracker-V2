@@ -138,6 +138,7 @@ class _AccountPageState extends State<AccountPage> {
                               ledger: ledger,
                               entry: e,
                               onTap: () => widget.nav.showEntry(e),
+                              divider: !identical(e, entries.last),
                             ),
                         ],
                       ),

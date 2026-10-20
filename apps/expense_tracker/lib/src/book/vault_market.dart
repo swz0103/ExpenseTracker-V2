@@ -57,12 +57,43 @@ extension MarketRefresh on VaultJournal {
         final price = close == null
             ? null
             : double.tryParse(close.decimalPrice);
-        if (price == null || _quotes[symbol] == price) continue;
+        if (close == null || price == null) continue;
+        final day = DateTime.utc(
+          close.asOf.year,
+          close.asOf.month,
+          close.asOf.day,
+        );
+        final newest = _quotedOn;
+        if (newest == null || day.isAfter(newest)) {
+          _quotedOn = day;
+          changed = true;
+        }
+        final move = double.tryParse(close.decimalChange ?? '');
+        final name = close.name;
+        if (_quotes[symbol] == price &&
+            _moves[symbol] == move &&
+            (name == null || _names[symbol] == name)) {
+          continue;
+        }
         _quotes[symbol] = price;
+        if (move == null) {
+          _moves.remove(symbol);
+        } else {
+          _moves[symbol] = move;
+        }
+        if (name != null) _names[symbol] = name;
         changed = true;
       } on Object {
         continue;
       }
+    }
+    if (changed) {
+      await _append(_quotesKind, {
+        'prices': _quotes,
+        'moves': _moves,
+        'names': _names,
+        'on': ?_quotedOn?.toIso8601String(),
+      });
     }
     return changed;
   }

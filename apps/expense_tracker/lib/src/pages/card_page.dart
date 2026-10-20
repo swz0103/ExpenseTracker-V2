@@ -116,7 +116,7 @@ class CardPage extends StatelessWidget {
             ? '這期已繳清'
             : '繳款截止 ${_day(due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）';
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader(
               card.name,
@@ -262,6 +262,7 @@ class CardPage extends StatelessWidget {
                         ledger: ledger,
                         entry: e,
                         onTap: () => nav.showEntry(e),
+                        divider: !identical(e, unbilled.last),
                       ),
                   ],
                 ),

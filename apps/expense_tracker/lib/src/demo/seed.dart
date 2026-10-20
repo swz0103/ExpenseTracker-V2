@@ -151,6 +151,8 @@ Ledger demoLedger() {
 
   return Ledger(
     today: DateTime.utc(2026, 10, 4),
+    // Closing prices of the Friday before.
+    quotedOn: DateTime.utc(2026, 10, 2),
     // A sample of 臺灣銀行's board, so a foreign account can be tried.
     rates: const {'USD': 32.1, 'JPY': 0.214, 'EUR': 35.6, 'CNY': 4.47},
     accounts: [

@@ -63,7 +63,7 @@ class _OverviewPageState extends State<OverviewPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) => ListView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         children: [
           PageHeader(
             '總覽',
@@ -146,18 +146,29 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
         ],
       ),
-      AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: _WeekStrip(
-          key: ValueKey(monday),
-          ledger: ledger,
-          monday: monday,
-          selected: _day,
-          month: _month.$2,
-          onSelect: (day) => setState(() {
-            _day = day;
-            _dayPage = 0;
-          }),
+      // A swipe across the week goes to the week before or after.
+      GestureDetector(
+        onHorizontalDragEnd: (details) {
+          final speed = details.primaryVelocity ?? 0.0;
+          if (speed.abs() < 150) return;
+          if (speed < 0 && atToday) return;
+          _moveWeek(speed < 0 ? 1 : -1);
+        },
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          // Only the new week shows: two faded strips read as a smear.
+          layoutBuilder: (current, previous) => current ?? const SizedBox(),
+          child: _WeekStrip(
+            key: ValueKey(monday),
+            ledger: ledger,
+            monday: monday,
+            selected: _day,
+            month: _month.$2,
+            onSelect: (day) => setState(() {
+              _day = day;
+              _dayPage = 0;
+            }),
+          ),
         ),
       ),
       const Padding(
@@ -244,22 +255,21 @@ class _OverviewPageState extends State<OverviewPage> {
     final before = ledger.investValue - change;
     final largest = holdings.fold(0, (m, h) => max(m, h.change.abs()));
     final anyLoss = holdings.any((h) => h.change < 0);
-    final today = ledger.today;
     final code = _holding;
     final picked = code == null ? null : ledger.holding(code);
     final tone = change < 0 ? Hue.negative : Hue.positive;
     return [
       SectionHead(
         '投資行情',
-        trailing: Text(
-          '${today.month}/${today.day} 收盤',
-          style: const TextStyle(fontSize: 12, color: Hue.muted),
-        ),
+        trailing: Text(switch (ledger.quotedOn) {
+          final d? => '${d.month}/${d.day} 收盤',
+          null => '尚未取得收盤價',
+        }, style: const TextStyle(fontSize: 12, color: Hue.muted)),
       ),
       TileRow([
         Tile(
           icon: Glyph.investment,
-          label: '今日損益',
+          label: '當日損益',
           value: _m(signed(change)),
           valueColor: tone,
           sub: '當日 ${percentOf(change, before)}',
@@ -513,21 +523,33 @@ class _OverviewPageState extends State<OverviewPage> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
-      Row(
-        children: [
-          Text(scope, style: const TextStyle(fontSize: 12, color: Hue.muted)),
-          const SizedBox(width: 6),
-          Text(
-            '$shownName$share',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          const Spacer(),
-          if (tile != null)
-            _SmallLink('全部', () => setState(() => _tile = null)),
-          if (group != null) _SmallLink('返回資產', () => _openAssets(null)),
-        ],
+      // One height whether or not the links show, so a tap on the map
+      // does not push the page down.
+      SizedBox(
+        height: 36,
+        child: Row(
+          children: [
+            Text(scope, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '$shownName$share',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (tile != null)
+              _SmallLink('全部', () => setState(() => _tile = null)),
+            if (group != null) _SmallLink('返回資產', () => _openAssets(null)),
+          ],
+        ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 4),
       AnimatedSwitcher(
         duration: const Duration(milliseconds: 280),
         switchInCurve: Curves.easeOutCubic,
@@ -870,7 +892,7 @@ class _SmallLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Text(
           label,
           style: const TextStyle(fontSize: 12, color: Hue.accent),

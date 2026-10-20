@@ -79,6 +79,14 @@ final class VaultJournal implements Journal {
   final MarketDataGateway? _market;
   final _quotes = <String, double>{};
 
+  /// Each stock's change on its last trading day, per share, and its
+  /// listed name, from the same closes as [_quotes].
+  final _moves = <String, double>{};
+  final _names = <String, String>{};
+
+  /// The trading day of the newest close in [_quotes].
+  DateTime? _quotedOn;
+
   /// NT$ for one unit of each currency on 臺灣銀行's latest board.
   final _rates = <String, double>{};
   final Bookkeeping<SqlBookkeeping> _books;

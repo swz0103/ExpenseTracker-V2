@@ -7,13 +7,13 @@ import 'package:market/market_data.dart';
 import 'package:test/test.dart';
 
 const twseRows = '''[
-  {"Date":"1150929","Code":"2330","Name":"台積電","ClosingPrice":"1,234.50"},
+  {"Date":"1150929","Code":"2330","Name":"台積電","ClosingPrice":"1,234.50","Change":"-5.5000"},
   {"Date":"1150929","Code":"0050","Name":"元大台灣50","ClosingPrice":"62.75"},
   {"Date":"1150929","Code":"2317","Name":"鴻海","ClosingPrice":"--"}
 ]''';
 
 const tpexRows = '''[
-  {"Date":"1150929","SecuritiesCompanyCode":"6488","Close":"410.50"},
+  {"Date":"1150929","SecuritiesCompanyCode":"6488","CompanyName":"環球晶","Close":"410.50","Change":"+3.00"},
   {"Date":"1150929","SecuritiesCompanyCode":"00679B","Close":"28.10"}
 ]''';
 
@@ -85,6 +85,9 @@ void main() {
     expect(tsmc.value!.decimalPrice, '1234.50');
     expect(tsmc.value!.asOf, BusinessDate(2026, 9, 29));
     expect(tsmc.value!.fetchedAt.value, now);
+    expect((tsmc.value!.name, tsmc.value!.decimalChange), ('台積電', '-5.5000'));
+    expect((otc.value!.name, otc.value!.decimalChange), ('環球晶', '3.00'));
+    expect((etf.value!.name, etf.value!.decimalChange), ('元大台灣50', null));
     expect(etf.value!.decimalPrice, '62.75');
     expect(otc.value!.decimalPrice, '410.50');
     expect(bond.value!.decimalPrice, '28.10');

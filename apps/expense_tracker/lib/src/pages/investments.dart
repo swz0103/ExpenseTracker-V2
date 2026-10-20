@@ -120,7 +120,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
         final today = ledger.today;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
             Column(
@@ -154,12 +154,19 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   ),
                   Tile(
                     icon: Glyph.reports,
-                    label: '今日',
-                    value: moneySigned(ledger.dayChange),
+                    label: switch (ledger.quotedOn) {
+                      final d? => '${d.month}/${d.day} 漲跌',
+                      null => '漲跌',
+                    },
+                    value: ledger.quotedOn == null
+                        ? '—'
+                        : moneySigned(ledger.dayChange),
                     valueColor: ledger.dayChange < 0
                         ? Hue.negative
                         : Hue.positive,
-                    sub: '${holdings.length} 檔',
+                    sub: ledger.quotedOn == null
+                        ? '連上網路後更新收盤價'
+                        : '${holdings.length} 檔 · 收盤價',
                   ),
                 ]),
                 for (final (title, etf) in const [('ETF', true), ('個股', false)])

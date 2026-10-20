@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
@@ -30,7 +32,7 @@ class AccountsPage extends StatelessWidget {
             if (a.archived) a,
         ];
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader(
               '我的帳戶',
@@ -44,49 +46,11 @@ class AccountsPage extends StatelessWidget {
             Tile(
               hero: true,
               icon: Glyph.wallet,
-              label: '資產總額',
-              value: money(ledger.assets),
-              sub: '淨資產 ${money(ledger.assets - debt)}（扣除卡費）',
-              child: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: SizedBox(
-                    height: 8,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: cash < 1 ? 1 : cash,
-                          child: Container(color: Hue.bank),
-                        ),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          flex: invest < 1 ? 1 : invest,
-                          child: Container(color: Hue.investment),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              label: '淨資產',
+              value: money(ledger.assets - debt),
+              valueColor: ledger.assets < debt ? Hue.negative : Hue.ink,
+              child: _Balance(cash: cash, invest: invest, debt: debt),
             ),
-            TileRow([
-              Tile(icon: Glyph.bank, label: '存款', value: money(cash), size: 17),
-              Tile(
-                icon: Glyph.investment,
-                label: '投資',
-                value: money(invest),
-                size: 17,
-                onTap: () => nav.open(Pages.investments),
-              ),
-              Tile(
-                icon: Glyph.card,
-                label: '負債',
-                value: money(debt),
-                valueColor: debt > 0 ? Hue.negative : Hue.ink,
-                size: 17,
-              ),
-            ]),
             if (ledger.unrated.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -126,19 +90,26 @@ class AccountsPage extends StatelessWidget {
     final rows = <Widget>[];
     for (var i = 0; i < accounts.length; i += 2) {
       rows.add(
-        Row(
-          children: [
-            Expanded(child: _cell(accounts[i])),
-            Expanded(
-              child: i + 1 < accounts.length
-                  ? _cell(accounts[i + 1])
-                  : const SizedBox.shrink(),
-            ),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            children: [
+              Expanded(child: _cell(accounts[i])),
+              VerticalDivider(
+                width: 1,
+                indent: 10,
+                endIndent: 10,
+                color: i + 1 < accounts.length ? Hue.line : Colors.transparent,
+              ),
+              Expanded(
+                child: i + 1 < accounts.length
+                    ? _cell(accounts[i + 1])
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
         ),
       );
     }
-    final total = accounts.fold<int>(0, (sum, a) => sum + ledger.worthOf(a));
     return [
       Padding(
         padding: const EdgeInsets.only(top: 22, bottom: 8),
@@ -150,18 +121,20 @@ class AccountsPage extends StatelessWidget {
               kind.isDebt ? '${groupName(kind)} · 待繳' : groupName(kind),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
-            const Spacer(),
-            Text(
-              money(total.abs()),
-              style: const TextStyle(fontSize: 12, color: Hue.muted),
-            ),
           ],
         ),
       ),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Column(children: rows),
+        child: Column(
+          children: [
+            for (final (i, row) in rows.indexed) ...[
+              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14),
+              row,
+            ],
+          ],
+        ),
       ),
     ];
   }
@@ -205,6 +178,92 @@ class AccountsPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// What the net worth is made of: the assets as savings and investments,
+/// and the debt set against them, each bar to the same scale.
+class _Balance extends StatelessWidget {
+  const _Balance({
+    required this.cash,
+    required this.invest,
+    required this.debt,
+  });
+
+  final int cash;
+  final int invest;
+  final int debt;
+
+  @override
+  Widget build(BuildContext context) {
+    final assets = cash + invest;
+    final scale = max(1, max(assets, debt));
+    final share = assets <= 0 ? 0 : (invest * 100 / assets).round();
+    // Widths from fractions of the larger side, so both bars share a scale.
+    Widget bar(List<(int, Color)> parts) => LayoutBuilder(
+      builder: (context, box) => ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          height: 8,
+          color: const Color(0x14000000),
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (value, color) in parts)
+                if (value > 0)
+                  Container(
+                    width: box.maxWidth * min(1, value / scale),
+                    height: 8,
+                    color: color,
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+    Widget line(String label, int value, Widget barWidget) => Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Hue.muted),
+              ),
+              const Spacer(),
+              Text(
+                money(value),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          barWidget,
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        line('資產', assets, bar([(cash, Hue.bank), (invest, Hue.investment)])),
+        line('負債', debt, bar([(debt, Hue.negative)])),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            LegendKey(Hue.bank, '存款 ${money(cash)}・${100 - share}%'),
+            LegendKey(Hue.investment, '投資 ${money(invest)}・$share%'),
+          ],
+        ),
+      ],
     );
   }
 }

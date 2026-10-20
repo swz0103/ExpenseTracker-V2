@@ -95,7 +95,7 @@ extension _Investments on VaultJournal {
         for (final MapEntry(key: code, value: (name, price)) in quotes.entries)
           ui.Holding(
             code,
-            name,
+            _names[code] ?? name,
             shares: 0,
             price: _quotes[code] ?? price,
             cost: 0,

@@ -4,6 +4,7 @@ const _linkKind = '${appEventPrefix}recurring-link';
 const _removedKind = '${appEventPrefix}recurring-removed';
 const _ratesKind = '${appEventPrefix}rates';
 const _carryKind = '${appEventPrefix}budget-carry';
+const _quotesKind = '${appEventPrefix}quotes';
 const _trashKind = '${appEventPrefix}trash';
 const _restoredKind = '${appEventPrefix}trash-restored';
 
@@ -96,6 +97,26 @@ extension _AppEvents on VaultJournal {
       kept.add(ui.Trashed(entry, day));
     }
     return kept.reversed.toList();
+  }
+
+  /// The closes last fetched, kept so holdings are valued offline: the
+  /// prices, the day's change per share and the listed names.
+  void _restoreQuotes() {
+    final kept = _events(_quotesKind);
+    if (kept.isEmpty) return;
+    final last = kept.last;
+    Map<String, Object?> part(String key) =>
+        last[key] as Map<String, Object?>? ?? const {};
+    for (final MapEntry(:key, :value) in part('prices').entries) {
+      if (value is num) _quotes[key] = value.toDouble();
+    }
+    for (final MapEntry(:key, :value) in part('moves').entries) {
+      if (value is num) _moves[key] = value.toDouble();
+    }
+    for (final MapEntry(:key, :value) in part('names').entries) {
+      if (value is String) _names[key] = value;
+    }
+    if (last['on'] case final String on) _quotedOn = DateTime.tryParse(on);
   }
 
   /// The board last fetched, kept so foreign accounts are valued offline.

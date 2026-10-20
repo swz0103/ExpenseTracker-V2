@@ -76,7 +76,7 @@ class _RecurringPageState extends State<RecurringPage> {
           monthly += ledger.recurringWorth(r) * times;
         }
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('定期交易', onBack: widget.nav.back),
             Tile(

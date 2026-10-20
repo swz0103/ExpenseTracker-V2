@@ -223,303 +223,278 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final entries = ledger.entriesIn(year, month);
+        final keeper = widget.services.keeper;
+        final privacy = widget.services.privacy;
+        final calendar = widget.services.calendar;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
-            PageHeader('設定與資料', onBack: widget.nav.back),
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SectionHead('匯出帳本'),
-                  SoftPanel(
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              '選擇月份',
-                              style: TextStyle(fontSize: 13, color: Hue.muted),
-                            ),
-                            const Spacer(),
-                            MonthSwitch(
-                              month: _month,
-                              latest: (ledger.today.year, ledger.today.month),
-                              onChanged: (m) => setState(() => _month = m),
-                            ),
-                          ],
-                        ),
-                        const Divider(),
-                        _Export(
-                          badge: 'CSV',
-                          title: '下載收支紀錄',
-                          detail: '$year 年 $month 月 · ${entries.length} 筆紀錄',
-                          onTap: () => _save(
-                            '記帳本-$year-${'$month'.padLeft(2, '0')}.csv',
-                            toCsv(ledger, entries),
-                            ' ${entries.length} 筆紀錄的 CSV',
-                          ),
-                        ),
-                        const Divider(),
-                        _Export(
-                          badge: 'CSV',
-                          title: '下載全部紀錄',
-                          detail: '所有月份 · ${ledger.entries.length} 筆紀錄',
-                          onTap: () => _save(
-                            '記帳本-全部.csv',
-                            toCsv(ledger, ledger.entries),
-                            ' ${ledger.entries.length} 筆紀錄的 CSV',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SectionHead('匯入紀錄'),
-                  SoftPanel(
-                    child: Column(
-                      children: [
-                        _Export(
-                          badge: 'CSV',
-                          title: '從 CSV 匯入',
-                          detail: '選檔案或貼上；本 App 下載的紀錄可以完整匯回',
-                          icon: Glyph.add,
-                          onTap: () => importInto(
-                            context,
-                            ledger,
-                            readFile: widget.services.keeper?.readFile,
-                          ),
-                        ),
-                        const Divider(),
-                        _Export(
-                          badge: '發票',
-                          title: '匯入電子發票',
-                          detail: '貼上財政部載具消費明細，自動帶入商家與分類',
-                          icon: Glyph.add,
-                          onTap: () => importInto(
-                            context,
-                            ledger,
-                            invoices: true,
-                            readFile: widget.services.keeper?.readFile,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SectionHead('最近刪除'),
-                  SoftPanel(
-                    child: _Export(
-                      badge: '刪除',
-                      title: '最近刪除',
-                      detail: ledger.trash.isEmpty
-                          ? '30 天內沒有刪除的紀錄'
-                          : '${ledger.trash.length} 筆，30 天內可以放回',
-                      icon: Glyph.reset,
-                      onTap: () => showTrash(context, ledger),
-                    ),
-                  ),
-                  if (widget.services.keeper case final keeper?) ...[
-                    const SectionHead('帳本安全'),
-                    SoftPanel(
-                      child: Column(
-                        children: [
-                          _Export(
-                            badge: '備份',
-                            title: '備份帳本',
-                            detail: '每週會自動備份；這裡另存一份到下載或雲端硬碟，換手機時用來還原',
-                            icon: Glyph.download,
-                            onTap: () => _export(keeper),
-                          ),
-                          const Divider(),
-                          _Export(
-                            badge: '密碼',
-                            title: keeper.hasPassword ? '變更密碼' : '設定密碼',
-                            detail: keeper.hasPassword
-                                ? '至少 6 個字'
-                                : '目前打開 App 不用密碼；設定後每次都要輸入',
-                            icon: Glyph.edit,
-                            onTap: () => _changePassword(keeper),
-                          ),
-                          const Divider(),
-                          _Export(
-                            badge: '救援',
-                            title: keeper.hasPassword ? '更換救援碼' : '取得救援碼',
-                            detail: keeper.hasPassword
-                                ? '舊的救援碼會失效'
-                                : '沒有密碼時，換手機要靠它還原備份',
-                            icon: Glyph.reset,
-                            onTap: () => _newRecovery(keeper),
-                          ),
-                          if (keeper.hasPassword) ...[
-                            const Divider(),
-                            _Export(
-                              badge: '鎖定',
-                              title: '鎖定帳本',
-                              detail: '回到輸入密碼的畫面',
-                              icon: Glyph.next,
-                              onTap: keeper.lock,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (widget.services.privacy case final privacy?) ...[
-                    const SectionHead('螢幕隱私'),
-                    SoftPanel(
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('不讓截圖', style: TextStyle(fontSize: 14)),
-                                SizedBox(height: 2),
-                                Text(
-                                  '也不在最近使用的 App 裡顯示畫面',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Hue.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch(
-                            value: privacy.on,
-                            onChanged: (on) => _hideScreen(privacy, on),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (widget.services.calendar case final calendar?) ...[
-                    const SectionHead('Google 日曆'),
-                    SoftPanel(
-                      child: _Export(
-                        badge: '日曆',
-                        title: switch (calendar.chosen) {
-                          (_, final name)? => '同步到「$name」',
-                          null => '連結日曆',
-                        },
-                        detail: calendar.chosen == null
-                            ? '定期扣款與卡費繳款日放進 Google 日曆，由日曆提醒你'
-                            : '定期扣款與卡費繳款日會自動更新；點此更換或停止',
-                        icon: Glyph.calendar,
-                        onTap: () => _linkCalendar(calendar),
-                      ),
-                    ),
-                  ],
-                  const SectionHead('效能'),
-                  SoftPanel(
-                    child: Column(
-                      children: [
-                        for (final (name, figure) in Perf.instance.report)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: [
-                                Text(name),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    figure,
-                                    textAlign: TextAlign.end,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Hue.muted,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Only the preview's made-up book can be reset.
-                  if (ledger.journal == null)
-                    InkWell(
-                      onTap: _reset,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            Text('重設範例資料', style: TextStyle(color: Hue.danger)),
-                            Spacer(),
-                            GlyphIcon(Glyph.reset, color: Hue.danger),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+            // A long press on the title shows the timings and background
+            // faults, for looking into a problem.
+            GestureDetector(
+              onLongPress: _showPerformance,
+              child: PageHeader('設定與資料', onBack: widget.nav.back),
             ),
+            const SectionHead('紀錄'),
+            _Panel([
+              _Item(
+                glyph: Glyph.calendar,
+                title: '匯出月份',
+                trailing: MonthSwitch(
+                  month: _month,
+                  latest: (ledger.today.year, ledger.today.month),
+                  onChanged: (m) => setState(() => _month = m),
+                ),
+              ),
+              _Item(
+                glyph: Glyph.download,
+                title: '匯出 $month 月',
+                detail: '${entries.length} 筆 · CSV',
+                onTap: () => _save(
+                  '記帳本-$year-${'$month'.padLeft(2, '0')}.csv',
+                  toCsv(ledger, entries),
+                  ' ${entries.length} 筆紀錄的 CSV',
+                ),
+              ),
+              _Item(
+                glyph: Glyph.records,
+                title: '匯出全部',
+                detail: '${ledger.entries.length} 筆 · CSV',
+                onTap: () => _save(
+                  '記帳本-全部.csv',
+                  toCsv(ledger, ledger.entries),
+                  ' ${ledger.entries.length} 筆紀錄的 CSV',
+                ),
+              ),
+              _Item(
+                glyph: Glyph.add,
+                title: '匯入 CSV',
+                detail: '選檔案或貼上',
+                onTap: () =>
+                    importInto(context, ledger, readFile: keeper?.readFile),
+              ),
+              _Item(
+                glyph: Glyph.scan,
+                title: '匯入電子發票',
+                detail: '載具消費明細',
+                onTap: () => importInto(
+                  context,
+                  ledger,
+                  invoices: true,
+                  readFile: keeper?.readFile,
+                ),
+              ),
+              _Item(
+                glyph: Glyph.reset,
+                title: '最近刪除',
+                detail: ledger.trash.isEmpty
+                    ? '沒有'
+                    : '${ledger.trash.length} 筆可放回',
+                onTap: () => showTrash(context, ledger),
+              ),
+            ]),
+            if (keeper != null || privacy != null) ...[
+              const SectionHead('安全'),
+              _Panel([
+                if (keeper != null) ...[
+                  _Item(
+                    glyph: Glyph.safe,
+                    title: '備份帳本',
+                    detail: '存到下載或雲端硬碟',
+                    onTap: () => _export(keeper),
+                  ),
+                  _Item(
+                    glyph: Glyph.shield,
+                    title: keeper.hasPassword ? '變更密碼' : '設定密碼',
+                    detail: keeper.hasPassword ? '已設定' : '目前不用密碼',
+                    onTap: () => _changePassword(keeper),
+                  ),
+                  _Item(
+                    glyph: Glyph.ticket,
+                    title: keeper.hasPassword ? '更換救援碼' : '取得救援碼',
+                    detail: '換手機還原用',
+                    onTap: () => _newRecovery(keeper),
+                  ),
+                ],
+                if (privacy != null)
+                  _Item(
+                    glyph: Glyph.eyeOff,
+                    title: '不讓截圖',
+                    detail: '最近使用的 App 也看不到',
+                    trailing: Switch(
+                      value: privacy.on,
+                      onChanged: (on) => _hideScreen(privacy, on),
+                    ),
+                  ),
+                if (keeper != null && keeper.hasPassword)
+                  _Item(
+                    glyph: Glyph.close,
+                    title: '鎖定帳本',
+                    detail: '回到解鎖畫面',
+                    onTap: keeper.lock,
+                  ),
+              ]),
+            ],
+            if (calendar != null) ...[
+              const SectionHead('連結'),
+              _Panel([
+                _Item(
+                  glyph: Glyph.calendar,
+                  title: 'Google 日曆',
+                  detail: switch (calendar.chosen) {
+                    (_, final name)? => '同步到「$name」',
+                    null => '提醒定期扣款與卡費',
+                  },
+                  onTap: () => _linkCalendar(calendar),
+                ),
+              ]),
+            ],
+            // Only the preview's made-up book can be reset.
+            if (ledger.journal == null) ...[
+              const SizedBox(height: 16),
+              _Panel([
+                _Item(
+                  glyph: Glyph.reset,
+                  title: '重設範例資料',
+                  color: Hue.danger,
+                  onTap: _reset,
+                ),
+              ]),
+            ],
           ],
         );
       },
     );
   }
+
+  /// Load and frame timings with the background faults, in a sheet.
+  void _showPerformance() {
+    showSheet<void>(
+      context,
+      (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '效能與診斷',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            for (final (name, figure) in Perf.instance.report)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Text(name),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        figure,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _Export extends StatelessWidget {
-  const _Export({
-    required this.badge,
+/// A white panel of rows with thin rules between them.
+class _Panel extends StatelessWidget {
+  const _Panel(this.items);
+
+  final List<Widget> items;
+
+  @override
+  Widget build(BuildContext context) => SoftPanel(
+    color: Hue.white,
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Column(
+      children: [
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0) const Divider(height: 1, indent: 56, endIndent: 14),
+          item,
+        ],
+      ],
+    ),
+  );
+}
+
+/// One setting: an icon, its name, a few words on its state, and what a
+/// tap does, or a control of its own at the end.
+class _Item extends StatelessWidget {
+  const _Item({
+    required this.glyph,
     required this.title,
-    required this.detail,
-    required this.onTap,
-    this.icon = Glyph.download,
+    this.detail,
+    this.onTap,
+    this.trailing,
+    this.color = Hue.ink,
   });
 
-  final String badge;
-  final Glyph icon;
+  final Glyph glyph;
   final String title;
-  final String detail;
-  final VoidCallback onTap;
+  final String? detail;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Hue.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badge,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+    final detail = this.detail;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: Hue.tile,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: GlyphIcon(
+                  glyph,
+                  size: 18,
+                  color: color == Hue.ink ? Hue.accent : color,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    detail,
-                    style: const TextStyle(fontSize: 12, color: Hue.muted),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 15, color: color),
+                ),
               ),
-            ),
-            GlyphIcon(icon, color: Hue.muted),
-          ],
+              if (detail != null)
+                Flexible(
+                  child: Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  ),
+                ),
+              ?trailing,
+              if (trailing == null && onTap != null) ...[
+                const SizedBox(width: 4),
+                const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+              ],
+            ],
+          ),
         ),
       ),
     );

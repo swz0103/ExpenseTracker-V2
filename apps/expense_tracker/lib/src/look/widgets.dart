@@ -19,7 +19,7 @@ class PageHeader extends StatelessWidget {
     // Clear room under the status bar before the title.
     return Container(
       height: 60,
-      margin: const EdgeInsets.only(top: 14),
+      margin: const EdgeInsets.only(top: 6),
       child: Row(
         children: [
           if (back != null)
@@ -99,7 +99,7 @@ class SectionHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 28, bottom: 10),
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

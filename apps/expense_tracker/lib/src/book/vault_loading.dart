@@ -19,6 +19,7 @@ extension _Loading on VaultJournal {
     final notes = _store.postingNotes(_workspace);
     final homes = _store.postingHomeValues(_workspace);
     if (_rates.isEmpty) _rates.addAll(_keptRates());
+    if (_quotes.isEmpty) _restoreQuotes();
     final carries = _carries();
     String nameOf(PublicId id) =>
         _live(categories, id, (c) => c.replacementId)?.name ?? '';
@@ -78,6 +79,8 @@ extension _Loading on VaultJournal {
       ],
       entries: entries,
       holdings: holdings,
+      moves: _moves,
+      quotedOn: _quotedOn,
       budgets: [
         for (final MapEntry(key: key, value: plan) in applying.entries)
           ui.Budget(

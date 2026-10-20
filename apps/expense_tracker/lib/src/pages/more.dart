@@ -36,7 +36,7 @@ class MorePage extends StatelessWidget {
         String shown(Recurring r) =>
             ledger.hidden ? '••••' : recurringAmount(ledger, r);
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             const PageHeader('更多'),
             Tile(
@@ -143,31 +143,39 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Hue.tile,
-                shape: BoxShape.circle,
+    // The pressed shade is a rounded block inside the panel, so it never
+    // meets the panel's own corners at an angle.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: Hue.tile,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: GlyphIcon(icon, size: 18, color: Hue.accent),
               ),
-              alignment: Alignment.center,
-              child: GlyphIcon(icon, size: 18, color: Hue.accent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 15))),
-            Text(
-              detail,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
-            ),
-            const SizedBox(width: 4),
-            const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 15)),
+              ),
+              Text(
+                detail,
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
+              ),
+              const SizedBox(width: 4),
+              const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+            ],
+          ),
         ),
       ),
     );

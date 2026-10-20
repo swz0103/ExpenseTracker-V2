@@ -49,4 +49,30 @@ void main() {
     expect(ledger.account(ledger.mainAccount).kind, isNot(AccountKind.card));
     expect(ledger.mainAccount, isNot('bank'));
   });
+
+  test("a holding's day change follows the last close's change", () {
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 20),
+      accounts: const [],
+      categories: const [],
+      entries: const [],
+      holdings: const [
+        Holding(
+          '2330',
+          '台積電',
+          shares: 1000,
+          price: 1000,
+          cost: 900000,
+          change: 0,
+        ),
+        Holding('0050', '元大台灣50', shares: 10, price: 60, cost: 500, change: 0),
+      ],
+      budgets: const [],
+      recurring: const [],
+      moves: const {'2330': -5.5},
+    );
+    expect(ledger.holding('2330')!.change, -5500);
+    expect(ledger.holding('0050')!.change, 0);
+    expect(ledger.dayChange, -5500);
+  });
 }
