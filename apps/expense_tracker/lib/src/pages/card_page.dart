@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../compose/account_editor.dart';
 import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -7,7 +8,6 @@ import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
-import 'account_editor.dart';
 import 'entry_tile.dart';
 import 'nav.dart';
 
@@ -148,7 +148,7 @@ class CardPage extends StatelessWidget {
                             type: EntryType.transfer,
                             amount: owed,
                             account: ledger.mainAccount,
-                            category: '轉帳',
+                            category: transferCategory,
                             note: '${card.name}繳款',
                             to: card.id,
                           ),

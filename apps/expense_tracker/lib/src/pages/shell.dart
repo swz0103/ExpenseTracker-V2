@@ -8,6 +8,7 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
 import '../problems.dart';
+import '../quick_action.dart';
 import '../services.dart';
 import 'account_page.dart';
 import 'accounts.dart';
@@ -87,7 +88,9 @@ class _AppShellState extends State<AppShell> {
     if (quick == null || asked == null || !mounted) return;
     quick.value = null;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    _compose(type: asked == 'income' ? EntryType.income : EntryType.expense)
+    _compose(
+      type: asked == QuickAction.income ? EntryType.income : EntryType.expense,
+    )
         .ignore();
   }
 
@@ -122,6 +125,7 @@ class _AppShellState extends State<AppShell> {
       entry: entry,
       draft: draft,
       refundOf: refundOf,
+      photos: widget.services.receipts,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;

@@ -25,7 +25,8 @@ part 'ledger_reports.dart';
 /// edits and deletions always recompute them.
 final class Ledger extends ChangeNotifier {
   Ledger({
-    required this.today,
+    required DateTime today,
+    DateTime Function()? clock,
     required List<Account> accounts,
     required List<Category> categories,
     required List<Entry> entries,
@@ -39,7 +40,9 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> moves = const {},
     DateTime? quotedOn,
     Map<String, String> receipts = const {},
-  }) : _quotedOn = quotedOn,
+  }) : _clock = clock ?? (() => today),
+       _day = today,
+       _quotedOn = quotedOn,
        _receipts = {...receipts},
        _rates = {...rates},
        _moves = {...moves},
@@ -56,7 +59,25 @@ final class Ledger extends ChangeNotifier {
 
   static const allSpending = '全部支出';
 
-  final DateTime today;
+  /// Today, as a UTC midnight: from the clock, so a ledger left open
+  /// past midnight moves on to the new day.
+  DateTime get today => _clock();
+  final DateTime Function() _clock;
+
+  /// The day the screens last showed, and the card dues were worked out
+  /// for.
+  DateTime _day;
+
+  /// Tells the screens when the day has changed since they last looked,
+  /// as when the app comes back the next morning.
+  void checkDay() {
+    final now = today;
+    if (now == _day) return;
+    _day = now;
+    // The journal's card dues were for the day it loaded.
+    _dues.clear();
+    notifyListeners();
+  }
 
   /// Where changes are kept; none in the preview, which forgets them.
   final Journal? journal;
@@ -601,7 +622,7 @@ final class Ledger extends ChangeNotifier {
       note: item.name,
       recurring: item.id,
       merchant: item.merchant,
-      home: currency == 'TWD' ? null : toHome(item.amount, currency),
+      home: currency == homeCode ? null : toHome(item.amount, currency),
     );
   }
 
@@ -731,6 +752,7 @@ final class Ledger extends ChangeNotifier {
       ..clear()
       ..addAll(fresh._receipts);
     _quotedOn = fresh._quotedOn;
+    _day = fresh.today;
     _replay();
     notifyListeners();
   }

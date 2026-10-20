@@ -1,25 +1,5 @@
 part of 'composer.dart';
 
-/// A tinted block of the composer.
-class _Block extends StatelessWidget {
-  const _Block({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-      decoration: BoxDecoration(
-        color: Hue.tile,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: child,
-    );
-  }
-}
-
 /// The spending a refund belongs to, at the top of the refund form.
 class _OriginalTile extends StatelessWidget {
   const _OriginalTile({required this.ledger, required this.entry});

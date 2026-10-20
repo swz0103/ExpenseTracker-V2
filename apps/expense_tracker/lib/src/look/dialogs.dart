@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../look/theme.dart';
+import 'theme.dart';
 
 /// Asks for a line of text; null when cancelled or left empty.
 Future<String?> askText(

@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 
 import 'book/keeper.dart';
 import 'calendar_sync.dart';
+import 'compose/receipt_photos.dart';
+import 'model/ledger.dart';
 import 'notifications.dart';
 import 'preferences.dart';
+import 'quick_action.dart';
 import 'screen_privacy.dart';
 
 /// What the phone and the open ledger offer the screens beyond the book:
@@ -18,6 +21,8 @@ final class Services {
     this.preferences,
     this.notifier,
     this.quick,
+    this.sample,
+    this.receipts,
   });
 
   final Keeper? keeper;
@@ -26,7 +31,14 @@ final class Services {
   final Preferences? preferences;
   final Notifier? notifier;
 
-  /// What a shortcut, the widget or a notification asked for: `expense`
-  /// or `income`, taken (set back to null) once acted on.
-  final ValueNotifier<String?>? quick;
+  /// What a shortcut, the widget or a notification asked for, taken (set
+  /// back to null) once acted on.
+  final ValueNotifier<QuickAction?>? quick;
+
+  /// The preview's made-up book, made afresh to start over from; none for
+  /// a real ledger.
+  final Ledger Function()? sample;
+
+  /// The phone's receipt photos; none in the preview, which hides them.
+  final ReceiptPhotos? receipts;
 }

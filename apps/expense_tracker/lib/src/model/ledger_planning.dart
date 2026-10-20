@@ -3,6 +3,14 @@ part of 'ledger.dart';
 /// Budgets and recurring items: what has been spent against a limit and
 /// what falls due next.
 extension LedgerPlanning on Ledger {
+  /// The days of [year]/[month] gone by, today included, and all its
+  /// days; every day of a month other than this one.
+  (int, int) daysGone(int year, int month) {
+    final days = DateTime.utc(year, month + 1, 0).day;
+    final current = year == today.year && month == today.month;
+    return (current ? today.day : days, days);
+  }
+
   /// What spending carrying [tag] came to in [year]/[month].
   int spentOnTag(String tag, int year, int month) {
     var total = 0;

@@ -456,10 +456,8 @@ class _OverviewPageState extends State<OverviewPage> {
   /// How much of the month has gone by: today's share of its days for
   /// the current month, all of it for past ones.
   double _pace(int year, int month) {
-    final today = widget.ledger.today;
-    if (year != today.year || month != today.month) return 1;
-    final days = DateTime.utc(year, month + 1, 0).day;
-    return today.day / days;
+    final (gone, days) = widget.ledger.daysGone(year, month);
+    return gone / days;
   }
 
   /// Colours for the second level of 財務分布, in v114's order.

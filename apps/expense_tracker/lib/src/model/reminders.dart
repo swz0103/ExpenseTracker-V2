@@ -36,7 +36,7 @@ extension LedgerReminders on Ledger {
     for (final r in recurring) {
       if (!r.active) continue;
       final currency = account(r.account).currency;
-      final amount = currency == 'TWD'
+      final amount = currency == homeCode
           ? groupDigits(r.amount)
           : '$currency ${plainIn(r.amount, currency)}';
       final booked = confirmationsIn(r, today.year, today.month).length;

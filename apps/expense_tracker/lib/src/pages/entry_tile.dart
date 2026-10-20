@@ -23,7 +23,7 @@ String recurringAmount(Ledger ledger, Recurring item) =>
 
 /// `−200`, `+52,000`, or a plain amount for transfers, in the [currency]
 /// of the entry's account.
-String entryAmount(Entry e, {String currency = 'TWD'}) {
+String entryAmount(Entry e, {String currency = homeCode}) {
   final amount = amountIn(e.amount, currency);
   return switch (e.type) {
     EntryType.expense || EntryType.buy => '−$amount',

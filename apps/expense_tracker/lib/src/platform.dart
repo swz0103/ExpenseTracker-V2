@@ -11,6 +11,7 @@ import 'calendar_sync.dart';
 import 'compose/receipt_photos.dart';
 import 'model/reminders.dart';
 import 'notifications.dart';
+import 'quick_action.dart';
 import 'startup.dart';
 
 /// What the Android side of the app provides: its private files folder
@@ -231,7 +232,7 @@ final class AndroidNotifications implements NotifyPort {
               'at': a.at.millisecondsSinceEpoch,
               'title': a.title,
               'text': a.text,
-              'quick': a.quick,
+              'quick': a.quick?.name,
             },
         ],
       });
@@ -240,15 +241,17 @@ final class AndroidNotifications implements NotifyPort {
 /// What a home-screen shortcut, the widget or a notification asked for:
 /// `expense` or `income` opens the composer. Held until the app is open
 /// to act on it.
-final quickAction = ValueNotifier<String?>(null);
+final quickAction = ValueNotifier<QuickAction?>(null);
 
 /// Takes the action the app was opened with, then listens for those
 /// that arrive while it runs.
 Future<void> listenForQuickActions() async {
   platformChannel.setMethodCallHandler((call) async {
     if (call.method == 'quickAction')
-      quickAction.value = call.arguments as String?;
+      quickAction.value = QuickAction.named(call.arguments as String?);
   });
   final first = await platformChannel.invokeMethod<String>('takeQuickAction');
-  if (first != null) quickAction.value = first;
+  if (QuickAction.named(first) case final action?) {
+    quickAction.value = action;
+  }
 }

@@ -5,6 +5,7 @@ import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/look/theme.dart';
 import 'package:expense_tracker/src/notifications.dart';
 import 'package:expense_tracker/src/preferences.dart';
+import 'package:expense_tracker/src/quick_action.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -123,7 +124,7 @@ void main() {
       // The demo book has entries on its today, 10/4.
       expect(alerts.first.at, DateTime(2026, 10, 5, 21));
       expect(alerts, hasLength(6));
-      expect(alerts.every((a) => a.quick == 'expense'), isTrue);
+      expect(alerts.every((a) => a.quick == QuickAction.expense), isTrue);
     });
   });
 }

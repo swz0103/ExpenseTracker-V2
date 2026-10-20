@@ -240,7 +240,7 @@ extension LedgerReports on Ledger {
   /// [minor] units of [currency] in whole NT$ at [rates]; null without a
   /// rate for it.
   int? toHome(int minor, String currency) {
-    if (currency == 'TWD') return minor;
+    if (currency == homeCode) return minor;
     final rate = _rates[currency];
     if (rate == null) return null;
     return (minor / _unit(currency) * rate).round();
@@ -250,9 +250,9 @@ extension LedgerReports on Ledger {
   /// [rates]; null without a rate for either.
   int? convert(int amount, String from, String to) {
     if (from == to) return amount;
-    final home = from == 'TWD' ? amount.toDouble() : _rated(amount, from);
+    final home = from == homeCode ? amount.toDouble() : _rated(amount, from);
     if (home == null) return null;
-    if (to == 'TWD') return home.round();
+    if (to == homeCode) return home.round();
     final rate = _rates[to];
     if (rate == null || rate <= 0) return null;
     return (home / rate * _unit(to)).round();

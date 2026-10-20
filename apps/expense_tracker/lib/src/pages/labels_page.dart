@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../compose/pickers.dart';
+import '../look/dialogs.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
-import 'dialogs.dart';
 import 'nav.dart';
 
 /// 標籤與商家: every tag and merchant with how often it is used and what

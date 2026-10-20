@@ -67,6 +67,10 @@ extension _Loading on VaultJournal {
     final accounts = _store.accounts(_workspace);
     return ui.Ledger(
       today: DateTime.utc(today.year, today.month, today.day),
+      clock: () {
+        final day = _clock.today();
+        return DateTime.utc(day.year, day.month, day.day);
+      },
       accounts: [
         for (final a in accounts)
           _accountOf(a, openings[a.id] ?? 0, looks[a.id.value]),
@@ -173,7 +177,7 @@ extension _Loading on VaultJournal {
           amount: _int(sent).abs(),
           account: from.first.account.id.value,
           to: to.first.account.id.value,
-          category: '轉帳',
+          category: ui.transferCategory,
           note: note,
           fee: fee,
           received: arrived.currency == sent.currency ? null : _int(arrived),

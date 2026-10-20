@@ -4,6 +4,12 @@ import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:domain/investments.dart' show unitsPerShare;
 import 'package:flutter/painting.dart' show Color;
 
+/// The code of the currency the books are kept in: NT$.
+const homeCode = 'TWD';
+
+/// The category every transfer carries.
+const transferCategory = '轉帳';
+
 /// Where fees go that have no category of their own, such as a
 /// transfer's.
 const feeCategory = '其他支出';
@@ -35,7 +41,7 @@ final class Account {
     this.limit,
     this.archived = false,
     this.inNetWorth = true,
-    this.currency = 'TWD',
+    this.currency = homeCode,
     this.closes = const {},
     this.history = const [],
   });
@@ -50,7 +56,7 @@ final class Account {
   final String currency;
 
   /// Kept in a currency other than NT$.
-  bool get foreign => currency != 'TWD';
+  bool get foreign => currency != homeCode;
 
   /// A card's statements that close on another day than scheduled, such
   /// as around a holiday: the actual close by the scheduled one.

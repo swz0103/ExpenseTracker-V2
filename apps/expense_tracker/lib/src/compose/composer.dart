@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../look/dialogs.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
@@ -10,10 +11,9 @@ import '../look/widgets.dart';
 import '../model/checks.dart';
 import '../model/ledger.dart';
 import '../model/trading.dart';
-import '../pages/account_editor.dart';
-import '../pages/categories_page.dart';
-import '../pages/dialogs.dart';
+import 'account_editor.dart';
 import 'calculator.dart';
+import 'category_editor.dart';
 import 'pickers.dart';
 import 'receipt_photos.dart';
 
@@ -60,6 +60,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
   Entry? entry,
   Entry? draft,
   Entry? refundOf,
+  ReceiptPhotos? photos,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return null;
   return showSheet<(ComposeOutcome, Entry)>(
@@ -70,6 +71,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       entry: entry,
       draft: draft,
       refundOf: refundOf ?? _original(ledger, entry),
+      photos: photos,
     ),
   );
 }
@@ -88,6 +90,7 @@ class Composer extends StatefulWidget {
     this.entry,
     this.draft,
     this.refundOf,
+    this.photos,
   });
 
   final Ledger ledger;
@@ -101,6 +104,9 @@ class Composer extends StatefulWidget {
 
   /// The spending being refunded, for a refund.
   final Entry? refundOf;
+
+  /// The phone's receipt photos; none in the preview, which hides them.
+  final ReceiptPhotos? photos;
 
   @override
   State<Composer> createState() => _ComposerState();
@@ -413,7 +419,7 @@ class _ComposerState extends State<Composer> {
   /// A transfer with a fee field: from an NT$ account, whose fee counts
   /// as NT$ spending, and not to a card, whose payment carries none.
   bool get _takesFee =>
-      _currency == 'TWD' && _ledger.account(_to).kind != AccountKind.card;
+      _currency == homeCode && _ledger.account(_to).kind != AccountKind.card;
 
   /// The currency of the account paying or receiving, and of a
   /// transfer's receiving account.
@@ -423,7 +429,7 @@ class _ComposerState extends State<Composer> {
   /// Spending or income in a foreign-currency account, which also needs
   /// its worth in NT$.
   bool get _foreign =>
-      _currency != 'TWD' &&
+      _currency != homeCode &&
       (_type == EntryType.expense || _type == EntryType.income);
 
   /// A transfer between accounts kept in different currencies.
@@ -465,7 +471,7 @@ class _ComposerState extends State<Composer> {
     return (_tradeFee ?? fee, _tradeTax ?? tax);
   }
 
-  Future<int?> _ask(String title, int initial, {String unit = 'TWD'}) {
+  Future<int?> _ask(String title, int initial, {String unit = homeCode}) {
     return showCalculator(
       context,
       title: title,
@@ -713,7 +719,7 @@ class _ComposerState extends State<Composer> {
       // Paid back: from the person's account into the chosen one.
       account: _lendingBack ? _to : _account,
       category: switch (type) {
-        EntryType.transfer => '轉帳',
+        EntryType.transfer => transferCategory,
         EntryType.dividend => '股息收入',
         EntryType.buy || EntryType.sell => '投資',
         _ => parts == null || parts.isEmpty ? _category : parts.first.$1,

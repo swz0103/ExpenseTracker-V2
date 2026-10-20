@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../compose/account_editor.dart';
 import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
@@ -9,7 +10,6 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
 import '../model/ledger.dart';
-import 'account_editor.dart';
 
 /// Opens the import form: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in or read from a file, and added to
