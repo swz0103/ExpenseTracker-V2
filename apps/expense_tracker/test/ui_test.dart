@@ -276,8 +276,8 @@ void main() {
     final ledger = await show(tester);
     Finder inSheet(String text) =>
         find.descendant(of: find.byType(Composer), matching: find.text(text));
-    Future<void> type(List<String> keys) async {
-      await tester.tap(find.text('金額'));
+    Future<void> type(String label, List<String> keys) async {
+      await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       for (final key in [...keys, '完成']) {
         await tester.tap(find.text(key).last);
@@ -292,7 +292,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(inSheet('幫誰付'), findsOneWidget);
     expect(inSheet('代墊朋友'), findsOneWidget);
-    await type(['5', '0', '0']);
+    await type('代墊金額', ['5', '0', '0']);
     await tester.tap(find.text('記下代墊'));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3200 + 500);
@@ -305,7 +305,7 @@ void main() {
     await tester.tap(inSheet('對方還錢'));
     await tester.pumpAndSettle();
     expect(inSheet('誰還錢'), findsOneWidget);
-    await type(['3', '0', '0']);
+    await type('還款金額', ['3', '0', '0']);
     await tester.tap(find.text('記下還款'));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3700 - 300);
