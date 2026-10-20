@@ -32,7 +32,7 @@ part 'planning.dart';
 /// Tags and merchant attached to a posting. They never change amounts and
 /// are stored beside the posting; a reversal carries the original's.
 /// The currency reports, budgets and net worth are kept in. A foreign
-/// entry counts at the value it had in it when booked (feature audit G-11).
+/// entry counts at the value it had in it when booked.
 final homeCurrency = Currency.of('TWD');
 
 final class PostingMetadata {
@@ -112,12 +112,6 @@ abstract interface class BookkeepingTransaction implements WriteTransaction {
 
   Future<void> saveNote(PublicId postingId, EntryNote note);
 
-  Future<Money> balance(PublicId accountId, Currency currency);
-
-  /// True while the account has pending card authorizations or funds an
-  /// investment account with open lots.
-  Future<bool> hasUnsettledItems(PublicId accountId);
-
   Future<void> saveAccount(Account account);
 
   Future<PostingMetadata> postingMetadata(PublicId postingId);
@@ -165,23 +159,14 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     SetNetWorthInclusion command,
   ) => _runner.run(command, (t) => _guard(() => _setNetWorth(t, command)));
 
-  Future<CommandOutcome<int>> changeOpeningDate(ChangeOpeningDate command) =>
-      _runner.run(command, (t) => _guard(() => _moveOpening(t, command)));
-
   Future<CommandOutcome<int>> changeAccountState(ChangeAccountState command) =>
       _runner.run(command, (t) => _guard(() => _changeState(t, command)));
 
   Future<CommandOutcome<PublicId>> recordCashFlow(RecordCashFlow command) =>
       _runner.run(command, (t) => _guard(() => _cashFlow(t, command)));
 
-  Future<CommandOutcome<PublicId>> adjustBalance(AdjustBalance command) =>
-      _runner.run(command, (t) => _guard(() => _adjustBalance(t, command)));
-
   Future<CommandOutcome<PublicId>> recordTransfer(RecordTransfer command) =>
       _runner.run(command, (t) => _guard(() => _transfer(t, command)));
-
-  Future<CommandOutcome<PublicId>> reversePosting(ReversePosting command) =>
-      _runner.run(command, (t) => _guard(() => _reverse(t, command)));
 
   Future<CommandOutcome<PublicId>> recordRefund(RecordRefund command) =>
       _runner.run(command, (t) => _guard(() => _refund(t, command)));
@@ -201,9 +186,6 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
 
   Future<CommandOutcome<PublicId>> deletePosting(DeletePosting command) =>
       _runner.run(command, (t) => _guard(() => _delete(t, command)));
-
-  Future<CommandOutcome<int>> closeAccount(CloseAccount command) =>
-      _runner.run(command, (t) => _guard(() => _close(t, command)));
 
   Future<CommandOutcome<int>> changeCatalog(ChangeCatalog command) =>
       _runner.run(command, (t) => _guard(() => _catalog(t, command)));
@@ -322,7 +304,7 @@ final class Bookkeeping<T extends BookkeepingTransaction> {
     Money? homeValue,
     Currency? currency,
   }) async {
-    // Only a foreign-currency entry has a home value (G-11).
+    // Only a foreign-currency entry has a home value.
     if (homeValue != null && currency == homeCurrency) {
       throw const AppFailure(FailureKind.rejected, 'posting.home-value');
     }
@@ -459,20 +441,6 @@ MerchantCatalog _changeMerchants(
     targetId: merge.targetId,
     expectedTargetVersion: merge.expectedTargetVersion,
   ),
-  ChangeAlias(:final id, :final expectedVersion, :final alias, :final add) =>
-    add
-        ? catalog.addAlias(
-            workspace: workspace,
-            id: id,
-            expectedVersion: expectedVersion,
-            alias: alias,
-          )
-        : catalog.removeAlias(
-            workspace: workspace,
-            id: id,
-            expectedVersion: expectedVersion,
-            alias: alias,
-          ),
   _ => throw const AppFailure(FailureKind.rejected, 'catalog.unsupported'),
 };
 
@@ -542,7 +510,7 @@ AppFailure _catalogFailure(String area, String code) {
 }
 
 /// The first and last dates anything can be booked on; a date outside
-/// them is a typo (feature audit G-18b). Date pickers use the same range.
+/// them is a typo. Date pickers use the same range.
 final earliestBookingDate = BusinessDate(2000, 1, 1);
 final latestBookingDate = BusinessDate(2099, 12, 31);
 

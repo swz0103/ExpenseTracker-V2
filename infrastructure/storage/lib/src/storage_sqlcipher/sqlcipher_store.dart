@@ -20,7 +20,7 @@ enum StorageProblem {
   newerSchema,
 
   /// Another connection, isolate or process already has the file open;
-  /// only one may own a ledger at a time (health check G7-10).
+  /// only one may own a ledger at a time.
   inUse,
 }
 

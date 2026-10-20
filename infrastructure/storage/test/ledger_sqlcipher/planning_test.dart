@@ -71,22 +71,8 @@ void main() {
     return id;
   }
 
-  Future<void> spend(int units, PublicId category) => books.recordCashFlow(
-    RecordCashFlow(
-      operation: op(),
-      postingId: PublicId.generate(),
-      flow: CashFlow.expense,
-      account: AccountRef(cash, 1),
-      date: BusinessDate(2026, 10, 9),
-      amount: ntd(units),
-      allocations: [CategoryShare(category, 1, ntd(units))],
-    ),
-  );
-
-  test('a budget follows spending in its category', () async {
+  test('a budget is stored with its version', () async {
     final food = await category('餐飲');
-    final lunch = await category('午餐');
-    final fun = await category('娛樂');
     final budget = PublicId.generate();
     expect(
       (await planning.setBudget(
@@ -101,24 +87,11 @@ void main() {
       )).value,
       1,
     );
-    await spend(3000, food);
-    await spend(1000, fun);
-    var status = ledger.budgetStatus(workspace, october).single;
-    expect(status.spent, ntd(3000));
-    expect(status.atWarning, isFalse);
-
-    await spend(1200, lunch);
-    await books.changeCatalog(
-      ChangeCatalog(
-        operation: op(),
-        catalog: CatalogType.category,
-        change: MergeEntry(lunch, 1, food, 1),
-      ),
-    );
-    status = ledger.budgetStatus(workspace, october).single;
-    expect(status.spent, ntd(4200));
-    expect(status.atWarning, isTrue);
-    expect(status.overLimit, isFalse);
+    final plan = ledger.budgetPlans(workspace).single;
+    expect(plan.id, budget);
+    expect(plan.categoryId, food);
+    expect(plan.limit, ntd(5000));
+    expect(plan.version, 1);
 
     await expectLater(
       planning.setBudget(
@@ -134,7 +107,7 @@ void main() {
     );
   });
 
-  test('a removed budget applies to no month', () async {
+  test('a removed budget is gone', () async {
     final food = await category('餐飲');
     final budget = PublicId.generate();
     await planning.setBudget(
@@ -148,7 +121,7 @@ void main() {
         repeats: true,
       ),
     );
-    expect(ledger.budgetStatus(workspace, october), hasLength(1));
+    expect(ledger.budgetPlans(workspace), hasLength(1));
     await expectLater(
       planning.removeBudget(
         RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 2),
@@ -158,8 +131,7 @@ void main() {
     await planning.removeBudget(
       RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 1),
     );
-    expect(ledger.budgetStatus(workspace, october), isEmpty);
-    expect(ledger.budgetStatus(workspace, ReportMonth(2027, 1)), isEmpty);
+    expect(ledger.budgetPlans(workspace), isEmpty);
     await expectLater(
       planning.removeBudget(
         RemoveBudget(operation: op(), budgetId: budget, expectedVersion: 1),
@@ -286,7 +258,7 @@ void main() {
     expect(ledger.balance(ledger.accounts(workspace).single), ntd(-990));
   });
 
-  test('a repeating budget applies to every later month', () async {
+  test('a repeating budget is stored as repeating', () async {
     final food = await category('餐飲');
     Future<void> budget(PublicId id, {required bool repeats}) async {
       await planning.setBudget(
@@ -305,13 +277,11 @@ void main() {
     final monthly = PublicId.generate();
     await budget(monthly, repeats: true);
     await budget(PublicId.generate(), repeats: false);
-    await spend(3000, food);
-    expect(ledger.budgetStatus(workspace, october), hasLength(2));
-    expect(ledger.budgetStatus(workspace, ReportMonth(2026, 9)), isEmpty);
-    final december = ledger.budgetStatus(workspace, ReportMonth(2026, 12));
-    expect(december.single.plan.id, monthly);
-    expect(december.single.plan.month.month, 12);
-    expect(december.single.spent, ntd(0));
+    final plans = ledger.budgetPlans(workspace);
+    expect(plans, hasLength(2));
+    final repeating = plans.singleWhere((plan) => plan.repeats);
+    expect(repeating.id, monthly);
+    expect(repeating.forMonth(ReportMonth(2026, 12)).month.month, 12);
   });
 
   test('a confirmation takes the real amount and keeps its date', () async {
@@ -344,8 +314,9 @@ void main() {
         allocations: [CategoryShare(power, 1, ntd(1832))],
       ),
     );
-    final totals = ledger.categoryTotals(workspace, '2026-10');
-    expect(totals[(power, 'TWD')]!.expense, ntd(1832));
+    final allocation = ledger.postingById(outcome.value)!.allocations.single;
+    expect(allocation.categoryId, power);
+    expect(allocation.amount, ntd(1832));
 
     // Correcting the amount keeps the due date confirmed.
     await books.correctCashFlow(

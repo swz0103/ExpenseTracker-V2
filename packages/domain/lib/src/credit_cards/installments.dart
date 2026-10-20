@@ -57,7 +57,7 @@ final class CardInstallmentSchedule {
   final int count;
 
   /// Equal installments rounded down; the whole remainder goes into the
-  /// first one, as Taiwan card issuers bill it (feature audit G-23).
+  /// first one, as Taiwan card issuers bill it.
   List<CardInstallment> get installments {
     final principals = _splitFirst(principal, count);
     final fees = _splitFirst(fixedFee, count);

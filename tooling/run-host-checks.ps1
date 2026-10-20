@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $checks = @(
-    @{ Path = 'tooling/architecture_checks'; Dirs = @('lib', 'bin', 'test'); Architecture = $true },
+    @{ Path = 'tooling/architecture_checks'; Dirs = @('test') },
     @{ Path = 'packages/core'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart', 'bin/posting_worker.dart') },
@@ -78,9 +78,6 @@ foreach ($check in $selected) {
         $testArguments = @('test', '--reporter', 'expanded')
         if ($isFlutter) { $testArguments += '--concurrency=1' }
         Invoke-CheckCommand $driver $testArguments
-        if ($check.ContainsKey('Architecture')) {
-            Invoke-CheckCommand $Dart @('run', 'bin/check.dart', '../..')
-        }
     } finally {
         Pop-Location
     }

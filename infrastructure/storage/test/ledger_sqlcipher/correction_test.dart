@@ -104,13 +104,23 @@ void main() {
     return outcome.value;
   }
 
+  /// Spending booked in [month] (`YYYY-MM`), as reports total it.
+  Money spentIn(String month) {
+    var total = ntd(0);
+    for (final posting in ledger.workspacePostings(workspace)) {
+      if ('${posting.date}'.startsWith(month)) total += posting.reportExpense;
+    }
+    return total;
+  }
+
   test('a correction fixes the original month in place', () async {
     final dinner = await expense(1000);
-    await correct(dinner, 800);
+    final fixed = await correct(dinner, 800);
     expect(ledger.balance(ledger.accounts(workspace).single), ntd(9200));
-    expect(ledger.monthly(workspace, '2026-08')['TWD']!.expense, ntd(800));
-    final totals = ledger.categoryTotals(workspace, '2026-08');
-    expect(totals[(food, 'TWD')]!.expense, ntd(800));
+    expect(spentIn('2026-08'), ntd(800));
+    final allocation = ledger.postingById(fixed)!.allocations.single;
+    expect(allocation.categoryId, food);
+    expect(allocation.amount, ntd(800));
     await expectLater(
       correct(dinner, 700),
       fails(FailureKind.conflict, 'posting.already-reversed'),
@@ -121,7 +131,8 @@ void main() {
       currency: twd,
       expectedVersion: 1,
     );
-    expect(rebuildBalance(account, ledger.postings(cash)), ntd(9200));
+    final postings = ledger.workspacePostings(workspace);
+    expect(rebuildBalance(account, postings), ntd(9200));
   });
 
   test('deleting removes a posting from its own month', () async {
@@ -133,7 +144,7 @@ void main() {
         originalId: taxi,
       ),
     );
-    expect(ledger.monthly(workspace, '2026-08')['TWD']!.expense, ntd(0));
+    expect(spentIn('2026-08'), ntd(0));
     expect(ledger.balance(ledger.accounts(workspace).single), ntd(10000));
   });
 
@@ -167,8 +178,8 @@ void main() {
   test('a correction to another month leaves the old month empty', () async {
     final rent = await expense(1500);
     await correct(rent, 1500, date: BusinessDate(2026, 9, 1));
-    expect(ledger.monthly(workspace, '2026-08')['TWD']!.expense, ntd(0));
-    expect(ledger.monthly(workspace, '2026-09')['TWD']!.expense, ntd(1500));
+    expect(spentIn('2026-08'), ntd(0));
+    expect(spentIn('2026-09'), ntd(1500));
   });
 
   test('the note moves to the corrected entry', () async {

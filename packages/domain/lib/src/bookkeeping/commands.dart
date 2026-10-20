@@ -129,37 +129,6 @@ final class SetNetWorthInclusion extends AccountCommand {
   };
 }
 
-/// Moves the opening date earlier so older entries can be recorded. An
-/// opening balance moves with it: reversed on its old date and booked
-/// again on the new one, using [reversalId] and [postingId]. Returns the
-/// new account version.
-final class ChangeOpeningDate extends AccountCommand {
-  ChangeOpeningDate({
-    required OperationKey operation,
-    required this.accountId,
-    required this.expectedVersion,
-    required this.openedOn,
-    required this.reversalId,
-    required this.postingId,
-  }) : super(operation);
-
-  final PublicId accountId;
-  final int expectedVersion;
-  final BusinessDate openedOn;
-  final PublicId reversalId;
-  final PublicId postingId;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'change-opening-date-v1',
-    'accountId': accountId.value,
-    'expectedVersion': expectedVersion,
-    'openedOn': openedOn.toString(),
-    'reversalId': reversalId.value,
-    'postingId': postingId.value,
-  };
-}
-
 enum AccountStateChange { archive, reactivate }
 
 final class ChangeAccountState extends AccountCommand {
@@ -186,7 +155,7 @@ final class ChangeAccountState extends AccountCommand {
 /// The account a posting touches, with the version the person saw.
 /// An account an entry posts to. [expectedVersion] is the account's
 /// `rulesVersion` when the entry was prepared, so renaming the account in
-/// between does not refuse the entry (health check G1-09).
+/// between does not refuse the entry.
 final class AccountRef {
   const AccountRef(this.id, this.expectedVersion);
 
@@ -241,7 +210,7 @@ final class RecordCashFlow extends PostingCommand {
   final MerchantSelection? merchant;
 
   /// For a foreign-currency amount: what it was worth in [homeCurrency]
-  /// that day, counted in reports, budgets and net worth (G-11).
+  /// that day, counted in reports, budgets and net worth.
   final Money? homeValue;
 
   @override
@@ -267,35 +236,6 @@ final class RecordCashFlow extends PostingCommand {
   };
 }
 
-/// Brings an account to the balance its bank or wallet shows, booking the
-/// difference as income or expense on [date] (the old app's 餘額校正). The
-/// difference is worked out inside the write, so an entry booked in between
-/// is never counted twice. Credit cards use `AdjustCard` instead.
-final class AdjustBalance extends PostingCommand {
-  AdjustBalance({
-    required OperationKey operation,
-    required PublicId postingId,
-    required this.account,
-    required this.date,
-    required this.target,
-  }) : super(operation, postingId);
-
-  final AccountRef account;
-  final BusinessDate date;
-
-  /// The balance the account should have, in its currency.
-  final Money target;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'adjust-balance-v1',
-    'postingId': postingId.value,
-    'account': account.toJson(),
-    'date': date.toString(),
-    'target': target.toJson(),
-  };
-}
-
 final class RecordTransfer extends PostingCommand {
   RecordTransfer({
     required OperationKey operation,
@@ -316,7 +256,7 @@ final class RecordTransfer extends PostingCommand {
   final Money? received;
 
   /// In the source currency, or in the destination currency when the
-  /// receiving side charged it (feature audit G-17).
+  /// receiving side charged it.
   final Money? fee;
 
   /// Expense categories for the fee.
@@ -333,31 +273,6 @@ final class RecordTransfer extends PostingCommand {
     'received': received?.toJson(),
     'fee': fee?.toJson(),
     'feeAllocations': [for (final share in feeAllocations) share.toJson()],
-  };
-}
-
-/// Corrects a posting by appending its exact negation. The original stays in
-/// the journal; the reversal has its own effective date.
-final class ReversePosting extends PostingCommand {
-  ReversePosting({
-    required OperationKey operation,
-    required PublicId reversalId,
-    required this.originalId,
-    required this.date,
-    this.reason = '',
-  }) : super(operation, reversalId);
-
-  final PublicId originalId;
-  final BusinessDate date;
-  final String reason;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'reverse-posting-v1',
-    'postingId': postingId.value,
-    'originalId': originalId.value,
-    'date': date.toString(),
-    'reason': reason,
   };
 }
 
@@ -395,34 +310,6 @@ final class RecordRefund extends PostingCommand {
     'amount': amount.toJson(),
     'received': received?.toJson(),
     'allocations': [for (final share in allocations) share.toJson()],
-  };
-}
-
-/// Closes an account whose balance is zero and has nothing pending.
-final class CloseAccount extends AccountCommand {
-  CloseAccount({
-    required OperationKey operation,
-    required this.accountId,
-    required this.expectedVersion,
-    required this.date,
-    required this.reason,
-    this.successorId,
-  }) : super(operation);
-
-  final PublicId accountId;
-  final int expectedVersion;
-  final BusinessDate date;
-  final String reason;
-  final PublicId? successorId;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'close-account-v1',
-    'accountId': accountId.value,
-    'expectedVersion': expectedVersion,
-    'date': date.toString(),
-    'reason': reason,
-    'successorId': successorId?.value,
   };
 }
 
@@ -534,7 +421,7 @@ final class CorrectCashFlow extends PostingCommand {
 }
 
 /// Replaces a transfer with a corrected one: the original is reversed on
-/// its own date and the replacement booked (feature audit G-15b).
+/// its own date and the replacement booked.
 final class CorrectTransfer extends PostingCommand {
   CorrectTransfer({
     required OperationKey operation,

@@ -35,7 +35,7 @@ final class Currency {
   /// its own scale, so a change needs a migration of stored amounts.
   static const tableVersion = 2;
 
-  /// The currencies the app offers, most used first (health check G1-08).
+  /// The currencies the app offers, most used first.
   static const supported = [
     'TWD',
     'USD',

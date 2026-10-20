@@ -360,7 +360,7 @@ abstract final class PostingCodec {
   });
 
   /// The converted amount on the account, for a trade settled in another
-  /// currency (feature audit G-06).
+  /// currency.
   static Map<String, Object?>? _settled(Posting posting) {
     if (posting.conversion == null) return null;
     final moved = posting.legs.single.amount;

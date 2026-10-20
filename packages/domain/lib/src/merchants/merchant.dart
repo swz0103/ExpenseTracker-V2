@@ -26,24 +26,17 @@ final class Merchant {
     required this.version,
     this.archived = false,
     this.replacementId,
-    Iterable<String> aliases = const [],
-  }) : name = _name(name),
-       aliases = _aliases(aliases) {
+  }) : name = _name(name) {
     if (version < 1 ||
         replacementId == id ||
         (replacementId != null && !archived)) {
       throw const MerchantException(MerchantError.invalidInput);
-    }
-    // addAlias refuses an alias equal to the name; restore must agree.
-    if (aliases.any((alias) => _key(alias) == _key(this.name))) {
-      throw const MerchantException(MerchantError.duplicate);
     }
   }
 
   final PublicId id;
   final WorkspaceId workspace;
   final String name;
-  final List<String> aliases;
   final int version;
   final bool archived;
   final PublicId? replacementId;
@@ -107,8 +100,8 @@ final class MerchantCatalog {
   }
 
   /// Suggestions only. Matching preserves punctuation and internal spacing,
-  /// uses case-insensitive exact names/aliases, and never picks or merges.
-  /// Old names/aliases on an explicit merge redirect to the live canonical ID.
+  /// uses case-insensitive exact names, and never picks or merges. Names
+  /// merged away on an explicit merge redirect to the live canonical ID.
   List<Merchant> candidates(String label) {
     if (label.trim().isEmpty) return const [];
     final key = _key(_name(label));
@@ -117,41 +110,13 @@ final class MerchantCatalog {
       if (row.archived && row.replacementId == null) continue;
       final canonical = resolve(row.id);
       if (canonical.archived) continue;
-      if (_key(row.name) == key || row.aliases.any((a) => _key(a) == key)) {
+      if (_key(row.name) == key) {
         found[canonical.id] = canonical;
       }
     }
     final result = found.values.toList()
       ..sort((a, b) => a.id.value.compareTo(b.id.value));
     return List.unmodifiable(result);
-  }
-
-  MerchantCatalog addAlias({
-    required WorkspaceId workspace,
-    required PublicId id,
-    required int expectedVersion,
-    required String alias,
-  }) {
-    final row = _mutable(workspace, id, expectedVersion);
-    final value = _name(alias), key = _key(alias);
-    if (_key(row.name) == key || row.aliases.any((a) => _key(a) == key)) {
-      throw const MerchantException(MerchantError.duplicate);
-    }
-    return _change(row, aliases: [...row.aliases, value]);
-  }
-
-  MerchantCatalog removeAlias({
-    required WorkspaceId workspace,
-    required PublicId id,
-    required int expectedVersion,
-    required String alias,
-  }) {
-    final row = _mutable(workspace, id, expectedVersion);
-    final key = _key(_name(alias));
-    if (!row.aliases.any((a) => _key(a) == key)) {
-      throw const MerchantException(MerchantError.missing);
-    }
-    return _change(row, aliases: row.aliases.where((a) => _key(a) != key));
   }
 
   void requireSelection({
@@ -252,7 +217,6 @@ final class MerchantCatalog {
   MerchantCatalog _change(
     Merchant row, {
     String? name,
-    Iterable<String>? aliases,
     bool? archived,
     PublicId? replacementId,
   }) => _replace(
@@ -260,7 +224,6 @@ final class MerchantCatalog {
       id: row.id,
       workspace: row.workspace,
       name: name ?? row.name,
-      aliases: aliases ?? row.aliases,
       version: row.version + 1,
       archived: archived ?? row.archived,
       replacementId: replacementId ?? row.replacementId,
@@ -278,21 +241,6 @@ String _name(String value) {
 }
 
 String _key(String value) => nameKey(value);
-
-List<String> _aliases(Iterable<String> input) {
-  final values = input.map(_name).toList();
-  if (values.length > 16) {
-    throw const MerchantException(MerchantError.invalidInput);
-  }
-  final keys = <String>{};
-  for (final value in values) {
-    if (!keys.add(_key(value))) {
-      throw const MerchantException(MerchantError.duplicate);
-    }
-  }
-  values.sort((a, b) => _key(a).compareTo(_key(b)));
-  return List.unmodifiable(values);
-}
 
 /// The largest version that can still be incremented exactly on every
 /// platform, including the web, where integers are doubles.

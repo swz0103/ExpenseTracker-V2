@@ -3,7 +3,7 @@
 /// [value] trimmed, or null when it is empty, longer than [max]
 /// characters or holds control characters. Length counts characters
 /// (runes), not UTF-16 units, so an emoji or a rare CJK character counts
-/// once (feature audit G-22).
+/// once.
 String? cleanName(String value, {int max = 100}) {
   final result = value.trim();
   if (result.isEmpty ||
@@ -17,8 +17,7 @@ String? cleanName(String value, {int max = 100}) {
 /// The form two names are compared in: full-width letters, digits and
 /// punctuation become half-width, the ideographic space becomes a space
 /// and letters are lower case; inner spacing and punctuation stay as typed.
-/// So "７－ＥＬＥＶＥＮ" and "7-eleven" are the same name (feature audit
-/// G-19).
+/// So "７－ＥＬＥＶＥＮ" and "7-eleven" are the same name.
 String nameKey(String value) {
   final buffer = StringBuffer();
   for (final rune in value.trim().runes) {

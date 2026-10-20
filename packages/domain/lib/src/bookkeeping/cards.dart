@@ -14,10 +14,8 @@ abstract interface class CardTransaction implements BookkeepingTransaction {
   /// The refunds credited against [purchaseId], voided ones left out.
   Future<List<CardCharge>> cardRefunds(PublicId purchaseId);
 
-  /// True once a pending authorization was released without posting.
+  /// True once the charge was voided.
   Future<bool> isReleased(PublicId chargeId);
-
-  Future<void> releaseCardCharge(PublicId chargeId);
 
   /// Takes a posted charge off the statement once its posting has been
   /// reversed; [isReleased] then reports true for it.
@@ -51,14 +49,8 @@ final class CardBook<T extends CardTransaction> {
   Future<CommandOutcome<int>> overrideCycle(OverrideCardCycle command) =>
       _runner.run(command, (t) => _guard(() => _overrideCycle(t, command)));
 
-  Future<CommandOutcome<PublicId>> authorize(AuthorizeCardCharge command) =>
-      _runner.run(command, (t) => _guard(() => _authorize(t, command)));
-
   Future<CommandOutcome<PublicId>> post(PostCardCharge command) =>
       _runner.run(command, (t) => _guard(() => _post(t, command)));
-
-  Future<CommandOutcome<PublicId>> release(ReleaseAuthorization command) =>
-      _runner.run(command, (t) => _guard(() => _release(t, command)));
 
   Future<CommandOutcome<PublicId>> pay(PayCard command) =>
       _runner.run(command, (t) => _guard(() => _pay(t, command)));
@@ -97,7 +89,7 @@ final class CardBook<T extends CardTransaction> {
       throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
     }
     // A local credit returns the purchase, never its fee; a foreign one is
-    // limited in its own currency (feature audit G-09).
+    // limited in its own currency.
     final foreign = original.foreignAmount;
     final asked = command.foreignAmount;
     if ((foreign == null) != (asked == null) ||
@@ -296,43 +288,6 @@ final class CardBook<T extends CardTransaction> {
       'terms': const CreditCardTermsCodec().encode(terms),
     });
     return terms.version;
-  }
-
-  Future<PublicId> _authorize(T t, AuthorizeCardCharge command) async {
-    final card = await _card(t, command.cardId, command.operation);
-    if (await t.cardCharge(command.chargeId) != null) {
-      throw const AppFailure(FailureKind.conflict, 'card.charge-exists');
-    }
-    if (command.amount.currency != card.currency) {
-      throw const AppFailure(FailureKind.rejected, 'card.currencyMismatch');
-    }
-    final charge = CardCharge.pending(
-      id: command.chargeId,
-      workspace: card.workspace,
-      cardId: card.id,
-      kind: CardChargeKind.purchase,
-      authorizedOn: command.authorizedOn,
-      authorizedAmount: command.amount,
-    );
-    await t.saveCardCharge(charge);
-    await _event(t, card.workspace, 'card.authorized', _charge(charge));
-    return charge.id;
-  }
-
-  Future<PublicId> _release(T t, ReleaseAuthorization command) async {
-    final card = await _card(t, command.cardId, command.operation);
-    final charge = await t.cardCharge(command.chargeId);
-    if (charge == null || charge.cardId != card.id) {
-      throw const AppFailure(FailureKind.notFound, 'card.charge-not-found');
-    }
-    if (charge.isPosted || await t.isReleased(charge.id)) {
-      throw const AppFailure(FailureKind.rejected, 'card.not-pending');
-    }
-    await t.releaseCardCharge(charge.id);
-    await _event(t, card.workspace, 'card.released', {
-      'chargeId': charge.id.value,
-    });
-    return charge.id;
   }
 
   Future<PublicId> _post(T t, PostCardCharge command) async {

@@ -37,7 +37,7 @@ final class CardScheduleChange {
 }
 
 /// The issuer's actual dates for one statement, when they differ from the
-/// schedule (feature audit G-08).
+/// schedule.
 final class CardCycleOverride {
   CardCycleOverride({
     required this.scheduledClose,
@@ -109,7 +109,7 @@ final class CreditCardTerms {
   final int version;
 
   /// Earlier billing days, oldest first, so past statements keep their
-  /// dates after a change (feature audit G-08).
+  /// dates after a change.
   final List<CardScheduleChange> history;
   final List<CardCycleOverride> overrides;
 
@@ -204,7 +204,7 @@ final class CreditCardTerms {
       }
     }
     // Due on the first due day after the close: the same month when the
-    // due day comes later in it, otherwise the next (health check G2-08).
+    // due day comes later in it, otherwise the next.
     final (_, dueDay) = _daysOn(close);
     var due = _day(close.year, close.month, dueDay);
     if (due.compareTo(close) <= 0) {
@@ -413,7 +413,7 @@ enum CardChargeKind {
   /// Charged by the issuer itself: an annual fee, late fee or interest.
   fee,
 
-  /// Credited by the issuer itself: cashback or a waived fee (G6-12).
+  /// Credited by the issuer itself: cashback or a waived fee.
   credit,
 }
 
@@ -471,8 +471,7 @@ final class CardCharge {
   final Money? fee;
   final PublicId? ledgerEventId;
 
-  /// What the merchant charged in its own currency, for a foreign charge
-  /// (feature audit G-09).
+  /// What the merchant charged in its own currency, for a foreign charge.
   final Money? foreignAmount;
   bool get isPosted => ledgerEventId != null;
 
@@ -533,7 +532,7 @@ final class CardCharge {
 }
 
 /// The issuer's foreign transaction fee on [settled], 1.5% by default,
-/// rounded half up to the card currency (feature audit G-09). A
+/// rounded half up to the card currency. A
 /// suggestion: the statement's own figure wins.
 Money foreignTransactionFee(Money settled, {int basisPoints = 150}) {
   if (basisPoints < 0 || basisPoints > 10000 || settled.minorUnits.isNegative) {
@@ -549,7 +548,7 @@ Money foreignTransactionFee(Money settled, {int basisPoints = 150}) {
 /// How much more of [purchase] the card can credit back, given the
 /// refunds already posted against it. A foreign purchase is limited in
 /// its own currency and may come back with its fee, since the exchange
-/// rate moves; a local one only up to the amount charged (G-09).
+/// rate moves; a local one only up to the amount charged.
 ({Money local, Money? foreign}) refundableOf(
   CardCharge purchase,
   Iterable<CardCharge> refunds,
@@ -625,7 +624,7 @@ final class CardStatement {
     Iterable<CardInstallmentSchedule> plans = const [],
   }) {
     // A purchase paid in installments is billed one installment per
-    // statement, not in full (feature audit G-01).
+    // statement, not in full.
     final planned = {for (final plan in plans) plan.purchaseEventId: plan};
     var installmentsDue = Money(terms.currency, BigInt.zero);
     var purchases = Money(terms.currency, BigInt.zero);
@@ -633,8 +632,7 @@ final class CardStatement {
     var credits = Money(terms.currency, BigInt.zero);
     var fees = Money(terms.currency, BigInt.zero);
     var paid = Money(terms.currency, BigInt.zero);
-    // What earlier statements left unpaid, or overpaid when negative
-    // (health check G2-12).
+    // What earlier statements left unpaid, or overpaid when negative.
     var carried = Money(terms.currency, BigInt.zero);
     var pendingCount = 0;
     final ids = <PublicId>{};
@@ -778,9 +776,8 @@ final class CardStatement {
 
   /// What must still be paid by the due date to avoid a late fee: the
   /// installments and fees billed now plus [percent] of everything else
-  /// owed, rounded up, at least [floor], less what was already paid
-  /// (feature audit G-10). Issuers differ, so the rule's numbers are
-  /// passed in.
+  /// owed, rounded up, at least [floor], less what was already paid.
+  /// Issuers differ, so the rule's numbers are passed in.
   Money minimumDue({int percent = 10, Money? floor}) {
     final currency = remainingDue.currency;
     if (percent < 0 || percent > 100) {
@@ -810,7 +807,7 @@ final class CardStatement {
 }
 
 /// The day a payment is really due: [dueOn], or the next banking day when
-/// it falls on a weekend or holiday (feature audit G-10).
+/// it falls on a weekend or holiday.
 BusinessDate paymentDueOn(BusinessDate dueOn, BankingCalendar calendar) =>
     calendar.onOrAfter(dueOn);
 

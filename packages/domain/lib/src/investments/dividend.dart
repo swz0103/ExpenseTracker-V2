@@ -91,7 +91,7 @@ final class InvestmentDividendPreview {
     }
     final netUnits =
         gross.minorUnits - withholdingTax.minorUnits - fee.minorUnits;
-    // Everything withheld leaves nothing to pay out (health check G1-06).
+    // Everything withheld leaves nothing to pay out.
     if (netUnits != reportedNet.minorUnits) {
       throw const InvestmentDividendException(
         InvestmentDividendError.netMismatch,

@@ -30,7 +30,7 @@ jobs:
         with:
           flutter-version: '3.47.5'
           channel: stable
-          cache: false
+          cache: true
       - name: Refresh the lockfiles of changed pubspecs
         run: |
           set -euo pipefail

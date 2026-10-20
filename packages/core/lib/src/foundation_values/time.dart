@@ -76,8 +76,7 @@ final class UtcInstant implements Comparable<UtcInstant> {
 
 /// Which days banks and the stock exchange are open: weekdays, except
 /// [holidays], plus weekend [workdays] that make up for a holiday.
-/// Taiwan's calendar is published yearly, so it is supplied, not built in
-/// (feature audit G-07, G-10).
+/// Taiwan's calendar is published yearly, so it is supplied, not built in.
 final class BankingCalendar {
   BankingCalendar({
     Set<BusinessDate> holidays = const {},

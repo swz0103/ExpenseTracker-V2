@@ -1,8 +1,9 @@
 name: Android APK
 
-# Builds the phone app. On main it puts the APK on the release
-# `android-latest`, where it can be downloaded; pull requests only check
-# that it builds.
+# Builds the phone app. On main it first runs the whole validation set and
+# only then puts the APK on the release `android-latest`, where it can be
+# downloaded; pull requests only check that it builds, in parallel with
+# their own validation run.
 on:
   push:
     branches: [main]
@@ -28,7 +29,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validation:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/integration-validation.yml
+    permissions:
+      contents: read
+
   apk:
+    needs: validation
+    # On main the APK is built and published only after validation passed;
+    # elsewhere validation is skipped and the build runs straight away.
+    if: >-
+      !cancelled() && (needs.validation.result == 'success' ||
+      (needs.validation.result == 'skipped' && github.ref != 'refs/heads/main'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -41,7 +54,7 @@ jobs:
         with:
           flutter-version: '3.47.5'
           channel: stable
-          cache: false
+          cache: true
       - name: Signing key
         # The release key from repository secrets (docs/STATUS.md); without
         # them the APK is signed with a debug key, for trying it out only.

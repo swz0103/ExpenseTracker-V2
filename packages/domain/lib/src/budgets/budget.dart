@@ -37,7 +37,7 @@ final class BudgetPlan {
   final int warningPercent;
 
   /// Applies to [month] and every later month, so a monthly budget is set
-  /// once (feature audit G-12).
+  /// once.
   final bool repeats;
 
   /// This plan as it applies to [other], for a repeating plan.

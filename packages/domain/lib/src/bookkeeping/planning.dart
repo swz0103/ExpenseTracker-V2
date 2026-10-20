@@ -249,13 +249,12 @@ final class PlanningBook<T extends PlanningTransaction> {
 }
 
 /// The report fact for one posting: the single mapping from postings to
-/// monthly reports and budgets (health check G1-01).
+/// monthly reports and budgets.
 ///
 /// [account] is the account the report amounts belong to. It defaults to
 /// the posting's own account; a refund, or the reversal of one, reports
 /// against the original expense's account, because its amounts are in
-/// that expense's currency even when the money arrived elsewhere
-/// (health check G6-18).
+/// that expense's currency even when the money arrived elsewhere.
 MonthlyFact reportFact(
   Posting posting,
   PostingMetadata metadata, {
@@ -267,7 +266,7 @@ MonthlyFact reportFact(
     for (final allocation in posting.allocations)
       CategoryAllocation(allocation.categoryId, allocation.amount),
   ];
-  // A foreign entry counts at its booked home value (feature audit G-11).
+  // A foreign entry counts at its booked home value.
   final home = metadata.homeValue;
   if (home != null && expense.currency != homeCurrency) {
     Money signed(Money amount) {
@@ -302,7 +301,7 @@ MonthlyFact reportFact(
 }
 
 /// A transfer reports its fee against the account that paid it, which is
-/// the destination when the fee is in the destination currency (G-17).
+/// the destination when the fee is in the destination currency.
 PublicId _reportAccount(Posting posting) {
   for (final leg in posting.legs) {
     if (leg.role == LegRole.fee) return leg.account.id;

@@ -47,7 +47,7 @@ final class RecurringTemplate {
   /// as a six-year insurance policy; null runs on.
   final BusinessDate? lastDate;
 
-  /// Defaults offered when an occurrence is confirmed (feature audit G-03).
+  /// Defaults offered when an occurrence is confirmed.
   final PublicId? categoryId;
   final Set<PublicId> tagIds;
   final PublicId? merchantId;

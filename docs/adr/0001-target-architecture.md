@@ -17,16 +17,16 @@
 | `packages/domain` | 規則：記帳、信用卡、投資、預算、定期交易、報表、CSV；純 Dart，禁止 `dart:io` | core |
 | `infrastructure/market` | 執行層：收盤價與牌告匯率 | core、domain |
 | `infrastructure/storage` | 執行層：SQLCipher 與帳本投影 | core、domain |
-| `infrastructure/vault` | 執行層：金鑰、帳本開啟、備份、Drive | core、storage |
+| `infrastructure/vault` | 執行層：金鑰、帳本開啟、備份 | core、storage |
 | `apps/expense_tracker` | App | 以上全部 |
 
-依賴方向寫在 `architecture/boundaries.json`，由 `tooling/architecture_checks` 在 CI 檢查。模組內再依原本的子領域分資料夾（例如 `domain/lib/src/credit_cards/`），對外入口仍是 `package:domain/credit_cards.dart` 這類檔案。
+依賴方向由各 `pubspec.yaml` 決定；`tooling/architecture_checks` 在 CI 檢查 core 與 domain 不引用平台函式庫（`dart:io`、Flutter、儲存層）、測試寫明預期的失敗、各 lockfile 版本一致。模組內再依原本的子領域分資料夾（例如 `domain/lib/src/credit_cards/`），對外入口仍是 `package:domain/credit_cards.dart` 這類檔案。
 
 2026-10-19 前是 23 個套件，每個只有幾百行，卻各有 pubspec、lockfile、lint 與 CI 項目；合併成 5 個後，邊界改由資料夾與入口檔守住，行為不變。
 
 ### 2. 儲存
 
-單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、月報、帳單、持股、預算、定期交易等投影與事件在同一交易內更新。寫入只驗證受影響範圍，沒有筆數上限。投影可從事件完整重建。
+單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、帳單、持股、預算、定期交易等投影與事件在同一交易內更新。寫入只驗證受影響範圍，沒有筆數上限。投影可從事件完整重建。
 
 ### 3. 更正與冪等
 
@@ -38,7 +38,7 @@
 
 ### 5. 備份
 
-備份 v2 是分塊加密串流，manifest 驗證備份 ID、時間與帳本身分，還原時重播驗證，先寫暫存庫，檢查後才換上。App 每週在手機留備份，Android 自動備份帶到新手機；Drive 傳輸（續傳、分代保留）已完成，待接 Google 登入。
+備份 v2 是分塊加密串流，manifest 驗證備份 ID、時間與帳本身分，還原時重播驗證，先寫暫存庫，檢查後才換上。App 每週在手機留備份，Android 自動備份帶到新手機。Drive 直傳的底層從未接進 App，已於 2026-10 移除。
 
 ### 6. App
 

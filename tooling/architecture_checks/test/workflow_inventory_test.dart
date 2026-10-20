@@ -32,7 +32,6 @@ void main() {
       containsAll([
         '.github/workflows/**',
         'apps/**',
-        'architecture/**',
         'infrastructure/**',
         'packages/**',
         'tooling/**',

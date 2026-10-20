@@ -132,25 +132,24 @@ void main() {
       change(CatalogType.tag, MoveCategory(tag, 1, null)),
       fails(FailureKind.rejected, 'catalog.unsupported'),
     );
-    await expectLater(
-      change(CatalogType.tag, ChangeAlias(tag, 1, '出遊', add: true)),
-      fails(FailureKind.rejected, 'catalog.unsupported'),
-    );
   });
 
-  test('allocations feed the category report and must add up', () async {
+  test('allocations are stored with the entry and must add up', () async {
     final food = await category('餐飲', CategoryKind.expense);
     final fun = await category('娛樂', CategoryKind.expense);
-    await spend(
+    final posting = await spend(
       ntd(1000),
       shares: [
         CategoryShare(food, 1, ntd(700)),
         CategoryShare(fun, 1, ntd(300)),
       ],
     );
-    final totals = ledger.categoryTotals(workspace, '2026-10');
-    expect(totals[(food, 'TWD')]!.expense, ntd(700));
-    expect(totals[(fun, 'TWD')]!.expense, ntd(300));
+    final amounts = {
+      for (final allocation in ledger.postingById(posting)!.allocations)
+        allocation.categoryId: allocation.amount,
+    };
+    expect(amounts[food], ntd(700));
+    expect(amounts[fun], ntd(300));
     await expectLater(
       spend(ntd(1000), shares: [CategoryShare(food, 1, ntd(999))]),
       fails(FailureKind.rejected, 'ledger.allocationMismatch'),
@@ -181,40 +180,16 @@ void main() {
     );
   });
 
-  test('a reversal takes its allocations back out of the report', () async {
-    final food = await category('餐飲', CategoryKind.expense);
-    final posting = await spend(
-      ntd(450),
-      shares: [CategoryShare(food, 1, ntd(450))],
-    );
-    await books.reversePosting(
-      ReversePosting(
-        operation: op(),
-        reversalId: PublicId.generate(),
-        originalId: posting,
-        date: BusinessDate(2026, 11, 3),
-      ),
-    );
-    expect(
-      ledger.categoryTotals(workspace, '2026-10')[(food, 'TWD')]!.expense,
-      ntd(450),
-    );
-    expect(
-      ledger.categoryTotals(workspace, '2026-11')[(food, 'TWD')]!.expense,
-      ntd(-450),
-    );
-  });
-
-  test('merged categories report under their target', () async {
+  test('a merged category points at its target', () async {
     final meals = await category('三餐', CategoryKind.expense);
     final food = await category('餐飲', CategoryKind.expense);
     await spend(ntd(100), shares: [CategoryShare(meals, 1, ntd(100))]);
     await spend(ntd(250), shares: [CategoryShare(food, 1, ntd(250))]);
     final merge = MergeEntry(meals, 1, food, 1);
     expect(await change(CatalogType.category, merge), 2);
-    final totals = ledger.categoryTotals(workspace, '2026-10');
-    expect(totals.keys, [(food, 'TWD')]);
-    expect(totals[(food, 'TWD')]!.expense, ntd(350));
+    final categories = ledger.categories(workspace);
+    final merged = categories.singleWhere((c) => c.id == meals);
+    expect(merged.replacementId, food);
     expect(version(meals), 2);
     expect(version(food), 1);
   });
@@ -223,8 +198,7 @@ void main() {
     final trip = await create(CatalogType.tag, '旅行');
     final work = await create(CatalogType.tag, '公司');
     final shop = await create(CatalogType.merchant, '全聯');
-    final alias = ChangeAlias(shop, 1, 'PX Mart', add: true);
-    await change(CatalogType.merchant, alias);
+    await change(CatalogType.merchant, RenameEntry(shop, 1, '全聯福利中心'));
     final posting = await spend(
       ntd(320),
       tags: [TagSelection(work, 1), TagSelection(trip, 1)],
@@ -233,7 +207,7 @@ void main() {
     final metadata = ledger.metadata(posting);
     expect(metadata.tags.toSet(), {trip, work});
     expect(metadata.merchantId, shop);
-    expect(ledger.merchants(workspace).single.aliases, ['PX Mart']);
+    expect(ledger.merchants(workspace).single.name, '全聯福利中心');
 
     await change(CatalogType.tag, ArchiveEntry(trip, 1, archived: true));
     await expectLater(
@@ -258,12 +232,11 @@ void main() {
       tags: [TagSelection(trip, 1)],
       merchant: MerchantSelection(shop, 1),
     );
-    final reversal = await books.reversePosting(
-      ReversePosting(
+    final reversal = await books.deletePosting(
+      DeletePosting(
         operation: op(),
         reversalId: PublicId.generate(),
         originalId: posting,
-        date: day,
       ),
     );
     final metadata = ledger.metadata(reversal.value);

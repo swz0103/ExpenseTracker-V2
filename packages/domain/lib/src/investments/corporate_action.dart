@@ -19,7 +19,7 @@ final class CorporateActionLotChange {
   final Money afterCost;
 }
 
-/// A change to a holding decided by the company (health check G2-16):
+/// A change to a holding decided by the company:
 /// a stock dividend (1,050 for 1,000), a capital reduction (600 for 1,000)
 /// or a reverse split, with the cash it pays.
 ///

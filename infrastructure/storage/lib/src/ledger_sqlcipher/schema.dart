@@ -39,6 +39,8 @@ final ledgerSchema = SchemaModule('ledger', [
       minor_units TEXT NOT NULL
     ) STRICT, WITHOUT ROWID
     ''',
+    // Retired: no longer written or read. Kept because released steps are
+    // never edited and existing ledgers already have the table.
     '''
     CREATE TABLE ledger_monthly (
       workspace TEXT NOT NULL,
@@ -88,6 +90,7 @@ final ledgerSchema = SchemaModule('ledger', [
     CREATE INDEX ledger_posting_merchants_by_merchant
     ON ledger_posting_merchants (merchant_id)
     ''',
+    // Retired like ledger_monthly above.
     '''
     CREATE TABLE ledger_category_monthly (
       workspace TEXT NOT NULL,
@@ -266,7 +269,7 @@ final ledgerSchema = SchemaModule('ledger', [
   ],
   [
     // What a foreign-currency entry was worth in the home currency when it
-    // was booked (feature audit G-11).
+    // was booked.
     '''
     CREATE TABLE ledger_posting_home (
       posting_id TEXT PRIMARY KEY REFERENCES ledger_postings (id),

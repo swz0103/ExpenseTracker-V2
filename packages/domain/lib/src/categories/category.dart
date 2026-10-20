@@ -165,7 +165,7 @@ final class CategoryCatalog {
   }
 
   /// Two live categories with one name under one parent would split every
-  /// report in two (feature audit G-19).
+  /// report in two.
   void _unique(
     PublicId self,
     String name,

@@ -59,7 +59,7 @@ final class SetCardTerms extends _IntResult {
   final Money? limit;
 
   /// The first close on the new days; earlier statements keep their
-  /// dates. Null applies the days to the whole card (feature audit G-08).
+  /// dates. Null applies the days to the whole card.
   final BusinessDate? effectiveFrom;
 
   @override
@@ -104,31 +104,6 @@ final class OverrideCardCycle extends _IntResult {
   };
 }
 
-/// Records a pending authorization. It has no ledger effect.
-final class AuthorizeCardCharge extends _IdResult {
-  AuthorizeCardCharge({
-    required OperationKey operation,
-    required this.chargeId,
-    required this.cardId,
-    required this.authorizedOn,
-    required this.amount,
-  }) : super(operation);
-
-  final PublicId chargeId;
-  final PublicId cardId;
-  final BusinessDate authorizedOn;
-  final Money amount;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'authorize-card-charge-v1',
-    'chargeId': chargeId.value,
-    'cardId': cardId.value,
-    'authorizedOn': authorizedOn.toString(),
-    'amount': amount.toJson(),
-  };
-}
-
 /// Posts a card purchase: one expense on the card for settled amount plus
 /// fee. A pending authorization with [chargeId] is replaced, never added to.
 /// Returns the posting id.
@@ -155,7 +130,7 @@ final class PostCardCharge extends _IdResult {
   final Money fee;
 
   /// The merchant's amount in its own currency, for a foreign charge; a
-  /// foreign authorization supplies it otherwise (feature audit G-09).
+  /// foreign authorization supplies it otherwise.
   final Money? foreignAmount;
 
   /// Empty, or shares adding up to settled amount plus fee.
@@ -238,26 +213,6 @@ final class PlanInstallments extends _IntResult {
     'chargeId': chargeId.value,
     'count': count,
     'fixedFee': fixedFee.toJson(),
-  };
-}
-
-/// Drops a pending authorization that will never post, for example a
-/// cancelled hold. Returns the charge id.
-final class ReleaseAuthorization extends _IdResult {
-  ReleaseAuthorization({
-    required OperationKey operation,
-    required this.chargeId,
-    required this.cardId,
-  }) : super(operation);
-
-  final PublicId chargeId;
-  final PublicId cardId;
-
-  @override
-  Map<String, Object?> get fields => {
-    'command': 'release-authorization-v1',
-    'chargeId': chargeId.value,
-    'cardId': cardId.value,
   };
 }
 
@@ -357,7 +312,7 @@ enum CardAdjustment {
 }
 
 /// Books a fee or credit from the issuer on the card, for example the
-/// annual fee or cashback (health check G6-12).
+/// annual fee or cashback.
 final class AdjustCard extends _IdResult {
   AdjustCard({
     required OperationKey operation,

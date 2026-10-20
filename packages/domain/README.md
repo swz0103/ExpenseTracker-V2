@@ -8,9 +8,9 @@
 
 帳戶的 Domain 規則，只依賴 `foundation_values`。
 
-- 種類：現金、銀行、信用卡、電子支付、貸款、應收（代墊：幫人付是轉入、對方還錢是轉出，收不回的以支出沖掉）、手動估值（如基金，用 `AdjustBalance` 更新價值）。沒有餘額欄位，餘額由分錄算出。
+- 種類：現金、銀行、信用卡、電子支付、貸款、應收（代墊：幫人付是轉入、對方還錢是轉出，收不回的以支出沖掉）、手動估值（如基金）。沒有餘額欄位，餘額由分錄算出。
 - 操作：開立、改名、變更淨資產納入、封存、結清（餘額須為零、不能有未結事項）、重新啟用。
-- `version` 每次變更都加 1；`rulesVersion` 只有封存、結清、重新啟用才加，記帳只檢查它，所以改名不會讓準備好的記帳失效（健檢 G1-09）。
+- `version` 每次變更都加 1；`rulesVersion` 只有封存、結清、重新啟用才加，記帳只檢查它，所以改名不會讓準備好的記帳失效。
 - `Account.restore` 會重新檢查所有規則，用於從儲存還原。
 
 ```sh
@@ -23,15 +23,14 @@ dart test --reporter expanded
 
 應用層（ADR-0001 階段 3）：帳戶與收支指令，跑在 `app_core` 的 `CommandRunner` 上。
 
-- 指令：開戶（可含期初餘額）、改名、封存／重新啟用、收入／支出、轉帳（可跨幣別、可含手續費）、沖銷、餘額校正（`AdjustBalance`：在寫入交易內算出差額，記成收入或支出）。
+- 指令：開戶（可含期初餘額）、改名、封存／重新啟用、收入／支出、轉帳（可跨幣別、可含手續費）、更正與刪除（以沖銷分錄完成）。
 - 每個指令的事件、投影表與操作紀錄在同一交易提交；重試回傳同一結果，同一 key 換輸入則是 `operation.input-mismatch`。
 - 帳戶規則（版本、幣別、狀態、開戶日）在寫入交易內檢查；違規轉成 `AppFailure`，代碼如 `account.versionConflict`、`ledger.sameAccount`。
 - 沖銷只新增反向分錄，原分錄保留；同一筆不能沖兩次；已結清帳戶不能被沖銷改動餘額。
 - `AccountCodec`／`PostingCodec`：版本化 JSON，解碼一律重新走 domain 工廠驗證。
 - 儲存介面 `BookkeepingTransaction`，SQLCipher 實作在 `storage` 模組的 `ledger_sqlcipher`。
-- 也包含：分類／標籤／商家、退款、結清、期初替換、備註、更正、刪除（`Bookkeeping`）；信用卡（`CardBook`）；投資（`InvestmentBook`）；預算與定期交易（`PlanningBook`）。
+- 也包含：分類／標籤／商家、退款、期初替換、備註、更正、刪除（`Bookkeeping`）；信用卡（`CardBook`）；投資（`InvestmentBook`）；預算與定期交易（`PlanningBook`）。
 - `reportFact` 是分錄轉成月報／預算事實的唯一定義。
-- `package:bookkeeping/memory.dart`：記憶體版實作，供預覽與測試。
 - 原始碼依指令分組：`bookkeeping.dart`（對外指令與共用寫入）、`account_handlers.dart`、`entry_handlers.dart`、`correction_handlers.dart`、`catalog_handlers.dart`（以私有 extension 實作），卡片、投資、計畫各自一個檔。
 
 ## budgets
@@ -66,7 +65,7 @@ dart test --reporter expanded
   - `reschedule`：結帳日變更只影響之後的帳單，過去的帳單日期不變。
   - `overrideCycle`：發卡行移動某一期的實際結帳日或繳款日。
   - `cycleFor(date)`：某天的消費落在哪一期；繳款日是結帳後第一個繳款日，遇假日順延（`BankingCalendar`）。
-- `CardCharge`：授權（pending）→ 入帳（posted），入帳以實際金額為準；種類有消費、發卡行費用、回饋。可記原幣金額與國外交易手續費；外幣退刷以原幣為上限。
+- `CardCharge`：入帳以實際金額為準；種類有消費、發卡行費用、回饋。可記原幣金額與國外交易手續費；外幣退刷以原幣為上限。
 - 帳單：前期結轉、本期消費、費用、退款、繳款、分期當期金額、應繳與最低應繳。
 - `CardInstallmentSchedule`：分期，尾差全部併入第一期（例如 10,001 分 3 期為 3,335／3,333／3,333）；分期計畫自存結帳日。
 
@@ -110,9 +109,9 @@ dart test --reporter expanded
 
 ## merchants
 
-商家與別名的規則，只依賴 `foundation_values`。
+商家的規則，只依賴 `foundation_values`。
 
-- 商家可以同名（例如不同分店），用 ID 區分；每個商家最多 16 個別名。
+- 商家可以同名（例如不同分店），用 ID 區分。舊版存下的別名欄位讀取時忽略。
 - 比對只去掉首尾空白並轉小寫；有歧義時回傳所有候選，不自動選。
 - 封存、合併與分類相同：保留來源與去向，舊交易不改寫，合併鏈用 `resolveRedirects`。
 

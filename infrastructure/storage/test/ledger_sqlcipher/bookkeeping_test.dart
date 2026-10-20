@@ -7,7 +7,6 @@ import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/categories.dart';
 import 'package:domain/ledger.dart';
-import 'package:domain/reports.dart';
 import 'package:storage/ledger_sqlcipher.dart';
 import 'package:storage/storage_sqlcipher.dart';
 import 'package:test/test.dart';
@@ -102,13 +101,12 @@ void main() {
     return outcome.value;
   }
 
-  Future<PublicId> reverse(PublicId original, {BusinessDate? date}) async {
-    final outcome = await books.reversePosting(
-      ReversePosting(
+  Future<PublicId> reverse(PublicId original) async {
+    final outcome = await books.deletePosting(
+      DeletePosting(
         operation: op(),
         reversalId: PublicId.generate(),
         originalId: original,
-        date: date ?? day,
       ),
     );
     return outcome.value;
@@ -119,9 +117,6 @@ void main() {
     await flow(CashFlow.income, cash, money(twd, 50000));
     await flow(CashFlow.expense, cash, money(twd, 12000));
     expect(ledger.balance(account(cash)), money(twd, 138000));
-    final october = ledger.monthly(workspace, '2026-10')['TWD']!;
-    expect(october.income, money(twd, 50000));
-    expect(october.expense, money(twd, 12000));
     expect(store.eventCount, 4);
     expect(store.operationCount, 3);
   });
@@ -143,9 +138,6 @@ void main() {
     );
     expect(ledger.balance(account(twdBank)), money(twd, 178500));
     expect(ledger.balance(account(usdBank)), money(usd, 10000));
-    final october = ledger.monthly(workspace, '2026-10')['TWD']!;
-    expect(october.income, money(twd, 0));
-    expect(october.expense, money(twd, 1500));
   });
 
   test('a received-currency fee is booked with its category', () async {
@@ -174,10 +166,6 @@ void main() {
     );
     expect(ledger.balance(account(twdBank)), money(twd, 180000));
     expect(ledger.balance(account(usdBank)), money(usd, 8500));
-    final october = ledger.monthly(workspace, '2026-10');
-    expect(october['USD']!.expense, money(usd, 1500));
-    final byCategory = ledger.categoryTotals(workspace, '2026-10');
-    expect(byCategory[(fees, 'USD')]!.expense, money(usd, 1500));
   });
 
   test('foreign entries count at their booked home value', () async {
@@ -223,60 +211,10 @@ void main() {
       ),
       fails(FailureKind.rejected, 'posting.home-value'),
     );
-
-    final october = ledger.homeMonthly(workspace, ReportMonth(2026, 10));
-    expect(october.total.expense, money(twd, 810));
-    expect(october.total.income, money(twd, 330));
-    expect(october.unvalued, 1);
-
-    // 100 dollars cost 3,200; 25 left at the average, 10 came in at 330,
-    // and 1 more left at the average again.
-    expect(ledger.homeBalance(account(usdBank)), money(twd, 2698));
-    final eur = Currency.of('EUR');
-    await openAccount('歐元', eur, opening: money(eur, 5000));
-    final unknown = ledger.netWorth(workspace);
-    expect(unknown.total, money(twd, 496800 + 2698));
-    expect([for (final a in unknown.unvalued) a.name], ['歐元']);
-    // A euro at 35 dollars that day.
-    Money atTheDay(Money amount, BusinessDate date) =>
-        Money(twd, amount.minorUnits * BigInt.from(35) ~/ BigInt.from(100));
-    final valued = ledger.netWorth(workspace, rate: atTheDay);
-    expect(valued.total, money(twd, 496800 + 2698 + 1750));
-    expect(valued.unvalued, isEmpty);
-  });
-
-  test('a reversal negates the original on its own date', () async {
-    final cash = await openAccount('現金', twd);
-    final income = await flow(CashFlow.income, cash, money(twd, 9900));
-    await reverse(income, date: BusinessDate(2026, 11, 2));
-    expect(ledger.balance(account(cash)), money(twd, 0));
-    final october = ledger.monthly(workspace, '2026-10')['TWD']!;
-    final november = ledger.monthly(workspace, '2026-11')['TWD']!;
-    expect(october.income, money(twd, 9900));
-    expect(november.income, money(twd, -9900));
-    expect(ledger.postings(cash), hasLength(2));
-    final recent = ledger.recentPostings(workspace, limit: 1);
-    expect(recent.single.kind, PostingKind.reversal);
-    expect(ledger.recentPostings(workspace), hasLength(2));
-  });
-
-  test('each entry shows the balance after it and its reversal', () async {
-    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
-    final income = await flow(CashFlow.income, cash, money(twd, 500));
-    await flow(
-      CashFlow.expense,
-      cash,
-      money(twd, 200),
-      date: BusinessDate(2026, 10, 5),
+    expect(
+      ledger.postingHomeValues(workspace).values,
+      unorderedEquals([money(twd, 810), money(twd, 330)]),
     );
-    final reversal = await reverse(income, date: BusinessDate(2026, 10, 9));
-    final lines = ledger.runningBalance(account(cash));
-    final after = [for (final (_, balance) in lines) balance];
-    final expected = [1000, 1500, 1300, 800];
-    expect(after, [for (final units in expected) money(twd, units)]);
-    expect(lines.last.$1.id, reversal);
-    expect(ledger.reversedBy(income), reversal);
-    expect(ledger.reversedBy(reversal), isNull);
   });
 
   test('a posting can be reversed only once, and never a reversal', () async {
@@ -332,39 +270,6 @@ void main() {
     expect(store.eventCount, events);
     expect(ledger.balance(account(cash)), money(twd, 900));
     expect(account(cash).name, '錢包');
-  });
-
-  test('the opening date can move earlier, with its balance', () async {
-    final cash = await openAccount('現金', twd, opening: money(twd, 1000));
-    final september = BusinessDate(2026, 9, 20);
-    await expectLater(
-      flow(CashFlow.expense, cash, money(twd, 100), date: september),
-      fails(FailureKind.rejected, 'account.invalidDate'),
-    );
-    Future<CommandOutcome<int>> move(BusinessDate to) =>
-        books.changeOpeningDate(
-          ChangeOpeningDate(
-            operation: op(),
-            accountId: cash,
-            expectedVersion: account(cash).version,
-            openedOn: to,
-            reversalId: PublicId.generate(),
-            postingId: PublicId.generate(),
-          ),
-        );
-    await expectLater(
-      move(BusinessDate(2026, 10, 2)),
-      fails(FailureKind.rejected, 'account.invalidDate'),
-    );
-    await move(BusinessDate(2026, 9, 1));
-    expect(account(cash).openedOn, BusinessDate(2026, 9, 1));
-    await flow(CashFlow.expense, cash, money(twd, 100), date: september);
-    expect(ledger.balance(account(cash)), money(twd, 900));
-    final openings = [
-      for (final p in ledger.postings(cash))
-        if (p.kind == PostingKind.opening) p.date,
-    ];
-    expect(openings, [day, BusinessDate(2026, 9, 1)]..sort());
   });
 
   test('net worth inclusion can be changed', () async {
@@ -523,7 +428,7 @@ void main() {
             posted.add(outcome.value);
           case 5:
             if (posted.isEmpty) continue;
-            await reverse(posted[random.nextInt(posted.length)], date: date);
+            await reverse(posted[random.nextInt(posted.length)]);
           case 6:
             await books.renameAccount(
               RenameAccount(
@@ -553,13 +458,13 @@ void main() {
     expect(posted.length, greaterThan(20));
 
     void verify() {
-      final all = <PublicId, Posting>{};
+      final all = ledger.workspacePostings(workspace);
       for (final id in accounts) {
         final current = account(id);
-        final postings = ledger.postings(id);
-        for (final posting in postings) {
-          all[posting.id] = posting;
-        }
+        final postings = [
+          for (final posting in all)
+            if (posting.legs.any((leg) => leg.account.id == id)) posting,
+        ];
         final participant = PostingAccount(
           id: id,
           workspace: workspace,
@@ -571,27 +476,6 @@ void main() {
           rebuildBalance(participant, postings),
           reason: current.name,
         );
-      }
-      final expected = <String, (BigInt, BigInt)>{};
-      for (final posting in all.values) {
-        final income = posting.reportIncome;
-        if (income.minorUnits == BigInt.zero &&
-            posting.reportExpense.minorUnits == BigInt.zero) {
-          continue;
-        }
-        final month = posting.date.toString().substring(0, 7);
-        final bucket = '$month/${income.currency.code}';
-        final (i, e) = expected[bucket] ?? (BigInt.zero, BigInt.zero);
-        expected[bucket] = (
-          i + income.minorUnits,
-          e + posting.reportExpense.minorUnits,
-        );
-      }
-      for (final entry in expected.entries) {
-        final [month, code] = entry.key.split('/');
-        final total = ledger.monthly(workspace, month)[code]!;
-        expect(total.income.minorUnits, entry.value.$1, reason: entry.key);
-        expect(total.expense.minorUnits, entry.value.$2, reason: entry.key);
       }
       expect(store.eventCount, greaterThan(store.operationCount));
       expect(store.integrityCheck(), 'ok');
@@ -621,32 +505,10 @@ void main() {
     await move(friend, cash, 500);
     expect(ledger.balance(account(friend)), money(twd, 700));
     expect(ledger.balance(account(cash)), money(twd, 4300));
-    final month = ledger.monthly(workspace, '2026-10')[twd.code];
-    expect(month?.expense.minorUnits ?? BigInt.zero, BigInt.zero);
-  });
-
-  test('a balance is adjusted to what the bank shows', () async {
-    final bank = await openAccount('銀行', twd, opening: money(twd, 5000));
-    Future<void> adjust(int units) => books.adjustBalance(
-      AdjustBalance(
-        operation: op(),
-        postingId: PublicId.generate(),
-        account: ref(bank),
-        date: day,
-        target: money(twd, units),
-      ),
-    );
-    await adjust(4950);
-    expect(ledger.balance(account(bank)), money(twd, 4950));
-    var month = ledger.monthly(workspace, '2026-10')[twd.code]!;
-    expect(month.expense, money(twd, 50));
-    await expectLater(
-      adjust(4950),
-      fails(FailureKind.rejected, 'balance.unchanged'),
-    );
-    await adjust(5010);
-    expect(ledger.balance(account(bank)), money(twd, 5010));
-    month = ledger.monthly(workspace, '2026-10')[twd.code]!;
-    expect(month.income, money(twd, 60));
+    final expenses = [
+      for (final posting in ledger.workspacePostings(workspace))
+        posting.reportExpense.minorUnits,
+    ];
+    expect(expenses, everyElement(BigInt.zero));
   });
 }

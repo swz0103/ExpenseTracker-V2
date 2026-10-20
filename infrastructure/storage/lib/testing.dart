@@ -1,5 +1,5 @@
-/// Test-only fixtures; importable from `test/` directories only
-/// (`testEntrypoints` in architecture/boundaries.json).
+/// Test-only fixtures, shared by the storage and vault tests. Shipped code
+/// never imports this library.
 library;
 
 import 'package:core/foundation_values.dart';
@@ -14,7 +14,7 @@ import 'package:domain/reports.dart';
 import 'ledger_sqlcipher.dart';
 
 /// Books one of every event kind the ledger writes into one workspace,
-/// for replay and backup round trips (health check G5-05).
+/// for replay and backup round trips.
 final class EveryEventKind {
   EveryEventKind(this.workspace);
 
@@ -123,12 +123,11 @@ final class EveryEventKind {
         fee: ntd(15),
       ),
     );
-    await books.reversePosting(
-      ReversePosting(
+    await books.deletePosting(
+      DeletePosting(
         operation: op(),
         reversalId: PublicId.generate(),
         originalId: transfer.value,
-        date: day,
       ),
     );
     await books.renameAccount(
@@ -149,15 +148,6 @@ final class EveryEventKind {
       ),
     );
     final charge = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: charge,
-        cardId: card,
-        authorizedOn: day,
-        amount: ntd(3000),
-      ),
-    );
     await cards.post(
       PostCardCharge(
         operation: op(),
@@ -168,19 +158,6 @@ final class EveryEventKind {
         settledAmount: ntd(3000),
         fee: ntd(0),
       ),
-    );
-    final held = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: held,
-        cardId: card,
-        authorizedOn: day,
-        amount: ntd(99),
-      ),
-    );
-    await cards.release(
-      ReleaseAuthorization(operation: op(), chargeId: held, cardId: card),
     );
     await cards.planInstallments(
       PlanInstallments(
@@ -386,14 +363,6 @@ final class EveryEventKind {
         withholdingTax: cents(150),
         fee: cents(0),
         net: cents(350),
-      ),
-    );
-    await invest.rename(
-      RenameInvestmentRecord(
-        operation: op(),
-        type: InvestmentRecordType.instrument,
-        id: target().instrumentId,
-        name: '改名後',
       ),
     );
     final wrongDividend = PublicId.generate();

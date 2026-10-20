@@ -45,10 +45,17 @@ void main() {
       workspace: workspace,
       name: '全聯',
       version: 1,
-      aliases: ['PX Mart'],
     );
     final json = CatalogCodec.merchant(merchant);
-    expect(CatalogCodec.readMerchant(json).aliases, merchant.aliases);
+    expect(CatalogCodec.readMerchant(json).name, '全聯');
+    // Rows from builds that had merchant aliases still read; the aliases
+    // are ignored, and a row without the key reads too.
+    final legacy = {...json, 'aliases': ['PX Mart']};
+    expect(CatalogCodec.readMerchant(legacy).name, '全聯');
+    expect(
+      CatalogCodec.readMerchant({...json}..remove('aliases')).id,
+      merchant.id,
+    );
     expect(() => CatalogCodec.readMerchant({...json, 'extra': 1}), rejected());
     expect(
       () => CatalogCodec.readMerchant({...json, 'version': 2}),

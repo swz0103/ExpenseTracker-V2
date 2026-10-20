@@ -10,7 +10,7 @@ enum InvestmentError {
   duplicateIdentity,
   overflow,
 
-  /// Taiwan-listed shares trade in whole shares only (feature audit G-16).
+  /// Taiwan-listed shares trade in whole shares only.
   fractionalShares,
 }
 
@@ -268,7 +268,7 @@ final class InvestmentBuyPreview {
       rethrow;
     }
     // Brokers round the gross their own way; one unit either side is
-    // accepted (feature audit G-16).
+    // accepted.
     if ((calculatedGross.minorUnits - executedGross.minorUnits).abs() >
         BigInt.one) {
       throw const InvestmentException(InvestmentError.grossMismatch);

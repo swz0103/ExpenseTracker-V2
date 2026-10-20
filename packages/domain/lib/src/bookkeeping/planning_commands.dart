@@ -192,7 +192,7 @@ final class ConfirmRecurring extends PostingCommand {
   final MerchantSelection? merchant;
 
   /// For a template in a foreign currency: what this occurrence was worth
-  /// in the home currency that day (G-11).
+  /// in the home currency that day.
   final Money? homeValue;
 
   @override

@@ -9,14 +9,14 @@ import 'package:storage/storage_sqlcipher.dart';
 /// <second account> <count>
 ///
 /// Books [count] entries between the two TWD accounts: income, expenses,
-/// transfers and reversals of earlier ones. Prints `committed <n>` after
-/// every commit so a test can kill it mid-stream (health check G5-03).
+/// transfers and deletions of earlier ones. Prints `committed <n>` after
+/// every commit so a test can kill it mid-stream.
 ///
 /// Usage: posting_worker migrate <database> <hex key>
 ///
 /// Upgrades the ledger to the current schema and then runs one long extra
 /// step from [bulkSchema], printing `migrating` first, so a test can kill
-/// it in the middle of a migration (health check G6-09).
+/// it in the middle of a migration.
 Future<void> main(List<String> args) async {
   if (args.length == 3 && args[0] == 'migrate') {
     stdout.writeln('migrating');
@@ -82,12 +82,11 @@ Future<void> main(List<String> args) async {
           ),
         );
       default:
-        await books.reversePosting(
-          ReversePosting(
+        await books.deletePosting(
+          DeletePosting(
             operation: op(),
             reversalId: id,
             originalId: booked.removeLast(),
-            date: date,
           ),
         );
     }
