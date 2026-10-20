@@ -34,11 +34,7 @@ final class FileBox {
   List<int> _aad(String name) => [..._magic, ...utf8.encode(name)];
 
   Future<Uint8List> seal(String name, List<int> plain) async {
-    final box = await _cipher.encrypt(
-      plain,
-      secretKey: _key,
-      aad: _aad(name),
-    );
+    final box = await _cipher.encrypt(plain, secretKey: _key, aad: _aad(name));
     return Uint8List.fromList([
       ..._magic,
       ...box.nonce,

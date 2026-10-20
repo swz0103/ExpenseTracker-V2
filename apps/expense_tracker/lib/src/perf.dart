@@ -62,9 +62,8 @@ final class Perf {
     if (log == null) return;
     try {
       log.writeAsStringSync(
-        [for (final (t, w) in _problems) '${t.toIso8601String()}\t$w'].join(
-          '\n',
-        ),
+        [for (final (t, w) in _problems) '${t.toIso8601String()}\t$w']
+            .join('\n'),
         flush: true,
       );
     } on Object {

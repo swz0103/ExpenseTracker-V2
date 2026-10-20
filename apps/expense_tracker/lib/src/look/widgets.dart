@@ -380,7 +380,10 @@ class Tile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (hero) IconChip(icon) else IconChip(icon, background: Hue.tile),
+                    if (hero)
+                      IconChip(icon)
+                    else
+                      IconChip(icon, background: Hue.tile),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
