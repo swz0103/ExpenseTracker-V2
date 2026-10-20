@@ -204,6 +204,9 @@ class _AppShellState extends State<AppShell> {
             duration: const Duration(milliseconds: 240),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
+            // Only the page coming in is drawn: the one going out fading
+            // under it leaves its words as a ghost.
+            layoutBuilder: (current, previous) => current ?? const SizedBox(),
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
               child: SlideTransition(

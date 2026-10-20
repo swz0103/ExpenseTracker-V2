@@ -117,6 +117,7 @@ class HoldingPage extends StatelessWidget {
                 ledger: ledger,
                 entry: e,
                 onTap: () => nav.showEntry(e),
+                divider: !identical(e, trades.last),
               ),
           ],
         ),

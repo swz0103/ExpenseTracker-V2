@@ -54,6 +54,9 @@ class _LedgerPageState extends State<LedgerPage> {
   String? _category;
   String? _search;
 
+  /// Whether the search field is shown in place of the kind chips.
+  var _searchOpen = false;
+
   /// The entries picked for a change at once; a long press starts it.
   final _picked = <String>{};
 
@@ -285,15 +288,59 @@ class _LedgerPageState extends State<LedgerPage> {
         final income = shown.fold(0, (sum, e) => sum + e.earning);
         final expense = shown.fold(0, (sum, e) => sum + e.spending);
         final rows = <Widget>[];
-        var group = <Widget>[];
+        var group = <Entry>[];
         DateTime? day;
+        Widget tile(Entry e, {required bool last}) {
+          if (_picked.isNotEmpty) {
+            return Container(
+              color: _picked.contains(e.id)
+                  ? Hue.accent.withValues(alpha: 0.12)
+                  : null,
+              child: EntryTile(
+                ledger: ledger,
+                entry: e,
+                divider: !last,
+                onTap: () => _toggle(e),
+              ),
+            );
+          }
+          return Dismissible(
+            key: ValueKey(e.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              color: Hue.danger,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              child: const Text(
+                '刪除',
+                style: TextStyle(color: Hue.white, fontWeight: FontWeight.w700),
+              ),
+            ),
+            onDismissed: (_) => _remove(e),
+            child: GestureDetector(
+              onLongPress: () => _toggle(e),
+              child: EntryTile(
+                ledger: ledger,
+                entry: e,
+                divider: !last,
+                onTap: () => widget.nav.showEntry(e),
+              ),
+            ),
+          );
+        }
+
         void close() {
           if (group.isEmpty) return;
           rows.add(
             SoftPanel(
               color: Hue.white,
               padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Column(children: group),
+              child: Column(
+                children: [
+                  for (final (i, e) in group.indexed)
+                    tile(e, last: i == group.length - 1),
+                ],
+              ),
             ),
           );
           group = [];
@@ -311,47 +358,7 @@ class _LedgerPageState extends State<LedgerPage> {
               ),
             );
           }
-          if (_picked.isNotEmpty) {
-            final on = _picked.contains(e.id);
-            group.add(
-              Container(
-                color: on ? Hue.accent.withValues(alpha: 0.12) : null,
-                child: EntryTile(
-                  ledger: ledger,
-                  entry: e,
-                  onTap: () => _toggle(e),
-                ),
-              ),
-            );
-            continue;
-          }
-          group.add(
-            Dismissible(
-              key: ValueKey(e.id),
-              direction: DismissDirection.endToStart,
-              background: Container(
-                color: Hue.danger,
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 20),
-                child: const Text(
-                  '刪除',
-                  style: TextStyle(
-                    color: Hue.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              onDismissed: (_) => _remove(e),
-              child: GestureDetector(
-                onLongPress: () => _toggle(e),
-                child: EntryTile(
-                  ledger: ledger,
-                  entry: e,
-                  onTap: () => widget.nav.showEntry(e),
-                ),
-              ),
-            ),
-          );
+          group.add(e);
         }
         close();
         final transfers = shown.where((e) => e.type == EntryType.transfer);
@@ -393,71 +400,93 @@ class _LedgerPageState extends State<LedgerPage> {
                 ]),
               ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: '搜尋全部紀錄：備註、商家、標籤、金額',
-                      isDense: true,
-                      filled: true,
-                      fillColor: Hue.white,
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.all(10),
-                        child: GlyphIcon(Glyph.search, size: 18),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (text) => setState(() => _search = text),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Material(
-                  color: Hue.white,
-                  borderRadius: BorderRadius.circular(14),
-                  child: IconButton(
-                    tooltip: '篩選',
-                    onPressed: _filter,
-                    icon: const GlyphIcon(Glyph.sliders, size: 18),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 32,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+            if (_searchOpen)
+              Row(
                 children: [
-                  for (final option in KindFilter.values)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _kind = option),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: option == _kind ? Hue.accent : Hue.tile,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            option.label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: option == _kind ? Hue.white : Hue.accent,
-                            ),
-                          ),
+                  Expanded(
+                    child: TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: '搜尋備註、商家、標籤、金額',
+                        isDense: true,
+                        filled: true,
+                        fillColor: Hue.white,
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: GlyphIcon(Glyph.search, size: 18),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
                         ),
                       ),
+                      onChanged: (text) => setState(() => _search = text),
                     ),
+                  ),
+                  _RoundButton(
+                    tooltip: '關閉搜尋',
+                    glyph: Glyph.close,
+                    onTap: () => setState(() {
+                      _searchOpen = false;
+                      _search = null;
+                    }),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          for (final option in KindFilter.values)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: GestureDetector(
+                                onTap: () => setState(() => _kind = option),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: option == _kind
+                                        ? Hue.accent
+                                        : Hue.tile,
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: Text(
+                                    option.label,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: option == _kind
+                                          ? Hue.white
+                                          : Hue.accent,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _RoundButton(
+                    tooltip: '搜尋',
+                    glyph: Glyph.search,
+                    onTap: () => setState(() => _searchOpen = true),
+                  ),
+                  _RoundButton(
+                    tooltip: '篩選',
+                    glyph: Glyph.sliders,
+                    onTap: _filter,
+                  ),
                 ],
               ),
-            ),
             if (account != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -550,4 +579,33 @@ class _PickBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A small round button beside the chips: search, filter, close.
+class _RoundButton extends StatelessWidget {
+  const _RoundButton({
+    required this.tooltip,
+    required this.glyph,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final Glyph glyph;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 6),
+    child: Material(
+      color: Hue.white,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onTap,
+        visualDensity: VisualDensity.compact,
+        icon: GlyphIcon(glyph, size: 18),
+      ),
+    ),
+  );
 }

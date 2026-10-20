@@ -90,18 +90,6 @@ extension _Fields on _ComposerState {
       case ComposeMode.expense || ComposeMode.income:
         final expense = _mode == ComposeMode.expense;
         return [
-          if (expense && _more)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Tile(
-                icon: Glyph.store,
-                label: '商家',
-                value: _merchant.isEmpty ? '未填' : _merchant,
-                valueColor: _merchant.isEmpty ? Hue.faint : Hue.ink,
-                size: 15,
-                onTap: _pickMerchant,
-              ),
-            ),
           _categories(expense),
           TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
           if (_foreign) _homeTile(),
@@ -119,7 +107,7 @@ extension _Fields on _ComposerState {
                 onTap: _pickInstallments,
               ),
             ),
-          if (_more) ...[_tagBlock(), _noteField()] else _moreLink(expense),
+          _extras(expense),
         ];
       case ComposeMode.transfer:
         final from = _ledger.account(_account);
@@ -181,9 +169,76 @@ extension _Fields on _ComposerState {
           ]),
           _noteField(),
         ];
+      case ComposeMode.lend:
+        return _lendFields();
       case ComposeMode.investment:
         return _investmentFields();
     }
+  }
+
+  /// 代墊: money paid for someone, or paid back by them. Each person has
+  /// an account of their own that keeps what they owe.
+  List<Widget> _lendFields() {
+    final person = _to.isEmpty ? null : _ledger.account(_to);
+    final owed = person == null ? 0 : _ledger.balance(person.id);
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Segments(
+          labels: const ['幫忙付', '對方還錢'],
+          selected: _back ? 1 : 0,
+          selectedColor: ComposeMode.lend.color,
+          onChanged: (i) => _set(() => _back = i == 1),
+        ),
+      ),
+      TileRow([
+        Tile(
+          icon: Glyph.heart,
+          label: '代墊對象',
+          value: person?.name ?? '新增對象',
+          valueColor: person == null ? Hue.accent : Hue.ink,
+          sub: person == null || owed == 0 ? null : '目前欠 ${groupDigits(owed)}',
+          size: 15,
+          onTap: _pickPerson,
+        ),
+        _accountTile(_back ? '收到' : '付款帳戶'),
+      ]),
+      TileRow([_dateTile()]),
+      _extras(false),
+    ];
+  }
+
+  /// Picks whom the money is for, or adds a new person.
+  Future<void> _pickPerson() async {
+    const adding = '';
+    final picked = _people.isEmpty
+        ? adding
+        : await pickOption<String>(
+            context,
+            title: '代墊對象',
+            selected: _to,
+            columns: 3,
+            options: [
+              for (final a in _people)
+                Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+              const Option(adding, '新增對象', Glyph.add, Hue.accent),
+            ],
+          );
+    if (picked == null || !mounted) return;
+    if (picked != adding) {
+      _set(() => _to = picked);
+      return;
+    }
+    final name = await askText(context, '代墊對象的名字');
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final account = Account(
+      _ledger.newId(),
+      name.trim(),
+      AccountKind.receivable,
+      0,
+    );
+    _ledger.addAccount(account);
+    _set(() => _to = account.id);
   }
 
   /// What a transfer between currencies delivers, at today's rates until
@@ -323,15 +378,87 @@ extension _Fields on _ComposerState {
   }
 
   /// Opens the fields a quick entry leaves out.
-  Widget _moreLink(bool expense) {
-    if (_viewing) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton.icon(
-        onPressed: () => _set(() => _more = true),
-        icon: const GlyphIcon(Glyph.add, size: 16, color: Hue.accent),
-        label: Text(expense ? '商家、標籤、備註' : '標籤、備註'),
-        style: TextButton.styleFrom(foregroundColor: Hue.accent),
+  /// The merchant, tags and note under one heading at the foot of the
+  /// form, opened and closed with it; closed, the heading shows what is
+  /// filled in.
+  Widget _extras(bool expense) {
+    final filled = [
+      if (expense && _merchant.isNotEmpty) _merchant,
+      for (final tag in _tags) '#$tag',
+      if (_note.text.trim().isNotEmpty) _note.text.trim(),
+    ];
+    if (_viewing && filled.isEmpty) return const SizedBox.shrink();
+    final open = _more || _viewing;
+    final heading = InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: _viewing ? null : () => _set(() => _more = !_more),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+        child: Row(
+          children: [
+            const GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
+            const SizedBox(width: 8),
+            Text(
+              expense ? '商家、標籤、備註' : '標籤、備註',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Hue.accent,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                open ? '' : filled.join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
+              ),
+            ),
+            if (!_viewing)
+              RotatedBox(
+                quarterTurns: open ? 3 : 1,
+                child: const GlyphIcon(
+                  Glyph.next,
+                  size: 16,
+                  color: Hue.accent,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          heading,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: open
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (expense && (!_viewing || _merchant.isNotEmpty))
+                        Tile(
+                          icon: Glyph.store,
+                          label: '商家',
+                          value: _merchant.isEmpty ? '未填' : _merchant,
+                          valueColor: _merchant.isEmpty ? Hue.faint : Hue.ink,
+                          size: 15,
+                          onTap: _pickMerchant,
+                        ),
+                      _tagBlock(),
+                      _noteField(),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
       ),
     );
   }

@@ -360,6 +360,18 @@ final class Holding {
 
   int get gain => value - cost;
 
+  /// This holding with [change] as the day's change in value.
+  Holding withChange(int change) => Holding(
+    code,
+    name,
+    shares: shares,
+    price: price,
+    cost: cost,
+    change: change,
+    dividends: dividends,
+    realized: realized,
+  );
+
   Holding copyWith({
     int? shares,
     double? price,

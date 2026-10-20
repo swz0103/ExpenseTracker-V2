@@ -62,11 +62,15 @@ class EntryTile extends StatelessWidget {
     required this.ledger,
     required this.entry,
     required this.onTap,
+    this.divider = true,
   });
 
   final Ledger ledger;
   final Entry entry;
   final VoidCallback onTap;
+
+  /// A rule under the tile; the last one of a list goes without.
+  final bool divider;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +85,10 @@ class EntryTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Hue.line)),
+          decoration: BoxDecoration(
+            border: divider
+                ? const Border(bottom: BorderSide(color: Hue.line))
+                : null,
           ),
           child: Row(
             children: [

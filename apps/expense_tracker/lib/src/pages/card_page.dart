@@ -262,6 +262,7 @@ class CardPage extends StatelessWidget {
                         ledger: ledger,
                         entry: e,
                         onTap: () => nav.showEntry(e),
+                        divider: !identical(e, unbilled.last),
                       ),
                   ],
                 ),

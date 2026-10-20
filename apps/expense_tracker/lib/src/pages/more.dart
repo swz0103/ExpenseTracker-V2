@@ -143,10 +143,15 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    // The pressed shade is a rounded block inside the panel, so it never
+    // meets the panel's own corners at an angle.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
           children: [
             Container(
@@ -169,6 +174,7 @@ class _Row extends StatelessWidget {
             const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
           ],
         ),
+      ),
       ),
     );
   }

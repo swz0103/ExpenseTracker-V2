@@ -236,7 +236,7 @@ void main() {
       ('預算管理', '分類與標籤額度'),
       ('定期交易', '管理固定項目'),
       ('分類管理', '支出分類'),
-      ('設定與資料', '匯出帳本'),
+      ('設定與資料', '匯出全部'),
     ]) {
       await tester.tap(find.text(tool));
       await tester.pumpAndSettle();

@@ -25,9 +25,18 @@ final class StockClose {
     required this.decimalPrice,
     required this.asOf,
     required this.fetchedAt,
+    this.name,
+    this.decimalChange,
   });
 
   final String symbol;
+
+  /// The listed name, such as 台積電; null when the snapshot has none.
+  final String? name;
+
+  /// The change from the close before, signed, as published, such as
+  /// `-1.50`; null when not given.
+  final String? decimalChange;
 
   /// Exact positive NT$ price per share, as published; never a double.
   final String decimalPrice;
@@ -138,10 +147,10 @@ final class MarketDataGateway {
   Future<MarketResult<StockClose>> stockClose(
     InvestmentInstrument instrument,
   ) async {
-    final (uri, codeKey, priceKey) = switch (instrument.marketCode) {
-      'TWSE' => (twseUri, 'Code', 'ClosingPrice'),
-      'TPEX' => (tpexUri, 'SecuritiesCompanyCode', 'Close'),
-      _ => (null, '', ''),
+    final (uri, codeKey, priceKey, nameKey) = switch (instrument.marketCode) {
+      'TWSE' => (twseUri, 'Code', 'ClosingPrice', 'Name'),
+      'TPEX' => (tpexUri, 'SecuritiesCompanyCode', 'Close', 'CompanyName'),
+      _ => (null, '', '', ''),
     };
     if (uri == null ||
         instrument.tradingCurrency != _twd ||
@@ -166,11 +175,14 @@ final class MarketDataGateway {
         return const MarketResult(MarketState.missing, reason: 'No trade');
       }
       final asOf = _rocDate(row['Date']);
+      final name = row[nameKey];
       final close = StockClose(
         symbol: instrument.symbol,
         decimalPrice: price,
         asOf: asOf,
         fetchedAt: snapshot.fetchedAt,
+        name: name is String && name.trim().isNotEmpty ? name.trim() : null,
+        decimalChange: _signedDecimal(row['Change']),
       );
       final stale = fetched.state == MarketState.stale || _old(asOf);
       return MarketResult(
@@ -368,6 +380,16 @@ BusinessDate _taipeiDate(DateTime instant) {
 int _epochDay(BusinessDate date) {
   final instant = DateTime.utc(date.year, date.month, date.day);
   return instant.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+}
+
+/// A signed decimal as an exchange writes a change (`+5.0000`, `-1.50`,
+/// ` 0.00`, `1,234.5`); null when it is not one.
+String? _signedDecimal(Object? value) {
+  if (value is! String) return null;
+  final clean = value.replaceAll(',', '').replaceAll(' ', '');
+  final match = RegExp(r'^([+-]?)([0-9]+(?:\.[0-9]+)?)$').firstMatch(clean);
+  if (match == null) return null;
+  return '${match[1] == '-' ? '-' : ''}${match[2]}';
 }
 
 BusinessDate _rocDate(Object? value) {

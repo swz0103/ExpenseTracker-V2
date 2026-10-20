@@ -34,7 +34,11 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> rates = const {},
     Map<String, int> cardDues = const {},
     List<Trashed> trash = const [],
-  }) : _rates = {...rates},
+    Map<String, double> moves = const {},
+    DateTime? quotedOn,
+  }) : _quotedOn = quotedOn,
+       _rates = {...rates},
+       _moves = {...moves},
        _trash = [...trash],
        _dues = {...cardDues},
        _accounts = [...accounts],
@@ -65,6 +69,14 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries deleted lately, newest first, until restored.
   final List<Trashed> _trash;
+
+  /// The trading day of the newest closing price the holdings are
+  /// valued at; null when none was fetched yet.
+  DateTime? get quotedOn => _quotedOn;
+  DateTime? _quotedOn;
+
+  /// Each stock's change on its last trading day, per share, by code.
+  final Map<String, double> _moves;
   final Map<String, double> _rates;
 
   /// Each card's [statementDue] as the journal's billing has it, by id.
@@ -73,7 +85,15 @@ final class Ledger extends ChangeNotifier {
   /// The holdings replayed from [_startHoldings] and the entries.
   late Portfolio _portfolio;
 
-  List<Holding> get _holdings => _portfolio.holdings;
+  /// The holdings replayed, with the day's change where a close gave one.
+  List<Holding> get _holdings => _moved ??= [
+    for (final h in _portfolio.holdings)
+      if (_moves[h.code] case final move?)
+        h.withChange((h.shares * move).round())
+      else
+        h,
+  ];
+  List<Holding>? _moved;
 
   /// Amounts are written as dots: the 隱藏金額 switch.
   bool get hidden => _hidden;
@@ -153,6 +173,7 @@ final class Ledger extends ChangeNotifier {
   Map<String, Account>? _accountIndex;
 
   void _touch() {
+    _moved = null;
     _months = null;
     _days = null;
     _first = null;
@@ -647,6 +668,10 @@ final class Ledger extends ChangeNotifier {
     _trash
       ..clear()
       ..addAll(fresh._trash);
+    _moves
+      ..clear()
+      ..addAll(fresh._moves);
+    _quotedOn = fresh._quotedOn;
     _replay();
     notifyListeners();
   }

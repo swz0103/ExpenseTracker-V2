@@ -22,6 +22,7 @@ enum ComposeMode {
   expense('支出', Glyph.bag, Hue.negative, Hue.expenseSoft),
   income('收入', Glyph.income, Hue.positive, Hue.incomeSoft),
   transfer('轉帳', Glyph.transfer, Hue.transfer, Hue.transferSoft),
+  lend('代墊', Glyph.heart, Hue.receivable, Hue.investmentSoft),
   investment('投資', Glyph.investment, Hue.investment, Hue.investmentSoft);
 
   const ComposeMode(this.label, this.icon, this.color, this.soft);
@@ -137,6 +138,9 @@ class _ComposerState extends State<Composer> {
 
   /// A capital reduction: the shares go down and cash comes back.
   var _reduce = false;
+
+  /// 代墊: money coming back from the person rather than paid for them.
+  var _back = false;
   final _note = TextEditingController();
   String? _problem;
 
@@ -245,8 +249,21 @@ class _ComposerState extends State<Composer> {
     _splitShares = false;
     _shareChange = false;
     _reduce = false;
+    _back = false;
     _problem = null;
+    if (_mode == ComposeMode.lend) {
+      // Paid from the main account, for the first person owing.
+      final main = _ledger.mainAccount;
+      if (main.isNotEmpty) _account = main;
+      _to = _people.isEmpty ? '' : _people.first.id;
+    }
   }
+
+  /// The accounts that keep what someone owes, one per person.
+  List<Account> get _people => [
+    for (final a in _ledger.openAccounts)
+      if (a.kind == AccountKind.receivable) a,
+  ];
 
   /// Categories of this tab, the most used lately first.
   List<String> _categoryChoices() =>
@@ -274,7 +291,7 @@ class _ComposerState extends State<Composer> {
   EntryType get _type => switch (_mode) {
     ComposeMode.expense => EntryType.expense,
     ComposeMode.income => EntryType.income,
-    ComposeMode.transfer => EntryType.transfer,
+    ComposeMode.transfer || ComposeMode.lend => EntryType.transfer,
     ComposeMode.investment => _trade,
   };
 
@@ -290,6 +307,7 @@ class _ComposerState extends State<Composer> {
     return switch (_type) {
       EntryType.expense => '新增支出',
       EntryType.income => '新增收入',
+      EntryType.transfer when _mode == ComposeMode.lend => '代墊與還款',
       EntryType.transfer => '帳戶轉帳',
       _ => '新增投資',
     };
@@ -301,6 +319,8 @@ class _ComposerState extends State<Composer> {
     return switch (_type) {
       EntryType.expense => '記下支出',
       EntryType.income => '記下收入',
+      EntryType.transfer when _mode == ComposeMode.lend =>
+        _back ? '記下還款' : '記下代墊',
       EntryType.transfer => '確認轉帳',
       EntryType.buy => '記下買進',
       EntryType.sell => '記下賣出',
@@ -601,6 +621,7 @@ class _ComposerState extends State<Composer> {
   /// Why the entry cannot be kept yet; null when it can. The ledger's
   /// own checks, and a split that must add up to the amount.
   String? get _check {
+    if (_mode == ComposeMode.lend && _to.isEmpty) return '請選擇代墊對象';
     final problem = _ledger.problemWith(_build(), replacing: widget.entry);
     if (problem != null) return problem;
     final splitTotal = _splitParts?.fold(0, (sum, p) => sum + p.$2);
@@ -609,6 +630,8 @@ class _ComposerState extends State<Composer> {
     }
     return null;
   }
+
+  bool get _lendingBack => _mode == ComposeMode.lend && _back;
 
   /// The entry as the form now stands.
   Entry _build() {
@@ -620,7 +643,8 @@ class _ComposerState extends State<Composer> {
       date: _date,
       type: type,
       amount: _amount,
-      account: _account,
+      // Paid back: from the person's account into the chosen one.
+      account: _lendingBack ? _to : _account,
       category: switch (type) {
         EntryType.transfer => '轉帳',
         EntryType.dividend => '股息收入',
@@ -628,7 +652,11 @@ class _ComposerState extends State<Composer> {
         _ => parts == null || parts.isEmpty ? _category : parts.first.$1,
       },
       note: _note.text.trim(),
-      to: type == EntryType.transfer ? _to : null,
+      to: _lendingBack
+          ? _account
+          : type == EntryType.transfer
+          ? _to
+          : null,
       holding: _mode == ComposeMode.investment ? _holding : null,
       shares: _mode != ComposeMode.investment
           ? 0
