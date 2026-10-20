@@ -47,7 +47,7 @@ class _OriginalTile extends StatelessWidget {
               children: [
                 Text(
                   '原支出 · ${entry.date.month}/${entry.date.day}',
-                  style: const TextStyle(fontSize: 12, color: Hue.accent),
+                  style: const TextStyle(fontSize: 13, color: Hue.accent),
                 ),
                 Text(
                   entry.title,
@@ -164,7 +164,7 @@ class _CategoryChoice extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
                 color: picked ? Hue.accent : Hue.ink,
               ),
@@ -254,7 +254,7 @@ class _AccountEnd extends StatelessWidget {
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
         Text(
           account.name,
           maxLines: 1,
@@ -263,7 +263,7 @@ class _AccountEnd extends StatelessWidget {
         ),
         Text(
           '餘額 ${amountIn(balance, account.currency)}',
-          style: const TextStyle(fontSize: 11, color: Hue.muted),
+          style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ],
     );
@@ -364,7 +364,7 @@ class _Link extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 12.5, color: Hue.accent),
+          style: const TextStyle(fontSize: 13, color: Hue.accent),
         ),
       ),
     );
@@ -388,7 +388,7 @@ class _TagChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           color: solid ? Hue.onAccent : Hue.accent,
         ),
       ),

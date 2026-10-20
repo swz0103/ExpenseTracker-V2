@@ -45,7 +45,7 @@ class _TrashSheet extends StatelessWidget {
             Text(
               trash.isEmpty ? '30 天內沒有刪除的紀錄' : '點一筆就放回帳本；刪除後保留 30 天',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
             ),
             const SizedBox(height: 8),
             for (final t in trash) ...[
@@ -53,7 +53,7 @@ class _TrashSheet extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 14, top: 6),
                 child: Text(
                   '${t.on.month}/${t.on.day} 刪除',
-                  style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+                  style: const TextStyle(fontSize: 12.5, color: Hue.muted),
                 ),
               ),
               EntryTile(

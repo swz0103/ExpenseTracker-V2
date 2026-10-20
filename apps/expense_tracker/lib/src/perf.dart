@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/scheduler.dart';
 
@@ -19,13 +21,62 @@ final class Perf {
   /// when.
   final _problems = <(DateTime, String)>[];
 
+  /// Where problems are kept across launches; none keeps them in memory.
+  File? _log;
+
+  /// The most problems kept.
+  static const _kept = 50;
+
+  /// Keeps problems in [file] from now on, and brings back those kept
+  /// there before, so a fault before a crash can still be exported.
+  void keepIn(File file) {
+    _log = file;
+    try {
+      if (!file.existsSync()) return;
+      for (final line in file.readAsLinesSync()) {
+        final tab = line.indexOf('\t');
+        final at = tab < 0 ? null : DateTime.tryParse(line.substring(0, tab));
+        if (at != null) _problems.add((at, line.substring(tab + 1)));
+      }
+      _trim();
+    } on Object {
+      // An unreadable log starts again.
+    }
+  }
+
+  void _trim() {
+    if (_problems.length > _kept) {
+      _problems.removeRange(0, _problems.length - _kept);
+    }
+  }
+
   /// Keeps that [what] did not work, for 設定 › 效能, rather than letting
   /// it pass unseen.
   void problem(String what, Object error) {
     debugPrint('$what: $error');
-    _problems.add((DateTime.now(), '$what：$error'));
-    if (_problems.length > 20) _problems.removeAt(0);
+    final words = '$what：$error'.replaceAll('\n', ' ');
+    final at = DateTime.now();
+    _problems.add((at, words));
+    _trim();
+    final log = _log;
+    if (log == null) return;
+    try {
+      log.writeAsStringSync(
+        [for (final (t, w) in _problems) '${t.toIso8601String()}\t$w']
+            .join('\n'),
+        flush: true,
+      );
+    } on Object {
+      // Kept in memory for this run.
+    }
   }
+
+  /// Everything kept, as text to export: the figures, then each problem.
+  String get text => [
+    for (final (name, figure) in report.take(2)) '$name：$figure',
+    '',
+    for (final (at, what) in problems) '${at.toIso8601String()}  $what',
+  ].join('\n');
 
   /// The problems kept, newest first.
   List<(DateTime, String)> get problems => _problems.reversed.toList();

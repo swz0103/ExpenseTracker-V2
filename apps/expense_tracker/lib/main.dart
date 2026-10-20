@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'src/bootstrap.dart';
-import 'src/compose/receipt_photos.dart';
 import 'src/perf.dart';
 import 'src/platform.dart';
 import 'src/preferences.dart';
@@ -15,6 +14,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Perf.instance.watchFrames();
   final directory = await applicationDirectory();
+  // Faults are kept on the phone, so 設定 can export them after a crash.
+  Perf.instance.keepIn(File('${directory.path}/diagnostics.log'));
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    Perf.instance.problem('畫面錯誤', details.exception);
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    Perf.instance.problem('未預期的錯誤', error);
+    return true;
+  };
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
       : null;
@@ -30,7 +39,6 @@ Future<void> main() async {
     file: File('${directory.path}/preferences.json'),
   );
   if (Platform.isAndroid) {
-    receiptPhotos = AndroidReceipts(directory);
     try {
       await listenForQuickActions();
     } on Object catch (error) {

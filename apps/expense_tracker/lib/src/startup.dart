@@ -161,8 +161,20 @@ final class Startup extends ChangeNotifier {
     final keys = recovery
         ? await codec.unlockWithRecovery(header.keyring, secret)
         : await codec.unlockWithPassword(header.keyring, secret);
+    final receipts = Directory('${directory.path}/receipts');
     final open = await _vault.restore(keys, (staging) async {
-      await LedgerBackup.restore(file: file, keys: keys, into: staging);
+      await LedgerBackup.restore(
+        file: file,
+        keys: keys,
+        into: staging,
+        // Receipt photos the backup carries, still sealed: they open with
+        // the restored ledger's own key.
+        onFile: (name, bytes) async {
+          if (!RegExp(r'^[\w.-]+$').hasMatch(name)) return;
+          await receipts.create(recursive: true);
+          await File('${receipts.path}/$name').writeAsBytes(bytes, flush: true);
+        },
+      );
     });
     // The restored ledger opens with the backup's own password.
     await forgetQuickKey();

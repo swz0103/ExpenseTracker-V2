@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:core/foundation_values.dart';
+import 'package:cryptography/cryptography.dart'
+    show SecretBoxAuthenticationError;
 import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:storage/ledger_sqlcipher.dart';
@@ -125,6 +127,54 @@ void main() {
     );
     return target;
   }
+
+  test('files ride along and come back by name', () async {
+    final photo = File('${directory.path}/photo.bin')
+      ..writeAsBytesSync(List.generate(5000, (i) => i % 251));
+    final file = File('${directory.path}/with-files.etb');
+    await LedgerBackup.write(
+      store: source,
+      keys: keys.unlocked,
+      file: file,
+      backupId: PublicId.generate(),
+      createdAt: UtcInstant(DateTime.utc(2026, 10, 3, 12)),
+      files: {'lunch.etr': photo},
+    );
+    final header = await LedgerBackup.readHeader(file);
+    final unlocked = await codec.unlockWithPassword(header.keyring, password);
+    final target = open();
+    addTearDown(target.close);
+    final back = <String, List<int>>{};
+    await LedgerBackup.restore(
+      file: file,
+      keys: unlocked,
+      into: LedgerStore(target),
+      onFile: (name, bytes) async => back[name] = bytes,
+    );
+    expect(back.keys, ['lunch.etr']);
+    expect(back['lunch.etr'], photo.readAsBytesSync());
+    expect(projectionRows(target), projectionRows(source));
+  });
+
+  test('sealed files open only under their own name and ledger', () async {
+    final box = await FileBox.derive(keys.unlocked, 'receipts');
+    final sealed = await box.seal('a.etr', [1, 2, 3, 4]);
+    expect(await box.open('a.etr', sealed), [1, 2, 3, 4]);
+    await expectLater(
+      box.open('b.etr', sealed),
+      throwsA(isA<SecretBoxAuthenticationError>()),
+    );
+    final other = await FileBox.derive(
+      (await codec.create(password)).unlocked,
+      'receipts',
+    );
+    await expectLater(
+      other.open('a.etr', sealed),
+      throwsA(isA<SecretBoxAuthenticationError>()),
+    );
+    final again = await FileBox.derive(keys.unlocked, 'receipts');
+    expect(await again.open('a.etr', sealed), [1, 2, 3, 4]);
+  });
 
   test('a backup restores the same ledger on a new device', () async {
     final file = await backup();

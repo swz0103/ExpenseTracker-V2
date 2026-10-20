@@ -409,7 +409,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: Text(
                 '目前 ${amountIn(widget.ledger.balance(old.id), old.currency)}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
             ),
         ],
@@ -441,7 +441,7 @@ class _Block extends StatelessWidget {
             Text(
               head,
               style: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Hue.accent,
               ),

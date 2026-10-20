@@ -6,6 +6,7 @@
     <exclude domain="file" path="no-fingerprint"/>
     <exclude domain="file" path="exports"/>
     <exclude domain="file" path="calendar"/>
+    <exclude domain="file" path="diagnostics.log"/>
     <!-- Receipt photos would soon fill the 25 MB backup allowance. -->
     <exclude domain="file" path="receipts"/>
 </full-backup-content>

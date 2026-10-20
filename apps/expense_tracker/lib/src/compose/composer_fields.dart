@@ -278,7 +278,7 @@ extension _Fields on _ComposerState {
               Text(
                 parts == null ? '分類' : '分類 · 拆成 ${parts.length} 筆',
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Hue.accent,
                 ),
@@ -347,7 +347,7 @@ extension _Fields on _ComposerState {
                     const Spacer(),
                     Text(
                       '剩餘 ${groupDigits(left)}',
-                      style: const TextStyle(fontSize: 12, color: Hue.muted),
+                      style: const TextStyle(fontSize: 13, color: Hue.muted),
                     ),
                   ],
                 ),
@@ -488,7 +488,7 @@ extension _Fields on _ComposerState {
           const Text(
             '收據',
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Hue.accent,
             ),

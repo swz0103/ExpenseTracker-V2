@@ -55,7 +55,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         title,
         trailing: Text(
           money(value),
-          style: const TextStyle(fontSize: 12, color: Hue.muted),
+          style: const TextStyle(fontSize: 13, color: Hue.muted),
         ),
       ),
       SoftPanel(
@@ -96,7 +96,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             const SizedBox(height: 2),
             Text(
               '${moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
-              style: TextStyle(fontSize: 11.5, color: tone),
+              style: TextStyle(fontSize: 12.5, color: tone),
             ),
           ],
         ),

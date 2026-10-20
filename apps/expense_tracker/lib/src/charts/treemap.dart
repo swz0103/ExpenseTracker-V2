@@ -180,7 +180,7 @@ class _TreemapPainter extends CustomPainter {
       );
       if (rect.width < 36 || rect.height < 20) continue;
       final label = TextStyle(
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w600,
         color: Hue.ink.withValues(alpha: faded ? 0.5 : 0.9),
       );

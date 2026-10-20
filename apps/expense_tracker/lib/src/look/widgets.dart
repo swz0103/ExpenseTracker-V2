@@ -255,21 +255,23 @@ class IconChip extends StatelessWidget {
     super.key,
     this.size = 28,
     this.color = Hue.accent,
+    this.background = const Shade(0xCCFFFFFF, 0x1FFFFFFF),
   });
 
   final Glyph icon;
   final double size;
   final Color color;
 
+  /// The circle behind the icon: light on tinted blocks, the tint on
+  /// white cards.
+  final Color background;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
-        color: Shade(0xCCFFFFFF, 0x1FFFFFFF),
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
       alignment: Alignment.center,
       child: GlyphIcon(icon, size: size * 0.6, color: color),
     );
@@ -339,7 +341,7 @@ class Tile extends StatelessWidget {
             note,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: Hue.muted),
+            style: const TextStyle(fontSize: 13, color: Hue.muted),
           ),
       ],
     );
@@ -356,8 +358,10 @@ class Tile extends StatelessWidget {
               )
             : null,
       ),
+      // Two kinds of card in the app: the page's tinted main block, and
+      // white cards for everything else.
       child: Material(
-        color: hero ? Colors.transparent : Hue.tile,
+        color: hero ? Colors.transparent : Hue.white,
         borderRadius: radius,
         child: InkWell(
           borderRadius: radius,
@@ -376,7 +380,10 @@ class Tile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    IconChip(icon),
+                    if (hero)
+                      IconChip(icon)
+                    else
+                      IconChip(icon, background: Hue.tile),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -384,7 +391,7 @@ class Tile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: Hue.accent,
                         ),
@@ -471,7 +478,7 @@ class TileStats extends StatelessWidget {
                         Text(
                           label,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: Hue.muted,
                           ),
                         ),
@@ -521,7 +528,7 @@ class LegendKey extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+        Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
       ],
     );
   }
@@ -542,7 +549,7 @@ class Pill extends StatelessWidget {
         color: const Shade(0xB3FFFFFF, 0x1FFFFFFF),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11.5, color: color)),
+      child: Text(text, style: TextStyle(fontSize: 12.5, color: color)),
     );
   }
 }

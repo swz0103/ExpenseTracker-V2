@@ -133,7 +133,7 @@ class _BarsPainter extends CustomPainter {
         canvas,
         b.label,
         TextStyle(
-          fontSize: 10.5,
+          fontSize: 11.5,
           color: i == selected ? Hue.ink : Hue.muted,
           fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
         ),
@@ -265,7 +265,7 @@ class _MixPainter extends CustomPainter {
         paintText(
           canvas,
           labels[i],
-          const TextStyle(fontSize: 10.5, color: Hue.muted),
+          const TextStyle(fontSize: 11.5, color: Hue.muted),
           Offset(x, size.height - 9),
         );
       }
