@@ -48,8 +48,9 @@ void main() {
 
   test('the composer and the look need no pages', () {
     for (final folder in ['lib/src/compose', 'lib/src/look']) {
-      for (final MapEntry(key: file, value: imports)
-          in importsIn(folder).entries) {
+      for (final MapEntry(key: file, value: imports) in importsIn(
+        folder,
+      ).entries) {
         for (final uri in imports) {
           expect(uri.startsWith('../pages/'), isFalse, reason: '$file: $uri');
         }
@@ -66,8 +67,9 @@ void main() {
       'lib/src/model',
       'lib/src/pages',
     ]) {
-      for (final MapEntry(key: file, value: imports)
-          in importsIn(folder).entries) {
+      for (final MapEntry(key: file, value: imports) in importsIn(
+        folder,
+      ).entries) {
         for (final uri in imports) {
           expect(uri.contains('demo/'), isFalse, reason: '$file: $uri');
         }
