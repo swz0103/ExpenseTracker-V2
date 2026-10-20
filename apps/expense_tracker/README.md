@@ -24,6 +24,7 @@
 
 - Android 通道在 `android/app/src/main/kotlin/`：Keystore 指紋金鑰、匯出與選取檔案、Google 日曆（`CalendarBridge.kt`）。
 - 字型：Noto Sans TC 常用字子集，OFL 授權見 `fonts/LICENSE.txt`。
+- App 圖示：`tool/app_icon.svg` 是原稿（108dp 畫布），`android/.../mipmap-*` 由它輸出；畫面裡用 `look/app_mark.dart` 畫同一個圖。
 - 圖示：`tool/glyphs.py` 定義所有圖示並產生 `lib/src/look/glyphs.dart`，不要手改產生的檔案。
 
 ## 測試

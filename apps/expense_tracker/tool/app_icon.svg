@@ -1,0 +1,16 @@
+<!-- App icon: a ledger book with a bookmark on deep teal. 432x432 = the 108dp adaptive canvas; launchers show about the centre 288 (72dp). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#447A8F"/><stop offset="1" stop-color="#244B5C"/></linearGradient></defs>
+<rect width="432" height="432" fill="url(#bg)"/>
+<g transform="translate(216 220) scale(0.76) translate(-216 -216)">
+ <rect x="128" y="100" width="182" height="232" rx="26" fill="#0E2A36" opacity=".22" transform="translate(0 10)"/>
+ <rect x="128" y="100" width="182" height="232" rx="26" fill="#FBF8F1"/>
+ <path d="M154 100 a26 26 0 0 0 -26 26 v180 a26 26 0 0 0 26 26 z" fill="#E6C77A"/>
+ <rect x="152" y="100" width="7" height="232" fill="#CFA94F"/>
+ <path d="M262 92 h30 v74 l-15 -13 l-15 13 z" fill="#C8604A"/>
+ <rect x="184" y="182" width="96" height="14" rx="7" fill="#3B6C80"/>
+ <rect x="184" y="214" width="70" height="14" rx="7" fill="#A9C0C8"/>
+ <rect x="184" y="246" width="84" height="14" rx="7" fill="#A9C0C8"/>
+ <rect x="184" y="278" width="54" height="14" rx="7" fill="#A9C0C8"/>
+</g>
+</svg>
