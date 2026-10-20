@@ -1026,43 +1026,46 @@ void main() {
     expect(held('0050'), shown(ledger, '0050'));
   });
 
-  test('a part of a lot sold, then a stock dividend, match the ledger', () async {
-    var ledger = await create();
-    final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
-    ledger.addAccount(bank);
-    await ledger.settled;
-    Entry trade(
-      EntryType type,
-      int amount,
-      int shares,
-      DateTime on, {
-      int fee = 0,
-    }) => Entry(
-      id: ledger.newId(),
-      date: on,
-      type: type,
-      amount: amount,
-      account: bank.id,
-      category: type == EntryType.dividend ? '股息收入' : '投資',
-      holding: '2603',
-      shares: shares,
-      fee: fee,
-    );
-    ledger
-      ..add(trade(EntryType.buy, 300, 3, DateTime.utc(2026, 9, 1), fee: 1))
-      ..add(trade(EntryType.buy, 600, 3, DateTime.utc(2026, 9, 15), fee: 2))
-      // 301 for the first lot and a third of 602, rounded down: 200.
-      ..add(trade(EntryType.sell, 800, 4, day));
-    ledger = await reopen(ledger);
-    expect(shown(ledger, '2603'), (2, 402));
-    expect(held('2603'), shown(ledger, '2603'));
+  test(
+    'a part of a lot sold, then a stock dividend, match the ledger',
+    () async {
+      var ledger = await create();
+      final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
+      ledger.addAccount(bank);
+      await ledger.settled;
+      Entry trade(
+        EntryType type,
+        int amount,
+        int shares,
+        DateTime on, {
+        int fee = 0,
+      }) => Entry(
+        id: ledger.newId(),
+        date: on,
+        type: type,
+        amount: amount,
+        account: bank.id,
+        category: type == EntryType.dividend ? '股息收入' : '投資',
+        holding: '2603',
+        shares: shares,
+        fee: fee,
+      );
+      ledger
+        ..add(trade(EntryType.buy, 300, 3, DateTime.utc(2026, 9, 1), fee: 1))
+        ..add(trade(EntryType.buy, 600, 3, DateTime.utc(2026, 9, 15), fee: 2))
+        // 301 for the first lot and a third of 602, rounded down: 200.
+        ..add(trade(EntryType.sell, 800, 4, day));
+      ledger = await reopen(ledger);
+      expect(shown(ledger, '2603'), (2, 402));
+      expect(held('2603'), shown(ledger, '2603'));
 
-    ledger.add(trade(EntryType.dividend, 0, 1, day));
-    ledger = await reopen(ledger);
-    expect(shown(ledger, '2603'), (3, 402));
-    expect(held('2603'), shown(ledger, '2603'));
-    expect(ledger.lotsOf('2603'), hasLength(1));
-  });
+      ledger.add(trade(EntryType.dividend, 0, 1, day));
+      ledger = await reopen(ledger);
+      expect(shown(ledger, '2603'), (3, 402));
+      expect(held('2603'), shown(ledger, '2603'));
+      expect(ledger.lotsOf('2603'), hasLength(1));
+    },
+  );
 
   test("a card's new closing day is kept", () async {
     var ledger = await create();

@@ -235,7 +235,11 @@ final class Portfolio {
       [
         for (final (i, l) in from.indexed)
           if (result.lots[i].units > BigInt.zero)
-            Lot.units(l.date, result.lots[i].units, result.lots[i].cost.toInt()),
+            Lot.units(
+              l.date,
+              result.lots[i].units,
+              result.lots[i].cost.toInt(),
+            ),
       ],
       result,
     );

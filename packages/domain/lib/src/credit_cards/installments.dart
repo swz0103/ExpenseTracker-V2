@@ -97,7 +97,10 @@ List<BusinessDate> installmentCloses(
 
 /// The first scheduled close of installments of a purchase posted on
 /// [postedOn], and the closing day they keep.
-(BusinessDate, int) installmentStart(CardSchedule schedule, BusinessDate postedOn) {
+(BusinessDate, int) installmentStart(
+  CardSchedule schedule,
+  BusinessDate postedOn,
+) {
   final first = schedule.cycleFor(postedOn).scheduledClose;
   return (first, schedule.closingDayOn(first));
 }
