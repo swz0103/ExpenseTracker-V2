@@ -127,10 +127,8 @@ abstract final class LedgerReplay {
         await t.saveCardTerms(
           const CreditCardTermsCodec().decode(p['terms']! as String),
         );
-      case 'card.authorized' || 'card.posted':
+      case 'card.posted':
         await t.saveCardCharge(CardRecords.readCharge(p));
-      case 'card.released':
-        await t.releaseCardCharge(PublicId.parse(p['chargeId']! as String));
       case 'card.voided':
         await t.voidCardCharge(PublicId.parse(p['chargeId']! as String));
       case 'card.payment-voided':
@@ -176,14 +174,14 @@ abstract final class LedgerReplay {
   }
 }
 
-/// Every projection table, for comparing two stores row by row.
+/// Every projection table, for comparing two stores row by row. The
+/// retired ledger_monthly and ledger_category_monthly tables are left out:
+/// nothing writes them any more.
 const ledgerTables = {
   'ledger_accounts': 'id',
   'ledger_postings': 'id',
   'ledger_legs': 'posting_id, leg',
   'ledger_balances': 'account_id',
-  'ledger_monthly': 'workspace, month, currency, scale',
-  'ledger_category_monthly': 'workspace, month, category_id, currency, scale',
   'ledger_posting_tags': 'posting_id, tag_id',
   'ledger_posting_merchants': 'posting_id',
   'ledger_posting_home': 'posting_id',

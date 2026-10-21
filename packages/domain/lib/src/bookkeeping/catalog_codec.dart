@@ -25,7 +25,9 @@ abstract final class CatalogCodec {
   static Map<String, Object?> merchant(Merchant row) => {
     ..._common(row.id, row.workspace, row.name, row.version),
     ..._lifecycle(row.archived, row.replacementId),
-    'aliases': row.aliases,
+    // Merchants no longer have aliases. The empty list keeps rows readable
+    // by older builds, which expect the key.
+    'aliases': const <String>[],
   };
 
   static Category readCategory(Map<String, Object?> json) => decoding(() {
@@ -55,8 +57,10 @@ abstract final class CatalogCodec {
     );
   });
 
+  /// Rows written before aliases were dropped carry an `aliases` list;
+  /// it is accepted and ignored.
   static Merchant readMerchant(Map<String, Object?> json) => decoding(() {
-    checkKeys(json, {..._keys, 'aliases'});
+    checkKeys({...json}..remove('aliases'), _keys);
     return Merchant.restore(
       id: PublicId.parse(json['id'] as String),
       workspace: WorkspaceId.parse(json['workspace'] as String),
@@ -64,7 +68,6 @@ abstract final class CatalogCodec {
       version: json['entryVersion'] as int,
       archived: json['archived'] as bool,
       replacementId: _replacement(json),
-      aliases: (json['aliases'] as List).cast<String>(),
     );
   });
 

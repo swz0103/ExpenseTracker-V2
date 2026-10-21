@@ -1,6 +1,6 @@
 part of 'bookkeeping.dart';
 
-/// Opening, renaming, archiving, closing accounts and their opening balance.
+/// Opening, renaming and archiving accounts, and their opening balance.
 extension _Accounts<T extends BookkeepingTransaction> on Bookkeeping<T> {
   Future<int> _open(T t, OpenAccount command) async {
     _requireBookable(command.openedOn);
@@ -40,39 +40,6 @@ extension _Accounts<T extends BookkeepingTransaction> on Bookkeeping<T> {
     );
     await _saveAccount(t, changed, 'account.changed');
     return changed.version;
-  }
-
-  Future<int> _moveOpening(T t, ChangeOpeningDate command) async {
-    _requireBookable(command.openedOn);
-    final account = await _account(t, command.accountId);
-    final moved = account.moveOpening(
-      workspace: command.operation.workspace,
-      expectedVersion: command.expectedVersion,
-      openedOn: command.openedOn,
-    );
-    await _saveAccount(t, moved, 'account.changed');
-    final opening = await t.openingOf(account.id);
-    if (opening != null && opening.date != command.openedOn) {
-      await _requireNewPosting(t, command.reversalId);
-      await _requireNewPosting(t, command.postingId);
-      final reversal = Posting.reversal(
-        id: command.reversalId,
-        operation: _secondary(command.operation, command.reversalId),
-        date: opening.date,
-        original: opening,
-        reason: 'opening-date-moved',
-      );
-      await _savePosting(t, reversal, PostingMetadata.none);
-      final again = Posting.opening(
-        id: command.postingId,
-        operation: command.operation,
-        date: command.openedOn,
-        account: _participant(moved),
-        amount: opening.legs.first.amount,
-      );
-      await _savePosting(t, again, PostingMetadata.none);
-    }
-    return moved.version;
   }
 
   Future<int> _rename(T t, RenameAccount command) async {
@@ -145,23 +112,5 @@ extension _Accounts<T extends BookkeepingTransaction> on Bookkeeping<T> {
     );
     await _savePosting(t, opening, PostingMetadata.none);
     return opening.id;
-  }
-
-  Future<int> _close(T t, CloseAccount command) async {
-    final workspace = command.operation.workspace;
-    final account = await _account(t, command.accountId);
-    final successorId = command.successorId;
-    final closed = account.close(
-      workspace: workspace,
-      expectedVersion: command.expectedVersion,
-      balanceAccountId: account.id,
-      currentBalance: await t.balance(account.id, account.currency),
-      hasUnsettledItems: await t.hasUnsettledItems(account.id),
-      date: command.date,
-      reason: command.reason,
-      successor: successorId == null ? null : await _account(t, successorId),
-    );
-    await _saveAccount(t, closed, 'account.closed');
-    return closed.version;
   }
 }

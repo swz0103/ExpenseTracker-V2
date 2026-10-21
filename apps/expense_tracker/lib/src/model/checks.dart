@@ -15,17 +15,17 @@ extension EntryChecks on Ledger {
     final transfer = e.type == EntryType.transfer;
     if (transfer && e.account == e.to) return '轉出與轉入不能是同一個帳戶';
     final cash = e.type == EntryType.expense || e.type == EntryType.income;
-    if (cash && currency != 'TWD' && e.home == null) {
+    if (cash && currency != homeCode && e.home == null) {
       return '還沒有匯率，請輸入折合台幣的金額';
     }
     final to = transfer ? account(e.to ?? '') : null;
     if (to != null && to.currency != currency && e.received == null) {
       return '還沒有匯率，請輸入轉入金額';
     }
-    if (to != null && currency != 'TWD' && to.kind == AccountKind.card) {
+    if (to != null && currency != homeCode && to.kind == AccountKind.card) {
       return '外幣帳戶不能直接繳卡費';
     }
-    if (e.isInvestment && currency != 'TWD') return '投資請用新台幣帳戶';
+    if (e.isInvestment && currency != homeCode) return '投資請用新台幣帳戶';
     if (e.isReduction) {
       final held = _heldBefore(e.holding ?? '', replacing);
       if (-e.shares > held) return '減少的股數超過持股（${groupDigits(held)} 股）';

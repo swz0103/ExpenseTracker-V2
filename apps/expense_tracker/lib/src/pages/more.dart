@@ -93,91 +93,32 @@ class MorePage extends StatelessWidget {
               ),
             ]),
             const SectionHead('設定'),
-            SoftPanel(
-              color: Hue.white,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                children: [
-                  _Row(
-                    icon: Glyph.categories,
-                    title: '分類管理',
-                    detail: '${ledger.categories.length} 個分類',
-                    onTap: () => nav.open(Pages.categories),
-                  ),
-                  const Divider(height: 1, indent: 14, endIndent: 14),
-                  _Row(
-                    icon: Glyph.ticket,
-                    title: '標籤與商家',
-                    detail: '${ledger.tags.length} 個標籤',
-                    onTap: () => nav.open(Pages.labels),
-                  ),
-                  const Divider(height: 1, indent: 14, endIndent: 14),
-                  _Row(
-                    icon: Glyph.sliders,
-                    title: '設定與資料',
-                    detail: '匯出、重設',
-                    onTap: () => nav.open(Pages.settings),
-                  ),
-                ],
+            MenuPanel([
+              MenuRow(
+                glyph: Glyph.categories,
+                title: '分類管理',
+                detail: '${ledger.categories.length} 個分類',
+                vertical: 10,
+                onTap: () => nav.open(Pages.categories),
               ),
-            ),
+              MenuRow(
+                glyph: Glyph.ticket,
+                title: '標籤與商家',
+                detail: '${ledger.tags.length} 個標籤',
+                vertical: 10,
+                onTap: () => nav.open(Pages.labels),
+              ),
+              MenuRow(
+                glyph: Glyph.sliders,
+                title: '設定與資料',
+                detail: '匯出、重設',
+                vertical: 10,
+                onTap: () => nav.open(Pages.settings),
+              ),
+            ]),
           ],
         );
       },
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.onTap,
-  });
-
-  final Glyph icon;
-  final String title;
-  final String detail;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // The pressed shade is a rounded block inside the panel, so it never
-    // meets the panel's own corners at an angle.
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Hue.tile,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: GlyphIcon(icon, size: 18, color: Hue.accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 15)),
-              ),
-              Text(
-                detail,
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
-              ),
-              const SizedBox(width: 4),
-              const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

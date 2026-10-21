@@ -19,17 +19,8 @@ extension LedgerCards on Ledger {
   /// it must be paid.
   (DateTime, DateTime, DateTime) statement(Account card) {
     final end = card.closingOn(closedBy);
-    final before = card.closingOn(end.subtract(const Duration(days: 1)));
-    final start = before.add(const Duration(days: 1));
-    // The due day in the close's month, or the next, kept within it.
-    DateTime dueIn(int month) {
-      final last = DateTime.utc(end.year, month + 1, 0);
-      final day = min(card.dueDay ?? 15, last.day);
-      return DateTime.utc(last.year, last.month, day);
-    }
-
-    final here = dueIn(end.month);
-    return (start, end, here.isAfter(end) ? here : dueIn(end.month + 1));
+    final (start, due) = card.cycleEnding(end);
+    return (start, end, due);
   }
 
   /// What is still to pay on the last statement of [card]: the journal's

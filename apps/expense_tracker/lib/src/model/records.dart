@@ -1,6 +1,14 @@
 import 'dart:math';
 
+import 'package:domain/credit_cards.dart' show CardScheduleChange;
+import 'package:domain/investments.dart' show unitsPerShare;
 import 'package:flutter/painting.dart' show Color;
+
+/// The code of the currency the books are kept in: NT$.
+const homeCode = 'TWD';
+
+/// The category every transfer carries.
+const transferCategory = '轉帳';
 
 /// Where fees go that have no category of their own, such as a
 /// transfer's.
@@ -33,8 +41,9 @@ final class Account {
     this.limit,
     this.archived = false,
     this.inNetWorth = true,
-    this.currency = 'TWD',
+    this.currency = homeCode,
     this.closes = const {},
+    this.history = const [],
   });
 
   final String id;
@@ -47,11 +56,15 @@ final class Account {
   final String currency;
 
   /// Kept in a currency other than NT$.
-  bool get foreign => currency != 'TWD';
+  bool get foreign => currency != homeCode;
 
   /// A card's statements that close on another day than scheduled, such
   /// as around a holiday: the actual close by the scheduled one.
   final Map<DateTime, DateTime> closes;
+
+  /// A card's earlier billing days, oldest first, so statements closed
+  /// before a change keep their dates.
+  final List<CardScheduleChange> history;
 
   /// The account's own mark, such as 'safe' or 'chat'; null takes the
   /// mark of its [kind].
@@ -83,6 +96,7 @@ final class Account {
     bool? archived,
     bool? inNetWorth,
     Map<DateTime, DateTime>? closes,
+    List<CardScheduleChange>? history,
   }) => Account(
     id,
     name ?? this.name,
@@ -96,6 +110,7 @@ final class Account {
     inNetWorth: inNetWorth ?? this.inNetWorth,
     currency: currency,
     closes: closes ?? this.closes,
+    history: history ?? this.history,
   );
 }
 
@@ -392,18 +407,34 @@ final class Holding {
 
 /// Shares bought together and still held, with what they cost.
 final class Lot {
-  const Lot(this.date, this.shares, this.cost);
+  /// A lot of whole [shares].
+  Lot(this.date, int shares, this.cost)
+    : units = BigInt.from(shares) * unitsPerShare;
+
+  /// A lot of exact [units], 10^-12 of a share each, as a split or a
+  /// stock dividend can leave it.
+  const Lot.units(this.date, this.units, this.cost);
 
   /// The date a starting position is held from: before any entry, so the
   /// first trade of a stock always comes after it.
   static final opening = DateTime.utc(1970);
 
   final DateTime date;
-  final int shares;
+  final BigInt units;
   final int cost;
+
+  /// Whole shares, rounded.
+  int get shares => _divideRounded(units, unitsPerShare).toInt();
 
   /// Whether this lot is part of a starting position.
   bool get isOpening => date == opening;
+}
+
+BigInt _divideRounded(BigInt numerator, BigInt denominator) {
+  final quotient = numerator ~/ denominator;
+  return numerator.remainder(denominator) * BigInt.two >= denominator
+      ? quotient + BigInt.one
+      : quotient;
 }
 
 final class Budget {

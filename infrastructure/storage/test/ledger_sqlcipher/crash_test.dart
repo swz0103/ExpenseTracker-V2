@@ -82,7 +82,7 @@ void main() {
       final ledger = LedgerStore(store);
       // Every acknowledged command left its one posting, after the two
       // openings; a few more may have committed before the kill landed.
-      final postings = ledger.recentPostings(workspace, limit: 1000000);
+      final postings = ledger.workspacePostings(workspace);
       expect(postings.length, greaterThanOrEqualTo(2 + committed));
       for (final account in ledger.accounts(workspace)) {
         final participant = PostingAccount(
@@ -91,10 +91,7 @@ void main() {
           currency: twd,
           expectedVersion: account.version,
         );
-        expect(
-          ledger.balance(account),
-          rebuildBalance(participant, ledger.postings(account.id)),
-        );
+        expect(ledger.balance(account), rebuildBalance(participant, postings));
       }
       final copy = open(File('${directory.path}/copy-$round.db'));
       await LedgerReplay.copy(from: store, to: LedgerStore(copy));

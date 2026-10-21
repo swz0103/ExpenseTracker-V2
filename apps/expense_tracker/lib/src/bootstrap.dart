@@ -144,13 +144,16 @@ class _OpenedLedgerState extends State<OpenedLedger>
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
+  /// The phone's receipt photos, sealed with the ledger's key.
+  ReceiptPhotos? _receipts;
+
   /// Loads the book, then fetches closing prices and takes the weekly
   /// backup in the background.
   Future<Ledger> _open() async {
     final ledger = await _journal.load();
     _loaded = ledger;
     if (Platform.isAndroid) {
-      receiptPhotos = AndroidReceipts(
+      _receipts = AndroidReceipts(
         widget.startup.directory,
         await FileBox.derive(widget.vault.keys, 'receipts'),
       );
@@ -222,7 +225,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void dispose() {
     _calendar?.stop();
     _notifier?.stop();
-    receiptPhotos = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -234,6 +236,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         _leftAt ??= DateTime.now();
       case AppLifecycleState.resumed:
+        _ledger.then((ledger) => ledger.checkDay()).ignore();
         final left = _leftAt;
         _leftAt = null;
         if (left != null &&
@@ -266,6 +269,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           preferences: widget.preferences,
           notifier: _notifier,
           quick: Platform.isAndroid ? quickAction : null,
+          receipts: _receipts,
         ),
       );
     },

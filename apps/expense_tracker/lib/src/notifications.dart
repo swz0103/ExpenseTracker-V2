@@ -4,6 +4,7 @@ import 'model/ledger.dart';
 import 'model/reminders.dart';
 import 'perf.dart';
 import 'preferences.dart';
+import 'quick_action.dart';
 
 /// One notification to show at [at].
 final class Alert {
@@ -13,8 +14,8 @@ final class Alert {
   final String title;
   final String text;
 
-  /// What tapping it opens: `expense` opens the composer; null the app.
-  final String? quick;
+  /// What tapping it opens: the composer, or the app when null.
+  final QuickAction? quick;
 }
 
 /// The phone's notifications.
@@ -58,7 +59,7 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
         today.day + d,
         preferences.nudgeHour,
       );
-      alerts.add(Alert(at, '今天記帳了嗎？', '點一下記一筆', quick: 'expense'));
+      alerts.add(Alert(at, '今天記帳了嗎？', '點一下記一筆', quick: QuickAction.expense));
     }
   }
   final ahead = [

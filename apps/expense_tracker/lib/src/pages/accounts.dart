@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../compose/account_editor.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
-import 'account_editor.dart';
 import 'nav.dart';
 
 /// 我的帳戶: total assets and what they are made of, then every account

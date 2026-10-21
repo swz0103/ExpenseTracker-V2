@@ -124,32 +124,6 @@ final class MoveCategory extends CatalogChange {
   };
 }
 
-/// Merchants only.
-final class ChangeAlias extends CatalogChange {
-  const ChangeAlias(
-    this.id,
-    this.expectedVersion,
-    this.alias, {
-    required this.add,
-  });
-
-  final PublicId id;
-  final int expectedVersion;
-  final String alias;
-  final bool add;
-
-  @override
-  PublicId get subject => id;
-
-  @override
-  Map<String, Object?> toJson() => {
-    'change': add ? 'add-alias' : 'remove-alias',
-    'id': id.value,
-    'expectedVersion': expectedVersion,
-    'alias': alias,
-  };
-}
-
 /// Returns the new version of the change's subject.
 final class ChangeCatalog implements Command<int> {
   ChangeCatalog({

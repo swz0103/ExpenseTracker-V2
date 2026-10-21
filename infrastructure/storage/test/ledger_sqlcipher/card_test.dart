@@ -103,6 +103,17 @@ void main() {
     return outcome.value;
   }
 
+  /// Income and spending as the entries report them, all months together.
+  ({Money income, Money expense}) reported() {
+    var income = ntd(0);
+    var expense = ntd(0);
+    for (final posting in ledger.workspacePostings(workspace)) {
+      income += posting.reportIncome;
+      expense += posting.reportExpense;
+    }
+    return (income: income, expense: expense);
+  }
+
   test('terms are versioned and only cards have them', () async {
     expect(ledger.cardTerms(card)!.closingDay, 25);
     await expectLater(
@@ -131,20 +142,8 @@ void main() {
     );
   });
 
-  test('an authorization stays pending until posted', () async {
+  test('a posted charge bills its fee and posts only once', () async {
     final chargeId = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: chargeId,
-        cardId: card,
-        authorizedOn: purchaseDay,
-        amount: ntd(1000),
-      ),
-    );
-    expect(ledger.statement(card, close).pendingCount, 1);
-    expect(ledger.balance(account(card)), ntd(0));
-
     await post(chargeId: chargeId, settled: 1050, fee: 30);
     final statement = ledger.statement(card, close);
     expect(statement.pendingCount, 0);
@@ -152,44 +151,12 @@ void main() {
     expect(statement.fees, ntd(30));
     expect(statement.remainingDue, ntd(1080));
     expect(ledger.balance(account(card)), ntd(-1080));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(1080));
+    expect(reported().expense, ntd(1080));
 
     await expectLater(
       post(chargeId: chargeId, settled: 1050, fee: 30),
       fails(FailureKind.rejected, 'card.alreadyPosted'),
     );
-  });
-
-  test('card screens list holds, statement lines and credit', () async {
-    await cards.setTerms(
-      SetCardTerms(
-        operation: op(),
-        cardId: card,
-        expectedVersion: 1,
-        closingDay: 25,
-        dueDay: 10,
-        limit: ntd(50000),
-      ),
-    );
-    final held = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: held,
-        cardId: card,
-        authorizedOn: purchaseDay,
-        amount: ntd(800),
-      ),
-    );
-    await post(settled: 1200, fee: 30);
-    final pending = ledger.pendingCharges(card);
-    expect([for (final charge in pending) charge.id], [held]);
-    final items = ledger.statementItems(card, close);
-    expect([for (final c in items.charges) c.settledAmount], [ntd(1200)]);
-    expect(items.installments, isEmpty);
-    expect(items.payments, isEmpty);
-    // 50000 less 1230 posted and 800 still held.
-    expect(ledger.availableCredit(card), ntd(47970));
   });
 
   test('past statements keep their dates; the issuer can move one', () async {
@@ -252,8 +219,8 @@ void main() {
     expect(statement.remainingDue, ntd(2000));
     expect(ledger.balance(account(bank)), ntd(97000));
     expect(ledger.balance(account(card)), ntd(-2000));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(5000));
-    expect(ledger.monthly(workspace, '2026-11'), isEmpty);
+    expect(reported().expense, ntd(5000));
+    expect(reported().income, ntd(0));
 
     await expectLater(
       cards.pay(
@@ -292,7 +259,7 @@ void main() {
     expect(statement.refunds, ntd(1000));
     expect(statement.remainingDue, ntd(2030));
     expect(ledger.balance(account(card)), ntd(-2030));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(2030));
+    expect(reported().expense, ntd(2030));
     // The fee is never refunded by the merchant.
     await expectLater(
       refund(2001),
@@ -365,9 +332,8 @@ void main() {
     expect(statement.credits, ntd(35));
     expect(statement.remainingDue, ntd(1165));
     expect(ledger.balance(account(card)), ntd(-1165));
-    final october = ledger.monthly(workspace, '2026-10')['TWD']!;
-    expect(october.expense, ntd(1200));
-    expect(october.income, ntd(35));
+    expect(reported().expense, ntd(1200));
+    expect(reported().income, ntd(35));
   });
 
   test('a mistaken charge or payment is voided on the card', () async {
@@ -385,18 +351,17 @@ void main() {
     await voidCharge(wrong);
     expect(ledger.statement(card, close).purchases, ntd(500));
     expect(ledger.balance(account(card)), ntd(-500));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(500));
+    expect(reported().expense, ntd(500));
     await expectLater(
       voidCharge(wrong),
       fails(FailureKind.conflict, 'card.voided'),
     );
     await expectLater(
-      books.reversePosting(
-        ReversePosting(
+      books.deletePosting(
+        DeletePosting(
           operation: op(),
           reversalId: PublicId.generate(),
           originalId: posting,
-          date: purchaseDay,
         ),
       ),
       fails(FailureKind.conflict, 'posting.already-reversed'),
@@ -488,12 +453,11 @@ void main() {
   test('card postings are corrected on the card, not reversed', () async {
     final posting = await post();
     await expectLater(
-      books.reversePosting(
-        ReversePosting(
+      books.deletePosting(
+        DeletePosting(
           operation: op(),
           reversalId: PublicId.generate(),
           originalId: posting,
-          date: purchaseDay,
         ),
       ),
       fails(FailureKind.rejected, 'posting.owned-elsewhere'),
@@ -541,14 +505,16 @@ void main() {
     );
   });
 
-  test('only posted charges split; purchases keep categories', () async {
-    final pending = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
+  test('only purchases split; purchases keep categories', () async {
+    final fee = PublicId.generate();
+    await cards.adjust(
+      AdjustCard(
         operation: op(),
-        chargeId: pending,
-        cardId: card,
-        authorizedOn: purchaseDay,
+        chargeId: fee,
+        postingId: PublicId.generate(),
+        card: ref(card),
+        postedOn: purchaseDay,
+        kind: CardAdjustment.fee,
         amount: ntd(800),
       ),
     );
@@ -556,7 +522,7 @@ void main() {
       cards.planInstallments(
         PlanInstallments(
           operation: op(),
-          chargeId: pending,
+          chargeId: fee,
           count: 3,
           fixedFee: ntd(0),
         ),
@@ -572,31 +538,10 @@ void main() {
       ),
     );
     final share = CategoryShare(food, 1, ntd(720));
-    await post(settled: 700, fee: 20, shares: [share]);
-    final totals = ledger.categoryTotals(workspace, '2026-10');
-    expect(totals[(food, 'TWD')]!.expense, ntd(720));
-  });
-
-  test('a released authorization leaves the statement', () async {
-    final chargeId = PublicId.generate();
-    await cards.authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: chargeId,
-        cardId: card,
-        authorizedOn: purchaseDay,
-        amount: ntd(500),
-      ),
-    );
-    expect(ledger.statement(card, close).pendingCount, 1);
-    await cards.release(
-      ReleaseAuthorization(operation: op(), chargeId: chargeId, cardId: card),
-    );
-    expect(ledger.statement(card, close).pendingCount, 0);
-    await expectLater(
-      post(chargeId: chargeId),
-      fails(FailureKind.rejected, 'card.released'),
-    );
+    final posting = await post(settled: 700, fee: 20, shares: [share]);
+    final allocation = ledger.postingById(posting)!.allocations.single;
+    expect(allocation.categoryId, food);
+    expect(allocation.amount, ntd(720));
   });
 
   test('every card refusal names its reason and changes nothing', () async {
@@ -614,19 +559,17 @@ void main() {
       expect(projectionRows(store), rows);
     }
 
-    AuthorizeCardCharge hold(PublicId chargeId, {Money? amount}) {
-      return AuthorizeCardCharge(
-        operation: op(),
-        chargeId: chargeId,
-        cardId: card,
-        authorizedOn: purchaseDay,
-        amount: amount ?? ntd(500),
-      );
-    }
+    AdjustCard fee(PublicId chargeId, {Money? amount}) => AdjustCard(
+      operation: op(),
+      chargeId: chargeId,
+      postingId: PublicId.generate(),
+      card: ref(card),
+      postedOn: purchaseDay,
+      kind: CardAdjustment.fee,
+      amount: amount ?? ntd(500),
+    );
 
     final bare = await open('沒條款的卡', AccountKind.creditCard);
-    final held = PublicId.generate();
-    await cards.authorize(hold(held));
     final posted = PublicId.generate();
     await post(chargeId: posted);
     final planned = PublicId.generate();
@@ -655,42 +598,37 @@ void main() {
     final elsewhere = WorkspaceId(PublicId.generate());
 
     await rejects(
-      () => cards.authorize(hold(held)),
+      () => cards.adjust(fee(posted)),
       FailureKind.conflict,
       'card.charge-exists',
     );
     await rejects(
-      () => cards.authorize(
-        hold(PublicId.generate(), amount: Money(usd, BigInt.from(100))),
+      () => cards.adjust(
+        fee(PublicId.generate(), amount: Money(usd, BigInt.from(100))),
       ),
       FailureKind.rejected,
       'card.currencyMismatch',
     );
     await rejects(
-      () => cards.authorize(
-        AuthorizeCardCharge(
+      () => cards.post(
+        PostCardCharge(
           operation: OperationKey(elsewhere, OperationId(PublicId.generate())),
           chargeId: PublicId.generate(),
-          cardId: card,
-          authorizedOn: purchaseDay,
-          amount: ntd(500),
+          postingId: PublicId.generate(),
+          card: ref(card),
+          postedOn: purchaseDay,
+          settledAmount: ntd(500),
+          fee: ntd(0),
         ),
       ),
       FailureKind.rejected,
       'card.workspaceMismatch',
     );
     await rejects(
-      () => cards.release(
-        ReleaseAuthorization(operation: op(), chargeId: posted, cardId: card),
-      ),
-      FailureKind.rejected,
-      'card.not-pending',
-    );
-    await rejects(
       () => cards.post(
         PostCardCharge(
           operation: op(),
-          chargeId: held,
+          chargeId: posted,
           postingId: PublicId.generate(),
           card: ref(bare),
           postedOn: purchaseDay,

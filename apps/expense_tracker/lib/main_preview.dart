@@ -19,7 +19,7 @@ void main() {
       preferences: preferences,
       home: AppShell(
         ledger: demoLedger(),
-        services: Services(preferences: preferences),
+        services: Services(preferences: preferences, sample: demoLedger),
       ),
       frame: (context, child) => PhoneFrame(child: child ?? const SizedBox()),
     ),

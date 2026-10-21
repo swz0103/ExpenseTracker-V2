@@ -154,7 +154,7 @@ DateTime? _valid(int year, int month, int day) {
 
 /// [text] in the smallest unit of [currency]: `1,200` and `NT$ 120` read
 /// as written, more decimals than the currency has are rounded.
-int? _amount(String text, [String currency = 'TWD']) {
+int? _amount(String text, [String currency = homeCode]) {
   final value = text.replaceAll(RegExp(r'[,\s$]|NT'), '');
   final exact = minorOf(value, currency);
   if (exact != null) return exact;
@@ -480,7 +480,7 @@ final class _Reader {
       type: EntryType.transfer,
       amount: amount,
       account: account,
-      category: '轉帳',
+      category: transferCategory,
       note: note,
       to: to,
       fee: fee,

@@ -17,16 +17,16 @@
 | `packages/domain` | 規則：記帳、信用卡、投資、預算、定期交易、報表、CSV；純 Dart，禁止 `dart:io` | core |
 | `infrastructure/market` | 執行層：收盤價與牌告匯率 | core、domain |
 | `infrastructure/storage` | 執行層：SQLCipher 與帳本投影 | core、domain |
-| `infrastructure/vault` | 執行層：金鑰、帳本開啟、備份、Drive | core、storage |
+| `infrastructure/vault` | 執行層：金鑰、帳本開啟、備份 | core、storage |
 | `apps/expense_tracker` | App | 以上全部 |
 
-依賴方向寫在 `architecture/boundaries.json`，由 `tooling/architecture_checks` 在 CI 檢查。模組內再依原本的子領域分資料夾（例如 `domain/lib/src/credit_cards/`），對外入口仍是 `package:domain/credit_cards.dart` 這類檔案。
+依賴方向由各 `pubspec.yaml` 決定；`tooling/architecture_checks` 在 CI 檢查 core 與 domain 不引用平台函式庫（`dart:io`、Flutter、儲存層）、測試寫明預期的失敗、各 lockfile 版本一致。模組內再依原本的子領域分資料夾（例如 `domain/lib/src/credit_cards/`），對外入口仍是 `package:domain/credit_cards.dart` 這類檔案。
 
 2026-10-19 前是 23 個套件，每個只有幾百行，卻各有 pubspec、lockfile、lint 與 CI 項目；合併成 5 個後，邊界改由資料夾與入口檔守住，行為不變。
 
 ### 2. 儲存
 
-單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、月報、帳單、持股、預算、定期交易等投影與事件在同一交易內更新。寫入只驗證受影響範圍，沒有筆數上限。投影可從事件完整重建。
+單一 SQLCipher 資料庫、WAL。金錢事件只新增不修改；餘額、帳單、持股、預算、定期交易等投影與事件在同一交易內更新。寫入只驗證受影響範圍，沒有筆數上限。投影可從事件完整重建。
 
 ### 3. 更正與冪等
 
@@ -38,11 +38,21 @@
 
 ### 5. 備份
 
-備份 v2 是分塊加密串流，manifest 驗證備份 ID、時間與帳本身分，還原時重播驗證，先寫暫存庫，檢查後才換上。App 每週在手機留備份，Android 自動備份帶到新手機；Drive 傳輸（續傳、分代保留）已完成，待接 Google 登入。
+備份 v2 是分塊加密串流，manifest 驗證備份 ID、時間與帳本身分，還原時重播驗證，先寫暫存庫，檢查後才換上。App 每週在手機留備份，Android 自動備份帶到新手機。Drive 直傳的底層從未接進 App，已於 2026-10 移除。
 
 ### 6. App
 
-畫面用自己的 `Ledger` 模型（`model/`），先即時套用改動，再由 `VaultJournal`（`book/`）轉成 domain 指令存進加密帳本；自帶 id 的改動存完不重讀整本帳。分層由 `test/layers_test.dart` 守住。
+畫面用自己的 `Ledger` 模型（`model/`），先即時套用改動，再由 `VaultJournal`（`book/`）轉成 domain 指令存進加密帳本；自帶 id 的改動存完不重讀整本帳。分層由 `test/layers_test.dart` 守住：model 不碰畫面與儲存、compose 與 look 不碰 pages、範例帳本只在網頁預覽。
+
+畫面模型不另寫規則：持股批次的賣出成本（FIFO 無條件捨去、平均成本只捨去一次）、配股與減資的重新配比、分割都呼叫 domain 的 `investments/lot_math.dart`；信用卡帳單週期、結帳日變更前的舊週期、單期調整與分期入帳月份都呼叫 domain 的 `CardSchedule`。開帳本時核對各帳戶餘額與各股股數、成本，不一致列在「設定 › 效能」。
+
+### 7. 考慮過、暫不做（2026-10）
+
+- **拿掉 OperationKey／operations 表**：單機 App 每個指令都產生新 key，實際上不會擋到重送；但它在帳本與備份格式裡，拿掉要遷移使用者已有的帳本並讓舊備份仍能還原。省下的是每筆一次小寫入，不值得冒資料風險。
+- **拿掉 workspace**：每本帳只有一個 workspace，但它在每個表與指令裡；拿掉等於重寫 schema 與備份格式，同上。
+- **備份改快照**：現在備份是事件串流、還原時重播驗證，正是它能證明帳本完整；快照較小但失去重播驗證，帳本規模（1 萬筆數 MB）也還不需要。
+
+三者都等到 schema 有別的理由要升版時再一起評估。
 
 ## 後果
 

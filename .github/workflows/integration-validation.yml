@@ -7,7 +7,6 @@ on:
     paths:
       - '.github/workflows/**'
       - 'apps/**'
-      - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
       - 'tooling/**'
@@ -16,7 +15,6 @@ on:
     paths:
       - '.github/workflows/**'
       - 'apps/**'
-      - 'architecture/**'
       - 'infrastructure/**'
       - 'packages/**'
       - 'tooling/**'
@@ -29,9 +27,11 @@ permissions:
   contents: read
 
 # Pushes to one ref queue instead of cancelling, so every commit on main
-# keeps a result (G9-09); release and manual runs run on their own.
+# keeps a result; release and manual runs run on their own. When another
+# workflow calls this one, github.workflow is the caller's name, which
+# keeps the call out of the standalone run's queue.
 concurrency:
-  group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  group: v2-integration-validation-${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -94,7 +94,7 @@ jobs:
         with:
           flutter-version: '3.47.5'
           channel: stable
-          cache: false
+          cache: true
       - shell: pwsh
         run: |
           flutter config --no-analytics

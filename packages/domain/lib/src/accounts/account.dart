@@ -5,7 +5,7 @@ enum AccountKind {
   bank,
   creditCard,
 
-  /// Stored value such as LINE Pay Money or JKOPAY (feature audit G-20b).
+  /// Stored value such as LINE Pay Money or JKOPAY.
   eWallet,
 
   /// A loan; its balance is negative while money is owed.
@@ -17,8 +17,7 @@ enum AccountKind {
   /// never repaid is written off as an expense from it.
   receivable,
 
-  /// Something valued by hand, such as a fund whose price is not fetched;
-  /// its value is kept current with `AdjustBalance`.
+  /// Something valued by hand, such as a fund whose price is not fetched.
   manual,
 }
 
@@ -139,8 +138,7 @@ final class Account {
   final int version;
 
   /// Bumped only when the rules for postings change (archive, close,
-  /// reactivate), so a prepared entry survives a rename (health check
-  /// G1-09).
+  /// reactivate), so a prepared entry survives a rename.
   final int rulesVersion;
   final AccountState state;
   final BusinessDate? closedOn;

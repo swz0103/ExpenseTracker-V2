@@ -1,6 +1,6 @@
 # vault
 
-金鑰與備份：密碼、救援碼、裝置金鑰、打開帳本的 vault、加密備份、排程備份服務與 Google Drive 傳輸。
+金鑰與備份：密碼、救援碼、裝置金鑰、打開帳本的 vault、加密備份。
 
 每一節對應一個公開入口（`package:vault/<入口>.dart`），原本是獨立的套件。
 
@@ -41,34 +41,3 @@
 - 擷取不檢查商業規則，帳本有問題時也一定備得出來。
 - 還原時把事件逐一重播到空的帳本，問題在這一步才會被發現。
 - 錯誤一律回報為 `BackupProblem`：格式錯、版本較新、驗證失敗、目標非空、內容無效。
-
-## backup_service
-
-把整條備份流程串起來：
-
-- `due`：判斷是否到了排程時間；帳本自上次備份後沒變就不備份。
-- `backupNow`：寫出加密備份並放進上傳佇列。只需要備份金鑰，不需要密碼。
-- `sync`：上傳到期的項目，全部成功後才依 `Retention` 清掉 Drive 上多餘的舊備份。
-- `runScheduled`：排程用，一次做完「到期就備份、有 Drive 就上傳」，不丟例外；同帳號重疊執行會略過。App 在解鎖後與解鎖期間的定時器呼叫。
-- `health`：最後一次成功上傳的時間、是否逾期、待上傳與失敗的筆數，以及上次排程失敗的原因（之後成功才清除）。
-- `restore`：從 Drive 分段下載（每段 8 MiB，記憶體不隨檔案變大），核對大小與 SHA-256，再還原。檔案屬性裡的備份 ID 必須和加密標頭一致，被換成別份備份會被拒絕。
-- `restoreFile`：從本機的備份檔還原，不需要 Drive。
-- 兩者都還原到呼叫端給的 `RestoreTarget`；App 傳入 `LedgerVault.restore`，所以還原是全有或全無。
-
-## drive_backup
-
-把備份檔上傳到 Google Drive（`drive.file` 權限）。
-
-- `DriveClient`：
-  - 分塊續傳（Content-Range、308）；
-  - token 被拒時自動換一次；
-  - 網址只接受 `*.googleapis.com`；
-  - 備份清單會略過壞掉的項目並計數；
-  - `downloadTo`：用 Range 分段下載寫入檔案，核對大小與 SHA-256，不符就刪掉暫存檔（`DriveFailure.damaged`）。
-- `CloudUploadQueue`（`cloud` schema 模組）：
-  - session 存在資料庫，重開 App 會從 Drive 已收到的位置接著傳；
-  - 上傳完成並核對大小與 SHA-256 後刪掉本機副本；
-  - 失敗或卡住的上傳不擋新備份，可放棄或重試；
-  - `Retention` 分代保留（預設最近 7 份、每週 4 份、每月 12 份），只依本機紀錄的時間，不信任 Drive 上可被改的屬性。
-- 寫入走傳入的 `Exclusive`（`Bookkeeping.exclusive`），不會和記帳指令同時寫。
-- `package:drive_backup/testing.dart`：模擬 Drive 的 `FakeDrive`，只供測試。

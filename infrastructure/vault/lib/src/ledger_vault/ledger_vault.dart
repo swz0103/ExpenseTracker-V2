@@ -58,7 +58,7 @@ final class OpenVault {
   final LedgerStore ledger;
 
   /// The one workspace of this ledger, stored in the database when it is
-  /// created or restored, never guessed from the events (code audit 3.2).
+  /// created or restored, never guessed from the events.
   final WorkspaceId workspace;
 
   UnlockedKeyring get keys => _keys;
@@ -77,8 +77,8 @@ final class OpenVault {
 ///
 /// The keyring holds the database key wrapped by the password, the
 /// recovery code and any device keys, so the database opens even if the
-/// device key is lost (health check G8-13), and nothing secret is kept in
-/// plain form (G8-01). The keyring file is replaced atomically.
+/// device key is lost, and nothing secret is kept in plain form. The
+/// keyring file is replaced atomically.
 final class LedgerVault {
   LedgerVault(this.directory, {required this.codec, this.modules = const []});
 
@@ -183,8 +183,8 @@ final class LedgerVault {
     await _pending.rename(keyringFile.path);
   }
 
-  /// Restores a backup as this device's ledger, all or nothing (code
-  /// audit C-02). [fill] writes into a staging database, which must pass
+  /// Restores a backup as this device's ledger, all or nothing. [fill]
+  /// writes into a staging database, which must pass
   /// SQLite's integrity and foreign-key checks and hold one workspace.
   /// Only then is it renamed into place, and the keyring, which is what
   /// makes a ledger exist, is written last. A failure or crash at any

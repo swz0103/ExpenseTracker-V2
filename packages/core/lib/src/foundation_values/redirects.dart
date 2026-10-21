@@ -1,7 +1,7 @@
 import 'identity.dart';
 
 /// Follows every redirect to the entry it ends at, for catalogs whose
-/// merged entries point at their replacement (health check G1-12).
+/// merged entries point at their replacement.
 ///
 /// [replacements] maps each id to the id that replaced it, or to null for
 /// a live entry; every target must be a key. Runs in O(n) even for a long,

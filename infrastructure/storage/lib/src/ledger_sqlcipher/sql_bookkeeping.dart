@@ -218,42 +218,6 @@ final class SqlBookkeeping
   }
 
   @override
-  Future<Money> balance(PublicId accountId, Currency currency) async {
-    final rows = _transaction.select(
-      'SELECT minor_units FROM ledger_balances WHERE account_id = ?',
-      [accountId.value],
-    );
-    return _balance(currency, rows);
-  }
-
-  @override
-  Future<bool> hasUnsettledItems(PublicId accountId) async {
-    final pending = _transaction.select(
-      'SELECT 1 FROM card_charges '
-      'WHERE card_id = ? AND posting_id IS NULL AND released = 0',
-      [accountId.value],
-    );
-    if (pending.isNotEmpty) return true;
-    final funded = _transaction.select(
-      "SELECT payload FROM invest_registry WHERE type = 'account'",
-    );
-    for (final row in funded) {
-      final account = InvestmentRecords.readAccount(_json(row['payload']));
-      if (account.fundingCashAccountId != accountId) continue;
-      final instruments = _transaction.select(
-        'SELECT DISTINCT instrument_id FROM invest_trades WHERE account_id = ?',
-        [account.id.value],
-      );
-      for (final instrument in instruments) {
-        final id = PublicId.parse(instrument['instrument_id'] as String);
-        final trades = _readTrades(_transaction.select, account.id, id);
-        if (InvestmentRecords.openLots(trades).isNotEmpty) return true;
-      }
-    }
-    return false;
-  }
-
-  @override
   Future<BrokerIdentity?> broker(PublicId id) async {
     final json = _registry('broker', id);
     return json == null ? null : InvestmentRecords.readBroker(json);
@@ -406,14 +370,11 @@ final class SqlBookkeeping
   }
 
   @override
-  Future<void> releaseCardCharge(PublicId chargeId) async {
+  Future<void> voidCardCharge(PublicId chargeId) async {
     _transaction.execute('UPDATE card_charges SET released = 1 WHERE id = ?', [
       chargeId.value,
     ]);
   }
-
-  @override
-  Future<void> voidCardCharge(PublicId chargeId) => releaseCardCharge(chargeId);
 
   @override
   Future<void> saveCardPayment(CardPayment payment) async {
@@ -559,12 +520,12 @@ final class SqlBookkeeping
       ]);
       _addToBalance(leg.account.id, leg.amount);
     }
-    _addToMonth(posting);
-    _addToCategories(posting);
+    // ledger_monthly and ledger_category_monthly are no longer written:
+    // nothing reads them. The tables stay in the schema because released
+    // migration steps are never edited, and existing ledgers have them.
     final original = posting.reversalOf;
     if (original != null) {
-      // A reversed or deleted recurring entry opens its due date again
-      // (health check G6-08).
+      // A reversed or deleted recurring entry opens its due date again.
       _transaction.execute(
         'DELETE FROM plan_recurring_confirmed WHERE posting_id = ?',
         [original.value],
@@ -592,45 +553,6 @@ final class SqlBookkeeping
     }
   }
 
-  /// A reversal or refund subtracts allocations in its own month.
-  void _addToCategories(Posting posting) {
-    final original = posting.reversedPosting ?? posting;
-    // A refund takes spending back; reversing anything negates it again.
-    final refund = original.kind == PostingKind.refund;
-    final reversed = posting.reversedPosting != null;
-    final sign = refund != reversed ? -BigInt.one : BigInt.one;
-    final isIncome = original.kind == PostingKind.income;
-    for (final allocation in posting.allocations) {
-      final amount = allocation.amount;
-      final zero = Money(amount.currency, BigInt.zero);
-      final signed = Money(amount.currency, amount.minorUnits * sign);
-      final key = [
-        posting.operation.workspace.toString(),
-        posting.date.toString().substring(0, 7),
-        allocation.categoryId.value,
-        amount.currency.code,
-        amount.currency.scale,
-      ];
-      final rows = _transaction.select(
-        'SELECT * FROM ledger_category_monthly WHERE workspace = ? '
-        'AND month = ? AND category_id = ? AND currency = ? AND scale = ?',
-        key,
-      );
-      var income = isIncome ? signed : zero;
-      var expense = isIncome ? zero : signed;
-      if (rows.isNotEmpty) {
-        income += _money(rows.single, 'income');
-        expense += _money(rows.single, 'expense');
-      }
-      _transaction.execute(
-        'INSERT INTO ledger_category_monthly VALUES (?, ?, ?, ?, ?, ?, ?) '
-        'ON CONFLICT (workspace, month, category_id, currency, scale) '
-        'DO UPDATE SET income = excluded.income, expense = excluded.expense',
-        [...key, '${income.minorUnits}', '${expense.minorUnits}'],
-      );
-    }
-  }
-
   void _addToBalance(PublicId accountId, Money amount) {
     final rows = _transaction.select(
       'SELECT minor_units FROM ledger_balances WHERE account_id = ?',
@@ -641,38 +563,6 @@ final class SqlBookkeeping
       'INSERT INTO ledger_balances VALUES (?, ?) ON CONFLICT (account_id) '
       'DO UPDATE SET minor_units = excluded.minor_units',
       [accountId.value, '${next.minorUnits}'],
-    );
-  }
-
-  void _addToMonth(Posting posting) {
-    final income = posting.reportIncome;
-    final expense = posting.reportExpense;
-    if (income.minorUnits == BigInt.zero && expense.minorUnits == BigInt.zero) {
-      return;
-    }
-    final key = [
-      posting.operation.workspace.toString(),
-      posting.date.toString().substring(0, 7),
-      income.currency.code,
-      income.currency.scale,
-    ];
-    final rows = _transaction.select(
-      'SELECT * FROM ledger_monthly '
-      'WHERE workspace = ? AND month = ? AND currency = ? AND scale = ?',
-      key,
-    );
-    var total = MonthlyTotal(income, expense);
-    if (rows.isNotEmpty) {
-      total = MonthlyTotal(
-        _money(rows.single, 'income') + income,
-        _money(rows.single, 'expense') + expense,
-      );
-    }
-    _transaction.execute(
-      'INSERT INTO ledger_monthly VALUES (?, ?, ?, ?, ?, ?) '
-      'ON CONFLICT (workspace, month, currency, scale) DO UPDATE SET '
-      'income = excluded.income, expense = excluded.expense',
-      [...key, '${total.income.minorUnits}', '${total.expense.minorUnits}'],
     );
   }
 }
@@ -753,33 +643,6 @@ String _month(ReportMonth month) =>
     '${month.year.toString().padLeft(4, '0')}-'
     '${month.month.toString().padLeft(2, '0')}';
 
-/// The fact with every category resolved to the one it was merged into.
-MonthlyFact _canonical(MonthlyFact fact, CategoryCatalog catalog) {
-  if (fact.allocations.isEmpty) return fact;
-  final merged = <PublicId, Money>{};
-  for (final allocation in fact.allocations) {
-    final id = catalog.resolve(allocation.categoryId).id;
-    final earlier = merged[id];
-    merged[id] = earlier == null
-        ? allocation.amount
-        : earlier + allocation.amount;
-  }
-  return MonthlyFact(
-    id: fact.id,
-    date: fact.date,
-    kind: fact.kind,
-    income: fact.income,
-    expense: fact.expense,
-    accountId: fact.accountId,
-    merchantId: fact.merchantId,
-    allocations: [
-      for (final MapEntry(:key, :value) in merged.entries)
-        CategoryAllocation(key, value),
-    ],
-    tagIds: fact.tagIds,
-  );
-}
-
 Map<String, Object?> _json(Object? payload) =>
     jsonDecode(payload as String) as Map<String, Object?>;
 
@@ -792,16 +655,4 @@ Posting _decodePosting(Object? payload) =>
 Money _balance(Currency currency, List<Map<String, Object?>> rows) {
   if (rows.isEmpty) return Money(currency, BigInt.zero);
   return Money(currency, parseMinorUnits(rows.single['minor_units'] as String));
-}
-
-Money _money(Map<String, Object?> row, String column) => Money(
-  Currency(row['currency'] as String, row['scale'] as int),
-  parseMinorUnits(row[column] as String),
-);
-
-BigInt _divideRounded(BigInt numerator, BigInt denominator) {
-  final quotient = numerator ~/ denominator;
-  final twice = numerator.remainder(denominator).abs() * BigInt.two;
-  if (twice < denominator) return quotient;
-  return numerator.isNegative ? quotient - BigInt.one : quotient + BigInt.one;
 }

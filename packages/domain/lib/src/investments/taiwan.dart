@@ -3,9 +3,8 @@ import 'package:core/foundation_values.dart';
 import 'buy.dart';
 
 /// Suggested Taiwan brokerage fee and securities transaction tax for a
-/// trade; the user can still type what the broker actually charged
-/// (feature audit G-05). Amounts are in whole New Taiwan dollars and
-/// rounded down, as brokers do.
+/// trade; the user can still type what the broker actually charged.
+/// Amounts are in whole New Taiwan dollars and rounded down, as brokers do.
 final class TaiwanTradeCharges {
   /// [discountBasisPoints] is the broker's discount: 10000 for none, 2800
   /// for 2.8折. Board lots pay at least [minimumFee]; odd lots (fewer
@@ -78,7 +77,7 @@ final class TaiwanTradeCharges {
 
 /// Taiwan's NHI supplementary premium on one dividend paid [paidOn], from
 /// [TaiwanRates.on]: today 2.11% of the gross when it reaches NT$20,000,
-/// on at most NT$10 million, rounded half up (feature audit G-13).
+/// on at most NT$10 million, rounded half up.
 Money supplementaryPremium(Money gross, {required BusinessDate paidOn}) {
   if (gross.currency != _twd) {
     throw const InvestmentException(InvestmentError.currencyMismatch);
@@ -101,7 +100,7 @@ Money supplementaryPremium(Money gross, {required BusinessDate paidOn}) {
 
 /// Taiwan's tax and premium rates in force from [from]. Suggestions use
 /// the rates of the trade's or payment's own date, so a change in the law
-/// never changes an older suggestion (code audit 4.3). Taxes are per ten
+/// never changes an older suggestion. Taxes are per ten
 /// thousand of the gross; the premium in basis points.
 final class TaiwanRates {
   const TaiwanRates._({
@@ -169,8 +168,7 @@ final class TaiwanRates {
   }
 }
 
-/// Taiwan stock trades settle two exchange days after the trade (T+2,
-/// feature audit G-07).
+/// Taiwan stock trades settle two exchange days after the trade (T+2).
 BusinessDate taiwanSettlementDate(
   BusinessDate tradedOn,
   BankingCalendar calendar,

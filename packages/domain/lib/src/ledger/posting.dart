@@ -294,7 +294,7 @@ final class Posting {
     );
     _sameCurrency(cashCredit, [gross, fee, tax]);
     _positive(gross);
-    // A sale whose fees exceed its proceeds debits cash (G1-06); one that
+    // A sale whose fees exceed its proceeds debits cash; one that
     // nets exactly zero moves no cash and has no posting.
     if (fee.minorUnits < BigInt.zero ||
         tax.minorUnits < BigInt.zero ||
@@ -496,7 +496,7 @@ final class Posting {
         (cross && source.currency.code == destination.currency.code))
       throw const LedgerException(LedgerError.currencyMismatch);
     // The fee is paid from the source, or taken from what arrives when it
-    // is in the destination currency (feature audit G-17).
+    // is in the destination currency.
     final charge = fee ?? Money(source.currency, BigInt.zero);
     final payer = charge.currency == principal.currency
         ? source
@@ -556,7 +556,7 @@ void _participation(
 
 /// What moves on [account] for a trade's [cash]: the cash itself, or
 /// [settled] in the account's currency when the broker converted it, as
-/// Taiwan's sub-brokerage does for TWD settlement (feature audit G-06).
+/// Taiwan's sub-brokerage does for TWD settlement.
 (Money, ActualConversion?) _settle(
   OperationKey operation,
   PostingAccount account,

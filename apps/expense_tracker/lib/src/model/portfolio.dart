@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:domain/bookkeeping.dart' show homeCurrency;
+import 'package:domain/investments.dart';
+
 import 'records.dart';
 
 /// Holdings replayed from starting positions and investment entries:
@@ -67,25 +70,50 @@ final class Portfolio {
           );
         case EntryType.dividend when e.isReduction && held.shares > 0:
           final left = max(0, held.shares + e.shares);
-          final lowered = min(e.amount, held.cost);
-          final scaled = _scaled(lots[code] ?? const [], left);
-          lots[code] = _lowered(scaled, lowered);
+          final int lowered;
+          var dropped = 0;
+          if (left == 0) {
+            lots[code] = const [];
+            lowered = min(e.amount, held.cost);
+          } else {
+            final (after, change) = _reratio(
+              lots[code] ?? const [],
+              left,
+              held.shares,
+              capitalReturned: e.amount,
+            );
+            lots[code] = after;
+            lowered = change.basisLowered.toInt();
+            dropped = change.droppedCost.toInt();
+          }
           final worth = max(0.0, held.price * held.shares - e.amount);
           byCode[code] = held.copyWith(
             shares: left,
-            cost: held.cost - lowered,
+            cost: held.cost - lowered - dropped,
             price: left == 0 ? held.price : worth / left,
-            realized: held.realized + e.amount - lowered,
+            realized: held.realized + e.amount - lowered - dropped,
           );
-        case EntryType.dividend when e.split && held.shares > 0:
-          final ratio = (held.shares + e.shares) / held.shares;
-          lots[code] = _scaled(lots[code] ?? const [], held.shares + e.shares);
+        case EntryType.dividend when e.shares > 0 && held.shares > 0:
+          // A split or a stock dividend: every lot grows, keeping its
+          // cost and its date.
+          final total = held.shares + e.shares;
+          final (after, change) = _reratio(
+            lots[code] ?? const [],
+            total,
+            held.shares,
+            wholeShares: !e.split,
+          );
+          lots[code] = after;
+          final dropped = change.droppedCost.toInt();
           byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            price: held.price / ratio,
+            shares: total,
+            cost: held.cost - dropped,
+            price: e.split ? held.price * held.shares / total : held.price,
+            realized: held.realized - dropped,
             dividends: held.dividends + e.dividendNet,
           );
         case EntryType.dividend:
+          // Shares given with nothing held start a lot of their own.
           if (e.shares > 0) {
             lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
           }
@@ -144,70 +172,80 @@ final class Portfolio {
     return held;
   }
 
-  /// The cost of selling [shares] out of [lots], and the lots left.
+  /// The cost of selling [shares] out of [lots], and the lots left: the
+  /// ledger's own rule, oldest lots first or at the average cost.
   static (int, List<Lot>) _take(
     List<Lot> lots,
     int shares, {
     required bool average,
   }) {
-    final held = lots.fold(0, (sum, l) => sum + l.shares);
-    if (shares > held) throw StateError('賣出股數超過持有股數');
-    if (average) {
-      final cost = lots.fold(0, (sum, l) => sum + l.cost);
-      final part = held == 0 ? 0 : (cost * shares / held).round();
-      final left = held - shares;
-      return (
-        part,
-        left == 0 ? <Lot>[] : [Lot(lots.last.date, left, cost - part)],
-      );
-    }
-    var need = shares;
-    var part = 0;
-    final rest = <Lot>[];
-    for (final lot in lots) {
-      if (need == 0) {
-        rest.add(lot);
-      } else if (lot.shares <= need) {
-        part += lot.cost;
-        need -= lot.shares;
-      } else {
-        final piece = (lot.cost * need / lot.shares).round();
-        part += piece;
-        rest.add(Lot(lot.date, lot.shares - need, lot.cost - piece));
-        need = 0;
-      }
-    }
-    return (part, rest);
+    final held = lots.fold(BigInt.zero, (sum, l) => sum + l.units);
+    final selling = BigInt.from(shares) * unitsPerShare;
+    if (selling > held) throw StateError('賣出股數超過持有股數');
+    final sale = sellFromLots(
+      _positions(lots),
+      selling,
+      average ? InvestmentCostMethod.averageCost : InvestmentCostMethod.fifo,
+    );
+    return (
+      sale.cost.toInt(),
+      [
+        for (final (i, l) in lots.indexed)
+          if (sale.remaining[i].units > BigInt.zero)
+            Lot.units(
+              l.date,
+              sale.remaining[i].units,
+              sale.remaining[i].cost.toInt(),
+            ),
+      ],
+    );
   }
 
-  /// [lots] with their shares grown to [total] in proportion, each at its
-  /// own cost; the last takes what rounding leaves.
-  static List<Lot> _scaled(List<Lot> lots, int total) {
-    final held = lots.fold(0, (sum, l) => sum + l.shares);
-    if (held == 0) return lots;
-    var left = total;
-    final scaled = <Lot>[];
-    for (final (i, l) in lots.indexed) {
-      final last = i == lots.length - 1;
-      final shares = last ? left : (l.shares * total / held).round();
-      left -= shares;
-      scaled.add(Lot(l.date, shares, l.cost));
+  /// [lots] after [newShares] for [oldShares], by the ledger's own rule.
+  /// Lots that cannot be re-ratioed exactly are pooled into one first,
+  /// which always can.
+  static (List<Lot>, LotReratio) _reratio(
+    List<Lot> lots,
+    int newShares,
+    int oldShares, {
+    bool wholeShares = true,
+    int capitalReturned = 0,
+  }) {
+    LotReratio? change(List<Lot> from) => reratioLots(
+      _positions(from),
+      newShares: newShares,
+      oldShares: oldShares,
+      currency: homeCurrency,
+      wholeSharesOnly: wholeShares,
+      capitalReturned: BigInt.from(capitalReturned),
+    );
+    var from = lots;
+    var result = change(from);
+    if (result == null) {
+      from = [
+        Lot.units(
+          lots.last.date,
+          lots.fold(BigInt.zero, (sum, l) => sum + l.units),
+          lots.fold(0, (sum, l) => sum + l.cost),
+        ),
+      ];
+      result = change(from)!;
     }
-    return scaled;
+    return (
+      [
+        for (final (i, l) in from.indexed)
+          if (result.lots[i].units > BigInt.zero)
+            Lot.units(
+              l.date,
+              result.lots[i].units,
+              result.lots[i].cost.toInt(),
+            ),
+      ],
+      result,
+    );
   }
 
-  /// [lots] with [amount] taken off their cost in proportion to it; the
-  /// last takes what rounding leaves.
-  static List<Lot> _lowered(List<Lot> lots, int amount) {
-    final total = lots.fold(0, (sum, l) => sum + l.cost);
-    if (total == 0 || amount == 0) return lots;
-    var left = amount;
-    final lowered = <Lot>[];
-    for (final (i, l) in lots.indexed) {
-      final part = i == lots.length - 1 ? left : amount * l.cost ~/ total;
-      left -= part;
-      lowered.add(Lot(l.date, l.shares, l.cost - part));
-    }
-    return lowered;
-  }
+  static List<LotPosition> _positions(List<Lot> lots) => [
+    for (final l in lots) LotPosition(l.units, BigInt.from(l.cost)),
+  ];
 }

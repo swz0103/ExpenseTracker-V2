@@ -8,6 +8,3 @@ abstract interface class ReceiptPhotos {
 
   ImageProvider image(String name);
 }
-
-/// The phone's receipt photos; none in the preview, which hides them.
-ReceiptPhotos? receiptPhotos;

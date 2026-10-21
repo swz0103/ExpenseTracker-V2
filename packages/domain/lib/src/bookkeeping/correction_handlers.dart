@@ -2,20 +2,6 @@ part of 'bookkeeping.dart';
 
 /// Reversals, corrections, deletions and notes.
 extension _Corrections<T extends BookkeepingTransaction> on Bookkeeping<T> {
-  Future<PublicId> _reverse(T t, ReversePosting command) async {
-    await _requireNewPosting(t, command.postingId);
-    final original = await _reversible(t, command);
-    final reversal = Posting.reversal(
-      id: command.postingId,
-      operation: command.operation,
-      date: command.date,
-      original: original,
-      reason: command.reason,
-    );
-    await _savePosting(t, reversal, await t.postingMetadata(original.id));
-    return reversal.id;
-  }
-
   Future<PublicId> _delete(T t, DeletePosting command) async {
     await _requireNewPosting(t, command.postingId);
     final original = await _reversible(t, command);
@@ -85,7 +71,7 @@ extension _Corrections<T extends BookkeepingTransaction> on Bookkeeping<T> {
       reason: command.reason,
     );
     // A corrected recurring entry still confirms its due date, so the
-    // occurrence is not proposed again (feature audit G-03).
+    // occurrence is not proposed again.
     final planning = switch (t) {
       final PlanningTransaction planning => planning,
       _ => null,
@@ -122,7 +108,7 @@ extension _Corrections<T extends BookkeepingTransaction> on Bookkeeping<T> {
         }),
       );
     }
-    // The note travels with the entry it describes (feature audit G-15).
+    // The note travels with the entry it describes.
     final note = await t.noteOf(original.id);
     if (note.text.isNotEmpty) {
       await _saveNote(t, workspace, replacement.id, EntryNote(1, note.text));
@@ -251,7 +237,6 @@ extension _Corrections<T extends BookkeepingTransaction> on Bookkeeping<T> {
   /// no active refunds, and touches no closed account.
   Future<Posting> _reversible(T t, Command<Object?> command) {
     final originalId = switch (command) {
-      ReversePosting(:final originalId) => originalId,
       DeletePosting(:final originalId) => originalId,
       CorrectCashFlow(:final originalId) => originalId,
       CorrectTransfer(:final originalId) => originalId,

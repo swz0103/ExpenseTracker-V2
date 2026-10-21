@@ -64,63 +64,6 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     RecordCorporateAction command,
   ) => _runner.run(command, (t) => _guard(() => _action(t, command)));
 
-  Future<CommandOutcome<int>> rename(RenameInvestmentRecord command) =>
-      _runner.run(command, (t) => _guard(() => _rename(t, command)));
-
-  /// Stores the renamed record under the same id; the event repeats the
-  /// registration with the new name, which replay stores the same way.
-  Future<int> _rename(T t, RenameInvestmentRecord command) async {
-    final workspace = command.operation.workspace;
-    switch (command.type) {
-      case InvestmentRecordType.broker:
-        final current = await _found(t.broker(command.id), workspace);
-        final broker = BrokerIdentity(
-          id: current.id,
-          workspace: current.workspace,
-          name: command.name,
-        );
-        await t.saveBroker(broker);
-        await _event(t, workspace, 'investment.broker-registered', {
-          'broker': InvestmentRecords.broker(broker),
-        });
-      case InvestmentRecordType.account:
-        final current = await _found(
-          t.investmentAccount(command.id),
-          workspace,
-        );
-        final account = InvestmentAccount(
-          id: current.id,
-          workspace: current.workspace,
-          brokerId: current.brokerId,
-          fundingCashAccountId: current.fundingCashAccountId,
-          name: command.name,
-          expectedVersion: current.expectedVersion,
-        );
-        await t.saveInvestmentAccount(account);
-        await _event(t, workspace, 'investment.account-opened', {
-          'account': InvestmentRecords.account(account),
-        });
-      case InvestmentRecordType.instrument:
-        final current = await t.instrument(command.id);
-        if (current == null) {
-          throw const AppFailure(FailureKind.notFound, 'investment.not-found');
-        }
-        final instrument = InvestmentInstrument(
-          id: current.id,
-          kind: current.kind,
-          marketCode: current.marketCode,
-          symbol: current.symbol,
-          name: command.name,
-          tradingCurrency: current.tradingCurrency,
-        );
-        await t.saveInstrument(instrument);
-        await _event(t, workspace, 'investment.listed', {
-          'instrument': InvestmentRecords.instrument(instrument),
-        });
-    }
-    return 1;
-  }
-
   Future<CommandOutcome<PublicId>> voidTrade(VoidInvestmentTrade command) =>
       _runner.run(command, (t) => _guard(() => _void(t, command)));
 
@@ -411,8 +354,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     if (lots.isEmpty) {
       throw const AppFailure(FailureKind.rejected, 'investment.no-holdings');
     }
-    // One holding keeps one cost method, or its basis stops adding up
-    // (health check G2-25).
+    // One holding keeps one cost method, or its basis stops adding up.
     for (final trade in trades) {
       if (trade['kind'] == 'sell' &&
           trade['costMethod'] != command.costMethod.name) {
@@ -437,7 +379,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     );
     final settles = _settlement(command.tradedOn, command.settlesOn);
     final account = await _cash(t, command, currency, settles);
-    // A sale whose fees take exactly all of it moves no cash (G1-06).
+    // A sale whose fees take exactly all of it moves no cash.
     final posting = preview.netCashCredit.minorUnits == BigInt.zero
         ? null
         : Posting.investmentSell(
@@ -514,7 +456,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     );
     final currency = context.instrument.tradingCurrency;
     final account = await _cash(t, command, currency, command.paidOn);
-    // Everything withheld: nothing is paid out (G1-06).
+    // Everything withheld: nothing is paid out.
     final posting = preview.netCashCredit.minorUnits == BigInt.zero
         ? null
         : Posting.investmentDividend(
@@ -555,8 +497,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
   }
 
   /// Sells and splits record the lots they changed, so nothing may be
-  /// booked before the latest of them; void the later ones first
-  /// (health check G2-05).
+  /// booked before the latest of them; void the later ones first.
   void _requireInOrder(List<Map<String, Object?>> trades, BusinessDate date) {
     for (final trade in trades) {
       if (const {'sell', 'split', 'action'}.contains(trade['kind']) &&
@@ -595,7 +536,7 @@ final class InvestmentBook<T extends InvestmentTransaction> {
     }
     final cash = await _books._account(t, target.funding.id);
     // Settled in another currency, the broker converts: the trade itself is
-    // still in the instrument's currency (feature audit G-06).
+    // still in the instrument's currency.
     if (settled != null &&
         (settled.currency != cash.currency ||
             cash.currency.code == instrument.tradingCurrency.code)) {

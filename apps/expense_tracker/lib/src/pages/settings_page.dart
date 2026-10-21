@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../book/keeper.dart';
 import '../calendar_sync.dart';
-import '../demo/seed.dart';
+import '../look/dialogs.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
@@ -15,7 +15,6 @@ import '../preferences.dart';
 import '../problems.dart';
 import '../screen_privacy.dart';
 import '../services.dart';
-import 'dialogs.dart';
 import 'import_sheet.dart';
 import 'nav.dart';
 import 'recovery_code.dart';
@@ -264,10 +263,10 @@ class _SettingsPageState extends State<SettingsPage> {
     if (picked != null) preferences.update(nudgeHour: picked.hour);
   }
 
-  Future<void> _reset() async {
+  Future<void> _reset(Ledger Function() sample) async {
     final ok = await confirm(context, '重設範例資料？目前的變更會清除。', '重設', danger: true);
     if (!ok) return;
-    widget.ledger.resetTo(demoLedger());
+    widget.ledger.resetTo(sample());
     if (mounted) showNote(context, '已重設範例資料');
   }
 
@@ -294,8 +293,8 @@ class _SettingsPageState extends State<SettingsPage> {
               child: PageHeader('設定與資料', onBack: widget.nav.back),
             ),
             const SectionHead('紀錄'),
-            _Panel([
-              _Item(
+            MenuPanel([
+              MenuRow(
                 glyph: Glyph.calendar,
                 title: '匯出月份',
                 trailing: MonthSwitch(
@@ -304,7 +303,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   onChanged: (m) => setState(() => _month = m),
                 ),
               ),
-              _Item(
+              MenuRow(
                 glyph: Glyph.download,
                 title: '匯出 $month 月',
                 detail: '${entries.length} 筆 · CSV',
@@ -314,7 +313,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ' ${entries.length} 筆紀錄的 CSV',
                 ),
               ),
-              _Item(
+              MenuRow(
                 glyph: Glyph.records,
                 title: '匯出全部',
                 detail: '${ledger.entries.length} 筆 · CSV',
@@ -324,14 +323,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   ' ${ledger.entries.length} 筆紀錄的 CSV',
                 ),
               ),
-              _Item(
+              MenuRow(
                 glyph: Glyph.add,
                 title: '匯入 CSV',
                 detail: '選檔案或貼上',
                 onTap: () =>
                     importInto(context, ledger, readFile: keeper?.readFile),
               ),
-              _Item(
+              MenuRow(
                 glyph: Glyph.scan,
                 title: '匯入電子發票',
                 detail: '載具消費明細',
@@ -343,14 +342,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               if (keeper != null)
-                _Item(
+                MenuRow(
                   glyph: Glyph.note,
                   title: '匯出診斷紀錄',
                   detail: '回報問題用',
                   onTap: () =>
                       _save('記帳本-診斷紀錄.txt', Perf.instance.text, '診斷紀錄'),
                 ),
-              _Item(
+              MenuRow(
                 glyph: Glyph.reset,
                 title: '最近刪除',
                 detail: ledger.trash.isEmpty
@@ -361,14 +360,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
             if (preferences != null) ...[
               const SectionHead('外觀與操作'),
-              _Panel([
-                _Item(
+              MenuPanel([
+                MenuRow(
                   glyph: Glyph.moon,
                   title: '外觀',
                   detail: preferences.appearance.label,
                   onTap: () => _pickAppearance(preferences),
                 ),
-                _Item(
+                MenuRow(
                   glyph: Glyph.vibrate,
                   title: '震動',
                   detail: '點選與存檔時輕震',
@@ -381,8 +380,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             if (notifier != null) ...[
               const SectionHead('通知'),
-              _Panel([
-                _Item(
+              MenuPanel([
+                MenuRow(
                   glyph: Glyph.bell,
                   title: '到期提醒',
                   detail: '定期扣款、卡費',
@@ -391,7 +390,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     onChanged: (on) => _notify(notifier, due: on),
                   ),
                 ),
-                _Item(
+                MenuRow(
                   glyph: Glyph.records,
                   title: '每日記帳提醒',
                   detail: '當天沒記帳才提醒',
@@ -401,7 +400,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 if (notifier.preferences.dailyNudge)
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.calendar,
                     title: '提醒時間',
                     detail: '每天 ${notifier.preferences.nudgeHour}:00',
@@ -411,21 +410,21 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             if (keeper != null || privacy != null) ...[
               const SectionHead('安全'),
-              _Panel([
+              MenuPanel([
                 if (keeper != null) ...[
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.safe,
                     title: '備份帳本',
                     detail: '含收據照片 · 存到雲端硬碟',
                     onTap: () => _export(keeper),
                   ),
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.shield,
                     title: keeper.hasPassword ? '變更密碼' : '設定密碼',
                     detail: keeper.hasPassword ? '已設定' : '目前不用密碼',
                     onTap: () => _changePassword(keeper),
                   ),
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.ticket,
                     title: keeper.hasPassword ? '更換救援碼' : '取得救援碼',
                     detail: '換手機還原用',
@@ -433,7 +432,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
                 if (privacy != null)
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.eyeOff,
                     title: '不讓截圖',
                     detail: '最近使用的 App 也看不到',
@@ -443,7 +442,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 if (keeper != null && keeper.hasPassword)
-                  _Item(
+                  MenuRow(
                     glyph: Glyph.close,
                     title: '鎖定帳本',
                     detail: '回到解鎖畫面',
@@ -453,8 +452,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             if (calendar != null) ...[
               const SectionHead('連結'),
-              _Panel([
-                _Item(
+              MenuPanel([
+                MenuRow(
                   glyph: Glyph.calendar,
                   title: 'Google 日曆',
                   detail: switch (calendar.chosen) {
@@ -466,14 +465,14 @@ class _SettingsPageState extends State<SettingsPage> {
               ]),
             ],
             // Only the preview's made-up book can be reset.
-            if (ledger.journal == null) ...[
+            if (widget.services.sample case final sample?) ...[
               const SizedBox(height: 16),
-              _Panel([
-                _Item(
+              MenuPanel([
+                MenuRow(
                   glyph: Glyph.reset,
                   title: '重設範例資料',
                   color: Hue.danger,
-                  onTap: _reset,
+                  onTap: () => _reset(sample),
                 ),
               ]),
             ],
@@ -515,102 +514,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A white panel of rows with thin rules between them.
-class _Panel extends StatelessWidget {
-  const _Panel(this.items);
-
-  final List<Widget> items;
-
-  @override
-  Widget build(BuildContext context) => SoftPanel(
-    color: Hue.white,
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Column(
-      children: [
-        for (final (i, item) in items.indexed) ...[
-          if (i > 0) const Divider(height: 1, indent: 56, endIndent: 14),
-          item,
-        ],
-      ],
-    ),
-  );
-}
-
-/// One setting: an icon, its name, a few words on its state, and what a
-/// tap does, or a control of its own at the end.
-class _Item extends StatelessWidget {
-  const _Item({
-    required this.glyph,
-    required this.title,
-    this.detail,
-    this.onTap,
-    this.trailing,
-    this.color = Hue.ink,
-  });
-
-  final Glyph glyph;
-  final String title;
-  final String? detail;
-  final VoidCallback? onTap;
-  final Widget? trailing;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final detail = this.detail;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Hue.tile,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: GlyphIcon(
-                  glyph,
-                  size: 18,
-                  color: color == Hue.ink ? Hue.accent : color,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(fontSize: 15, color: color),
-                ),
-              ),
-              if (detail != null)
-                Flexible(
-                  child: Text(
-                    detail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: const TextStyle(fontSize: 13, color: Hue.muted),
-                  ),
-                ),
-              ?trailing,
-              if (trailing == null && onTap != null) ...[
-                const SizedBox(width: 4),
-                const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
-              ],
-            ],
-          ),
         ),
       ),
     );

@@ -23,8 +23,9 @@ on:
 permissions:
   contents: read
 
+# One group per ref: a pull request never cancels the build from main.
 concurrency:
-  group: web-preview
+  group: web-preview-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,7 +46,7 @@ jobs:
         with:
           flutter-version: '3.47.5'
           channel: stable
-          cache: false
+          cache: true
       - name: Build for the browser
         working-directory: apps/expense_tracker
         run: |

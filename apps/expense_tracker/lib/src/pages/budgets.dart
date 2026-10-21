@@ -81,8 +81,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         final today = ledger.today;
         final current = year == today.year && month == today.month;
         final period = current ? '本月' : '$month 月';
-        final days = DateTime.utc(year, month + 1, 0).day;
-        final passed = current ? today.day : days;
+        final (passed, days) = ledger.daysGone(year, month);
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [

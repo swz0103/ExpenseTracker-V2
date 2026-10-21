@@ -128,8 +128,7 @@ final class TagCatalog {
     return _change(row, name: name);
   }
 
-  /// Two live tags with one name would split every report in two
-  /// (feature audit G-19).
+  /// Two live tags with one name would split every report in two.
   void _unique(PublicId self, String name) {
     final key = nameKey(name);
     for (final row in _rows.values) {

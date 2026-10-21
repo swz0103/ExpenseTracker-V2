@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../charts/waterfall.dart';
+import '../compose/account_editor.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
-import 'account_editor.dart';
 import 'entry_tile.dart';
 import 'nav.dart';
 
@@ -47,7 +47,7 @@ class _AccountPageState extends State<AccountPage> {
         type: EntryType.transfer,
         amount: lend || owed < 0 ? 0 : owed,
         account: lend ? main : account.id,
-        category: '轉帳',
+        category: transferCategory,
         to: lend ? account.id : main,
       ),
     );

@@ -149,13 +149,28 @@ void main() {
     return outcome.value;
   }
 
+  /// Whether any entry counts as income or spending in reports.
+  bool reportsAnything() {
+    for (final posting in ledger.workspacePostings(workspace)) {
+      if (posting.reportIncome.minorUnits != BigInt.zero) return true;
+      if (posting.reportExpense.minorUnits != BigInt.zero) return true;
+    }
+    return false;
+  }
+
+  /// The stored trades of the brokerage account, oldest first.
+  List<InvestmentTrade> trades() => [
+    for (final json in ledger.tradeRecords(brokerage))
+      InvestmentRecords.readTrade(json),
+  ];
+
   test('a buy debits cash, opens a lot and is not spending', () async {
     await buy('10', '150.25', 150250, fee: 100);
     expect(ledger.balance(account(bank)), cents(1000000 - 150350));
     final lots = ledger.holdings(brokerage, apple);
     expect(lots.single.remainingQuantity.toString(), '10');
     expect(lots.single.remainingCost, cents(150350));
-    expect(ledger.monthly(workspace, '2026-10'), isEmpty);
+    expect(reportsAnything(), isFalse);
   });
 
   test('a FIFO sell credits net cash and replays into lots', () async {
@@ -197,10 +212,10 @@ void main() {
       ),
     );
     expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 700));
-    expect(ledger.monthly(workspace, '2026-11'), isEmpty);
+    expect(reportsAnything(), isFalse);
   });
 
-  test('investment screens list accounts, trades and income', () async {
+  test('investment screens list accounts, trades and positions', () async {
     await buy('10', '150', 150000);
     await buy('5', '160', 80000, on: BusinessDate(2026, 10, 5));
     await sell('12', '170', 204000);
@@ -221,30 +236,17 @@ void main() {
     expect([for (final account in accounts) account.name], ['美股']);
     expect(ledger.instrument(apple)!.symbol, 'AAPL');
     expect(ledger.positions(brokerage), [apple]);
-    final history = ledger.tradeHistory(brokerage, instrumentId: apple);
+    final history = trades();
     final kinds = [for (final trade in history) trade.kind];
-    expect(kinds, ['dividend', 'sell', 'buy', 'buy']);
-    expect(history.last.cash, cents(-150000));
+    expect(kinds, ['buy', 'buy', 'sell', 'dividend']);
+    expect(history.first.cash, cents(-150000));
     // 203900 net less the cost of 10 + 2 shares (150000 + 32000).
-    expect(history[1].realized, cents(21900));
-    final october = ledger.investmentIncome(
-      workspace,
-      from: BusinessDate(2026, 10, 1),
-      through: BusinessDate(2026, 10, 31),
-    )['USD']!;
-    expect(october.realized, cents(21900));
-    expect(october.dividends, cents(0));
-    final year = ledger.investmentIncome(
-      workspace,
-      from: BusinessDate(2026, 1, 1),
-      through: BusinessDate(2026, 12, 31),
-    )['USD']!;
-    expect(year.dividends, cents(700));
+    expect(history[2].realized, cents(21900));
   });
 
   test('cash settles later; the lot dates from the trade', () async {
     final posting = await buy('10', '150', 150000, settles: settlement);
-    final cash = ledger.postings(bank).singleWhere((p) => p.id == posting);
+    final cash = ledger.postingById(posting)!;
     expect(cash.date, settlement);
     final lot = ledger.holdings(brokerage, apple).single;
     expect(lot.acquiredOn, BusinessDate(2026, 10, 1));
@@ -360,7 +362,7 @@ void main() {
     );
   });
 
-  test('dividends add up per year with premium and ex-date', () async {
+  test('dividends book the premium and check the ex-date', () async {
     await buy('10', '150', 150000);
     Future<void> dividend(
       BusinessDate paidOn, {
@@ -396,13 +398,8 @@ void main() {
       dividend(BusinessDate(2027, 2, 1), premium: -5),
       fails(FailureKind.rejected, 'investment.premium'),
     );
-    final year = ledger.dividendSummary(workspace, 2026).single;
-    expect(year.instrumentId, apple);
-    expect(year.payments, 2);
-    expect(year.gross, cents(60000));
-    expect(year.fee, cents(20));
-    expect(year.healthPremium, cents(633));
-    expect(year.net, cents(60000 - 20 - 633));
+    final kinds = [for (final trade in trades()) trade.kind];
+    expect(kinds.where((kind) => kind == 'dividend'), hasLength(3));
     expect(ledger.balance(account(bank)), cents(1000000 - 150000 + 89337));
   });
 
@@ -424,7 +421,7 @@ void main() {
       ),
     );
     expect(ledger.balance(account(bank)), cents(1000000 - 1000 - 90));
-    final latest = ledger.tradeHistory(brokerage).first;
+    final latest = trades().last;
     expect(latest.kind, 'dividend');
     expect(latest.postingId, isNull);
     expect(latest.cash, cents(0));
@@ -450,7 +447,7 @@ void main() {
     final lot = ledger.holdings(brokerage, apple).single;
     expect(lot.remainingQuantity.toString(), '5');
     expect(lot.remainingCost, cents(149000));
-    expect(ledger.tradeHistory(brokerage).first.kind, 'action');
+    expect(trades().last.kind, 'action');
     await expectLater(
       buy('1', '150', 15000, on: BusinessDate(2026, 10, 5)),
       fails(FailureKind.rejected, 'investment.backdated'),
@@ -460,12 +457,11 @@ void main() {
   test('trade postings cannot be reversed directly', () async {
     final posting = await buy('1', '100', 10000);
     await expectLater(
-      books.reversePosting(
-        ReversePosting(
+      books.deletePosting(
+        DeletePosting(
           operation: op(),
           reversalId: PublicId.generate(),
           originalId: posting,
-          date: BusinessDate(2026, 10, 2),
         ),
       ),
       fails(FailureKind.rejected, 'posting.owned-elsewhere'),
@@ -639,56 +635,6 @@ void main() {
       ),
       fails(FailureKind.rejected, 'investment.cost-method'),
     );
-  });
-
-  test('brokers, accounts and instruments can be renamed', () async {
-    final prepared = target();
-    await invest.rename(
-      RenameInvestmentRecord(
-        operation: op(),
-        type: InvestmentRecordType.instrument,
-        id: apple,
-        name: 'Apple Inc.',
-      ),
-    );
-    await invest.rename(
-      RenameInvestmentRecord(
-        operation: op(),
-        type: InvestmentRecordType.account,
-        id: brokerage,
-        name: '美股帳戶',
-      ),
-    );
-    await expectLater(
-      invest.rename(
-        RenameInvestmentRecord(
-          operation: op(),
-          type: InvestmentRecordType.broker,
-          id: PublicId.generate(),
-          name: 'x',
-        ),
-      ),
-      fails(FailureKind.notFound, 'investment.not-found'),
-    );
-    // A trade prepared before the renames still goes through.
-    await invest.buy(
-      BuyInvestment(
-        operation: op(),
-        buyId: PublicId.generate(),
-        lotId: PublicId.generate(),
-        postingId: PublicId.generate(),
-        target: prepared,
-        tradedOn: BusinessDate(2026, 10, 1),
-        quantity: '1',
-        unitPrice: '100',
-        gross: cents(10000),
-        fee: cents(0),
-        tax: cents(0),
-      ),
-    );
-    store.close();
-    open();
-    expect(ledger.holdings(brokerage, apple), hasLength(1));
   });
 
   test('trades stay in date order around sells', () async {

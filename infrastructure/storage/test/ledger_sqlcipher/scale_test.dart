@@ -86,12 +86,11 @@ void main() {
       } else if (roll < 10 && recorded.isNotEmpty) {
         // Each entry is reversed at most once, so every reversal must
         // succeed; a refusal here is a real failure.
-        await books.reversePosting(
-          ReversePosting(
+        await books.deletePosting(
+          DeletePosting(
             operation: op(),
             reversalId: PublicId.generate(),
             originalId: recorded.removeAt(random.nextInt(recorded.length)),
-            date: BusinessDate(2027, 1, 1),
           ),
         );
         reversals++;
@@ -122,9 +121,8 @@ void main() {
     for (final id in accounts) {
       ledger.balance(ledger.accounts(workspace).singleWhere((a) => a.id == id));
     }
-    final month = ledger.monthly(workspace, '2025-06');
-    final byCategory = ledger.categoryTotals(workspace, '2025-06');
     read.stop();
+    final postings = ledger.workspacePostings(workspace);
 
     final copy = SqlCipherStore.open(
       File('${directory.path}/copy.db'),
@@ -143,8 +141,7 @@ void main() {
       '${store.eventCount} events',
     );
     expect(reversals, greaterThan(100));
-    expect(month, isNotEmpty);
-    expect(byCategory, isNotEmpty);
+    expect(postings.length, greaterThan(_commands));
     expect(projectionRows(copy), projectionRows(store));
     // Ceilings catch a missing index or a per-command full scan.
     expect(p95, lessThan(const Duration(milliseconds: 40)));

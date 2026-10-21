@@ -1,7 +1,6 @@
 part of 'ledger_store.dart';
 
-/// Credit-card reads for the screens: terms, statements, holds, credit
-/// and installments.
+/// Credit-card reads for the screens: terms, statements and installments.
 extension CardQueries on LedgerStore {
   CreditCardTerms? cardTerms(PublicId cardId) =>
       _readTerms(_store.select, cardId);
@@ -17,39 +16,6 @@ extension CardQueries on LedgerStore {
       charges: _cardCharges(cardId),
       payments: _cardPayments(cardId),
       plans: _cardPlans(cardId),
-    );
-  }
-
-  /// The posted charges, installments and payments behind the statement
-  /// whose cycle contains [date].
-  CardStatementItems statementItems(PublicId cardId, BusinessDate date) {
-    final terms = cardTerms(cardId);
-    if (terms == null) throw StateError('Card has no terms.');
-    return CardStatementItems.select(
-      cycle: terms.cycleFor(date),
-      charges: _cardCharges(cardId),
-      payments: _cardPayments(cardId),
-      plans: _cardPlans(cardId),
-    );
-  }
-
-  /// Authorizations that have not posted yet, oldest first.
-  List<CardCharge> pendingCharges(PublicId cardId) {
-    final pending = [
-      for (final charge in _cardCharges(cardId))
-        if (!charge.isPosted) charge,
-    ];
-    return pending..sort((a, b) => a.authorizedOn.compareTo(b.authorizedOn));
-  }
-
-  /// What can still be charged to the card; null when it has no limit.
-  Money? availableCredit(PublicId cardId) {
-    final terms = cardTerms(cardId);
-    if (terms == null) throw StateError('Card has no terms.');
-    return remainingCredit(
-      terms: terms,
-      charges: _cardCharges(cardId),
-      payments: _cardPayments(cardId),
     );
   }
 

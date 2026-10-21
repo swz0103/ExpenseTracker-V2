@@ -1,14 +1,14 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
-import '../compose/pickers.dart';
+import '../look/dialogs.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/ledger.dart';
-import 'dialogs.dart';
+import 'pickers.dart';
 
 /// True when [ledger] has an open account, after offering to add one if
 /// it has none: entries, imports and recurring items all need one.
@@ -54,10 +54,10 @@ class _AccountEditorState extends State<_AccountEditor> {
   late var _counted = _old?.inNetWorth ?? true;
 
   /// Chosen when the account is opened; fixed after that.
-  late var _currency = _old?.currency ?? 'TWD';
+  late var _currency = _old?.currency ?? homeCode;
 
   /// The currencies offered first; the rest open from 更多.
-  static const _common = {'TWD', 'USD', 'JPY', 'EUR', 'CNY'};
+  static const _common = {homeCode, 'USD', 'JPY', 'EUR', 'CNY'};
   var _allCurrencies = false;
 
   String _startBalance() {
@@ -84,7 +84,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final ledger = widget.ledger;
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final currency = _foreignAllowed ? _currency : 'TWD';
+    final currency = _foreignAllowed ? _currency : homeCode;
     final typed = minorOf(_balance.text, currency);
     final balance = typed == null ? null : (_kind.isDebt ? -typed : typed);
     final card = _kind == AccountKind.card;
@@ -155,7 +155,7 @@ class _AccountEditorState extends State<_AccountEditor> {
           type: EntryType.transfer,
           amount: left.abs(),
           account: left > 0 ? old.id : into,
-          category: '轉帳',
+          category: transferCategory,
           note: '${old.name}結清',
           to: left > 0 ? into : old.id,
         ),
@@ -260,7 +260,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               ],
             ),
           ),
-          _Block(
+          FormBlock(
             title: '類型',
             child: Wrap(
               spacing: 6,
@@ -275,7 +275,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               ],
             ),
           ),
-          _Block(
+          FormBlock(
             title: '圖示',
             child: Wrap(
               spacing: 6,
@@ -306,7 +306,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             ),
           ),
           if (old == null && _foreignAllowed)
-            _Block(
+            FormBlock(
               title: '幣別',
               child: Wrap(
                 spacing: 6,
@@ -348,11 +348,11 @@ class _AccountEditorState extends State<_AccountEditor> {
               ),
             ]),
           if (_kind == AccountKind.card)
-            _Block(
+            FormBlock(
               title: '信用額度',
               child: _Field(controller: _limit, hint: '額度', number: true),
             ),
-          _Block(
+          FormBlock(
             child: Row(
               children: [
                 const Expanded(
@@ -412,43 +412,6 @@ class _AccountEditorState extends State<_AccountEditor> {
                 style: const TextStyle(fontSize: 13, color: Hue.muted),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Block extends StatelessWidget {
-  const _Block({this.title, required this.child});
-
-  final String? title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final head = title;
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-      decoration: BoxDecoration(
-        color: Hue.tile,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (head != null) ...[
-            Text(
-              head,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Hue.accent,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          child,
         ],
       ),
     );

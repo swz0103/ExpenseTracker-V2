@@ -113,7 +113,7 @@ extension _Fields on _ComposerState {
         final from = _ledger.account(_account);
         final to = _ledger.account(_to);
         return [
-          _Block(
+          FormBlock(
             child: Row(
               children: [
                 Expanded(
@@ -267,7 +267,7 @@ extension _Fields on _ComposerState {
         _category.isNotEmpty) {
       shown[shown.length - 1] = _category;
     }
-    return _Block(
+    return FormBlock(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -391,7 +391,7 @@ extension _Fields on _ComposerState {
       if (_note.text.trim().isNotEmpty) _note.text.trim(),
       if (_receipt != null) '收據',
     ];
-    final photos = receiptPhotos;
+    final photos = widget.photos;
     final withPhoto = photos != null || _receipt != null;
     if (_viewing && filled.isEmpty) return const SizedBox.shrink();
     final open = _more || _viewing;
@@ -480,7 +480,7 @@ extension _Fields on _ComposerState {
       }
     }
 
-    return _Block(
+    return FormBlock(
       child: Row(
         children: [
           const IconChip(Glyph.image),
@@ -546,7 +546,7 @@ extension _Fields on _ComposerState {
 
   Widget _tagBlock() {
     if (_viewing && _tags.isEmpty) return const SizedBox.shrink();
-    return _Block(
+    return FormBlock(
       child: Row(
         children: [
           const IconChip(Glyph.ticket),
@@ -719,7 +719,7 @@ extension _Fields on _ComposerState {
           if (sell) _chargeTile('證交稅', tax, suggested.$2, (v) => _tradeTax = v),
         ]),
       if (_trading && _amount > 0)
-        _Block(
+        FormBlock(
           child: Column(
             children: [
               _Line(

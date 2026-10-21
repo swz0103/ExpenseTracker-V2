@@ -5,8 +5,6 @@ import 'package:core/foundation_values.dart';
 import 'package:domain/accounts.dart';
 import 'package:domain/bookkeeping.dart';
 import 'package:domain/categories.dart';
-import 'package:domain/ledger.dart';
-import 'package:domain/reports.dart';
 import 'package:storage/ledger_sqlcipher.dart';
 import 'package:storage/storage_sqlcipher.dart';
 import 'package:test/test.dart';
@@ -131,6 +129,16 @@ void main() {
     return outcome.value;
   }
 
+  /// Income or spending in NT dollars, as reports total it.
+  Money reported({bool income = false}) {
+    var total = ntd(0);
+    for (final posting in ledger.workspacePostings(workspace)) {
+      final amount = income ? posting.reportIncome : posting.reportExpense;
+      if (amount.currency.code == twd.code) total += amount;
+    }
+    return total;
+  }
+
   test('refunds return money and reduce the original spending', () async {
     final dinner = await expense(
       1000,
@@ -139,12 +147,13 @@ void main() {
         CategoryShare(fun, 1, ntd(400)),
       ],
     );
-    await refund(dinner, 300, shares: [CategoryShare(food, 1, ntd(300))]);
+    final share = CategoryShare(food, 1, ntd(300));
+    final back = await refund(dinner, 300, shares: [share]);
     expect(ledger.balance(account(cash)), ntd(10000 - 1000 + 300));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(700));
-    final totals = ledger.categoryTotals(workspace, '2026-10');
-    expect(totals[(food, 'TWD')]!.expense, ntd(300));
-    expect(totals[(fun, 'TWD')]!.expense, ntd(400));
+    expect(reported(), ntd(700));
+    final allocation = ledger.postingById(back)!.allocations.single;
+    expect(allocation.categoryId, food);
+    expect(allocation.amount, ntd(300));
 
     await expectLater(
       refund(dinner, 800, shares: [CategoryShare(food, 1, ntd(800))]),
@@ -164,23 +173,21 @@ void main() {
     final first = await expense(500);
     await refund(first, 100);
     await expectLater(
-      books.reversePosting(
-        ReversePosting(
+      books.deletePosting(
+        DeletePosting(
           operation: op(),
           reversalId: PublicId.generate(),
           originalId: first,
-          date: day,
         ),
       ),
       fails(FailureKind.rejected, 'posting.has-refunds'),
     );
     final second = await expense(200);
-    await books.reversePosting(
-      ReversePosting(
+    await books.deletePosting(
+      DeletePosting(
         operation: op(),
         reversalId: PublicId.generate(),
         originalId: second,
-        date: day,
       ),
     );
     await expectLater(
@@ -199,64 +206,7 @@ void main() {
       received: Money(usd, BigInt.from(100)),
     );
     expect(ledger.balance(account(dollars)), Money(usd, BigInt.from(100)));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(0));
-
-    // The refund's TWD amounts belong to the TWD expense's account, not to
-    // the dollar account the money reached (G6-18); so does its reversal.
-    final refundFact = ledger
-        .monthlyFacts(workspace, ReportMonth(2026, 10))
-        .singleWhere((f) => f.kind == PostingKind.refund);
-    expect(refundFact.accountId, cash);
-    expect(refundFact.expense, ntd(-3200));
-  });
-
-  test('only an empty, settled account can be closed', () async {
-    Future<void> close(PublicId id) => books.closeAccount(
-      CloseAccount(
-        operation: op(),
-        accountId: id,
-        expectedVersion: account(id).version,
-        date: BusinessDate(2026, 10, 31),
-        reason: '不再使用',
-      ),
-    );
-    await expectLater(
-      close(cash),
-      fails(FailureKind.rejected, 'account.nonZeroBalance'),
-    );
-    final last = await expense(10000);
-    await close(cash);
-    expect(account(cash).state, AccountState.closed);
-    await expectLater(
-      expense(1),
-      fails(FailureKind.rejected, 'account.unavailable'),
-    );
-    await expectLater(
-      books.reversePosting(
-        ReversePosting(
-          operation: op(),
-          reversalId: PublicId.generate(),
-          originalId: last,
-          date: BusinessDate(2026, 11, 1),
-        ),
-      ),
-      fails(FailureKind.rejected, 'account.unavailable'),
-    );
-
-    final card = await open('信用卡', twd, kind: AccountKind.creditCard);
-    await CardBook(books).authorize(
-      AuthorizeCardCharge(
-        operation: op(),
-        chargeId: PublicId.generate(),
-        cardId: card,
-        authorizedOn: day,
-        amount: ntd(99),
-      ),
-    );
-    await expectLater(
-      close(card),
-      fails(FailureKind.rejected, 'account.unsettledItems'),
-    );
+    expect(reported(), ntd(0));
   });
 
   test('a reversed refund gives its amount back to the limit', () async {
@@ -266,22 +216,16 @@ void main() {
       refund(dinner, 200),
       fails(FailureKind.rejected, 'ledger.refundLimit'),
     );
-    await books.reversePosting(
-      ReversePosting(
+    await books.deletePosting(
+      DeletePosting(
         operation: op(),
         reversalId: PublicId.generate(),
         originalId: wrong,
-        date: BusinessDate(2026, 10, 10),
       ),
     );
     await refund(dinner, 200);
     expect(ledger.balance(account(cash)), ntd(10000 - 1000 + 200));
-    expect(ledger.monthly(workspace, '2026-10')['TWD']!.expense, ntd(800));
-    final reversal = ledger
-        .monthlyFacts(workspace, ReportMonth(2026, 10))
-        .singleWhere((f) => f.kind == PostingKind.reversal);
-    expect(reversal.accountId, cash);
-    expect(reversal.expense, ntd(900));
+    expect(reported(), ntd(800));
   });
 
   test('replacing the opening balance reverses the old one', () async {
@@ -299,6 +243,7 @@ void main() {
     expect(ledger.balance(account(cash)), ntd(12500));
     await setOpening(-300);
     expect(ledger.balance(account(cash)), ntd(-300));
-    expect(ledger.monthly(workspace, '2026-10'), isEmpty);
+    expect(reported(), ntd(0));
+    expect(reported(income: true), ntd(0));
   });
 }
