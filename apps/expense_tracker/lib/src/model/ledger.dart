@@ -157,10 +157,9 @@ final class Ledger extends ChangeNotifier {
     return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
   }
 
-  Category category(String name) => _categories.firstWhere(
-    (c) => c.name == name,
-    orElse: () => Category(name, 'other', const Color(0xFF8C8C80)),
-  );
+  Category category(String name) =>
+      (_categoryIndex ??= {for (final c in _categories) c.name: c})[name] ??
+      Category(name, 'other', const Color(0xFF8C8C80));
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
@@ -216,7 +215,17 @@ final class Ledger extends ChangeNotifier {
   final _statementCache = <String, (DateTime, DateTime, DateTime)>{};
   final _dueCache = <String, int>{};
 
+  /// Moves on with every change of what the sums are worked out from, so
+  /// a screen that keeps sums of its own knows when to work them out
+  /// again; hiding the amounts leaves it.
+  int get revision => _revision;
+  var _revision = 0;
+
+  Map<String, Category>? _categoryIndex;
+
   void _touch() {
+    _revision++;
+    _categoryIndex = null;
     _idIndex = null;
     _refundIndex = null;
     _statementCache.clear();
@@ -522,6 +531,62 @@ final class Ledger extends ChangeNotifier {
     _trash.insert(0, trashed);
     _keep(Batch(trash: [trashed], dropped: [(Shelf.entry, removed.id)]));
     return (index, removed);
+  }
+
+  /// Removes every entry of [ids] as one change, and returns each with its
+  /// place, for undo; none when taking them away would leave a later sale
+  /// short of shares, which is told through [problem].
+  List<(int, Entry)> removeAll(Iterable<String> ids) {
+    final wanted = {...ids};
+    final removed = <(int, Entry)>[
+      for (final (i, e) in _entries.indexed)
+        if (wanted.contains(e.id)) (i, e),
+    ];
+    if (removed.isEmpty) return const [];
+    _entries.removeWhere((e) => wanted.contains(e.id));
+    if (!_tryReplay(
+      () {
+        for (final (i, e) in removed) {
+          _entries.insert(i, e);
+        }
+      },
+      trades: removed.any((r) => r.$2.isInvestment),
+    )) {
+      return const [];
+    }
+    final trashed = [for (final (_, e) in removed) Trashed(e, today)];
+    _trash.insertAll(0, trashed.reversed);
+    _keep(
+      Batch(
+        trash: trashed,
+        dropped: [for (final (_, e) in removed) (Shelf.entry, e.id)],
+      ),
+    );
+    return removed;
+  }
+
+  /// Puts back what [removeAll] took away, as one change.
+  bool restoreAll(List<(int, Entry)> removed) {
+    if (removed.isEmpty) return true;
+    final ids = {for (final (_, e) in removed) e.id};
+    if (_entries.any((e) => ids.contains(e.id))) return false;
+    for (final (i, e) in removed) {
+      _entries.insert(i.clamp(0, _entries.length), e);
+    }
+    if (!_tryReplay(
+      () => _entries.removeWhere((e) => ids.contains(e.id)),
+      trades: removed.any((r) => r.$2.isInvestment),
+    )) {
+      return false;
+    }
+    _trash.removeWhere((t) => ids.contains(t.entry.id));
+    _keep(
+      Batch(
+        entries: [for (final (_, e) in removed) e],
+        dropped: [for (final id in ids) (Shelf.trash, id)],
+      ),
+    );
+    return true;
   }
 
   /// Puts back an entry [remove] took away. False, told through
