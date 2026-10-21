@@ -92,11 +92,11 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       context,
       title: '把「${c.name}」合併到',
       selected: null,
-      options: [
-        for (final o in ledger.categoriesFor(income: c.income))
-          if (o.name != c.name)
-            Option(o.name, o.name, iconFor(o.icon), o.color),
-      ],
+      options: categoryOptions(
+        ledger,
+        income: c.income,
+        where: (o) => o.name != c.name,
+      ),
     );
     if (into == null || !mounted) return;
     ledger.mergeCategory(c.name, into);
@@ -177,10 +177,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           for (final (group, keys) in categoryIconGroups) ...[
             Padding(
               padding: const EdgeInsets.only(top: 10, bottom: 6),
-              child: Text(
-                group,
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
-              ),
+              child: Text(group, style: mutedSmall),
             ),
             Wrap(
               spacing: 6,
@@ -192,10 +189,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           // One level only: a category with its own subcategories stays on
           // top.
           if (parents.isNotEmpty && !hasChildren) ...[
-            const Text(
-              '放在哪個分類下',
-              style: TextStyle(fontSize: 13, color: Hue.muted),
-            ),
+            const Text('放在哪個分類下', style: mutedSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -216,7 +210,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ),
             const SizedBox(height: 16),
           ],
-          const Text('顏色', style: TextStyle(fontSize: 13, color: Hue.muted)),
+          const Text('顏色', style: mutedSmall),
           const SizedBox(height: 8),
           Wrap(
             runSpacing: 8,

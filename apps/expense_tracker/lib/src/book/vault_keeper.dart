@@ -54,25 +54,35 @@ final class VaultKeeper implements Keeper {
     };
   }
 
+  /// Where a file to hand over is written until the person has it. Kept
+  /// out of Android's cloud backup (res/xml/data_extraction_rules.xml),
+  /// and emptied at each start (leftovers.dart).
+  Directory get _exports => Directory('${_startup.directory.path}/exports');
+
   @override
   Future<bool> exportBackup() async {
     // A backup taken out of the phone carries the receipt photos too; the
-    // weekly ones on the phone stay small.
-    final path = await backUp(withPhotos: true);
-    return _export(path, path.split(RegExp(r'[/\\]')).last);
+    // weekly ones on the phone stay small. It is written to [_exports], not
+    // beside the weekly ones, so it never fills the cloud backup's quota.
+    final file = await _write(_exports, withPhotos: true);
+    try {
+      return await _export(file.path, file.path.split(RegExp(r'[/\\]')).last);
+    } finally {
+      if (file.existsSync()) await file.delete();
+    }
   }
 
   @override
   Future<bool> exportFile(String name, String text) async {
     // Written beside the ledger only until it is handed over.
-    final folder = Directory('${_startup.directory.path}/exports');
+    final folder = _exports;
     await folder.create(recursive: true);
     final file = File('${folder.path}/$name');
     await file.writeAsString(text, flush: true);
     try {
       return await _export(file.path, name);
     } finally {
-      await file.delete();
+      if (file.existsSync()) await file.delete();
     }
   }
 
@@ -95,14 +105,21 @@ final class VaultKeeper implements Keeper {
 
   @override
   Future<String> backUp({bool withPhotos = false}) async {
+    final file = await _write(_folder, withPhotos: withPhotos);
+    return file.path;
+  }
+
+  /// Writes an encrypted backup into [folder], named by the time it was
+  /// taken.
+  Future<File> _write(Directory folder, {required bool withPhotos}) async {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp =
         '${now.year}${two(now.month)}${two(now.day)}'
         '-${two(now.hour)}${two(now.minute)}${two(now.second)}'
         '${now.millisecond.toString().padLeft(3, '0')}';
-    await _folder.create(recursive: true);
-    final file = File('${_folder.path}/記帳本-$stamp.etbk');
+    await folder.create(recursive: true);
+    final file = File('${folder.path}/記帳本-$stamp.etbk');
     await LedgerBackup.write(
       store: _vault.store,
       keys: _vault.keys,
@@ -111,7 +128,7 @@ final class VaultKeeper implements Keeper {
       createdAt: now,
       files: withPhotos ? _receipts() : const {},
     );
-    return file.path;
+    return file;
   }
 
   /// The backups in [backupFolder], newest first; their names carry the

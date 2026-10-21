@@ -10,6 +10,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'app.dart';
+import 'book/leftovers.dart';
 import 'book/table_journal.dart';
 import 'book/vault_keeper.dart';
 import 'calendar_sync.dart';
@@ -153,6 +154,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final ledger = await _journal.load();
     _loaded = ledger;
     if (Platform.isAndroid) {
+      // Photos no entry keeps any more: replaced, taken away, or taken
+      // for an entry never saved.
+      unawaited(
+        sweepReceipts(
+          widget.startup.directory,
+          ledger.receiptFiles,
+        ).catchError((Object error) => Perf.instance.problem('清除收據照片', error)),
+      );
       _receipts = AndroidReceipts(
         widget.startup.directory,
         await FileBox.derive(widget.vault.keys, 'receipts'),
@@ -182,7 +191,15 @@ class _OpenedLedgerState extends State<OpenedLedger>
           if (h.shares > 0) h.code,
       ]);
       final rates = await _journal.refreshRates();
-      if ((quotes || rates) && mounted) ledger.refresh();
+      if ((quotes || rates) && mounted) {
+        final market = _journal.market();
+        ledger.setMarket(
+          holdings: market.holdings,
+          moves: market.moves,
+          rates: market.rates,
+          quotedOn: market.quotedOn,
+        );
+      }
     } on Object catch (error) {
       // Prices and rates are only informational; the ledger may have
       // locked.

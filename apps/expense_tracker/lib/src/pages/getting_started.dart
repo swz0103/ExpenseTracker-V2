@@ -145,13 +145,7 @@ class GettingStarted extends StatelessWidget {
                                           : null,
                                     ),
                                   ),
-                                  Text(
-                                    done ? '完成' : detail,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Hue.muted,
-                                    ),
-                                  ),
+                                  Text(done ? '完成' : detail, style: mutedSmall),
                                 ],
                               ),
                             ),

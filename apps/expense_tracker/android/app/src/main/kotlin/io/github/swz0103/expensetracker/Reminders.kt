@@ -27,7 +27,6 @@ object Reminders {
     private const val KEY = "alerts"
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
-    const val EXTRA_QUICK = "quick"
     const val EXTRA_ID = "id"
 
     /** Replaces every alert still to come with [alerts]. */
@@ -73,7 +72,7 @@ object Reminders {
         if (alert != null) {
             intent.putExtra(EXTRA_TITLE, alert.optString("title"))
                 .putExtra(EXTRA_TEXT, alert.optString("text"))
-                .putExtra(EXTRA_QUICK, alert.optString("quick"))
+                .putExtra(MainActivity.EXTRA_QUICK, alert.optString("quick"))
         }
         return PendingIntent.getBroadcast(
             context,
@@ -110,15 +109,8 @@ object Reminders {
                 },
             )
         }
-        val open = Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (quick.isNotEmpty()) open.putExtra(MainActivity.EXTRA_QUICK, quick)
-        val tap = PendingIntent.getActivity(
-            context,
-            1000 + id,
-            open,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        // Request codes from 1000 on, apart from the widget's.
+        val tap = MainActivity.opening(context, quick, 1000 + id)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -148,17 +140,24 @@ class ReminderReceiver : BroadcastReceiver() {
             intent.getIntExtra(Reminders.EXTRA_ID, 0),
             intent.getStringExtra(Reminders.EXTRA_TITLE) ?: return,
             intent.getStringExtra(Reminders.EXTRA_TEXT) ?: "",
-            intent.getStringExtra(Reminders.EXTRA_QUICK) ?: "",
+            intent.getStringExtra(MainActivity.EXTRA_QUICK) ?: "",
         )
     }
 }
 
-/** Sets the alarms again after the phone restarts or the app updates. */
+/**
+ * Sets the alarms again after the phone restarts or the app updates, and
+ * when the clock or time zone changes, so each alert still comes at its
+ * time.
+ */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED ->
-                Reminders.scheduleKept(context)
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+            -> Reminders.scheduleKept(context)
         }
     }
 }

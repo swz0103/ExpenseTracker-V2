@@ -1,6 +1,8 @@
 name: V2 integration validation
 
 # Keep the complete validation set on the single default delivery branch.
+# Each push to main runs it once; the Android release (android.yml) waits
+# for this run to pass instead of running its own copy.
 on:
   push:
     branches: [main]
@@ -19,63 +21,40 @@ on:
       - 'packages/**'
       - 'tooling/**'
   workflow_dispatch:
-  # Release workflows call this first so a release only ships a SHA whose
-  # whole validation set passed in the same run.
-  workflow_call:
 
 permissions:
   contents: read
 
 # Pushes to one ref queue instead of cancelling, so every commit on main
-# keeps a result; release and manual runs run on their own. When another
-# workflow calls this one, github.workflow is the caller's name, which
-# keeps the call out of the standalone run's queue.
+# keeps a result; manual runs run on their own.
 concurrency:
-  group: v2-integration-validation-${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  architecture:
+  # Every pure Dart package in one job: one checkout, one SDK and one pub
+  # cache instead of three.
+  dart:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
         with:
           sdk: '3.13.4'
-      - shell: pwsh
-        run: ./tooling/run-host-checks.ps1 -Package tooling/architecture_checks
-
-  domain:
-    runs-on: ubuntu-latest
-    timeout-minutes: 18
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+      # v4.3.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          sdk: '3.13.4'
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-dart-3.13.4-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-dart-3.13.4-
       - shell: pwsh
         run: |
           $packages = @(
+            'tooling/architecture_checks',
             'packages/core',
-            'packages/domain'
-          )
-          foreach ($package in $packages) {
-            ./tooling/run-host-checks.ps1 -Package $package
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-  storage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
-        with:
-          sdk: '3.13.4'
-      - shell: pwsh
-        run: |
-          $packages = @(
+            'packages/domain',
             'infrastructure/storage',
             'infrastructure/vault',
             'infrastructure/market'
@@ -90,6 +69,7 @@ jobs:
     timeout-minutes: 22
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      # cache: true keeps the SDK and its pub cache between runs.
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.5'

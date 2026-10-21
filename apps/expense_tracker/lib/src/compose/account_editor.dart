@@ -141,11 +141,11 @@ class _AccountEditorState extends State<_AccountEditor> {
         title: left > 0 ? '餘額轉到哪個帳戶' : '由哪個帳戶結清欠款',
         selected: null,
         columns: 3,
-        options: [
-          for (final a in ledger.openAccounts)
-            if (a.id != old.id && !a.kind.isDebt && a.currency == old.currency)
-              Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
-        ],
+        options: accountOptions(
+          ledger,
+          currency: old.currency,
+          where: (a) => a.id != old.id && !a.kind.isDebt,
+        ),
       );
       if (into == null) return;
       ledger.add(
@@ -409,7 +409,7 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: Text(
                 '目前 ${amountIn(widget.ledger.balance(old.id), old.currency)}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
+                style: mutedSmall,
               ),
             ),
         ],

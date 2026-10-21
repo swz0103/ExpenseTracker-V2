@@ -323,13 +323,21 @@ final class Entry {
       _with(merchant: merchant, tags: tags);
 
   /// This entry with [from], or its category, renamed to [name].
-  Entry withCategory(String name, {String? from}) => _with(
-    category: from == null || category == from ? name : category,
-    parts: [
-      for (final (part, value) in parts)
-        (part == (from ?? category) ? name : part, value),
-    ],
-  );
+  Entry withCategory(String name, {String? from}) {
+    // Parts that end up in the same category become one.
+    final merged = <String, int>{};
+    for (final (part, value) in parts) {
+      final into = part == (from ?? category) ? name : part;
+      merged[into] = (merged[into] ?? 0) + value;
+    }
+    final renamed = from == null || category == from ? name : category;
+    return _with(
+      category: merged.length == 1 ? merged.keys.single : renamed,
+      parts: merged.length < 2
+          ? const []
+          : [for (final MapEntry(:key, :value) in merged.entries) (key, value)],
+    );
+  }
 
   /// What the lists show: the note, else the category.
   String get title => note.isNotEmpty ? note : category;

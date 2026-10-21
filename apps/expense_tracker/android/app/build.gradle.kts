@@ -52,6 +52,14 @@ android {
 
     buildTypes {
         release {
+            // Phones in use are 64-bit ARM: a release carries only that
+            // architecture (as CI's --target-platform android-arm64 builds
+            // it). Set here rather than in defaultConfig, so debug and
+            // profile builds still run on the x86_64 emulator
+            // (emulator.yml).
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
             signingConfig =
                 if (keyProperties.isEmpty()) {
                     signingConfigs.getByName("debug")

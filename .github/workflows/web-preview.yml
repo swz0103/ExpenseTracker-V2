@@ -1,8 +1,10 @@
 name: V2 web preview
 
-# Builds the new app for the browser and stores the build under
+# Builds the new app for the browser. A build of main is stored under
 # refs/previews/web (not a branch), where it is picked up and published as a
-# private page. Nothing here signs, releases or touches main.
+# private page; a pull request's build is only kept as a workflow artifact,
+# so it never replaces the preview of main. Nothing here signs, releases or
+# touches main.
 on:
   push:
     branches: [main]
@@ -30,7 +32,7 @@ concurrency:
 
 jobs:
   build:
-    # Only builds from this repository may write the preview ref.
+    # Only builds from this repository run here.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -55,9 +57,20 @@ jobs:
           # Bundle CanvasKit so the page needs no Google CDN.
           flutter build web --release --no-web-resources-cdn --no-source-maps \
             -t lib/main_preview.dart
+      - name: Keep a build not from main
+        if: github.ref != 'refs/heads/main'
+        # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: web-preview
+          path: apps/expense_tracker/build/web
+          if-no-files-found: error
+          retention-days: 7
       - name: Store the build under refs/previews/web
+        # Only main's build is the preview; other builds are kept above.
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/preview"

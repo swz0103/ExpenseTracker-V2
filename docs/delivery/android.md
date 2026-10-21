@@ -4,9 +4,9 @@
 
 ## 下載安裝檔
 
-每次 main 有變更，`Android APK` 工作流程會建好 APK，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）。PR 只檢查能否建置。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝。
+每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次。PR 與手動執行只檢查能否建置。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝。
 
-APK 只含 arm64（現行手機都是），約 28 MB；除錯符號不放進安裝檔。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。PR 的檢查沒有 Secrets 也能用 debug 金鑰建置。
+APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型 Huninn 已是常用字子集；再縮要另寫子集化工具，目前不做。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。PR 的檢查沒有 Secrets 也能用 debug 金鑰建置。
 
 ## 專案設定
 
@@ -16,16 +16,21 @@ APK 只含 arm64（現行手機都是），約 28 MB；除錯符號不放進安�
   - `INTERNET`：抓證交所、櫃買中心的收盤價與臺灣銀行匯率。
   - `USE_BIOMETRIC`：指紋或臉部解鎖。
   - `READ_CALENDAR`、`WRITE_CALENDAR`：把到期提醒寫進使用者選的日曆；只在設定裡連結日曆時才詢問。
+  - `POST_NOTIFICATIONS`：到期提醒與每日記帳提醒（Android 13 以上第一次開提醒時詢問）。
+  - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
+- 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
 
 ## Android 自動備份
 
 `allowBackup="true"`，規則在 `res/xml/data_extraction_rules.xml`（Android 12 以上）與 `backup_rules.xml`。帳本與每週備份會進使用者的 Google 備份，Android 以螢幕鎖加密；不帶走的有：
 
 - `device-id`（這支手機的指紋登記）、`no-fingerprint`（拒絕指紋的紀錄）：換手機要重新登記。
-- `exports`：匯出的檔案。
+- `exports`：要交出去的檔案（附照片的備份、CSV）只在這裡放到系統存檔畫面寫完為止，之後立即刪除；App 啟動時也會清掉上次沒刪到的（`lib/src/book/leftovers.dart`，連同快取裡的相機暫存與選取的備份副本）。所以附照片的匯出備份不會佔用 25 MB 的備份額度；每週備份（不含照片）仍在 `backups/`，照常備份。
 - `calendar`：選的日曆，換手機要重新選。
+- `diagnostics.log`：「設定 › 效能」的錯誤紀錄，只屬於這支手機（只記錯誤類型與簡短訊息，不含帳本內容）。
+- `receipts`：收據照片，不進雲端備份（很快就會超過 25 MB 額度）；裝置對裝置轉移（`device-transfer`）仍會帶走。要保留照片請匯出備份檔，它會附上照片。
 
-沒設密碼時，帳本金鑰也在私有資料夾，會跟帳本一起備份，新手機可直接打開；設了密碼就要輸入密碼或救援碼。
+沒設密碼時，帳本金鑰存在 App 的私有資料夾，會跟著帳本進 Android 的雲端備份（由 Google 以手機螢幕鎖加密）；新手機還原後可直接打開，但也代表帳本的安全等同那份雲端備份。設了密碼後，金鑰只以密碼、救援碼與指紋包裝存放，還原後要輸入密碼或救援碼。
 
 ## 指紋或臉部解鎖
 
@@ -62,5 +67,8 @@ APK 只含 arm64（現行手機都是），約 28 MB；除錯符號不放進安�
 
 ```bash
 cd apps/expense_tracker
-flutter build apk --release   # 或 flutter run --release
+flutter build apk --release --target-platform android-arm64 \
+  --split-debug-info=build/symbols   # 和 CI 相同；或 flutter run --release
 ```
+
+`--target-platform` 不加也能建置，只是多編譯兩種架構的程式碼，release 仍只打包 arm64。

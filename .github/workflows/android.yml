@@ -1,17 +1,15 @@
 name: Android APK
 
-# Builds the phone app. On main it first runs the whole validation set and
-# only then puts the APK on the release `android-latest`, where it can be
-# downloaded; pull requests only check that it builds, in parallel with
-# their own validation run.
+# Builds the phone app. On main it waits for the push's own validation run
+# (integration-validation.yml) and, once that passed, builds the same commit
+# and puts the APK on the release `android-latest`, where it can be
+# downloaded; validation runs once per push. Pull requests only check that
+# it builds, in parallel with their own validation run.
 on:
-  push:
+  workflow_run:
+    workflows: ['V2 integration validation']
+    types: [completed]
     branches: [main]
-    paths:
-      - '.github/workflows/android.yml'
-      - 'apps/**'
-      - 'infrastructure/**'
-      - 'packages/**'
   pull_request:
     branches: [main]
     paths:
@@ -29,32 +27,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validation:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: ./.github/workflows/integration-validation.yml
-    permissions:
-      contents: read
-
   apk:
-    needs: validation
-    # On main the APK is built and published only after validation passed;
-    # elsewhere validation is skipped and the build runs straight away.
+    # From validation: only a push to main whose whole validation set
+    # passed. Manual runs and pull requests only build.
     if: >-
-      !cancelled() && (needs.validation.result == 'success' ||
-      (needs.validation.result == 'skipped' && github.ref != 'refs/heads/main'))
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: write
+    env:
+      # The commit validated (workflow_run), or the one this run is on.
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.event.workflow_run.head_sha || '' }}
           persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: '3.47.5'
           channel: stable
           cache: true
+      # Gradle's downloads and build cache; v4.3.0.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/expense_tracker/android/**/*.gradle*', 'apps/expense_tracker/android/**/gradle-wrapper.properties', 'apps/expense_tracker/android/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - name: Signing key
         # The release key from repository secrets (docs/STATUS.md); without
         # them the APK is signed with a debug key, for trying it out only.
@@ -94,11 +99,20 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+      - name: Keep the debug symbols
+        # Turns a crash's stack trace from this build back into names
+        # (flutter symbolize). v4.6.2.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: symbols-${{ env.SOURCE_SHA }}
+          path: ${{ runner.temp }}/symbols
+          if-no-files-found: error
+          retention-days: 90
       - name: Publish on the android-latest release
-        if: github.ref == 'refs/heads/main'
+        # Only a validated push to main is published.
+        if: github.event_name == 'workflow_run'
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"

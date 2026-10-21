@@ -507,7 +507,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Text(
                         figure,
                         textAlign: TextAlign.end,
-                        style: const TextStyle(fontSize: 13, color: Hue.muted),
+                        style: mutedSmall,
                       ),
                     ),
                   ],

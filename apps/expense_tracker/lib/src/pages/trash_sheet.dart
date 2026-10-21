@@ -18,8 +18,9 @@ class _TrashSheet extends StatelessWidget {
 
   void _restore(BuildContext context, Trashed trashed) {
     try {
-      ledger.restoreTrashed(trashed);
-      showNote(context, '已復原「${trashed.entry.title}」');
+      if (ledger.restoreTrashed(trashed)) {
+        showNote(context, '已復原「${trashed.entry.title}」');
+      }
     } on Object catch (error) {
       showNote(context, describeProblem(error));
     }
@@ -45,7 +46,7 @@ class _TrashSheet extends StatelessWidget {
             Text(
               trash.isEmpty ? '30 天內沒有刪除的紀錄' : '點一筆就放回帳本；刪除後保留 30 天',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: mutedSmall,
             ),
             const SizedBox(height: 8),
             for (final t in trash) ...[

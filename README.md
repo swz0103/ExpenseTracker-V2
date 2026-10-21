@@ -4,7 +4,7 @@ Android 優先、Flutter、資料只存在手機（local-first）的個人記帳
 
 ## 現況
 
-帳本、信用卡、投資、預算、定期交易、加密儲存與備份都已完成，介面可日常使用；剩下真機驗收與簽章。進度見 [docs/STATUS.md](docs/STATUS.md)，架構見 [ADR-0001](docs/adr/0001-target-architecture.md)。
+帳本、信用卡、投資、預算、定期交易、加密儲存與備份都已完成，介面可日常使用；剩下真機驗收。進度見 [docs/STATUS.md](docs/STATUS.md)，架構見 [ADR-0001](docs/adr/0001-target-architecture.md)。
 
 ## 結構
 
@@ -18,8 +18,7 @@ Android 優先、Flutter、資料只存在手機（local-first）的個人記帳
 | `infrastructure/market/` | 證交所、櫃買中心收盤價與臺灣銀行牌告匯率。 |
 | `packages/domain/` | 計算規則：持股成本、配股減資、台股費用、信用卡帳單週期與分期、CSV、電子發票。 |
 | `packages/core/` | 金額、日期、匯率等值物件與時鐘。 |
-| `tooling/architecture_checks` | CI 的輕量檢查：core／domain 不碰平台、測試寫明預期的失敗、lockfile 版本一致。 |
-| `tooling/` | 架構檢查與本機檢查腳本。 |
+| `tooling/` | `architecture_checks`（CI 的輕量檢查：core／domain 不碰平台、測試寫明預期的失敗、lockfile 版本一致、工作流程涵蓋每個模組）與本機檢查腳本 `run-host-checks.ps1`。 |
 | `docs/` | 狀態、架構決策、設定說明。 |
 
 ## 檢查

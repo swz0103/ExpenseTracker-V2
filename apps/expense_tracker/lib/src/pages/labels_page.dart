@@ -177,18 +177,12 @@ class _LabelsPageState extends State<LabelsPage> {
                                       _merchants ? name : '#$name',
                                       style: const TextStyle(fontSize: 15),
                                     ),
-                                    Text(
-                                      '$count 筆',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Hue.muted,
-                                      ),
-                                    ),
+                                    Text('$count 筆', style: mutedSmall),
                                   ],
                                 ),
                               ),
                               Text(
-                                money(amount),
+                                ledger.money(amount),
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,

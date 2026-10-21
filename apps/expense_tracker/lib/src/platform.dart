@@ -26,6 +26,14 @@ Future<Directory> androidFilesDirectory() async {
   return Directory(path);
 }
 
+/// The app's cache folder on Android, where the camera, the photo picker
+/// and the file picker leave their copies.
+Future<Directory> androidCacheDirectory() async {
+  final path = await platformChannel.invokeMethod<String>('cacheDir');
+  if (path == null) throw StateError('No cache folder.');
+  return Directory(path);
+}
+
 /// This install's device unlock, when the phone can confirm a fingerprint
 /// or face; null otherwise. Its id is made once and kept beside the
 /// ledger, so a reinstall enrols a new key.

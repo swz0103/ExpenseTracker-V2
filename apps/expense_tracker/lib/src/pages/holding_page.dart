@@ -57,12 +57,12 @@ class HoldingPage extends StatelessWidget {
               hero: true,
               icon: Glyph.investment,
               label: '$code · 市值',
-              value: money(held.value),
+              value: ledger.money(held.value),
               trailing: Pill(percentOf(held.gain, held.cost), color: tone),
               child: TileStats([
                 (Glyph.briefcase, '股數', groupDigits(held.shares), Hue.ink),
                 (Glyph.coins, '均價', average.toStringAsFixed(2), Hue.ink),
-                (Glyph.reports, '未實現', moneySigned(held.gain), tone),
+                (Glyph.reports, '未實現', ledger.moneySigned(held.gain), tone),
               ]),
             ),
             TileRow([
@@ -72,7 +72,9 @@ class HoldingPage extends StatelessWidget {
                   final d? => '${d.month}/${d.day} 漲跌',
                   null => '漲跌',
                 },
-                value: ledger.quotedOn == null ? '—' : moneySigned(held.change),
+                value: ledger.quotedOn == null
+                    ? '—'
+                    : ledger.moneySigned(held.change),
                 valueColor: held.change < 0 ? Hue.negative : Hue.positive,
                 sub: ledger.quotedOn == null
                     ? '參考價 ${held.price}'
@@ -81,8 +83,8 @@ class HoldingPage extends StatelessWidget {
               Tile(
                 icon: Glyph.dividend,
                 label: '已領股息',
-                value: money(held.dividends),
-                sub: '已實現 ${moneySigned(held.realized)}',
+                value: ledger.money(held.dividends),
+                sub: '已實現 ${ledger.moneySigned(held.realized)}',
               ),
             ]),
             const SectionHead('持有批次'),
@@ -93,6 +95,7 @@ class HoldingPage extends StatelessWidget {
                 children: [
                   for (final (i, lot) in lots.indexed)
                     _LotRow(
+                      ledger: ledger,
                       lot: lot,
                       worth: (lot.shares * held.price).round(),
                       largest: largest,
@@ -135,12 +138,14 @@ class HoldingPage extends StatelessWidget {
 /// it is worth now as two bars.
 class _LotRow extends StatelessWidget {
   const _LotRow({
+    required this.ledger,
     required this.lot,
     required this.worth,
     required this.largest,
     required this.first,
   });
 
+  final Ledger ledger;
   final Lot lot;
   final int worth;
   final int largest;
@@ -150,19 +155,6 @@ class _LotRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final opening = lot.isOpening;
     final gain = worth - lot.cost;
-    Widget bar(int value, Color color, double height) => ClipRRect(
-      borderRadius: BorderRadius.circular(height / 2),
-      child: SizedBox(
-        height: height,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: (value / largest).clamp(0.02, 1.0),
-            child: Container(color: color),
-          ),
-        ),
-      ),
-    );
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
@@ -181,13 +173,10 @@ class _LotRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '${groupDigits(lot.shares)} 股',
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
-              ),
+              Text('${groupDigits(lot.shares)} 股', style: mutedSmall),
               const Spacer(),
               Text(
-                moneySigned(gain),
+                ledger.moneySigned(gain),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -197,12 +186,15 @@ class _LotRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          bar(worth, Hue.investment, 7),
-          const SizedBox(height: 3),
-          bar(lot.cost, Hue.faint.withValues(alpha: 0.7), 4),
+          PairBars(
+            now: worth / largest,
+            then: lot.cost / largest,
+            color: Hue.investment,
+            thenOpacity: 0.7,
+          ),
           const SizedBox(height: 4),
           Text(
-            '市值 ${money(worth)} · 成本 ${money(lot.cost)}',
+            '市值 ${ledger.money(worth)} · 成本 ${ledger.money(lot.cost)}',
             style: const TextStyle(fontSize: 12.5, color: Hue.muted),
           ),
         ],

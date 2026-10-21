@@ -1,7 +1,8 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart' show PlatformException;
 
 /// How fast this phone runs the app: the last ledger loads and recent
 /// frames, shown under 設定 › 效能 so a real phone can be measured.
@@ -36,7 +37,8 @@ final class Perf {
       for (final line in file.readAsLinesSync()) {
         final tab = line.indexOf('\t');
         final at = tab < 0 ? null : DateTime.tryParse(line.substring(0, tab));
-        if (at != null) _problems.add((at, line.substring(tab + 1)));
+        if (at == null) continue;
+        _problems.add((at, _cleanKept(line.substring(tab + 1))));
       }
       _trim();
     } on Object {
@@ -50,11 +52,57 @@ final class Perf {
     }
   }
 
+  /// The longest message kept of an error.
+  static const _longest = 120;
+
+  /// What is kept of [error]: its type and a short message, cleaned of
+  /// what could be the person's own words (names, notes, amounts) or file
+  /// paths, since the log can be exported.
+  static String describe(Object error) {
+    final said = switch (error) {
+      FileSystemException(:final message) => message,
+      PlatformException(:final code) => code,
+      _ => '$error',
+    };
+    final code = error is FileSystemException ? error.osError?.errorCode : null;
+    final errno = code == null ? '' : ' (errno $code)';
+    return '${error.runtimeType}: ${_clean(said)}$errno';
+  }
+
+  static final _quoted = RegExp(r"""'[^']*'|"[^"]*"|「[^」]*」|“[^”]*”""");
+  static final _path = RegExp(r'\S*[/\\]\S*');
+  static final _foreign = RegExp(r'[^\x20-\x7e]+');
+  // An errno is kept; it says what failed, not what was written.
+  static final _digits = RegExp(r'(?<!errno )\d+');
+
+  /// A problem as an older version kept it, with the whole error: what
+  /// did not work, then the error, cleaned now.
+  static String _cleanKept(String words) {
+    final colon = words.indexOf('：');
+    if (colon < 0) return _clean(words);
+    return '${words.substring(0, colon)}：${_clean(words.substring(colon + 1))}';
+  }
+
+  /// One line of [text], without quoted words, paths, numbers or anything
+  /// outside plain ASCII, at most [_longest] characters.
+  static String _clean(String text) {
+    var line = text.split('\n').first;
+    line = line
+        .replaceAll(_quoted, '…')
+        .replaceAll(_path, '…')
+        .replaceAll(_foreign, '…')
+        .replaceAll(_digits, '#')
+        .trim();
+    if (line.length > _longest) line = '${line.substring(0, _longest)}…';
+    return line;
+  }
+
   /// Keeps that [what] did not work, for 設定 › 效能, rather than letting
-  /// it pass unseen.
+  /// it pass unseen. Only the error's type and a cleaned message are kept,
+  /// and nothing is printed in a release build.
   void problem(String what, Object error) {
-    debugPrint('$what: $error');
-    final words = '$what：$error'.replaceAll('\n', ' ');
+    if (!kReleaseMode) debugPrint('$what: $error');
+    final words = '$what：${describe(error)}';
     final at = DateTime.now();
     _problems.add((at, words));
     _trim();

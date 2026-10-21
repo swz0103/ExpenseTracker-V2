@@ -1,6 +1,7 @@
 import 'package:core/foundation_values.dart' show Currency;
 
 import '../model/amounts.dart';
+import '../model/ledger.dart' show Ledger;
 
 export '../model/amounts.dart';
 
@@ -37,16 +38,6 @@ const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
 String longDay(DateTime date) =>
     '${date.month} 月 ${date.day} 日 · 週${weekdayNames[date.weekday - 1]}';
 
-/// While true, [money] and [moneySigned] write dots instead of amounts:
-/// the 隱藏金額 switch, set by the ledger.
-bool amountsHidden = false;
-
-/// [groupDigits], or dots while amounts are hidden.
-String money(int value) => amountsHidden ? '••••' : groupDigits(value);
-
-/// [signed], or dots while amounts are hidden.
-String moneySigned(int value) => amountsHidden ? '••••' : signed(value);
-
 /// [minor] units of [currency] as people write them: NT$ as [groupDigits],
 /// others with their code and decimals, such as `USD 1,234.50`.
 String amountIn(int minor, String currency) {
@@ -59,6 +50,20 @@ String amountIn(int minor, String currency) {
   return '$currency ${minor < 0 ? '-' : ''}$whole.$cents';
 }
 
-/// [amountIn], or dots while amounts are hidden.
-String moneyIn(int minor, String currency) =>
-    amountsHidden ? '••••' : amountIn(minor, currency);
+/// Amounts as a ledger shows them: dots in place of every figure while
+/// its 隱藏金額 switch is on. Each screen asks its own ledger, so two books
+/// open at once (as in tests) never share the switch.
+extension ShownAmounts on Ledger {
+  /// [text], or dots while amounts are hidden.
+  String orDots(String text) => hidden ? '••••' : text;
+
+  /// [groupDigits], or dots while amounts are hidden.
+  String money(int value) => orDots(groupDigits(value));
+
+  /// [signed], or dots while amounts are hidden.
+  String moneySigned(int value) => orDots(signed(value));
+
+  /// [amountIn], or dots while amounts are hidden.
+  String moneyIn(int minor, String currency) =>
+      orDots(amountIn(minor, currency));
+}

@@ -39,8 +39,12 @@ void main() {
     );
     final pullRequest = triggers['pull_request'] as YamlMap;
     expect(pullRequest['branches'], contains('main'));
+    // The release (android.yml) waits for this workflow's push run rather
+    // than calling it, so main is validated once per push.
+    expect(triggers.containsKey('workflow_call'), isFalse);
+    // One job for the pure Dart packages, one for the Flutter app.
     final jobs = yaml['jobs'] as YamlMap;
-    expect(jobs.length, 4);
+    expect(jobs.length, 2);
     final maxMinutes = jobs.values.fold<int>(
       0,
       (total, job) => total + (job['timeout-minutes'] as int),

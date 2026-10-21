@@ -17,15 +17,18 @@ extension LedgerCards on Ledger {
 
   /// The last closed statement of [card]: its first and last day and when
   /// it must be paid.
-  (DateTime, DateTime, DateTime) statement(Account card) {
-    final end = card.closingOn(closedBy);
-    final (start, due) = card.cycleEnding(end);
-    return (start, end, due);
-  }
+  (DateTime, DateTime, DateTime) statement(Account card) =>
+      _statementCache[card.id] ??= () {
+        final end = card.closingOn(closedBy);
+        final (start, due) = card.cycleEnding(end);
+        return (start, end, due);
+      }();
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
-  int statementDue(Account card) {
+  int statementDue(Account card) => _dueCache[card.id] ??= _statementDue(card);
+
+  int _statementDue(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
     for (final e in _entries) {

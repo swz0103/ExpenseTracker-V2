@@ -218,13 +218,7 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionHead(
-      title,
-      trailing: Text(
-        '$count 筆',
-        style: const TextStyle(fontSize: 13, color: Hue.muted),
-      ),
-    );
+    return SectionHead(title, trailing: Text('$count 筆', style: mutedSmall));
   }
 }
 
@@ -311,7 +305,7 @@ class _Row extends StatelessWidget {
                     ),
                     Text(
                       '${item.category} · ${account.name}',
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      style: mutedSmall,
                     ),
                   ],
                 ),
@@ -333,10 +327,7 @@ class _Row extends StatelessWidget {
                           : Hue.negative,
                     ),
                   ),
-                  Text(
-                    status,
-                    style: const TextStyle(fontSize: 13, color: Hue.muted),
-                  ),
+                  Text(status, style: mutedSmall),
                 ],
               ),
             ],
@@ -505,10 +496,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   context,
                   title: '分類',
                   selected: _category,
-                  options: [
-                    for (final c in _ledger.categoriesFor(income: _income))
-                      Option(c.name, c.name, iconFor(c.icon), c.color),
-                  ],
+                  options: categoryOptions(_ledger, income: _income),
                 );
                 if (picked != null) setState(() => _category = picked);
               },
@@ -526,15 +514,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   title: '帳戶',
                   selected: _account,
                   columns: 3,
-                  options: [
-                    for (final a in _ledger.openAccounts)
-                      Option(
-                        a.id,
-                        a.name,
-                        accountIcon(a),
-                        accountColor(a.kind),
-                      ),
-                  ],
+                  options: accountOptions(_ledger),
                 );
                 if (picked == null) return;
                 setState(() {
@@ -610,7 +590,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                         every: _every,
                         start: _start,
                       ).rhythm,
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      style: mutedSmall,
                     ),
                   ],
                 ),

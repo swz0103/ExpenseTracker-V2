@@ -55,16 +55,20 @@ final _schedules = Expando<CardSchedule>('card schedule');
 
 /// The card's schedule; moved closes the schedule cannot hold are left out.
 CardSchedule _scheduleOf(Account a) {
-  CardSchedule plain;
-  try {
-    plain = CardSchedule(
-      closingDay: a.closingDay ?? 1,
-      dueDay: a.dueDay ?? 15,
-      history: a.history,
-    );
-  } on CreditCardException {
-    // Billing days changed twice before one close: the latest stand.
-    plain = CardSchedule(closingDay: a.closingDay ?? 1, dueDay: a.dueDay ?? 15);
+  // A history the schedule cannot hold loses its latest changes first,
+  // so statements before them keep their dates.
+  late CardSchedule plain;
+  for (var keep = a.history.length; keep >= 0; keep--) {
+    try {
+      plain = CardSchedule(
+        closingDay: a.closingDay ?? 1,
+        dueDay: a.dueDay ?? 15,
+        history: a.history.sublist(0, keep),
+      );
+      break;
+    } on CreditCardException {
+      if (keep == 0) rethrow;
+    }
   }
   final overrides = <CardCycleOverride>[];
   for (final MapEntry(key: scheduled, value: closesOn) in a.closes.entries) {

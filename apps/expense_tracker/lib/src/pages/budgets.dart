@@ -40,9 +40,11 @@ class _BudgetsPageState extends State<BudgetsPage> {
       title: '設定額度的分類或標籤',
       selected: null,
       options: [
-        for (final c in ledger.categoriesFor(income: false))
-          if (ledger.budgetFor(c.name).limit == 0)
-            Option(c.name, c.name, iconFor(c.icon), c.color),
+        ...categoryOptions(
+          ledger,
+          income: false,
+          where: (c) => ledger.budgetFor(c.name).limit == 0,
+        ),
         for (final tag in ledger.tags)
           if (ledger.budgetFor('#$tag').limit == 0)
             Option('#$tag', '#$tag', Glyph.ticket, Hue.accent),
@@ -113,13 +115,13 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       share: total == 0 ? 0 : spent / total,
                       size: 68,
                     ),
-                    value: total == 0 ? '尚未設定' : money(left.abs()),
+                    value: total == 0 ? '尚未設定' : ledger.money(left.abs()),
                     valueColor: left < 0 && total > 0 ? Hue.negative : Hue.ink,
                     sub: total == 0
-                        ? '已用 ${money(spent)} · 點右邊的鉛筆設定'
-                        : '總預算 ${money(total)}'
-                              '${carried > 0 ? '（含上月剩 ${money(carried)}）' : ''}'
-                              ' · 已用 ${money(spent)}',
+                        ? '已用 ${ledger.money(spent)} · 點右邊的鉛筆設定'
+                        : '總預算 ${ledger.money(total)}'
+                              '${carried > 0 ? '（含上月剩 ${ledger.money(carried)}）' : ''}'
+                              ' · 已用 ${ledger.money(spent)}',
                   ),
                   TileRow([
                     Tile(
@@ -132,7 +134,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       icon: Glyph.wallet,
                       label: '每日可用',
                       value: current && left > 0
-                          ? money(left ~/ (days - passed + 1))
+                          ? ledger.money(left ~/ (days - passed + 1))
                           : '—',
                       valueColor: Hue.positive,
                     ),
@@ -145,6 +147,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       children: [
                         for (final (budget, amount, allowed) in rows)
                           _CategoryLimit(
+                            ledger: ledger,
                             category: budget.tag == null
                                 ? ledger.category(budget.category)
                                 : Category(
@@ -184,6 +187,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
 
 class _CategoryLimit extends StatelessWidget {
   const _CategoryLimit({
+    required this.ledger,
     required this.category,
     required this.warning,
     required this.limit,
@@ -191,6 +195,7 @@ class _CategoryLimit extends StatelessWidget {
     required this.onEdit,
   });
 
+  final Ledger ledger;
   final Category category;
   final int warning;
   final int limit;
@@ -229,12 +234,9 @@ class _CategoryLimit extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    Text(left < 0 ? '超支 ' : '剩餘 ', style: mutedSmall),
                     Text(
-                      left < 0 ? '超支 ' : '剩餘 ',
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
-                    ),
-                    Text(
-                      money(left.abs()),
+                      ledger.money(left.abs()),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -258,10 +260,7 @@ class _CategoryLimit extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      money(limit),
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
-                    ),
+                    Text(ledger.money(limit), style: mutedSmall),
                   ],
                 ),
               ],
@@ -317,7 +316,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             hero: true,
             icon: Glyph.budget,
             label: '每月額度',
-            value: money(_limit),
+            value: widget.ledger.money(_limit),
             onTap: () async {
               final value = await showCalculator(
                 context,
