@@ -40,6 +40,15 @@ class _LedgerPageState extends State<LedgerPage> {
   /// Whether the search field is shown in place of the kind chips.
   var _searchOpen = false;
 
+  /// What is typed in the search field, kept here rather than in the
+  /// field: the field is a line of the list, and lines scrolled far away
+  /// are let go and built again.
+  final _searchText = TextEditingController();
+
+  /// The search field's focus: asked for once when the search opens, not
+  /// each time the field is built again.
+  final _searchFocus = FocusNode();
+
   /// The entries picked for a change at once; a long press starts it.
   final _picked = <String>{};
 
@@ -48,6 +57,8 @@ class _LedgerPageState extends State<LedgerPage> {
   @override
   void dispose() {
     _typing?.cancel();
+    _searchText.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -58,8 +69,18 @@ class _LedgerPageState extends State<LedgerPage> {
     });
   }
 
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    // The field is there after this frame; the keyboard comes up once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _searchOpen) _searchFocus.requestFocus();
+    });
+  }
+
   void _closeSearch() {
     _typing?.cancel();
+    _searchText.clear();
+    _searchFocus.unfocus();
     setState(() {
       _searchOpen = false;
       _search = null;
@@ -119,23 +140,22 @@ class _LedgerPageState extends State<LedgerPage> {
     _done('改帳戶', ledger.moveToAccount(picked, id));
   }
 
-  /// Deletes every picked entry, with one way back for all of them.
+  /// Deletes every picked entry as one change, with one way back for all
+  /// of them. When the ledger refuses (a later sale would be short of
+  /// shares) nothing is taken, the ledger says why, and the picks stay.
   void _removePicked() {
     final ledger = widget.ledger;
-    final removed = [
-      for (final e in _pickedEntries)
-        if (ledger.remove(e.id) case final r?) r,
-    ];
+    final removed = ledger.removeAll(_picked);
+    if (removed.isEmpty) {
+      if (_pickedEntries.isEmpty) setState(_picked.clear);
+      return;
+    }
     setState(_picked.clear);
     showNote(
       context,
       '已刪除 ${removed.length} 筆',
       action: '復原',
-      onAction: () {
-        for (final r in removed.reversed) {
-          ledger.restore(r);
-        }
-      },
+      onAction: () => ledger.restoreAll(removed),
     );
   }
 
@@ -174,17 +194,20 @@ class _LedgerPageState extends State<LedgerPage> {
     if (applied != null && mounted) setState(() => _filter = applied);
   }
 
-  /// Deletes [entry] after a swipe, with a way back.
-  void _remove(Entry entry) {
+  /// Deletes [entry] when a swipe ends, with a way back. False when the
+  /// ledger refuses, so the line slides back rather than staying gone
+  /// from the screen while the entry is still in the book.
+  bool _remove(Entry entry) {
     Haptics.medium();
     final removed = widget.ledger.remove(entry.id);
-    if (removed == null) return;
+    if (removed == null) return false;
     showNote(
       context,
       '已刪除「${entry.title}」',
       action: '復原',
       onAction: () => widget.ledger.restore(removed),
     );
+    return true;
   }
 
   @override
@@ -273,7 +296,8 @@ class _LedgerPageState extends State<LedgerPage> {
           children: [
             Expanded(
               child: TextField(
-                autofocus: true,
+                controller: _searchText,
+                focusNode: _searchFocus,
                 decoration: InputDecoration(
                   hintText: '搜尋備註、商家、標籤、金額',
                   isDense: true,
@@ -327,7 +351,7 @@ class _LedgerPageState extends State<LedgerPage> {
             _RoundButton(
               tooltip: '搜尋',
               glyph: Glyph.search,
-              onTap: () => setState(() => _searchOpen = true),
+              onTap: _openSearch,
             ),
             _RoundButton(
               tooltip: '篩選',
@@ -343,15 +367,15 @@ class _LedgerPageState extends State<LedgerPage> {
             spacing: 8,
             children: [
               if (filter.range case final range?)
-                InputChip(
-                  label: Text(LedgerFilter.rangeLabel(range)),
-                  onDeleted: () =>
+                ChoicePill.removable(
+                  label: LedgerFilter.rangeLabel(range),
+                  onRemove: () =>
                       setState(() => _filter = _filter.withoutRange()),
                 ),
               if (filter.boundsAmount)
-                InputChip(
-                  label: Text(filter.amountLabel),
-                  onDeleted: () =>
+                ChoicePill.removable(
+                  label: filter.amountLabel,
+                  onRemove: () =>
                       setState(() => _filter = _filter.withoutAmounts()),
                 ),
             ],
@@ -362,9 +386,9 @@ class _LedgerPageState extends State<LedgerPage> {
           padding: const EdgeInsets.only(top: 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: InputChip(
-              label: Text(ledger.account(account).name),
-              onDeleted: () =>
+            child: ChoicePill.removable(
+              label: ledger.account(account).name,
+              onRemove: () =>
                   setState(() => _filter = _filter.withoutAccount()),
             ),
           ),
@@ -374,9 +398,9 @@ class _LedgerPageState extends State<LedgerPage> {
           padding: const EdgeInsets.only(top: 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: InputChip(
-              label: Text(category),
-              onDeleted: () =>
+            child: ChoicePill.removable(
+              label: category,
+              onRemove: () =>
                   setState(() => _filter = _filter.withoutCategory()),
             ),
           ),
@@ -443,7 +467,9 @@ class _LedgerPageState extends State<LedgerPage> {
           style: TextStyle(color: Hue.onAccent, fontWeight: FontWeight.w700),
         ),
       ),
-      onDismissed: (_) => _remove(e),
+      // Taken from the book before the line goes, so a refusal leaves it
+      // in place.
+      confirmDismiss: (_) async => _remove(e),
       child: GestureDetector(
         onLongPress: () => _toggle(e),
         child: EntryTile(

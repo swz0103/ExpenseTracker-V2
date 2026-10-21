@@ -21,6 +21,14 @@ final class Shade extends Color {
   /// again (colours worked out while building, such as [softOf], change),
   /// and every box drops the paint and the laid-out words it holds on to
   /// before it is painted again, custom painters too.
+  ///
+  /// Only words, text fields and decorated boxes are let go of that way
+  /// (see [_repaint]). Anything else that keeps a painter of its own past
+  /// a build will go on painting the old colour: an `Ink` or other
+  /// `InkDecoration` on a [Material], and `ListTile.tileColor` or
+  /// `selectedTileColor`, which become ink on the nearest [Material]. Give
+  /// those no [Hue] colour; colour the [Material] itself, or use a
+  /// [DecoratedBox] or [Container] instead.
   static void show({required bool dark}) {
     if (dark == Shade.dark) return;
     Shade.dark = dark;
@@ -84,8 +92,13 @@ final class Shade extends Color {
 /// gains, brick red for spending and losses.
 abstract final class Hue {
   static const paper = Shade(0xFFF3F4F1, 0xFF121619);
-  static const panel = Shade(0xFFFFFFFF, 0xFF1C2226);
+
+  /// White cards and fills on the paper; a dark slate on the dark theme.
   static const white = Shade(0xFFFFFFFF, 0xFF1C2226);
+
+  /// Dialogs, sheets and the tab bar: the same colour as [white], under
+  /// its own name for where it is used.
+  static const panel = white;
   static const surface = Shade(0xFFE9ECEA, 0xFF262D31);
   static const selected = Shade(0xFFDCE8EC, 0xFF1E3742);
   static const ink = Shade(0xFF26323A, 0xFFE3E8EA);
@@ -104,8 +117,9 @@ abstract final class Hue {
   /// Gold as words, darker than [cash], which is for marks and fills.
   static const goldText = Shade(0xFF7A5E18, 0xFFDDBC66);
 
-  /// Cards: white on the paper, lifted by [cardShadow].
-  static const mist = Shade(0xFFFFFFFF, 0xFF1C2226);
+  /// Cards: [white] on the paper, lifted by [cardShadow]. The same
+  /// object as [white], so [SoftPanel] lifts either.
+  static const mist = white;
 
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
@@ -125,13 +139,10 @@ abstract final class Hue {
   static const negative = Shade(0xFF9F4535, 0xFFEA8A74);
   static const transfer = Shade(0xFF356672, 0xFF7DB4C2);
   static const investment = Shade(0xFF4A5D99, 0xFF97A7DE);
-  static const danger = Shade(0xFF9F4535, 0xFFEA8A74);
 
-  /// Soft backgrounds behind each kind of entry.
-  static const expenseSoft = Shade(0xFFF6E3DE, 0xFF3A2723);
-  static const incomeSoft = Shade(0xFFDDEFE8, 0xFF1F3530);
-  static const transferSoft = Shade(0xFFDDECEF, 0xFF1F3338);
-  static const investmentSoft = Shade(0xFFE3E7F4, 0xFF262B3D);
+  /// Deleting and what went wrong: the spending colour, [negative], under
+  /// its own name for where it is used.
+  static const danger = negative;
 
   /// Account groups.
   static const cash = Shade(0xFFC9A34A, 0xFFD9B65E);
@@ -189,15 +200,29 @@ abstract final class Hue {
     Color(0xFFB08AA6),
   ];
 
-  /// The lift under cards.
-  /// Tiles: just lifted off the paper.
+  /// The lift under tiles: just off the paper. None on the dark theme,
+  /// where a shadow would not show on the dark paper and the lighter
+  /// surface already sets the tile apart.
   static const tileShadow = [
-    BoxShadow(color: Color(0x0A1E2832), blurRadius: 6, offset: Offset(0, 2)),
+    BoxShadow(
+      color: Shade(0x0A1E2832, 0x00000000),
+      blurRadius: 6,
+      offset: Offset(0, 2),
+    ),
   ];
 
+  /// The lift under white cards; none on the dark theme, as [tileShadow].
   static const cardShadow = [
-    BoxShadow(color: Color(0x0F1E2832), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x0D1E2832), blurRadius: 14, offset: Offset(0, 4)),
+    BoxShadow(
+      color: Shade(0x0F1E2832, 0x00000000),
+      blurRadius: 2,
+      offset: Offset(0, 1),
+    ),
+    BoxShadow(
+      color: Shade(0x0D1E2832, 0x00000000),
+      blurRadius: 14,
+      offset: Offset(0, 4),
+    ),
   ];
 }
 
@@ -206,6 +231,27 @@ Color softOf(Color color) => Color.lerp(color, Hue.paper, 0.82)!;
 
 /// Secondary words in 13 px, such as a count or a date beside a heading.
 const mutedSmall = TextStyle(fontSize: 13, color: Hue.muted);
+
+/// Words in 13 px in the interface colour that do something, such as a
+/// small link or 調整 on a tile. Words that only label stay [mutedSmall].
+const accentSmall = TextStyle(fontSize: 13, color: Hue.accent);
+
+/// A tile's or a form block's own label in 13 px, in the interface
+/// colour and a little heavier than [accentSmall].
+const accentLabel = TextStyle(
+  fontSize: 13,
+  fontWeight: FontWeight.w600,
+  color: Hue.accent,
+);
+
+/// The thin rule between rows of a list on a card, in [Hue.line].
+const rowRule = BorderSide(color: Hue.line);
+
+/// A row's [rowRule] above it, as each row after a list's first has.
+const ruleAbove = BoxDecoration(border: Border(top: rowRule));
+
+/// A row's [rowRule] below it, as each row before a list's last has.
+const ruleBelow = BoxDecoration(border: Border(bottom: rowRule));
 
 /// The Material theme over [Hue], light or dark as [Shade.dark] says.
 ThemeData appTheme() {

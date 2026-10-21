@@ -1,0 +1,84 @@
+import 'package:flutter/material.dart';
+
+import '../../look/widgets.dart';
+import 'lock_parts.dart';
+
+/// Restoring a ledger from a backup: the file, then that ledger's
+/// password or recovery code.
+class RestoreView extends StatelessWidget {
+  const RestoreView({
+    super.key,
+    required this.file,
+    required this.secret,
+    required this.recovery,
+    required this.busy,
+    required this.onSubmit,
+    required this.onToggleRecovery,
+    this.onPickFile,
+    this.onBack,
+    this.problem,
+  });
+
+  /// The backup's path: typed, or filled in by [onPickFile].
+  final TextEditingController file;
+  final TextEditingController secret;
+
+  /// Whether [secret] is the recovery code rather than the password.
+  final bool recovery;
+  final bool busy;
+  final VoidCallback onSubmit;
+  final VoidCallback onToggleRecovery;
+
+  /// Opens the system's file chooser; none where the path is typed.
+  final VoidCallback? onPickFile;
+
+  /// Back to the first screen; none when there is nothing to go back to.
+  final VoidCallback? onBack;
+  final String? problem;
+
+  @override
+  Widget build(BuildContext context) {
+    final pick = onPickFile;
+    final back = onBack;
+    return LockForm(
+      title: '從備份還原',
+      hint: '輸入備份檔的位置，和那個帳本的密碼或救援碼。',
+      fields: [
+        if (pick != null)
+          OutlinedButton(
+            onPressed: busy ? null : pick,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+            ),
+            child: Text(file.text.isEmpty ? '選擇備份檔' : '已選好備份檔'),
+          )
+        else
+          PasswordField(
+            controller: file,
+            hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
+            hidden: false,
+            boxed: true,
+          ),
+        PasswordField(
+          controller: secret,
+          hint: recovery ? '救援碼' : '密碼',
+          hidden: !recovery,
+          boxed: true,
+          onSubmitted: onSubmit,
+        ),
+      ],
+      action: '還原',
+      busy: busy,
+      onSubmit: onSubmit,
+      problem: problem,
+      extras: [
+        LockLink(
+          recovery ? '改用密碼' : '忘記密碼？用救援碼',
+          onToggleRecovery,
+          busy: busy,
+        ),
+        if (back != null) LockLink('返回', back, busy: busy),
+      ],
+    );
+  }
+}

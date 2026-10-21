@@ -129,11 +129,7 @@ class FormBlock extends StatelessWidget {
               children: [
                 Text(
                   head,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Hue.accent,
-                  ),
+                  style: accentLabel,
                 ),
                 const SizedBox(height: 8),
                 child,

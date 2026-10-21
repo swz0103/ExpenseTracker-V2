@@ -219,7 +219,7 @@ class _ImportSheetState extends State<_ImportSheet> {
                       ),
                     ),
                     Text(
-                      groupDigits(e.amount),
+                      ledger.money(e.amount),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

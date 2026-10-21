@@ -60,7 +60,12 @@ class HoldingPage extends StatelessWidget {
               value: ledger.money(held.value),
               trailing: Pill(percentOf(held.gain, held.cost), color: tone),
               child: TileStats([
-                (Glyph.briefcase, '股數', groupDigits(held.shares), Hue.ink),
+                (
+                  Glyph.briefcase,
+                  '股數',
+                  ledger.orDots(groupDigits(held.shares)),
+                  Hue.ink,
+                ),
                 (Glyph.coins, '均價', average.toStringAsFixed(2), Hue.ink),
                 (Glyph.reports, '未實現', ledger.moneySigned(held.gain), tone),
               ]),
@@ -157,9 +162,7 @@ class _LotRow extends StatelessWidget {
     final gain = worth - lot.cost;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: first ? null : const Border(top: BorderSide(color: Hue.line)),
-      ),
+      decoration: first ? null : ruleAbove,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -173,7 +176,10 @@ class _LotRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text('${groupDigits(lot.shares)} 股', style: mutedSmall),
+              Text(
+                '${ledger.orDots(groupDigits(lot.shares))} 股',
+                style: mutedSmall,
+              ),
               const Spacer(),
               Text(
                 ledger.moneySigned(gain),

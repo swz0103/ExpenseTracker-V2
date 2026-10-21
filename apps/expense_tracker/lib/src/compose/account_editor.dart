@@ -264,12 +264,12 @@ class _AccountEditorState extends State<_AccountEditor> {
             title: '類型',
             child: Wrap(
               spacing: 6,
-              runSpacing: 6,
               children: [
                 for (final kind in AccountKind.values)
-                  _Choice(
+                  ChoicePill(
                     label: groupName(kind),
-                    picked: kind == _kind,
+                    selected: kind == _kind,
+                    background: Hue.white,
                     onTap: () => setState(() => _kind = kind),
                   ),
               ],
@@ -278,11 +278,13 @@ class _AccountEditorState extends State<_AccountEditor> {
           FormBlock(
             title: '圖示',
             child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 0,
+              runSpacing: 0,
               children: [
-                for (final key in accountIconKeys)
-                  GestureDetector(
+                for (final (key, name) in accountIcons)
+                  TapArea(
+                    label: '圖示：$name',
+                    selected: key == _icon,
                     onTap: () => setState(() => _icon = key),
                     child: Container(
                       width: 42,
@@ -310,21 +312,22 @@ class _AccountEditorState extends State<_AccountEditor> {
               title: '幣別',
               child: Wrap(
                 spacing: 6,
-                runSpacing: 6,
                 children: [
                   for (final code in Currency.supported)
                     if (_allCurrencies ||
                         _common.contains(code) ||
                         code == _currency)
-                      _Choice(
+                      ChoicePill(
                         label: code,
-                        picked: code == _currency,
+                        selected: code == _currency,
+                        background: Hue.white,
                         onTap: () => setState(() => _currency = code),
                       ),
                   if (!_allCurrencies)
-                    _Choice(
+                    ChoicePill(
                       label: '更多…',
-                      picked: false,
+                      selected: false,
+                      background: Hue.white,
                       onTap: () => setState(() => _allCurrencies = true),
                     ),
                 ],
@@ -407,7 +410,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '目前 ${amountIn(widget.ledger.balance(old.id), old.currency)}',
+                '目前 ${widget.ledger.moneyIn(widget.ledger.balance(old.id), old.currency)}',
                 textAlign: TextAlign.center,
                 style: mutedSmall,
               ),
@@ -450,40 +453,8 @@ class _Field extends StatelessWidget {
   }
 }
 
-class _Choice extends StatelessWidget {
-  const _Choice({
-    required this.label,
-    required this.picked,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool picked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: picked ? Hue.accent : Hue.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: picked ? Hue.onAccent : Hue.accent,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// A day of the month in the closing or due day picker: a 48 dp key
+/// named for a screen reader.
 class _DayKey extends StatelessWidget {
   const _DayKey({required this.day, required this.picked, required this.onTap});
 
@@ -493,7 +464,9 @@ class _DayKey extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TapArea(
+      label: '$day 日',
+      selected: picked,
       onTap: onTap,
       child: Container(
         alignment: Alignment.center,

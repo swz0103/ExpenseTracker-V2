@@ -190,7 +190,7 @@ class CardPage extends StatelessWidget {
                 sub: limit == null
                     ? '未設定額度'
                     : pending == 0
-                    ? '總額度 ${shortAmount(limit)}'
+                    ? '總額度 ${ledger.orDots(shortAmount(limit))}'
                     : '含分期未繳 ${ledger.money(pending)}',
               ),
             ]),

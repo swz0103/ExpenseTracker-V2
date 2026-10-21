@@ -83,11 +83,7 @@ class EntryTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            border: divider
-                ? const Border(bottom: BorderSide(color: Hue.line))
-                : null,
-          ),
+          decoration: divider ? ruleBelow : null,
           child: Row(
             children: [
               IconBadge(icon, color, size: 34),

@@ -42,6 +42,26 @@ class OverviewPage extends StatefulWidget {
 class _OverviewPageState extends State<OverviewPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
+  /// The sections that do not show the month, made once: the same
+  /// widget each time the page is built, so choosing another month leaves
+  /// them as they are rather than building them again. Each follows the
+  /// ledger on its own.
+  late Widget _market = _marketSection();
+  late Widget _assets = _assetsSection();
+
+  Widget _marketSection() =>
+      MarketSection(ledger: widget.ledger, nav: widget.nav);
+  Widget _assetsSection() => AssetsSection(ledger: widget.ledger);
+
+  @override
+  void didUpdateWidget(OverviewPage old) {
+    super.didUpdateWidget(old);
+    if (old.ledger != widget.ledger || old.nav != widget.nav) {
+      _market = _marketSection();
+      _assets = _assetsSection();
+    }
+  }
+
   void _showMonth((int, int) month) {
     if (month != _month) setState(() => _month = month);
   }
@@ -88,8 +108,8 @@ class _OverviewPageState extends State<OverviewPage> {
           month: _month,
           onMonth: _showMonth,
         ),
-        MarketSection(ledger: ledger, nav: nav),
-        AssetsSection(ledger: ledger),
+        _market,
+        _assets,
         FlowSection(ledger: ledger, month: _month),
       ],
     );

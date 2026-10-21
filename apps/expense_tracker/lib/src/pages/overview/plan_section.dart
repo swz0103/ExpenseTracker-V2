@@ -47,7 +47,7 @@ class PlanSection extends StatelessWidget {
       label: '預算',
       trailing: const Text(
         '調整',
-        style: TextStyle(fontSize: 13, color: Hue.accent),
+        style: accentSmall,
       ),
       lead: RingGauge(share: limit == 0 ? 0 : spent / limit, size: 50),
       value: ledger.money(limit - spent),
