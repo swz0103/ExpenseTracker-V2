@@ -157,9 +157,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
       // Photos no entry keeps any more: replaced, taken away, or taken
       // for an entry never saved.
       unawaited(
-        sweepReceipts(widget.startup.directory, ledger.receiptFiles).catchError(
-          (Object error) => Perf.instance.problem('清除收據照片', error),
-        ),
+        sweepReceipts(
+          widget.startup.directory,
+          ledger.receiptFiles,
+        ).catchError((Object error) => Perf.instance.problem('清除收據照片', error)),
       );
       _receipts = AndroidReceipts(
         widget.startup.directory,

@@ -732,12 +732,14 @@ bool _hasInvoice(
   int? amount,
 }) {
   if (day == null) return false;
-  return ledger.entriesIn(day.year, day.month).any(
-    (e) =>
-        e.note.contains(number) ||
-        (e.tags.contains('發票') &&
-            e.date == day &&
-            e.merchant == shop &&
-            e.amount == amount),
-  );
+  return ledger
+      .entriesIn(day.year, day.month)
+      .any(
+        (e) =>
+            e.note.contains(number) ||
+            (e.tags.contains('發票') &&
+                e.date == day &&
+                e.merchant == shop &&
+                e.amount == amount),
+      );
 }

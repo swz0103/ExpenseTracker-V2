@@ -26,8 +26,7 @@ extension LedgerCards on Ledger {
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
-  int statementDue(Account card) =>
-      _dueCache[card.id] ??= _statementDue(card);
+  int statementDue(Account card) => _dueCache[card.id] ??= _statementDue(card);
 
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);

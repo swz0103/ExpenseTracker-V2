@@ -483,12 +483,7 @@ final class Ledger extends ChangeNotifier {
     } else {
       _receipts[entry.id] = receipt;
     }
-    _keep(
-      Batch(
-        entries: [entry],
-        receipts: {if (photo) entry.id: receipt},
-      ),
-    );
+    _keep(Batch(entries: [entry], receipts: {if (photo) entry.id: receipt}));
   }
 
   /// Puts each of [entries] in place of the one with the same id, as one
@@ -502,14 +497,11 @@ final class Ledger extends ChangeNotifier {
       _entries[index] = e;
     }
     if (before.isEmpty) return;
-    _replayOrUndo(
-      () {
-        for (final MapEntry(key: index, value: e) in before.entries) {
-          _entries[index] = e;
-        }
-      },
-      trades: [...before.values, ...entries].any((e) => e.isInvestment),
-    );
+    _replayOrUndo(() {
+      for (final MapEntry(key: index, value: e) in before.entries) {
+        _entries[index] = e;
+      }
+    }, trades: [...before.values, ...entries].any((e) => e.isInvestment));
     _keep(Batch(entries: [for (final i in before.keys) _entries[i]]));
   }
 
@@ -537,10 +529,7 @@ final class Ledger extends ChangeNotifier {
   bool restore((int, Entry) removed) {
     final (index, entry) = removed;
     _entries.insert(index.clamp(0, _entries.length), entry);
-    if (!_tryReplay(
-      () => _entries.remove(entry),
-      trades: entry.isInvestment,
-    )) {
+    if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
     _trash.removeWhere((t) => identical(t.entry, entry));
@@ -554,13 +543,10 @@ final class Ledger extends ChangeNotifier {
     final entry = trashed.entry;
     _trash.remove(trashed);
     _entries.add(entry);
-    if (!_tryReplay(
-      () {
-        _entries.removeLast();
-        _trash.add(trashed);
-      },
-      trades: entry.isInvestment,
-    )) {
+    if (!_tryReplay(() {
+      _entries.removeLast();
+      _trash.add(trashed);
+    }, trades: entry.isInvestment)) {
       return false;
     }
     _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
