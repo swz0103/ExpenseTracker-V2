@@ -49,7 +49,7 @@ extension EntryChecks on Ledger {
     if (e.isInvestment && e.holding == null) return '請選擇投資標的';
     if (trade && e.shares <= 0) return '請輸入股數';
     if (holdings &&
-        e.type == EntryType.sell &&
+        (e.type == EntryType.sell || e.isReduction) &&
         !holdsWith([e], replacing: replacing)) {
       return '賣出股數超過持股';
     }

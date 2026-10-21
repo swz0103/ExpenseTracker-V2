@@ -1,4 +1,5 @@
 import 'package:expense_tracker/src/model/batch.dart';
+import 'package:expense_tracker/src/model/exchange.dart';
 import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter/painting.dart' show Color;
@@ -160,5 +161,171 @@ void main() {
     await ledger.settled;
     expect(journal.kept, hasLength(1));
     expect(journal.kept.single.entries, hasLength(3));
+  });
+
+  test('a statement moves on at midnight with nothing changed', () {
+    var now = DateTime.utc(2026, 10, 25);
+    final ledger = Ledger(
+      today: now,
+      clock: () => now,
+      accounts: const [
+        Account('card', '卡', AccountKind.card, 0, closingDay: 25, dueDay: 10),
+      ],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    final card = ledger.account('card');
+    // A statement closes at the end of its day.
+    expect(ledger.statement(card).$2, DateTime.utc(2026, 9, 25));
+    now = DateTime.utc(2026, 10, 26);
+    expect(ledger.statement(card).$2, DateTime.utc(2026, 10, 25));
+  });
+
+  test('an undone delete is not brought back twice', () {
+    final ledger = book(entries: [spend('a', 100)]);
+    final removed = ledger.remove('a')!;
+    expect(ledger.restore(removed), isTrue);
+    expect(ledger.restore(removed), isFalse);
+    expect(ledger.entries, hasLength(1));
+    expect(ledger.trash, isEmpty);
+  });
+
+  test('a category from before the name rules can still be archived', () {
+    final ledger = Ledger(
+      today: day,
+      accounts: const [],
+      categories: const [Category('轉帳', 'other', Color(0xFF000000))],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: const [],
+    );
+    ledger.updateCategory('轉帳', ledger.category('轉帳').copyWith(archived: true));
+    expect(ledger.category('轉帳').archived, isTrue);
+    expect(ledger.problem.value, isNull);
+  });
+
+  test('an import adds a name and an account once', () {
+    final ledger = book();
+    ledger.addAll(
+      [spend('x', 10, category: '寵物')],
+      accounts: const [
+        Account('bank', '重複的銀行', AccountKind.bank, 0),
+        Account('new', '新帳戶', AccountKind.bank, 0),
+      ],
+      categories: const [
+        Category('寵物', 'pet', Color(0xFF123456)),
+        Category('寵物', 'pet', Color(0xFF123456)),
+        Category('轉帳', 'other', Color(0xFF123456)),
+      ],
+    );
+    expect([for (final a in ledger.accounts) a.id], ['bank', 'card', 'new']);
+    expect(ledger.categories.where((c) => c.name == '寵物'), hasLength(1));
+    expect(ledger.categories.where((c) => c.name == '轉帳'), isEmpty);
+  });
+
+  test('a reduction of more shares than held is refused', () {
+    final ledger = book();
+    final cut = Entry(
+      id: 'cut',
+      date: day,
+      type: EntryType.dividend,
+      amount: 100,
+      account: 'bank',
+      holding: '2330',
+      shares: -10,
+    );
+    expect(() => ledger.add(cut), throwsStateError);
+    expect(ledger.entries, isEmpty);
+    // A book that already holds one still opens, without it.
+    final kept = book(entries: [cut]);
+    expect(kept.holding('2330'), isNull);
+  });
+
+  test("last month's unbooked item is still due", () {
+    final rent = Recurring(
+      id: 'rent',
+      name: '房租',
+      amount: 12000,
+      day: 30,
+      account: 'bank',
+      category: '居家',
+    );
+    final paid = Entry(
+      id: 'p',
+      date: DateTime.utc(2026, 8, 30),
+      type: EntryType.expense,
+      amount: 12000,
+      account: 'bank',
+      category: '居家',
+      recurring: 'rent',
+    );
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 2),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: [paid],
+      holdings: const [],
+      budgets: const [],
+      recurring: [rent],
+    );
+    expect(ledger.pendingDate(rent), DateTime.utc(2026, 9, 30));
+    expect(ledger.due, [rent]);
+    // A new item is not due for months before it was ever booked.
+    final fresh = Ledger(
+      today: DateTime.utc(2026, 10, 2),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
+      categories: const [],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [rent],
+    );
+    expect(fresh.pendingDate(rent), DateTime.utc(2026, 10, 30));
+  });
+
+  test('a CSV keeps average-cost sales, spaced tags and = in names', () {
+    final buy = Entry(
+      id: 'b',
+      date: DateTime.utc(2026, 9, 1),
+      type: EntryType.buy,
+      amount: 1000,
+      account: 'bank',
+      holding: '2330',
+      shares: 10,
+    );
+    final sell = Entry(
+      id: 's',
+      date: DateTime.utc(2026, 9, 2),
+      type: EntryType.sell,
+      amount: 600,
+      account: 'bank',
+      holding: '2330',
+      shares: 5,
+      average: true,
+    );
+    final lunch = Entry(
+      id: 'l',
+      date: DateTime.utc(2026, 9, 3),
+      type: EntryType.expense,
+      amount: 80,
+      account: 'bank',
+      category: 'A=B',
+      tags: const ['家用 午餐', '公司'],
+    );
+    final from = book(entries: [buy, sell, lunch]);
+    final csv = toCsv(from, from.entries);
+    final into = book();
+    final found = importCsv(into, csv, fallback: 'bank');
+    expect(found.problems, isEmpty);
+    final back = {for (final e in found.entries) e.type: e};
+    expect(back[EntryType.sell]!.average, isTrue);
+    final expense = back[EntryType.expense]!;
+    expect(expense.tags, ['家用 午餐', '公司']);
+    expect(expense.category, 'A=B');
+    expect(expense.parts, isEmpty);
   });
 }

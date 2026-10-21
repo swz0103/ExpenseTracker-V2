@@ -57,13 +57,31 @@ extension LedgerPlanning on Ledger {
       if (e.recurring == item.id) e,
   ];
 
-  /// The first day of this month [item] falls due and is not yet booked:
-  /// bookings count against its days in order, so one booked early still
-  /// settles that day.
-  DateTime? pendingDate(Recurring item) {
+  /// The first day [item] falls due and is not yet booked: one left over
+  /// from last month, once the item has been booked before it, else this
+  /// month's. Bookings count against a month's days in order, so one
+  /// booked early still settles that day.
+  DateTime? pendingDate(Recurring item) => _remember(
+    ('pending', item.id, item.active, today),
+    () => _pendingDate(item),
+  );
+
+  DateTime? _pendingDate(Recurring item) {
     if (!item.active) return null;
-    final dates = item.datesIn(today.year, today.month);
-    final booked = confirmationsIn(item, today.year, today.month).length;
+    final last = DateTime.utc(today.year, today.month - 1);
+    final missed = _unbooked(item, last.year, last.month);
+    if (missed != null &&
+        _entries.any((e) => e.recurring == item.id && e.date.isBefore(missed))) {
+      return missed;
+    }
+    return _unbooked(item, today.year, today.month);
+  }
+
+  /// The first day of [year]/[month] [item] falls due that no booking of
+  /// that month settles.
+  DateTime? _unbooked(Recurring item, int year, int month) {
+    final dates = item.datesIn(year, month);
+    final booked = confirmationsIn(item, year, month).length;
     return booked < dates.length ? dates[booked] : null;
   }
 

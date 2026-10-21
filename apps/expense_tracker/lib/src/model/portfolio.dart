@@ -14,7 +14,14 @@ final class Portfolio {
   /// Replays the trades of [entries] over the [start] positions, in date
   /// order and in the order written within a day. An oversold trade
   /// throws a [StateError].
-  factory Portfolio.replay(List<Holding> start, List<Entry> entries) {
+  ///
+  /// With [lenient], a trade that would oversell is left out instead, so a
+  /// book kept before a rule was added still opens.
+  factory Portfolio.replay(
+    List<Holding> start,
+    List<Entry> entries, {
+    bool lenient = false,
+  }) {
     final opening = Lot.opening;
     final byCode = {for (final h in start) h.code: h};
     final lots = <String, List<Lot>>{
@@ -48,6 +55,7 @@ final class Portfolio {
             cost: 0,
             change: 0,
           );
+      try {
       switch (e.type) {
         case EntryType.buy:
           final cost = e.amount + e.fee;
@@ -68,8 +76,12 @@ final class Portfolio {
             cost: held.cost - part,
             realized: held.realized + e.amount - e.fee - e.tax - part,
           );
-        case EntryType.dividend when e.isReduction && held.shares > 0:
-          final left = max(0, held.shares + e.shares);
+        case EntryType.dividend when e.isReduction:
+          // A reduction takes away shares that must be there.
+          if (-e.shares > held.shares) {
+            throw StateError('減少的股數超過持有股數');
+          }
+          final left = held.shares + e.shares;
           final int lowered;
           var dropped = 0;
           if (left == 0) {
@@ -123,6 +135,10 @@ final class Portfolio {
           );
         default:
           break;
+      }
+      } on StateError {
+        if (!lenient) rethrow;
+        continue;
       }
       final before = held.shares;
       final after = byCode[code]?.shares ?? before;

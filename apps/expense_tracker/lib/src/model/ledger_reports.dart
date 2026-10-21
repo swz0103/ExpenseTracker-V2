@@ -92,7 +92,9 @@ extension LedgerReports on Ledger {
   }
 
   /// Known merchants, most used first.
-  List<String> get merchants {
+  List<String> get merchants => _remember('merchants', _merchants);
+
+  List<String> _merchants() {
     final counts = <String, int>{};
     for (final e in _entries) {
       if (e.merchant.isEmpty) continue;
@@ -103,18 +105,24 @@ extension LedgerReports on Ledger {
   }
 
   /// The category last used with [merchant], if any.
-  String? categoryAt(String merchant) {
-    Entry? latest;
+  String? categoryAt(String merchant) => _remember('categoryAt', () {
+    final latest = <String, Entry>{};
     for (final e in _entries) {
-      if (e.merchant != merchant || e.type != EntryType.expense) continue;
-      if (latest == null || e.date.isAfter(latest.date)) latest = e;
+      if (e.merchant.isEmpty || e.type != EntryType.expense) continue;
+      final kept = latest[e.merchant];
+      if (kept == null || e.date.isAfter(kept.date)) latest[e.merchant] = e;
     }
-    return latest?.category;
-  }
+    return {
+      for (final MapEntry(:key, :value) in latest.entries)
+        key: value.category,
+    };
+  })[merchant];
 
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
-  List<(String, int, int)> get tagStats {
+  List<(String, int, int)> get tagStats => _remember('tagStats', _tagStats);
+
+  List<(String, int, int)> _tagStats() {
     final counts = <String, int>{};
     final sums = <String, int>{};
     for (final e in _entries) {
@@ -314,7 +322,13 @@ extension LedgerReports on Ledger {
 
   /// The change of [account] in each of the [weeks] calendar weeks
   /// ending with this one, oldest first, with each week's Monday.
-  List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) {
+  List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) =>
+      _remember(
+        ('weekly', account, weeks, today),
+        () => _weeklyChanges(account, weeks),
+      );
+
+  List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
     final monday = today.subtract(Duration(days: today.weekday - 1));
     final first = monday.subtract(Duration(days: 7 * (weeks - 1)));
     final result = <(DateTime, int)>[];
