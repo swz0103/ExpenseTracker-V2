@@ -103,10 +103,10 @@ void main() {
     store.close();
     final again = open();
     final rows = again.rows();
-    expect([for (final r in rows) (r.shelf, r.id, r.body)], [
-      ('entry', 'b', 'changed'),
-      ('entry', 'a', '2'),
-    ]);
+    expect(
+      [for (final r in rows) (r.shelf, r.id, r.body)],
+      [('entry', 'b', 'changed'), ('entry', 'a', '2')],
+    );
     expect(again.rows(shelf: 'account'), isEmpty);
     expect(again.count, 2);
   });

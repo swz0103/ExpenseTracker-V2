@@ -435,12 +435,7 @@ final class Ledger extends ChangeNotifier {
     _replayOrUndo(() => _entries.insert(index, removed));
     final trashed = Trashed(removed, today);
     _trash.insert(0, trashed);
-    _keep(
-      Batch(
-        trash: [trashed],
-        dropped: [(Shelf.entry, removed.id)],
-      ),
-    );
+    _keep(Batch(trash: [trashed], dropped: [(Shelf.entry, removed.id)]));
     return (index, removed);
   }
 
@@ -449,12 +444,7 @@ final class Ledger extends ChangeNotifier {
     _entries.insert(index.clamp(0, _entries.length), entry);
     _replayOrUndo(() => _entries.remove(entry));
     _trash.removeWhere((t) => identical(t.entry, entry));
-    _keep(
-      Batch(
-        entries: [entry],
-        dropped: [(Shelf.trash, entry.id)],
-      ),
-    );
+    _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
   }
 
   /// Puts [trashed] back in the book; a sale of more shares than are held
@@ -465,12 +455,7 @@ final class Ledger extends ChangeNotifier {
     _replayOrUndo(() => _entries.removeLast());
     _trash.remove(trashed);
     notifyListeners();
-    _keep(
-      Batch(
-        entries: [entry],
-        dropped: [(Shelf.trash, entry.id)],
-      ),
-    );
+    _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
   }
 
   void setBudget(String category, int limit, {int? warning, bool? carry}) {

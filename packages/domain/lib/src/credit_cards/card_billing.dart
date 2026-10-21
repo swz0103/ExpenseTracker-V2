@@ -174,7 +174,6 @@ void _checkDays(int closingDay, int dueDay) {
 DateTime _utc(BusinessDate date) =>
     DateTime.utc(date.year, date.month, date.day);
 
-
 /// One statement period. The scheduled dates are the nominal ones the
 /// card's billing days give; installments are billed by them.
 final class CardCycle {
@@ -207,7 +206,6 @@ final class CardCycle {
       close.compareTo(scheduledStartsAfter) > 0 &&
       close.compareTo(scheduledClose) <= 0;
 }
-
 
 (int, int) _month(int year, int month, int offset) {
   final result = DateTime.utc(year, month + offset, 1);

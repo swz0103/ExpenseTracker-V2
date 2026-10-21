@@ -94,7 +94,10 @@ void main() {
     expect(second.state, isA<NeedsSetup>());
     expect(File(path).existsSync(), isFalse);
     await second.restore(weekly!, password);
-    final restored = await TableJournal(vaultOf(second).store, clock: clock).load();
+    final restored = await TableJournal(
+      vaultOf(second).store,
+      clock: clock,
+    ).load();
     expect(restored.balance(cash.id), 800);
     expect(restored.entriesIn(2026, 10), hasLength(2));
     expect(restored.account(cash.id).icon, 'safe');
@@ -167,7 +170,10 @@ void main() {
     expect(ledger.problem.value, isNull);
 
     await startup.unlockWithPassword(password);
-    final again = await TableJournal(vaultOf(startup).store, clock: clock).load();
+    final again = await TableJournal(
+      vaultOf(startup).store,
+      clock: clock,
+    ).load();
     expect(again.balance(cash.id), 880);
     startup.lock();
   });

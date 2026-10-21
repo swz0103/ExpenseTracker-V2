@@ -59,10 +59,10 @@ void main() {
     final ledger = await reopen();
     expect(ledger.categories, hasLength(9));
     expect(ledger.categoriesFor(income: true), hasLength(3));
-    expect([for (final a in ledger.accounts) a.kind], [
-      AccountKind.cash,
-      AccountKind.bank,
-    ]);
+    expect(
+      [for (final a in ledger.accounts) a.kind],
+      [AccountKind.cash, AccountKind.bank],
+    );
     // Opened again, nothing is added twice.
     final again = await reopen();
     expect(recordsOf(again), recordsOf(ledger));
@@ -82,17 +82,17 @@ void main() {
       ),
     );
     final ledger = await reopen();
-    expect(
-      jsonEncode(recordsOf(ledger)),
-      jsonEncode(recordsOf(demo)),
-    );
+    expect(jsonEncode(recordsOf(ledger)), jsonEncode(recordsOf(demo)));
     for (final a in demo.accounts) {
       expect(ledger.balance(a.id), demo.balance(a.id), reason: a.name);
     }
     final card = ledger.account('card');
     expect(ledger.statementDue(card), demo.statementDue(card));
     expect(ledger.expense(2026, 10), demo.expense(2026, 10));
-    expect(ledger.instalmentsOn(card), hasLength(demo.instalmentsOn(card).length));
+    expect(
+      ledger.instalmentsOn(card),
+      hasLength(demo.instalmentsOn(card).length),
+    );
   });
 
   test('changes through the ledger are kept as they are shown', () async {
@@ -143,20 +143,27 @@ void main() {
       ..updateCategory('飲食日常', ledger.category('飲食日常').copyWith(name: '吃'))
       ..renameTag('家用', '家')
       ..renameMerchant('全聯', '全聯福利中心')
-      ..moveClose(card.id, DateTime.utc(2026, 10, 25), DateTime.utc(2026, 10, 23))
-      ..updateAccount(ledger.account(card.id).copyWith(closingDay: 5, dueDay: 20))
+      ..moveClose(
+        card.id,
+        DateTime.utc(2026, 10, 25),
+        DateTime.utc(2026, 10, 23),
+      )
+      ..updateAccount(
+        ledger.account(card.id).copyWith(closingDay: 5, dueDay: 20),
+      )
       ..setReceipt(lunch.id, 'lunch.etr');
     ledger = await reopen(ledger);
     final renamed = ledger.entries.single;
-    expect((renamed.category, renamed.tags, renamed.merchant), (
-      '吃',
-      ['家'],
-      '全聯福利中心',
-    ));
+    expect(
+      (renamed.category, renamed.tags, renamed.merchant),
+      ('吃', ['家'], '全聯福利中心'),
+    );
     expect(ledger.budgets.single.category, '吃');
     expect(ledger.categories.where((c) => c.name == '飲食日常'), isEmpty);
     final moved = ledger.account(card.id);
-    expect(moved.closes, {DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23)});
+    expect(moved.closes, {
+      DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23),
+    });
     expect((moved.closingDay, moved.history.single.closingDay), (5, 25));
     expect(ledger.receiptOf(lunch.id), 'lunch.etr');
 

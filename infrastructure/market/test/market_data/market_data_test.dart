@@ -63,13 +63,9 @@ void main() {
     );
     final market = gateway(transport);
     final tsmc = await market.stockClose(instrument('2330'));
-    final etf = await market.stockClose(
-      instrument('0050'),
-    );
+    final etf = await market.stockClose(instrument('0050'));
     final otc = await market.stockClose(instrument('6488', market: 'TPEX'));
-    final bond = await market.stockClose(
-      instrument('00679B', market: 'TPEX'),
-    );
+    final bond = await market.stockClose(instrument('00679B', market: 'TPEX'));
     expect(tsmc.state, MarketState.available);
     expect(tsmc.value!.decimalPrice, '1234.50');
     expect(tsmc.value!.asOf, BusinessDate(2026, 9, 29));
