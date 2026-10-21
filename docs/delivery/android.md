@@ -24,6 +24,16 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - 已知限制：為了重開機後能重排，每則提醒的標題、內文（可能含金額）與點下去要開的畫面以明文存在 App 的 SharedPreferences（`reminders`）。這是 App 私有資料，其他 App 讀不到，也不在自動備份規則內（規則只收 `file` 網域），但不受帳本的 SQLCipher 加密保護。關掉通知後下次同步就會清空。
 - 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
 
+## Google 雲端硬碟備份
+
+`play-services-auth` 的 `AuthorizationClient` 要 `https://www.googleapis.com/auth/drive.file` 的存取權杖（`MainActivity.kt` 的 `driveToken`），Dart 端直接呼叫 Drive REST v3（`lib/src/book/drive_backup.dart`）。不需要 Firebase、`google-services.json` 或伺服器用戶端 ID，但 Google Cloud 要設定：
+
+1. 建專案、啟用 Google Drive API。
+2. Google Auth Platform：品牌（App 名稱、聯絡信箱）、目標對象選「外部」並發布（`drive.file` 是非敏感權限，不需審查）。
+3. 用戶端：類型 Android，套件名稱 `io.github.swz0103.expensetracker`，SHA-1 用發佈簽章的（`keytool -list -v -keystore <jks> -alias <alias>`）。換簽章要再加一個用戶端。
+
+備份寫在 `exports/`，上傳完就刪；雲端資料夾是「記帳本備份」，留最新 5 份。還原畫面的「從 Google 雲端硬碟選擇」把挑到的那份下載到快取 `restore.etbk`（啟動時清掉）。
+
 ## Android 自動備份
 
 `allowBackup="true"`，規則在 `res/xml/data_extraction_rules.xml`（Android 12 以上）與 `backup_rules.xml`。帳本與每週備份會進使用者的 Google 備份，Android 以螢幕鎖加密；不帶走的有：

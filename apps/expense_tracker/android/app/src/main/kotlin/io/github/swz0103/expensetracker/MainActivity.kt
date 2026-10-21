@@ -16,12 +16,19 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.view.WindowManager
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.AuthorizationResult
+import com.google.android.gms.auth.api.identity.ClearTokenRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -46,6 +53,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingCalendar: MethodChannel.Result? = null
     private var pendingNotify: MethodChannel.Result? = null
     private var pendingPhoto: MethodChannel.Result? = null
+    private var pendingDrive: MethodChannel.Result? = null
     private var channel: MethodChannel? = null
 
     /** What a shortcut, the widget or a notification asked for, until taken. */
@@ -90,6 +98,61 @@ class MainActivity : FlutterFragmentActivity() {
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null && pendingPhoto != null) keepPhoto(uri) else finishPhoto(null)
         }
+
+    /** Google's consent screen for the app's own files on Drive. */
+    private val askDrive =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { outcome ->
+            val result = pendingDrive ?: return@registerForActivityResult
+            pendingDrive = null
+            try {
+                val granted = Identity.getAuthorizationClient(this)
+                    .getAuthorizationResultFromIntent(outcome.data)
+                result.success(granted.accessToken)
+            } catch (e: ApiException) {
+                // Closed by the person, or refused.
+                result.success(null)
+            }
+        }
+
+    /**
+     * An access token for the files this app made on Google Drive
+     * (`drive.file`). With [interactive] Google may show its account and
+     * consent screens; without, a token comes only when already granted,
+     * and null otherwise.
+     */
+    private fun driveToken(interactive: Boolean, result: MethodChannel.Result) {
+        if (pendingDrive != null) {
+            result.error("busy", "Already asking Google.", null)
+            return
+        }
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(Scope(DRIVE_SCOPE)))
+            .build()
+        pendingDrive = result
+        Identity.getAuthorizationClient(this).authorize(request)
+            .addOnSuccessListener { granted: AuthorizationResult ->
+                val pending = granted.pendingIntent
+                if (!granted.hasResolution()) {
+                    finishDrive(granted.accessToken)
+                } else if (!interactive || pending == null) {
+                    finishDrive(null)
+                } else {
+                    askDrive.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+                }
+            }
+            .addOnFailureListener { e ->
+                val waiting = pendingDrive ?: return@addOnFailureListener
+                pendingDrive = null
+                val code = (e as? ApiException)?.statusCode?.toString() ?: "drive"
+                waiting.error(code, e.message, null)
+            }
+    }
+
+    private fun finishDrive(token: String?) {
+        val result = pendingDrive ?: return
+        pendingDrive = null
+        result.success(token)
+    }
 
     private fun finishPhoto(name: String?) {
         val result = pendingPhoto ?: return
@@ -385,6 +448,17 @@ class MainActivity : FlutterFragmentActivity() {
                             openDocument.launch(arrayOf("*/*"))
                         }
                     }
+                    "driveToken" -> driveToken(call.argument<Boolean>("interactive") == true, result)
+                    "clearDriveToken" -> {
+                        val token = call.argument<String>("token")
+                        if (token == null) {
+                            result.error("bad-arguments", "token is required", null)
+                        } else {
+                            Identity.getAuthorizationClient(this)
+                                .clearToken(ClearTokenRequest.builder().setToken(token).build())
+                                .addOnCompleteListener { result.success(null) }
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -520,6 +594,7 @@ class MainActivity : FlutterFragmentActivity() {
         }
 
         private const val CHANNEL = "expense_tracker/platform"
+        private const val DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
         private const val KEYSTORE = "AndroidKeyStore"
         private const val ALIAS = "ledger-device-key"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"

@@ -10,6 +10,8 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'app.dart';
+import 'book/drive_backup.dart';
+import 'book/drive_sync.dart';
 import 'book/leftovers.dart';
 import 'book/table_journal.dart';
 import 'book/vault_keeper.dart';
@@ -142,6 +144,16 @@ class _OpenedLedgerState extends State<OpenedLedger>
     export: Platform.isAndroid ? androidExportFile : null,
     pick: Platform.isAndroid ? androidPickFile : null,
   );
+
+  /// Backups on Google Drive, on Android.
+  late final _drive = Platform.isAndroid
+      ? DriveSync(
+          androidDrive(),
+          widget.preferences,
+          withBackup: _keeper.withBackup<void>,
+          revision: () => _keeper.revision,
+        )
+      : null;
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
@@ -174,13 +186,27 @@ class _OpenedLedgerState extends State<OpenedLedger>
     return ledger;
   }
 
-  /// Takes the weekly backup; a failure is said, not kept quiet.
+  /// Takes the weekly backup, then sends one to Google Drive when linked;
+  /// a failure is said, not kept quiet. Drive out of reach is tried again
+  /// at the next start.
   Future<void> _weeklyBackup() async {
     try {
       await _keeper.backUpIfDue();
     } on Object catch (error) {
       Perf.instance.problem('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
+    }
+    final drive = _drive;
+    if (drive == null) return;
+    try {
+      await drive.backUpIfDue();
+    } on DriveException catch (error) {
+      Perf.instance.problem('雲端硬碟備份', error);
+      if (error.problem != DriveProblem.offline && mounted) {
+        showNote(context, '沒有備份到 Google 雲端硬碟，可以到「設定」重新連結');
+      }
+    } on Object catch (error) {
+      Perf.instance.problem('雲端硬碟備份', error);
     }
   }
 
@@ -240,6 +266,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void dispose() {
     _calendar?.stop();
     _notifier?.stop();
+    _drive?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -285,6 +312,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           notifier: _notifier,
           quick: Platform.isAndroid ? quickAction : null,
           receipts: _receipts,
+          drive: _drive,
         ),
       );
     },

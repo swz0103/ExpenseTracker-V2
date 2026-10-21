@@ -66,7 +66,11 @@ class _SettingsPageState extends State<SettingsPage> {
           if (preferences != null) AppearanceSection(preferences: preferences),
           if (notifier != null) NotificationsSection(notifier: notifier),
           if (keeper != null || privacy != null)
-            SecuritySection(keeper: keeper, privacy: privacy),
+            SecuritySection(
+              keeper: keeper,
+              privacy: privacy,
+              drive: services.drive,
+            ),
           if (calendar != null)
             LinksSection(ledger: ledger, calendar: calendar),
           // Only the preview's made-up book can be reset.

@@ -15,6 +15,7 @@ class RestoreView extends StatelessWidget {
     required this.onSubmit,
     required this.onToggleRecovery,
     this.onPickFile,
+    this.onPickDrive,
     this.onBack,
     this.problem,
   });
@@ -32,6 +33,9 @@ class RestoreView extends StatelessWidget {
   /// Opens the system's file chooser; none where the path is typed.
   final VoidCallback? onPickFile;
 
+  /// Chooses one of the backups on Google Drive; none off Android.
+  final VoidCallback? onPickDrive;
+
   /// Back to the first screen; none when there is nothing to go back to.
   final VoidCallback? onBack;
   final String? problem;
@@ -39,6 +43,7 @@ class RestoreView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pick = onPickFile;
+    final drive = onPickDrive;
     final back = onBack;
     return LockForm(
       title: '從備份還原',
@@ -58,6 +63,14 @@ class RestoreView extends StatelessWidget {
             hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
             hidden: false,
             boxed: true,
+          ),
+        if (drive != null)
+          OutlinedButton(
+            onPressed: busy ? null : drive,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+            ),
+            child: const Text('從 Google 雲端硬碟選擇'),
           ),
         PasswordField(
           controller: secret,
