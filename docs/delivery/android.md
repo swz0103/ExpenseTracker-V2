@@ -4,9 +4,11 @@
 
 ## 下載安裝檔
 
-每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次。PR 與手動執行只檢查能否建置。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝。
+每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型 Huninn 已是常用字子集；再縮要另寫子集化工具，目前不做。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。PR 的檢查沒有 Secrets 也能用 debug 金鑰建置。
+工作流程分成兩個工作：`build` 只有讀取權限，建置並存下 APK；`publish` 只在驗證過的 main 執行，是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝。
+
+APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型 Huninn 已是常用字子集；再縮要另寫子集化工具，目前不做。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在驗證過的 main 建置時寫出（建置完即刪除）；PR 與手動執行一律用 debug 金鑰，碰不到正式金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 
 ## 專案設定
 
@@ -18,6 +20,8 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `READ_CALENDAR`、`WRITE_CALENDAR`：把到期提醒寫進使用者選的日曆；只在設定裡連結日曆時才詢問。
   - `POST_NOTIFICATIONS`：到期提醒與每日記帳提醒（Android 13 以上第一次開提醒時詢問）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
+- 通知（`Reminders.kt`）：每則提醒記下手機當地的日期與時、分（另存當時的時間點，給舊版留下的資料用）。重開機、改時間或改時區時，依現在的時區重新算出時間點，所以 9:00 的提醒到了別的時區仍是當地 9:00；時間已過的則取消。鬧鐘用 `setAndAllowWhileIdle`，不是精準鬧鐘，手機休眠（Doze）時可能晚幾分鐘。
+  - 已知限制：為了重開機後能重排，每則提醒的標題、內文（可能含金額）與點下去要開的畫面以明文存在 App 的 SharedPreferences（`reminders`）。這是 App 私有資料，其他 App 讀不到，也不在自動備份規則內（規則只收 `file` 網域），但不受帳本的 SQLCipher 加密保護。關掉通知後下次同步就會清空。
 - 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
 
 ## Android 自動備份
@@ -42,6 +46,8 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 ## Google 日曆
 
 `CalendarBridge.kt` 用 Android 的 `CalendarContract` 寫事件，不需要 Google API 金鑰：手機上登入的 Google 帳號日曆會由 Google 日曆 App 同步。事件說明的最後一行是「記帳本#」加識別碼，App 只會改寫或刪除自己建立的事件。
+
+刪掉舊事件與寫入新事件在同一批（`applyBatch`）、不設 yield point，日曆在一次交易內套用：中途失敗時日曆維持原樣。系統日曆一批少於 500 個操作，所以一次最多寫 450 個操作（每個事件 1 個，加上每個提醒 1 個）；放不下的是最遠的事件，等之後同步再寫。沒有提醒的事件不標記 `HAS_ALARM`。
 
 ## 正式簽章
 
