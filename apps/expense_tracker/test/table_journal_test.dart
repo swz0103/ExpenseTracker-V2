@@ -154,10 +154,8 @@ void main() {
       ..setReceipt(lunch.id, 'lunch.etr');
     ledger = await reopen(ledger);
     final renamed = ledger.entries.single;
-    expect(
-      (renamed.category, renamed.tags, renamed.merchant),
-      ('吃', ['家'], '全聯福利中心'),
-    );
+    expect((renamed.category, renamed.merchant), ('吃', '全聯福利中心'));
+    expect(renamed.tags, ['家']);
     expect(ledger.budgets.single.category, '吃');
     expect(ledger.categories.where((c) => c.name == '飲食日常'), isEmpty);
     final moved = ledger.account(card.id);

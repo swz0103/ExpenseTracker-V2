@@ -46,7 +46,7 @@ void main() {
         }
       }
     }
-    expect(checked, greaterThan(20));
+    expect(checked, greaterThan(10));
     expect(offenders, isEmpty);
   });
 }

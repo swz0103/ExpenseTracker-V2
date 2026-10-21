@@ -359,7 +359,7 @@ final class _Reader {
     if (entry is! Entry) return entry as String;
     final made = entry;
     if (!made.isReduction) {
-      final problem = ledger.problemWith(made);
+      final problem = ledger.problemWith(made, holdings: false);
       if (problem != null) return problem;
     }
     if (_already(ledger, made)) return '帳本裡已經有這一筆';

@@ -3,7 +3,6 @@ import 'package:test/test.dart';
 
 void main() {
   const a = '019f13f5-53cb-7219-8a3e-4b569376f32b';
-  const b = '019f13f5-53cb-7219-8a3e-4b569376f32c';
   test('UUID v7 canonicalization, version and variant validation', () {
     expect(PublicId.parse(a.toUpperCase()), PublicId.parse(a));
     for (final value in [

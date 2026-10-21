@@ -6,8 +6,9 @@ import 'ledger.dart';
 extension EntryChecks on Ledger {
   /// Why [e] cannot be kept, in words for the person; null when it can.
   /// [replacing] is the entry [e] edits, whose own shares and refund do
-  /// not count against it.
-  String? problemWith(Entry e, {Entry? replacing}) {
+  /// not count against it. An import checks the shares of its trades
+  /// together ([holdings] false).
+  String? problemWith(Entry e, {Entry? replacing, bool holdings = true}) {
     final currency = account(e.account).currency;
     final trade = e.type == EntryType.buy || e.type == EntryType.sell;
     final stock = e.type == EntryType.dividend && e.shares != 0;
@@ -47,7 +48,9 @@ extension EntryChecks on Ledger {
     }
     if (e.isInvestment && e.holding == null) return '請選擇投資標的';
     if (trade && e.shares <= 0) return '請輸入股數';
-    if (e.type == EntryType.sell && !holdsWith([e], replacing: replacing)) {
+    if (holdings &&
+        e.type == EntryType.sell &&
+        !holdsWith([e], replacing: replacing)) {
       return '賣出股數超過持股';
     }
     final original = e.refundOf == null ? null : byId(e.refundOf!);
