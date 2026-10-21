@@ -3,7 +3,6 @@ import 'package:test/test.dart';
 
 void main() {
   const a = '019f13f5-53cb-7219-8a3e-4b569376f32b';
-  const b = '019f13f5-53cb-7219-8a3e-4b569376f32c';
   test('UUID v7 canonicalization, version and variant validation', () {
     expect(PublicId.parse(a.toUpperCase()), PublicId.parse(a));
     for (final value in [
@@ -23,23 +22,6 @@ void main() {
       expect(PublicId.parse(id.value), id);
     }
   });
-  test(
-    'operation identity includes workspace and is distinct from workspace ID',
-    () {
-      final operation = OperationId.parse(a);
-      final workspaceA = WorkspaceId.parse(a);
-      final workspaceB = WorkspaceId.parse(b);
-      expect(operation, isNot(workspaceA));
-      expect(
-        OperationKey(workspaceA, operation),
-        OperationKey(WorkspaceId.parse(a), OperationId.parse(a)),
-      );
-      expect(
-        OperationKey(workspaceA, operation),
-        isNot(OperationKey(workspaceB, operation)),
-      );
-    },
-  );
   test('business dates validate leap years rather than normalize overflow', () {
     for (final value in [
       '2000-02-29',

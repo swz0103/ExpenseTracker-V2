@@ -1,8 +1,6 @@
 import 'dart:io';
 
-import 'package:core/foundation_values.dart';
-import 'package:storage/ledger_sqlcipher.dart';
-import 'package:storage/storage_sqlcipher.dart';
+import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 
 enum VaultProblem {
@@ -18,25 +16,9 @@ enum VaultProblem {
   /// A keyring for another ledger was offered.
   otherLedger,
 
-  /// The ledger holds more than one workspace, so which one this device
-  /// shows cannot be decided.
-  ambiguousWorkspace,
-
   /// A restored database failed its checks; nothing was kept.
   damagedRestore,
 }
-
-/// The vault's own table: which workspace this device's ledger is.
-final vaultSchema = SchemaModule('vault', [
-  [
-    '''
-    CREATE TABLE vault_meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    ) STRICT, WITHOUT ROWID
-    ''',
-  ],
-]);
 
 final class VaultException implements Exception {
   const VaultException(this.problem);
@@ -49,17 +31,11 @@ final class VaultException implements Exception {
 
 /// An unlocked ledger: its keys and its open database.
 final class OpenVault {
-  OpenVault._(this._vault, this._keys, this.store, this.workspace)
-    : ledger = LedgerStore(store);
+  OpenVault._(this._vault, this._keys, this.store);
 
   final LedgerVault _vault;
   UnlockedKeyring _keys;
-  final SqlCipherStore store;
-  final LedgerStore ledger;
-
-  /// The one workspace of this ledger, stored in the database when it is
-  /// created or restored, never guessed from the events.
-  final WorkspaceId workspace;
+  final RowStore store;
 
   UnlockedKeyring get keys => _keys;
 
@@ -80,13 +56,10 @@ final class OpenVault {
 /// device key is lost, and nothing secret is kept in plain form. The
 /// keyring file is replaced atomically.
 final class LedgerVault {
-  LedgerVault(this.directory, {required this.codec, this.modules = const []});
+  LedgerVault(this.directory, {required this.codec});
 
   final Directory directory;
   final KeyringCodec codec;
-
-  /// Schema modules opened with the ledger's, such as the upload queue.
-  final List<SchemaModule> modules;
 
   File get keyringFile => File('${directory.path}/keyring.json');
   File get databaseFile => File('${directory.path}/ledger.db');
@@ -184,14 +157,14 @@ final class LedgerVault {
   }
 
   /// Restores a backup as this device's ledger, all or nothing. [fill]
-  /// writes into a staging database, which must pass
-  /// SQLite's integrity and foreign-key checks and hold one workspace.
+  /// writes into a staging database, which must pass SQLite's integrity
+  /// check.
   /// Only then is it renamed into place, and the keyring, which is what
   /// makes a ledger exist, is written last. A failure or crash at any
   /// point leaves no ledger, so setup or restore can simply start again.
   Future<OpenVault> restore(
     UnlockedKeyring keys,
-    Future<void> Function(LedgerStore staging) fill,
+    Future<void> Function(RowStore staging) fill,
   ) async {
     _requireAbsent();
     await directory.create(recursive: true);
@@ -200,12 +173,10 @@ final class LedgerVault {
     try {
       final store = _openStore(staging, keys);
       try {
-        await fill(LedgerStore(store));
-        if (store.integrityCheck() != 'ok' ||
-            store.select('PRAGMA foreign_key_check').isNotEmpty) {
+        await fill(store);
+        if (store.integrityCheck() != 'ok') {
           throw const VaultException(VaultProblem.damagedRestore);
         }
-        await _workspace(store);
       } finally {
         store.close();
       }
@@ -224,44 +195,24 @@ final class LedgerVault {
   }
 
   Future<OpenVault> _open(UnlockedKeyring keys) async {
-    final store = _openStore(databaseFile, keys);
     try {
-      return OpenVault._(this, keys, store, await _workspace(store));
-    } on Object {
-      store.close();
-      rethrow;
+      return OpenVault._(this, keys, _openStore(databaseFile, keys));
+    } on StorageUnavailable catch (error) {
+      if (error.problem != StorageProblem.oldFormat) rethrow;
     }
+    // A ledger from before records were kept as rows cannot be read: it
+    // is set aside, never erased, and the keys open a new, empty one.
+    for (final suffix in ['', '-wal', '-shm']) {
+      final part = File('${databaseFile.path}$suffix');
+      if (await part.exists()) {
+        await part.rename('${directory.path}/ledger-v2.db$suffix');
+      }
+    }
+    return OpenVault._(this, keys, _openStore(databaseFile, keys));
   }
 
-  SqlCipherStore _openStore(File file, UnlockedKeyring keys) =>
-      SqlCipherStore.open(
-        file,
-        StorageKey(keys.databaseKey),
-        modules: [ledgerSchema, vaultSchema, ...modules],
-      );
-
-  /// The stored workspace; the first time, the journal's only workspace,
-  /// or a new one for an empty ledger.
-  static Future<WorkspaceId> _workspace(SqlCipherStore store) async {
-    final saved = store.select(
-      "SELECT value FROM vault_meta WHERE key = 'workspace'",
-    );
-    if (saved.isNotEmpty) {
-      return WorkspaceId.parse(saved.single['value']! as String);
-    }
-    final seen = store.select('SELECT DISTINCT workspace FROM events LIMIT 2');
-    if (seen.length > 1) {
-      throw const VaultException(VaultProblem.ambiguousWorkspace);
-    }
-    final workspace = seen.isEmpty
-        ? WorkspaceId(PublicId.generate())
-        : WorkspaceId.parse(seen.single['workspace']! as String);
-    final value = workspace.toString();
-    await store.write((t) async {
-      t.execute("INSERT INTO vault_meta VALUES ('workspace', ?)", [value]);
-    });
-    return workspace;
-  }
+  RowStore _openStore(File file, UnlockedKeyring keys) =>
+      RowStore.open(file, StorageKey(keys.databaseKey));
 
   static Future<void> _deleteDatabase(File file) async {
     for (final suffix in ['', '-wal', '-shm', '-journal']) {

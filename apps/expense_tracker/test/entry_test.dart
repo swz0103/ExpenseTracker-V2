@@ -33,7 +33,6 @@ void main() {
     final libraries = reachable('lib/main.dart');
     expect(libraries, contains('lib/src/bootstrap.dart'));
     expect(libraries, contains('package:vault/ledger_vault.dart'));
-    expect(libraries, isNot(contains('package:domain/memory.dart')));
   });
 
   test('the preview entry uses made-up data only', () {
@@ -45,5 +44,6 @@ void main() {
     // The web build has no database: nothing may reach the backups either.
     const backups = 'package:vault/ledger_backup.dart';
     expect(libraries, isNot(contains(backups)));
+    expect(libraries, isNot(contains('package:storage/storage.dart')));
   });
 }

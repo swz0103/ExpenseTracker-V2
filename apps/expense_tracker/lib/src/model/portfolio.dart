@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:domain/bookkeeping.dart' show homeCurrency;
+import 'package:core/foundation_values.dart' show Currency;
 import 'package:domain/investments.dart';
 
 import 'records.dart';
@@ -215,7 +215,7 @@ final class Portfolio {
       _positions(from),
       newShares: newShares,
       oldShares: oldShares,
-      currency: homeCurrency,
+      currency: _twd,
       wholeSharesOnly: wholeShares,
       capitalReturned: BigInt.from(capitalReturned),
     );
@@ -249,3 +249,5 @@ final class Portfolio {
     for (final l in lots) LotPosition(l.units, BigInt.from(l.cost)),
   ];
 }
+
+final _twd = Currency.of(homeCode);

@@ -6,14 +6,12 @@ import 'package:vault/ledger_vault.dart';
 
 import '../startup.dart';
 import 'keeper.dart';
-import 'vault_journal.dart';
 
 /// The keys and backups of the open encrypted ledger.
 final class VaultKeeper implements Keeper {
   VaultKeeper(
     this._startup,
-    this._vault,
-    this._journal, {
+    this._vault, {
     Future<void> Function()? beforeLock,
     Future<bool> Function(String path, String name)? export,
     Future<String?> Function()? pick,
@@ -23,7 +21,6 @@ final class VaultKeeper implements Keeper {
 
   final Startup _startup;
   final OpenVault _vault;
-  final VaultJournal _journal;
 
   /// Waits for what the screens still have to keep, such as the ledger's
   /// queued changes.
@@ -106,15 +103,13 @@ final class VaultKeeper implements Keeper {
         '${now.millisecond.toString().padLeft(3, '0')}';
     await _folder.create(recursive: true);
     final file = File('${_folder.path}/記帳本-$stamp.etbk');
-    await _journal.exclusive(
-      () => LedgerBackup.write(
-        store: _vault.store,
-        keys: _vault.keys,
-        file: file,
-        backupId: PublicId.generate(),
-        createdAt: UtcInstant(now),
-        files: withPhotos ? _receipts() : const {},
-      ),
+    await LedgerBackup.write(
+      store: _vault.store,
+      keys: _vault.keys,
+      file: file,
+      backupId: PublicId.generate().value,
+      createdAt: now,
+      files: withPhotos ? _receipts() : const {},
     );
     return file.path;
   }
@@ -140,8 +135,8 @@ final class VaultKeeper implements Keeper {
     if (files.isNotEmpty) {
       try {
         final header = await LedgerBackup.readHeader(files.first);
-        final age = DateTime.now().difference(header.createdAt.value);
-        if (age < every || header.events == _vault.store.eventCount) {
+        final age = DateTime.now().difference(header.createdAt);
+        if (age < every || header.revision == _vault.store.revision) {
           return null;
         }
       } on Object {
@@ -183,12 +178,11 @@ final class VaultKeeper implements Keeper {
 
   File get _given => File('${_startup.directory.path}/recovery-given');
 
-  /// Locks once queued changes, a running backup and any other job on
-  /// the ledger are done, so nothing writes to a closed store.
+  /// Locks once queued changes are kept, so nothing writes to a closed
+  /// store.
   @override
   Future<void> lock() async {
     await _beforeLock?.call();
-    await _journal.exclusive(() async {});
     _startup.lock();
   }
 }

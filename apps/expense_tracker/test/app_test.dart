@@ -1,4 +1,3 @@
-import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app.dart';
 import 'package:expense_tracker/src/model/journal.dart';
@@ -16,25 +15,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('refused changes are explained in words', () {
     expect(
-      describeProblem(
-        const AppFailure(FailureKind.rejected, 'app.card-transfer'),
-      ),
-      '信用卡不能轉出，請記成支出。',
-    );
-    expect(
       describeProblem(const MoneyException(MoneyError.precision)),
       '金額的小數位數太多。',
     );
     expect(
-      describeProblem(const AppFailure(FailureKind.rejected, 'some.code')),
-      '無法完成（some.code）。',
+      describeProblem(JournalFailure(StateError('closed'))),
+      '帳本無法寫入，請重新打開 App 再試。',
     );
-    expect(
-      describeProblem(
-        const PartlyKept(2, 5, AppFailure(FailureKind.rejected, 'x.y')),
-      ),
-      '第 3 筆無法記下：無法完成（x.y）。前 2 筆已記下，其餘 2 筆沒有記。',
-    );
+    expect(describeProblem(StateError('x')), '發生未預期的錯誤。');
   });
 
   testWidgets('the shell starts', (tester) async {

@@ -1,72 +1,67 @@
 import 'ledger.dart';
 
 /// Where the book is kept between launches. The [Ledger] changes itself
-/// first, so the screens answer at once, then passes each change here;
-/// when one is refused it reloads what was kept.
+/// first, so the screens answer at once, then hands each change here as a
+/// [Batch]; when one cannot be kept it reads back what was.
 abstract interface class Journal {
   /// Everything kept, as a ledger for the screens.
   Future<Ledger> load();
 
-  Future<void> addEntries(List<Entry> entries);
-
-  /// Replaces [before] with [after], keeping the history of the change.
-  /// Returns the id the entry has from now on.
-  Future<String> replaceEntry(Entry before, Entry after);
-
-  /// Deletes [entry], keeping it a while to be restored.
-  Future<void> removeEntry(Entry entry);
-
-  /// Stops keeping the deleted entry that had [id]: it was restored.
-  Future<void> forgetTrashed(String id);
-
-  /// Opens [after] when [before] is null, otherwise changes it.
-  Future<void> saveAccount(Account? before, Account after);
-
-  /// Gives [account] the opening balance [opening].
-  Future<void> setOpening(Account account, int opening);
-
-  /// Moves the close of [card]'s statement scheduled on [scheduled] to
-  /// [closesOn].
-  Future<void> moveClose(Account card, DateTime scheduled, DateTime closesOn);
-
-  /// An account without entries; it is archived, never erased.
-  Future<void> removeAccount(Account account);
-
-  /// Adds [after] when [before] is null, otherwise changes it.
-  Future<void> saveCategory(Category? before, Category after);
-
-  Future<void> mergeCategory(Category from, Category into);
-
-  /// Renames the tag or merchant [from] to [to], merges it into [to] when
-  /// that exists already, or retires it when [to] is empty.
-  Future<void> relabel(String from, String to, {required bool merchant});
-
-  /// Sets the monthly budget of [Budget.category], from this month on.
-  Future<void> setBudget(Budget budget);
-
-  /// Drops the budget of [category] from every month.
-  Future<void> removeBudget(String category);
-
-  /// Adds [item], or changes the one with its id.
-  Future<void> saveRecurring(Recurring item);
-
-  /// Stops [item]; the entries it booked stay.
-  Future<void> removeRecurring(Recurring item);
-
-  /// Links the receipt photo [file] to the entry with [entryId], or
-  /// unlinks it when null.
-  Future<void> setReceipt(String entryId, String? file);
+  /// Keeps every record of [batch] and forgets the dropped ones, all
+  /// together or, when this throws, none of them.
+  Future<void> keep(Batch batch);
 }
 
-/// A batch of entries, such as an import, kept only in part: the first
-/// [kept] of [total], until [cause] refused the next one.
-final class PartlyKept implements Exception {
-  const PartlyKept(this.kept, this.total, this.cause);
+/// The [Journal] could not keep a change: its file is closed, locked or
+/// cannot be written.
+final class JournalFailure implements Exception {
+  const JournalFailure(this.cause);
 
-  final int kept;
-  final int total;
   final Object cause;
 
   @override
-  String toString() => 'PartlyKept($kept of $total: $cause)';
+  String toString() => 'JournalFailure($cause)';
+}
+
+/// The kinds of record a [Batch] carries, each kept by its own key: an
+/// account, entry or recurring item by id, a category by name, a budget
+/// by what it covers, a deleted entry and a receipt by the entry's id.
+enum Shelf { account, category, entry, budget, recurring, trash, receipt }
+
+/// The records one change of the [Ledger] put in place, and those it
+/// took away.
+final class Batch {
+  Batch({
+    this.accounts = const [],
+    this.categories = const [],
+    this.entries = const [],
+    this.budgets = const [],
+    this.recurring = const [],
+    this.trash = const [],
+    this.receipts = const {},
+    this.dropped = const [],
+  });
+
+  final List<Account> accounts;
+  final List<Category> categories;
+  final List<Entry> entries;
+  final List<Budget> budgets;
+  final List<Recurring> recurring;
+  final List<Trashed> trash;
+
+  /// Each entry's receipt photo, by entry id; null takes it away.
+  final Map<String, String?> receipts;
+
+  /// Records taken away, by shelf and key.
+  final List<(Shelf, String)> dropped;
+
+  bool get isEmpty =>
+      accounts.isEmpty &&
+      categories.isEmpty &&
+      entries.isEmpty &&
+      budgets.isEmpty &&
+      recurring.isEmpty &&
+      trash.isEmpty &&
+      receipts.isEmpty &&
+      dropped.isEmpty;
 }

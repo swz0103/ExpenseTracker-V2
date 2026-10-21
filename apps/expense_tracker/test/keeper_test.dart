@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/book/vault_journal.dart';
+import 'package:expense_tracker/src/book/table_journal.dart';
 import 'package:expense_tracker/src/book/vault_keeper.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:expense_tracker/src/startup.dart';
@@ -33,6 +33,7 @@ void main() {
         directory,
         codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
       ),
+      check: TableJournal.check,
     );
   }
 
@@ -46,7 +47,7 @@ void main() {
     await first.setUp(password);
     expect(first.takeRecoveryCode(), isNotNull);
     expect(first.takeRecoveryCode(), isNull);
-    final journal = VaultJournal(vaultOf(first), clock: clock);
+    final journal = TableJournal(vaultOf(first).store, clock: clock);
     final ledger = await journal.load();
     final cash = Account(
       ledger.newId(),
@@ -69,7 +70,7 @@ void main() {
     );
     await ledger.settled;
     expect(ledger.problem.value, isNull);
-    final keeper = VaultKeeper(first, vaultOf(first), journal);
+    final keeper = VaultKeeper(first, vaultOf(first));
     final path = await keeper.backUp();
     expect(path, startsWith(keeper.backupFolder));
     expect(await keeper.backUpIfDue(), isNull);
@@ -93,7 +94,10 @@ void main() {
     expect(second.state, isA<NeedsSetup>());
     expect(File(path).existsSync(), isFalse);
     await second.restore(weekly!, password);
-    final restored = await VaultJournal(vaultOf(second), clock: clock).load();
+    final restored = await TableJournal(
+      vaultOf(second).store,
+      clock: clock,
+    ).load();
     expect(restored.balance(cash.id), 800);
     expect(restored.entriesIn(2026, 10), hasLength(2));
     expect(restored.account(cash.id).icon, 'safe');
@@ -106,7 +110,7 @@ void main() {
     final startup = startupIn('keys');
     final oldCode = await startup.setUp(password);
     final vault = vaultOf(startup);
-    final keeper = VaultKeeper(startup, vault, VaultJournal(vault));
+    final keeper = VaultKeeper(startup, vault);
     await expectLater(
       keeper.changePassword('not the password at all', changed),
       throwsA(isA<KeyringException>()),
@@ -141,12 +145,11 @@ void main() {
     final startup = startupIn('pending');
     await startup.setUp(password);
     final vault = vaultOf(startup);
-    final journal = VaultJournal(vault, clock: clock);
+    final journal = TableJournal(vault.store, clock: clock);
     final ledger = await journal.load();
     final keeper = VaultKeeper(
       startup,
       vault,
-      journal,
       beforeLock: () => ledger.settled,
     );
     final cash = Account(ledger.newId(), '錢包', AccountKind.cash, 1000);
@@ -167,7 +170,10 @@ void main() {
     expect(ledger.problem.value, isNull);
 
     await startup.unlockWithPassword(password);
-    final again = await VaultJournal(vaultOf(startup), clock: clock).load();
+    final again = await TableJournal(
+      vaultOf(startup).store,
+      clock: clock,
+    ).load();
     expect(again.balance(cash.id), 880);
     startup.lock();
   });
@@ -176,7 +182,7 @@ void main() {
     final startup = startupIn('quiet');
     await startup.setUpWithoutPassword();
     final vault = vaultOf(startup);
-    final keeper = VaultKeeper(startup, vault, VaultJournal(vault));
+    final keeper = VaultKeeper(startup, vault);
     expect(keeper.hasPassword, isFalse);
     await keeper.setPassword(changed);
     expect(keeper.hasPassword, isTrue);

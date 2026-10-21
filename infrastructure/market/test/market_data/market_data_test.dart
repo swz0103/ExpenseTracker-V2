@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
 import 'package:market/market_data.dart';
 import 'package:test/test.dart';
 
@@ -46,18 +45,8 @@ final class FakeTransport implements MarketTransport {
   }
 }
 
-InvestmentInstrument instrument(
-  String symbol, {
-  InstrumentKind kind = InstrumentKind.stock,
-  String market = 'TWSE',
-}) => InvestmentInstrument(
-  id: PublicId.generate(),
-  kind: kind,
-  marketCode: market,
-  symbol: symbol,
-  name: symbol,
-  tradingCurrency: Currency.of('TWD'),
-);
+Listing instrument(String symbol, {String market = 'TWSE'}) =>
+    Listing(symbol, market: market);
 
 void main() {
   late DateTime now;
@@ -74,13 +63,9 @@ void main() {
     );
     final market = gateway(transport);
     final tsmc = await market.stockClose(instrument('2330'));
-    final etf = await market.stockClose(
-      instrument('0050', kind: InstrumentKind.etf),
-    );
+    final etf = await market.stockClose(instrument('0050'));
     final otc = await market.stockClose(instrument('6488', market: 'TPEX'));
-    final bond = await market.stockClose(
-      instrument('00679B', kind: InstrumentKind.etf, market: 'TPEX'),
-    );
+    final bond = await market.stockClose(instrument('00679B', market: 'TPEX'));
     expect(tsmc.state, MarketState.available);
     expect(tsmc.value!.decimalPrice, '1234.50');
     expect(tsmc.value!.asOf, BusinessDate(2026, 9, 29));
@@ -112,7 +97,7 @@ void main() {
     for (final odd in [
       instrument('AAPL', market: 'XNAS'),
       instrument('12345'),
-      instrument('0050'),
+      instrument('0050B1'),
     ]) {
       expect(
         (await market.stockClose(odd)).state,
@@ -167,7 +152,7 @@ void main() {
     final market = gateway(transport);
     final both = Future.wait([
       market.stockClose(instrument('2330')),
-      market.stockClose(instrument('0050', kind: InstrumentKind.etf)),
+      market.stockClose(instrument('0050')),
     ]);
     release.complete();
     final states = [for (final result in await both) result.state];
@@ -207,7 +192,7 @@ void main() {
       },
     );
     await market.stockClose(instrument('2330'));
-    await market.stockClose(instrument('0050', kind: InstrumentKind.etf));
+    await market.stockClose(instrument('0050'));
     expect(decoded, [twseRows]);
 
     final broken = gateway(

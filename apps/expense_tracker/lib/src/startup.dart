@@ -58,12 +58,16 @@ final class Ready extends StartupState {
 /// [state] and call these methods; keys never leave this class and the
 /// vault.
 final class Startup extends ChangeNotifier {
-  Startup(this._vault, {this.device}) {
+  Startup(this._vault, {this.device, this.check}) {
     _state = _locked();
   }
 
   final LedgerVault _vault;
   final DeviceUnlock? device;
+
+  /// Throws for a record the app cannot read, so a backup holding one is
+  /// refused rather than restored.
+  final void Function(String shelf, String id, String body)? check;
   late StartupState _state;
   String? _recovery;
 
@@ -167,6 +171,7 @@ final class Startup extends ChangeNotifier {
         file: file,
         keys: keys,
         into: staging,
+        accept: check,
         // Receipt photos the backup carries, still sealed: they open with
         // the restored ledger's own key.
         onFile: (name, bytes) async {

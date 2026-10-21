@@ -1,7 +1,5 @@
 import 'package:core/foundation_values.dart';
 
-import 'sell.dart';
-
 /// The arithmetic of holding lots, shared by the ledger and the screens so
 /// both arrive at the same shares and cost: a sale by oldest lots or by
 /// average cost, and a change of shares decided by the company.
@@ -24,6 +22,9 @@ final class LotPosition {
   @override
   String toString() => 'LotPosition($units, $cost)';
 }
+
+/// How a sale is costed: the oldest lots first, or the average cost.
+enum InvestmentCostMethod { fifo, averageCost }
 
 /// Units in one whole share.
 final BigInt unitsPerShare = BigInt.from(10).pow(12);

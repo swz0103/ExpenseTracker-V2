@@ -1,10 +1,10 @@
 import 'package:expense_tracker/src/demo/seed.dart';
-import 'package:expense_tracker/src/model/entry_json.dart';
+import 'package:expense_tracker/src/model/record_json.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('a deleted entry waits in the trash and comes back as new', () {
+  test('a deleted entry waits in the trash and comes back as it was', () {
     final ledger = demoLedger();
     final entry = ledger.entries.firstWhere(
       (e) => e.type == EntryType.expense && e.recurring == null,
@@ -18,7 +18,7 @@ void main() {
     expect(ledger.trash, isEmpty);
     expect(ledger.entries, hasLength(count));
     final back = ledger.entries.last;
-    expect(back.id, isNot(entry.id));
+    expect(back.id, entry.id);
     expect(
       (back.amount, back.account, back.date),
       (entry.amount, entry.account, entry.date),
@@ -56,6 +56,7 @@ void main() {
       id: 'b2',
       date: DateTime.utc(2026, 9, 12),
       type: EntryType.sell,
+      recurring: 'rent',
       amount: 33500,
       account: 'bank',
       to: 'x',
