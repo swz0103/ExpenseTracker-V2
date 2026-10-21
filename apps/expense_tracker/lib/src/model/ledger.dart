@@ -1,3 +1,4 @@
+import 'dart:collection' show UnmodifiableListView;
 import 'dart:math';
 
 import 'package:core/foundation_values.dart'
@@ -71,6 +72,8 @@ final class Ledger extends ChangeNotifier {
     final now = today;
     if (now == _day) return;
     _day = now;
+    // What was worked out for yesterday, such as the last statement,
+    // is worked out again.
     notifyListeners();
   }
 
@@ -97,13 +100,16 @@ final class Ledger extends ChangeNotifier {
   /// The receipt photo of the entry with [id]; null when none.
   String? receiptOf(String id) => _receipts[id];
 
+  /// Every receipt photo an entry keeps, deleted entries' included.
+  Set<String> get receiptFiles => {..._receipts.values};
+
   /// Gives the entry with [id] the receipt photo [file], or takes its
   /// photo away when null.
   void setReceipt(String id, String? file) {
     if (receiptOf(id) == file) return;
     _receipts.remove(id);
     if (file != null) _receipts[id] = file;
-    notifyListeners();
+    _signal();
     _keep(Batch(receipts: {id: file}));
   }
 
@@ -135,7 +141,7 @@ final class Ledger extends ChangeNotifier {
 
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
-  List<Holding> get holdings => List.unmodifiable(_holdings);
+  List<Holding> get holdings => UnmodifiableListView(_holdings);
   List<Budget> get budgets => List.unmodifiable(_budgets);
   List<Recurring> get recurring => List.unmodifiable(_recurring);
   List<Trashed> get trash => List.unmodifiable(_trash);
@@ -205,8 +211,16 @@ final class Ledger extends ChangeNotifier {
   Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
+  Map<String, Entry>? _idIndex;
+  Map<String, int>? _refundIndex;
+  final _statementCache = <String, (DateTime, DateTime, DateTime)>{};
+  final _dueCache = <String, int>{};
 
   void _touch() {
+    _idIndex = null;
+    _refundIndex = null;
+    _statementCache.clear();
+    _dueCache.clear();
     _moved = null;
     _months = null;
     _days = null;
@@ -222,10 +236,14 @@ final class Ledger extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  /// Tells the screens of a change that leaves every sum as it was, such
+  /// as hiding the amounts: nothing worked out is thrown away.
+  void _signal() => super.notifyListeners();
+
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
   /// Every entry, in the order written; the list cannot be changed.
-  List<Entry> get entries => List.unmodifiable(_entries);
+  List<Entry> get entries => UnmodifiableListView(_entries);
 
   List<Entry> search(String words) {
     final lower = words.toLowerCase();
@@ -338,18 +356,26 @@ final class Ledger extends ChangeNotifier {
     });
   }
 
-  /// Reads back what the [journal] keeps, such as new closing prices.
-  void refresh() {
-    final journal = this.journal;
-    if (journal == null) return;
-    _queue = _queue.then((_) async {
-      try {
-        final fresh = await journal.load();
-        if (_waiting == 0) _adopt(fresh);
-      } on Object catch (error) {
-        problem.value = error;
-      }
-    });
+  /// Takes new closing prices and rates: the stocks' reference prices and
+  /// names in [holdings], each day's change in [moves].
+  void setMarket({
+    required List<Holding> holdings,
+    required Map<String, double> moves,
+    required Map<String, double> rates,
+    DateTime? quotedOn,
+  }) {
+    _startHoldings
+      ..clear()
+      ..addAll(holdings);
+    _moves
+      ..clear()
+      ..addAll(moves);
+    _rates
+      ..clear()
+      ..addAll(rates);
+    _quotedOn = quotedOn;
+    _replay();
+    notifyListeners();
   }
 
   /// What a change of several records left different: every record not
@@ -401,61 +427,144 @@ final class Ledger extends ChangeNotifier {
     recurring: List.of(_recurring),
   );
 
-  /// Adds [entry]; a sale of more shares than are held is refused.
-  void add(Entry entry) {
+  /// Adds [entry], with its receipt photo [receipt] when one is given; a
+  /// sale of more shares than are held is refused with a [StateError].
+  void add(Entry entry, {String? receipt}) {
     _entries.add(entry);
-    _replayOrUndo(() => _entries.removeLast());
-    _keep(Batch(entries: [entry]));
+    _replayOrUndo(() => _entries.removeLast(), trades: entry.isInvestment);
+    if (receipt != null) _receipts[entry.id] = receipt;
+    _keep(
+      Batch(
+        entries: [entry],
+        receipts: {if (receipt != null) entry.id: receipt},
+      ),
+    );
   }
 
-  /// Adds every one of [entries] at once, as an import does.
-  void addAll(List<Entry> entries) {
-    if (entries.isEmpty) return;
+  /// Adds every one of [entries] at once, with the [accounts] and
+  /// [categories] they bring, as an import does: all of it is kept
+  /// together, or none.
+  void addAll(
+    List<Entry> entries, {
+    List<Account> accounts = const [],
+    List<Category> categories = const [],
+  }) {
+    if (entries.isEmpty && accounts.isEmpty && categories.isEmpty) return;
     final count = _entries.length;
     _entries.addAll(entries);
-    _replayOrUndo(() => _entries.removeRange(count, _entries.length));
-    _keep(Batch(entries: entries));
+    _replayOrUndo(
+      () => _entries.removeRange(count, _entries.length),
+      trades: entries.any((e) => e.isInvestment),
+    );
+    final named = [
+      for (final c in categories)
+        if (categoryNameFree(c.name)) c,
+    ];
+    _accounts.addAll(accounts);
+    _categories.addAll(named);
+    notifyListeners();
+    _keep(Batch(accounts: accounts, categories: named, entries: entries));
   }
 
-  /// Puts [entry] in place of the entry with the same id.
-  void replace(Entry entry) {
+  /// Puts [entry] in place of the entry with the same id, with the receipt
+  /// photo [receipt] (null takes it away).
+  void replace(Entry entry, {String? receipt}) {
     final index = _entries.indexWhere((e) => e.id == entry.id);
-    if (index < 0) return add(entry);
+    if (index < 0) return add(entry, receipt: receipt);
     final before = _entries[index];
     _entries[index] = entry;
-    _replayOrUndo(() => _entries[index] = before);
-    _keep(Batch(entries: [entry]));
+    _replayOrUndo(
+      () => _entries[index] = before,
+      trades: entry.isInvestment || before.isInvestment,
+    );
+    final photo = _receipts[entry.id] != receipt;
+    if (receipt == null) {
+      _receipts.remove(entry.id);
+    } else {
+      _receipts[entry.id] = receipt;
+    }
+    _keep(
+      Batch(
+        entries: [entry],
+        receipts: {if (photo) entry.id: receipt},
+      ),
+    );
+  }
+
+  /// Puts each of [entries] in place of the one with the same id, as one
+  /// change; those the ledger does not hold are left out.
+  void replaceAll(List<Entry> entries) {
+    final before = <int, Entry>{};
+    for (final e in entries) {
+      final index = _entries.indexWhere((x) => x.id == e.id);
+      if (index < 0) continue;
+      before[index] = _entries[index];
+      _entries[index] = e;
+    }
+    if (before.isEmpty) return;
+    _replayOrUndo(
+      () {
+        for (final MapEntry(key: index, value: e) in before.entries) {
+          _entries[index] = e;
+        }
+      },
+      trades: [...before.values, ...entries].any((e) => e.isInvestment),
+    );
+    _keep(Batch(entries: [for (final i in before.keys) _entries[i]]));
   }
 
   /// Removes the entry with [id] and returns it with its place, for undo.
+  /// Null when there is none, or when taking it away would leave a later
+  /// sale short of shares: that is told through [problem].
   (int, Entry)? remove(String id) {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
-    _replayOrUndo(() => _entries.insert(index, removed));
+    if (!_tryReplay(
+      () => _entries.insert(index, removed),
+      trades: removed.isInvestment,
+    )) {
+      return null;
+    }
     final trashed = Trashed(removed, today);
     _trash.insert(0, trashed);
     _keep(Batch(trash: [trashed], dropped: [(Shelf.entry, removed.id)]));
     return (index, removed);
   }
 
-  void restore((int, Entry) removed) {
+  /// Puts back an entry [remove] took away. False, told through
+  /// [problem], when it no longer fits the trades kept since.
+  bool restore((int, Entry) removed) {
     final (index, entry) = removed;
     _entries.insert(index.clamp(0, _entries.length), entry);
-    _replayOrUndo(() => _entries.remove(entry));
+    if (!_tryReplay(
+      () => _entries.remove(entry),
+      trades: entry.isInvestment,
+    )) {
+      return false;
+    }
     _trash.removeWhere((t) => identical(t.entry, entry));
     _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
+    return true;
   }
 
-  /// Puts [trashed] back in the book; a sale of more shares than are held
-  /// then is refused, as an [add] is.
-  void restoreTrashed(Trashed trashed) {
+  /// Puts [trashed] back in the book. False, told through [problem], when
+  /// it no longer fits the trades kept since.
+  bool restoreTrashed(Trashed trashed) {
     final entry = trashed.entry;
-    _entries.add(entry);
-    _replayOrUndo(() => _entries.removeLast());
     _trash.remove(trashed);
-    notifyListeners();
+    _entries.add(entry);
+    if (!_tryReplay(
+      () {
+        _entries.removeLast();
+        _trash.add(trashed);
+      },
+      trades: entry.isInvestment,
+    )) {
+      return false;
+    }
     _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
+    return true;
   }
 
   void setBudget(String category, int limit, {int? warning, bool? carry}) {
@@ -489,7 +598,14 @@ final class Ledger extends ChangeNotifier {
   void updateAccount(Account account) {
     final index = _accounts.indexWhere((a) => a.id == account.id);
     if (index < 0) return addAccount(account);
-    account = _rescheduled(_accounts[index], account);
+    final before = _accounts[index];
+    // A form that does not show a card's moved closes and earlier billing
+    // days keeps them.
+    account = account.copyWith(
+      closes: account.closes.isEmpty ? before.closes : null,
+      history: account.history.isEmpty ? before.history : null,
+    );
+    account = _rescheduled(before, account);
     _accounts[index] = account;
     notifyListeners();
     _keep(Batch(accounts: [account]));
@@ -517,13 +633,23 @@ final class Ledger extends ChangeNotifier {
         break;
       }
     }
+    final until = BusinessDate(from.year, from.month, from.day);
+    final kept = before.history;
+    // Days changed again before the last change took effect: the days
+    // before that one still hold until the first close on the newest.
+    final pending =
+        kept.isNotEmpty &&
+        kept.last.until.compareTo(
+              BusinessDate(today.year, today.month, today.day),
+            ) >
+            0;
     return after.copyWith(
       history: [
-        ...before.history,
+        ...(pending ? kept.sublist(0, kept.length - 1) : kept),
         CardScheduleChange(
-          until: BusinessDate(from.year, from.month, from.day),
-          closingDay: closing,
-          dueDay: due,
+          until: until,
+          closingDay: pending ? kept.last.closingDay : closing,
+          dueDay: pending ? kept.last.dueDay : due,
         ),
       ],
     );
@@ -565,7 +691,25 @@ final class Ledger extends ChangeNotifier {
     _keep(Batch(dropped: [(Shelf.account, removed.id)]));
   }
 
+  /// Whether [name] can be a new category's: not empty, not one the
+  /// ledger keeps for itself (all spending, transfers, a `#` tag budget)
+  /// and not taken, unless by [except].
+  bool categoryNameFree(String name, {String? except}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty ||
+        trimmed == allSpending ||
+        trimmed == transferCategory ||
+        trimmed.startsWith('#')) {
+      return false;
+    }
+    return trimmed == except || !_categories.any((c) => c.name == trimmed);
+  }
+
   void addCategory(Category category) {
+    if (!categoryNameFree(category.name)) {
+      problem.value = const NameTaken();
+      return;
+    }
     _categories.add(category);
     notifyListeners();
     _keep(Batch(categories: [category]));
@@ -583,7 +727,15 @@ final class Ledger extends ChangeNotifier {
         _budgets[i] = b.renamed(to);
       }
     }
+    _oneBudgetEach();
     notifyListeners();
+  }
+
+  /// Keeps the first budget of each name, as a rename onto a name that
+  /// had one leaves two.
+  void _oneBudgetEach() {
+    final seen = <String>{};
+    _budgets.retainWhere((b) => seen.add(b.category));
   }
 
   /// Puts the entries and recurring items of category [from] in [to].
@@ -652,6 +804,10 @@ final class Ledger extends ChangeNotifier {
   void updateCategory(String name, Category next) {
     final index = _categories.indexWhere((c) => c.name == name);
     if (index < 0) return;
+    if (!categoryNameFree(next.name, except: name)) {
+      problem.value = const NameTaken();
+      return;
+    }
     final before = _before;
     if (next.name != name) _renameCategory(name, next.name);
     _categories[index] = next;
@@ -682,6 +838,7 @@ final class Ledger extends ChangeNotifier {
       }
     }
     if (to.isEmpty) _budgets.removeWhere((b) => b.tag == from);
+    _oneBudgetEach();
     for (final (i, e) in _entries.indexed) {
       if (!e.tags.contains(from)) continue;
       final tags = {
@@ -753,18 +910,35 @@ final class Ledger extends ChangeNotifier {
 
   void toggleHidden() {
     _hidden = !_hidden;
+    _signal();
+  }
+
+  /// Works the holdings out again when [trades] were touched, then tells
+  /// the screens; an oversold trade is undone and rethrown.
+  void _replayOrUndo(void Function() undo, {bool trades = true}) {
+    if (trades) {
+      try {
+        _replay();
+      } on StateError {
+        undo();
+        _replay();
+        rethrow;
+      }
+    }
     notifyListeners();
   }
 
-  void _replayOrUndo(void Function() undo) {
+  /// [_replayOrUndo], telling a refusal through [problem] rather than
+  /// throwing; false when refused.
+  bool _tryReplay(void Function() undo, {required bool trades}) {
     try {
-      _replay();
+      _replayOrUndo(undo, trades: trades);
+      return true;
     } on StateError {
-      undo();
-      _replay();
-      rethrow;
+      problem.value = const SharesShort();
+      notifyListeners();
+      return false;
     }
-    notifyListeners();
   }
 
   /// Whether [extra] can join the entries, in place of [replacing]: none
@@ -821,3 +995,21 @@ typedef _Before = ({
   List<Budget> budgets,
   List<Recurring> recurring,
 });
+
+/// A change was refused because it would leave a later sale or reduction
+/// of a stock short of shares.
+final class SharesShort implements Exception {
+  const SharesShort();
+
+  @override
+  String toString() => 'SharesShort';
+}
+
+/// A category was not added or renamed: its name is empty, taken, or one
+/// the ledger keeps for itself.
+final class NameTaken implements Exception {
+  const NameTaken();
+
+  @override
+  String toString() => 'NameTaken';
+}

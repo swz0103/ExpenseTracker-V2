@@ -144,20 +144,19 @@ extension LedgerReports on Ledger {
   ]..sort((a, b) => b.date.compareTo(a.date));
 
   /// The entry with [id], if it is still in the book.
-  Entry? byId(String id) {
-    for (final e in _entries) {
-      if (e.id == id) return e;
-    }
-    return null;
-  }
+  Entry? byId(String id) =>
+      (_idIndex ??= {for (final e in _entries) e.id: e})[id];
 
   /// How much of [original] is left to refund.
   int refundable(Entry original) {
-    var back = 0;
-    for (final e in _entries) {
-      if (e.refundOf == original.id) back += e.amount;
-    }
-    return original.amount - back;
+    final back = _refundIndex ??= () {
+      final sums = <String, int>{};
+      for (final e in _entries) {
+        if (e.refundOf case final of?) sums[of] = (sums[of] ?? 0) + e.amount;
+      }
+      return sums;
+    }();
+    return original.amount - (back[original.id] ?? 0);
   }
 
   /// The balance of [account] at the end of [until], or of today.

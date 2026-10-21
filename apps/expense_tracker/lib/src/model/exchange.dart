@@ -28,13 +28,13 @@ final class Import {
   final List<String> problems;
 }
 
-/// Adds what [found] holds to [ledger]: its new accounts and categories
-/// first, then its entries.
-void addImport(Ledger ledger, Import found) {
-  found.accounts.forEach(ledger.addAccount);
-  found.categories.forEach(ledger.addCategory);
-  ledger.addAll(found.entries);
-}
+/// Adds what [found] holds to [ledger], its new accounts and categories
+/// with its entries, as one change.
+void addImport(Ledger ledger, Import found) => ledger.addAll(
+  found.entries,
+  accounts: found.accounts,
+  categories: found.categories,
+);
 
 const _header = [
   '日期',
@@ -542,7 +542,9 @@ final class _Reader {
     final trades = <Entry>[];
     for (final (line, e) in sorted) {
       if (e.isInvestment) {
-        if (!ledger.holdsWith([...trades, e])) {
+        // Only a sale or a reduction can leave a stock short of shares.
+        final takes = e.type == EntryType.sell || e.isReduction;
+        if (takes && !ledger.holdsWith([...trades, e])) {
           skip(line, '${e.holding} 賣出或減少的股數超過當時持股');
           continue;
         }
@@ -639,7 +641,7 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
     final seen =
         number.isNotEmpty &&
         (entries.any((e) => e.note.contains(number)) ||
-            _hasInvoice(ledger, day, number));
+            _hasInvoice(ledger, day, number, shop: shop, amount: value));
     if (day == null || value == null || value <= 0 || voided || seen) {
       skipped++;
       continue;
@@ -668,7 +670,13 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
     final value = invoice.amount.minorUnits.toInt();
     if (value <= 0 ||
         entries.any((e) => e.note.contains(number)) ||
-        _hasInvoice(ledger, date, number)) {
+        _hasInvoice(
+          ledger,
+          date,
+          number,
+          shop: invoice.seller,
+          amount: value,
+        )) {
       skipped++;
       continue;
     }
@@ -713,9 +721,23 @@ Entry _invoice(
   );
 }
 
-bool _hasInvoice(Ledger ledger, DateTime? day, String number) {
+/// Whether the invoice [number] of [day] was imported before: its number
+/// is in a note, or an invoice entry of that day, shop and [amount] is
+/// there, as when its note was edited since.
+bool _hasInvoice(
+  Ledger ledger,
+  DateTime? day,
+  String number, {
+  String shop = '',
+  int? amount,
+}) {
   if (day == null) return false;
-  return ledger
-      .entriesIn(day.year, day.month)
-      .any((e) => e.note.contains(number));
+  return ledger.entriesIn(day.year, day.month).any(
+    (e) =>
+        e.note.contains(number) ||
+        (e.tags.contains('發票') &&
+            e.date == day &&
+            e.merchant == shop &&
+            e.amount == amount),
+  );
 }

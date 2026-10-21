@@ -18,8 +18,9 @@ class _TrashSheet extends StatelessWidget {
 
   void _restore(BuildContext context, Trashed trashed) {
     try {
-      ledger.restoreTrashed(trashed);
-      showNote(context, '已復原「${trashed.entry.title}」');
+      if (ledger.restoreTrashed(trashed)) {
+        showNote(context, '已復原「${trashed.entry.title}」');
+      }
     } on Object catch (error) {
       showNote(context, describeProblem(error));
     }

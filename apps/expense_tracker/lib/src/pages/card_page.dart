@@ -101,7 +101,7 @@ class CardPage extends StatelessWidget {
         final plans = ledger.instalmentsOn(card);
         final pending = plans.fold(
           0,
-          (sum, e) => sum + e.amount - ledger.billed(e, today),
+          (sum, e) => sum + e.amount - ledger.billed(e, ledger.closedBy),
         );
         final limit = card.limit;
         final debt = -ledger.balance(card.id);
@@ -330,7 +330,7 @@ class CardPage extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '第 $periods / ${e.installments} 期 · '
-                  '剩 ${ledger.money(e.amount - ledger.billed(e, ledger.today))}',
+                  '剩 ${ledger.money(e.amount - ledger.billed(e, ledger.closedBy))}',
                   style: mutedSmall,
                 ),
               ],

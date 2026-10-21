@@ -23,3 +23,22 @@ Future<void> clearLeftovers(Directory files, {Directory? cache}) async {
     }
   }
 }
+
+/// Deletes the sealed receipt photos in [files]' `receipts` folder that no
+/// entry keeps any more, [kept] being those still linked (deleted entries'
+/// included until they leave the trash): a photo replaced or taken away,
+/// or one taken for an entry that was never saved.
+Future<void> sweepReceipts(Directory files, Set<String> kept) async {
+  final folder = Directory('${files.path}/receipts');
+  if (!await folder.exists()) return;
+  await for (final entity in folder.list()) {
+    if (entity is! File) continue;
+    final name = entity.uri.pathSegments.last;
+    if (kept.contains(name)) continue;
+    try {
+      await entity.delete();
+    } on FileSystemException {
+      // Tried again at the next start.
+    }
+  }
+}

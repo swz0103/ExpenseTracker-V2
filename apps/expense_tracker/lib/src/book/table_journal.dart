@@ -95,17 +95,7 @@ final class TableJournal implements Journal {
       accounts: read(Shelf.account, accountFromJson),
       categories: read(Shelf.category, categoryFromJson),
       entries: read(Shelf.entry, entryFromJson),
-      holdings: [
-        for (final MapEntry(key: code, value: price) in market.prices.entries)
-          Holding(
-            code,
-            market.names[code] ?? code,
-            shares: 0,
-            price: price,
-            cost: 0,
-            change: 0,
-          ),
-      ],
+      holdings: _holdingsOf(market),
       budgets: read(Shelf.budget, budgetFromJson),
       recurring: read(Shelf.recurring, recurringFromJson),
       rates: market.rates,
@@ -222,6 +212,23 @@ final class TableJournal implements Journal {
   }
 
   // Market data.
+
+  /// The closes and board last fetched, for [Ledger.setMarket].
+  ({
+    List<Holding> holdings,
+    Map<String, double> moves,
+    Map<String, double> rates,
+    DateTime? quotedOn,
+  })
+  market() {
+    final kept = _marketFrom(_store.rows(shelf: _market));
+    return (
+      holdings: _holdingsOf(kept),
+      moves: kept.moves,
+      rates: kept.rates,
+      quotedOn: kept.quotedOn,
+    );
+  }
 
   /// Fetches 臺灣銀行's board: the spot buying rate of each currency, what
   /// a foreign balance is worth in NT$. Returns whether any rate changed.
@@ -361,3 +368,16 @@ _Market _marketFrom(List<StoredRow> rows) {
     rates: rates,
   );
 }
+
+/// A reference price and name for each stock with a kept close.
+List<Holding> _holdingsOf(_Market market) => [
+  for (final MapEntry(key: code, value: price) in market.prices.entries)
+    Holding(
+      code,
+      market.names[code] ?? code,
+      shares: 0,
+      price: price,
+      cost: 0,
+      change: 0,
+    ),
+];

@@ -757,15 +757,14 @@ class _ComposerState extends State<Composer> {
     final entry = _build();
     try {
       if (widget.entry == null) {
-        _ledger.add(entry);
+        _ledger.add(entry, receipt: _receipt);
       } else {
-        _ledger.replace(entry);
+        _ledger.replace(entry, receipt: _receipt);
       }
     } on StateError catch (error) {
       setState(() => _problem = error.message);
       return;
     }
-    _ledger.setReceipt(entry.id, _receipt);
     _drafts.remove(_tab);
     Navigator.of(context).pop((ComposeOutcome.saved, entry));
   }
