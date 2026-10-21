@@ -31,11 +31,7 @@ extension CardBilling on Account {
     final count = e.installments;
     if (count < 2) return e.amount;
     final periods = billedPeriods(e, at);
-    if (periods == 0) return 0;
-    // Equal parts rounded down, the remainder in the first one, as card
-    // issuers bill it and as the ledger's own schedule has it.
-    final each = e.amount ~/ count;
-    return periods >= count ? e.amount : e.amount - each * (count - periods);
+    return installmentShares(e.amount, count).take(periods).fold(0, _sum);
   }
 
   /// How many instalments of [e] have been billed by [at]: those whose
@@ -52,6 +48,8 @@ extension CardBilling on Account {
     return periods;
   }
 }
+
+int _sum(int a, int b) => a + b;
 
 final _schedules = Expando<CardSchedule>('card schedule');
 

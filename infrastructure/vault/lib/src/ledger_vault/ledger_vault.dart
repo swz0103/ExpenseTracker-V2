@@ -194,8 +194,22 @@ final class LedgerVault {
     return _open(keys);
   }
 
-  Future<OpenVault> _open(UnlockedKeyring keys) async =>
-      OpenVault._(this, keys, _openStore(databaseFile, keys));
+  Future<OpenVault> _open(UnlockedKeyring keys) async {
+    try {
+      return OpenVault._(this, keys, _openStore(databaseFile, keys));
+    } on StorageUnavailable catch (error) {
+      if (error.problem != StorageProblem.oldFormat) rethrow;
+    }
+    // A ledger from before records were kept as rows cannot be read: it
+    // is set aside, never erased, and the keys open a new, empty one.
+    for (final suffix in ['', '-wal', '-shm']) {
+      final part = File('${databaseFile.path}$suffix');
+      if (await part.exists()) {
+        await part.rename('${directory.path}/ledger-v2.db$suffix');
+      }
+    }
+    return OpenVault._(this, keys, _openStore(databaseFile, keys));
+  }
 
   RowStore _openStore(File file, UnlockedKeyring keys) =>
       RowStore.open(file, StorageKey(keys.databaseKey));

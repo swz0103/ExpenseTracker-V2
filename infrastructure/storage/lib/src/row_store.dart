@@ -15,6 +15,10 @@ enum StorageProblem {
   /// The file was written by a newer build than this one.
   newerSchema,
 
+  /// The file is a ledger of the event-journal format, from before
+  /// records were kept as rows; this build cannot read it.
+  oldFormat,
+
   /// Another connection, isolate or process already has the file open;
   /// only one may own a ledger at a time.
   inUse,
@@ -210,6 +214,12 @@ final class RowStore {
 
   static void _create(Database db) {
     final version = db.userVersion;
+    final journal = db.select(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'events'",
+    );
+    if (journal.isNotEmpty) {
+      throw const StorageUnavailable(StorageProblem.oldFormat);
+    }
     if (version > schema) {
       throw const StorageUnavailable(StorageProblem.newerSchema);
     }

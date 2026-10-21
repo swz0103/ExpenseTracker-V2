@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app.dart';
-import 'package:expense_tracker/src/book/vault_journal.dart';
+import 'package:expense_tracker/src/book/table_journal.dart';
+import 'package:expense_tracker/src/model/journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:expense_tracker/src/pages/shell.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ void main() {
       codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
     );
     final (open, _) = await vault.create('bench password');
-    final journal = VaultJournal(open);
+    final journal = TableJournal(open.store);
     var ledger = await journal.load();
     final accounts = [
       for (final a in ledger.accounts)
@@ -50,7 +51,7 @@ void main() {
         ),
     ];
     final writing = Stopwatch()..start();
-    await journal.addEntries(entries);
+    await journal.keep(Batch(entries: entries));
     writing.stop();
     final loading = Stopwatch()..start();
     ledger = await journal.load();
@@ -97,8 +98,7 @@ void main() {
     await tap('更多');
     await binding.watchPerformance(reports, reportKey: 'reports');
 
-    // One entry saved while the records show: written, then the whole
-    // book read back.
+    // One entry saved while the records show.
     final saving = Stopwatch();
     Future<void> save() async {
       saving.start();

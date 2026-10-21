@@ -50,14 +50,14 @@ void main() {
     expect(startup.state, isA<NeedsSetup>());
     final recovery = await startup.setUp(password);
     expect(recovery, isNotEmpty);
-    final workspace = (startup.state as Ready).vault.workspace;
+    final keyring = (startup.state as Ready).vault.keys.keyring.id;
 
     startup.lock();
     expect(startup.state, isA<Locked>());
     final reopened = Startup(vault, device: device);
     expect((reopened.state as Locked).deviceUnlock, isTrue);
     await reopened.unlockWithDevice();
-    expect((reopened.state as Ready).vault.workspace, workspace);
+    expect((reopened.state as Ready).vault.keys.keyring.id, keyring);
     reopened.lock();
   });
 

@@ -76,6 +76,17 @@ void main() {
     );
   });
 
+  test('a ledger of the old event-journal format is told apart', () {
+    final database = raw();
+    database.execute('CREATE TABLE events (seq INTEGER PRIMARY KEY)');
+    database.userVersion = 3;
+    database.close();
+    expect(
+      () => open(),
+      throwsA(const StorageUnavailable(StorageProblem.oldFormat)),
+    );
+  });
+
   test('records keep their first place when changed, and survive', () {
     final store = open();
     store.write((w) {

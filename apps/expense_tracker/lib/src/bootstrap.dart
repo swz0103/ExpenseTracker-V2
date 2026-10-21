@@ -10,7 +10,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'app.dart';
-import 'book/vault_journal.dart';
+import 'book/table_journal.dart';
 import 'book/vault_keeper.dart';
 import 'calendar_sync.dart';
 import 'compose/receipt_photos.dart';
@@ -34,6 +34,7 @@ Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
     Startup(
       LedgerVault(directory, codec: KeyringCodec(minimumPassword: 6)),
       device: device,
+      check: TableJournal.check,
     );
 
 /// Where this device keeps the ledger: the app's private folder on
@@ -114,8 +115,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   DateTime? _leftAt;
 
-  late final _journal = VaultJournal(
-    widget.vault,
+  late final _journal = TableJournal(
+    widget.vault.store,
     market: MarketDataGateway(
       transport: const IoMarketTransport(),
       // The exchanges' snapshots are a few MiB of JSON.
@@ -136,7 +137,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
   late final _keeper = VaultKeeper(
     widget.startup,
     widget.vault,
-    _journal,
     beforeLock: () async => _loaded?.settled,
     export: Platform.isAndroid ? androidExportFile : null,
     pick: Platform.isAndroid ? androidPickFile : null,
@@ -162,11 +162,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
-    // The screens' sums are worked out apart from the ledger's own: any
-    // difference is a fault to report, not to hide.
-    for (final mismatch in _journal.mismatches(ledger)) {
-      Perf.instance.problem('帳本核對', mismatch);
-    }
     return ledger;
   }
 
@@ -182,7 +177,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   Future<void> _quotes(Ledger ledger) async {
     try {
-      final quotes = await _journal.refreshQuotes();
+      final quotes = await _journal.refreshQuotes([
+        for (final h in ledger.holdings)
+          if (h.shares > 0) h.code,
+      ]);
       final rates = await _journal.refreshRates();
       if ((quotes || rates) && mounted) ledger.refresh();
     } on Object catch (error) {

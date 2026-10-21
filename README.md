@@ -12,12 +12,12 @@ Android 優先、Flutter、資料只存在手機（local-first）的個人記帳
 
 | 位置 | 內容 |
 | --- | --- |
-| `apps/expense_tracker/` | App（Flutter）：畫面、畫面用的帳本模型、加密帳本的接線。 |
+| `apps/expense_tracker/` | App（Flutter）：畫面、帳本模型（唯一的一份）、把每筆資料存進加密檔的 `TableJournal`。 |
 | `infrastructure/vault/` | 金鑰、打開帳本、加密備份。 |
-| `infrastructure/storage/` | SQLCipher 資料庫與帳本投影（餘額、帳單、持股等）。 |
+| `infrastructure/storage/` | SQLCipher 加密檔：每筆資料一列 JSON。 |
 | `infrastructure/market/` | 證交所、櫃買中心收盤價與臺灣銀行牌告匯率。 |
-| `packages/domain/` | 記帳規則：帳戶、分類、信用卡、投資、預算、定期交易、報表、CSV。 |
-| `packages/core/` | 金額、日期、匯率等值物件與指令執行器。 |
+| `packages/domain/` | 計算規則：持股成本、配股減資、台股費用、信用卡帳單週期與分期、CSV、電子發票。 |
+| `packages/core/` | 金額、日期、匯率等值物件與時鐘。 |
 | `tooling/architecture_checks` | CI 的輕量檢查：core／domain 不碰平台、測試寫明預期的失敗、lockfile 版本一致。 |
 | `tooling/` | 架構檢查與本機檢查腳本。 |
 | `docs/` | 狀態、架構決策、設定說明。 |

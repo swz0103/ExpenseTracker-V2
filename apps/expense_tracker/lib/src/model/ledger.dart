@@ -35,7 +35,6 @@ final class Ledger extends ChangeNotifier {
     required List<Recurring> recurring,
     this.journal,
     Map<String, double> rates = const {},
-    Map<String, int> cardDues = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
     DateTime? quotedOn,
@@ -47,7 +46,6 @@ final class Ledger extends ChangeNotifier {
        _rates = {...rates},
        _moves = {...moves},
        _trash = [...trash],
-       _dues = {...cardDues},
        _accounts = [...accounts],
        _categories = [...categories],
        _entries = [...entries],
@@ -64,8 +62,7 @@ final class Ledger extends ChangeNotifier {
   DateTime get today => _clock();
   final DateTime Function() _clock;
 
-  /// The day the screens last showed, and the card dues were worked out
-  /// for.
+  /// The day the screens last showed.
   DateTime _day;
 
   /// Tells the screens when the day has changed since they last looked,
@@ -74,8 +71,6 @@ final class Ledger extends ChangeNotifier {
     final now = today;
     if (now == _day) return;
     _day = now;
-    // The journal's card dues were for the day it loaded.
-    _dues.clear();
     notifyListeners();
   }
 
@@ -100,7 +95,7 @@ final class Ledger extends ChangeNotifier {
   final Map<String, String> _receipts;
 
   /// The receipt photo of the entry with [id]; null when none.
-  String? receiptOf(String id) => _receipts[id] ?? _receipts[_current(id)];
+  String? receiptOf(String id) => _receipts[id];
 
   /// Gives the entry with [id] the receipt photo [file], or takes its
   /// photo away when null.
@@ -109,7 +104,7 @@ final class Ledger extends ChangeNotifier {
     _receipts.remove(id);
     if (file != null) _receipts[id] = file;
     notifyListeners();
-    _keep((j) => j.setReceipt(_current(id), file), reload: false);
+    _keep(Batch(receipts: {id: file}));
   }
 
   /// The trading day of the newest closing price the holdings are
@@ -120,9 +115,6 @@ final class Ledger extends ChangeNotifier {
   /// Each stock's change on its last trading day, per share, by code.
   final Map<String, double> _moves;
   final Map<String, double> _rates;
-
-  /// Each card's [statementDue] as the journal's billing has it, by id.
-  final Map<String, int> _dues;
 
   /// The holdings replayed from [_startHoldings] and the entries.
   late Portfolio _portfolio;
@@ -312,53 +304,27 @@ final class Ledger extends ChangeNotifier {
   var _queue = Future<void>.value();
   var _waiting = 0;
 
-  /// The id an edited entry has in the [journal] now, by its old one.
-  final _renamed = <String, String>{};
-
-  String _current(String id) {
-    var current = id;
-    for (var hops = 0; hops < 64; hops++) {
-      final next = _renamed[current];
-      if (next == null) break;
-      current = next;
-    }
-    return current;
-  }
-
-  /// Done once every change so far has reached the [journal] and the
-  /// ledger has reloaded what it kept.
+  /// Done once every change so far has reached the [journal].
   Future<void> get settled => _queue;
 
-  /// Whether a change since the last load needs the book read back.
+  /// Whether a refused change left the screens ahead of the [journal].
   var _stale = false;
 
-  /// Passes a change to the [journal]. Once nothing else waits, reloads
-  /// what was kept, so ids and figures match the store; a refused change
-  /// is undone that way and reported through [problem]. A change kept
-  /// exactly as the screens already show it skips the reload unless
-  /// refused ([reload] false): reading back a large book takes a moment.
-  void _keep(
-    Future<void> Function(Journal journal) change, {
-    bool reload = true,
-  }) {
+  /// Hands [batch] to the [journal], in turn with every change before it.
+  /// A batch it refuses is reported through [problem], and once nothing
+  /// else waits the book is read back, so the screens show what was kept.
+  void _keep(Batch batch) {
     final journal = this.journal;
-    if (journal == null) return;
+    if (journal == null || batch.isEmpty) return;
     _waiting++;
-    if (reload) _stale = true;
     _queue = _queue.then((_) async {
       try {
-        await change(journal);
+        await journal.keep(batch);
       } on Object catch (error) {
         problem.value = error;
         _stale = true;
       }
-      if (--_waiting > 0) return;
-      if (!_stale) {
-        // The journal's card dues may have moved; work them out from the
-        // entries until the next load.
-        _dues.clear();
-        return;
-      }
+      if (--_waiting > 0 || !_stale) return;
       _stale = false;
       try {
         final fresh = await journal.load();
@@ -372,27 +338,74 @@ final class Ledger extends ChangeNotifier {
     });
   }
 
-  /// Reloads what the [journal] keeps, such as new closing prices.
-  void refresh() => _keep((_) async {});
+  /// Reads back what the [journal] keeps, such as new closing prices.
+  void refresh() {
+    final journal = this.journal;
+    if (journal == null) return;
+    _queue = _queue.then((_) async {
+      try {
+        final fresh = await journal.load();
+        if (_waiting == 0) _adopt(fresh);
+      } on Object catch (error) {
+        problem.value = error;
+      }
+    });
+  }
+
+  /// What a change of several records left different: every record not
+  /// the very one it was before is kept, and those gone are dropped.
+  Batch _since(_Before before) {
+    List<T> changed<T>(List<T> was, List<T> now, String Function(T) key) {
+      final old = {for (final item in was) key(item): item};
+      return [
+        for (final item in now)
+          if (!identical(old[key(item)], item)) item,
+      ];
+    }
+
+    List<(Shelf, String)> gone<T>(
+      Shelf shelf,
+      List<T> was,
+      List<T> now,
+      String Function(T) key,
+    ) {
+      final kept = {for (final item in now) key(item)};
+      return [
+        for (final item in was)
+          if (!kept.contains(key(item))) (shelf, key(item)),
+      ];
+    }
+
+    String entryKey(Entry e) => e.id;
+    String categoryKey(Category c) => c.name;
+    String budgetKey(Budget b) => b.category;
+    String recurringKey(Recurring r) => r.id;
+    return Batch(
+      entries: changed(before.entries, _entries, entryKey),
+      categories: changed(before.categories, _categories, categoryKey),
+      budgets: changed(before.budgets, _budgets, budgetKey),
+      recurring: changed(before.recurring, _recurring, recurringKey),
+      dropped: [
+        ...gone(Shelf.entry, before.entries, _entries, entryKey),
+        ...gone(Shelf.category, before.categories, _categories, categoryKey),
+        ...gone(Shelf.budget, before.budgets, _budgets, budgetKey),
+        ...gone(Shelf.recurring, before.recurring, _recurring, recurringKey),
+      ],
+    );
+  }
+
+  _Before get _before => (
+    entries: List.of(_entries),
+    categories: List.of(_categories),
+    budgets: List.of(_budgets),
+    recurring: List.of(_recurring),
+  );
 
   /// Adds [entry]; a sale of more shares than are held is refused.
   void add(Entry entry) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast());
-    _keep((j) => j.addEntries([entry]), reload: !_keptAsShown(entry));
-  }
-
-  /// Whether the [journal] keeps [e] just as the screens hold it, so no
-  /// reload is needed: it has an id of its own, and is neither a refund,
-  /// whose parts the journal works out, nor a recurring booking.
-  static bool _keptAsShown(Entry e) {
-    if (e.isRefund || e.recurring != null) return false;
-    try {
-      PublicId.parse(e.id);
-      return true;
-    } on Object {
-      return false;
-    }
+    _keep(Batch(entries: [entry]));
   }
 
   /// Adds every one of [entries] at once, as an import does.
@@ -401,39 +414,32 @@ final class Ledger extends ChangeNotifier {
     final count = _entries.length;
     _entries.addAll(entries);
     _replayOrUndo(() => _entries.removeRange(count, _entries.length));
-    _keep((j) => j.addEntries(entries));
+    _keep(Batch(entries: entries));
   }
 
   /// Puts [entry] in place of the entry with the same id.
   void replace(Entry entry) {
-    final id = _current(entry.id);
-    final index = _entries.indexWhere((e) => e.id == id);
+    final index = _entries.indexWhere((e) => e.id == entry.id);
     if (index < 0) return add(entry);
     final before = _entries[index];
     _entries[index] = entry;
     _replayOrUndo(() => _entries[index] = before);
-    // The id is looked up when the change runs: an edit queued before it
-    // may have given the entry a new one.
-    Future<void> change(Journal j) async {
-      final stored = _current(before.id);
-      final next = await j.replaceEntry(before.withId(stored), entry);
-      if (next != stored) _renamed[stored] = next;
-    }
-
-    _keep(change, reload: !_keptAsShown(before) || !_keptAsShown(entry));
+    _keep(Batch(entries: [entry]));
   }
 
   /// Removes the entry with [id] and returns it with its place, for undo.
   (int, Entry)? remove(String id) {
-    final current = _current(id);
-    final index = _entries.indexWhere((e) => e.id == current);
+    final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
     final removed = _entries.removeAt(index);
     _replayOrUndo(() => _entries.insert(index, removed));
-    _trash.insert(0, Trashed(removed, today));
+    final trashed = Trashed(removed, today);
+    _trash.insert(0, trashed);
     _keep(
-      (j) => j.removeEntry(removed.withId(_current(removed.id))),
-      reload: false,
+      Batch(
+        trash: [trashed],
+        dropped: [(Shelf.entry, removed.id)],
+      ),
     );
     return (index, removed);
   }
@@ -443,22 +449,28 @@ final class Ledger extends ChangeNotifier {
     _entries.insert(index.clamp(0, _entries.length), entry);
     _replayOrUndo(() => _entries.remove(entry));
     _trash.removeWhere((t) => identical(t.entry, entry));
-    final kept = _current(entry.id);
-    _keep((j) async {
-      await j.addEntries([entry]);
-      await j.forgetTrashed(kept);
-    });
+    _keep(
+      Batch(
+        entries: [entry],
+        dropped: [(Shelf.trash, entry.id)],
+      ),
+    );
   }
 
-  /// Puts [trashed] back in the book as a new entry; a sale of more
-  /// shares than are held then is refused, as an [add] is.
+  /// Puts [trashed] back in the book; a sale of more shares than are held
+  /// then is refused, as an [add] is.
   void restoreTrashed(Trashed trashed) {
-    final entry = trashed.entry.withId(newId());
-    add(entry);
+    final entry = trashed.entry;
+    _entries.add(entry);
+    _replayOrUndo(() => _entries.removeLast());
     _trash.remove(trashed);
     notifyListeners();
-    final kept = _current(trashed.entry.id);
-    _keep((j) => j.forgetTrashed(kept), reload: false);
+    _keep(
+      Batch(
+        entries: [entry],
+        dropped: [(Shelf.trash, entry.id)],
+      ),
+    );
   }
 
   void setBudget(String category, int limit, {int? warning, bool? carry}) {
@@ -473,30 +485,29 @@ final class Ledger extends ChangeNotifier {
     );
     _budgets.add(budget);
     notifyListeners();
-    _keep((j) => j.setBudget(budget));
+    _keep(Batch(budgets: [budget]));
   }
 
   void removeBudget(String category) {
     _budgets.removeWhere((b) => b.category == category);
     notifyListeners();
-    _keep((j) => j.removeBudget(category));
+    _keep(Batch(dropped: [(Shelf.budget, category)]));
   }
 
   void addAccount(Account account) {
     _accounts.add(account);
     notifyListeners();
-    _keep((j) => j.saveAccount(null, account));
+    _keep(Batch(accounts: [account]));
   }
 
   /// Puts [account] in place of the one with the same id.
   void updateAccount(Account account) {
     final index = _accounts.indexWhere((a) => a.id == account.id);
     if (index < 0) return addAccount(account);
-    final before = _accounts[index];
-    account = _rescheduled(before, account);
+    account = _rescheduled(_accounts[index], account);
     _accounts[index] = account;
     notifyListeners();
-    _keep((j) => j.saveAccount(before, account));
+    _keep(Batch(accounts: [account]));
   }
 
   /// [after] keeping [before]'s billing days for the statements closing
@@ -542,7 +553,7 @@ final class Ledger extends ChangeNotifier {
     final moved = a.copyWith(opening: a.opening + target - balance(id));
     _accounts[index] = moved;
     notifyListeners();
-    _keep((j) => j.setOpening(moved, moved.opening));
+    _keep(Batch(accounts: [moved]));
   }
 
   /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
@@ -554,7 +565,7 @@ final class Ledger extends ChangeNotifier {
     final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
     _accounts[index] = moved;
     notifyListeners();
-    _keep((j) => j.moveClose(moved, scheduled, closesOn));
+    _keep(Batch(accounts: [moved]));
   }
 
   /// Whether [id] has any entries; an account without can be removed.
@@ -566,13 +577,13 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return;
     final removed = _accounts.removeAt(index);
     notifyListeners();
-    _keep((j) => j.removeAccount(removed));
+    _keep(Batch(dropped: [(Shelf.account, removed.id)]));
   }
 
   void addCategory(Category category) {
     _categories.add(category);
     notifyListeners();
-    _keep((j) => j.saveCategory(null, category));
+    _keep(Batch(categories: [category]));
   }
 
   void _renameCategory(String from, String to) {
@@ -640,7 +651,7 @@ final class Ledger extends ChangeNotifier {
       _recurring[index] = item;
     }
     notifyListeners();
-    _keep((j) => j.saveRecurring(item));
+    _keep(Batch(recurring: [item]));
   }
 
   void removeRecurring(String id) {
@@ -648,7 +659,7 @@ final class Ledger extends ChangeNotifier {
     if (index < 0) return;
     final removed = _recurring.removeAt(index);
     notifyListeners();
-    _keep((j) => j.removeRecurring(removed));
+    _keep(Batch(dropped: [(Shelf.recurring, removed.id)]));
   }
 
   /// Changes a category's place, name, mark, colour or archive state; a
@@ -656,18 +667,17 @@ final class Ledger extends ChangeNotifier {
   void updateCategory(String name, Category next) {
     final index = _categories.indexWhere((c) => c.name == name);
     if (index < 0) return;
-    final before = _categories[index];
+    final before = _before;
     if (next.name != name) _renameCategory(name, next.name);
     _categories[index] = next;
     notifyListeners();
-    _keep((j) => j.saveCategory(before, next));
+    _keep(_since(before));
   }
 
   /// Moves everything in [from] to [into] and removes [from].
   void mergeCategory(String from, String into) {
     if (from == into) return;
-    final source = category(from);
-    final target = category(into);
+    final before = _before;
     _moveUses(from, into);
     _budgets.removeWhere((b) => b.category == from);
     _categories.removeWhere((c) => c.name == from);
@@ -675,11 +685,12 @@ final class Ledger extends ChangeNotifier {
       if (c.parent == from) _categories[i] = c.copyWith(clearParent: true);
     }
     notifyListeners();
-    _keep((j) => j.mergeCategory(source, target));
+    _keep(_since(before));
   }
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
   void renameTag(String from, String to) {
+    final before = _before;
     for (final (i, b) in _budgets.indexed) {
       if (b.tag == from && to.isNotEmpty) {
         _budgets[i] = b.renamed('#$to');
@@ -696,17 +707,18 @@ final class Ledger extends ChangeNotifier {
       _entries[i] = e.withLabels(tags: tags);
     }
     notifyListeners();
-    _keep((j) => j.relabel(from, to, merchant: false));
+    _keep(_since(before));
   }
 
   /// Renames or merges a merchant across every entry; an empty [to]
   /// clears it.
   void renameMerchant(String from, String to) {
+    final before = _before;
     for (final (i, e) in _entries.indexed) {
       if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
     }
     notifyListeners();
-    _keep((j) => j.relabel(from, to, merchant: true));
+    _keep(_since(before));
   }
 
   /// Replaces everything with the contents of [fresh], for a demo reset.
@@ -739,9 +751,6 @@ final class Ledger extends ChangeNotifier {
     _rates
       ..clear()
       ..addAll(fresh._rates);
-    _dues
-      ..clear()
-      ..addAll(fresh._dues);
     _trash
       ..clear()
       ..addAll(fresh._trash);
@@ -773,11 +782,15 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Whether [extra] can join the entries: none of their trades sells
-  /// more shares than are held by then.
-  bool holdsWith(List<Entry> extra) {
+  /// Whether [extra] can join the entries, in place of [replacing]: none
+  /// of their trades sells more shares than are held by then.
+  bool holdsWith(List<Entry> extra, {Entry? replacing}) {
     try {
-      Portfolio.replay(_startHoldings, [..._entries, ...extra]);
+      Portfolio.replay(_startHoldings, [
+        for (final e in _entries)
+          if (replacing == null || e.id != replacing.id) e,
+        ...extra,
+      ]);
       return true;
     } on StateError {
       return false;
@@ -815,3 +828,11 @@ final class _Running {
     return low == 0 ? 0 : totals[low - 1];
   }
 }
+
+/// The records a change of several may touch, as they were before it.
+typedef _Before = ({
+  List<Entry> entries,
+  List<Category> categories,
+  List<Budget> budgets,
+  List<Recurring> recurring,
+});

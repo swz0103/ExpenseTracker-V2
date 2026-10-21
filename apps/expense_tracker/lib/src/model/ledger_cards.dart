@@ -23,16 +23,9 @@ extension LedgerCards on Ledger {
     return (start, end, due);
   }
 
-  /// What is still to pay on the last statement of [card]: the journal's
-  /// figure once every change has reached it, else [dueFromEntries].
+  /// What is still to pay on the last statement of [card]: what it owed
+  /// when the statement closed, less what was paid in since.
   int statementDue(Account card) {
-    final kept = _dues[card.id];
-    return kept != null && _waiting == 0 ? kept : dueFromEntries(card);
-  }
-
-  /// [statementDue] worked out from the entries, as the screens show it
-  /// before a change has been kept.
-  int dueFromEntries(Account card) {
     final (_, end, _) = statement(card);
     var paid = 0;
     for (final e in _entries) {

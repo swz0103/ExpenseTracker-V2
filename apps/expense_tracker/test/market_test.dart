@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/book/vault_journal.dart';
+import 'package:expense_tracker/src/book/table_journal.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:market/market_data.dart';
@@ -58,7 +58,7 @@ void main() {
       clock: () => DateTime.utc(2026, 9, 30, 4),
     );
     var (open, _) = await vault.create('market password');
-    var journal = VaultJournal(open, clock: clock, market: market);
+    var journal = TableJournal(open.store, clock: clock, market: market);
     var ledger = await journal.load();
     final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
     final usd = Account(
@@ -85,10 +85,10 @@ void main() {
       );
     await ledger.settled;
 
-    expect(await journal.refreshQuotes(), isTrue);
+    expect(await journal.refreshQuotes(['2330']), isTrue);
     expect(await journal.refreshRates(), isTrue);
-    // Nothing changed since: no reload needed.
-    expect(await journal.refreshQuotes(), isFalse);
+    // Nothing changed since.
+    expect(await journal.refreshQuotes(['2330']), isFalse);
     expect(await journal.refreshRates(), isFalse);
     ledger = await journal.load();
     expect(ledger.holding('2330')!.price, 1234.5);
@@ -101,7 +101,7 @@ void main() {
     // the dollars.
     open.close();
     open = await vault.unlockWithPassword('market password');
-    journal = VaultJournal(open, clock: clock);
+    journal = TableJournal(open.store, clock: clock);
     ledger = await journal.load();
     expect(ledger.worthOf(ledger.account(usd.id)), 3184);
     open.close();

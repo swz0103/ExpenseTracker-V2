@@ -18,7 +18,16 @@ extension EntryChecks on Ledger {
     if (cash && currency != homeCode && e.home == null) {
       return '還沒有匯率，請輸入折合台幣的金額';
     }
+    if (transfer && account(e.account).kind == AccountKind.card) {
+      return '信用卡不能轉出，請記成支出';
+    }
+    if (transfer && e.fee > 0 && currency != homeCode) {
+      return '外幣帳戶轉出時不能記手續費';
+    }
     final to = transfer ? account(e.to ?? '') : null;
+    if (to != null && to.kind == AccountKind.card && e.fee > 0) {
+      return '繳卡費不記手續費，請另記一筆支出';
+    }
     if (to != null && to.currency != currency && e.received == null) {
       return '還沒有匯率，請輸入轉入金額';
     }
@@ -26,6 +35,9 @@ extension EntryChecks on Ledger {
       return '外幣帳戶不能直接繳卡費';
     }
     if (e.isInvestment && currency != homeCode) return '投資請用新台幣帳戶';
+    if (e.isInvestment && account(e.account).kind.isDebt) {
+      return '買賣股票要用現金或銀行帳戶付款';
+    }
     if (e.isReduction) {
       final held = _heldBefore(e.holding ?? '', replacing);
       if (-e.shares > held) return '減少的股數超過持股（${groupDigits(held)} 股）';
@@ -35,7 +47,15 @@ extension EntryChecks on Ledger {
     }
     if (e.isInvestment && e.holding == null) return '請選擇投資標的';
     if (trade && e.shares <= 0) return '請輸入股數';
+    if (e.type == EntryType.sell && !holdsWith([e], replacing: replacing)) {
+      return '賣出股數超過持股';
+    }
     final original = e.refundOf == null ? null : byId(e.refundOf!);
+    if (original != null &&
+        account(original.account).kind == AccountKind.card &&
+        e.account != original.account) {
+      return '信用卡消費的退款要退回同一張卡';
+    }
     if (original != null) {
       final left = refundable(original);
       final own = replacing?.refundOf == e.refundOf ? replacing!.amount : 0;

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:sqlite3/sqlite3.dart';
 import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 import 'package:vault/backup_security.dart';
@@ -155,6 +156,23 @@ void main() {
     expect(adopted.keys.databaseKey, open.keys.databaseKey);
     adopted.close();
     await expectLater(vault.adopt(header), fails(VaultProblem.alreadyExists));
+  });
+
+  test('a ledger of the old format is set aside for a new one', () async {
+    final (open, _) = await vault.create(password);
+    keepOne(open);
+    open.close();
+    // What an earlier build left: the event-journal tables.
+    final key = StorageKey(open.keys.databaseKey).hex;
+    sqlite3.open(vault.databaseFile.path)
+      ..execute('PRAGMA key = "x\'$key\'"')
+      ..execute('CREATE TABLE events (seq INTEGER PRIMARY KEY)')
+      ..close();
+
+    final again = await vault.unlockWithPassword(password);
+    addTearDown(again.close);
+    expect(again.store.count, 0);
+    expect(File('${vault.directory.path}/ledger-v2.db').existsSync(), isTrue);
   });
 
   group('restore', () {
