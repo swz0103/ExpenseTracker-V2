@@ -66,7 +66,9 @@ class MorePage extends StatelessWidget {
               Tile(
                 icon: Glyph.investment,
                 label: '投資與股息',
-                value: ledger.moneySigned(ledger.investValue - ledger.investCost),
+                value: ledger.moneySigned(
+                  ledger.investValue - ledger.investCost,
+                ),
                 valueColor: ledger.investValue < ledger.investCost
                     ? Hue.negative
                     : Hue.positive,

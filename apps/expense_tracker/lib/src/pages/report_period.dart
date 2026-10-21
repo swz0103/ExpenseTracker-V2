@@ -15,19 +15,16 @@ final class ReportPeriod {
 
   /// The [span] that holds [today]; a chosen range starts as the twelve
   /// months up to it.
-  factory ReportPeriod.of(ReportSpan span, DateTime today) => ReportPeriod(
-    span,
-    switch (span) {
-      ReportSpan.month => DateTime.utc(today.year, today.month),
-      ReportSpan.quarter => DateTime.utc(
-        today.year,
-        (today.month - 1) ~/ 3 * 3 + 1,
-      ),
-      ReportSpan.year => DateTime.utc(today.year),
-      ReportSpan.custom => DateTime.utc(today.year, today.month - 11),
-    },
-    DateTime.utc(today.year, today.month),
-  );
+  factory ReportPeriod.of(ReportSpan span, DateTime today) =>
+      ReportPeriod(span, switch (span) {
+        ReportSpan.month => DateTime.utc(today.year, today.month),
+        ReportSpan.quarter => DateTime.utc(
+          today.year,
+          (today.month - 1) ~/ 3 * 3 + 1,
+        ),
+        ReportSpan.year => DateTime.utc(today.year),
+        ReportSpan.custom => DateTime.utc(today.year, today.month - 11),
+      }, DateTime.utc(today.year, today.month));
 
   /// The months from [first] to [last], whatever days were picked in them.
   factory ReportPeriod.range(DateTime first, DateTime last) => ReportPeriod(
@@ -57,7 +54,8 @@ final class ReportPeriod {
 
   /// The first and last day.
   DateTime get from => start;
-  DateTime get to => lastDay(DateTime.utc(start.year, start.month + months - 1));
+  DateTime get to =>
+      lastDay(DateTime.utc(start.year, start.month + months - 1));
 
   /// The first month after the period.
   DateTime get next => DateTime.utc(start.year, start.month + months);

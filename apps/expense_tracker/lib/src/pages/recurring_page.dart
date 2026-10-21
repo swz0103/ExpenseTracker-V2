@@ -218,13 +218,7 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionHead(
-      title,
-      trailing: Text(
-        '$count 筆',
-        style: mutedSmall,
-      ),
-    );
+    return SectionHead(title, trailing: Text('$count 筆', style: mutedSmall));
   }
 }
 
@@ -333,10 +327,7 @@ class _Row extends StatelessWidget {
                           : Hue.negative,
                     ),
                   ),
-                  Text(
-                    status,
-                    style: mutedSmall,
-                  ),
+                  Text(status, style: mutedSmall),
                 ],
               ),
             ],

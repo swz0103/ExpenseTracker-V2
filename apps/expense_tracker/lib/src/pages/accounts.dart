@@ -237,10 +237,7 @@ class _Balance extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                label,
-                style: mutedSmall,
-              ),
+              Text(label, style: mutedSmall),
               const Spacer(),
               Text(
                 ledger.money(value),
