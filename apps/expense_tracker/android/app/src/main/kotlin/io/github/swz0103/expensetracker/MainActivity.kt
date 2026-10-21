@@ -11,6 +11,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
@@ -50,6 +51,16 @@ class MainActivity : FlutterFragmentActivity() {
     /** What a shortcut, the widget or a notification asked for, until taken. */
     private var pendingQuick: String? = null
 
+    /**
+     * Whether Dart has taken the action the app opened with
+     * (`takeQuickAction`); its handler is listening from then on, so later
+     * actions are sent to it rather than kept.
+     */
+    private var dartTakes = false
+
+    /** Whether this activity is being restored rather than opened afresh. */
+    private var restored = false
+
     /** Asks once to post notifications (Android 13 and later). */
     private val askNotify =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -62,14 +73,22 @@ class MainActivity : FlutterFragmentActivity() {
     private val cameraFile: File
         get() = File(cacheDir, "camera").apply { mkdirs() }.resolve("receipt.jpg")
 
+    // When the app was closed while the camera or picker was open, nothing
+    // waits for the photo any more (pendingPhoto is null): it is dropped
+    // rather than left in the cache.
     private val takePicture =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
-            if (taken) keepPhoto(Uri.fromFile(cameraFile)) else finishPhoto(null)
+            if (taken && pendingPhoto != null) {
+                keepPhoto(Uri.fromFile(cameraFile))
+            } else {
+                cameraFile.delete()
+                finishPhoto(null)
+            }
         }
 
     private val pickImage =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) keepPhoto(uri) else finishPhoto(null)
+            if (uri != null && pendingPhoto != null) keepPhoto(uri) else finishPhoto(null)
         }
 
     private fun finishPhoto(name: String?) {
@@ -120,7 +139,9 @@ class MainActivity : FlutterFragmentActivity() {
                 ready.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
                 cameraFile.delete()
                 runOnUiThread { finishPhoto(ready.absolutePath) }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Any failure, running out of memory on a huge photo
+                // included, ends the request, so takePhoto is not left busy.
                 runOnUiThread {
                     val result = pendingPhoto
                     pendingPhoto = null
@@ -130,36 +151,39 @@ class MainActivity : FlutterFragmentActivity() {
         }.start()
     }
 
-    /** Takes the shortcut or widget action out of [intent], so it runs once. */
+    /**
+     * Takes the shortcut or widget action out of [intent], so it runs once.
+     * An intent reopened from the recent-apps list still carries the extra
+     * of its first launch, which was already acted on: it is ignored.
+     */
     private fun quickOf(intent: Intent?): String? {
         val quick = intent?.getStringExtra(EXTRA_QUICK) ?: return null
         intent.removeExtra(EXTRA_QUICK)
+        if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return null
         return quick
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Set before the engine is configured (during super.onCreate).
+        restored = savedInstanceState != null
+        super.onCreate(savedInstanceState)
+    }
+
     /**
-     * Kept for Dart to take (`takeQuickAction`), and also sent at once. Dart
-     * may not listen yet, as its handler is set after the engine starts:
-     * the action stays kept until Dart confirms it, so it is not lost.
+     * Each action reaches Dart exactly once. Until Dart has called
+     * `takeQuickAction` (its handler is set just before), the newest action
+     * is kept for that call; afterwards each one is sent as `quickAction`
+     * and not kept.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val quick = quickOf(intent) ?: return
-        pendingQuick = quick
-        channel?.invokeMethod(
-            "quickAction",
-            quick,
-            object : MethodChannel.Result {
-                override fun success(result: Any?) {
-                    // Taken: takeQuickAction must not give it again.
-                    if (pendingQuick == quick) pendingQuick = null
-                }
-
-                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
-
-                override fun notImplemented() {}
-            },
-        )
+        val methods = channel
+        if (dartTakes && methods != null) {
+            methods.invokeMethod("quickAction", quick)
+        } else {
+            pendingQuick = quick
+        }
     }
 
     /** Asks once for the calendar, where the ledger's due dates go. */
@@ -229,7 +253,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        quickOf(intent)?.let { pendingQuick = it }
+        // A new engine runs Dart afresh, which takes the action once more.
+        dartTakes = false
+        // A restored activity's intent is the one already acted on.
+        val opening = quickOf(intent)
+        if (!restored) opening?.let { pendingQuick = it }
         val methods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         channel = methods
         methods
@@ -238,6 +266,7 @@ class MainActivity : FlutterFragmentActivity() {
                     "takeQuickAction" -> {
                         result.success(pendingQuick)
                         pendingQuick = null
+                        dartTakes = true
                     }
                     "notificationAccess" -> {
                         if (Reminders.allowed(this)) {

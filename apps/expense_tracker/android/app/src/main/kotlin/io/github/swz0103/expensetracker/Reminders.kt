@@ -15,11 +15,23 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Calendar
 
 /**
  * The app's notifications (lib/src/notifications.dart): each alert is an
  * alarm that posts it when due. The alerts are kept in preferences, so a
  * restart of the phone schedules them again.
+ *
+ * Each alert is due at a time on the wall clock (a date, hour and minute),
+ * not at a fixed instant: after the time zone or the clock changes, the
+ * alarms are worked out again from the clock, so 9:00 stays 9:00 where the
+ * phone now is. The alarms are inexact (setAndAllowWhileIdle): Android may
+ * post one some minutes late while the phone sleeps (Doze).
+ *
+ * What is kept is what the notification shows (its title and text, which
+ * can name an amount) and which screen tapping it opens. The preferences
+ * stay on the phone: they are not in the cloud backup or a device
+ * transfer (res/xml/data_extraction_rules.xml only includes files).
  */
 object Reminders {
     private const val CHANNEL = "reminders"
@@ -29,18 +41,28 @@ object Reminders {
     const val EXTRA_TEXT = "text"
     const val EXTRA_ID = "id"
 
+    /** An alert's wall-clock time: year, month (1-12), day, hour, minute. */
+    private val CLOCK_FIELDS = listOf("y", "m", "d", "hour", "minute")
+
     /** Replaces every alert still to come with [alerts]. */
     fun replace(context: Context, alerts: List<Map<String, Any?>>) {
         val kept = JSONArray()
         for (alert in alerts) {
             val at = (alert["at"] as? Number)?.toLong() ?: continue
-            kept.put(
-                JSONObject()
-                    .put("at", at)
-                    .put("title", alert["title"] as? String ?: "")
-                    .put("text", alert["text"] as? String ?: "")
-                    .put("quick", alert["quick"] as? String ?: ""),
-            )
+            val entry = JSONObject()
+                .put("at", at)
+                .put("title", alert["title"] as? String ?: "")
+                .put("text", alert["text"] as? String ?: "")
+                .put("quick", alert["quick"] as? String ?: "")
+            // The wall-clock time, when the app sends it (it always does
+            // now); without it the alert keeps its instant [at].
+            val clock = CLOCK_FIELDS.mapNotNull { name ->
+                (alert[name] as? Number)?.toInt()?.let { name to it }
+            }
+            if (clock.size == CLOCK_FIELDS.size) {
+                for ((name, value) in clock) entry.put(name, value)
+            }
+            kept.put(entry)
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val before = JSONArray(prefs.getString(KEY, "[]"))
@@ -49,7 +71,30 @@ object Reminders {
         scheduleKept(context)
     }
 
-    /** Sets an alarm for each kept alert still to come. */
+    /**
+     * When [alert] is due, in milliseconds: its wall-clock time in the
+     * phone's time zone now, or the instant it was given when it carries
+     * no wall-clock time (alerts kept by an older version).
+     */
+    private fun dueAt(alert: JSONObject): Long {
+        if (!alert.has("y")) return alert.getLong("at")
+        return Calendar.getInstance().apply {
+            clear()
+            set(
+                alert.getInt("y"),
+                alert.getInt("m") - 1,
+                alert.getInt("d"),
+                alert.getInt("hour"),
+                alert.getInt("minute"),
+            )
+        }.timeInMillis
+    }
+
+    /**
+     * Sets an alarm for each kept alert still to come, at its time on the
+     * clock now; one whose time has passed (after the clock moved ahead)
+     * loses its alarm.
+     */
     fun scheduleKept(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val kept = JSONArray(prefs.getString(KEY, "[]"))
@@ -57,8 +102,12 @@ object Reminders {
         val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         for (i in 0 until kept.length()) {
             val alert = kept.getJSONObject(i)
-            val at = alert.getLong("at")
-            if (at <= now) continue
+            val at = dueAt(alert)
+            if (at <= now) {
+                cancel(context, i)
+                continue
+            }
+            // The same request code replaces an alarm set before.
             alarms.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 at,
@@ -147,8 +196,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
 /**
  * Sets the alarms again after the phone restarts or the app updates, and
- * when the clock or time zone changes, so each alert still comes at its
- * time.
+ * when the clock or time zone changes: each alert's time is worked out
+ * again from its wall-clock time, in the time zone the phone is in now.
  */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
