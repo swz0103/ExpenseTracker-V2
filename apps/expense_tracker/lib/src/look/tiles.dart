@@ -60,8 +60,10 @@ class SoftPanel extends StatelessWidget {
   final VoidCallback? onTap;
 
   /// Whether the panel stands off the paper on [Hue.cardShadow]. When not
-  /// given, a white card does ([Hue.mist], which [Hue.white] and
-  /// [Hue.panel] are the same colour as) and a tinted block does not.
+  /// given, a white card does and a tinted block does not: [Hue.white],
+  /// and [Hue.mist] and [Hue.panel], which are the same object, are
+  /// told apart from other colours by identity, not by what their values
+  /// happen to be.
   final bool? lifted;
 
   @override
@@ -70,7 +72,9 @@ class SoftPanel extends StatelessWidget {
     final panel = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        boxShadow: (lifted ?? color == Hue.mist) ? Hue.cardShadow : null,
+        boxShadow: (lifted ?? identical(color, Hue.white))
+            ? Hue.cardShadow
+            : null,
       ),
       child: Material(
         color: color,
@@ -229,11 +233,7 @@ class Tile extends StatelessWidget {
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Hue.accent,
-                        ),
+                        style: accentLabel,
                       ),
                     ),
                     ?trailing,

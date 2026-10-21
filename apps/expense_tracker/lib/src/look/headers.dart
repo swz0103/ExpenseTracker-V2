@@ -97,6 +97,7 @@ class StepSwitch extends StatelessWidget {
     this.onPrevious,
     this.onNext,
     this.onLabelTap,
+    this.labelHint = '選擇範圍',
     this.style = const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
     this.iconSize = 18,
     this.expand = false,
@@ -113,6 +114,10 @@ class StepSwitch extends StatelessWidget {
   /// What a tap on the words does, such as choosing a range; none leaves
   /// them as words.
   final VoidCallback? onLabelTap;
+
+  /// What a tap on the words does, as a screen reader says it after them,
+  /// such as 選擇期間; read only with [onLabelTap].
+  final String labelHint;
   final TextStyle style;
   final double iconSize;
 
@@ -125,14 +130,19 @@ class StepSwitch extends StatelessWidget {
     final tap = onLabelTap;
     Widget words = Text(label, textAlign: TextAlign.center, style: style);
     if (tap != null) {
-      words = InkWell(
-        onTap: tap,
-        borderRadius: BorderRadius.circular(8),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            child: Center(widthFactor: 1, heightFactor: 1, child: words),
+      // A button to a screen reader, saying what it opens.
+      words = Semantics(
+        button: true,
+        hint: labelHint,
+        child: InkWell(
+          onTap: tap,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Center(widthFactor: 1, heightFactor: 1, child: words),
+            ),
           ),
         ),
       );

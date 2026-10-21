@@ -23,6 +23,36 @@ class FlowSection extends StatefulWidget {
 class _FlowSectionState extends State<FlowSection> {
   int? _flowMonth;
 
+  /// The six months last worked out, and what they were worked out from:
+  /// the ledger and its revision, the page's month and today. Hiding the amounts
+  /// or a tap on a month keeps them, so they are not worked out again and
+  /// the chart keeps its paint.
+  List<FlowMonth>? _months;
+  (Ledger, int, (int, int), DateTime)? _monthsKey;
+
+  List<FlowMonth> _sixMonths(Ledger ledger, DateTime today) {
+    final key = (ledger, ledger.revision, widget.month, today);
+    final kept = _months;
+    if (kept != null && key == _monthsKey) return kept;
+    final (year, month) = widget.month;
+    final months = <FlowMonth>[];
+    for (var back = 5; back >= 0; back--) {
+      final first = DateTime.utc(year, month - back);
+      final end = DateTime.utc(first.year, first.month + 1, 0);
+      final until = end.isAfter(today) ? today : end;
+      months.add(
+        FlowMonth(
+          '${first.month}月',
+          ledger.income(first.year, first.month),
+          ledger.expense(first.year, first.month),
+          ledger.netWorthAt(until),
+        ),
+      );
+    }
+    _monthsKey = key;
+    return _months = List.unmodifiable(months);
+  }
+
   @override
   void didUpdateWidget(FlowSection old) {
     super.didUpdateWidget(old);
@@ -45,20 +75,7 @@ class _FlowSectionState extends State<FlowSection> {
     final ledger = widget.ledger;
     final (year, month) = widget.month;
     final today = ledger.today;
-    final months = <FlowMonth>[];
-    for (var back = 5; back >= 0; back--) {
-      final first = DateTime.utc(year, month - back);
-      final end = DateTime.utc(first.year, first.month + 1, 0);
-      final until = end.isAfter(today) ? today : end;
-      months.add(
-        FlowMonth(
-          '${first.month}月',
-          ledger.income(first.year, first.month),
-          ledger.expense(first.year, first.month),
-          ledger.netWorthAt(until),
-        ),
-      );
-    }
+    final months = _sixMonths(ledger, today);
     final picked = (_flowMonth ?? months.length - 1).clamp(0, 5);
     final shown = months[picked];
     final shownMonth = DateTime.utc(year, month - 5 + picked);
@@ -120,6 +137,7 @@ class _FlowSectionState extends State<FlowSection> {
           months: months,
           selected: picked,
           onSelect: (index) => setState(() => _flowMonth = index),
+          hidden: ledger.hidden,
         ),
       ),
     ];

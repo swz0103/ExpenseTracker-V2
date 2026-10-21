@@ -776,6 +776,8 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
+import 'theme.dart';
+
 /// The app's own icons, drawn on a 24-unit grid: a soft tinted body, one
 /// stroke weight and solid dots, so they read as one set. Painted on the
 /// canvas, never loaded as images.
@@ -805,7 +807,7 @@ class GlyphIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = color ?? IconTheme.of(context).color ?? const Color(0xFF344638);
+    final ink = color ?? IconTheme.of(context).color ?? Hue.ink;
     // Like Icon, keep the drawn size when the parent asks for more room.
     return Center(
       widthFactor: 1,

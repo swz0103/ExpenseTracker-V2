@@ -272,7 +272,7 @@ class _BottomBar extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Hue.panel,
-        border: Border(top: BorderSide(color: Hue.line)),
+        border: Border(top: rowRule),
       ),
       child: SafeArea(
         top: false,

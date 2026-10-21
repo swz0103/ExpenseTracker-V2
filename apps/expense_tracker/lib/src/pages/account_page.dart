@@ -123,6 +123,7 @@ class _AccountPageState extends State<AccountPage> {
                     selected: _week,
                     onSelect: (week) => setState(() => _week = week),
                     currency: code,
+                    hidden: ledger.hidden,
                   ),
                   const SectionHead('本月紀錄'),
                   if (entries.isEmpty)

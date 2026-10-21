@@ -27,12 +27,16 @@ class FlowChart extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.height = 170,
+    this.hidden = false,
   });
 
   final List<FlowMonth> months;
   final int selected;
   final ValueChanged<int> onSelect;
   final double height;
+
+  /// Whether amounts are hidden: the axes show dots for their figures.
+  final bool hidden;
 
   static const _left = 34.0;
   static const _right = 44.0;
@@ -63,7 +67,7 @@ class FlowChart extends StatelessWidget {
                 curve: Curves.easeOutCubic,
                 builder: (context, grow, _) => CustomPaint(
                   size: Size.infinite,
-                  painter: _FlowPainter(months, selected, grow),
+                  painter: _FlowPainter(months, selected, grow, hidden),
                 ),
               ),
             );
@@ -75,11 +79,12 @@ class FlowChart extends StatelessWidget {
 }
 
 class _FlowPainter extends CustomPainter {
-  _FlowPainter(this.months, this.selected, this.grow);
+  _FlowPainter(this.months, this.selected, this.grow, this.hidden);
 
   final List<FlowMonth> months;
   final int selected;
   final double grow;
+  final bool hidden;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -121,7 +126,11 @@ class _FlowPainter extends CustomPainter {
       }
       paintText(
         canvas,
-        step == 0 ? '0' : '${tenThousands(value)}萬',
+        step == 0
+            ? '0'
+            : hidden
+            ? '••'
+            : '${tenThousands(value)}萬',
         axis,
         Offset(left - 6, yy),
         anchor: const Offset(1, 0.5),
@@ -129,7 +138,7 @@ class _FlowPainter extends CustomPainter {
       final worth = floor + span * step / 2;
       paintText(
         canvas,
-        '${(worth / 10000).toStringAsFixed(1)}萬',
+        hidden ? '••' : '${(worth / 10000).toStringAsFixed(1)}萬',
         axis.copyWith(color: Hue.investment),
         Offset(left + plot + 6, y(value)),
         anchor: const Offset(0, 0.5),
@@ -212,7 +221,10 @@ class _FlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FlowPainter old) =>
-      old.selected != selected || old.grow != grow || old.months != months;
+      old.selected != selected ||
+      old.grow != grow ||
+      old.months != months ||
+      old.hidden != hidden;
 }
 
 void _dotted(Canvas canvas, Offset from, Offset to, Paint paint) {

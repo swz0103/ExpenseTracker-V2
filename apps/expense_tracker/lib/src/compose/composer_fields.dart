@@ -120,7 +120,10 @@ extension _Fields on _ComposerState {
                   child: _AccountEnd(
                     label: '從',
                     account: from,
-                    balance: _ledger.balance(from.id),
+                    balance: _ledger.moneyIn(
+                      _ledger.balance(from.id),
+                      from.currency,
+                    ),
                     onTap: () async {
                       final picked = await _pickAccount('轉出帳戶', _account);
                       if (picked == null) return;
@@ -136,7 +139,10 @@ extension _Fields on _ComposerState {
                   child: _AccountEnd(
                     label: '到',
                     account: to,
-                    balance: _ledger.balance(to.id),
+                    balance: _ledger.moneyIn(
+                      _ledger.balance(to.id),
+                      to.currency,
+                    ),
                     end: true,
                     onTap: () async {
                       final picked = await _pickAccount('轉入帳戶', _to);
@@ -174,61 +180,6 @@ extension _Fields on _ComposerState {
       case ComposeMode.investment:
         return _investmentFields();
     }
-  }
-
-  /// 代墊 under 支出 (paid for someone) or 對方還錢 under 收入. Each
-  /// person has an account of their own that keeps what they owe.
-  List<Widget> _lendFields() {
-    final person = _to.isEmpty ? null : _ledger.account(_to);
-    final owed = person == null ? 0 : _ledger.balance(person.id);
-    return [
-      _categories(!_back),
-      TileRow([
-        Tile(
-          icon: Glyph.heart,
-          label: _back ? '誰還錢' : '幫誰付',
-          value: person?.name ?? '新增對象',
-          valueColor: person == null ? Hue.accent : Hue.ink,
-          sub: person == null || owed == 0 ? null : '目前欠 ${groupDigits(owed)}',
-          size: 15,
-          onTap: _pickPerson,
-        ),
-      ]),
-      TileRow([_accountTile(_back ? '收款帳戶' : '付款帳戶'), _dateTile()]),
-      _extras(false),
-    ];
-  }
-
-  /// Picks whom the money is for, or adds a new person.
-  Future<void> _pickPerson() async {
-    const adding = '';
-    final picked = _people.isEmpty
-        ? adding
-        : await pickOption<String>(
-            context,
-            title: '代墊對象',
-            selected: _to,
-            columns: 3,
-            options: [
-              ...accountOptions(_ledger, among: _people),
-              const Option(adding, '新增對象', Glyph.add, Hue.accent),
-            ],
-          );
-    if (picked == null || !mounted) return;
-    if (picked != adding) {
-      _set(() => _to = picked);
-      return;
-    }
-    final name = await askText(context, '代墊對象的名字');
-    if (name == null || name.trim().isEmpty || !mounted) return;
-    final account = Account(
-      _ledger.newId(),
-      name.trim(),
-      AccountKind.receivable,
-      0,
-    );
-    _ledger.addAccount(account);
-    _set(() => _to = account.id);
   }
 
   /// What a transfer between currencies delivers, at today's rates until
@@ -276,11 +227,7 @@ extension _Fields on _ComposerState {
               const SizedBox(width: 8),
               Text(
                 parts == null ? '分類' : '分類 · 拆成 ${parts.length} 筆',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Hue.accent,
-                ),
+                style: accentLabel,
               ),
               const Spacer(),
               if (parts != null && !_viewing) ...[
@@ -351,28 +298,6 @@ extension _Fields on _ComposerState {
           ],
         ],
       ),
-    );
-  }
-
-  /// A trade's fee or tax: what the broker charged, typed in, or the
-  /// suggestion until then.
-  Widget _chargeTile(
-    String label,
-    int value,
-    int suggested,
-    void Function(int value) keep,
-  ) {
-    return Tile(
-      icon: Glyph.coins,
-      label: label,
-      value: groupDigits(value),
-      valueColor: value > 0 ? Hue.negative : Hue.ink,
-      size: 15,
-      sub: value == suggested ? '依費率試算，點此修改' : '試算 ${groupDigits(suggested)}',
-      onTap: () async {
-        final typed = await _ask(label, value);
-        if (typed != null) _set(() => keep(typed));
-      },
     );
   }
 
@@ -483,11 +408,7 @@ extension _Fields on _ComposerState {
           const SizedBox(width: 8),
           const Text(
             '收據',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Hue.accent,
-            ),
+            style: accentLabel,
           ),
           const Spacer(),
           if (receipt == null) ...[
@@ -495,7 +416,8 @@ extension _Fields on _ComposerState {
             const SizedBox(width: 6),
             _Chip('從相簿', () => unawaited(take(camera: false))),
           ] else ...[
-            GestureDetector(
+            TapArea(
+              label: '查看收據',
               onTap: () => unawaited(_showReceipt(photos.image(receipt))),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -554,7 +476,8 @@ extension _Fields on _ComposerState {
               children: [
                 for (final tag in _tags) _TagChip('#$tag', solid: true),
                 if (!_viewing)
-                  GestureDetector(
+                  TapArea(
+                    label: '新增標籤',
                     onTap: _pickTags,
                     child: const _TagChip('＋ 標籤', solid: false),
                   ),
@@ -564,182 +487,5 @@ extension _Fields on _ComposerState {
         ],
       ),
     );
-  }
-
-  List<Widget> _investmentFields() {
-    final code = _holding;
-    final held = code == null ? null : _ledger.holding(code);
-    final (fee, tax) = _charges;
-    final suggested = _suggested;
-    final sell = _trade == EntryType.sell;
-    final cost = sell && code != null && held != null && _shares <= held.shares
-        ? _ledger.saleCost(code, _shares, average: _average)
-        : null;
-    final settled = settlementDay(_date);
-    return [
-      Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Tile(
-          icon: Glyph.investment,
-          label: '標的',
-          value: code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
-          size: 15,
-          sub: held == null ? null : '持有 ${groupDigits(held.shares)} 股',
-          trailing: _viewing
-              ? null
-              : GestureDetector(
-                  onTap: _newHolding,
-                  child: const GlyphIcon(Glyph.add, size: 18),
-                ),
-          onTap: _pickHolding,
-        ),
-      ),
-      if (_trading)
-        TileRow([
-          Tile(
-            icon: Glyph.briefcase,
-            label: '股數',
-            value: groupDigits(_shares),
-            onTap: () async {
-              final value = await _ask('股數', _shares, unit: '股');
-              if (value == null) return;
-              _set(() {
-                _shares = value;
-                _amount = (_shares * _price).round();
-              });
-            },
-          ),
-          Tile(
-            icon: Glyph.coins,
-            label: '成交價',
-            value: _price == _price.roundToDouble()
-                ? '${_price.round()}'
-                : _price.toStringAsFixed(2),
-            onTap: () async {
-              final value = await showPriceCalculator(
-                context,
-                title: '成交價',
-                initial: _price,
-                color: _color,
-              );
-              if (value == null) return;
-              _set(() {
-                _price = value;
-                _amount = (_shares * _price).round();
-              });
-            },
-          ),
-        ]),
-      if (_trade == EntryType.dividend && !_shareChange && !_viewing)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SmallLink(
-              '＋ 配股、分割或減資',
-              () => _set(() => _shareChange = true),
-              inset: 6,
-            ),
-          ),
-        ),
-      if (_trade == EntryType.dividend) ...[
-        if (_shareChange)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Tile(
-              icon: Glyph.briefcase,
-              label: _reducing
-                  ? '減資減少股數'
-                  : _splitShares
-                  ? '分割增加股數'
-                  : '配股股數',
-              value: groupDigits(_shares),
-              size: 15,
-              onTap: () async {
-                final value = await _ask(
-                  _reduce ? '減少股數' : '增加股數',
-                  _shares,
-                  unit: '股',
-                );
-                if (value != null) _set(() => _shares = value);
-              },
-            ),
-          ),
-        // The premium only applies from NT$20,000 a payment; below that
-        // there is nothing to show unless one was typed.
-        if (_amount > 0 && !_reducing && (_withheld > 0 || _premium != null))
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Tile(
-              icon: Glyph.coins,
-              label: '二代健保補充保費',
-              value: groupDigits(_withheld),
-              valueColor: _withheld > 0 ? Hue.negative : Hue.ink,
-              size: 15,
-              sub: '實收 ${groupDigits(_amount - _withheld)}',
-              onTap: () async {
-                final value = await _ask('二代健保補充保費', _withheld);
-                if (value != null) _set(() => _premium = value);
-              },
-            ),
-          ),
-        if (_shares > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Segments(
-              labels: const ['配股', '分割', '減資'],
-              selected: _reduce
-                  ? 2
-                  : _splitShares
-                  ? 1
-                  : 0,
-              onChanged: (i) => _set(() {
-                _splitShares = i == 1;
-                _reduce = i == 2;
-              }),
-            ),
-          ),
-      ],
-      TileRow([
-        _accountTile(_trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
-        _dateTile(),
-      ]),
-      if (_trading && sell && !_viewing)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Segments(
-            labels: const ['先進先出', '平均成本'],
-            selected: _average ? 1 : 0,
-            onChanged: (i) => _set(() => _average = i == 1),
-          ),
-        ),
-      if (_trading && _amount > 0)
-        TileRow([
-          _chargeTile('手續費', fee, suggested.$1, (v) => _tradeFee = v),
-          if (sell) _chargeTile('證交稅', tax, suggested.$2, (v) => _tradeTax = v),
-        ]),
-      if (_trading && _amount > 0)
-        FormBlock(
-          child: Column(
-            children: [
-              _Line(
-                sell ? '實收' : '應付',
-                groupDigits(sell ? _amount - fee - tax : _amount + fee),
-                strong: true,
-              ),
-              if (cost != null)
-                _Line(
-                  '已實現損益',
-                  signed(_amount - fee - tax - cost),
-                  color: _amount - fee - tax < cost
-                      ? Hue.negative
-                      : Hue.positive,
-                ),
-              _Line('交割日', '${settled.month}/${settled.day}'),
-            ],
-          ),
-        ),
-      _noteField(),
-    ];
   }
 }

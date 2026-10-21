@@ -225,13 +225,13 @@ class _FilterSheetState extends State<_FilterSheet> {
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 0,
               children: [
                 for (final option in KindFilter.values)
-                  ChoiceChip(
-                    label: Text(option.label),
+                  ChoicePill(
+                    label: option.label,
                     selected: option == _kind,
-                    onSelected: (_) => setState(() => _kind = option),
+                    onTap: () => setState(() => _kind = option),
                   ),
               ],
             ),
@@ -240,19 +240,17 @@ class _FilterSheetState extends State<_FilterSheet> {
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 0,
               children: [
-                ChoiceChip(
-                  label: const Text('依月份'),
+                ChoicePill(
+                  label: '依月份',
                   selected: range == null,
-                  onSelected: (_) => setState(() => _range = null),
+                  onTap: () => setState(() => _range = null),
                 ),
-                ChoiceChip(
-                  label: Text(
-                    range == null ? '自訂區間' : LedgerFilter.rangeLabel(range),
-                  ),
+                ChoicePill(
+                  label: range == null ? '自訂區間' : LedgerFilter.rangeLabel(range),
                   selected: range != null,
-                  onSelected: (_) => _pickRange(),
+                  onTap: () => _pickRange(),
                 ),
               ],
             ),
@@ -274,18 +272,18 @@ class _FilterSheetState extends State<_FilterSheet> {
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 0,
               children: [
-                ChoiceChip(
-                  label: const Text('全部帳戶'),
+                ChoicePill(
+                  label: '全部帳戶',
                   selected: _account == null,
-                  onSelected: (_) => setState(() => _account = null),
+                  onTap: () => setState(() => _account = null),
                 ),
                 for (final a in ledger.accounts)
-                  ChoiceChip(
-                    label: Text(a.name),
+                  ChoicePill(
+                    label: a.name,
                     selected: _account == a.id,
-                    onSelected: (_) => setState(() => _account = a.id),
+                    onTap: () => setState(() => _account = a.id),
                   ),
               ],
             ),
@@ -294,19 +292,19 @@ class _FilterSheetState extends State<_FilterSheet> {
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 0,
               children: [
-                ChoiceChip(
-                  label: const Text('全部分類'),
+                ChoicePill(
+                  label: '全部分類',
                   selected: _category == null,
-                  onSelected: (_) => setState(() => _category = null),
+                  onTap: () => setState(() => _category = null),
                 ),
                 for (final c in ledger.categories)
                   if (!c.archived && c.parent == null)
-                    ChoiceChip(
-                      label: Text(c.name),
+                    ChoicePill(
+                      label: c.name,
                       selected: _category == c.name,
-                      onSelected: (_) => setState(() => _category = c.name),
+                      onTap: () => setState(() => _category = c.name),
                     ),
               ],
             ),
