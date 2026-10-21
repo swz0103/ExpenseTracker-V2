@@ -22,7 +22,9 @@ extension _InvestmentFields on _ComposerState {
           label: '標的',
           value: code == null ? '選擇標的' : '$code ${held?.name ?? ''}',
           size: 15,
-          sub: held == null ? null : '持有 ${_ledger.orDots(groupDigits(held.shares))} 股',
+          sub: held == null
+              ? null
+              : '持有 ${_ledger.orDots(groupDigits(held.shares))} 股',
           trailing: _viewing
               ? null
               : TapArea(

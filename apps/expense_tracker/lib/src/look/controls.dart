@@ -244,10 +244,7 @@ class SmallLink extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: inset),
-        child: Text(
-          label,
-          style: accentSmall,
-        ),
+        child: Text(label, style: accentSmall),
       ),
     );
   }

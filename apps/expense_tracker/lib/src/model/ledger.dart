@@ -212,6 +212,7 @@ final class Ledger extends ChangeNotifier {
   Map<String, Account>? _accountIndex;
   Map<String, Entry>? _idIndex;
   Map<String, int>? _refundIndex;
+
   /// Sums worked out since the last change, by what was asked: such as
   /// a card's statement on a given day.
   final _memo = <Object, Object?>{};
@@ -566,14 +567,11 @@ final class Ledger extends ChangeNotifier {
     ];
     if (removed.isEmpty) return const [];
     _entries.removeWhere((e) => wanted.contains(e.id));
-    if (!_tryReplay(
-      () {
-        for (final (i, e) in removed) {
-          _entries.insert(i, e);
-        }
-      },
-      trades: removed.any((r) => r.$2.isInvestment),
-    )) {
+    if (!_tryReplay(() {
+      for (final (i, e) in removed) {
+        _entries.insert(i, e);
+      }
+    }, trades: removed.any((r) => r.$2.isInvestment))) {
       return const [];
     }
     final trashed = [for (final (_, e) in removed) Trashed(e, today)];
@@ -1045,11 +1043,7 @@ final class Ledger extends ChangeNotifier {
   /// [lenient], as for a book just loaded, is left out of the holdings.
   void _replay({bool lenient = false}) {
     _touch();
-    _portfolio = Portfolio.replay(
-      _startHoldings,
-      _entries,
-      lenient: lenient,
-    );
+    _portfolio = Portfolio.replay(_startHoldings, _entries, lenient: lenient);
   }
 }
 

@@ -16,7 +16,9 @@ extension _LendFields on _ComposerState {
           label: _back ? '誰還錢' : '幫誰付',
           value: person?.name ?? '新增對象',
           valueColor: person == null ? Hue.accent : Hue.ink,
-          sub: person == null || owed == 0 ? null : '目前欠 ${_ledger.money(owed)}',
+          sub: person == null || owed == 0
+              ? null
+              : '目前欠 ${_ledger.money(owed)}',
           size: 15,
           onTap: _pickPerson,
         ),

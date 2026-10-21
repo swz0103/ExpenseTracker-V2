@@ -56,86 +56,86 @@ final class Portfolio {
             change: 0,
           );
       try {
-      switch (e.type) {
-        case EntryType.buy:
-          final cost = e.amount + e.fee;
-          lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
-          byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            cost: held.cost + cost,
-          );
-        case EntryType.sell:
-          final (part, rest) = _take(
-            lots[code] ?? const [],
-            e.shares,
-            average: e.average,
-          );
-          lots[code] = rest;
-          byCode[code] = held.copyWith(
-            shares: held.shares - e.shares,
-            cost: held.cost - part,
-            realized: held.realized + e.amount - e.fee - e.tax - part,
-          );
-        case EntryType.dividend when e.isReduction:
-          // A reduction takes away shares that must be there.
-          if (-e.shares > held.shares) {
-            throw StateError('減少的股數超過持有股數');
-          }
-          final left = held.shares + e.shares;
-          final int lowered;
-          var dropped = 0;
-          if (left == 0) {
-            lots[code] = const [];
-            lowered = min(e.amount, held.cost);
-          } else {
+        switch (e.type) {
+          case EntryType.buy:
+            final cost = e.amount + e.fee;
+            lots[code] = [...?lots[code], Lot(e.date, e.shares, cost)];
+            byCode[code] = held.copyWith(
+              shares: held.shares + e.shares,
+              cost: held.cost + cost,
+            );
+          case EntryType.sell:
+            final (part, rest) = _take(
+              lots[code] ?? const [],
+              e.shares,
+              average: e.average,
+            );
+            lots[code] = rest;
+            byCode[code] = held.copyWith(
+              shares: held.shares - e.shares,
+              cost: held.cost - part,
+              realized: held.realized + e.amount - e.fee - e.tax - part,
+            );
+          case EntryType.dividend when e.isReduction:
+            // A reduction takes away shares that must be there.
+            if (-e.shares > held.shares) {
+              throw StateError('減少的股數超過持有股數');
+            }
+            final left = held.shares + e.shares;
+            final int lowered;
+            var dropped = 0;
+            if (left == 0) {
+              lots[code] = const [];
+              lowered = min(e.amount, held.cost);
+            } else {
+              final (after, change) = _reratio(
+                lots[code] ?? const [],
+                left,
+                held.shares,
+                capitalReturned: e.amount,
+              );
+              lots[code] = after;
+              lowered = change.basisLowered.toInt();
+              dropped = change.droppedCost.toInt();
+            }
+            final worth = max(0.0, held.price * held.shares - e.amount);
+            byCode[code] = held.copyWith(
+              shares: left,
+              cost: held.cost - lowered - dropped,
+              price: left == 0 ? held.price : worth / left,
+              realized: held.realized + e.amount - lowered - dropped,
+            );
+          case EntryType.dividend when e.shares > 0 && held.shares > 0:
+            // A split or a stock dividend: every lot grows, keeping its
+            // cost and its date.
+            final total = held.shares + e.shares;
             final (after, change) = _reratio(
               lots[code] ?? const [],
-              left,
+              total,
               held.shares,
-              capitalReturned: e.amount,
+              wholeShares: !e.split,
             );
             lots[code] = after;
-            lowered = change.basisLowered.toInt();
-            dropped = change.droppedCost.toInt();
-          }
-          final worth = max(0.0, held.price * held.shares - e.amount);
-          byCode[code] = held.copyWith(
-            shares: left,
-            cost: held.cost - lowered - dropped,
-            price: left == 0 ? held.price : worth / left,
-            realized: held.realized + e.amount - lowered - dropped,
-          );
-        case EntryType.dividend when e.shares > 0 && held.shares > 0:
-          // A split or a stock dividend: every lot grows, keeping its
-          // cost and its date.
-          final total = held.shares + e.shares;
-          final (after, change) = _reratio(
-            lots[code] ?? const [],
-            total,
-            held.shares,
-            wholeShares: !e.split,
-          );
-          lots[code] = after;
-          final dropped = change.droppedCost.toInt();
-          byCode[code] = held.copyWith(
-            shares: total,
-            cost: held.cost - dropped,
-            price: e.split ? held.price * held.shares / total : held.price,
-            realized: held.realized - dropped,
-            dividends: held.dividends + e.dividendNet,
-          );
-        case EntryType.dividend:
-          // Shares given with nothing held start a lot of their own.
-          if (e.shares > 0) {
-            lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
-          }
-          byCode[code] = held.copyWith(
-            shares: held.shares + e.shares,
-            dividends: held.dividends + e.dividendNet,
-          );
-        default:
-          break;
-      }
+            final dropped = change.droppedCost.toInt();
+            byCode[code] = held.copyWith(
+              shares: total,
+              cost: held.cost - dropped,
+              price: e.split ? held.price * held.shares / total : held.price,
+              realized: held.realized - dropped,
+              dividends: held.dividends + e.dividendNet,
+            );
+          case EntryType.dividend:
+            // Shares given with nothing held start a lot of their own.
+            if (e.shares > 0) {
+              lots[code] = [...?lots[code], Lot(e.date, e.shares, 0)];
+            }
+            byCode[code] = held.copyWith(
+              shares: held.shares + e.shares,
+              dividends: held.dividends + e.dividendNet,
+            );
+          default:
+            break;
+        }
       } on StateError {
         if (!lenient) rethrow;
         continue;

@@ -248,7 +248,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                   onTap: () => setState(() => _range = null),
                 ),
                 ChoicePill(
-                  label: range == null ? '自訂區間' : LedgerFilter.rangeLabel(range),
+                  label: range == null
+                      ? '自訂區間'
+                      : LedgerFilter.rangeLabel(range),
                   selected: range != null,
                   onTap: () => _pickRange(),
                 ),

@@ -302,10 +302,7 @@ class _Chip extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            label,
-            style: accentLabel,
-          ),
+          child: Text(label, style: accentLabel),
         ),
       ),
     );

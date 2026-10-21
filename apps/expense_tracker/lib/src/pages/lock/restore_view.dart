@@ -72,11 +72,7 @@ class RestoreView extends StatelessWidget {
       onSubmit: onSubmit,
       problem: problem,
       extras: [
-        LockLink(
-          recovery ? '改用密碼' : '忘記密碼？用救援碼',
-          onToggleRecovery,
-          busy: busy,
-        ),
+        LockLink(recovery ? '改用密碼' : '忘記密碼？用救援碼', onToggleRecovery, busy: busy),
         if (back != null) LockLink('返回', back, busy: busy),
       ],
     );

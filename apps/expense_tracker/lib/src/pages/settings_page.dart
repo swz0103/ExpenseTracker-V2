@@ -67,7 +67,8 @@ class _SettingsPageState extends State<SettingsPage> {
           if (notifier != null) NotificationsSection(notifier: notifier),
           if (keeper != null || privacy != null)
             SecuritySection(keeper: keeper, privacy: privacy),
-          if (calendar != null) LinksSection(ledger: ledger, calendar: calendar),
+          if (calendar != null)
+            LinksSection(ledger: ledger, calendar: calendar),
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
             const SizedBox(height: 16),

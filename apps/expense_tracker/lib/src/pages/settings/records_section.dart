@@ -89,7 +89,8 @@ class _RecordsSectionState extends State<RecordsSection> {
             glyph: Glyph.add,
             title: '匯入 CSV',
             detail: '選檔案或貼上',
-            onTap: () => importInto(context, ledger, readFile: keeper?.readFile),
+            onTap: () =>
+                importInto(context, ledger, readFile: keeper?.readFile),
           ),
           MenuRow(
             glyph: Glyph.scan,

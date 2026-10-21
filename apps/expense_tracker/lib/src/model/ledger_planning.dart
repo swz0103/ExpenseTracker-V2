@@ -61,17 +61,21 @@ extension LedgerPlanning on Ledger {
   /// from last month, once the item has been booked before it, else this
   /// month's. Bookings count against a month's days in order, so one
   /// booked early still settles that day.
-  DateTime? pendingDate(Recurring item) => _remember(
-    ('pending', item.id, item.active, today),
-    () => _pendingDate(item),
-  );
+  DateTime? pendingDate(Recurring item) => _remember((
+    'pending',
+    item.id,
+    item.active,
+    today,
+  ), () => _pendingDate(item));
 
   DateTime? _pendingDate(Recurring item) {
     if (!item.active) return null;
     final last = DateTime.utc(today.year, today.month - 1);
     final missed = _unbooked(item, last.year, last.month);
     if (missed != null &&
-        _entries.any((e) => e.recurring == item.id && e.date.isBefore(missed))) {
+        _entries.any(
+          (e) => e.recurring == item.id && e.date.isBefore(missed),
+        )) {
       return missed;
     }
     return _unbooked(item, today.year, today.month);

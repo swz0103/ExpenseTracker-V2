@@ -127,10 +127,7 @@ class FormBlock extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  head,
-                  style: accentLabel,
-                ),
+                Text(head, style: accentLabel),
                 const SizedBox(height: 8),
                 child,
               ],

@@ -406,10 +406,7 @@ extension _Fields on _ComposerState {
         children: [
           const IconChip(Glyph.image),
           const SizedBox(width: 8),
-          const Text(
-            '收據',
-            style: accentLabel,
-          ),
+          const Text('收據', style: accentLabel),
           const Spacer(),
           if (receipt == null) ...[
             _Chip('拍照', () => unawaited(take(camera: true))),

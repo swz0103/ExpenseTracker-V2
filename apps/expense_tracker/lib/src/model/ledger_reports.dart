@@ -113,8 +113,7 @@ extension LedgerReports on Ledger {
       if (kept == null || e.date.isAfter(kept.date)) latest[e.merchant] = e;
     }
     return {
-      for (final MapEntry(:key, :value) in latest.entries)
-        key: value.category,
+      for (final MapEntry(:key, :value) in latest.entries) key: value.category,
     };
   })[merchant];
 
@@ -323,10 +322,12 @@ extension LedgerReports on Ledger {
   /// The change of [account] in each of the [weeks] calendar weeks
   /// ending with this one, oldest first, with each week's Monday.
   List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) =>
-      _remember(
-        ('weekly', account, weeks, today),
-        () => _weeklyChanges(account, weeks),
-      );
+      _remember((
+        'weekly',
+        account,
+        weeks,
+        today,
+      ), () => _weeklyChanges(account, weeks));
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
     final monday = today.subtract(Duration(days: today.weekday - 1));

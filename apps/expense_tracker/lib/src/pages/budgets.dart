@@ -327,10 +327,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             },
           ),
           const SizedBox(height: 12),
-          const Text(
-            '用到幾成時提醒',
-            style: mutedSmall,
-          ),
+          const Text('用到幾成時提醒', style: mutedSmall),
           const SizedBox(height: 6),
           Segments(
             labels: [for (final p in _shares) '$p%'],
