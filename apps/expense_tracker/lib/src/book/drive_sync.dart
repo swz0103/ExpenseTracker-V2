@@ -23,8 +23,7 @@ final class DriveSync extends ChangeNotifier {
 
   final DriveBackup _drive;
   final Preferences _preferences;
-  final Future<void> Function(Future<void> Function(File file) use)
-  _withBackup;
+  final Future<void> Function(Future<void> Function(File file) use) _withBackup;
   final int Function() _revision;
   final DateTime Function() _clock;
 

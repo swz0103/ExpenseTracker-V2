@@ -301,9 +301,9 @@ final class DriveBackup {
     final name = file.uri.pathSegments.last;
     final start = await _send(
       'POST',
-      Uri.parse(_upload).replace(
-        queryParameters: {'uploadType': 'resumable', 'fields': 'id'},
-      ),
+      Uri.parse(
+        _upload,
+      ).replace(queryParameters: {'uploadType': 'resumable', 'fields': 'id'}),
       interactive: interactive,
       headers: {
         'content-type': 'application/json; charset=utf-8',
@@ -338,18 +338,13 @@ final class DriveBackup {
   }
 
   /// Saves the backup [id] into [into].
-  Future<void> download(
-    String id,
-    File into, {
-    bool interactive = true,
-  }) async {
+  Future<void> download(String id, File into, {bool interactive = true}) async {
     await into.parent.create(recursive: true);
     try {
       await _send(
         'GET',
-        Uri.parse(
-          '$_api/${Uri.encodeComponent(id)}',
-        ).replace(queryParameters: {'alt': 'media'}),
+        Uri.parse('$_api/${Uri.encodeComponent(id)}')
+            .replace(queryParameters: {'alt': 'media'}),
         interactive: interactive,
         saveTo: into,
       );

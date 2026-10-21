@@ -45,8 +45,7 @@ final class _FakeDrive implements DriveHttp {
         });
       }
       final rows = [
-        for (final MapEntry(key: id, value: (name, bytes, at))
-            in files.entries)
+        for (final MapEntry(key: id, value: (name, bytes, at)) in files.entries)
           {
             'id': id,
             'name': name,
