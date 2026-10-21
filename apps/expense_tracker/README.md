@@ -12,7 +12,7 @@
 | 資料夾 | 內容 | 可以引用 |
 | --- | --- | --- |
 | `model/` | 畫面用的帳本 `Ledger`：資料型別、結帳週期、持股重播、報表、提醒。先即時套用改動，再交給 `Journal` 存檔。 | 只有 Dart 與 `domain` 的值 |
-| `book/` | `VaultJournal`：把 `Ledger` 的改動轉成 `domain` 指令寫進加密帳本，再讀回來。 | model、套件 |
+| `book/` | `TableJournal`：把 `Ledger` 的每個改動（`Batch`）以一筆一列 JSON 寫進加密帳本，開帳本時整本讀回。`VaultKeeper`：金鑰、密碼、救援碼、每週備份與匯出（匯出的檔案只暫放在 `exports/`，交出後就刪）。`leftovers.dart`：啟動時清掉上次沒刪到的暫存檔。 | model、套件 |
 | `look/`、`charts/` | 主題、圖示、共用元件、圖表。 | model |
 | `compose/` | 記一筆的表單與計算機。 | model、look |
 | `pages/` | 各頁面。 | 以上全部 |

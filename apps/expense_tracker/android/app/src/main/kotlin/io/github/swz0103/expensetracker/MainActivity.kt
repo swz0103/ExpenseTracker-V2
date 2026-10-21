@@ -1,6 +1,8 @@
 package io.github.swz0103.expensetracker
 
 import android.Manifest
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -135,11 +137,29 @@ class MainActivity : FlutterFragmentActivity() {
         return quick
     }
 
+    /**
+     * Kept for Dart to take (`takeQuickAction`), and also sent at once. Dart
+     * may not listen yet, as its handler is set after the engine starts:
+     * the action stays kept until Dart confirms it, so it is not lost.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val quick = quickOf(intent) ?: return
-        val open = channel
-        if (open == null) pendingQuick = quick else open.invokeMethod("quickAction", quick)
+        pendingQuick = quick
+        channel?.invokeMethod(
+            "quickAction",
+            quick,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    // Taken: takeQuickAction must not give it again.
+                    if (pendingQuick == quick) pendingQuick = null
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+
+                override fun notImplemented() {}
+            },
+        )
     }
 
     /** Asks once for the calendar, where the ledger's due dates go. */
@@ -154,7 +174,11 @@ class MainActivity : FlutterFragmentActivity() {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    /** Copies a backup to where the person chooses: Downloads, Drive, ... */
+    /**
+     * Copies a backup to where the person chooses: Downloads, Drive, ...
+     * Off the main thread, as a backup with photos can be large and the
+     * place a slow provider.
+     */
     private val createDocument =
         registerForActivityResult(
             ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -165,20 +189,23 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(false)
                 return@registerForActivityResult
             }
-            try {
-                val output = contentResolver.openOutputStream(uri)
-                if (output == null) {
-                    result.error("export", "The chosen place cannot be written.", null)
-                    return@registerForActivityResult
+            Thread {
+                try {
+                    val output = contentResolver.openOutputStream(uri)
+                        ?: throw IllegalStateException("The chosen place cannot be written.")
+                    output.use { File(source).inputStream().use { input -> input.copyTo(it) } }
+                    runOnUiThread { result.success(true) }
+                } catch (e: Exception) {
+                    runOnUiThread { result.error("export", e.message, null) }
                 }
-                output.use { File(source).inputStream().use { input -> input.copyTo(it) } }
-                result.success(true)
-            } catch (e: Exception) {
-                result.error("export", e.message, null)
-            }
+            }.start()
         }
 
-    /** Copies the chosen file into the cache, where the app can read it. */
+    /**
+     * Copies the chosen file into the cache, where the app can read it; the
+     * app deletes the copy once read (and at the next start, if it is
+     * left). Off the main thread.
+     */
     private val openDocument =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val result = pendingPick ?: return@registerForActivityResult
@@ -187,18 +214,17 @@ class MainActivity : FlutterFragmentActivity() {
                 result.success(null)
                 return@registerForActivityResult
             }
-            try {
-                val input = contentResolver.openInputStream(uri)
-                if (input == null) {
-                    result.error("pick", "The chosen file cannot be read.", null)
-                    return@registerForActivityResult
+            Thread {
+                try {
+                    val input = contentResolver.openInputStream(uri)
+                        ?: throw IllegalStateException("The chosen file cannot be read.")
+                    val copy = File(cacheDir, "restore.etbk")
+                    input.use { copy.outputStream().use { output -> it.copyTo(output) } }
+                    runOnUiThread { result.success(copy.absolutePath) }
+                } catch (e: Exception) {
+                    runOnUiThread { result.error("pick", e.message, null) }
                 }
-                val copy = File(cacheDir, "restore.etbk")
-                input.use { copy.outputStream().use { output -> it.copyTo(output) } }
-                result.success(copy.absolutePath)
-            } catch (e: Exception) {
-                result.error("pick", e.message, null)
-            }
+            }.start()
         }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -250,6 +276,7 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                     }
                     "filesDir" -> result.success(filesDir.absolutePath)
+                    "cacheDir" -> result.success(cacheDir.absolutePath)
                     "canUseBiometrics" -> result.success(
                         BiometricManager.from(this).canAuthenticate(BIOMETRIC_STRONG) ==
                             BiometricManager.BIOMETRIC_SUCCESS,
@@ -441,8 +468,28 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     companion object {
-        /** The intent extra of a shortcut, the widget or a notification. */
+        /**
+         * The intent extra of a shortcut (res/xml/shortcuts.xml), the widget
+         * or a notification.
+         */
         const val EXTRA_QUICK = "quick"
+
+        /**
+         * Opens the app, and the composer when [quick] names one (`expense`,
+         * `income`); [code] keeps each one's PendingIntent apart.
+         */
+        fun opening(context: Context, quick: String, code: Int): PendingIntent {
+            val intent = Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (quick.isNotEmpty()) intent.putExtra(EXTRA_QUICK, quick)
+            return PendingIntent.getActivity(
+                context,
+                code,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
         private const val CHANNEL = "expense_tracker/platform"
         private const val KEYSTORE = "AndroidKeyStore"
         private const val ALIAS = "ledger-device-key"

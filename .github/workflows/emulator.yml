@@ -4,11 +4,9 @@ name: Emulator timings
 # loading three years of entries takes and how smooth scrolling and
 # switching pages are (integration_test/bench_test.dart). An emulator is
 # not a phone: the figures are for spotting a slow-down between changes.
-# Too slow for every pull request: it runs nightly, on demand, and after a
-# change to main where speed is decided.
+# Too slow for every pull request: it runs on demand and after a change to
+# main where speed is decided.
 on:
-  schedule:
-    - cron: '23 2 * * *'
   push:
     branches: [main]
     # Where speed is decided: the model, the store and the bench itself.
@@ -48,10 +46,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Add the test packages
-        # Only here, so the app's lockfile stays without them.
+        # The only resolve outside the lockfile, on purpose: integration_test
+        # and flutter_driver come with the Flutter SDK and pin their own
+        # dependencies (vm_service, webdriver, ...) to it. Kept out of
+        # pubspec.yaml so the app's lockfile, which every other workflow
+        # enforces, does not carry them. The locked resolve comes first, so
+        # pub add only moves a version where the SDK's packages require it.
         working-directory: apps/expense_tracker
         run: |
           flutter config --no-analytics
+          flutter pub get --enforce-lockfile
           flutter pub add 'dev:integration_test:{"sdk":"flutter"}' \
             'dev:flutter_driver:{"sdk":"flutter"}'
       - name: Run on the emulator

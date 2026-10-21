@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
+import 'src/book/leftovers.dart';
 import 'src/bootstrap.dart';
 import 'src/perf.dart';
 import 'src/platform.dart';
@@ -24,6 +25,16 @@ Future<void> main() async {
     Perf.instance.problem('未預期的錯誤', error);
     return true;
   };
+  try {
+    // Plain copies a run stopped part way may have left: exports waiting to
+    // be handed over, camera photos, a chosen backup.
+    await clearLeftovers(
+      directory,
+      cache: Platform.isAndroid ? await androidCacheDirectory() : null,
+    );
+  } on Object catch (error) {
+    Perf.instance.problem('清除暫存檔', error);
+  }
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
       : null;

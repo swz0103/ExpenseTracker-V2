@@ -37,6 +37,9 @@ class _LockScreenState extends State<LockScreen> {
   var _busy = false;
   String? _problem;
 
+  /// The copy of the backup chosen with the file picker, in the cache.
+  String? _picked;
+
   bool get _creating =>
       widget.startup.state is NeedsSetup && !_restoring && _withPassword;
 
@@ -134,7 +137,23 @@ class _LockScreenState extends State<LockScreen> {
     _password.dispose();
     _again.dispose();
     _file.dispose();
+    _forgetPicked();
     super.dispose();
+  }
+
+  /// Deletes the copy of the chosen backup once it is not needed: after
+  /// it was restored, or when this screen goes. A failed restore keeps it
+  /// for another try; the next start deletes one left behind.
+  void _forgetPicked() {
+    final picked = _picked;
+    _picked = null;
+    if (picked == null) return;
+    try {
+      final file = File(picked);
+      if (file.existsSync()) file.deleteSync();
+    } on FileSystemException {
+      // Deleted at the next start.
+    }
   }
 
   Future<void> _submit() async {
@@ -155,6 +174,7 @@ class _LockScreenState extends State<LockScreen> {
           _recovery ? secret.trim() : secret,
           recovery: _recovery,
         );
+        _forgetPicked();
         return;
       }
       if (!_creating) {
@@ -184,6 +204,7 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _pickBackup() async {
     final path = await androidPickFile();
     if (path == null || !mounted) return;
+    _picked = path;
     setState(() => _file.text = path);
   }
 

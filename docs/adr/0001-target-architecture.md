@@ -5,7 +5,9 @@
 
 ## 背景
 
-2026-10-02 的健檢發現舊 App 約 79% 的程式碼在 `prototypes/`；跨筆規則分散在 SQL 與多個驗證器，已彼此矛盾；每次寫入都驗證整本帳，只好設 5,000 筆上限；24 個 schema 版本靠 21 個布林旗標串接。決定保留值物件、領域規則與備份加密，重建儲存、應用與 UI。舊 App 沒有資料要搬（使用者決## 決策
+2026-10-02 的健檢發現舊 App 約 79% 的程式碼在 `prototypes/`；跨筆規則分散在 SQL 與多個驗證器，已彼此矛盾；每次寫入都驗證整本帳，只好設 5,000 筆上限；24 個 schema 版本靠 21 個布林旗標串接。決定保留值物件、領域規則與備份加密，重建儲存、應用與 UI。舊 App 沒有資料要搬（使用者決定當成新 App），已整個移除。
+
+## 決策
 
 ### 1. 模組與依賴方向
 
@@ -44,10 +46,8 @@
 
 備份 v3 是全部資料的快照：分塊、gzip、AES-256-GCM，AAD 綁定標頭雜湊與塊的順序。還原時每一筆先用 App 的讀取器檢查，先寫暫存庫，完整性檢查後才換上。App 每週在手機留備份（帳本 `revision` 沒變就不備），Android 自動備份帶到新手機；匯出的備份附收據照片。
 
- 有別的理由要升版時再一起評估。
-
 ## 後果
 
-- 每個模組一份嚴格 lint、一個 lockfile；CI 依模組分成 architecture、domain、storage、flutter-host 四組。
+- 每個模組一份嚴格 lint、一個 lockfile；CI 分成兩組：純 Dart 模組（architecture_checks、core、domain、storage、vault、market）依序在同一個工作，App 在 flutter-host。
 - 新功能改 `Ledger` 與它的 `Batch`；需要的計算規則放進 domain 並由 `Ledger` 呼叫，不在畫面重寫。
 - 記錄格式改變時，讀取器要能讀舊格式（缺的欄位給預設值），不另寫 migration。
