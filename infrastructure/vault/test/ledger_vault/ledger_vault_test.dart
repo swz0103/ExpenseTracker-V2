@@ -1,9 +1,6 @@
 import 'dart:io';
 
-import 'package:core/foundation_values.dart';
-import 'package:domain/accounts.dart';
-import 'package:domain/bookkeeping.dart';
-import 'package:storage/ledger_sqlcipher.dart';
+import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
@@ -41,7 +38,6 @@ final class FakeDeviceKey implements DeviceKeyWrapper {
 void main() {
   late Directory directory;
   late LedgerVault vault;
-  final twd = Currency.of('TWD');
 
   setUp(() {
     directory = Directory.systemTemp.createTempSync('ledger-vault-');
@@ -50,21 +46,8 @@ void main() {
 
   tearDown(() => directory.deleteSync(recursive: true));
 
-  Future<void> openAccount(OpenVault open, [WorkspaceId? workspace]) async {
-    workspace ??= WorkspaceId(PublicId.generate());
-    await Bookkeeping(open.ledger).openAccount(
-      OpenAccount(
-        operation: OperationKey(workspace, OperationId(PublicId.generate())),
-        accountId: PublicId.generate(),
-        name: '現金',
-        kind: AccountKind.cash,
-        currency: twd,
-        openedOn: BusinessDate(2026, 10, 3),
-        openingBalance: Money(twd, BigInt.from(100)),
-        openingPostingId: PublicId.generate(),
-      ),
-    );
-  }
+  void keepOne(OpenVault open) =>
+      open.store.write((w) => w.put('account', 'cash', '{"name":"現金"}'));
 
   test('a new ledger reopens with the password or recovery code', () async {
     expect(vault.exists, isFalse);
@@ -73,11 +56,7 @@ void main() {
       fails(VaultProblem.missing),
     );
     final (open, recovery) = await vault.create(password);
-    final workspace = open.workspace;
-    // An empty ledger keeps offering one workspace until the first command.
-    expect(open.workspace, same(workspace));
-    await openAccount(open, workspace);
-    final events = open.store.eventCount;
+    keepOne(open);
     open.close();
     expect(vault.exists, isTrue);
     expect(vault.keyringFile.readAsStringSync(), isNot(contains(recovery)));
@@ -87,11 +66,10 @@ void main() {
     );
 
     final again = await vault.unlockWithPassword(password);
-    expect(again.store.eventCount, events);
-    expect(again.workspace, workspace);
+    expect(again.store.count, 1);
     again.close();
     final recovered = await vault.unlockWithRecovery(recovery);
-    expect(recovered.store.eventCount, events);
+    expect(recovered.store.count, 1);
     recovered.close();
     await expectLater(
       vault.unlockWithPassword('wrong password here'),
@@ -117,14 +95,13 @@ void main() {
   test('a device key opens the ledger without the password', () async {
     final device = FakeDeviceKey();
     final (open, _) = await vault.create(password);
-    await openAccount(open);
-    final events = open.store.eventCount;
+    keepOne(open);
     await open.updateKeys(await open.keys.addDevice('phone-1', device));
     expect(open.keys.keyring.deviceIds, ['phone-1']);
     open.close();
 
     final unlocked = await vault.unlockWithDevice('phone-1', device);
-    expect(unlocked.store.eventCount, events);
+    expect(unlocked.store.count, 1);
     unlocked.close();
     await expectLater(
       vault.unlockWithDevice('phone-1', FakeDeviceKey()),
@@ -174,19 +151,10 @@ void main() {
     final header = await codec.unlockWithPassword(open.keys.keyring, password);
 
     final adopted = await vault.adopt(header);
-    expect(adopted.store.eventCount, 0);
+    expect(adopted.store.count, 0);
     expect(adopted.keys.databaseKey, open.keys.databaseKey);
     adopted.close();
     await expectLater(vault.adopt(header), fails(VaultProblem.alreadyExists));
-  });
-
-  test('the workspace is stored, not guessed from the events', () async {
-    final (open, _) = await vault.create(password);
-    final workspace = open.workspace;
-    open.close();
-    final again = await vault.unlockWithPassword(password);
-    addTearDown(again.close);
-    expect(again.workspace, workspace);
   });
 
   group('restore', () {
@@ -200,20 +168,27 @@ void main() {
       );
       final created = await from.create(password);
       source = created.$1;
-      await openAccount(source, source.workspace);
+      keepOne(source);
       target = LedgerVault(Directory('${directory.path}/target'), codec: codec);
     });
 
     tearDown(() => source.close());
 
-    Future<void> copy(LedgerStore staging) async {
-      await LedgerReplay.copy(from: source.store, to: staging);
+    Future<void> copy(RowStore staging) async {
+      staging.write((w) {
+        for (final row in source.store.rows()) {
+          w.put(row.shelf, row.id, row.body);
+        }
+      });
     }
+
+    List<(String, String, String)> rowsOf(RowStore store) => [
+      for (final row in store.rows()) (row.shelf, row.id, row.body),
+    ];
 
     test('a checked copy becomes the ledger', () async {
       final restored = await target.restore(source.keys, copy);
-      expect(restored.workspace, source.workspace);
-      expect(projectionRows(restored.store), projectionRows(source.store));
+      expect(rowsOf(restored.store), rowsOf(source.store));
       restored.close();
       expect(target.exists, isTrue);
       final files = target.directory.listSync();
@@ -236,17 +211,7 @@ void main() {
       restored.close();
       final reopened = await target.unlockWithPassword(password);
       addTearDown(reopened.close);
-      expect(reopened.workspace, source.workspace);
-    });
-
-    test('a ledger of two workspaces is refused', () async {
-      await openAccount(source);
-      await expectLater(
-        target.restore(source.keys, copy),
-        fails(VaultProblem.ambiguousWorkspace),
-      );
-      expect(target.exists, isFalse);
-      expect(target.directory.listSync(), isEmpty);
+      expect(rowsOf(reopened.store), rowsOf(source.store));
     });
 
     test('an existing ledger is never replaced', () async {

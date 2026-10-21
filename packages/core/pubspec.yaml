@@ -1,5 +1,5 @@
 name: core
-description: Shared values (money, dates, ids, rates) and the command runner every module builds on.
+description: "Shared values: money, rates, dates, ids, and the one clock."
 version: 0.1.0
 publish_to: none
 environment:

@@ -2,11 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:core/app_core.dart';
-import 'package:core/foundation_values.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:storage/ledger_sqlcipher.dart';
-import 'package:storage/storage_sqlcipher.dart';
+import 'package:storage/storage.dart';
 import 'package:vault/backup_security.dart';
 
 /// Why a backup could not be read or restored. Never carries key material
@@ -24,7 +21,7 @@ enum BackupProblem {
   /// The target ledger already has data.
   targetNotEmpty,
 
-  /// The content decrypted but does not replay into a valid ledger.
+  /// The content decrypted but is not a ledger the app can read.
   invalidContent,
 }
 
@@ -33,7 +30,7 @@ final class BackupException implements Exception {
 
   final BackupProblem problem;
 
-  /// A non-secret hint for diagnostics, such as an event sequence number.
+  /// A non-secret hint for diagnostics, such as a record's shelf.
   final String detail;
 
   @override
@@ -49,38 +46,37 @@ final class BackupHeader {
     required this.createdAt,
     required this.keyring,
     required this.backupEpoch,
-    required this.lastSeq,
-    required this.events,
-    required this.operations,
+    required this.revision,
+    required this.rows,
   });
 
   static const format = 'ExpenseTracker-backup';
-  static const version = 2;
+  static const version = 3;
 
-  final PublicId backupId;
-  final UtcInstant createdAt;
+  final String backupId;
+  final DateTime createdAt;
 
   /// Wrapped keys only; opening them needs the password, the recovery code
   /// or a device key.
   final Keyring keyring;
   final int backupEpoch;
 
-  /// The journal position this backup ends at. A later backup of the same
-  /// ledger always has a larger value.
-  final int lastSeq;
-  final int events;
-  final int operations;
+  /// The ledger's [RowStore.revision] when this backup was taken: a later
+  /// backup of a changed ledger has a larger one.
+  final int revision;
+
+  /// How many records the backup holds.
+  final int rows;
 
   Map<String, Object?> toJson() => {
     'format': format,
     'version': version,
-    'backupId': backupId.value,
-    'createdAt': createdAt.toString(),
+    'backupId': backupId,
+    'createdAt': createdAt.toUtc().toIso8601String(),
     'keyring': keyring.encode(),
     'backupEpoch': backupEpoch,
-    'lastSeq': lastSeq,
-    'events': events,
-    'operations': operations,
+    'revision': revision,
+    'rows': rows,
   };
 
   static BackupHeader parse(List<int> bytes) {
@@ -90,6 +86,12 @@ final class BackupHeader {
     } on FormatException {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
     }
+    if (json is! Map<String, Object?> || json['format'] != format) {
+      throw const BackupException(BackupProblem.invalidFormat, 'header');
+    }
+    if (json['version'] != version) {
+      throw const BackupException(BackupProblem.unsupportedVersion);
+    }
     const keys = {
       'format',
       'version',
@@ -97,28 +99,20 @@ final class BackupHeader {
       'createdAt',
       'keyring',
       'backupEpoch',
-      'lastSeq',
-      'events',
-      'operations',
+      'revision',
+      'rows',
     };
-    if (json is! Map<String, Object?> ||
-        json.length != keys.length ||
-        !keys.containsAll(json.keys) ||
-        json['format'] != format) {
+    if (json.length != keys.length || !keys.containsAll(json.keys)) {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
-    }
-    if (json['version'] != version) {
-      throw const BackupException(BackupProblem.unsupportedVersion);
     }
     try {
       return BackupHeader(
-        backupId: PublicId.parse(json['backupId']! as String),
-        createdAt: UtcInstant.parse(json['createdAt']! as String),
+        backupId: json['backupId']! as String,
+        createdAt: DateTime.parse(json['createdAt']! as String),
         keyring: Keyring.parse(json['keyring']! as String),
         backupEpoch: json['backupEpoch']! as int,
-        lastSeq: json['lastSeq']! as int,
-        events: json['events']! as int,
-        operations: json['operations']! as int,
+        revision: json['revision']! as int,
+        rows: json['rows']! as int,
       );
     } on Object {
       throw const BackupException(BackupProblem.invalidFormat, 'header');
@@ -126,10 +120,8 @@ final class BackupHeader {
   }
 }
 
-/// Backup format v2.
-///
-/// After the operations a backup may carry files kept beside the ledger,
-/// such as receipt photos: one `file` chunk each, counted in the last.
+/// Backup format v3: every record of the ledger, then any files kept
+/// beside it, such as receipt photos.
 ///
 /// File: an 8-byte magic, then length-prefixed frames. Frame 0 is the
 /// header in plain JSON. Every later frame is one gzip-compressed JSON chunk
@@ -137,40 +129,23 @@ final class BackupHeader {
 /// the header digest and the chunk's position, so chunks cannot be swapped,
 /// dropped, reordered or moved to another backup. The last chunk states
 /// the totals, so a truncated file is detected.
-///
-/// Capture never validates business rules: a backup must be possible even
-/// when something in the ledger is wrong. Restore replays every event
-/// through the domain codecs into an empty store, which is where problems
-/// are found.
 abstract final class LedgerBackup {
-  static final _magic = ascii.encode('ETV2BK2\n');
+  static final _magic = ascii.encode('ETV2BK3\n');
   static const _maxFrame = 64 * 1024 * 1024;
   static final _cipher = AesGcm.with256bits();
 
-  /// Writes a backup of [store] to [file]. The capture holds the store's
-  /// write lock, so it reads one consistent state; run it through the
-  /// app's command queue like any other write.
+  /// Writes a backup of [store] to [file]. The records are read at once,
+  /// so the backup is one consistent state.
   static Future<BackupHeader> write({
-    required SqlCipherStore store,
+    required RowStore store,
     required UnlockedKeyring keys,
     required File file,
-    required PublicId backupId,
-    required UtcInstant createdAt,
+    required String backupId,
+    required DateTime createdAt,
     int chunkSize = 1000,
     Map<String, File> files = const {},
-  }) => store.write(
-    (_) => _capture(store, keys, file, backupId, createdAt, chunkSize, files),
-  );
-
-  static Future<BackupHeader> _capture(
-    SqlCipherStore store,
-    UnlockedKeyring keys,
-    File file,
-    PublicId backupId,
-    UtcInstant createdAt,
-    int chunkSize,
-    Map<String, File> files,
-  ) async {
+  }) async {
+    final rows = store.rows();
     final epoch = keys.currentBackupEpoch;
     final key = SecretKey(keys.backupKey(epoch));
     final header = BackupHeader(
@@ -178,9 +153,8 @@ abstract final class LedgerBackup {
       createdAt: createdAt,
       keyring: keys.keyring,
       backupEpoch: epoch,
-      lastSeq: _lastSeq(store),
-      events: store.eventCount,
-      operations: store.operationCount,
+      revision: store.revision,
+      rows: rows.length,
     );
     final headerBytes = utf8.encode(jsonEncode(header.toJson()));
     final digest = (await Sha256().hash(headerBytes)).bytes;
@@ -200,30 +174,14 @@ abstract final class LedgerBackup {
         _frame(sink, [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
       }
 
-      var after = 0;
-      var events = 0;
-      while (true) {
-        final page = store.journal(afterSeq: after, limit: chunkSize);
-        if (page.isEmpty) break;
+      for (var at = 0; at < rows.length; at += chunkSize) {
+        final page = rows.skip(at).take(chunkSize);
         await seal({
-          'type': 'events',
-          'items': [for (final event in page) _event(event)],
+          'type': 'rows',
+          'items': [
+            for (final row in page) [row.shelf, row.id, row.body],
+          ],
         });
-        events += page.length;
-        after = page.last.seq;
-      }
-      var operations = 0;
-      for (var offset = 0; ; offset += chunkSize) {
-        final page = store.operations(offset: offset, limit: chunkSize);
-        if (page.isEmpty) break;
-        await seal({
-          'type': 'operations',
-          'items': [for (final operation in page) _operation(operation)],
-        });
-        operations += page.length;
-      }
-      if (events != header.events || operations != header.operations) {
-        throw StateError('The ledger changed during the backup.');
       }
       for (final MapEntry(key: name, value: source) in files.entries) {
         await seal({
@@ -235,8 +193,7 @@ abstract final class LedgerBackup {
       await seal({
         'type': 'end',
         'chunks': index,
-        'events': events,
-        'operations': operations,
+        'rows': rows.length,
         if (files.isNotEmpty) 'files': files.length,
       });
       await sink.flush();
@@ -261,9 +218,11 @@ abstract final class LedgerBackup {
     }
   }
 
-  /// Restores [file] into the empty ledger [into]. [keys] must be the
+  /// Restores [file] into the empty store [into]. [keys] must be the
   /// backup's own keyring, unlocked; see [readHeader].
   ///
+  /// [accept] sees every record first and throws for one the app cannot
+  /// read, which fails the restore as [BackupProblem.invalidContent].
   /// When this throws, [into] may hold part of the backup; discard that
   /// store file instead of using it.
   ///
@@ -272,11 +231,11 @@ abstract final class LedgerBackup {
   static Future<BackupHeader> restore({
     required File file,
     required UnlockedKeyring keys,
-    required LedgerStore into,
+    required RowStore into,
+    void Function(String shelf, String id, String body)? accept,
     Future<void> Function(String name, List<int> bytes)? onFile,
   }) async {
-    final intoStore = into.store;
-    if (intoStore.eventCount != 0 || intoStore.operationCount != 0) {
+    if (into.count != 0) {
       throw const BackupException(BackupProblem.targetNotEmpty);
     }
     final reader = await _FrameReader.open(file);
@@ -298,8 +257,7 @@ abstract final class LedgerBackup {
       final key = SecretKey(backupKey);
       final digest = (await Sha256().hash(headerBytes)).bytes;
       var index = 0;
-      var events = 0;
-      var operations = 0;
+      var rows = 0;
       var files = 0;
       var ended = false;
       while (true) {
@@ -311,22 +269,21 @@ abstract final class LedgerBackup {
         index++;
         final chunk = await _open(frame, key, _aad(digest, index));
         switch (chunk['type']) {
-          case 'events':
+          case 'rows':
             final items = _items(chunk);
-            await into.write((transaction) async {
-              for (final item in items) {
-                await LedgerReplay.apply(transaction, _readEvent(item));
+            for (final (shelf, id, body) in items) {
+              try {
+                accept?.call(shelf, id, body);
+              } on Object {
+                throw BackupException(BackupProblem.invalidContent, shelf);
+              }
+            }
+            into.write((w) {
+              for (final (shelf, id, body) in items) {
+                w.put(shelf, id, body);
               }
             });
-            events += items.length;
-          case 'operations':
-            final items = _items(chunk);
-            await into.write((transaction) async {
-              for (final item in items) {
-                await transaction.recordOperation(_readOperation(item));
-              }
-            });
-            operations += items.length;
+            rows += items.length;
           case 'file':
             final name = chunk['name'];
             final data = chunk['data'];
@@ -337,8 +294,7 @@ abstract final class LedgerBackup {
             await onFile?.call(name, base64Decode(data));
           case 'end':
             if (chunk['chunks'] != index - 1 ||
-                chunk['events'] != events ||
-                chunk['operations'] != operations ||
+                chunk['rows'] != rows ||
                 (chunk['files'] ?? 0) != files) {
               throw const BackupException(BackupProblem.invalidFormat, 'end');
             }
@@ -347,33 +303,17 @@ abstract final class LedgerBackup {
             throw const BackupException(BackupProblem.invalidFormat, 'chunk');
         }
       }
-      if (!ended ||
-          events != header.events ||
-          operations != header.operations) {
+      if (!ended || rows != header.rows) {
         throw const BackupException(BackupProblem.invalidFormat, 'truncated');
       }
       return header;
-    } on ReplayException catch (error) {
-      throw BackupException(BackupProblem.invalidContent, '#${error.seq}');
-    } on BackupException {
-      rethrow;
-    } on Object catch (error) {
-      throw BackupException(
-        BackupProblem.invalidContent,
-        '${error.runtimeType}',
-      );
     } finally {
       await reader.close();
     }
   }
 
-  static int _lastSeq(SqlCipherStore store) {
-    final rows = store.select('SELECT max(seq) AS seq FROM events');
-    return (rows.single['seq'] as int?) ?? 0;
-  }
-
   static List<int> _aad(List<int> digest, int index) => [
-    ...ascii.encode('ETV2BK/2/'),
+    ...ascii.encode('ETV2BK/3/'),
     ...digest,
     ...(ByteData(4)..setUint32(0, index)).buffer.asUint8List(),
   ];
@@ -413,62 +353,18 @@ abstract final class LedgerBackup {
     }
   }
 
-  static List<Map<String, Object?>> _items(Map<String, Object?> chunk) {
+  static List<(String, String, String)> _items(Map<String, Object?> chunk) {
     final items = chunk['items'];
     if (items is! List) {
       throw const BackupException(BackupProblem.invalidFormat, 'items');
     }
     return [
       for (final item in items)
-        if (item is Map<String, Object?>)
-          item
+        if (item case [final String shelf, final String id, final String body])
+          (shelf, id, body)
         else
           throw const BackupException(BackupProblem.invalidFormat, 'item'),
     ];
-  }
-
-  static Map<String, Object?> _event(StoredEvent event) => {
-    'seq': event.seq,
-    'id': event.id.value,
-    'workspace': event.workspace.toString(),
-    'kind': event.kind,
-    'payload': event.payload,
-  };
-
-  static StoredEvent _readEvent(Map<String, Object?> json) {
-    try {
-      return StoredEvent(
-        seq: json['seq']! as int,
-        id: PublicId.parse(json['id']! as String),
-        workspace: WorkspaceId.parse(json['workspace']! as String),
-        kind: json['kind']! as String,
-        payload: json['payload']! as String,
-      );
-    } on Object {
-      throw const BackupException(BackupProblem.invalidFormat, 'event');
-    }
-  }
-
-  static Map<String, Object?> _operation(RecordedOperation operation) => {
-    'workspace': operation.key.workspace.toString(),
-    'operation': operation.key.operation.toString(),
-    'input': operation.input,
-    'result': operation.result,
-  };
-
-  static RecordedOperation _readOperation(Map<String, Object?> json) {
-    try {
-      return RecordedOperation(
-        key: OperationKey(
-          WorkspaceId.parse(json['workspace']! as String),
-          OperationId.parse(json['operation']! as String),
-        ),
-        input: json['input']! as String,
-        result: json['result']! as String,
-      );
-    } on Object {
-      throw const BackupException(BackupProblem.invalidFormat, 'operation');
-    }
   }
 }
 

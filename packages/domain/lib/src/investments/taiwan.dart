@@ -1,6 +1,6 @@
 import 'package:core/foundation_values.dart';
 
-import 'buy.dart';
+import 'values.dart';
 
 /// Suggested Taiwan brokerage fee and securities transaction tax for a
 /// trade; the user can still type what the broker actually charged.

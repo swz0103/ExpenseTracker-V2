@@ -15,7 +15,7 @@ $checks = @(
     @{ Path = 'tooling/architecture_checks'; Dirs = @('test') },
     @{ Path = 'packages/core'; Dirs = @('lib', 'test') },
     @{ Path = 'packages/domain'; Dirs = @('lib', 'test') },
-    @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart', 'bin/posting_worker.dart') },
+    @{ Path = 'infrastructure/storage'; Dirs = @('lib', 'bin', 'test'); Workers = @('bin/crash_worker.dart') },
     @{ Path = 'infrastructure/vault'; Dirs = @('lib', 'test') },
     @{ Path = 'infrastructure/market'; Dirs = @('lib', 'test') },
     @{ Path = 'apps/expense_tracker'; Dirs = @('lib', 'test'); Flutter = $true }

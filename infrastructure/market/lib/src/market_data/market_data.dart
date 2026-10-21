@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:core/foundation_values.dart';
-import 'package:domain/investments.dart';
 
 /// Every value here is informational. What was actually traded or
 /// converted is what the user books.
@@ -97,6 +96,14 @@ abstract interface class MarketTransport {
 /// over 2 MiB.
 const marketResponseLimit = 8 * 1024 * 1024;
 
+/// A stock or ETF as its exchange lists it: the code, on `TWSE` or `TPEX`.
+final class Listing {
+  const Listing(this.symbol, {this.market = 'TWSE'});
+
+  final String symbol;
+  final String market;
+}
+
 /// Daily closing prices (TWSE, TPEx) and Bank of Taiwan board rates: one
 /// free source each, no account needed. A snapshot is fetched once and
 /// shared by every holding; requests in flight are shared, and a failure
@@ -144,17 +151,13 @@ final class MarketDataGateway {
   final _pending = <Uri, Future<_Fetch>>{};
 
   /// The latest close of a TWSE or TPEx stock or ETF traded in NT$.
-  Future<MarketResult<StockClose>> stockClose(
-    InvestmentInstrument instrument,
-  ) async {
-    final (uri, codeKey, priceKey, nameKey) = switch (instrument.marketCode) {
+  Future<MarketResult<StockClose>> stockClose(Listing instrument) async {
+    final (uri, codeKey, priceKey, nameKey) = switch (instrument.market) {
       'TWSE' => (twseUri, 'Code', 'ClosingPrice', 'Name'),
       'TPEX' => (tpexUri, 'SecuritiesCompanyCode', 'Close', 'CompanyName'),
       _ => (null, '', '', ''),
     };
-    if (uri == null ||
-        instrument.tradingCurrency != _twd ||
-        !_symbol(instrument).hasMatch(instrument.symbol)) {
+    if (uri == null || !_symbol.hasMatch(instrument.symbol)) {
       return const MarketResult(
         MarketState.unsupported,
         reason: 'Only TWSE and TPEx stocks and ETFs in NT\$',
@@ -367,10 +370,7 @@ final _twd = Currency.of('TWD');
 
 /// Ordinary and preferred shares (2881A); ETFs including bond, leveraged
 /// and inverse ones (00679B, 00631L, 00632R).
-RegExp _symbol(InvestmentInstrument instrument) => switch (instrument.kind) {
-  InstrumentKind.stock => RegExp(r'^[1-9][0-9]{3}[A-Z]?$'),
-  InstrumentKind.etf => RegExp(r'^00[0-9]{2,4}[A-Z]?$'),
-};
+final _symbol = RegExp(r'^(?:[1-9][0-9]{3}|00[0-9]{2,4})[A-Z]?$');
 
 BusinessDate _taipeiDate(DateTime instant) {
   final local = instant.toUtc().add(const Duration(hours: 8));

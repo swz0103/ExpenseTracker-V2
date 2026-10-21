@@ -5,15 +5,11 @@ publish_to: none
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
-  core:
-    path: ../../packages/core
   cryptography: 2.9.0
   storage:
     path: ../storage
   unorm_dart: 0.3.2
 dev_dependencies:
-  domain:
-    path: ../../packages/domain
   test: 1.32.0
 hooks:
   user_defines:

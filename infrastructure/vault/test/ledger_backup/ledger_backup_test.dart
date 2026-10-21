@@ -1,21 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:core/foundation_values.dart';
 import 'package:cryptography/cryptography.dart'
     show SecretBoxAuthenticationError;
-import 'package:domain/accounts.dart';
-import 'package:domain/bookkeeping.dart';
-import 'package:storage/ledger_sqlcipher.dart';
-import 'package:storage/storage_sqlcipher.dart';
-import 'package:storage/testing.dart';
+import 'package:storage/storage.dart';
 import 'package:test/test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
 const password = 'correct horse battery';
-final twd = Currency.of('TWD');
-final day = BusinessDate(2026, 10, 3);
 final codec = KeyringCodec(kdf: PasswordKdf.insecureForTests);
 
 Matcher fails(BackupProblem problem) => throwsA(
@@ -47,53 +40,34 @@ void writeFrames(File file, List<List<int>> parts) {
 
 void main() {
   late Directory directory;
-  late SqlCipherStore source;
+  late RowStore source;
   late CreatedKeyring keys;
-  final workspace = WorkspaceId(PublicId.generate());
   var stores = 0;
 
-  OperationKey op() =>
-      OperationKey(workspace, OperationId(PublicId.generate()));
-
-  SqlCipherStore open() => SqlCipherStore.open(
+  RowStore open() => RowStore.open(
     File('${directory.path}/store-${stores++}.db'),
     StorageKey.random(),
-    modules: [ledgerSchema],
   );
+
+  List<(String, String, String)> rowsOf(RowStore store) => [
+    for (final row in store.rows()) (row.shelf, row.id, row.body),
+  ];
 
   setUpAll(() async {
     keys = await codec.create(password);
   });
 
-  setUp(() async {
+  setUp(() {
     directory = Directory.systemTemp.createTempSync('ledger-backup-');
     source = open();
-    final books = Bookkeeping(LedgerStore(source));
-    final cash = PublicId.generate();
-    await books.openAccount(
-      OpenAccount(
-        operation: op(),
-        accountId: cash,
-        name: '現金',
-        kind: AccountKind.cash,
-        currency: twd,
-        openedOn: day,
-        openingBalance: Money(twd, BigInt.from(100000)),
-        openingPostingId: PublicId.generate(),
-      ),
-    );
-    for (var i = 1; i <= 30; i++) {
-      await books.recordCashFlow(
-        RecordCashFlow(
-          operation: op(),
-          postingId: PublicId.generate(),
-          flow: CashFlow.expense,
-          account: AccountRef(cash, 1),
-          date: day,
-          amount: Money(twd, BigInt.from(i * 100)),
-        ),
-      );
-    }
+    source.write((w) {
+      w.put('account', 'cash', '{"name":"現金","opening":100000}');
+      for (var i = 1; i <= 30; i++) {
+        w.put('entry', 'e$i', '{"amount":${i * 100},"note":"午餐 $i"}');
+      }
+    });
+    // A changed record keeps its place.
+    source.write((w) => w.put('entry', 'e1', '{"amount":1}'));
   });
 
   tearDown(() {
@@ -107,14 +81,18 @@ void main() {
       store: source,
       keys: using ?? keys.unlocked,
       file: file,
-      backupId: PublicId.generate(),
-      createdAt: UtcInstant(DateTime.utc(2026, 10, 3, 12)),
+      backupId: 'b-${stores++}',
+      createdAt: DateTime.utc(2026, 10, 3, 12),
       chunkSize: chunkSize,
     );
     return file;
   }
 
-  Future<SqlCipherStore> restore(File file, {UnlockedKeyring? using}) async {
+  Future<RowStore> restore(
+    File file, {
+    UnlockedKeyring? using,
+    void Function(String shelf, String id, String body)? accept,
+  }) async {
     final header = await LedgerBackup.readHeader(file);
     final unlocked =
         using ?? await codec.unlockWithPassword(header.keyring, password);
@@ -123,7 +101,8 @@ void main() {
     await LedgerBackup.restore(
       file: file,
       keys: unlocked,
-      into: LedgerStore(target),
+      into: target,
+      accept: accept,
     );
     return target;
   }
@@ -136,8 +115,8 @@ void main() {
       store: source,
       keys: keys.unlocked,
       file: file,
-      backupId: PublicId.generate(),
-      createdAt: UtcInstant(DateTime.utc(2026, 10, 3, 12)),
+      backupId: 'with-files',
+      createdAt: DateTime.utc(2026, 10, 3, 12),
       files: {'lunch.etr': photo},
     );
     final header = await LedgerBackup.readHeader(file);
@@ -148,12 +127,12 @@ void main() {
     await LedgerBackup.restore(
       file: file,
       keys: unlocked,
-      into: LedgerStore(target),
+      into: target,
       onFile: (name, bytes) async => back[name] = bytes,
     );
     expect(back.keys, ['lunch.etr']);
     expect(back['lunch.etr'], photo.readAsBytesSync());
-    expect(projectionRows(target), projectionRows(source));
+    expect(rowsOf(target), rowsOf(source));
   });
 
   test('sealed files open only under their own name and ledger', () async {
@@ -176,29 +155,16 @@ void main() {
     expect(await again.open('a.etr', sealed), [1, 2, 3, 4]);
   });
 
-  test('a backup restores the same ledger on a new device', () async {
+  test('a backup restores the same records, in order', () async {
     final file = await backup();
     final header = await LedgerBackup.readHeader(file);
-    expect(header.events, source.eventCount);
-    expect(header.operations, source.operationCount);
-    expect(header.lastSeq, source.eventCount);
+    expect(header.rows, source.count);
+    expect(header.revision, source.revision);
     expect(header.keyring.id, keys.keyring.id);
+    expect(header.createdAt, DateTime.utc(2026, 10, 3, 12));
 
     final target = await restore(file);
-    expect(projectionRows(target), projectionRows(source));
-    expect(target.operationCount, source.operationCount);
-    expect(target.integrityCheck(), 'ok');
-  });
-
-  test('every event kind survives a backup and restore', () async {
-    // Cards, statements, installments, trades, corporate actions, home
-    // values, corrections, notes and plans in one ledger (G5-05).
-    await EveryEventKind(workspace).fill(LedgerStore(source));
-    final file = await backup(chunkSize: 64);
-    final target = await restore(file);
-    expect(target.eventCount, source.eventCount);
-    expect(target.operationCount, source.operationCount);
-    expect(projectionRows(target), projectionRows(source));
+    expect(rowsOf(target), rowsOf(source));
     expect(target.integrityCheck(), 'ok');
   });
 
@@ -210,7 +176,7 @@ void main() {
       keys.recoveryCode,
     );
     final target = await restore(file, using: unlocked);
-    expect(target.eventCount, source.eventCount);
+    expect(target.count, source.count);
   });
 
   test('a rotated backup key still restores older backups', () async {
@@ -218,8 +184,8 @@ void main() {
     final rotated = await keys.unlocked.rotateBackupKey();
     final fresh = await backup(using: rotated);
     expect((await LedgerBackup.readHeader(fresh)).backupEpoch, 2);
-    expect((await restore(old, using: rotated)).eventCount, source.eventCount);
-    expect((await restore(fresh)).eventCount, source.eventCount);
+    expect((await restore(old, using: rotated)).count, source.count);
+    expect((await restore(fresh)).count, source.count);
   });
 
   test('altered, reordered or truncated backups are refused', () async {
@@ -244,32 +210,24 @@ void main() {
 
     final header = String.fromCharCodes(original[1]);
     final edited = [...original];
-    final last = '"lastSeq":${source.eventCount}';
-    edited[1] = header.replaceFirst(last, '"lastSeq":99999').codeUnits;
+    final rows = '"rows":${source.count}';
+    edited[1] = header.replaceFirst(rows, '"rows":99999').codeUnits;
     expect(String.fromCharCodes(edited[1]), isNot(header));
     writeFrames(file, edited);
     await expectLater(restore(file), fails(BackupProblem.authenticationFailed));
   });
 
-  test('another ledger\'s keys and a non-empty target are refused', () async {
+  test("another ledger's keys and a non-empty target are refused", () async {
     final file = await backup();
     final stranger = await codec.create(password);
     final target = open();
     addTearDown(target.close);
     await expectLater(
-      LedgerBackup.restore(
-        file: file,
-        keys: stranger.unlocked,
-        into: LedgerStore(target),
-      ),
+      LedgerBackup.restore(file: file, keys: stranger.unlocked, into: target),
       fails(BackupProblem.authenticationFailed),
     );
     await expectLater(
-      LedgerBackup.restore(
-        file: file,
-        keys: keys.unlocked,
-        into: LedgerStore(source),
-      ),
+      LedgerBackup.restore(file: file, keys: keys.unlocked, into: source),
       fails(BackupProblem.targetNotEmpty),
     );
   });
@@ -287,10 +245,10 @@ void main() {
     final file = await backup();
     final original = frames(file);
     final header = String.fromCharCodes(original[1]);
-    expect(header, contains('"version":2'));
+    expect(header, contains('"version":3'));
     writeFrames(file, [
       original[0],
-      header.replaceFirst('"version":2', '"version":3').codeUnits,
+      header.replaceFirst('"version":3', '"version":4').codeUnits,
       ...original.skip(2),
     ]);
     await expectLater(
@@ -309,16 +267,17 @@ void main() {
     );
   });
 
-  test('content that does not replay is reported as invalid', () async {
-    await source.write((t) async {
-      t.append(
-        id: PublicId.generate(),
-        workspace: workspace,
-        kind: 'account.opened',
-        payload: '{"not":"an account"}',
-      );
-    });
+  test('a record the app cannot read fails the restore', () async {
+    source.write((w) => w.put('entry', 'broken', 'not json'));
     final file = await backup();
-    await expectLater(restore(file), fails(BackupProblem.invalidContent));
+    await expectLater(
+      restore(
+        file,
+        accept: (shelf, id, body) {
+          if (body == 'not json') throw const FormatException('unreadable');
+        },
+      ),
+      fails(BackupProblem.invalidContent),
+    );
   });
 }

@@ -23,23 +23,6 @@ void main() {
       expect(PublicId.parse(id.value), id);
     }
   });
-  test(
-    'operation identity includes workspace and is distinct from workspace ID',
-    () {
-      final operation = OperationId.parse(a);
-      final workspaceA = WorkspaceId.parse(a);
-      final workspaceB = WorkspaceId.parse(b);
-      expect(operation, isNot(workspaceA));
-      expect(
-        OperationKey(workspaceA, operation),
-        OperationKey(WorkspaceId.parse(a), OperationId.parse(a)),
-      );
-      expect(
-        OperationKey(workspaceA, operation),
-        isNot(OperationKey(workspaceB, operation)),
-      );
-    },
-  );
   test('business dates validate leap years rather than normalize overflow', () {
     for (final value in [
       '2000-02-29',

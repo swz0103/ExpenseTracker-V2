@@ -5,113 +5,38 @@ import 'package:test/test.dart';
 import 'fails.dart';
 
 void main() {
-  final twd = Currency('TWD', 2);
-  CardInstallmentSchedule schedule({
-    String principal = '100.01',
-    String fee = '1.01',
-    int count = 3,
-    BusinessDate? firstScheduledClose,
-  }) => CardInstallmentSchedule(
-    purchaseEventId: PublicId.generate(),
-    workspace: WorkspaceId(PublicId.generate()),
-    cardId: PublicId.generate(),
-    principal: Money.parse(twd, principal),
-    fixedFee: Money.parse(twd, fee),
-    firstScheduledClose: firstScheduledClose ?? BusinessDate(2028, 1, 31),
-    closingDay: 31,
-    count: count,
-  );
-
   test('the whole remainder goes into the first installment', () {
-    final parts = schedule().installments;
-    expect(parts.map((part) => part.scheduledClose.toString()), [
+    expect(installmentShares(10001, 3), [3335, 3333, 3333]);
+    expect(installmentShares(9000, 3), [3000, 3000, 3000]);
+    expect(installmentShares(5, 1), [5]);
+    expect(() => installmentShares(5, 0), fails(CreditCardError.invalidInput));
+  });
+
+  test('installments close monthly on the closing day or month end', () {
+    final closes = installmentCloses(BusinessDate(2028, 1, 31), 31, 3);
+    expect(closes.map((close) => close.toString()), [
       '2028-01-31',
       '2028-02-29',
       '2028-03-31',
     ]);
-    expect(parts.map((part) => part.principal.majorText), [
-      '33.35',
-      '33.33',
-      '33.33',
-    ]);
-    expect(parts.map((part) => part.fee.majorText), ['0.35', '0.33', '0.33']);
-    expect(
-      parts.fold<BigInt>(
-        BigInt.zero,
-        (sum, part) => sum + part.projectedCharge.minorUnits,
-      ),
-      Money.parse(twd, '101.02').minorUnits,
-    );
-  });
-
-  test('rejects nonpositive, mismatched, or impossible schedule', () {
-    expect(
-      () => schedule(principal: '0.01'),
-      fails(CreditCardError.invalidInput),
-    );
-    expect(() => schedule(fee: '-0.01'), fails(CreditCardError.invalidInput));
-    expect(() => schedule(count: 1), fails(CreditCardError.invalidInput));
-    expect(() => schedule(count: 121), fails(CreditCardError.invalidInput));
-    expect(
-      () => schedule(firstScheduledClose: BusinessDate(9999, 12, 31)),
-      fails(CreditCardError.invalidInput),
-    );
-    expect(
-      () => CardInstallmentSchedule(
-        purchaseEventId: PublicId.generate(),
-        workspace: WorkspaceId(PublicId.generate()),
-        cardId: PublicId.generate(),
-        principal: Money.parse(twd, '10'),
-        fixedFee: Money.parse(Currency('USD', 2), '1'),
-        firstScheduledClose: BusinessDate(2028, 1, 31),
-        closingDay: 31,
-        count: 2,
-      ),
-      fails(CreditCardError.invalidInput),
-    );
-    expect(
-      () => schedule(principal: '92233720368547758.07', fee: '0.01'),
-      fails(CreditCardError.invalidInput),
-    );
-  });
-
-  test('nominal 31st returns after a leap-February first cycle', () {
-    final parts = schedule(firstScheduledClose: BusinessDate(2028, 2, 29))
-        .installments;
-    expect(parts.map((part) => part.scheduledClose.toString()), [
+    // The nominal 31st comes back after a leap February.
+    final fromFebruary = installmentCloses(BusinessDate(2028, 2, 29), 31, 3);
+    expect(fromFebruary.map((close) => close.toString()), [
       '2028-02-29',
       '2028-03-31',
       '2028-04-30',
     ]);
-    expect(
-      () => schedule(firstScheduledClose: BusinessDate(2028, 2, 28)),
-      fails(CreditCardError.invalidInput),
-    );
   });
 
-  test('versioned plan round-trips and rejects tampering', () {
-    const codec = CardInstallmentScheduleCodec();
-    final original = schedule();
-    final encoded = codec.encode(original);
-    final decoded = codec.decode(encoded);
-    expect(codec.encode(decoded), encoded);
-    expect(decoded.installments.last.projectedCharge.majorText, '33.66');
-    expect(
-      () => codec.decode(encoded.replaceFirst('"format":1', '"format":2')),
-      throwsFormatException,
-    );
-    expect(
-      () => codec.decode(
-        encoded.replaceFirst(
-          '"principalMinor":"10001"',
-          '"principalMinor":"010001"',
-        ),
-      ),
-      throwsFormatException,
-    );
-    expect(
-      () => codec.decode(encoded.replaceFirst('"count":3', '"count":0')),
-      throwsFormatException,
-    );
+  test('the first installment is the close of the purchase cycle', () {
+    final schedule = CardSchedule(closingDay: 25, dueDay: 10);
+    expect(installmentStart(schedule, BusinessDate(2028, 3, 25)), (
+      BusinessDate(2028, 3, 25),
+      25,
+    ));
+    expect(installmentStart(schedule, BusinessDate(2028, 3, 26)), (
+      BusinessDate(2028, 4, 25),
+      25,
+    ));
   });
 }
