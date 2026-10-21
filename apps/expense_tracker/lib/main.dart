@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 
 import 'src/book/leftovers.dart';
@@ -18,20 +19,29 @@ Future<void> main() async {
   // Faults are kept on the phone, so 設定 can export them after a crash.
   Perf.instance.keepIn(File('${directory.path}/diagnostics.log'));
   FlutterError.onError = (details) {
-    FlutterError.presentError(details);
+    // A release build only keeps the cleaned record (perf.dart): the full
+    // report would go to the phone's system log, possibly with the
+    // person's own words in it.
+    if (!kReleaseMode) FlutterError.presentError(details);
     Perf.instance.problem('畫面錯誤', details.exception);
   };
   WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
     Perf.instance.problem('未預期的錯誤', error);
     return true;
   };
+  // Plain copies a run stopped part way may have left: exports waiting to
+  // be handed over, camera photos, a chosen backup. The cache folder is
+  // asked for on its own, so exports are still cleared without it.
+  Directory? cache;
+  if (Platform.isAndroid) {
+    try {
+      cache = await androidCacheDirectory();
+    } on Object catch (error) {
+      Perf.instance.problem('清除暫存檔', error);
+    }
+  }
   try {
-    // Plain copies a run stopped part way may have left: exports waiting to
-    // be handed over, camera photos, a chosen backup.
-    await clearLeftovers(
-      directory,
-      cache: Platform.isAndroid ? await androidCacheDirectory() : null,
-    );
+    await clearLeftovers(directory, cache: cache);
   } on Object catch (error) {
     Perf.instance.problem('清除暫存檔', error);
   }

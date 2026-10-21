@@ -38,7 +38,9 @@ final class ReportPeriod {
   /// The first month.
   final DateTime start;
 
-  /// The last month of a chosen range; kept alongside the other spans.
+  /// The last month of a chosen range. The other spans keep it too, but
+  /// their length is fixed, so it plays no part in which months they
+  /// cover or in comparing them.
   final DateTime end;
 
   static DateTime lastDay(DateTime month) =>
@@ -108,8 +110,9 @@ final class ReportPeriod {
       other is ReportPeriod &&
       other.span == span &&
       other.start == start &&
-      other.end == end;
+      (span != ReportSpan.custom || other.end == end);
 
   @override
-  int get hashCode => Object.hash(span, start, end);
+  int get hashCode =>
+      Object.hash(span, start, span == ReportSpan.custom ? end : null);
 }

@@ -5,10 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
-import '../look/app_mark.dart';
-import '../look/theme.dart';
 import '../platform.dart';
 import '../startup.dart';
+import 'lock/create_view.dart';
+import 'lock/lock_parts.dart';
+import 'lock/recovery_view.dart';
+import 'lock/restore_view.dart';
+import 'lock/unlock_view.dart';
+import 'lock/welcome_view.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set first, or later in settings), or
@@ -216,13 +220,31 @@ class _LockScreenState extends State<LockScreen> {
     });
   }
 
+  /// Back from the password or backup form to the first screen; only a
+  /// ledger not made yet has one.
+  VoidCallback? get _back => widget.startup.state is NeedsSetup
+      ? () => setState(() {
+          _restoring = false;
+          _withPassword = false;
+          _recovery = false;
+          _problem = null;
+        })
+      : null;
+
+  /// Between the password and the recovery code.
+  void _toggleRecovery() => setState(() {
+    _recovery = !_recovery;
+    _password.clear();
+    _problem = null;
+  });
+
   @override
   Widget build(BuildContext context) {
     // A new ledger starts by itself, without a password: one can be set
     // later in settings. Until then the opening animation plays, with a
     // way to restore a backup instead.
     if (_welcome && _problem == null) {
-      return _Splash(
+      return LockSplash(
         onRestore: _busy
             ? null
             : () {
@@ -231,22 +253,58 @@ class _LockScreenState extends State<LockScreen> {
               },
       );
     }
-    if (_welcome) return _welcomeScreen();
-    if (_quiet && _problem == null) return const _Splash();
-    final creating = _creating;
-    final empty = widget.startup.state is NeedsSetup;
-    final title = creating
-        ? '建立帳本'
-        : _restoring
-        ? '從備份還原'
-        : '打開帳本';
-    final hint = creating
-        ? '帳本會以這組密碼加密，只存在這台裝置上。至少 6 個字。'
-        : _restoring
-        ? '輸入備份檔的位置，和那個帳本的密碼或救援碼。'
-        : _recovery
-        ? '輸入建立帳本時拿到的救援碼。'
-        : '輸入帳本密碼。';
+    if (_welcome) {
+      return WelcomeView(
+        busy: _busy,
+        problem: _problem,
+        onStart: _start,
+        onWithPassword: () => setState(() => _withPassword = true),
+        onRestore: () => setState(() => _restoring = true),
+      );
+    }
+    if (_quiet && _problem == null) return const LockSplash();
+    final Widget form;
+    if (_creating) {
+      form = CreateView(
+        password: _password,
+        again: _again,
+        busy: _busy,
+        problem: _problem,
+        onSubmit: _submit,
+        onBack: _back,
+      );
+    } else if (_restoring) {
+      form = RestoreView(
+        file: _file,
+        secret: _password,
+        recovery: _recovery,
+        busy: _busy,
+        problem: _problem,
+        onSubmit: _submit,
+        onToggleRecovery: _toggleRecovery,
+        onPickFile: Platform.isAndroid ? _pickBackup : null,
+        onBack: _back,
+      );
+    } else if (_recovery) {
+      form = RecoveryView(
+        code: _password,
+        busy: _busy,
+        problem: _problem,
+        onSubmit: _submit,
+        onPassword: _toggleRecovery,
+        onBack: _back,
+      );
+    } else {
+      form = UnlockView(
+        password: _password,
+        busy: _busy,
+        problem: _problem,
+        onSubmit: _submit,
+        onRecovery: _toggleRecovery,
+        onDevice: _biometric ? _unlockWithDevice : null,
+        onBack: _back,
+      );
+    }
     // Back from the password or backup form returns to the first screen.
     final away = _withPassword || _restoring;
     return PopScope(
@@ -264,349 +322,7 @@ class _LockScreenState extends State<LockScreen> {
           setState(() => _problem = '');
         }
       },
-      child: Scaffold(
-        backgroundColor: Hue.paper,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Center(child: AppMark(size: 72)),
-                    const SizedBox(height: 16),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      hint,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Hue.muted),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Hue.hero,
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      child: Column(
-                        children: [
-                          if (_restoring) ...[
-                            if (Platform.isAndroid)
-                              OutlinedButton(
-                                onPressed: _busy ? null : _pickBackup,
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(44),
-                                ),
-                                child: Text(
-                                  _file.text.isEmpty ? '選擇備份檔' : '已選好備份檔',
-                                ),
-                              )
-                            else
-                              _Secret(
-                                controller: _file,
-                                hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
-                                hidden: false,
-                              ),
-                            const SizedBox(height: 8),
-                          ],
-                          _Secret(
-                            controller: _password,
-                            hint: _recovery ? '救援碼' : '密碼',
-                            hidden: !_recovery,
-                            onSubmitted: creating ? null : _submit,
-                          ),
-                          if (creating) ...[
-                            const SizedBox(height: 8),
-                            _Secret(
-                              controller: _again,
-                              hint: '再輸入一次密碼',
-                              hidden: true,
-                              onSubmitted: _submit,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (_problem case final problem?)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          problem,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Hue.danger),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Hue.accent,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: _busy
-                          ? const SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Hue.onAccent,
-                              ),
-                            )
-                          : Text(
-                              creating
-                                  ? '建立'
-                                  : _restoring
-                                  ? '還原'
-                                  : '打開',
-                            ),
-                    ),
-                    if (!creating)
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() {
-                                _recovery = !_recovery;
-                                _password.clear();
-                                _problem = null;
-                              }),
-                        child: Text(_recovery ? '改用密碼' : '忘記密碼？用救援碼'),
-                      ),
-                    if (_biometric && !_recovery)
-                      TextButton(
-                        onPressed: _busy ? null : _unlockWithDevice,
-                        child: const Text('用指紋或臉部解鎖'),
-                      ),
-                    if (empty)
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() {
-                                _restoring = false;
-                                _withPassword = false;
-                                _recovery = false;
-                                _problem = null;
-                              }),
-                        child: const Text('返回'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _welcomeScreen() {
-    final problem = _problem;
-    return Scaffold(
-      backgroundColor: Hue.paper,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Center(child: AppMark(size: 96)),
-                  const SizedBox(height: 20),
-                  const Text(
-                    '歡迎使用記帳本',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '帳本只存在這台手機，並且加密保存。\n不用註冊，現在就能開始記帳。',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Hue.muted, height: 1.5),
-                  ),
-                  const SizedBox(height: 28),
-                  FilledButton(
-                    onPressed: _busy ? null : _start,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Hue.accent,
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: _busy
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Hue.onAccent,
-                            ),
-                          )
-                        : const Text(
-                            '開始記帳',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
-                  if (problem != null && problem.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        problem,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Hue.danger),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() => _withPassword = true),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('先設定密碼'),
-                  ),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() => _restoring = true),
-                    child: const Text('從備份還原'),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '之後可以在「設定」加上密碼或指紋解鎖。',
-                    textAlign: TextAlign.center,
-                    style: mutedSmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Secret extends StatelessWidget {
-  const _Secret({
-    required this.controller,
-    required this.hint,
-    required this.hidden,
-    this.onSubmitted,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final bool hidden;
-  final VoidCallback? onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    final submit = onSubmitted;
-    return TextField(
-      controller: controller,
-      obscureText: hidden,
-      autocorrect: false,
-      enableSuggestions: false,
-      onSubmitted: submit == null ? null : (_) => submit(),
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Hue.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-}
-
-/// The opening animation: the mark grows in and the name fades up, on
-/// the paper colour of the app.
-class _Splash extends StatelessWidget {
-  const _Splash({this.onRestore});
-
-  /// Restoring a backup instead of starting a new ledger; none when the
-  /// ledger exists already.
-  final VoidCallback? onRestore;
-
-  @override
-  Widget build(BuildContext context) {
-    final restore = onRestore;
-    return Scaffold(
-      backgroundColor: Hue.paper,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 900),
-                curve: Curves.easeOutCubic,
-                builder: (context, t, _) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Opacity(
-                      opacity: t,
-                      child: Transform.scale(
-                        scale: 0.8 + 0.2 * t,
-                        child: const AppMark(size: 96),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Opacity(
-                      opacity: t,
-                      child: Transform.translate(
-                        offset: Offset(0, 12 * (1 - t)),
-                        child: const Text(
-                          '記帳本',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: Hue.ink,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (restore != null)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: TextButton(
-                    onPressed: restore,
-                    style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                    child: const Text('換手機？從備份還原'),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: form,
     );
   }
 }

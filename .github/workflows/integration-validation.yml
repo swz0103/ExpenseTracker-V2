@@ -25,8 +25,12 @@ on:
 permissions:
   contents: read
 
-# Pushes to one ref queue instead of cancelling, so every commit on main
-# keeps a result; manual runs run on their own.
+# A push to main never cancels a validation that is already running; it
+# waits for it. GitHub keeps only one waiting run per group, though: when
+# several pushes land during one run, the older waiting ones are cancelled
+# and only the newest is validated (and so published by android.yml), so a
+# commit in the middle of a burst can be left without a result. Pull
+# requests and manual runs each get a group of their own.
 concurrency:
   group: v2-integration-validation-${{ github.event_name }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: false

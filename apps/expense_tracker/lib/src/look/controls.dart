@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'glyphs.dart';
 import 'haptics.dart';
 import 'theme.dart';
 
@@ -152,13 +153,28 @@ class TapArea extends StatelessWidget {
 
 /// A rounded choice in a row of them, such as 買進 or 支出, filled with the
 /// interface colour when chosen. Small to look at, a full 48 dp to tap.
+///
+/// A [removable] pill is a filter in force, such as a date range over the
+/// records: it carries a cross, and a tap takes the filter away.
 class ChoicePill extends StatelessWidget {
   const ChoicePill({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
-  });
+    this.background = Hue.tile,
+  }) : removable = false;
+
+  /// A filter in force, chosen-looking with a cross; [onRemove] takes it
+  /// away.
+  const ChoicePill.removable({
+    super.key,
+    required this.label,
+    required VoidCallback onRemove,
+  }) : selected = true,
+       onTap = onRemove,
+       removable = true,
+       background = Hue.tile;
 
   final String label;
   final bool selected;
@@ -166,10 +182,26 @@ class ChoicePill extends StatelessWidget {
   /// Null when the choice is shown but cannot be changed.
   final VoidCallback? onTap;
 
+  /// Whether a tap takes this away rather than choosing it.
+  final bool removable;
+
+  /// The fill when not chosen: the tint on white, white on a tinted
+  /// block.
+  final Color background;
+
   @override
   Widget build(BuildContext context) {
+    final words = Text(
+      label,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: selected ? Hue.onAccent : Hue.accent,
+      ),
+    );
     return TapArea(
-      selected: selected,
+      selected: removable ? null : selected,
+      label: removable ? '移除篩選' : null,
       onTap: onTap,
       child: Container(
         height: 36,
@@ -177,17 +209,19 @@ class ChoicePill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? Hue.accent : Hue.tile,
+          color: selected ? Hue.accent : background,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Hue.onAccent : Hue.accent,
-          ),
-        ),
+        child: removable
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  words,
+                  const SizedBox(width: 4),
+                  const GlyphIcon(Glyph.close, size: 14, color: Hue.onAccent),
+                ],
+              )
+            : words,
       ),
     );
   }
@@ -210,10 +244,7 @@ class SmallLink extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: inset),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: Hue.accent),
-        ),
+        child: Text(label, style: accentSmall),
       ),
     );
   }

@@ -53,7 +53,7 @@ final class Ledger extends ChangeNotifier {
        _startHoldings = [...holdings],
        _budgets = [...budgets],
        _recurring = [...recurring] {
-    _replay();
+    _replay(lenient: true);
   }
 
   static const allSpending = '全部支出';
@@ -157,10 +157,9 @@ final class Ledger extends ChangeNotifier {
     return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
   }
 
-  Category category(String name) => _categories.firstWhere(
-    (c) => c.name == name,
-    orElse: () => Category(name, 'other', const Color(0xFF8C8C80)),
-  );
+  Category category(String name) =>
+      (_categoryIndex ??= {for (final c in _categories) c.name: c})[name] ??
+      Category(name, 'other', const Color(0xFF8C8C80));
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
@@ -213,14 +212,34 @@ final class Ledger extends ChangeNotifier {
   Map<String, Account>? _accountIndex;
   Map<String, Entry>? _idIndex;
   Map<String, int>? _refundIndex;
-  final _statementCache = <String, (DateTime, DateTime, DateTime)>{};
-  final _dueCache = <String, int>{};
+
+  /// Sums worked out since the last change, by what was asked: such as
+  /// a card's statement on a given day.
+  final _memo = <Object, Object?>{};
+
+  /// What [make] works out, once per change for each [key]. A key should
+  /// hold every argument the answer depends on, the day included.
+  T _remember<T>(Object key, T Function() make) {
+    if (_memo.containsKey(key)) return _memo[key] as T;
+    final made = make();
+    _memo[key] = made;
+    return made;
+  }
+
+  /// Moves on with every change of what the sums are worked out from, so
+  /// a screen that keeps sums of its own knows when to work them out
+  /// again; hiding the amounts leaves it.
+  int get revision => _revision;
+  var _revision = 0;
+
+  Map<String, Category>? _categoryIndex;
 
   void _touch() {
+    _revision++;
+    _categoryIndex = null;
     _idIndex = null;
     _refundIndex = null;
-    _statementCache.clear();
-    _dueCache.clear();
+    _memo.clear();
     _moved = null;
     _months = null;
     _days = null;
@@ -240,22 +259,29 @@ final class Ledger extends ChangeNotifier {
   /// as hiding the amounts: nothing worked out is thrown away.
   void _signal() => super.notifyListeners();
 
-  /// Entries of any month whose note, merchant, category or tags hold
-  /// [words], or whose amount is [words]; newest first.
   /// Every entry, in the order written; the list cannot be changed.
   List<Entry> get entries => UnmodifiableListView(_entries);
 
-  List<Entry> search(String words) {
+  /// Entries of any month whose note, merchant, category or tags hold
+  /// [words], or whose amount is [words]; newest first.
+  List<Entry> search(String words) =>
+      _remember(('search', words), () => _search(words));
+
+  List<Entry> _search(String words) {
     final lower = words.toLowerCase();
-    bool holds(String text) => text.toLowerCase().contains(lower);
+    // Each entry's words, lower-cased once per change.
+    final texts = _remember(
+      'searchText',
+      () => [
+        for (final e in _entries)
+          [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
+      ],
+    );
     final found = [
       for (final (i, e) in _entries.indexed)
-        if (holds(e.note) ||
-            holds(e.merchant) ||
-            holds(e.category) ||
-            e.tags.any(holds) ||
-            plainIn(e.amount, account(e.account).currency) == words ||
-            '${e.amount}' == words)
+        if (texts[i].contains(lower) ||
+            '${e.amount}' == words ||
+            plainIn(e.amount, account(e.account).currency) == words)
           (i, e),
     ];
     found.sort((a, b) {
@@ -374,7 +400,7 @@ final class Ledger extends ChangeNotifier {
       ..clear()
       ..addAll(rates);
     _quotedOn = quotedOn;
-    _replay();
+    _replay(lenient: true);
     notifyListeners();
   }
 
@@ -456,14 +482,20 @@ final class Ledger extends ChangeNotifier {
       () => _entries.removeRange(count, _entries.length),
       trades: entries.any((e) => e.isInvestment),
     );
+    final seen = <String>{};
     final named = [
       for (final c in categories)
-        if (categoryNameFree(c.name)) c,
+        if (categoryNameFree(c.name) && seen.add(c.name.trim())) c,
     ];
-    _accounts.addAll(accounts);
+    final ids = {for (final a in _accounts) a.id};
+    final opened = [
+      for (final a in accounts)
+        if (ids.add(a.id)) a,
+    ];
+    _accounts.addAll(opened);
     _categories.addAll(named);
     notifyListeners();
-    _keep(Batch(accounts: accounts, categories: named, entries: entries));
+    _keep(Batch(accounts: opened, categories: named, entries: entries));
   }
 
   /// Puts [entry] in place of the entry with the same id, with the receipt
@@ -493,7 +525,7 @@ final class Ledger extends ChangeNotifier {
     for (final e in entries) {
       final index = _entries.indexWhere((x) => x.id == e.id);
       if (index < 0) continue;
-      before[index] = _entries[index];
+      before.putIfAbsent(index, () => _entries[index]);
       _entries[index] = e;
     }
     if (before.isEmpty) return;
@@ -524,15 +556,69 @@ final class Ledger extends ChangeNotifier {
     return (index, removed);
   }
 
+  /// Removes every entry of [ids] as one change, and returns each with its
+  /// place, for undo; none when taking them away would leave a later sale
+  /// short of shares, which is told through [problem].
+  List<(int, Entry)> removeAll(Iterable<String> ids) {
+    final wanted = {...ids};
+    final removed = <(int, Entry)>[
+      for (final (i, e) in _entries.indexed)
+        if (wanted.contains(e.id)) (i, e),
+    ];
+    if (removed.isEmpty) return const [];
+    _entries.removeWhere((e) => wanted.contains(e.id));
+    if (!_tryReplay(() {
+      for (final (i, e) in removed) {
+        _entries.insert(i, e);
+      }
+    }, trades: removed.any((r) => r.$2.isInvestment))) {
+      return const [];
+    }
+    final trashed = [for (final (_, e) in removed) Trashed(e, today)];
+    _trash.insertAll(0, trashed.reversed);
+    _keep(
+      Batch(
+        trash: trashed,
+        dropped: [for (final (_, e) in removed) (Shelf.entry, e.id)],
+      ),
+    );
+    return removed;
+  }
+
+  /// Puts back what [removeAll] took away, as one change.
+  bool restoreAll(List<(int, Entry)> removed) {
+    if (removed.isEmpty) return true;
+    final ids = {for (final (_, e) in removed) e.id};
+    if (_entries.any((e) => ids.contains(e.id))) return false;
+    for (final (i, e) in removed) {
+      _entries.insert(i.clamp(0, _entries.length), e);
+    }
+    if (!_tryReplay(
+      () => _entries.removeWhere((e) => ids.contains(e.id)),
+      trades: removed.any((r) => r.$2.isInvestment),
+    )) {
+      return false;
+    }
+    _trash.removeWhere((t) => ids.contains(t.entry.id));
+    _keep(
+      Batch(
+        entries: [for (final (_, e) in removed) e],
+        dropped: [for (final id in ids) (Shelf.trash, id)],
+      ),
+    );
+    return true;
+  }
+
   /// Puts back an entry [remove] took away. False, told through
   /// [problem], when it no longer fits the trades kept since.
   bool restore((int, Entry) removed) {
     final (index, entry) = removed;
+    if (byId(entry.id) != null) return false;
     _entries.insert(index.clamp(0, _entries.length), entry);
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }
-    _trash.removeWhere((t) => identical(t.entry, entry));
+    _trash.removeWhere((t) => t.entry.id == entry.id);
     _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
     return true;
   }
@@ -541,11 +627,19 @@ final class Ledger extends ChangeNotifier {
   /// it no longer fits the trades kept since.
   bool restoreTrashed(Trashed trashed) {
     final entry = trashed.entry;
+    if (byId(entry.id) != null) {
+      // Already back in the book, as by an undo: only the trash keeps it.
+      _trash.removeWhere((t) => t.entry.id == entry.id);
+      _signal();
+      _keep(Batch(dropped: [(Shelf.trash, entry.id)]));
+      return true;
+    }
+    final at = _trash.indexOf(trashed);
     _trash.remove(trashed);
     _entries.add(entry);
     if (!_tryReplay(() {
       _entries.removeLast();
-      _trash.add(trashed);
+      _trash.insert(at < 0 ? 0 : at, trashed);
     }, trades: entry.isInvestment)) {
       return false;
     }
@@ -682,13 +776,15 @@ final class Ledger extends ChangeNotifier {
   /// and not taken, unless by [except].
   bool categoryNameFree(String name, {String? except}) {
     final trimmed = name.trim();
+    // A category keeps its own name, even one from before these rules.
+    if (except != null && trimmed == except) return true;
     if (trimmed.isEmpty ||
         trimmed == allSpending ||
         trimmed == transferCategory ||
         trimmed.startsWith('#')) {
       return false;
     }
-    return trimmed == except || !_categories.any((c) => c.name == trimmed);
+    return !_categories.any((c) => c.name == trimmed);
   }
 
   void addCategory(Category category) {
@@ -890,7 +986,7 @@ final class Ledger extends ChangeNotifier {
       ..addAll(fresh._receipts);
     _quotedOn = fresh._quotedOn;
     _day = fresh.today;
-    _replay();
+    _replay(lenient: true);
     notifyListeners();
   }
 
@@ -943,10 +1039,11 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Rebuilds the holdings from the starting positions and every
-  /// investment entry; an oversold trade throws a [StateError].
-  void _replay() {
+  /// investment entry; an oversold trade throws a [StateError], or, when
+  /// [lenient], as for a book just loaded, is left out of the holdings.
+  void _replay({bool lenient = false}) {
     _touch();
-    _portfolio = Portfolio.replay(_startHoldings, _entries);
+    _portfolio = Portfolio.replay(_startHoldings, _entries, lenient: lenient);
   }
 }
 

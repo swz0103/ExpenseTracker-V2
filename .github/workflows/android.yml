@@ -3,8 +3,11 @@ name: Android APK
 # Builds the phone app. On main it waits for the push's own validation run
 # (integration-validation.yml) and, once that passed, builds the same commit
 # and puts the APK on the release `android-latest`, where it can be
-# downloaded; validation runs once per push. Pull requests only check that
-# it builds, in parallel with their own validation run.
+# downloaded; validation runs once per push. Pull requests and manual runs
+# only check that it builds, signed with the debug key.
+#
+# Two jobs: `build` only reads the repository; `publish` is the only one
+# that may write (the release) and runs only for a validated push to main.
 on:
   workflow_run:
     workflows: ['V2 integration validation']
@@ -22,12 +25,12 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: android-${{ github.ref }}
-  cancel-in-progress: true
+# No workflow-level concurrency: every validation that completes starts a
+# run here, even a failed or skipped one, and a workflow-wide group would
+# let such a run cancel a publish half way. Each job sets its own group.
 
 jobs:
-  apk:
+  build:
     # From validation: only a push to main whose whole validation set
     # passed. Manual runs and pull requests only build.
     if: >-
@@ -37,14 +40,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
+    # A newer push to a pull request cancels its older build. Builds of
+    # main queue one after another (never cancelled while running), so
+    # their publishes happen in commit order; manual runs stand alone.
+    concurrency:
+      group: >-
+        ${{ github.event_name == 'pull_request' && format('android-pr-{0}', github.ref) ||
+        github.event_name == 'workflow_run' && 'android-main-build' ||
+        format('android-manual-{0}', github.run_id) }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
-      # The commit validated (workflow_run), or the one this run is on.
-      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+      # The commit actually checked out and built: the validated commit
+      # (workflow_run), otherwise the run's own commit (for a pull request,
+      # the merge commit GitHub tests).
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.workflow_run.head_sha || '' }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
@@ -61,8 +75,10 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
       - name: Signing key
-        # The release key from repository secrets (docs/STATUS.md); without
-        # them the APK is signed with a debug key, for trying it out only.
+        # Only the validated main build gets the release key from repository
+        # secrets (docs/STATUS.md). Pull requests and manual runs never see
+        # it and are signed with the debug key, for trying out only.
+        if: github.event_name == 'workflow_run'
         env:
           KEYSTORE: ${{ secrets.ANDROID_PREVIEW_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_STORE_PASSWORD }}
@@ -73,12 +89,8 @@ jobs:
           if [ -z "$KEYSTORE" ]; then
             # A release signed with a passing key could not update the one
             # people have installed: main refuses to publish one.
-            if [ "$GITHUB_REF" = 'refs/heads/main' ]; then
-              echo '::error::No signing secrets: main only publishes APKs signed with the release key.'
-              exit 1
-            fi
-            echo 'No signing secrets: this check builds a debug-signed APK.'
-            exit 0
+            echo '::error::No signing secrets: main only publishes APKs signed with the release key.'
+            exit 1
           fi
           echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
           {
@@ -99,6 +111,9 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+      - name: Remove the signing key
+        if: always() && github.event_name == 'workflow_run'
+        run: rm -f "$RUNNER_TEMP/release.jks" apps/expense_tracker/android/key.properties
       - name: Keep the debug symbols
         # Turns a crash's stack trace from this build back into names
         # (flutter symbolize). v4.6.2.
@@ -108,9 +123,39 @@ jobs:
           path: ${{ runner.temp }}/symbols
           if-no-files-found: error
           retention-days: 90
-      - name: Publish on the android-latest release
-        # Only a validated push to main is published.
+      - name: Hand the APK to the publish job
         if: github.event_name == 'workflow_run'
+        # v4.6.2.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: apk
+          path: ${{ runner.temp }}/ExpenseTracker.apk
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    # Only a validated push to main is published, and only after its build.
+    needs: build
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # One publish at a time and never cancelled by a later run: a run that
+    # starts while this one works waits for it. Only the newest waiting
+    # run is kept, which is the one to publish anyway.
+    concurrency:
+      group: android-publish
+      cancel-in-progress: false
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      # v4.3.0.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: apk
+          path: ${{ runner.temp }}/apk
+      - name: Publish on the android-latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -121,7 +166,32 @@ jobs:
               --target "$SOURCE_SHA" --title '記帳本 Android 最新版' \
               --notes '從 main 最新一次建置的安裝檔。'
           fi
-          gh release upload android-latest "$RUNNER_TEMP/ExpenseTracker.apk" \
-            --repo "$repo" --clobber
+          # Upload the new APK under a name of its own first, so the release
+          # is never left without an APK: only then remove the old one and
+          # give the new one the usual name.
+          staged="ExpenseTracker-$GITHUB_RUN_ID.apk"
+          cp "$RUNNER_TEMP/apk/ExpenseTracker.apk" "$RUNNER_TEMP/$staged"
+          gh release upload android-latest "$RUNNER_TEMP/$staged" --repo "$repo"
+          asset_id() {
+            gh api "repos/$repo/releases/tags/android-latest" \
+              --jq ".assets[] | select(.name == \"$1\") | .id"
+          }
+          new_id="$(asset_id "$staged")"
+          if [ -z "$new_id" ]; then
+            echo "::error::Uploaded $staged but cannot find it on the release."
+            exit 1
+          fi
+          old_id="$(asset_id ExpenseTracker.apk)"
+          if [ -n "$old_id" ]; then
+            gh api -X DELETE "repos/$repo/releases/assets/$old_id"
+          fi
+          gh api -X PATCH "repos/$repo/releases/assets/$new_id" \
+            -f name=ExpenseTracker.apk > /dev/null
+          # Leftovers from an earlier publish that stopped half way.
+          gh api "repos/$repo/releases/tags/android-latest" \
+            --jq '.assets[] | select(.name | test("^ExpenseTracker-[0-9]+\\.apk$")) | .id' |
+            while read -r id; do
+              gh api -X DELETE "repos/$repo/releases/assets/$id"
+            done
           gh release edit android-latest --repo "$repo" \
             --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。"

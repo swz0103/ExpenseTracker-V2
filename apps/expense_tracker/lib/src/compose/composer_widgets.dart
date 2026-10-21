@@ -27,7 +27,7 @@ class _OriginalTile extends StatelessWidget {
               children: [
                 Text(
                   '原支出 · ${entry.date.month}/${entry.date.day}',
-                  style: const TextStyle(fontSize: 13, color: Hue.accent),
+                  style: mutedSmall,
                 ),
                 Text(
                   entry.title,
@@ -39,7 +39,7 @@ class _OriginalTile extends StatelessWidget {
             ),
           ),
           Text(
-            '−${amountIn(entry.amount, currency)}',
+            '−${ledger.moneyIn(entry.amount, currency)}',
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -202,7 +202,9 @@ class _AccountEnd extends StatelessWidget {
 
   final String label;
   final Account account;
-  final int balance;
+
+  /// The account's balance as words, dots while amounts are hidden.
+  final String balance;
   final VoidCallback onTap;
   final bool end;
 
@@ -226,7 +228,7 @@ class _AccountEnd extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         Text(
-          '餘額 ${amountIn(balance, account.currency)}',
+          '餘額 $balance',
           style: const TextStyle(fontSize: 12, color: Hue.muted),
         ),
       ],
@@ -300,14 +302,7 @@ class _Chip extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Hue.accent,
-            ),
-          ),
+          child: Text(label, style: accentLabel),
         ),
       ),
     );

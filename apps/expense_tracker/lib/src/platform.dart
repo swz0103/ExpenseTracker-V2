@@ -223,7 +223,9 @@ final class _SealedImage extends ImageProvider<_SealedImage> {
 }
 
 /// Notifications through `Reminders.kt`: each alert is an alarm that
-/// posts it, kept across restarts of the phone.
+/// posts it, kept across restarts of the phone. Each goes with its time on
+/// the wall clock as well as its instant, so the phone can work the alarm
+/// out again when the time zone or the clock changes.
 final class AndroidNotifications implements NotifyPort {
   const AndroidNotifications();
 
@@ -238,6 +240,11 @@ final class AndroidNotifications implements NotifyPort {
           for (final a in alerts)
             {
               'at': a.at.millisecondsSinceEpoch,
+              'y': a.at.toLocal().year,
+              'm': a.at.toLocal().month,
+              'd': a.at.toLocal().day,
+              'hour': a.at.toLocal().hour,
+              'minute': a.at.toLocal().minute,
               'title': a.title,
               'text': a.text,
               'quick': a.quick?.name,
@@ -252,7 +259,10 @@ final class AndroidNotifications implements NotifyPort {
 final quickAction = ValueNotifier<QuickAction?>(null);
 
 /// Takes the action the app was opened with, then listens for those
-/// that arrive while it runs.
+/// that arrive while it runs. Each action arrives once: the phone keeps
+/// one for `takeQuickAction` until that call, and only after it sends
+/// later ones as `quickAction` (`MainActivity.kt`). The handler is set
+/// first, so none sent after the take is missed.
 Future<void> listenForQuickActions() async {
   platformChannel.setMethodCallHandler((call) async {
     if (call.method == 'quickAction')

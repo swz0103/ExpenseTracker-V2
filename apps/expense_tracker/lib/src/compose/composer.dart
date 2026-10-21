@@ -18,23 +18,24 @@ import 'pickers.dart';
 import 'receipt_photos.dart';
 
 part 'composer_fields.dart';
+part 'composer_investment.dart';
+part 'composer_lend.dart';
 part 'composer_widgets.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
 enum ComposeMode {
-  expense('支出', Glyph.bag, Hue.negative, Hue.expenseSoft),
-  income('收入', Glyph.income, Hue.positive, Hue.incomeSoft),
-  transfer('轉帳', Glyph.transfer, Hue.transfer, Hue.transferSoft),
-  lend('代墊', Glyph.heart, Hue.receivable, Hue.investmentSoft),
-  investment('投資', Glyph.investment, Hue.investment, Hue.investmentSoft);
+  expense('支出', Glyph.bag, Hue.negative),
+  income('收入', Glyph.income, Hue.positive),
+  transfer('轉帳', Glyph.transfer, Hue.transfer),
+  lend('代墊', Glyph.heart, Hue.receivable),
+  investment('投資', Glyph.investment, Hue.investment);
 
-  const ComposeMode(this.label, this.icon, this.color, this.soft);
+  const ComposeMode(this.label, this.icon, this.color);
 
   final String label;
   final Glyph icon;
   final Color color;
-  final Color soft;
 
   static ComposeMode of(EntryType type) => switch (type) {
     EntryType.expense => expense,
@@ -44,9 +45,18 @@ enum ComposeMode {
   };
 }
 
+/// A form put aside with 暫存: the entry as it stood and the receipt
+/// photo chosen for it, which is not part of the entry until it is saved.
+final class _Draft {
+  const _Draft(this.entry, this.receipt);
+
+  final Entry entry;
+  final String? receipt;
+}
+
 /// Forms put aside with 暫存, by tab, kept with the ledger they were
 /// written for: another book opened in the same run starts with none.
-final _draftsOf = Expando<Map<ComposeMode, Entry>>('drafts');
+final _draftsOf = Expando<Map<ComposeMode, _Draft>>('drafts');
 
 /// How the composer was left, when not just closed.
 enum ComposeOutcome { saved, deleted, refund }
@@ -168,7 +178,7 @@ class _ComposerState extends State<Composer> {
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
-  Map<ComposeMode, Entry> get _drafts => _draftsOf[_ledger] ??= {};
+  Map<ComposeMode, _Draft> get _drafts => _draftsOf[_ledger] ??= {};
 
   Entry? get _refunded => widget.refundOf;
 
@@ -242,9 +252,17 @@ class _ComposerState extends State<Composer> {
     super.dispose();
   }
 
+  /// The accounts a form may start on: the open ones, or every one when
+  /// all are archived ([openComposer] makes sure there is an open one
+  /// first, but a form put aside may outlive it).
+  List<Account> get _startAccounts {
+    final open = _ledger.openAccounts;
+    return open.isNotEmpty ? open : _ledger.accounts;
+  }
+
   /// Empty fields with sensible first choices for the current tab.
   void _fresh() {
-    final accounts = _ledger.openAccounts;
+    final accounts = _startAccounts;
     _amount = 0;
     _date = _ledger.today;
     _account = accounts.first.id;
@@ -344,23 +362,35 @@ class _ComposerState extends State<Composer> {
   List<String> _categoryChoices() =>
       _ledger.categoriesByUse(income: _tab == ComposeMode.income);
 
-  /// Brings back a draft put aside, on accounts still open.
-  void _restoreDraft(Entry draft) {
-    _load(draft);
-    _findLending(draft);
-    if (draft.isInvestment) _trade = draft.type;
-    final open = {for (final a in _ledger.openAccounts) a.id};
-    if (!open.contains(_account)) _account = _ledger.openAccounts.first.id;
+  /// Brings back a draft put aside, with its receipt photo, on accounts
+  /// still open; when none is open, its own accounts stay.
+  void _restoreDraft(_Draft draft) {
+    final entry = draft.entry;
+    _load(entry);
+    _findLending(entry);
+    if (entry.isInvestment) _trade = entry.type;
+    _receipt = draft.receipt;
+    final accounts = _ledger.openAccounts;
+    final open = {for (final a in accounts) a.id};
+    if (!open.contains(_account) && accounts.isNotEmpty) {
+      _account = accounts.first.id;
+    }
     if (!open.contains(_to)) _to = _account;
   }
 
+  /// Moves to another tab: the fields start afresh, or as that tab's
+  /// draft left them. A receipt photo already chosen stays, unless the
+  /// draft brings its own: the photo is of what was bought or paid,
+  /// whichever kind of entry it turns out to be.
   void _switch(ComposeMode mode) {
     if (mode == _mode) return;
     setState(() {
+      final receipt = _receipt;
       _mode = mode;
       _fresh();
       final draft = _drafts[mode];
       if (draft != null && widget.entry == null) _restoreDraft(draft);
+      _receipt ??= receipt;
     });
   }
 
@@ -770,7 +800,7 @@ class _ComposerState extends State<Composer> {
   }
 
   void _putAside() {
-    _drafts[_tab] = _build();
+    _drafts[_tab] = _Draft(_build(), _receipt);
     Navigator.of(context).pop();
   }
 
@@ -874,7 +904,7 @@ class _ComposerState extends State<Composer> {
                   size: 34,
                   sub: refunded == null
                       ? null
-                      : '最多可退 ${amountIn(most, _currency)}',
+                      : '最多可退 ${_ledger.moneyIn(most, _currency)}',
                   onTap: _trading ? null : _calculate,
                 ),
                 ..._fields(),

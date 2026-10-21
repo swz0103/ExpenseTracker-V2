@@ -17,6 +17,7 @@ class Waterfall extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.currency = 'TWD',
+    this.hidden = false,
   });
 
   /// Each week's Monday and net change, oldest first.
@@ -29,6 +30,9 @@ class Waterfall extends StatelessWidget {
 
   /// The account's currency, which the changes are counted in.
   final String currency;
+
+  /// Whether amounts are hidden: the chosen week's change shows as dots.
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +61,7 @@ class Waterfall extends StatelessWidget {
                   selected: selected,
                   grow: grow,
                   currency: currency,
+                  hidden: hidden,
                 ),
               ),
             ),
@@ -74,6 +79,7 @@ class _WaterfallPainter extends CustomPainter {
     required this.selected,
     required this.grow,
     required this.currency,
+    required this.hidden,
   });
 
   final List<(DateTime, int)> weeks;
@@ -81,6 +87,7 @@ class _WaterfallPainter extends CustomPainter {
   final int selected;
   final double grow;
   final String currency;
+  final bool hidden;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -155,7 +162,9 @@ class _WaterfallPainter extends CustomPainter {
         );
         paintText(
           canvas,
-          currency == 'TWD'
+          hidden
+              ? '••••'
+              : currency == 'TWD'
               ? signed(change)
               : '${change > 0 ? '+' : ''}${amountIn(change, currency)}',
           TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
@@ -169,5 +178,8 @@ class _WaterfallPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WaterfallPainter old) =>
-      old.selected != selected || old.grow != grow || old.weeks != weeks;
+      old.selected != selected ||
+      old.grow != grow ||
+      old.weeks != weeks ||
+      old.hidden != hidden;
 }

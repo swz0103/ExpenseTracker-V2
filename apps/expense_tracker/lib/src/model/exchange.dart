@@ -53,6 +53,7 @@ const _header = [
   '分期',
   '轉入金額',
   '台幣金額',
+  '成本算法',
 ];
 
 /// The name an entry's kind has in a CSV.
@@ -97,7 +98,7 @@ List<String> _row(Ledger ledger, Entry e) {
           '$name=${plainIn(part, account.currency)}',
       ].join(';'),
     e.merchant,
-    e.tags.join(' '),
+    e.tags.join('、'),
     e.note,
     e.holding ?? '',
     count(e.shares.abs()),
@@ -106,7 +107,24 @@ List<String> _row(Ledger ledger, Entry e) {
     count(e.installments),
     if (received == null || to == null) '' else plainIn(received, to.currency),
     e.home == null ? '' : '${e.home}',
+    e.type == EntryType.sell && e.average ? '平均成本' : '',
   ];
+}
+
+/// The tags of a CSV cell: split at 、 or ; when it has them, so a tag
+/// may hold a space, else at spaces, as one typed by hand.
+List<String> _tagsIn(String cell) => [
+  for (final t in cell.split(
+    RegExp(cell.contains(RegExp('[;；、]')) ? r'[;；、]+' : r'\s+'),
+  ))
+    t.trim(),
+];
+
+/// Whether a category cell is a split, every part 「名稱=金額」, rather
+/// than a name that holds an =.
+bool _isSplit(String cell) {
+  final pieces = cell.split(RegExp('[;；]'));
+  return pieces.every((p) => RegExp(r'=\s*[\d,.]+\s*$').hasMatch(p));
 }
 
 String _day(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
@@ -308,6 +326,8 @@ final class _Reader {
     for (final c in [...ledger.categories, ..._categories]) {
       if (c.name == name) return c.income == income ? name : other;
     }
+    // A name the ledger keeps for itself is not made a category.
+    if (!ledger.categoryNameFree(name)) return other;
     final count = ledger.categories.length + _categories.length;
     _categories.add(
       Category(
@@ -381,7 +401,7 @@ final class _Reader {
   }) {
     final written = cell('分類');
     var parts = <(String, int)>[];
-    if (!income && written.contains('=')) {
+    if (!income && _isSplit(written)) {
       for (final piece in written.split(RegExp('[;；]'))) {
         final at = piece.lastIndexOf('=');
         if (at < 0) continue;
@@ -409,7 +429,7 @@ final class _Reader {
       note: note,
       merchant: income ? '' : cell('商家'),
       tags: [
-        for (final t in cell('標籤').split(RegExp(r'[\s;、]+')))
+        for (final t in _tagsIn(cell('標籤')))
           if (t.isNotEmpty) t,
       ],
       installments: card && !income ? int.tryParse(cell('分期')) ?? 0 : 0,
@@ -527,6 +547,7 @@ final class _Reader {
       fee: trade ? _amount(cell('手續費')) ?? 0 : 0,
       tax: kind == _Kind.cut ? 0 : _amount(cell('稅')) ?? 0,
       split: kind == _Kind.split,
+      average: kind == _Kind.sell && cell('成本算法').contains('平均'),
     );
   }
 
@@ -738,6 +759,8 @@ bool _hasInvoice(
         (e) =>
             e.note.contains(number) ||
             (e.tags.contains('發票') &&
+                // An entry still noting its own number is another invoice.
+                !e.note.contains(RegExp(r'發票 \S')) &&
                 e.date == day &&
                 e.merchant == shop &&
                 e.amount == amount),

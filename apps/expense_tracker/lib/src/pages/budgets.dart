@@ -107,7 +107,8 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     label: total == 0
                         ? '總預算'
                         : '$period${left < 0 ? '超支' : '剩餘'}',
-                    trailing: GestureDetector(
+                    trailing: TapArea(
+                      label: '設定總預算',
                       onTap: () => _edit(Ledger.allSpending),
                       child: const GlyphIcon(Glyph.edit, size: 18),
                     ),
@@ -214,9 +215,7 @@ class _CategoryLimit extends StatelessWidget {
         : category.color;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Hue.line)),
-      ),
+      decoration: ruleBelow,
       child: Row(
         children: [
           IconBadge(iconFor(category.icon), category.color, size: 40),
@@ -328,10 +327,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
             },
           ),
           const SizedBox(height: 12),
-          const Text(
-            '用到幾成時提醒',
-            style: TextStyle(fontSize: 13, color: Hue.accent),
-          ),
+          const Text('用到幾成時提醒', style: mutedSmall),
           const SizedBox(height: 6),
           Segments(
             labels: [for (final p in _shares) '$p%'],

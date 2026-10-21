@@ -31,61 +31,37 @@ class _ReportsPageState extends State<ReportsPage> {
   int? _stretch;
   String? _category;
 
-  /// How many times the ledger has changed while the page is open. The
-  /// sums are kept for a period and worked out again only after a change,
-  /// so picking a stretch or a category does not add everything up anew.
-  var _revision = 0;
+  /// The sums for a period, kept until the ledger's data changes (its
+  /// [Ledger.revision] moves on) or the day turns: picking a stretch or a
+  /// category, or hiding the amounts, does not add everything up anew.
   _Report? _report;
-  (ReportPeriod, int)? _reportFor;
+  (Ledger, ReportPeriod, int, DateTime)? _reportFor;
 
   DateTime get _today => widget.ledger.today;
 
-  @override
-  void initState() {
-    super.initState();
-    widget.ledger.addListener(_changed);
-  }
-
-  @override
-  void didUpdateWidget(ReportsPage old) {
-    super.didUpdateWidget(old);
-    if (identical(old.ledger, widget.ledger)) return;
-    old.ledger.removeListener(_changed);
-    widget.ledger.addListener(_changed);
-    _changed();
-  }
-
-  @override
-  void dispose() {
-    widget.ledger.removeListener(_changed);
-    super.dispose();
-  }
-
-  /// The page draws again through its [ListenableBuilder]; here the kept
-  /// sums are only marked as old.
-  void _changed() => _revision++;
-
   _Report get _current {
-    final key = (_period, _revision);
+    final ledger = widget.ledger;
+    final key = (ledger, _period, ledger.revision, ledger.today);
     final kept = _report;
     if (kept != null && _reportFor == key) return kept;
     _reportFor = key;
-    return _report = _Report.of(widget.ledger, _period);
+    return _report = _Report.of(ledger, _period);
   }
 
-  void _choose(int index) {
+  /// Moves to [period]; the stretch and category picked in the last one
+  /// mean nothing in it.
+  void _show(ReportPeriod period) {
     setState(() {
       _stretch = null;
-      _period = ReportPeriod.of(ReportSpan.values[index], _today);
+      _category = null;
+      _period = period;
     });
   }
 
-  void _step(int by) {
-    setState(() {
-      _stretch = null;
-      _period = _period.step(by);
-    });
-  }
+  void _choose(int index) =>
+      _show(ReportPeriod.of(ReportSpan.values[index], _today));
+
+  void _step(int by) => _show(_period.step(by));
 
   Future<void> _pickRange() async {
     final first = widget.ledger.firstDay;
@@ -103,10 +79,7 @@ class _ReportsPageState extends State<ReportsPage> {
       helpText: '選擇期間（以月為單位）',
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      _stretch = null;
-      _period = ReportPeriod.range(picked.start, picked.end);
-    });
+    _show(ReportPeriod.range(picked.start, picked.end));
   }
 
   @override
@@ -155,6 +128,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   : null,
               onNext: period.next.isAfter(today) ? null : () => _step(1),
               onLabelTap: _pickRange,
+              labelHint: '選擇期間',
             ),
             BalanceHero(
               ledger: ledger,
@@ -266,10 +240,6 @@ class _ReportsPageState extends State<ReportsPage> {
     final spending = report.spending;
     final lastSpending = report.lastSpending;
     final expense = report.expense;
-    final colors = [
-      for (final name in top) ledger.category(name).color,
-      if (names.length > top.length) Hue.faint,
-    ];
     final picked = _category;
     final index = picked == null
         ? null
@@ -280,8 +250,8 @@ class _ReportsPageState extends State<ReportsPage> {
       const SectionHead('分類', trailing: Text('對照去年同期', style: mutedSmall)),
       MixBars(
         columns: report.columns,
-        colors: colors,
-        labels: [for (final (label, _, _) in report.stretches) label],
+        colors: report.colors,
+        labels: report.labels,
         selected: index,
       ),
       const SizedBox(height: 12),
@@ -322,11 +292,7 @@ class _ReportsPageState extends State<ReportsPage> {
             for (final (i, (name, count, amount)) in rows.indexed)
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  border: i == 0
-                      ? null
-                      : const Border(top: BorderSide(color: Hue.line)),
-                ),
+                decoration: i == 0 ? null : ruleAbove,
                 child: Row(
                   children: [
                     const IconBadge(Glyph.store, Hue.accent, size: 30),
@@ -417,6 +383,8 @@ final class _Report {
     required this.names,
     required this.top,
     required this.columns,
+    required this.colors,
+    required this.labels,
     required this.largest,
     required this.merchants,
     required this.tags,
@@ -496,6 +464,11 @@ final class _Report {
       columns: names.isEmpty
           ? const []
           : [for (final (_, a, b) in stretches) column(a, b)],
+      colors: [
+        for (final name in top) ledger.category(name).color,
+        if (names.length > top.length) Hue.faint,
+      ],
+      labels: [for (final (label, _, _) in stretches) label],
       largest: names.fold(
         1,
         (m, n) => max(m, max(spending[n] ?? 0, lastSpending[n] ?? 0)),
@@ -534,6 +507,12 @@ final class _Report {
 
   /// Each stretch's spending in the [top] categories and the rest.
   final List<List<int>> columns;
+
+  /// The colour of each of [columns]' parts and each stretch's label,
+  /// kept with the sums so the chart sees the same lists until they
+  /// change and is not painted again for nothing.
+  final List<Color> colors;
+  final List<String> labels;
 
   /// The scale of the category bars.
   final int largest;
