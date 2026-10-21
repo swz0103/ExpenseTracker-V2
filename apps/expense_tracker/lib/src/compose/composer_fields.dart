@@ -344,10 +344,7 @@ extension _Fields on _ComposerState {
                   children: [
                     SmallLink('＋ 再拆一個分類', _addPart, inset: 6),
                     const Spacer(),
-                    Text(
-                      '剩餘 ${groupDigits(left)}',
-                      style: mutedSmall,
-                    ),
+                    Text('剩餘 ${groupDigits(left)}', style: mutedSmall),
                   ],
                 ),
               ),

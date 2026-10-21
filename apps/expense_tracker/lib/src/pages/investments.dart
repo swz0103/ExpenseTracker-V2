@@ -53,10 +53,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
     return [
       SectionHead(
         title,
-        trailing: Text(
-          widget.ledger.money(value),
-          style: mutedSmall,
-        ),
+        trailing: Text(widget.ledger.money(value), style: mutedSmall),
       ),
       SoftPanel(
         color: Hue.white,

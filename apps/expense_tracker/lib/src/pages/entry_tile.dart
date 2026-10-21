@@ -147,13 +147,9 @@ class DayHeading extends StatelessWidget {
       padding: const EdgeInsets.only(top: 18, bottom: 4),
       child: Row(
         children: [
-          Text(
-            longDay(date),
-            style: mutedSmall,
-          ),
+          Text(longDay(date), style: mutedSmall),
           const Spacer(),
-          if (sum != null)
-            Text(sum, style: mutedSmall),
+          if (sum != null) Text(sum, style: mutedSmall),
         ],
       ),
     );

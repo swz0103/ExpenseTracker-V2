@@ -72,7 +72,9 @@ class HoldingPage extends StatelessWidget {
                   final d? => '${d.month}/${d.day} 漲跌',
                   null => '漲跌',
                 },
-                value: ledger.quotedOn == null ? '—' : ledger.moneySigned(held.change),
+                value: ledger.quotedOn == null
+                    ? '—'
+                    : ledger.moneySigned(held.change),
                 valueColor: held.change < 0 ? Hue.negative : Hue.positive,
                 sub: ledger.quotedOn == null
                     ? '參考價 ${held.price}'
@@ -171,10 +173,7 @@ class _LotRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '${groupDigits(lot.shares)} 股',
-                style: mutedSmall,
-              ),
+              Text('${groupDigits(lot.shares)} 股', style: mutedSmall),
               const Spacer(),
               Text(
                 ledger.moneySigned(gain),

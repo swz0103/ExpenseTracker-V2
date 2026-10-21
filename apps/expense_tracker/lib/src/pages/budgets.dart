@@ -234,10 +234,7 @@ class _CategoryLimit extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      left < 0 ? '超支 ' : '剩餘 ',
-                      style: mutedSmall,
-                    ),
+                    Text(left < 0 ? '超支 ' : '剩餘 ', style: mutedSmall),
                     Text(
                       ledger.money(left.abs()),
                       style: TextStyle(
@@ -263,10 +260,7 @@ class _CategoryLimit extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      ledger.money(limit),
-                      style: mutedSmall,
-                    ),
+                    Text(ledger.money(limit), style: mutedSmall),
                   ],
                 ),
               ],

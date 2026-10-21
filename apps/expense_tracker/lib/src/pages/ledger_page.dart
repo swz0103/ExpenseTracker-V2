@@ -420,7 +420,9 @@ class _LedgerPageState extends State<LedgerPage> {
     final ledger = widget.ledger;
     if (_picked.isNotEmpty) {
       return Container(
-        color: _picked.contains(e.id) ? Hue.accent.withValues(alpha: 0.12) : null,
+        color: _picked.contains(e.id)
+            ? Hue.accent.withValues(alpha: 0.12)
+            : null,
         child: EntryTile(
           ledger: ledger,
           entry: e,

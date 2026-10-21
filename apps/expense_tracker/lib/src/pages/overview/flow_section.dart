@@ -69,10 +69,7 @@ class _FlowSectionState extends State<FlowSection> {
         : '${shownMonth.month}月';
     final left = shown.income - shown.expense;
     return [
-      const SectionHead(
-        '收支對照',
-        trailing: Text('近六個月', style: mutedSmall),
-      ),
+      const SectionHead('收支對照', trailing: Text('近六個月', style: mutedSmall)),
       Row(
         children: [
           Expanded(

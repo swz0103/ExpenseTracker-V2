@@ -177,10 +177,7 @@ class _LabelsPageState extends State<LabelsPage> {
                                       _merchants ? name : '#$name',
                                       style: const TextStyle(fontSize: 15),
                                     ),
-                                    Text(
-                                      '$count 筆',
-                                      style: mutedSmall,
-                                    ),
+                                    Text('$count 筆', style: mutedSmall),
                                   ],
                                 ),
                               ),

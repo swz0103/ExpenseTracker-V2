@@ -202,10 +202,7 @@ class _ImportSheetState extends State<_ImportSheet> {
                 padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
                 child: Row(
                   children: [
-                    Text(
-                      '${e.date.month}/${e.date.day}',
-                      style: mutedSmall,
-                    ),
+                    Text('${e.date.month}/${e.date.day}', style: mutedSmall),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(

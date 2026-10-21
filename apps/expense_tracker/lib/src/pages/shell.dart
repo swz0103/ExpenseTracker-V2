@@ -211,40 +211,40 @@ class _AppShellState extends State<AppShell> {
         });
       },
       child: Scaffold(
-          body: SafeArea(
-            bottom: false,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              // Only the page coming in is drawn: the one going out fading
-              // under it leaves its words as a ghost.
-              layoutBuilder: (current, previous) => current ?? const SizedBox(),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween(
-                    begin: const Offset(0, 0.03),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
+        body: SafeArea(
+          bottom: false,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 240),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            // Only the page coming in is drawn: the one going out fading
+            // under it leaves its words as a ghost.
+            layoutBuilder: (current, previous) => current ?? const SizedBox(),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, 0.03),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
               ),
-              child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
             ),
-          ),
-          bottomNavigationBar: _BottomBar(
-            tab: _tab,
-            onTab: (tab) {
-              if (tab != _tab || _page != null) Haptics.selection();
-              setState(() {
-                _tab = tab;
-                _page = null;
-              });
-            },
-            onRecord: () => _compose(),
+            child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
         ),
+        bottomNavigationBar: _BottomBar(
+          tab: _tab,
+          onTab: (tab) {
+            if (tab != _tab || _page != null) Haptics.selection();
+            setState(() {
+              _tab = tab;
+              _page = null;
+            });
+          },
+          onRecord: () => _compose(),
+        ),
+      ),
     );
   }
 }

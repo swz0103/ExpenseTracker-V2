@@ -184,7 +184,9 @@ class CardPage extends StatelessWidget {
               Tile(
                 icon: Glyph.budget,
                 label: '可用額度',
-                value: limit == null ? '—' : ledger.money(limit - debt - pending),
+                value: limit == null
+                    ? '—'
+                    : ledger.money(limit - debt - pending),
                 sub: limit == null
                     ? '未設定額度'
                     : pending == 0
@@ -223,10 +225,7 @@ class CardPage extends StatelessWidget {
             if (plans.isNotEmpty) ...[
               SectionHead(
                 '分期中',
-                trailing: Text(
-                  '${plans.length} 筆',
-                  style: mutedSmall,
-                ),
+                trailing: Text('${plans.length} 筆', style: mutedSmall),
               ),
               SoftPanel(
                 color: Hue.white,

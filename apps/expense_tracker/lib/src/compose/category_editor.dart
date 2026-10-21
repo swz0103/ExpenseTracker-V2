@@ -177,10 +177,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           for (final (group, keys) in categoryIconGroups) ...[
             Padding(
               padding: const EdgeInsets.only(top: 10, bottom: 6),
-              child: Text(
-                group,
-                style: mutedSmall,
-              ),
+              child: Text(group, style: mutedSmall),
             ),
             Wrap(
               spacing: 6,
@@ -192,10 +189,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           // One level only: a category with its own subcategories stays on
           // top.
           if (parents.isNotEmpty && !hasChildren) ...[
-            const Text(
-              '放在哪個分類下',
-              style: mutedSmall,
-            ),
+            const Text('放在哪個分類下', style: mutedSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,

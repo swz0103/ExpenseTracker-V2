@@ -150,7 +150,9 @@ class _ReportsPageState extends State<ReportsPage> {
               previousLabel: '上一期',
               nextLabel: '下一期',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              onPrevious: from.isAfter(ledger.firstDay) ? () => _step(-1) : null,
+              onPrevious: from.isAfter(ledger.firstDay)
+                  ? () => _step(-1)
+                  : null,
               onNext: period.next.isAfter(today) ? null : () => _step(1),
               onLabelTap: _pickRange,
             ),
@@ -275,10 +277,7 @@ class _ReportsPageState extends State<ReportsPage> {
         ? top.indexOf(picked)
         : top.length;
     return [
-      const SectionHead(
-        '分類',
-        trailing: Text('對照去年同期', style: mutedSmall),
-      ),
+      const SectionHead('分類', trailing: Text('對照去年同期', style: mutedSmall)),
       MixBars(
         columns: report.columns,
         colors: colors,
