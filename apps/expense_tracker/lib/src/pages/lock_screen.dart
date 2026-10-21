@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
+import '../book/drive_backup.dart';
 import '../platform.dart';
 import '../startup.dart';
 import 'lock/create_view.dart';
@@ -41,8 +42,12 @@ class _LockScreenState extends State<LockScreen> {
   var _busy = false;
   String? _problem;
 
-  /// The copy of the backup chosen with the file picker, in the cache.
+  /// The copy of the backup chosen with the file picker or downloaded
+  /// from Google Drive, in the cache.
   String? _picked;
+
+  /// Google Drive, once a backup is looked for there.
+  DriveBackup? _drive;
 
   bool get _creating =>
       widget.startup.state is NeedsSetup && !_restoring && _withPassword;
@@ -208,8 +213,69 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _pickBackup() async {
     final path = await androidPickFile();
     if (path == null || !mounted) return;
+    if (path != _picked) _forgetPicked();
     _picked = path;
     setState(() => _file.text = path);
+  }
+
+  /// Lists the backups in 記帳本備份 on Google Drive, after Google's
+  /// sign-in, and downloads the one chosen into the cache.
+  Future<void> _pickDrive() async {
+    final drive = _drive ??= androidDrive();
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      final files = await drive.list();
+      if (!mounted) return;
+      if (files.isEmpty) {
+        _fail('Google 雲端硬碟的「${DriveBackup.folderName}」裡沒有備份');
+        return;
+      }
+      setState(() => _busy = false);
+      final chosen = await showModalBottomSheet<DriveFile>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final file in files)
+                ListTile(
+                  title: Text(_driveLabel(file)),
+                  subtitle: Text(file.name),
+                  onTap: () => Navigator.of(context).pop(file),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (chosen == null || !mounted) return;
+      setState(() => _busy = true);
+      _forgetPicked();
+      final into = File('${(await androidCacheDirectory()).path}/restore.etbk');
+      await drive.download(chosen.id, into);
+      _picked = into.path;
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _file.text = into.path;
+      });
+    } on DriveException catch (error) {
+      _fail(error.message);
+    } on Object catch (error) {
+      _fail('無法下載備份（$error）');
+    }
+  }
+
+  static String _driveLabel(DriveFile file) {
+    final at = file.modified.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final size = file.size == 0
+        ? ''
+        : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${at.year}/${at.month}/${at.day} '
+        '${two(at.hour)}:${two(at.minute)}$size';
   }
 
   void _fail(String problem) {
@@ -283,6 +349,7 @@ class _LockScreenState extends State<LockScreen> {
         onSubmit: _submit,
         onToggleRecovery: _toggleRecovery,
         onPickFile: Platform.isAndroid ? _pickBackup : null,
+        onPickDrive: Platform.isAndroid ? _pickDrive : null,
         onBack: _back,
       );
     } else if (_recovery) {

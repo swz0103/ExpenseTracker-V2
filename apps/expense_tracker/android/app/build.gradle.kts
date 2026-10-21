@@ -83,4 +83,6 @@ flutter {
 dependencies {
     // BiometricPrompt for the Keystore key in MainActivity.kt.
     implementation("androidx.biometric:biometric:1.1.0")
+    // Google sign-in for backups on Drive (drive.file), in MainActivity.kt.
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
 }

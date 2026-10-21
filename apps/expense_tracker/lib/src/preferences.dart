@@ -33,6 +33,11 @@ final class Preferences extends ChangeNotifier {
       _nudgeHour = (json['nudgeHour'] as num?)?.toInt() ?? 21;
       _started = json['started'] as bool? ?? false;
       _widgetShown = json['widgetShown'] as bool? ?? false;
+      _driveLinked = json['driveLinked'] as bool? ?? false;
+      _driveBackedUp = DateTime.tryParse(
+        json['driveBackedUp'] as String? ?? '',
+      );
+      _driveRevision = (json['driveRevision'] as num?)?.toInt();
     } on Object {
       // An unreadable file leaves the defaults.
     }
@@ -67,6 +72,26 @@ final class Preferences extends ChangeNotifier {
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
 
+  /// Backups go up to Google Drive: by hand, and weekly by themselves.
+  bool get driveLinked => _driveLinked;
+  var _driveLinked = false;
+
+  /// When the last backup reached Google Drive.
+  DateTime? get driveBackedUp => _driveBackedUp;
+  DateTime? _driveBackedUp;
+
+  /// The ledger's revision in that backup.
+  int? get driveRevision => _driveRevision;
+  int? _driveRevision;
+
+  /// Notes a backup of the ledger at [revision] kept on Google Drive.
+  void driveBackup(DateTime at, int revision) {
+    _driveBackedUp = at;
+    _driveRevision = revision;
+    notifyListeners();
+    _save();
+  }
+
   void update({
     Appearance? appearance,
     bool? haptics,
@@ -75,6 +100,7 @@ final class Preferences extends ChangeNotifier {
     int? nudgeHour,
     bool? started,
     bool? widgetShown,
+    bool? driveLinked,
   }) {
     _appearance = appearance ?? _appearance;
     _haptics = haptics ?? _haptics;
@@ -83,6 +109,7 @@ final class Preferences extends ChangeNotifier {
     _nudgeHour = (nudgeHour ?? _nudgeHour).clamp(0, 23);
     _started = started ?? _started;
     _widgetShown = widgetShown ?? _widgetShown;
+    _driveLinked = driveLinked ?? _driveLinked;
     notifyListeners();
     _save();
   }
@@ -101,6 +128,9 @@ final class Preferences extends ChangeNotifier {
           'nudgeHour': _nudgeHour,
           'started': _started,
           'widgetShown': _widgetShown,
+          'driveLinked': _driveLinked,
+          'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
+          'driveRevision': _driveRevision,
         }),
         flush: true,
       );

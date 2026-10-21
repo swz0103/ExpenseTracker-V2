@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'book/drive_sync.dart';
 import 'book/keeper.dart';
 import 'calendar_sync.dart';
 import 'compose/receipt_photos.dart';
@@ -23,6 +24,7 @@ final class Services {
     this.quick,
     this.sample,
     this.receipts,
+    this.drive,
   });
 
   final Keeper? keeper;
@@ -41,4 +43,7 @@ final class Services {
 
   /// The phone's receipt photos; none in the preview, which hides them.
   final ReceiptPhotos? receipts;
+
+  /// Backups on Google Drive, on Android.
+  final DriveSync? drive;
 }
