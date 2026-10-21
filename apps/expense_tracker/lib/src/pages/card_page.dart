@@ -132,7 +132,7 @@ class CardPage extends StatelessWidget {
               icon: Glyph.card,
               label: '本期帳單 · ${_day(start)}–${_day(end)}',
               trailing: Pill(owed == 0 ? '已繳清' : '已出帳'),
-              value: money(owed),
+              value: ledger.money(owed),
               valueColor: owed > 0 ? Hue.negative : Hue.positive,
               sub: status,
               child: owed == 0
@@ -168,7 +168,7 @@ class CardPage extends StatelessWidget {
               Tile(
                 icon: Glyph.calendar,
                 label: '本期未出帳',
-                value: money(spentSince),
+                value: ledger.money(spentSince),
                 sub: '第 $gone / $cycleDays 天',
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -177,19 +177,19 @@ class CardPage extends StatelessWidget {
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(3),
                     color: Hue.accent,
-                    backgroundColor: const Color(0x263B6C80),
+                    backgroundColor: Hue.accentTrack,
                   ),
                 ),
               ),
               Tile(
                 icon: Glyph.budget,
                 label: '可用額度',
-                value: limit == null ? '—' : money(limit - debt - pending),
+                value: limit == null ? '—' : ledger.money(limit - debt - pending),
                 sub: limit == null
                     ? '未設定額度'
                     : pending == 0
                     ? '總額度 ${shortAmount(limit)}'
-                    : '含分期未繳 ${money(pending)}',
+                    : '含分期未繳 ${ledger.money(pending)}',
               ),
             ]),
             Padding(
@@ -207,7 +207,7 @@ class CardPage extends StatelessWidget {
               Tile(
                 icon: Glyph.sparkle,
                 label: '今年回饋',
-                value: money(_tagged(card, '回饋', EntryType.income)),
+                value: ledger.money(_tagged(card, '回饋', EntryType.income)),
                 valueColor: Hue.positive,
                 trailing: const GlyphIcon(Glyph.add, size: 16),
                 onTap: () => _extra(card, EntryType.income),
@@ -215,7 +215,7 @@ class CardPage extends StatelessWidget {
               Tile(
                 icon: Glyph.ticket,
                 label: '今年年費',
-                value: money(_tagged(card, '年費', EntryType.expense)),
+                value: ledger.money(_tagged(card, '年費', EntryType.expense)),
                 trailing: const GlyphIcon(Glyph.add, size: 16),
                 onTap: () => _extra(card, EntryType.expense),
               ),
@@ -225,7 +225,7 @@ class CardPage extends StatelessWidget {
                 '分期中',
                 trailing: Text(
                   '${plans.length} 筆',
-                  style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  style: mutedSmall,
                 ),
               ),
               SoftPanel(
@@ -246,7 +246,7 @@ class CardPage extends StatelessWidget {
               '本期未出帳',
               trailing: Text(
                 '${_day(end.add(const Duration(days: 1)))} 起',
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
+                style: mutedSmall,
               ),
             ),
             if (unbilled.isEmpty)
@@ -277,7 +277,7 @@ class CardPage extends StatelessWidget {
                   const Divider(height: 1),
                   _setting('繳款日', '每月 ${card.dueDay ?? 15} 日'),
                   const Divider(height: 1),
-                  _setting('信用額度', limit == null ? '未設定' : money(limit)),
+                  _setting('信用額度', limit == null ? '未設定' : ledger.money(limit)),
                 ],
               ),
             ),
@@ -311,7 +311,7 @@ class CardPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${money(each)} / 期',
+                      '${ledger.money(each)} / 期',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -330,8 +330,8 @@ class CardPage extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '第 $periods / ${e.installments} 期 · '
-                  '剩 ${money(e.amount - ledger.billed(e, ledger.today))}',
-                  style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  '剩 ${ledger.money(e.amount - ledger.billed(e, ledger.today))}',
+                  style: mutedSmall,
                 ),
               ],
             ),

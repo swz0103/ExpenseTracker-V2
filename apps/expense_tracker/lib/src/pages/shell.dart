@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../compose/composer.dart';
-import '../look/figures.dart';
 import '../look/glyphs.dart';
 import '../look/haptics.dart';
 import '../look/theme.dart';
@@ -61,8 +60,6 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     widget.ledger.problem.addListener(_report);
-    widget.ledger.addListener(_hideAmounts);
-    _hideAmounts();
     widget.services.quick?.addListener(_quickAction);
     // An action the app was opened with waits for the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => _quickAction());
@@ -72,13 +69,8 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     widget.services.quick?.removeListener(_quickAction);
     widget.ledger.problem.removeListener(_report);
-    widget.ledger.removeListener(_hideAmounts);
     super.dispose();
   }
-
-  /// Follows the ledger's 隱藏金額 switch in every [money] on screen. Added
-  /// before any page listens, so the pages redraw with it already set.
-  void _hideAmounts() => amountsHidden = widget.ledger.hidden;
 
   /// Opens the composer a shortcut, the widget or a notification asked
   /// for, once.
@@ -218,11 +210,7 @@ class _AppShellState extends State<AppShell> {
           }
         });
       },
-      // Built anew when the colours change: boxes keep the paint they
-      // made, and a new subtree makes them paint with the new palette.
-      child: KeyedSubtree(
-        key: ValueKey(Shade.dark),
-        child: Scaffold(
+      child: Scaffold(
           body: SafeArea(
             bottom: false,
             child: AnimatedSwitcher(
@@ -257,7 +245,6 @@ class _AppShellState extends State<AppShell> {
             onRecord: () => _compose(),
           ),
         ),
-      ),
     );
   }
 }
@@ -306,7 +293,7 @@ class _BottomBar extends StatelessWidget {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Color(0x553B6C80),
+                                  color: Hue.accentGlow,
                                   blurRadius: 12,
                                   offset: Offset(0, 4),
                                 ),

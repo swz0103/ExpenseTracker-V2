@@ -5,7 +5,6 @@ import '../compose/account_editor.dart';
 import '../compose/pickers.dart';
 import '../look/figures.dart';
 import '../look/glyphs.dart';
-import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../model/exchange.dart';
@@ -101,10 +100,7 @@ class _ImportSheetState extends State<_ImportSheet> {
       title: widget.invoices ? '用哪個帳戶付款' : '找不到帳戶時記到',
       selected: _account,
       columns: 3,
-      options: [
-        for (final a in ledger.openAccounts)
-          Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
-      ],
+      options: accountOptions(ledger),
     );
     if (picked == null || !mounted) return;
     _account = picked;
@@ -187,8 +183,8 @@ class _ImportSheetState extends State<_ImportSheet> {
               label: '讀到',
               value: '${found.entries.length} 筆',
               sub: found.skipped == 0
-                  ? '合計 ${money(total)}'
-                  : '合計 ${money(total)} · 略過 ${found.skipped} 行',
+                  ? '合計 ${ledger.money(total)}'
+                  : '合計 ${ledger.money(total)} · 略過 ${found.skipped} 行',
             ),
           if (found != null && found.accounts.isNotEmpty)
             _Note(
@@ -208,7 +204,7 @@ class _ImportSheetState extends State<_ImportSheet> {
                   children: [
                     Text(
                       '${e.date.month}/${e.date.day}',
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      style: mutedSmall,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

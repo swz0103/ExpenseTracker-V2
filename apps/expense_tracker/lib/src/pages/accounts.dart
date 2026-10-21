@@ -47,9 +47,14 @@ class AccountsPage extends StatelessWidget {
               hero: true,
               icon: Glyph.wallet,
               label: '淨資產',
-              value: money(ledger.assets - debt),
+              value: ledger.money(ledger.assets - debt),
               valueColor: ledger.assets < debt ? Hue.negative : Hue.ink,
-              child: _Balance(cash: cash, invest: invest, debt: debt),
+              child: _Balance(
+                ledger: ledger,
+                cash: cash,
+                invest: invest,
+                debt: debt,
+              ),
             ),
             if (ledger.unrated.isNotEmpty)
               Padding(
@@ -57,7 +62,7 @@ class AccountsPage extends StatelessWidget {
                 child: Text(
                   '尚未取得臺銀匯率，${ledger.unrated.map((a) => a.name).join('、')}'
                   '暫不計入總額',
-                  style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  style: mutedSmall,
                 ),
               ),
             for (final kind in AccountKind.values) ..._group(kind),
@@ -161,10 +166,10 @@ class AccountsPage extends StatelessWidget {
                     account.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, color: Hue.muted),
+                    style: mutedSmall,
                   ),
                   Text(
-                    moneyIn(balance, account.currency),
+                    ledger.moneyIn(balance, account.currency),
                     maxLines: 1,
                     style: TextStyle(
                       fontSize: 16,
@@ -186,11 +191,13 @@ class AccountsPage extends StatelessWidget {
 /// and the debt set against them, each bar to the same scale.
 class _Balance extends StatelessWidget {
   const _Balance({
+    required this.ledger,
     required this.cash,
     required this.invest,
     required this.debt,
   });
 
+  final Ledger ledger;
   final int cash;
   final int invest;
   final int debt;
@@ -232,11 +239,11 @@ class _Balance extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
+                style: mutedSmall,
               ),
               const Spacer(),
               Text(
-                money(value),
+                ledger.money(value),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -259,8 +266,8 @@ class _Balance extends StatelessWidget {
           spacing: 12,
           runSpacing: 4,
           children: [
-            LegendKey(Hue.bank, '存款 ${money(cash)}・${100 - share}%'),
-            LegendKey(Hue.investment, '投資 ${money(invest)}・$share%'),
+            LegendKey(Hue.bank, '存款 ${ledger.money(cash)}・${100 - share}%'),
+            LegendKey(Hue.investment, '投資 ${ledger.money(invest)}・$share%'),
           ],
         ),
       ],

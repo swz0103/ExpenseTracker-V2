@@ -76,9 +76,7 @@ class EntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, color) = entryMark(ledger, entry);
     final currency = ledger.account(entry.account).currency;
-    final shown = ledger.hidden
-        ? '••••'
-        : entryAmount(entry, currency: currency);
+    final shown = ledger.orDots(entryAmount(entry, currency: currency));
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -111,7 +109,7 @@ class EntryTile extends StatelessWidget {
                       entryDetail(ledger, entry),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      style: mutedSmall,
                     ),
                   ],
                 ),
@@ -151,11 +149,11 @@ class DayHeading extends StatelessWidget {
         children: [
           Text(
             longDay(date),
-            style: const TextStyle(fontSize: 13, color: Hue.muted),
+            style: mutedSmall,
           ),
           const Spacer(),
           if (sum != null)
-            Text(sum, style: const TextStyle(fontSize: 13, color: Hue.muted)),
+            Text(sum, style: mutedSmall),
         ],
       ),
     );

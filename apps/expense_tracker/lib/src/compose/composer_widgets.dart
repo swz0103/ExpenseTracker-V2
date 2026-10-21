@@ -75,26 +75,10 @@ class _TradeChips extends StatelessWidget {
           if (!locked || type == trade)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: GestureDetector(
+              child: ChoicePill(
+                label: label,
+                selected: type == trade,
                 onTap: locked ? null : () => onChanged(type),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: type == trade ? Hue.accent : Hue.tile,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: type == trade ? Hue.onAccent : Hue.accent,
-                    ),
-                  ),
-                ),
               ),
             ),
       ],
@@ -176,7 +160,7 @@ class _PartRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0x263B6C80))),
+          border: Border(top: BorderSide(color: Hue.accentTrack)),
         ),
         child: Row(
           children: [
@@ -192,7 +176,7 @@ class _PartRow extends StatelessWidget {
                 minHeight: 5,
                 borderRadius: BorderRadius.circular(3),
                 color: category.color,
-                backgroundColor: const Color(0x263B6C80),
+                backgroundColor: Hue.accentTrack,
               ),
             ),
             const SizedBox(width: 10),
@@ -234,7 +218,7 @@ class _AccountEnd extends StatelessWidget {
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: Hue.muted)),
+        Text(label, style: mutedSmall),
         Text(
           account.name,
           maxLines: 1,
@@ -324,27 +308,6 @@ class _Chip extends StatelessWidget {
               color: Hue.accent,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Link extends StatelessWidget {
-  const _Link(this.label, this.onTap);
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: Hue.accent),
         ),
       ),
     );

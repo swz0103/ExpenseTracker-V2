@@ -210,8 +210,7 @@ extension _Fields on _ComposerState {
             selected: _to,
             columns: 3,
             options: [
-              for (final a in _people)
-                Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+              ...accountOptions(_ledger, among: _people),
               const Option(adding, '新增對象', Glyph.add, Hue.accent),
             ],
           );
@@ -343,11 +342,11 @@ extension _Fields on _ComposerState {
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
                   children: [
-                    _Link('＋ 再拆一個分類', _addPart),
+                    SmallLink('＋ 再拆一個分類', _addPart, inset: 6),
                     const Spacer(),
                     Text(
                       '剩餘 ${groupDigits(left)}',
-                      style: const TextStyle(fontSize: 13, color: Hue.muted),
+                      style: mutedSmall,
                     ),
                   ],
                 ),
@@ -419,7 +418,7 @@ extension _Fields on _ComposerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 13, color: Hue.muted),
+                style: mutedSmall,
               ),
             ),
             if (!_viewing)
@@ -639,7 +638,11 @@ extension _Fields on _ComposerState {
           padding: const EdgeInsets.only(top: 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: _Link('＋ 配股、分割或減資', () => _set(() => _shareChange = true)),
+            child: SmallLink(
+              '＋ 配股、分割或減資',
+              () => _set(() => _shareChange = true),
+              inset: 6,
+            ),
           ),
         ),
       if (_trade == EntryType.dividend) ...[

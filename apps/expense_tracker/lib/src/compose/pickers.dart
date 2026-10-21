@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../look/figures.dart';
 import '../look/glyphs.dart';
+import '../look/icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
+import '../model/ledger.dart';
 
 /// A bottom sheet with a back arrow and a title over [builder]'s content.
 Future<T?> showChildPage<T>(
@@ -55,6 +57,33 @@ final class Option<T> {
   final Glyph icon;
   final Color color;
 }
+
+/// The open accounts as choices, each with its mark: of [among] when
+/// given; only those kept in [currency] when it is given; and only those
+/// [where] lets through.
+List<Option<String>> accountOptions(
+  Ledger ledger, {
+  String? currency,
+  bool Function(Account account)? where,
+  List<Account>? among,
+}) => [
+  for (final a in among ?? ledger.openAccounts)
+    if ((currency == null || a.currency == currency) &&
+        (where == null || where(a)))
+      Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+];
+
+/// The open categories of income, or of spending, as choices; only those
+/// [where] lets through when it is given.
+List<Option<String>> categoryOptions(
+  Ledger ledger, {
+  required bool income,
+  bool Function(Category category)? where,
+}) => [
+  for (final c in ledger.categoriesFor(income: income))
+    if (where == null || where(c))
+      Option(c.name, c.name, iconFor(c.icon), c.color),
+];
 
 /// A grid of choices, [columns] to a row; the chosen one has a coloured
 /// background only.
@@ -147,35 +176,20 @@ class _CalendarState extends State<_Calendar> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: '上個月',
-              onPressed: () => setState(() {
-                _month = DateTime.utc(first.year, first.month - 1);
-              }),
-              icon: const GlyphIcon(Glyph.back, size: 20),
-            ),
-            Expanded(
-              child: Text(
-                '${first.year} 年 ${first.month} 月',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: '下個月',
-              onPressed: atEnd
-                  ? null
-                  : () => setState(() {
-                      _month = DateTime.utc(first.year, first.month + 1);
-                    }),
-              icon: const GlyphIcon(Glyph.next, size: 20),
-            ),
-          ],
+        StepSwitch(
+          label: '${first.year} 年 ${first.month} 月',
+          previousLabel: '上個月',
+          nextLabel: '下個月',
+          iconSize: 20,
+          expand: true,
+          onPrevious: () => setState(() {
+            _month = DateTime.utc(first.year, first.month - 1);
+          }),
+          onNext: atEnd
+              ? null
+              : () => setState(() {
+                  _month = DateTime.utc(first.year, first.month + 1);
+                }),
         ),
         const SizedBox(height: 8),
         Row(
@@ -185,7 +199,7 @@ class _CalendarState extends State<_Calendar> {
                 child: Text(
                   name,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  style: mutedSmall,
                 ),
               ),
           ],

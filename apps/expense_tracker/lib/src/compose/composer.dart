@@ -44,8 +44,9 @@ enum ComposeMode {
   };
 }
 
-/// A form put aside with 暫存, by tab.
-final _drafts = <ComposeMode, Entry>{};
+/// Forms put aside with 暫存, by tab, kept with the ledger they were
+/// written for: another book opened in the same run starts with none.
+final _draftsOf = Expando<Map<ComposeMode, Entry>>('drafts');
 
 /// How the composer was left, when not just closed.
 enum ComposeOutcome { saved, deleted, refund }
@@ -165,6 +166,9 @@ class _ComposerState extends State<Composer> {
   late var _viewing = widget.entry != null;
 
   Ledger get _ledger => widget.ledger;
+
+  /// This ledger's forms put aside, by tab.
+  Map<ComposeMode, Entry> get _drafts => _draftsOf[_ledger] ??= {};
 
   Entry? get _refunded => widget.refundOf;
 
@@ -517,11 +521,7 @@ class _ComposerState extends State<Composer> {
       title: title,
       selected: selected,
       columns: 3,
-      options: [
-        for (final a in _ledger.openAccounts)
-          if (currency == null || a.currency == currency)
-            Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
-      ],
+      options: accountOptions(_ledger, currency: currency),
     );
   }
 
@@ -531,10 +531,7 @@ class _ComposerState extends State<Composer> {
       context,
       title: income ? '收入分類' : '支出分類',
       selected: selected,
-      options: [
-        for (final c in _ledger.categoriesFor(income: income))
-          Option(c.name, c.name, iconFor(c.icon), c.color),
-      ],
+      options: categoryOptions(_ledger, income: income),
     );
   }
 
@@ -611,10 +608,10 @@ class _ComposerState extends State<Composer> {
       initial: Category(
         '',
         income ? 'income' : 'other',
-        Hue.shades[count % Hue.shades.length],
+        Hue.categoryColors[count % Hue.categoryColors.length],
         income: income,
       ),
-      colors: Hue.shades,
+      colors: Hue.categoryColors,
       ledger: _ledger,
     );
     if (made == null) return;
@@ -801,7 +798,7 @@ class _ComposerState extends State<Composer> {
         entry.type == EntryType.expense &&
         _ledger.refundable(entry) > 0;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
