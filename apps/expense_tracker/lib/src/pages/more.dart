@@ -33,8 +33,7 @@ class MorePage extends StatelessWidget {
           today.month,
         );
         final next = items.isEmpty ? null : items.first;
-        String shown(Recurring r) =>
-            ledger.hidden ? '••••' : recurringAmount(ledger, r);
+        String shown(Recurring r) => ledger.orDots(recurringAmount(ledger, r));
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
@@ -67,7 +66,7 @@ class MorePage extends StatelessWidget {
               Tile(
                 icon: Glyph.investment,
                 label: '投資與股息',
-                value: moneySigned(ledger.investValue - ledger.investCost),
+                value: ledger.moneySigned(ledger.investValue - ledger.investCost),
                 valueColor: ledger.investValue < ledger.investCost
                     ? Hue.negative
                     : Hue.positive,
@@ -79,7 +78,7 @@ class MorePage extends StatelessWidget {
               Tile(
                 icon: Glyph.budget,
                 label: '預算管理',
-                value: money(limit - expense),
+                value: ledger.money(limit - expense),
                 valueColor: limit < expense ? Hue.negative : Hue.ink,
                 sub: '本月剩餘',
                 onTap: () => nav.open(Pages.budgets),

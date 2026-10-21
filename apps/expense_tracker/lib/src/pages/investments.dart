@@ -54,8 +54,8 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
       SectionHead(
         title,
         trailing: Text(
-          money(value),
-          style: const TextStyle(fontSize: 13, color: Hue.muted),
+          widget.ledger.money(value),
+          style: mutedSmall,
         ),
       ),
       SoftPanel(
@@ -79,10 +79,10 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               h.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: mutedSmall,
             ),
             Text(
-              money(h.value),
+              widget.ledger.money(h.value),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
@@ -95,7 +95,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              '${moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
+              '${widget.ledger.moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
               style: TextStyle(fontSize: 12.5, color: tone),
             ),
           ],
@@ -130,16 +130,16 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   hero: true,
                   icon: Glyph.investment,
                   label: '未實現損益',
-                  value: moneySigned(gain),
+                  value: ledger.moneySigned(gain),
                   valueColor: tone,
                   trailing: Pill(percentOf(gain, cost), color: tone),
                   child: TileStats([
-                    (Glyph.briefcase, '市值', money(value), Hue.ink),
-                    (Glyph.coins, '成本', money(cost), Hue.ink),
+                    (Glyph.briefcase, '市值', ledger.money(value), Hue.ink),
+                    (Glyph.coins, '成本', ledger.money(cost), Hue.ink),
                     (
                       Glyph.reports,
                       '已實現',
-                      moneySigned(ledger.realized),
+                      ledger.moneySigned(ledger.realized),
                       ledger.realized < 0 ? Hue.negative : Hue.ink,
                     ),
                   ]),
@@ -148,8 +148,8 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   Tile(
                     icon: Glyph.dividend,
                     label: '${today.month} 月股息',
-                    value: money(ledger.dividends(year, month)),
-                    sub: '累計 ${money(ledger.totalDividends)}',
+                    value: ledger.money(ledger.dividends(year, month)),
+                    sub: '累計 ${ledger.money(ledger.totalDividends)}',
                     onTap: () => widget.nav.compose(type: EntryType.dividend),
                   ),
                   Tile(
@@ -160,7 +160,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     },
                     value: ledger.quotedOn == null
                         ? '—'
-                        : moneySigned(ledger.dayChange),
+                        : ledger.moneySigned(ledger.dayChange),
                     valueColor: ledger.dayChange < 0
                         ? Hue.negative
                         : Hue.positive,

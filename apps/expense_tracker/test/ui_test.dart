@@ -6,6 +6,8 @@ import 'package:expense_tracker/src/compose/composer.dart';
 import 'package:expense_tracker/src/demo/seed.dart';
 import 'package:expense_tracker/src/look/theme.dart';
 import 'package:expense_tracker/src/model/ledger.dart';
+import 'package:expense_tracker/src/pages/ledger_page.dart';
+import 'package:expense_tracker/src/pages/report_period.dart';
 import 'package:expense_tracker/src/pages/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -198,6 +200,24 @@ void main() {
     expect(rects[2].width * rects[2].height, closeTo(1000, 0.01));
   });
 
+  test('report periods step by their own length and compare by months', () {
+    final today = DateTime.utc(2026, 10, 4);
+    final quarter = ReportPeriod.of(ReportSpan.quarter, today);
+    expect(quarter.title, '2026 年 第 4 季');
+    expect(quarter.to, DateTime.utc(2026, 12, 31));
+    expect(quarter.step(-1).title, '2026 年 第 3 季');
+    expect(quarter.step(-1).step(1), quarter);
+    final month = ReportPeriod.of(ReportSpan.month, today);
+    expect(month.stretches, hasLength(5));
+    expect(month.stretches.last.$3, DateTime.utc(2026, 10, 31));
+    final range = ReportPeriod.range(
+      DateTime.utc(2026, 3, 9),
+      DateTime.utc(2026, 5, 2),
+    );
+    expect(range.months, 3);
+    expect(range.step(1).title, '2026/6 – 2026/8');
+  });
+
   Future<Ledger> show(WidgetTester tester) async {
     tester.view.physicalSize = const Size(400, 2600);
     tester.view.devicePixelRatio = 1;
@@ -345,5 +365,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
     expect(ledger.trash, isEmpty);
+  });
+
+  testWidgets('hidden amounts show as dots and come back', (tester) async {
+    await show(tester);
+    expect(find.text('17,519'), findsOneWidget);
+    await tester.tap(find.byTooltip('隱藏金額'));
+    await tester.pumpAndSettle();
+    expect(find.text('17,519'), findsNothing);
+    expect(find.text('••••'), findsWidgets);
+    await tester.tap(find.byTooltip('顯示金額'));
+    await tester.pumpAndSettle();
+    expect(find.text('17,519'), findsOneWidget);
+  });
+
+  testWidgets('the colours change in place, keeping the page open', (
+    tester,
+  ) async {
+    addTearDown(() => Shade.dark = false);
+    await show(tester);
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+    final page = tester.state(find.byType(LedgerPage));
+    Shade.show(dark: true);
+    await tester.pumpAndSettle();
+    expect(Hue.paper.computeLuminance(), lessThan(0.05));
+    expect(tester.state(find.byType(LedgerPage)), same(page));
+    Shade.show(dark: false);
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(LedgerPage)), same(page));
   });
 }

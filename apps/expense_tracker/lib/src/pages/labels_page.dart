@@ -179,16 +179,13 @@ class _LabelsPageState extends State<LabelsPage> {
                                     ),
                                     Text(
                                       '$count 筆',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Hue.muted,
-                                      ),
+                                      style: mutedSmall,
                                     ),
                                   ],
                                 ),
                               ),
                               Text(
-                                money(amount),
+                                ledger.money(amount),
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -43,9 +41,8 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() => _follow();
 
-  /// Applies the person's choices. A change of colours repaints every
-  /// screen in place, so nothing open is lost (the palette is read when
-  /// painted, see [Shade]).
+  /// Applies the person's choices. A change of colours draws every screen
+  /// again in place, so nothing open is lost (see [Shade.show]).
   void _follow({bool first = false}) {
     final preferences = widget.preferences;
     Haptics.on = preferences?.haptics ?? true;
@@ -57,11 +54,14 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
       Appearance.light => false,
       Appearance.dark => true,
     };
-    if (dark == Shade.dark && !first) return;
-    Shade.dark = dark;
-    if (first) return;
+    if (first) {
+      Shade.dark = dark;
+      return;
+    }
+    if (dark == Shade.dark) return;
+    Shade.show(dark: dark);
+    // The Material theme and the status bar follow on the next build.
     setState(() {});
-    unawaited(WidgetsBinding.instance.reassembleApplication());
   }
 
   @override

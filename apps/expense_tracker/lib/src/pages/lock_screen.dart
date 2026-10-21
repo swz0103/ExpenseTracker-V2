@@ -494,7 +494,7 @@ class _LockScreenState extends State<LockScreen> {
                   const Text(
                     '之後可以在「設定」加上密碼或指紋解鎖。',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: Hue.muted),
+                    style: mutedSmall,
                   ),
                 ],
               ),

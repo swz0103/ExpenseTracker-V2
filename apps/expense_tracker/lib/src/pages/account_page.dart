@@ -78,8 +78,8 @@ class _AccountPageState extends State<AccountPage> {
             outflow -= change;
           }
         }
-        final into = moneyIn(inflow, code);
-        final out = moneyIn(outflow, code);
+        final into = ledger.moneyIn(inflow, code);
+        final out = ledger.moneyIn(outflow, code);
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
@@ -101,7 +101,7 @@ class _AccountPageState extends State<AccountPage> {
                     hero: true,
                     icon: accountIcon(account),
                     label: groupName(account.kind),
-                    value: moneyIn(balance, account.currency),
+                    value: ledger.moneyIn(balance, account.currency),
                     valueColor: balance < 0 ? Hue.negative : Hue.ink,
                     child: TileStats([
                       (Glyph.income, '本月流入', into, Hue.positive),
@@ -110,6 +110,7 @@ class _AccountPageState extends State<AccountPage> {
                   ),
                   if (account.kind == AccountKind.receivable)
                     _Owed(
+                      ledger: ledger,
                       account: account,
                       balance: balance,
                       onLend: () => _move(account, lend: true),
@@ -156,12 +157,14 @@ class _AccountPageState extends State<AccountPage> {
 /// things done with it: paying for them again, or taking money back.
 class _Owed extends StatelessWidget {
   const _Owed({
+    required this.ledger,
     required this.account,
     required this.balance,
     required this.onLend,
     required this.onRepaid,
   });
 
+  final Ledger ledger;
   final Account account;
   final int balance;
   final VoidCallback onLend;
@@ -181,9 +184,9 @@ class _Owed extends StatelessWidget {
         children: [
           Text(
             balance > 0
-                ? '${account.name}還欠 ${moneyIn(balance, account.currency)}'
+                ? '${account.name}還欠 ${ledger.moneyIn(balance, account.currency)}'
                 : '${account.name}沒有欠款',
-            style: const TextStyle(fontSize: 13, color: Hue.muted),
+            style: mutedSmall,
           ),
           const SizedBox(height: 8),
           Row(

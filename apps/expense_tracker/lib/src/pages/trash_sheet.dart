@@ -45,7 +45,7 @@ class _TrashSheet extends StatelessWidget {
             Text(
               trash.isEmpty ? '30 天內沒有刪除的紀錄' : '點一筆就放回帳本；刪除後保留 30 天',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: mutedSmall,
             ),
             const SizedBox(height: 8),
             for (final t in trash) ...[
