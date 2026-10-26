@@ -1,0 +1,8 @@
+:root{--bg:#fafaf7;--ink:#1f2328;--muted:#5b6470;--line:#e3e3dc;--accent:#2f6f5e}
+@media (prefers-color-scheme:dark){:root{--bg:#16181b;--ink:#e8e8e3;--muted:#a3a9b1;--line:#2c3036;--accent:#7cc2ad}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.75 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 16px 64px}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:19px;margin:32px 0 8px}
+p,li{color:var(--ink)}.muted{color:var(--muted);font-size:14px}
+a{color:var(--accent)}nav{display:flex;gap:16px;margin:16px 0 24px;font-size:15px}
+footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
