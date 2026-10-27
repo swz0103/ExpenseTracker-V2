@@ -1093,7 +1093,8 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Works the holdings out again when [trades] were touched, then tells
-  /// the screens; an oversold trade is undone and rethrown.
+  /// the screens the entries changed; an oversold trade is undone and
+  /// rethrown.
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
@@ -1104,7 +1105,7 @@ final class Ledger extends ChangeNotifier {
         rethrow;
       }
     }
-    notifyListeners();
+    _changed(const {Area.entries});
   }
 
   /// [_replayOrUndo], telling a refusal through [problem] rather than
