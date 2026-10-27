@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/look/figures.dart';
 import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/icons.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
@@ -411,7 +410,8 @@ class _DayGrid extends StatelessWidget {
 
   Widget _cell(Entry e) {
     final (icon, mark) = entryMark(ledger, e);
-    final color = entryColor(e.type);
+    final color = entryTone(e);
+    final letter = entryLetter(e);
     final currency = ledger.account(e.account).currency;
     final amount = ledger.orDots(entryAmount(e, currency: currency));
     return Column(
@@ -419,7 +419,10 @@ class _DayGrid extends StatelessWidget {
       children: [
         Row(
           children: [
-            GlyphIcon(icon, size: 16, color: mark),
+            if (letter != null)
+              IconBadge.letter(letter, mark, size: 18)
+            else
+              GlyphIcon(icon, size: 16, color: mark),
             const SizedBox(width: 4),
             Expanded(
               child: Text(

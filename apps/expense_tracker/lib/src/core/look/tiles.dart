@@ -15,9 +15,19 @@ class IconBadge extends StatelessWidget {
     super.key,
     this.size = 40,
     this.filled = false,
-  });
+  }) : letter = null;
+
+  /// A letter, such as a merchant's first, in place of an icon.
+  const IconBadge.letter(
+    String this.letter,
+    this.color, {
+    super.key,
+    this.size = 40,
+  }) : icon = Glyph.store,
+       filled = false;
 
   final Glyph icon;
+  final String? letter;
   final Color color;
   final double size;
 
@@ -34,11 +44,26 @@ class IconBadge extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
-      child: GlyphIcon(
-        icon,
-        size: size * 0.55,
-        color: filled ? Hue.onAccent : color,
-      ),
+      child: switch (letter) {
+        // The row says the merchant already.
+        final letter? => ExcludeSemantics(
+          child: Text(
+            letter,
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              fontSize: size * 0.44,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
+        null => GlyphIcon(
+          icon,
+          size: size * 0.55,
+          color: filled ? Hue.onAccent : color,
+        ),
+      },
     );
   }
 }

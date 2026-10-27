@@ -348,6 +348,29 @@ void main() {
     expect(ledger.expense(2026, 10), 17519);
   });
 
+  testWidgets('a row slid open offers edit and delete', (tester) async {
+    final ledger = await show(tester);
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+    expect(find.text('編輯'), findsNothing);
+    await tester.drag(find.text('週末點心'), const Offset(-200, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('編輯'), findsOneWidget);
+    // A tap on the row closes it rather than opening the entry.
+    await tester.tap(find.text('週末點心'));
+    await tester.pumpAndSettle();
+    expect(find.text('編輯'), findsNothing);
+    expect(find.byType(Composer), findsNothing);
+    await tester.drag(find.text('週末點心'), const Offset(-200, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('刪除'));
+    await tester.pumpAndSettle();
+    expect(ledger.expense(2026, 10), 17519 - 200);
+    await tester.tap(find.text('復原'));
+    await tester.pumpAndSettle();
+    expect(ledger.expense(2026, 10), 17519);
+  });
+
   testWidgets('picked entries are deleted at once and come back', (
     tester,
   ) async {

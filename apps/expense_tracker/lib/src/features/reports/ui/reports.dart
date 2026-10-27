@@ -268,6 +268,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 last: lastSpending[name] ?? 0,
                 share: expense == 0 ? 0 : (spending[name] ?? 0) / expense,
                 largest: report.largest,
+                alone: names.length == 1,
                 picked: name == picked,
                 onTap: () =>
                     setState(() => _category = name == picked ? null : name),
@@ -570,6 +571,7 @@ class _CategoryRow extends StatelessWidget {
     required this.last,
     required this.share,
     required this.largest,
+    required this.alone,
     required this.picked,
     required this.onTap,
   });
@@ -580,6 +582,10 @@ class _CategoryRow extends StatelessWidget {
   final int last;
   final double share;
   final int largest;
+
+  /// Whether this is the only category: its share is then all of it, and
+  /// a bar is drawn only to set it against last year.
+  final bool alone;
   final bool picked;
   final VoidCallback onTap;
 
@@ -617,8 +623,10 @@ class _CategoryRow extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text('${(share * 100).round()}%', style: mutedSmall),
+                      if (!alone) ...[
+                        const SizedBox(width: 6),
+                        Text('${(share * 100).round()}%', style: mutedSmall),
+                      ],
                       const Spacer(),
                       Text(
                         ledger.money(amount),
@@ -629,12 +637,14 @@ class _CategoryRow extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  PairBars(
-                    now: amount / largest,
-                    then: last / largest,
-                    color: category.color,
-                  ),
+                  if (!alone || last > 0) ...[
+                    const SizedBox(height: 6),
+                    PairBars(
+                      now: amount / largest,
+                      then: last / largest,
+                      color: category.color,
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Row(
                     children: [

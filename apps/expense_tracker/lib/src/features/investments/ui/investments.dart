@@ -9,6 +9,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/entry_tile.dart' show holdingLabel;
 
 /// 投資與股息: unrealised and realised profit, dividends by month, and
 /// each holding's profit as a bar on a shared scale.
@@ -26,9 +27,10 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
   late final _month = (widget.ledger.today.year, widget.ledger.today.month);
 
   /// A group of holdings two to a row in a white card, as 帳戶 shows
-  /// accounts; each opens its own page.
+  /// accounts; each opens its own page. Its [title] only when there are
+  /// other groups, as its value would repeat the one above.
   List<Widget> _group(
-    String title,
+    String? title,
     List<Holding> holdings,
     int largest,
     double axis,
@@ -51,16 +53,86 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
       );
     }
     return [
-      SectionHead(
-        title,
-        trailing: Text(widget.ledger.money(value), style: mutedSmall),
-      ),
+      if (title != null)
+        SectionHead(
+          title,
+          trailing: Text(widget.ledger.money(value), style: mutedSmall),
+        )
+      else
+        const SizedBox(height: 12),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(children: rows),
       ),
     ];
+  }
+
+  /// The only holding, across the page: with nothing to compare it to,
+  /// no bar, and its shares and today's move written out.
+  Widget _solo(Holding h) {
+    final ledger = widget.ledger;
+    final tone = h.gain < 0 ? Hue.negative : Hue.positive;
+    final quoted = ledger.hasQuote(h.code) && ledger.quotedOn != null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SoftPanel(
+        color: Hue.white,
+        onTap: () => widget.nav.open(Pages.holding(h.code)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    holdingLabel(h),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${ledger.orDots(groupDigits(h.shares))} 股',
+                  style: mutedSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              ledger.money(h.value),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            ),
+            if (!ledger.hasQuote(h.code))
+              const Text('尚無收盤價，以成本估算', style: mutedSmall),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text(
+                  '損益 ${ledger.moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
+                  style: TextStyle(fontSize: 13, color: tone),
+                ),
+                const Spacer(),
+                Text(
+                  quoted ? '今日 ${ledger.moneySigned(h.change)}' : '今日 —',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: !quoted
+                        ? Hue.muted
+                        : h.change < 0
+                        ? Hue.negative
+                        : Hue.positive,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _cell(Holding h, int largest, double axis) {
@@ -123,6 +195,16 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final tone = gain < 0 ? Hue.negative : Hue.positive;
         final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
         final today = ledger.today;
+        final groups = [
+          for (final (title, etf) in const [('ETF', true), ('個股', false)])
+            (
+              title,
+              [
+                for (final h in holdings)
+                  if (h.code.startsWith('00') == etf) h,
+              ],
+            ),
+        ].where((g) => g.$2.isNotEmpty).toList();
         final list = ListView(
           // Pulled down to fetch the closes again, even when empty.
           physics: const AlwaysScrollableScrollPhysics(),
@@ -178,16 +260,16 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     },
                   ),
                 ]),
-                for (final (title, etf) in const [('ETF', true), ('個股', false)])
-                  ..._group(
-                    title,
-                    [
-                      for (final h in holdings)
-                        if (h.code.startsWith('00') == etf) h,
-                    ],
-                    largest,
-                    axis,
-                  ),
+                if (holdings.length == 1)
+                  _solo(holdings.single)
+                else
+                  for (final (title, group) in groups)
+                    ..._group(
+                      groups.length > 1 ? title : null,
+                      group,
+                      largest,
+                      axis,
+                    ),
               ],
             ),
           ],

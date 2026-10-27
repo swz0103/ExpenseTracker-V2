@@ -194,22 +194,6 @@ class _LedgerPageState extends State<LedgerPage> {
     if (applied != null && mounted) setState(() => _filter = applied);
   }
 
-  /// Deletes [entry] when a swipe ends, with a way back. False when the
-  /// ledger refuses, so the line slides back rather than staying gone
-  /// from the screen while the entry is still in the book.
-  bool _remove(Entry entry) {
-    Haptics.medium();
-    final removed = widget.ledger.remove(entry.id);
-    if (removed == null) return false;
-    showNote(
-      context,
-      '已刪除「${entry.title}」',
-      action: '復原',
-      onAction: () => widget.ledger.restore(removed),
-    );
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -455,30 +439,12 @@ class _LedgerPageState extends State<LedgerPage> {
         ),
       );
     }
-    return Dismissible(
-      key: ValueKey(e.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Hue.danger,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Text(
-          '刪除',
-          style: TextStyle(color: Hue.onAccent, fontWeight: FontWeight.w700),
-        ),
-      ),
-      // Taken from the book before the line goes, so a refusal leaves it
-      // in place.
-      confirmDismiss: (_) async => _remove(e),
-      child: GestureDetector(
-        onLongPress: () => _toggle(e),
-        child: EntryTile(
-          ledger: ledger,
-          entry: e,
-          divider: !last,
-          onTap: () => widget.nav.showEntry(e),
-        ),
-      ),
+    return EntryRow(
+      ledger: ledger,
+      entry: e,
+      divider: !last,
+      onOpen: widget.nav.showEntry,
+      onLongPress: () => _toggle(e),
     );
   }
 }

@@ -47,9 +47,8 @@ class _AssetsSectionState extends State<AssetsSection> {
 
   /// The tiles at the current level, largest first, each with the key it
   /// opens to.
-  List<(String, String, int, Color)> _assetParts() {
+  List<(String, String, int, Color)> _assetParts(String? group) {
     final ledger = widget.ledger;
-    final group = _assetGroup;
     List<(String, String, int, Color)> shaded(List<(String, String, int)> l) {
       l.sort((a, b) => b.$3.compareTo(a.$3));
       return [
@@ -61,7 +60,7 @@ class _AssetsSectionState extends State<AssetsSection> {
     if (group == 'investment') {
       return shaded([
         for (final h in ledger.holdings)
-          if (h.value > 0) (h.code, h.code, h.value),
+          if (h.value > 0) (h.code, h.name, h.value),
       ]);
     }
     if (group != null) {
@@ -109,8 +108,8 @@ class _AssetsSectionState extends State<AssetsSection> {
 
   List<Widget> _assets() {
     final ledger = widget.ledger;
-    final parts = _assetParts();
     final group = _assetGroup;
+    final parts = _assetParts(group);
     final tile = _tile == null || _tile! >= parts.length ? null : _tile;
     final total = parts.fold<int>(0, (sum, p) => sum + p.$3);
     if (total == 0 && group == null) return const [];
@@ -184,8 +183,19 @@ class _AssetsSectionState extends State<AssetsSection> {
             tiles: [for (final p in parts) (p.$2, p.$3, p.$4)],
             selected: tile,
             onSelect: (index) => setState(() => _tile = index),
-            onOpen: (index) =>
-                _openAssets(group == null ? parts[index].$1 : null),
+            // A part of one holding or account has nothing more to show.
+            onOpen: (index) {
+              if (group != null) {
+                _openAssets(null);
+                return;
+              }
+              final key = parts[index].$1;
+              if (_assetParts(key).length > 1) {
+                _openAssets(key);
+              } else {
+                setState(() => _tile = index);
+              }
+            },
           ),
         ),
       ),

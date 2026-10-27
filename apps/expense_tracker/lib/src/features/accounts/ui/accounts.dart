@@ -93,7 +93,9 @@ class AccountsPage extends StatelessWidget {
     ];
     if (accounts.isEmpty) return const [];
     final rows = <Widget>[];
-    for (var i = 0; i < accounts.length; i += 2) {
+    // A group of one takes the whole width rather than leave half empty.
+    if (accounts.length == 1) rows.add(_cell(accounts.single));
+    for (var i = 0; accounts.length > 1 && i < accounts.length; i += 2) {
       rows.add(
         IntrinsicHeight(
           child: Row(
@@ -257,16 +259,24 @@ class _Balance extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         line('資產', assets, bar([(cash, Hue.bank), (invest, Hue.investment)])),
-        line('負債', debt, bar([(debt, Hue.negative)])),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          children: [
-            LegendKey(Hue.bank, '存款 ${ledger.money(cash)}・${100 - share}%'),
-            LegendKey(Hue.investment, '投資 ${ledger.money(invest)}・$share%'),
-          ],
+        // Without debt there is no bar to draw, only the zero.
+        line(
+          '負債',
+          debt,
+          debt > 0 ? bar([(debt, Hue.negative)]) : const SizedBox.shrink(),
         ),
+        // A key only when the assets are of both kinds.
+        if (invest > 0 && cash > 0) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              LegendKey(Hue.bank, '存款 ${ledger.money(cash)}・${100 - share}%'),
+              LegendKey(Hue.investment, '投資 ${ledger.money(invest)}・$share%'),
+            ],
+          ),
+        ],
       ],
     );
   }

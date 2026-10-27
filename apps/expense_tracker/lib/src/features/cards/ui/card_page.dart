@@ -270,10 +270,10 @@ class CardPage extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final e in unbilled)
-                      EntryTile(
+                      EntryRow(
                         ledger: ledger,
                         entry: e,
-                        onTap: () => nav.showEntry(e),
+                        onOpen: nav.showEntry,
                         divider: !identical(e, unbilled.last),
                       ),
                   ],

@@ -156,6 +156,9 @@ extension LedgerReports on Ledger {
   Entry? byId(String id) =>
       (_idIndex ??= {for (final e in _entries) e.id: e})[id];
 
+  /// How much of [original] has been refunded.
+  int refunded(Entry original) => original.amount - refundable(original);
+
   /// How much of [original] is left to refund.
   int refundable(Entry original) {
     final back = _refundIndex ??= () {
