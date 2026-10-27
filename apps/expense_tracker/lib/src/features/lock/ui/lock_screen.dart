@@ -308,6 +308,40 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
+  /// Chooses the ledger as it was before an earlier restore from
+  /// settings, kept on this phone: a way back from the wrong backup.
+  Future<void> _pickKept() async {
+    final kept = widget.startup.keptBeforeRestore();
+    if (kept.isEmpty) return;
+    final chosen = await showModalBottomSheet<File>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(title: Text('還原前自動留下的帳本')),
+            for (final file in kept)
+              ListTile(
+                title: Text(_fileLabel(file)),
+                onTap: () => Navigator.of(context).pop(file),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    // Not a copy in the cache: kept as it is.
+    _forgetPicked();
+    setState(() => _file.text = chosen.path);
+    await _describe(chosen.path);
+  }
+
+  static String _fileLabel(File file) {
+    final at = file.lastModifiedSync();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)} 留下';
+  }
+
   static String _driveLabel(DriveFile file) {
     final at = file.modified.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
@@ -412,6 +446,11 @@ class _LockScreenState extends State<LockScreen> {
         onPickDrive: widget.sources.drive == null ? null : _pickDrive,
         onBack: _back,
         about: _about,
+        onPickKept:
+            widget.startup.state is Locked &&
+                widget.startup.keptBeforeRestore().isNotEmpty
+            ? _pickKept
+            : null,
       );
     } else if (_recovery) {
       form = RecoveryView(

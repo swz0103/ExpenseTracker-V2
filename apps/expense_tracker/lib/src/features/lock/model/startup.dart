@@ -246,6 +246,20 @@ final class Startup extends ChangeNotifier {
 
   var _restoreNext = false;
 
+  /// Where the ledger is kept as it was before a restore from settings.
+  Directory get beforeRestore => Directory('${directory.path}/before-restore');
+
+  /// The ledgers kept before a restore from settings, newest first, to
+  /// go back to one.
+  List<File> keptBeforeRestore() {
+    final folder = beforeRestore;
+    if (!folder.existsSync()) return const [];
+    return [
+      for (final entity in folder.listSync())
+        if (entity is File && entity.path.endsWith('.etbk')) entity,
+    ]..sort((a, b) => b.path.compareTo(a.path));
+  }
+
   /// When the backup at [path] was taken and how many records it holds,
   /// read without opening it.
   Future<BackupHeader> peek(String path) => LedgerBackup.readHeader(File(path));

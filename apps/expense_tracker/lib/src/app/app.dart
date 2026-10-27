@@ -5,10 +5,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/look/haptics.dart';
 import '../core/look/theme.dart';
 import '../core/preferences.dart';
+import '../core/ui/privacy_cover.dart';
 
 /// The app shell: the theme, light or dark, the scrolling and [home].
 class ExpenseApp extends StatefulWidget {
-  const ExpenseApp({super.key, this.home, this.frame, this.preferences});
+  const ExpenseApp({
+    super.key,
+    this.home,
+    this.frame,
+    this.preferences,
+    this.cover = false,
+  });
 
   final Widget? home;
 
@@ -17,6 +24,10 @@ class ExpenseApp extends StatefulWidget {
 
   /// Colours and taps felt; the defaults when none.
   final Preferences? preferences;
+
+  /// Covers every screen, sheets and dialogs included, while the app is
+  /// off the screen: on a phone, for the recent apps list.
+  final bool cover;
 
   @override
   State<ExpenseApp> createState() => _ExpenseAppState();
@@ -96,7 +107,13 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
           overscroll: false,
           physics: const ClampingScrollPhysics(),
         ),
-        builder: widget.frame,
+        builder: (context, child) {
+          final framed =
+              widget.frame?.call(context, child) ??
+              child ??
+              const SizedBox.shrink();
+          return widget.cover ? PrivacyCover(child: framed) : framed;
+        },
         home: widget.home ?? const Scaffold(body: Center(child: Text('記帳本'))),
       ),
     );

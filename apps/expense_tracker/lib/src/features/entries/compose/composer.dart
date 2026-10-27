@@ -194,10 +194,13 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   }
 
   /// Whether the amount is typed on keys laid in the form, so a quick
-  /// entry needs no calculator: a new entry other than a trade.
+  /// entry needs no calculator: a new, blank entry other than a trade.
   bool get _inline =>
       !_viewing &&
       widget.entry == null &&
+      // A form filled in already, such as a recurring item to confirm or
+      // a card to pay, shows its amount without keys.
+      widget.draft == null &&
       _f.refunded == null &&
       _f.mode != ComposeMode.investment;
 
@@ -552,8 +555,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         entry != null &&
         entry.type == EntryType.expense &&
         _ledger.refundable(entry) > 0;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+    final fields = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -683,8 +686,19 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 style: const TextStyle(color: Hue.danger),
               ),
             ),
-          const SizedBox(height: 14),
-          Row(
+        ],
+      ),
+    );
+    // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
+    // reach however long the form is; the fields scroll above them.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Flexible(child: fields),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+          child: Row(
             children: [
               TextButton(
                 onPressed: entry != null ? _delete : _putAside,
@@ -724,8 +738,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

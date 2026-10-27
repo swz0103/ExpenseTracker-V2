@@ -79,21 +79,26 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   static String _date(DateTime d) => '${d.year}/${d.month}/${d.day}';
 
-  /// A choice inside the repeat card: a small tinted button with ▾.
+  /// A choice inside the repeat card: a small button as wide as its
+  /// words, with a mark that it opens a list.
   Widget _chip(String text, String label, VoidCallback onTap) => TapArea(
     label: label,
     onTap: onTap,
     child: Container(
-      constraints: const BoxConstraints(minHeight: 40),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.center,
+      padding: const EdgeInsets.fromLTRB(12, 9, 6, 9),
       decoration: BoxDecoration(
         color: Hue.white,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        '$text ▾',
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          const Icon(Icons.expand_more, size: 18, color: Hue.muted),
+        ],
       ),
     ),
   );

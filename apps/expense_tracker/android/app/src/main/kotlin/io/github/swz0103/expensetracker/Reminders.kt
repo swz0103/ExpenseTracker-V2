@@ -99,7 +99,8 @@ object Reminders {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         for (shown in manager.activeNotifications) {
             val tag = shown.tag ?: continue
-            if (tag !in wanted) manager.cancel(tag, shown.id)
+            // The test notification stays until swiped away.
+            if (tag != "test" && tag !in wanted) manager.cancel(tag, shown.id)
         }
     }
 

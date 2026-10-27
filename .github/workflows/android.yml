@@ -104,9 +104,14 @@ jobs:
         run: |
           flutter config --no-analytics
           flutter pub get --enforce-lockfile
+          # 設定 › 關於 shows which build this is.
+          version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
           # Phones in use are 64-bit ARM: one architecture keeps the download
           # near 28 MB instead of 78 MB. Symbols stay out of the APK.
           flutter build apk --release --build-number=${{ github.run_number }} \
+            --dart-define=APP_VERSION="$version" \
+            --dart-define=APP_BUILD=${{ github.run_number }} \
+            --dart-define=APP_COMMIT="${SOURCE_SHA:0:7}" \
             --target-platform android-arm64 \
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
