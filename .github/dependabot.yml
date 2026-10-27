@@ -1,6 +1,8 @@
 # Weekly updates: the actions (pinned by commit, so each update is a
-# reviewed change) and each Dart package's dependencies. Every update is a
-# pull request that has to pass the same checks; nothing merges by itself.
+# reviewed change) and the Dart packages' dependencies, each kind in one
+# pull request a week (the packages share versions, and the lockfile check
+# wants them moved together). Every update has to pass the same checks;
+# nothing merges by itself.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -20,4 +22,7 @@ updates:
       - /infrastructure/vault
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    groups:
+      dart:
+        patterns: ['*']
+    open-pull-requests-limit: 2
