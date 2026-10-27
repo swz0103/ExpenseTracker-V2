@@ -203,7 +203,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       _f.mode != ComposeMode.investment;
 
   /// What the keys in the form have typed.
-  var _keys = AmountKeys();
+  var _keys = AmountKeys('');
 
   bool get _cents => takesCents(_f.currency);
 

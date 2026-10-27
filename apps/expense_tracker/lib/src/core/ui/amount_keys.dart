@@ -48,7 +48,7 @@ double? evaluate(String expression) {
 /// operations, worked out as they are typed. Shared by the calculator
 /// sheet and the keys in 記一筆.
 final class AmountKeys {
-  AmountKeys([this.expression = '', {this.decimal = false}]);
+  AmountKeys(this.expression, {this.decimal = false});
 
   /// What was typed, such as `120+35`.
   String expression;
