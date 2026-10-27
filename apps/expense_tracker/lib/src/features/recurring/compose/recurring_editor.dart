@@ -119,7 +119,8 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       selected: _f.start.day,
       columns: 7,
       options: [
-        for (var d = 1; d <= 31; d++) Option(d, '$d', Glyph.calendar, Hue.accent),
+        for (var d = 1; d <= 31; d++)
+          Option(d, '$d', Glyph.calendar, Hue.accent),
       ],
     );
     if (picked != null) setState(() => _f.setDayOfMonth(picked));
@@ -188,7 +189,10 @@ class _RecurringEditorState extends State<_RecurringEditor> {
             children: [
               const GlyphIcon(Glyph.recurring, size: 18, color: Hue.accent),
               const SizedBox(width: 8),
-              const Text('重複', style: TextStyle(fontSize: 13, color: Hue.muted)),
+              const Text(
+                '重複',
+                style: TextStyle(fontSize: 13, color: Hue.muted),
+              ),
               const Spacer(),
               Text(
                 _f.active ? _f.rhythm : '${_f.rhythm}（已暫停）',

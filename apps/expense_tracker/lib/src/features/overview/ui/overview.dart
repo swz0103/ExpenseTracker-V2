@@ -73,7 +73,11 @@ class _OverviewPageState extends State<OverviewPage> {
     final ledger = widget.ledger;
     final nav = widget.nav;
     return switch (block) {
-      OverviewBlock.plan => PlanSection(ledger: ledger, nav: nav, month: _month),
+      OverviewBlock.plan => PlanSection(
+        ledger: ledger,
+        nav: nav,
+        month: _month,
+      ),
       OverviewBlock.daily => DailySection(
         ledger: ledger,
         nav: nav,
