@@ -244,12 +244,14 @@ final class TableJournal implements Journal {
     }
     final kept = _marketFrom(_store.rows(shelf: _market));
     if (fetched.isEmpty || mapEquals(fetched, kept.rates)) return false;
+    // Fetched, not changed by the person: no new backup is due for it.
     _store.write(
       (w) => w.put(
         _market,
         'rates',
         jsonEncode({'asOf': '${board.asOf}', 'rates': fetched}),
       ),
+      counts: false,
     );
     return true;
   }
@@ -317,6 +319,7 @@ final class TableJournal implements Journal {
             'on': ?quotedOn?.toIso8601String(),
           }),
         ),
+        counts: false,
       );
     }
     return changed;

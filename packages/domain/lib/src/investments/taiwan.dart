@@ -42,7 +42,7 @@ final class TaiwanTradeCharges {
 
   /// The securities transaction tax on a sell [tradedOn] that day, from
   /// [TaiwanRates.on]: today 0.3% for stocks, 0.15% for a day trade, 0.1%
-  /// for ETFs. Buys pay none.
+  /// for ETFs, none for bond ETFs while exempt. Buys pay none.
   Money sellTax(
     Money gross,
     ShareQuantity quantity, {
@@ -54,6 +54,7 @@ final class TaiwanTradeCharges {
     final rates = TaiwanRates.on(tradedOn);
     final perTenThousand = switch (kind) {
       InstrumentKind.etf => rates.etfTax,
+      InstrumentKind.bondEtf => rates.bondEtfTax,
       InstrumentKind.stock => dayTrade ? rates.dayTradeTax : rates.stockTax,
     };
     return Money(
@@ -108,6 +109,7 @@ final class TaiwanRates {
     required this.stockTax,
     required this.dayTradeTax,
     required this.etfTax,
+    required this.bondEtfTax,
     required this.premiumBasisPoints,
     required this.premiumThreshold,
   });
@@ -116,6 +118,10 @@ final class TaiwanRates {
   final int stockTax;
   final int dayTradeTax;
   final int etfTax;
+
+  /// Bond ETFs are exempt from 2017 through 2026 by law; an extension
+  /// (proposed to 2036) changes the 2027 row.
+  final int bondEtfTax;
   final int premiumBasisPoints;
 
   /// In whole New Taiwan dollars.
@@ -129,6 +135,16 @@ final class TaiwanRates {
       stockTax: 30,
       dayTradeTax: 30,
       etfTax: 10,
+      bondEtfTax: 10,
+      premiumBasisPoints: 191,
+      premiumThreshold: 20000,
+    ),
+    TaiwanRates._(
+      from: BusinessDate(2017, 1, 1),
+      stockTax: 30,
+      dayTradeTax: 30,
+      etfTax: 10,
+      bondEtfTax: 0,
       premiumBasisPoints: 191,
       premiumThreshold: 20000,
     ),
@@ -137,6 +153,7 @@ final class TaiwanRates {
       stockTax: 30,
       dayTradeTax: 15,
       etfTax: 10,
+      bondEtfTax: 0,
       premiumBasisPoints: 191,
       premiumThreshold: 20000,
     ),
@@ -145,6 +162,16 @@ final class TaiwanRates {
       stockTax: 30,
       dayTradeTax: 15,
       etfTax: 10,
+      bondEtfTax: 0,
+      premiumBasisPoints: 211,
+      premiumThreshold: 20000,
+    ),
+    TaiwanRates._(
+      from: BusinessDate(2027, 1, 1),
+      stockTax: 30,
+      dayTradeTax: 15,
+      etfTax: 10,
+      bondEtfTax: 10,
       premiumBasisPoints: 211,
       premiumThreshold: 20000,
     ),
@@ -153,6 +180,7 @@ final class TaiwanRates {
       stockTax: 30,
       dayTradeTax: 30,
       etfTax: 10,
+      bondEtfTax: 10,
       premiumBasisPoints: 211,
       premiumThreshold: 20000,
     ),

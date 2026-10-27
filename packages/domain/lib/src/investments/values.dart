@@ -13,7 +13,7 @@ final class InvestmentException implements Exception {
   String toString() => 'InvestmentException(${code.name})';
 }
 
-enum InstrumentKind { stock, etf }
+enum InstrumentKind { stock, etf, bondEtf }
 
 /// Exact positive share quantity, at most 12 decimal places.
 final class ShareQuantity {

@@ -100,6 +100,12 @@ void main() {
       w.drop('account', 'missing');
     });
     expect(store.revision, 2);
+    // Fetched data is kept without counting as a change.
+    store.write((w) => w.put('market', 'quotes', '{}'), counts: false);
+    expect(store.revision, 2);
+    expect(store.rows(shelf: 'market'), hasLength(1));
+    store.write((w) => w.drop('market', 'quotes'));
+    expect(store.revision, 3);
     store.close();
     final again = open();
     final rows = again.rows();

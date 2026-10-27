@@ -638,9 +638,38 @@ String guessCategory(Ledger ledger, String merchant, String items) {
 /// already in the book are left out. The ministry's 消費明細 CSV, with a
 /// 發票號碼 column, is read too.
 Import importInvoices(Ledger ledger, String text, {required String account}) {
-  if (text.contains('發票號碼')) {
-    return _invoiceCsv(ledger, text, account: account);
+  final found = text.contains('發票號碼')
+      ? _invoiceCsv(ledger, text, account: account)
+      : _invoiceLines(ledger, text, account: account);
+  // Each is checked as one typed in would be: an invoice is in NT$, so a
+  // foreign-currency account, for one, is refused rather than recorded at
+  // the wrong value.
+  if (ledger.account(account).currency != homeCode) {
+    return Import(
+      const [],
+      found.skipped + found.entries.length,
+      problems: const ['電子發票是新台幣，請選新台幣帳戶付款'],
+    );
   }
+  final kept = <Entry>[];
+  final problems = [...found.problems];
+  var skipped = found.skipped;
+  for (final entry in found.entries) {
+    final problem = ledger.problemWith(entry, holdings: false);
+    if (problem == null) {
+      kept.add(entry);
+    } else {
+      skipped++;
+      if (problems.length < 3 && !problems.contains(problem)) {
+        problems.add(problem);
+      }
+    }
+  }
+  return Import(kept, skipped, problems: problems);
+}
+
+/// The ministry's M and D lines.
+Import _invoiceLines(Ledger ledger, String text, {required String account}) {
   final items = <String, List<String>>{};
   final heads = <List<String>>[];
   for (final raw in text.split('\n')) {

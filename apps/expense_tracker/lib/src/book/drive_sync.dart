@@ -16,23 +16,31 @@ final class DriveSync extends ChangeNotifier {
     required Future<void> Function(Future<void> Function(File file) use)
     withBackup,
     required int Function() revision,
+    required String ledger,
     DateTime Function()? clock,
   }) : _withBackup = withBackup,
        _revision = revision,
+       _ledger = ledger,
        _clock = clock ?? DateTime.now;
 
   final DriveBackup _drive;
   final Preferences _preferences;
   final Future<void> Function(Future<void> Function(File file) use) _withBackup;
   final int Function() _revision;
+
+  /// The ledger's own id, marking its backups on Drive apart from those of
+  /// another ledger kept in the same folder.
+  final String _ledger;
   final DateTime Function() _clock;
 
   bool get linked => _preferences.driveLinked;
   DateTime? get backedUp => _preferences.driveBackedUp;
 
-  /// A backup is going up.
+  /// A backup is going up. Shared by every [DriveSync] of this run, so a
+  /// ledger locked and opened again while one goes up does not send a
+  /// second.
   bool get busy => _busy;
-  var _busy = false;
+  static var _busy = false;
 
   /// Signs in with Google's screens and sends a first backup. False when
   /// the person did not allow it.
@@ -75,7 +83,7 @@ final class DriveSync extends ChangeNotifier {
     try {
       final revision = _revision();
       await _withBackup(
-        (file) => _drive.upload(file, interactive: interactive),
+        (file) => _drive.upload(file, ledger: _ledger, interactive: interactive),
       );
       _preferences.driveBackup(_clock(), revision);
     } finally {

@@ -152,6 +152,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           widget.preferences,
           withBackup: _keeper.withBackup<void>,
           revision: () => _keeper.revision,
+          ledger: _keeper.ledgerId,
         )
       : null;
   Ledger? _loaded;
