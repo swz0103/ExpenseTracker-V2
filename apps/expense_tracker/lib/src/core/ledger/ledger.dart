@@ -116,6 +116,10 @@ final class Ledger extends ChangeNotifier {
   /// The trading day of the newest closing price the holdings are
   /// valued at; null when none was fetched yet.
   DateTime? get quotedOn => _quotedOn;
+
+  /// Whether [code] has a fetched close, rather than the price it was
+  /// last bought at standing in for one.
+  bool hasQuote(String code) => _startHoldings.any((h) => h.code == code);
   DateTime? _quotedOn;
 
   /// Each stock's change on its last trading day, per share, by code.

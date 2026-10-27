@@ -1,22 +1,75 @@
 import 'package:flutter/widgets.dart';
 
+import 'connector.dart';
 import 'ledger/ledger.dart';
 
-/// The pages under 更多 and the account page, by key.
+/// The pages under 更多, each opened over the tab with a back arrow.
+enum Section { reports, investments, budgets, recurring, categories, settings, labels }
+
+/// A page the app frame can open: a [Section], an account or a holding.
+/// Typed, so a page is told what it shows rather than parsing a key, and
+/// the frame can check the account or holding is still there.
+sealed class Place {
+  const Place();
+
+  /// Where back leads from here; null for the tab underneath.
+  Place? get parent => null;
+}
+
+final class SectionPlace extends Place {
+  const SectionPlace(this.section);
+
+  final Section section;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SectionPlace && other.section == section;
+
+  @override
+  int get hashCode => section.hashCode;
+}
+
+/// An account's page; a card's shows its statement.
+final class AccountPlace extends Place {
+  const AccountPlace(this.id);
+
+  final String id;
+
+  @override
+  bool operator ==(Object other) => other is AccountPlace && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(AccountPlace, id);
+}
+
+/// A holding's page, which returns to 投資.
+final class HoldingPlace extends Place {
+  const HoldingPlace(this.code);
+
+  final String code;
+
+  @override
+  Place get parent => Pages.investments;
+
+  @override
+  bool operator ==(Object other) => other is HoldingPlace && other.code == code;
+
+  @override
+  int get hashCode => Object.hash(HoldingPlace, code);
+}
+
+/// The places pages open, by name.
 abstract final class Pages {
-  static const reports = 'reports';
-  static const investments = 'investments';
-  static const budgets = 'budgets';
-  static const recurring = 'recurring';
-  static const categories = 'categories';
-  static const settings = 'settings';
-  static const labels = 'labels';
+  static const reports = SectionPlace(Section.reports);
+  static const investments = SectionPlace(Section.investments);
+  static const budgets = SectionPlace(Section.budgets);
+  static const recurring = SectionPlace(Section.recurring);
+  static const categories = SectionPlace(Section.categories);
+  static const settings = SectionPlace(Section.settings);
+  static const labels = SectionPlace(Section.labels);
 
-  /// `account:<id>`.
-  static String account(String id) => 'account:$id';
-
-  /// `holding:<code>`.
-  static String holding(String code) => 'holding:$code';
+  static Place account(String id) => AccountPlace(id);
+  static Place holding(String code) => HoldingPlace(code);
 }
 
 /// What a page may ask of the app frame.
@@ -26,10 +79,11 @@ final class Nav {
     required this.back,
     required this.compose,
     required this.showEntry,
+    this.market,
   });
 
   /// Opens a page from [Pages].
-  final ValueChanged<String> open;
+  final ValueChanged<Place> open;
 
   /// Returns from an opened page.
   final VoidCallback back;
@@ -41,4 +95,8 @@ final class Nav {
 
   /// Shows an entry's details, with delete and edit.
   final ValueChanged<Entry> showEntry;
+
+  /// Closing prices and rates, to refresh and to say how they stand; none
+  /// in the preview.
+  final Connector? market;
 }

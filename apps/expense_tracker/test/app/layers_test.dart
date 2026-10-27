@@ -61,15 +61,9 @@ void main() {
   });
 
   test('features do not reach into how the app is put together', () {
-    // The lock screen still takes the file picker and Drive from the
-    // platform channel; PR-3 hands them in instead.
-    const pending = {
-      'lib/src/features/lock/ui/lock_screen.dart': 'lib/src/app/platform.dart',
-    };
     for (final MapEntry(key: file, value: uris) in imports.entries) {
       if (!file.startsWith('lib/src/features/')) continue;
       for (final uri in uris) {
-        if (pending[file] == uri) continue;
         expect(uri.startsWith('lib/src/app/'), isFalse, reason: '$file: $uri');
       }
     }

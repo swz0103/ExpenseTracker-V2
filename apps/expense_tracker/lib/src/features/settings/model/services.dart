@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/connector.dart';
 import '../../backup/model/drive_sync.dart';
 import '../../backup/model/keeper.dart';
 import '../../reminders/model/calendar_sync.dart';
@@ -25,6 +26,7 @@ final class Services {
     this.sample,
     this.receipts,
     this.drive,
+    this.market,
   });
 
   final Keeper? keeper;
@@ -46,4 +48,7 @@ final class Services {
 
   /// Backups on Google Drive, on Android.
   final DriveSync? drive;
+
+  /// Closing prices and rates; none in the preview.
+  final Connector? market;
 }

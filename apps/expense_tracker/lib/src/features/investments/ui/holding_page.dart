@@ -43,6 +43,7 @@ class HoldingPage extends StatelessWidget {
           );
         }
         final tone = held.gain < 0 ? Hue.negative : Hue.positive;
+        final quoted = ledger.hasQuote(code);
         final lots = ledger.lotsOf(code);
         var largest = 1;
         for (final l in lots) {
@@ -73,17 +74,18 @@ class HoldingPage extends StatelessWidget {
             TileRow([
               Tile(
                 icon: Glyph.investment,
-                label: switch (ledger.quotedOn) {
-                  final d? => '${d.month}/${d.day} 漲跌',
-                  null => '漲跌',
+                label: switch ((quoted, ledger.quotedOn)) {
+                  (true, final d?) => '${d.month}/${d.day} 漲跌',
+                  _ => '漲跌',
                 },
-                value: ledger.quotedOn == null
-                    ? '—'
-                    : ledger.moneySigned(held.change),
+                value: quoted && ledger.quotedOn != null
+                    ? ledger.moneySigned(held.change)
+                    : '—',
                 valueColor: held.change < 0 ? Hue.negative : Hue.positive,
-                sub: ledger.quotedOn == null
-                    ? '參考價 ${held.price}'
-                    : '收盤 ${held.price}',
+                // Without a close the value stands on the buying price.
+                sub: quoted
+                    ? '收盤 ${held.price.toStringAsFixed(2)}'
+                    : '尚無收盤價，以成本 ${held.price.toStringAsFixed(2)} 估算',
               ),
               Tile(
                 icon: Glyph.dividend,

@@ -48,12 +48,13 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
-  String? _page;
+  Place? _page;
   late final Nav _nav = Nav(
     open: _open,
     back: () => setState(() => _page = _parent),
     compose: _compose,
     showEntry: (entry) => _compose(entry: entry),
+    market: widget.services.market,
   );
 
   @override
@@ -96,11 +97,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Where back leads from the open page: a holding returns to 投資.
-  String? get _parent =>
-      _page?.startsWith('holding:') ?? false ? Pages.investments : null;
+  Place? get _parent => _page?.parent;
 
   /// Opens [page] over the current tab, which back returns to.
-  void _open(String page) => setState(() => _page = page);
+  void _open(Place page) => setState(() => _page = page);
 
   Future<void> _compose({
     EntryType type = EntryType.expense,
@@ -145,43 +145,54 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// A page whose account is gone closes after this frame.
+  Widget _gone() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _nav.back();
+    });
+    return const SizedBox.shrink();
+  }
+
   Widget _body() {
     final ledger = widget.ledger;
     final page = _page;
     if (page != null) {
-      if (page.startsWith('account:')) {
-        final id = page.substring('account:'.length);
-        if (ledger.account(id).kind == AccountKind.card) {
-          return CardPage(
-            key: ValueKey(page),
+      return switch (page) {
+        // Gone, such as after a restore: back to the tab.
+        AccountPlace(:final id) when !ledger.hasAccount(id) => _gone(),
+        AccountPlace(:final id) =>
+          ledger.account(id).kind == AccountKind.card
+              ? CardPage(
+                  key: ValueKey(page),
+                  ledger: ledger,
+                  nav: _nav,
+                  accountId: id,
+                )
+              : AccountPage(
+                  key: ValueKey(page),
+                  ledger: ledger,
+                  nav: _nav,
+                  accountId: id,
+                ),
+        HoldingPlace(:final code) => HoldingPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          code: code,
+        ),
+        SectionPlace(:final section) => switch (section) {
+          Section.reports => ReportsPage(ledger: ledger, nav: _nav),
+          Section.investments => InvestmentsPage(ledger: ledger, nav: _nav),
+          Section.budgets => BudgetsPage(ledger: ledger, nav: _nav),
+          Section.recurring => RecurringPage(ledger: ledger, nav: _nav),
+          Section.categories => CategoriesPage(ledger: ledger, nav: _nav),
+          Section.labels => LabelsPage(ledger: ledger, nav: _nav),
+          Section.settings => SettingsPage(
             ledger: ledger,
             nav: _nav,
-            accountId: id,
-          );
-        }
-        return AccountPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          accountId: id,
-        );
-      }
-      if (page.startsWith('holding:')) {
-        return HoldingPage(
-          key: ValueKey(page),
-          ledger: ledger,
-          nav: _nav,
-          code: page.substring('holding:'.length),
-        );
-      }
-      return switch (page) {
-        Pages.reports => ReportsPage(ledger: ledger, nav: _nav),
-        Pages.investments => InvestmentsPage(ledger: ledger, nav: _nav),
-        Pages.budgets => BudgetsPage(ledger: ledger, nav: _nav),
-        Pages.recurring => RecurringPage(ledger: ledger, nav: _nav),
-        Pages.categories => CategoriesPage(ledger: ledger, nav: _nav),
-        Pages.labels => LabelsPage(ledger: ledger, nav: _nav),
-        _ => SettingsPage(ledger: ledger, nav: _nav, services: widget.services),
+            services: widget.services,
+          ),
+        },
       };
     }
     return switch (_tab) {
