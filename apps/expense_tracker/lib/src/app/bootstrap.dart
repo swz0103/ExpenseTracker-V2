@@ -13,6 +13,7 @@ import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/leftovers.dart';
+import '../features/backup/model/phone_backup.dart';
 import '../core/ledger/table_journal.dart';
 import '../features/investments/model/market_feed.dart';
 import '../features/backup/model/vault_keeper.dart';
@@ -172,6 +173,16 @@ class _OpenedLedgerState extends State<OpenedLedger>
           unmetered: androidUnmetered,
         )
       : null;
+
+  /// Backups to a folder on the phone, on Android.
+  late final _phone = Platform.isAndroid
+      ? PhoneBackup(
+          const AndroidFolder(),
+          widget.preferences,
+          withBackup: _keeper.withBackup<void>,
+          revision: () => _keeper.revision,
+        )
+      : null;
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
@@ -208,6 +219,17 @@ class _OpenedLedgerState extends State<OpenedLedger>
     return ledger;
   }
 
+  /// Writes the backup to the phone's folder when one is due; a failure
+  /// is said once.
+  Future<void> _phoneBackup() async {
+    final phone = _phone;
+    if (phone == null || await phone.backUpIfDue()) return;
+    final problem = phone.problem;
+    if (problem == null) return;
+    Perf.instance.problem('手機資料夾備份', problem);
+    if (mounted) showNote(context, '沒有備份到手機資料夾，可以到「設定」重新選擇');
+  }
+
   /// Takes the weekly backup, then sends one to Google Drive when linked;
   /// a failure is said, not kept quiet. Drive out of reach is tried again
   /// at the next start.
@@ -218,6 +240,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       Perf.instance.problem('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
     }
+    await _phoneBackup();
     final drive = _drive;
     if (drive == null) return;
     try {
@@ -266,6 +289,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _calendar?.stop();
     _notifier?.stop();
     _drive?.dispose();
+    _phone?.dispose();
     _market?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -286,6 +310,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         if (_covered) setState(() => _covered = false);
         _ledger.then((ledger) => ledger.checkDay()).ignore();
         _market?.refresh().ignore();
+        if (_loaded != null) unawaited(_phoneBackup());
         if (_awayClock.back(_away) && !widget.startup.passwordless) {
           unawaited(_keeper.lock());
         }
@@ -316,6 +341,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           quick: Platform.isAndroid ? quickAction : null,
           receipts: _receipts,
           drive: _drive,
+          phone: _phone,
           market: _market,
         ),
       );

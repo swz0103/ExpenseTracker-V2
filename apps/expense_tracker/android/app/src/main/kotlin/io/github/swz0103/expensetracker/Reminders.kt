@@ -25,8 +25,15 @@ import java.util.Calendar
  * Each alert is due at a time on the wall clock (a date, hour and minute),
  * not at a fixed instant: after the time zone or the clock changes, the
  * alarms are worked out again from the clock, so 9:00 stays 9:00 where the
- * phone now is. The alarms are inexact (setAndAllowWhileIdle): Android may
- * post one some minutes late while the phone sleeps (Doze).
+ * phone now is. The alarms are inexact (setAndAllowWhileIdle), so Android
+ * may post one some minutes late while the phone sleeps (Doze), unless
+ * the person asked for reminders on the minute and allowed the app's
+ * alarms (setExactAndAllowWhileIdle).
+ *
+ * Each alert carries a tag (`nudge`, `due:<key>`). A notification already
+ * showing whose tag the app no longer lists as wanted is taken away: the
+ * daily nudge once something was recorded, a due date once it was booked
+ * or paid.
  *
  * What is kept is what the notification shows (its title and text, which
  * can name an amount) and which screen tapping it opens. The preferences
@@ -37,6 +44,11 @@ object Reminders {
     private const val CHANNEL = "reminders"
     private const val PREFS = "reminders"
     private const val KEY = "alerts"
+    private const val EXACT = "exact"
+    const val EXTRA_TAG = "tag"
+
+    /** The test notification's alarm, apart from the kept alerts'. */
+    private const val TEST_ID = 990
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
     const val EXTRA_ID = "id"
@@ -44,8 +56,16 @@ object Reminders {
     /** An alert's wall-clock time: year, month (1-12), day, hour, minute. */
     private val CLOCK_FIELDS = listOf("y", "m", "d", "hour", "minute")
 
-    /** Replaces every alert still to come with [alerts]. */
-    fun replace(context: Context, alerts: List<Map<String, Any?>>) {
+    /**
+     * Replaces every alert still to come with [alerts], on the minute when
+     * [exact]; and takes away those showing whose tag is not [wanted].
+     */
+    fun replace(
+        context: Context,
+        alerts: List<Map<String, Any?>>,
+        exact: Boolean = false,
+        wanted: Set<String>? = null,
+    ) {
         val kept = JSONArray()
         for (alert in alerts) {
             val at = (alert["at"] as? Number)?.toLong() ?: continue
@@ -54,6 +74,7 @@ object Reminders {
                 .put("title", alert["title"] as? String ?: "")
                 .put("text", alert["text"] as? String ?: "")
                 .put("quick", alert["quick"] as? String ?: "")
+                .put("tag", alert["tag"] as? String ?: "")
             // The wall-clock time, when the app sends it (it always does
             // now); without it the alert keeps its instant [at].
             val clock = CLOCK_FIELDS.mapNotNull { name ->
@@ -67,8 +88,53 @@ object Reminders {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val before = JSONArray(prefs.getString(KEY, "[]"))
         for (i in 0 until before.length()) cancel(context, i)
-        prefs.edit().putString(KEY, kept.toString()).apply()
+        prefs.edit().putString(KEY, kept.toString()).putBoolean(EXACT, exact).apply()
         scheduleKept(context)
+        if (wanted != null) clearShown(context, wanted)
+    }
+
+    /** Takes away the app's notifications showing whose tag is not [wanted]. */
+    private fun clearShown(context: Context, wanted: Set<String>) {
+        if (Build.VERSION.SDK_INT < 23) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        for (shown in manager.activeNotifications) {
+            val tag = shown.tag ?: continue
+            if (tag !in wanted) manager.cancel(tag, shown.id)
+        }
+    }
+
+    /** Whether alarms may go off on the minute. */
+    fun exactAllowed(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 31) return true
+        val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        return alarms.canScheduleExactAlarms()
+    }
+
+    /** Sets [intent]'s alarm for [at], on the minute when asked and allowed. */
+    private fun setAlarm(context: Context, at: Long, intent: PendingIntent, exact: Boolean) {
+        val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (exact && exactAllowed(context)) {
+            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+        } else {
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+        }
+    }
+
+    /** A test notification in a minute, as the reminders would come. */
+    fun test(context: Context, exact: Boolean) {
+        val intent = Intent(context, ReminderReceiver::class.java)
+            .putExtra(EXTRA_ID, TEST_ID)
+            .putExtra(EXTRA_TITLE, "測試通知")
+            .putExtra(EXTRA_TEXT, "提醒會像這樣出現。")
+            .putExtra(EXTRA_TAG, "test")
+            .putExtra(MainActivity.EXTRA_QUICK, "")
+        val pending = PendingIntent.getBroadcast(
+            context,
+            TEST_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        setAlarm(context, System.currentTimeMillis() + 60_000, pending, exact)
     }
 
     /**
@@ -99,7 +165,7 @@ object Reminders {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val kept = JSONArray(prefs.getString(KEY, "[]"))
         val now = System.currentTimeMillis()
-        val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val exact = prefs.getBoolean(EXACT, false)
         for (i in 0 until kept.length()) {
             val alert = kept.getJSONObject(i)
             val at = dueAt(alert)
@@ -108,11 +174,7 @@ object Reminders {
                 continue
             }
             // The same request code replaces an alarm set before.
-            alarms.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                at,
-                pending(context, i, alert),
-            )
+            setAlarm(context, at, pending(context, i, alert), exact)
         }
     }
 
@@ -122,6 +184,7 @@ object Reminders {
             intent.putExtra(EXTRA_TITLE, alert.optString("title"))
                 .putExtra(EXTRA_TEXT, alert.optString("text"))
                 .putExtra(MainActivity.EXTRA_QUICK, alert.optString("quick"))
+                .putExtra(EXTRA_TAG, alert.optString("tag"))
         }
         return PendingIntent.getBroadcast(
             context,
@@ -148,7 +211,14 @@ object Reminders {
     }
 
     /** Posts one alert; tapping it opens the app, or the composer. */
-    fun show(context: Context, id: Int, title: String, text: String, quick: String) {
+    fun show(
+        context: Context,
+        id: Int,
+        title: String,
+        text: String,
+        quick: String,
+        tag: String = "",
+    ) {
         if (!allowed(context)) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
@@ -177,7 +247,8 @@ object Reminders {
                     .build(),
             )
             .build()
-        manager.notify(id, notification)
+        // Tagged, so one no longer wanted can be taken away.
+        manager.notify(tag.ifEmpty { null }, id, notification)
     }
 }
 
@@ -190,6 +261,7 @@ class ReminderReceiver : BroadcastReceiver() {
             intent.getStringExtra(Reminders.EXTRA_TITLE) ?: return,
             intent.getStringExtra(Reminders.EXTRA_TEXT) ?: "",
             intent.getStringExtra(MainActivity.EXTRA_QUICK) ?: "",
+            intent.getStringExtra(Reminders.EXTRA_TAG) ?: "",
         )
     }
 }

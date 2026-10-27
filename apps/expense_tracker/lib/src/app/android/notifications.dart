@@ -13,21 +13,53 @@ final class AndroidNotifications implements NotifyPort {
       await platformChannel.invokeMethod<bool>('notificationAccess') ?? false;
 
   @override
-  Future<void> schedule(List<Alert> alerts) =>
-      platformChannel.invokeMethod<void>('scheduleNotifications', {
-        'alerts': [
-          for (final a in alerts)
-            {
-              'at': a.at.millisecondsSinceEpoch,
-              'y': a.at.toLocal().year,
-              'm': a.at.toLocal().month,
-              'd': a.at.toLocal().day,
-              'hour': a.at.toLocal().hour,
-              'minute': a.at.toLocal().minute,
-              'title': a.title,
-              'text': a.text,
-              'quick': a.quick?.name,
-            },
-        ],
-      });
+  Future<void> schedule(
+    List<Alert> alerts, {
+    bool exact = false,
+    Set<String>? wanted,
+  }) => platformChannel.invokeMethod<void>('scheduleNotifications', {
+    'exact': exact,
+    'wanted': ?wanted?.toList(),
+    'alerts': [
+      for (final a in alerts)
+        {
+          'at': a.at.millisecondsSinceEpoch,
+          'y': a.at.toLocal().year,
+          'm': a.at.toLocal().month,
+          'd': a.at.toLocal().day,
+          'hour': a.at.toLocal().hour,
+          'minute': a.at.toLocal().minute,
+          'title': a.title,
+          'text': a.text,
+          'quick': a.quick?.name,
+          'tag': a.tag,
+        },
+    ],
+  });
+
+  @override
+  Future<void> test({bool exact = false}) =>
+      platformChannel.invokeMethod<void>('testNotification', {'exact': exact});
+
+  @override
+  Future<ReminderStatus> status() async {
+    final found =
+        await platformChannel.invokeMapMethod<String, Object?>(
+          'reminderStatus',
+        ) ??
+        const {};
+    return (
+      notifications: found['notifications'] == true,
+      exact: found['exact'] == true,
+      battery: found['battery'] == true,
+    );
+  }
+
+  @override
+  Future<void> openExactSettings() =>
+      platformChannel.invokeMethod<void>('openExactSettings');
+
+  @override
+  Future<void> openBatterySettings() =>
+      platformChannel.invokeMethod<void>('openBatterySettings');
 }

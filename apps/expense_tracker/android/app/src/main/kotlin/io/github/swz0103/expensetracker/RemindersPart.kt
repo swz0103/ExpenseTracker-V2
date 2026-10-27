@@ -1,7 +1,12 @@
 package io.github.swz0103.expensetracker
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.FragmentActivity
 import io.flutter.plugin.common.MethodCall
@@ -21,6 +26,15 @@ class RemindersPart(private val activity: FragmentActivity) : ChannelPart {
             pendingNotify = null
             result.success(granted && Reminders.allowed(activity))
         }
+
+    /** Opens a page of the system settings; a phone without it shows none. */
+    private fun openSettings(intent: Intent) {
+        try {
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            // Nothing to open: the status row still says how it stands.
+        }
+    }
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
@@ -45,9 +59,48 @@ class RemindersPart(private val activity: FragmentActivity) : ChannelPart {
                 if (alerts == null) {
                     result.error("bad-arguments", "alerts are required", null)
                 } else {
-                    Reminders.replace(activity, alerts)
+                    Reminders.replace(
+                        activity,
+                        alerts,
+                        exact = call.argument<Boolean>("exact") == true,
+                        wanted = call.argument<List<String>>("wanted")?.toSet(),
+                    )
                     result.success(null)
                 }
+            }
+            "testNotification" -> {
+                Reminders.test(activity, call.argument<Boolean>("exact") == true)
+                result.success(null)
+            }
+            "reminderStatus" -> {
+                val power = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
+                result.success(
+                    mapOf(
+                        "notifications" to Reminders.allowed(activity),
+                        "exact" to Reminders.exactAllowed(activity),
+                        "battery" to (Build.VERSION.SDK_INT < 23 ||
+                            power.isIgnoringBatteryOptimizations(activity.packageName)),
+                    ),
+                )
+            }
+            "openExactSettings" -> {
+                // Android 12 and later ask in the system settings; before,
+                // alarms on the minute need no asking.
+                if (Build.VERSION.SDK_INT >= 31) {
+                    val intent = Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:${activity.packageName}"),
+                    )
+                    openSettings(intent)
+                }
+                result.success(null)
+            }
+            "openBatterySettings" -> {
+                if (Build.VERSION.SDK_INT >= 23) {
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    openSettings(intent)
+                }
+                result.success(null)
             }
             else -> return false
         }
