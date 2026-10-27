@@ -47,6 +47,7 @@ final class Preferences extends ChangeNotifier {
         json['phoneBackedUp'] as String? ?? '',
       );
       _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
+      _overview = (json['overview'] as List<Object?>?)?.cast<String>();
     } on Object {
       // An unreadable file leaves the defaults.
     }
@@ -101,6 +102,18 @@ final class Preferences extends ChangeNotifier {
   DateTime? _phoneBackedUp;
   int? get phoneRevision => _phoneRevision;
   int? _phoneRevision;
+
+  /// 總覽's blocks in the order chosen, a hidden one written `!name`;
+  /// null for the order the app comes with.
+  List<String>? get overview => _overview;
+  List<String>? _overview;
+
+  /// Keeps 總覽's blocks as [blocks], or the app's order with null.
+  void overviewSet(List<String>? blocks) {
+    _overview = blocks == null ? null : List.unmodifiable(blocks);
+    notifyListeners();
+    _save();
+  }
 
   /// Keeps backups in the folder [uri] named [name], or stops with null.
   void phoneFolderSet(String? uri, {String name = ''}) {
@@ -206,6 +219,7 @@ final class Preferences extends ChangeNotifier {
           'phoneDaily': _phoneDaily,
           'phoneBackedUp': _phoneBackedUp?.toUtc().toIso8601String(),
           'phoneRevision': _phoneRevision,
+          'overview': _overview,
         }),
         flush: true,
       );

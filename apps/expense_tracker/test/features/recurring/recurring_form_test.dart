@@ -66,4 +66,26 @@ void main() {
     expect(form.every, 3);
     expect(form.rhythm, '每 3 個月 4 日');
   });
+
+  test('the day of the month moves the start to the next such day', () {
+    final form = RecurringForm(book())..start = DateTime.utc(2026, 10, 20);
+    form.setDayOfMonth(25);
+    expect(form.start, DateTime.utc(2026, 10, 25));
+    form.setDayOfMonth(5);
+    expect(form.start, DateTime.utc(2026, 11, 5));
+    // November has no 31st: December's.
+    form.setDayOfMonth(31);
+    expect(form.start, DateTime.utc(2026, 12, 31));
+  });
+
+  test('the weekday moves the start to the next such day', () {
+    // 2026-10-20 is a Tuesday.
+    final form = RecurringForm(book())..start = DateTime.utc(2026, 10, 20);
+    form.setWeekday(5);
+    expect(form.start, DateTime.utc(2026, 10, 23));
+    form.setWeekday(5);
+    expect(form.start, DateTime.utc(2026, 10, 23));
+    form.setWeekday(1);
+    expect(form.start, DateTime.utc(2026, 10, 26));
+  });
 }

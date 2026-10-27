@@ -5,7 +5,9 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/preferences.dart';
+import '../model/overview_blocks.dart';
 import 'getting_started.dart';
+import 'overview_editor.dart';
 import '../../../core/nav.dart';
 import 'sections/assets_section.dart';
 import 'sections/daily_section.dart';
@@ -66,10 +68,39 @@ class _OverviewPageState extends State<OverviewPage> {
     if (month != _month) setState(() => _month = month);
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// One of the blocks the person may move or hide.
+  Widget _block(OverviewBlock block) {
     final ledger = widget.ledger;
     final nav = widget.nav;
+    return switch (block) {
+      OverviewBlock.plan => PlanSection(ledger: ledger, nav: nav, month: _month),
+      OverviewBlock.daily => DailySection(
+        ledger: ledger,
+        nav: nav,
+        month: _month,
+        onMonth: _showMonth,
+      ),
+      OverviewBlock.market => _market,
+      OverviewBlock.assets => _assets,
+      OverviewBlock.flow => FlowSection(ledger: ledger, month: _month),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = widget.preferences;
+    if (preferences == null) return _page();
+    // The blocks follow the order and choice kept in the preferences.
+    return ListenableBuilder(
+      listenable: preferences,
+      builder: (context, _) => _page(),
+    );
+  }
+
+  Widget _page() {
+    final ledger = widget.ledger;
+    final nav = widget.nav;
+    final preferences = widget.preferences;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       children: [
@@ -101,16 +132,16 @@ class _OverviewPageState extends State<OverviewPage> {
         if (widget.preferences case final preferences?)
           GettingStarted(ledger: ledger, preferences: preferences, nav: nav),
         SummarySection(ledger: ledger, month: _month),
-        PlanSection(ledger: ledger, nav: nav, month: _month),
-        DailySection(
-          ledger: ledger,
-          nav: nav,
-          month: _month,
-          onMonth: _showMonth,
-        ),
-        _market,
-        _assets,
-        FlowSection(ledger: ledger, month: _month),
+        for (final (:block, :shown) in blocksFrom(preferences?.overview))
+          if (shown) _block(block),
+        if (preferences != null)
+          Center(
+            child: TextButton(
+              onPressed: () => editOverview(context, preferences),
+              style: TextButton.styleFrom(foregroundColor: Hue.muted),
+              child: const Text('調整總覽'),
+            ),
+          ),
       ],
     );
   }
