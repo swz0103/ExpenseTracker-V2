@@ -5,7 +5,8 @@ import 'dart:math';
 import 'package:core/foundation_values.dart'
     show BusinessDate, Currency, PublicId;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
-import 'package:flutter/foundation.dart' show ChangeNotifier, ValueNotifier;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, Listenable, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
 
 import 'amounts.dart';
@@ -254,16 +255,21 @@ final class Ledger extends ChangeNotifier {
   Map<String, Entry>? _idIndex;
   Map<String, int>? _refundIndex;
 
-  /// Sums worked out since the last change, by what was asked: such as
-  /// a card's statement on a given day.
+  /// Sums worked out since the last change of what they rest on, by what
+  /// was asked: such as a card's statement on a given day.
   final _memo = <Object, Object?>{};
 
-  /// What [make] works out, once per change for each [key]. A key should
-  /// hold every argument the answer depends on, the day included.
-  T _remember<T>(Object key, T Function() make) {
+  /// What each sum in [_memo] rests on.
+  final _memoOn = <Object, Set<Area>>{};
+
+  /// What [make] works out, once per change of the [on] areas for each
+  /// [key]. A key should hold every argument the answer depends on, the
+  /// day included; [on] is every area it reads.
+  T _remember<T>(Object key, T Function() make, {Set<Area> on = Area.all}) {
     if (_memo.containsKey(key)) return _memo[key] as T;
     final made = make();
     _memo[key] = made;
+    _memoOn[key] = on;
     return made;
   }
 
@@ -273,40 +279,86 @@ final class Ledger extends ChangeNotifier {
   int get revision => _revision;
   var _revision = 0;
 
+  /// How many times each area has changed, for a screen that keeps sums
+  /// resting on some areas only.
+  int revisionOf(Area area) => _areaRevisions[area.index];
+  final _areaRevisions = List.filled(Area.values.length, 0);
+
   Map<String, Category>? _categoryIndex;
 
-  void _touch() {
+  /// Throws away what rests on [areas], and only that: a budget changed
+  /// leaves every statement and balance worked out.
+  void _forget(Set<Area> areas) {
     _revision++;
-    _categoryIndex = null;
-    _idIndex = null;
-    _refundIndex = null;
-    _memo.clear();
-    _moved = null;
-    _months = null;
-    _days = null;
-    _first = null;
-    _running = null;
-    _balances.clear();
-    _accountIndex = null;
+    for (final area in areas) {
+      _areaRevisions[area.index]++;
+    }
+    if (areas.contains(Area.categories)) _categoryIndex = null;
+    if (areas.contains(Area.entries)) {
+      _idIndex = null;
+      _refundIndex = null;
+      _months = null;
+      _days = null;
+      _first = null;
+    }
+    if (areas.contains(Area.entries) || areas.contains(Area.accounts)) {
+      _running = null;
+      _balances.clear();
+    }
+    if (areas.contains(Area.accounts)) _accountIndex = null;
+    if (areas.contains(Area.entries) || areas.contains(Area.market)) {
+      _moved = null;
+    }
+    final stale = [
+      for (final MapEntry(:key, value: on) in _memoOn.entries)
+        if (on.any(areas.contains)) key,
+    ];
+    for (final key in stale) {
+      _memo.remove(key);
+      _memoOn.remove(key);
+    }
   }
 
+  /// Tells the screens of a change of every area.
   @override
-  void notifyListeners() {
-    _touch();
+  void notifyListeners() => _changed(Area.all);
+
+  /// Tells the screens [areas] changed, after throwing away what rests on
+  /// them; those listening to [watch] hear only of the areas they asked
+  /// for.
+  void _changed(Set<Area> areas) {
+    _forget(areas);
     super.notifyListeners();
+    for (final area in areas) {
+      _watchers[area]?.notify();
+    }
   }
 
   /// Tells the screens of a change that leaves every sum as it was, such
   /// as hiding the amounts: nothing worked out is thrown away.
-  void _signal() => super.notifyListeners();
+  void _signal() {
+    super.notifyListeners();
+    _watchers[Area.display]?.notify();
+  }
+
+  final _watchers = <Area, _Watcher>{};
+
+  /// Changes of [areas] only, and of how amounts are shown: for a screen
+  /// that need not be built again when, say, a budget changes.
+  Listenable watch(Set<Area> areas) => Listenable.merge([
+    for (final area in {...areas, Area.display}) _watchers[area] ??= _Watcher(),
+  ]);
 
   /// Every entry, in the order written; the list cannot be changed.
   List<Entry> get entries => UnmodifiableListView(_entries);
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) =>
-      _remember(('search', words), () => _search(words));
+  List<Entry> search(String words) => _remember(
+    ('search', words),
+    () => _search(words),
+    on: const {Area.entries, Area.accounts, Area.categories},
+  );
 
   List<Entry> _search(String words) {
     final lower = words.toLowerCase();
@@ -317,6 +369,7 @@ final class Ledger extends ChangeNotifier {
         for (final e in _entries)
           [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
       ],
+      on: const {Area.entries},
     );
     final found = [
       for (final (i, e) in _entries.indexed)
@@ -442,7 +495,7 @@ final class Ledger extends ChangeNotifier {
       ..addAll(rates);
     _quotedOn = quotedOn;
     _replay(lenient: true);
-    notifyListeners();
+    _changed(const {Area.market});
   }
 
   /// What a change of several records left different: every record not
@@ -699,19 +752,19 @@ final class Ledger extends ChangeNotifier {
       since: old.since ?? DateTime.utc(today.year, today.month),
     );
     _budgets.add(budget);
-    notifyListeners();
+    _changed(const {Area.budgets});
     _keep(Batch(budgets: [budget]));
   }
 
   void removeBudget(String category) {
     _budgets.removeWhere((b) => b.category == category);
-    notifyListeners();
+    _changed(const {Area.budgets});
     _keep(Batch(dropped: [(Shelf.budget, category)]));
   }
 
   void addAccount(Account account) {
     _accounts.add(account);
-    notifyListeners();
+    _changed(const {Area.accounts});
     _keep(Batch(accounts: [account]));
   }
 
@@ -728,7 +781,7 @@ final class Ledger extends ChangeNotifier {
     );
     account = _rescheduled(before, account);
     _accounts[index] = account;
-    notifyListeners();
+    _changed(const {Area.accounts});
     _keep(Batch(accounts: [account]));
   }
 
@@ -784,7 +837,7 @@ final class Ledger extends ChangeNotifier {
     final a = _accounts[index];
     final moved = a.copyWith(opening: a.opening + target - balance(id));
     _accounts[index] = moved;
-    notifyListeners();
+    _changed(const {Area.accounts});
     _keep(Batch(accounts: [moved]));
   }
 
@@ -834,7 +887,7 @@ final class Ledger extends ChangeNotifier {
       return;
     }
     _categories.add(category);
-    notifyListeners();
+    _changed(const {Area.categories});
     _keep(Batch(categories: [category]));
   }
 
@@ -910,7 +963,7 @@ final class Ledger extends ChangeNotifier {
     } else {
       _recurring[index] = item;
     }
-    notifyListeners();
+    _changed(const {Area.recurring});
     _keep(Batch(recurring: [item]));
   }
 
@@ -918,7 +971,7 @@ final class Ledger extends ChangeNotifier {
     final index = _recurring.indexWhere((r) => r.id == id);
     if (index < 0) return;
     final removed = _recurring.removeAt(index);
-    notifyListeners();
+    _changed(const {Area.recurring});
     _keep(Batch(dropped: [(Shelf.recurring, removed.id)]));
   }
 
@@ -1040,7 +1093,8 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Works the holdings out again when [trades] were touched, then tells
-  /// the screens; an oversold trade is undone and rethrown.
+  /// the screens the entries changed; an oversold trade is undone and
+  /// rethrown.
   void _replayOrUndo(void Function() undo, {bool trades = true}) {
     if (trades) {
       try {
@@ -1051,7 +1105,7 @@ final class Ledger extends ChangeNotifier {
         rethrow;
       }
     }
-    notifyListeners();
+    _changed(const {Area.entries});
   }
 
   /// [_replayOrUndo], telling a refusal through [problem] rather than
@@ -1086,7 +1140,9 @@ final class Ledger extends ChangeNotifier {
   /// investment entry; an oversold trade throws a [StateError], or, when
   /// [lenient], as for a book just loaded, is left out of the holdings.
   void _replay({bool lenient = false}) {
-    _touch();
+    // The caller says what changed (_changed); the day's moves rest on
+    // the holdings, so they go now.
+    _moved = null;
     _portfolio = Portfolio.replay(_startHoldings, _entries, lenient: lenient);
   }
 }
@@ -1094,6 +1150,35 @@ final class Ledger extends ChangeNotifier {
 /// One account's entries in date order with the balance change up to each
 /// of them, so a balance on any day is one search. Instalment purchases
 /// are kept apart: what they have billed depends on the day asked about.
+/// The parts of the book a change can touch, so what rests on the others
+/// is kept.
+enum Area {
+  entries,
+  accounts,
+  categories,
+  budgets,
+  recurring,
+  market,
+
+  /// How amounts are shown (隱藏金額); nothing worked out rests on it.
+  display;
+
+  /// Every part of the book.
+  static const all = {
+    entries,
+    accounts,
+    categories,
+    budgets,
+    recurring,
+    market,
+  };
+}
+
+/// One area's listeners.
+final class _Watcher extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
 final class _Running {
   final days = <DateTime>[];
   final totals = <int>[];

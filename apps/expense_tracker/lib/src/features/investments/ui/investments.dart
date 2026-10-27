@@ -109,7 +109,10 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
     final ledger = widget.ledger;
     final market = widget.nav.market;
     return ListenableBuilder(
-      listenable: Listenable.merge([ledger, ?market]),
+      listenable: Listenable.merge([
+        ledger.watch(const {Area.entries, Area.market}),
+        ?market,
+      ]),
       builder: (context, _) {
         final value = ledger.investValue;
         final cost = ledger.investCost;
