@@ -11,6 +11,7 @@ import 'package:expense_tracker/src/features/reports/ui/report_period.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:expense_tracker/src/core/ui/swipe_actions.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -357,10 +358,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('編輯'), findsOneWidget);
     // A tap on the row closes it rather than opening the entry.
-    await tester.tap(find.text('週末點心'));
+    final row = find.ancestor(
+      of: find.text('週末點心'),
+      matching: find.byType(SwipeActions),
+    );
+    await tester.tapAt(tester.getTopLeft(row) + const Offset(40, 12));
     await tester.pumpAndSettle();
     expect(find.text('編輯'), findsNothing);
     expect(find.byType(Composer), findsNothing);
+    await tester.drag(find.text('週末點心'), const Offset(-200, 0));
+    await tester.pumpAndSettle();
+    // So does a tap anywhere else.
+    await tester.tap(find.text('收支紀錄'));
+    await tester.pumpAndSettle();
+    expect(find.text('編輯'), findsNothing);
     await tester.drag(find.text('週末點心'), const Offset(-200, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('刪除'));
