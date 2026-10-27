@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/charts/treemap.dart';
+import 'package:expense_tracker/src/core/ui/amount_pad.dart';
 import 'package:expense_tracker/src/core/ui/calculator.dart';
 import 'package:expense_tracker/src/features/entries/compose/composer.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
@@ -271,7 +272,9 @@ void main() {
     final ledger = await show(tester);
     await tester.tap(find.byTooltip('記一筆'));
     await tester.pumpAndSettle();
-    expect(find.text('新增支出'), findsOneWidget);
+    // No title: the tabs say what is written, the keys sit in the form.
+    expect(find.text('新增支出'), findsNothing);
+    expect(find.byType(AmountPad), findsOneWidget);
     await tester.tap(find.text('記下支出'));
     await tester.pump();
     expect(find.text('請輸入金額'), findsOneWidget);

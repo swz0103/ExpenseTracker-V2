@@ -254,6 +254,7 @@ class _Line extends StatelessWidget {
     this.value, {
     this.strong = false,
     this.color = Hue.ink,
+    this.onTap,
   });
 
   final String label;
@@ -261,10 +262,14 @@ class _Line extends StatelessWidget {
   final bool strong;
   final Color color;
 
+  /// Opens the value to change it; a pen marks a line that can be.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+    final tap = onTap;
+    final line = Padding(
+      padding: EdgeInsets.symmetric(vertical: tap == null ? 5 : 9),
       child: Row(
         children: [
           Text(label, style: const TextStyle(fontSize: 13.5)),
@@ -272,13 +277,23 @@ class _Line extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: strong ? 16 : 14.5,
+              fontSize: strong ? 22 : 14.5,
               fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
               color: color,
             ),
           ),
+          if (tap != null) ...[
+            const SizedBox(width: 6),
+            const GlyphIcon(Glyph.edit, size: 14, color: Hue.muted),
+          ],
         ],
       ),
+    );
+    if (tap == null) return line;
+    return InkWell(
+      onTap: tap,
+      borderRadius: BorderRadius.circular(8),
+      child: Semantics(button: true, child: line),
     );
   }
 }

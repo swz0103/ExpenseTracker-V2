@@ -9,6 +9,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
+import '../model/account_form.dart';
 
 /// True when [ledger] has an open account, after offering to add one if
 /// it has none: entries, imports and recurring items all need one.
@@ -46,33 +47,21 @@ class _AccountEditor extends StatefulWidget {
 
 class _AccountEditorState extends State<_AccountEditor> {
   late final _old = widget.account;
-  late final _name = TextEditingController(text: _old?.name ?? '');
-  late final _balance = TextEditingController(text: _startBalance());
-  late final _limit = TextEditingController(text: '${_old?.limit ?? ''}');
-  late var _kind = _old?.kind ?? AccountKind.bank;
-  late String? _icon = _old?.icon;
-  late var _closing = _old?.closingDay ?? 1;
-  late var _due = _old?.dueDay ?? 15;
-  late var _counted = _old?.inNetWorth ?? true;
 
-  /// Chosen when the account is opened; fixed after that.
-  late var _currency = _old?.currency ?? homeCode;
+  /// The fields and what saving does.
+  late final _f = AccountForm(widget.ledger, old: _old);
+  late final TextEditingController _name = TextEditingController(text: _f.name)
+    ..addListener(() => _f.name = _name.text);
+  late final TextEditingController _balance = TextEditingController(
+    text: _f.balance,
+  )..addListener(() => _f.balance = _balance.text);
+  late final TextEditingController _limit = TextEditingController(
+    text: _f.limit,
+  )..addListener(() => _f.limit = _limit.text);
 
   /// The currencies offered first; the rest open from 更多.
   static const _common = {homeCode, 'USD', 'JPY', 'EUR', 'CNY'};
   var _allCurrencies = false;
-
-  String _startBalance() {
-    final account = widget.account;
-    if (account == null) return '';
-    // A debt is shown as what is owed: a card at −500 reads 500, and one
-    // overpaid by 300 reads −300.
-    final balance = widget.ledger.balance(account.id);
-    return plainIn(account.kind.isDebt ? -balance : balance, account.currency);
-  }
-
-  /// Cards and loans are kept in NT$.
-  bool get _foreignAllowed => !_kind.isDebt;
 
   @override
   void dispose() {
@@ -83,51 +72,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   }
 
   void _save() {
-    final ledger = widget.ledger;
-    final name = _name.text.trim();
-    if (name.isEmpty) return;
-    final currency = _foreignAllowed ? _currency : homeCode;
-    final typed = minorOf(_balance.text, currency);
-    final balance = typed == null ? null : (_kind.isDebt ? -typed : typed);
-    final card = _kind == AccountKind.card;
-    final old = _old;
-    if (old == null) {
-      ledger.addAccount(
-        Account(
-          ledger.newId(),
-          name,
-          _kind,
-          balance ?? 0,
-          icon: _icon,
-          closingDay: card ? _closing : null,
-          dueDay: card ? _due : null,
-          limit: card ? int.tryParse(_limit.text.trim()) : null,
-          inNetWorth: _counted,
-          currency: currency,
-        ),
-      );
-    } else {
-      ledger.updateAccount(
-        Account(
-          old.id,
-          name,
-          _kind,
-          old.opening,
-          icon: _icon,
-          closingDay: card ? _closing : null,
-          dueDay: card ? _due : null,
-          limit: card ? int.tryParse(_limit.text.trim()) : null,
-          archived: old.archived,
-          inNetWorth: _counted,
-          currency: old.currency,
-        ),
-      );
-      // A field left empty leaves the balance as it is.
-      if (balance != null && balance != ledger.balance(old.id)) {
-        ledger.setBalance(old.id, balance);
-      }
-    }
-    Navigator.of(context).pop();
+    if (_f.save()) Navigator.of(context).pop();
   }
 
   /// Archives the account, or brings it back. One with money left is
@@ -150,18 +95,7 @@ class _AccountEditorState extends State<_AccountEditor> {
         ),
       );
       if (into == null) return;
-      ledger.add(
-        Entry(
-          id: ledger.newId(),
-          date: ledger.today,
-          type: EntryType.transfer,
-          amount: left.abs(),
-          account: left > 0 ? old.id : into,
-          category: transferCategory,
-          note: '${old.name}結清',
-          to: left > 0 ? into : old.id,
-        ),
-      );
+      ledger.add(AccountForm.settlement(ledger, old, into));
     }
     ledger.updateAccount(old.copyWith(archived: !old.archived));
     if (mounted) Navigator.of(context).pop(!old.archived);
@@ -198,7 +132,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 for (var day = 1; day <= 28; day++)
                   _DayKey(
                     day: day,
-                    picked: day == (closing ? _closing : _due),
+                    picked: day == (closing ? _f.closing : _f.due),
                     onTap: () => Navigator.of(context).pop(day),
                   ),
               ],
@@ -210,9 +144,9 @@ class _AccountEditorState extends State<_AccountEditor> {
     if (picked == null) return;
     setState(() {
       if (closing) {
-        _closing = picked;
+        _f.closing = picked;
       } else {
-        _due = picked;
+        _f.due = picked;
       }
     });
   }
@@ -220,9 +154,9 @@ class _AccountEditorState extends State<_AccountEditor> {
   @override
   Widget build(BuildContext context) {
     final old = _old;
-    final color = accountColor(_kind);
-    final key = _icon;
-    final icon = key == null ? kindIcon(_kind) : iconFor(key);
+    final color = accountColor(_f.kind);
+    final key = _f.icon;
+    final icon = key == null ? kindIcon(_f.kind) : iconFor(key);
     final removable = old != null && !widget.ledger.isUsed(old.id);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -253,7 +187,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                       const SizedBox(height: 8),
                       _Field(
                         controller: _balance,
-                        hint: _kind.isDebt ? '目前欠款' : '目前餘額',
+                        hint: _f.kind.isDebt ? '目前欠款' : '目前餘額',
                         number: true,
                       ),
                     ],
@@ -270,9 +204,9 @@ class _AccountEditorState extends State<_AccountEditor> {
                 for (final kind in AccountKind.values)
                   ChoicePill(
                     label: groupName(kind),
-                    selected: kind == _kind,
+                    selected: kind == _f.kind,
                     background: Hue.white,
-                    onTap: () => setState(() => _kind = kind),
+                    onTap: () => setState(() => _f.kind = kind),
                   ),
               ],
             ),
@@ -286,30 +220,30 @@ class _AccountEditorState extends State<_AccountEditor> {
                 for (final (key, name) in accountIcons)
                   TapArea(
                     label: '圖示：$name',
-                    selected: key == _icon,
-                    onTap: () => setState(() => _icon = key),
+                    selected: key == _f.icon,
+                    onTap: () => setState(() => _f.icon = key),
                     child: Container(
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: key == _icon ? Hue.white : Colors.transparent,
+                        color: key == _f.icon ? Hue.white : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: key == _icon ? color : Colors.transparent,
+                          color: key == _f.icon ? color : Colors.transparent,
                           width: 1.5,
                         ),
                       ),
                       child: GlyphIcon(
                         iconFor(key),
-                        color: key == _icon ? color : Hue.muted,
-                        tinted: key == _icon,
+                        color: key == _f.icon ? color : Hue.muted,
+                        tinted: key == _f.icon,
                       ),
                     ),
                   ),
               ],
             ),
           ),
-          if (old == null && _foreignAllowed)
+          if (old == null && _f.foreignAllowed)
             FormBlock(
               title: '幣別',
               child: Wrap(
@@ -318,12 +252,12 @@ class _AccountEditorState extends State<_AccountEditor> {
                   for (final code in Currency.supported)
                     if (_allCurrencies ||
                         _common.contains(code) ||
-                        code == _currency)
+                        code == _f.currency)
                       ChoicePill(
                         label: code,
-                        selected: code == _currency,
+                        selected: code == _f.currency,
                         background: Hue.white,
-                        onTap: () => setState(() => _currency = code),
+                        onTap: () => setState(() => _f.currency = code),
                       ),
                   if (!_allCurrencies)
                     ChoicePill(
@@ -335,24 +269,24 @@ class _AccountEditorState extends State<_AccountEditor> {
                 ],
               ),
             ),
-          if (_kind == AccountKind.card)
+          if (_f.kind == AccountKind.card)
             TileRow([
               Tile(
                 icon: Glyph.calendar,
                 label: '結帳日',
-                value: '每月 $_closing 日',
+                value: '每月 ${_f.closing} 日',
                 size: 15,
                 onTap: () => _pickDay(true),
               ),
               Tile(
                 icon: Glyph.calendar,
                 label: '繳款日',
-                value: '每月 $_due 日',
+                value: '每月 ${_f.due} 日',
                 size: 15,
                 onTap: () => _pickDay(false),
               ),
             ]),
-          if (_kind == AccountKind.card)
+          if (_f.kind == AccountKind.card)
             FormBlock(
               title: '信用額度',
               child: _Field(controller: _limit, hint: '額度', number: true),
@@ -364,8 +298,8 @@ class _AccountEditorState extends State<_AccountEditor> {
                   child: Text('計入資產與淨資產', style: TextStyle(fontSize: 14)),
                 ),
                 Switch(
-                  value: _counted,
-                  onChanged: (on) => setState(() => _counted = on),
+                  value: _f.counted,
+                  onChanged: (on) => setState(() => _f.counted = on),
                 ),
               ],
             ),

@@ -9,42 +9,41 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
-import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
+import '../../../core/ui/amount_pad.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
+import '../model/compose_form.dart';
 import '../model/receipt_photos.dart';
+
+export '../model/compose_form.dart' show ComposeMode;
 
 part 'composer_fields.dart';
 part 'composer_investment.dart';
 part 'composer_lend.dart';
 part 'composer_widgets.dart';
 
-/// The kinds of record the composer makes. 代墊 has no tab of its own:
-/// it is picked inside 支出 (paid for someone) or 收入 (paid back).
-enum ComposeMode {
-  expense('支出', Glyph.bag, Hue.negative),
-  income('收入', Glyph.income, Hue.positive),
-  transfer('轉帳', Glyph.transfer, Hue.transfer),
-  lend('代墊', Glyph.heart, Hue.receivable),
-  investment('投資', Glyph.investment, Hue.investment);
+/// How each kind of record looks on its tab.
+extension ComposeModeLook on ComposeMode {
+  Glyph get icon => switch (this) {
+    ComposeMode.expense => Glyph.bag,
+    ComposeMode.income => Glyph.income,
+    ComposeMode.transfer => Glyph.transfer,
+    ComposeMode.lend => Glyph.heart,
+    ComposeMode.investment => Glyph.investment,
+  };
 
-  const ComposeMode(this.label, this.icon, this.color);
-
-  final String label;
-  final Glyph icon;
-  final Color color;
-
-  static ComposeMode of(EntryType type) => switch (type) {
-    EntryType.expense => expense,
-    EntryType.income => income,
-    EntryType.transfer => transfer,
-    _ => investment,
+  Color get color => switch (this) {
+    ComposeMode.expense => Hue.negative,
+    ComposeMode.income => Hue.positive,
+    ComposeMode.transfer => Hue.transfer,
+    ComposeMode.lend => Hue.receivable,
+    ComposeMode.investment => Hue.investment,
   };
 }
 
@@ -110,6 +109,8 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       refundOf: refundOf ?? _original(ledger, entry),
       photos: photos,
     ),
+    // The composer draws its own, between 重填 and 關閉.
+    handle: false,
   );
 }
 
@@ -150,53 +151,17 @@ class Composer extends StatefulWidget {
 }
 
 class _ComposerState extends State<Composer> with WidgetsBindingObserver {
-  late ComposeMode _mode;
-  late EntryType _trade;
-  late int _amount;
-  late DateTime _date;
-  late String _account;
-  late String _to;
-  late String _category;
-  String? _holding;
-  late int _shares;
-  var _price = 0.0;
-  var _merchant = '';
-  var _tags = <String>[];
+  /// The fields and their rules.
+  late final ComposeForm _f = ComposeForm(
+    widget.ledger,
+    type: widget.type,
+    editing: widget.entry,
+    draft: widget.draft,
+    refunded: widget.refundOf,
+  );
 
-  /// The parts of a split, or null when the whole goes to [_category].
-  List<(String, int)>? _parts;
-  var _fee = 0;
-
-  /// What a foreign amount is worth in NT$, and what a transfer between
-  /// currencies delivers, as typed; null works them out at today's rate.
-  int? _home;
-  int? _received;
-
-  /// The 二代健保 premium withheld from a cash dividend, as typed; null
-  /// works it out from the amount and day.
-  int? _premium;
-  var _installments = 0;
-  var _average = false;
-  var _splitShares = false;
-
-  /// A dividend that changes the shares held, opened from its link: most
-  /// dividends are cash only.
-  var _shareChange = false;
-
-  /// A capital reduction: the shares go down and cash comes back.
-  var _reduce = false;
-
-  /// 代墊: money coming back from the person rather than paid for them.
-  var _back = false;
-
-  /// The receipt photo's file name; null when none.
-  String? _receipt;
   final _note = TextEditingController();
   String? _problem;
-
-  /// Shows the merchant, tags and note: hidden until asked for, or until
-  /// an entry that has them is opened, so a quick entry stays short.
-  var _more = false;
 
   /// An entry opened from a list is shown first; 編輯 unlocks it.
   late var _viewing = widget.entry != null;
@@ -213,73 +178,56 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// The draft that tab had before, put back when the app returns.
   String? _before;
 
-  Entry? get _refunded => widget.refundOf;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_takeLeftover());
-    _mode = ComposeMode.of(widget.type);
-    _trade = widget.type.index >= EntryType.buy.index
-        ? widget.type
-        : EntryType.buy;
-    _fresh();
-    final source = widget.entry ?? widget.draft;
-    final refunded = _refunded;
-    final editing = widget.entry;
-    if (editing != null) _receipt = _ledger.receiptOf(editing.id);
-    if (source != null) {
-      _load(source);
-      _findLending(source);
-    } else if (refunded != null) {
-      _mode = ComposeMode.income;
-      _amount = _ledger.refundable(refunded);
-      _account = refunded.account;
-      _category = refunded.category;
-    } else {
-      final draft = _drafts[_mode];
-      if (draft != null) _restoreDraft(draft);
+    if (widget.entry == null && widget.draft == null && _f.refunded == null) {
+      final draft = _drafts[_f.mode];
+      if (draft != null) _f.restore(draft.entry, draft.receipt);
     }
+    _note
+      ..text = _f.note
+      ..addListener(() => _f.note = _note.text);
+    _syncKeys();
   }
 
-  void _load(Entry entry) {
-    _amount = entry.amount;
-    _date = entry.date;
-    _account = entry.account;
-    _to = entry.to ?? _to;
-    _category = entry.category.isEmpty ? _category : entry.category;
-    _holding = entry.holding ?? _holding;
-    _shares = entry.shares;
-    _price = entry.shares == 0 ? 0 : entry.amount / entry.shares;
-    _note.text = entry.note;
-    _merchant = entry.merchant;
-    _tags = [...entry.tags];
-    _more =
-        entry.merchant.isNotEmpty ||
-        entry.tags.isNotEmpty ||
-        entry.note.isNotEmpty;
-    _parts = entry.parts.isEmpty ? null : [...entry.parts];
-    _fee = entry.type == EntryType.transfer ? entry.fee : 0;
-    _home = entry.home;
-    _received = entry.received;
-    _premium = entry.type == EntryType.dividend ? entry.tax : null;
-    _installments = entry.installments;
-    _average = entry.average;
-    _splitShares = entry.split;
-    _shareChange = entry.type == EntryType.dividend && entry.shares != 0;
-    _reduce = entry.isReduction;
-    if (_reduce) _shares = -entry.shares;
-    if (entry.type == EntryType.buy || entry.type == EntryType.sell) {
-      _tradeFee = entry.fee;
-      _tradeTax = entry.tax;
+  /// Whether the amount is typed on keys laid in the form, so a quick
+  /// entry needs no calculator: a new entry other than a trade.
+  bool get _inline =>
+      !_viewing &&
+      widget.entry == null &&
+      _f.refunded == null &&
+      _f.mode != ComposeMode.investment;
+
+  /// What the keys in the form have typed.
+  var _keys = AmountKeys('');
+
+  bool get _cents => takesCents(_f.currency);
+
+  /// A key of the form's keys: the amount follows what they come to.
+  void _padKey(String key) => setState(() {
+    if (_keys.decimal != _cents) {
+      _keys = AmountKeys(_keys.expression, decimal: _cents);
     }
+    _keys.press(key);
+    final typed = _keys.result;
+    _f.setAmount(_cents ? (typed * 100).round() : typed.round());
+  });
+
+  /// Starts the keys from the amount, after it was set some other way.
+  void _syncKeys() {
+    _keys = AmountKeys(
+      _f.amount == 0 ? '' : plainAmount(_f.amount, _f.currency),
+      decimal: _cents,
+    );
   }
 
-  /// A trade's broker fee and tax as typed, or as it was saved; null
-  /// takes the suggestion.
-  int? _tradeFee;
-  int? _tradeTax;
+  /// Shows the form's note again after the form filled it afresh.
+  void _showNote() {
+    if (_note.text != _f.note) _note.text = _f.note;
+  }
 
   @override
   void dispose() {
@@ -288,257 +236,71 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// The accounts a form may start on: the open ones, or every one when
-  /// all are archived ([openComposer] makes sure there is an open one
-  /// first, but a form put aside may outlive it).
-  List<Account> get _startAccounts {
-    final open = _ledger.openAccounts;
-    return open.isNotEmpty ? open : _ledger.accounts;
-  }
-
-  /// Empty fields with sensible first choices for the current tab.
+  /// Starts the current tab afresh.
   void _fresh() {
-    final accounts = _startAccounts;
-    _amount = 0;
-    _date = _ledger.today;
-    _account = accounts.first.id;
-    _to = accounts.length > 1 ? accounts[1].id : accounts.first.id;
-    final common = _categoryChoices();
-    _category = common.isEmpty ? '' : common.first;
-    _holding = _ledger.holdings.isEmpty ? null : _ledger.holdings.first.code;
-    _shares = 0;
-    _price = 0;
-    _note.text = '';
-    _merchant = '';
-    _tags = [];
-    _parts = null;
-    _fee = 0;
-    _tradeFee = null;
-    _tradeTax = null;
-    _home = null;
-    _received = null;
-    _premium = null;
-    _installments = 0;
-    _average = false;
-    _splitShares = false;
-    _shareChange = false;
-    _reduce = false;
-    _back = false;
-    _receipt = null;
+    _f.fresh();
     _problem = null;
-    if (_mode == ComposeMode.lend) {
-      // Paid from the main account, for the first person owing.
-      final main = _ledger.mainAccount;
-      if (main.isNotEmpty) _account = main;
-      _to = _people.isEmpty ? '' : _people.first.id;
-    }
+    _showNote();
+    _syncKeys();
   }
 
-  /// Opens a transfer to or from someone's account as 代墊 or 還款.
-  void _findLending(Entry entry) {
-    if (entry.type != EntryType.transfer) return;
-    final to = entry.to;
-    if (to == null) return;
-    if (_ledger.account(to).kind == AccountKind.receivable) {
-      _mode = ComposeMode.lend;
-      _back = false;
-    } else if (_ledger.account(entry.account).kind == AccountKind.receivable) {
-      // Saved from the person to the account; the form keeps the person
-      // in [_to] either way.
-      _mode = ComposeMode.lend;
-      _back = true;
-      _account = to;
-      _to = entry.account;
-    }
-  }
-
-  /// The tab showing: 代墊 sits under 支出, 還款 under 收入.
-  ComposeMode get _tab => switch (_mode) {
-    ComposeMode.lend => _back ? ComposeMode.income : ComposeMode.expense,
-    final mode => mode,
-  };
-
-  /// The tabs along the top.
-  static const _tabs = [
-    ComposeMode.expense,
-    ComposeMode.income,
-    ComposeMode.transfer,
-    ComposeMode.investment,
-  ];
-
-  /// 代墊 from the expense tab, 對方還錢 from the income tab; the amount,
-  /// date and notes stay.
+  /// 代墊 from the expense tab, 對方還錢 from the income tab.
   void _lend({required bool back}) {
-    _set(() {
-      _mode = ComposeMode.lend;
-      _back = back;
-      _parts = null;
-      _installments = 0;
-      final main = _ledger.mainAccount;
-      if (main.isNotEmpty) _account = main;
-      final known = {for (final a in _people) a.id};
-      if (!known.contains(_to)) _to = _people.isEmpty ? '' : _people.first.id;
-    });
-    if (_people.isEmpty) unawaited(_pickPerson());
+    _set(() => _f.lend(back: back));
+    if (_f.people.isEmpty) unawaited(_pickPerson());
   }
 
   /// A category picked: back to a plain expense or income from 代墊.
-  void _pickCategoryName(String name) => _set(() {
-    _mode = _tab;
-    _category = name;
-  });
-
-  /// The accounts that keep what someone owes, one per person.
-  List<Account> get _people => [
-    for (final a in _ledger.openAccounts)
-      if (a.kind == AccountKind.receivable) a,
-  ];
-
-  /// Categories of this tab, the most used lately first.
-  List<String> _categoryChoices() =>
-      _ledger.categoriesByUse(income: _tab == ComposeMode.income);
-
-  /// Brings back a draft put aside, with its receipt photo, on accounts
-  /// still open; when none is open, its own accounts stay.
-  void _restoreDraft(_Draft draft) {
-    final entry = draft.entry;
-    _load(entry);
-    _findLending(entry);
-    if (entry.isInvestment) _trade = entry.type;
-    _receipt = draft.receipt;
-    final accounts = _ledger.openAccounts;
-    final open = {for (final a in accounts) a.id};
-    if (!open.contains(_account) && accounts.isNotEmpty) {
-      _account = accounts.first.id;
-    }
-    if (!open.contains(_to)) _to = _account;
-  }
+  void _pickCategoryName(String name) => _set(() => _f.pickCategory(name));
 
   /// Moves to another tab: the fields start afresh, or as that tab's
   /// draft left them. A receipt photo already chosen stays, unless the
   /// draft brings its own: the photo is of what was bought or paid,
   /// whichever kind of entry it turns out to be.
   void _switch(ComposeMode mode) {
-    if (mode == _mode) return;
+    if (mode == _f.mode) return;
     setState(() {
-      final receipt = _receipt;
-      _mode = mode;
-      _fresh();
+      _f.switchTo(mode);
       final draft = _drafts[mode];
-      if (draft != null && widget.entry == null) _restoreDraft(draft);
-      _receipt ??= receipt;
+      if (draft != null && widget.entry == null) {
+        final photo = _f.receipt;
+        _f.restore(draft.entry, draft.receipt);
+        _f.receipt ??= photo;
+      }
+      _problem = null;
+      _showNote();
+      _syncKeys();
     });
   }
 
-  EntryType get _type => switch (_mode) {
-    ComposeMode.expense => EntryType.expense,
-    ComposeMode.income => EntryType.income,
-    ComposeMode.transfer || ComposeMode.lend => EntryType.transfer,
-    ComposeMode.investment => _trade,
-  };
-
   Color get _color {
-    if (_refunded != null) return Hue.positive;
-    if (_mode != ComposeMode.investment) return _tab.color;
-    return _trade == EntryType.sell ? Hue.positive : Hue.investment;
+    if (_f.refunded != null) return Hue.positive;
+    if (_f.mode != ComposeMode.investment) return _f.tab.color;
+    return _f.trade == EntryType.sell ? Hue.positive : Hue.investment;
   }
 
-  String get _title {
-    if (_refunded != null) return widget.entry == null ? '退款' : '退款詳情';
-    if (widget.entry != null) return _viewing ? '紀錄詳情' : '編輯紀錄';
-    return switch (_type) {
-      EntryType.expense => '新增支出',
-      EntryType.income => '新增收入',
-      EntryType.transfer when _mode == ComposeMode.lend =>
-        _back ? '對方還錢' : '幫忙付（代墊）',
-      EntryType.transfer => '帳戶轉帳',
-      _ => '新增投資',
-    };
-  }
+  /// What the tabs do not say: an entry being changed, money paid for
+  /// someone or paid back, a refund. Shown as small tags under the top
+  /// row; a new plain entry needs none.
+  List<(String, Color)> get _marks => [
+    if (_f.refunded != null) ('退款', Hue.positive),
+    if (widget.entry != null && !_viewing) ('編輯中', Hue.accent),
+    if (_f.mode == ComposeMode.lend) (_f.back ? '還款' : '代墊', Hue.receivable),
+  ];
 
   String get _action {
     if (widget.entry != null) return '儲存修改';
-    if (_refunded != null) return '記下退款';
-    return switch (_type) {
+    if (_f.refunded != null) return '記下退款';
+    return switch (_f.type) {
       EntryType.expense => '記下支出',
       EntryType.income => '記下收入',
-      EntryType.transfer when _mode == ComposeMode.lend =>
-        _back ? '記下還款' : '記下代墊',
+      EntryType.transfer when _f.mode == ComposeMode.lend =>
+        _f.back ? '記下還款' : '記下代墊',
       EntryType.transfer => '確認轉帳',
       EntryType.buy => '記下買進',
       EntryType.sell => '記下賣出',
       EntryType.dividend => '記下股息',
     };
-  }
-
-  String get _sign => switch (_type) {
-    _ when _amount == 0 => '',
-    EntryType.expense || EntryType.buy => '−',
-    EntryType.transfer => '',
-    _ => '+',
-  };
-
-  /// A buy or sale, whose amount comes from shares and price.
-  bool get _trading =>
-      _mode == ComposeMode.investment && _trade != EntryType.dividend;
-
-  bool get _onCard =>
-      _type == EntryType.expense &&
-      _ledger.account(_account).kind == AccountKind.card;
-
-  /// A transfer with a fee field: from an NT$ account, whose fee counts
-  /// as NT$ spending, and not to a card, whose payment carries none.
-  bool get _takesFee =>
-      _currency == homeCode && _ledger.account(_to).kind != AccountKind.card;
-
-  /// The currency of the account paying or receiving, and of a
-  /// transfer's receiving account.
-  String get _currency => _ledger.account(_account).currency;
-  String get _toCurrency => _ledger.account(_to).currency;
-
-  /// Spending or income in a foreign-currency account, which also needs
-  /// its worth in NT$.
-  bool get _foreign =>
-      _currency != homeCode &&
-      (_type == EntryType.expense || _type == EntryType.income);
-
-  /// A transfer between accounts kept in different currencies.
-  bool get _crossing => _type == EntryType.transfer && _currency != _toCurrency;
-
-  /// [_home], else the refunded share of the purchase's worth, else the
-  /// amount at today's rate; null without a rate.
-  int? get _homeValue {
-    final typed = _home;
-    if (typed != null) return typed;
-    final refunded = _refunded;
-    final worth = refunded?.home;
-    if (refunded != null && worth != null && refunded.amount > 0) {
-      return (worth * _amount / refunded.amount).round();
-    }
-    return _ledger.toHome(_amount, _currency);
-  }
-
-  /// [_received], else the amount at today's rates.
-  int? get _receivedValue =>
-      _received ?? _ledger.convert(_amount, _currency, _toCurrency);
-
-  /// The premium withheld from the cash dividend being written.
-  int get _withheld => _premium ?? dividendPremium(_amount, _date);
-
-  /// The broker's fee and tax the ledger's Taiwan rules suggest for the
-  /// trade being written.
-  (int, int) get _suggested {
-    final tax = _type == EntryType.sell
-        ? saleTax(_holding ?? '', _amount, _shares, _date)
-        : 0;
-    return (brokerFee(_amount, _shares), tax);
-  }
-
-  /// The trade's fee and tax: as typed, else as suggested.
-  (int, int) get _charges {
-    if (_type != EntryType.buy && _type != EntryType.sell) return (0, 0);
-    final (fee, tax) = _suggested;
-    return (_tradeFee ?? fee, _tradeTax ?? tax);
   }
 
   Future<int?> _ask(String title, int initial, {String unit = homeCode}) {
@@ -552,33 +314,31 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   }
 
   Future<void> _calculate() async {
-    final value = await _ask('輸入金額', _amount, unit: _currency);
+    final value = await _ask('輸入金額', _f.amount, unit: _f.currency);
     if (value == null) return;
     setState(() {
-      _amount = value;
-      _home = null;
-      _received = null;
-      _premium = null;
+      _f.setAmount(value);
+      _syncKeys();
     });
   }
 
   Future<void> _pickDate() async {
     final marked = {
-      for (final e in _ledger.entriesIn(_date.year, _date.month)) e.date,
+      for (final e in _ledger.entriesIn(_f.date.year, _f.date.month)) e.date,
     };
     final day = await pickDate(
       context,
       title: '入帳日期',
-      selected: _date,
+      selected: _f.date,
       latest: _ledger.today,
       marked: marked,
     );
-    if (day != null) setState(() => _date = day);
+    if (day != null) setState(() => _f.date = day);
   }
 
   /// An open account; for a refund, one in the purchase's currency.
   Future<String?> _pickAccount(String title, String selected) {
-    final refunded = _refunded;
+    final refunded = _f.refunded;
     final currency = refunded == null
         ? null
         : _ledger.account(refunded.account).currency;
@@ -592,7 +352,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   }
 
   Future<String?> _pickCategory(String? selected) {
-    final income = _mode == ComposeMode.income;
+    final income = _f.mode == ComposeMode.income;
     return pickOption<String>(
       context,
       title: income ? '收入分類' : '支出分類',
@@ -605,14 +365,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final picked = await pickOption<String>(
       context,
       title: '投資標的',
-      selected: _holding,
+      selected: _f.holding,
       columns: 3,
       options: [
         for (final h in _ledger.holdings)
           Option(h.code, holdingLabel(h), Glyph.investment, Hue.investment),
       ],
     );
-    if (picked != null) setState(() => _holding = picked);
+    if (picked != null) setState(() => _f.holding = picked);
   }
 
   Future<void> _newHolding() async {
@@ -620,7 +380,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     if (typed == null) return;
     final code = tidyCode(typed);
     if (code.isEmpty) return;
-    setState(() => _holding = code);
+    setState(() => _f.holding = code);
     if (!quotable(code) && mounted) {
       showNote(context, '證交所與櫃買中心沒有「$code」這個代號，市值會以成本估算');
     }
@@ -631,43 +391,37 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       context,
       title: '商家',
       builder: (_) =>
-          _MerchantPicker(known: _ledger.merchants, initial: _merchant),
+          _MerchantPicker(known: _ledger.merchants, initial: _f.merchant),
     );
     if (picked == null) return;
-    setState(() {
-      _merchant = picked;
-      final usual = _ledger.categoryAt(picked);
-      if (usual != null && _parts == null && widget.entry == null) {
-        _category = usual;
-      }
-    });
+    setState(() => _f.pickMerchant(picked));
   }
 
   Future<void> _pickTags() async {
     final picked = await showChildPage<List<String>>(
       context,
       title: '標籤',
-      builder: (_) => _TagPicker(known: _ledger.tags, initial: _tags),
+      builder: (_) => _TagPicker(known: _ledger.tags, initial: _f.tags),
     );
-    if (picked != null) setState(() => _tags = picked);
+    if (picked != null) setState(() => _f.tags = picked);
   }
 
   Future<void> _pickInstallments() async {
     final picked = await pickOption<int>(
       context,
       title: '分期付款',
-      selected: _installments,
+      selected: _f.installments,
       columns: 3,
       options: [
         for (final n in const [0, 3, 6, 12, 24, 30])
           Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.card),
       ],
     );
-    if (picked != null) setState(() => _installments = picked);
+    if (picked != null) setState(() => _f.installments = picked);
   }
 
   Future<void> _newCategory() async {
-    final income = _mode == ComposeMode.income;
+    final income = _f.mode == ComposeMode.income;
     final count = _ledger.categories.length;
     final made = await showCategoryEditor(
       context,
@@ -683,143 +437,35 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     );
     if (made == null) return;
     _ledger.addCategory(made);
-    setState(() => _category = made.name);
+    setState(() => _f.category = made.name);
   }
 
-  void _split() {
-    setState(() {
-      _parts = _parts == null ? [(_category, _amount)] : null;
-    });
-  }
+  void _split() => setState(_f.toggleSplit);
 
-  void _evenly() {
-    final parts = _parts;
-    if (parts == null || parts.isEmpty) return;
-    final each = _amount ~/ parts.length;
-    setState(() {
-      _parts = [
-        for (final (i, (name, _)) in parts.indexed)
-          (
-            name,
-            i == parts.length - 1 ? _amount - each * (parts.length - 1) : each,
-          ),
-      ];
-    });
-  }
+  void _evenly() => setState(_f.evenly);
 
   Future<void> _addPart() async {
     final name = await _pickCategory(null);
     if (name == null) return;
-    final parts = _parts ?? [];
-    final used = parts.fold(0, (sum, p) => sum + p.$2);
-    setState(() => _parts = [...parts, (name, _amount - used)]);
+    setState(() => _f.addPart(name));
   }
 
   Future<void> _editPart(int index) async {
-    final parts = _parts;
+    final parts = _f.parts;
     if (parts == null) return;
     final (name, value) = parts[index];
     final amount = await _ask(name, value);
     if (amount == null) return;
-    setState(() {
-      _parts = [
-        for (final (i, p) in parts.indexed)
-          if (i != index) p else if (amount > 0) (name, amount),
-      ];
-    });
+    setState(() => _f.setPart(index, amount));
   }
 
-  /// Moving between a trade and a dividend starts the shares afresh: a
-  /// dividend's are the ones it adds.
-  void _changeTrade(EntryType trade) {
-    setState(() {
-      if ((trade == EntryType.dividend) != (_trade == EntryType.dividend)) {
-        _shares = 0;
-        _amount = 0;
-        _splitShares = false;
-        _shareChange = false;
-        _reduce = false;
-      }
-      _tradeFee = null;
-      _tradeTax = null;
-      _trade = trade;
-    });
-  }
-
-  /// The parts of a split being written; none for a foreign amount.
-  List<(String, int)>? get _splitParts =>
-      _type == EntryType.expense && !_foreign ? _parts : null;
-
-  /// A dividend that changes the shares held: a stock dividend, a split
-  /// or, with [_reduce], a capital reduction.
-  bool get _stock => _type == EntryType.dividend && _shares > 0;
-  bool get _reducing => _stock && _reduce;
-
-  /// Why the entry cannot be kept yet; null when it can. The ledger's
-  /// own checks, and a split that must add up to the amount.
-  String? get _check {
-    if (_mode == ComposeMode.lend && _to.isEmpty) return '請選擇代墊對象';
-    final problem = _ledger.problemWith(_build(), replacing: widget.entry);
-    if (problem != null) return problem;
-    final splitTotal = _splitParts?.fold(0, (sum, p) => sum + p.$2);
-    if (splitTotal != null && splitTotal != _amount) {
-      return '拆分的金額要等於總額（差 ${groupDigits(_amount - splitTotal)}）';
-    }
-    return null;
-  }
-
-  bool get _lendingBack => _mode == ComposeMode.lend && _back;
-
-  /// The entry as the form now stands.
-  Entry _build() {
-    final type = _type;
-    final parts = _splitParts;
-    final (fee, tax) = _charges;
-    return Entry(
-      id: widget.entry?.id ?? _ledger.newId(),
-      date: _date,
-      type: type,
-      amount: _amount,
-      // Paid back: from the person's account into the chosen one.
-      account: _lendingBack ? _to : _account,
-      category: switch (type) {
-        EntryType.transfer => transferCategory,
-        EntryType.dividend => '股息收入',
-        EntryType.buy || EntryType.sell => '投資',
-        _ => parts == null || parts.isEmpty ? _category : parts.first.$1,
-      },
-      note: _note.text.trim(),
-      to: _lendingBack
-          ? _account
-          : type == EntryType.transfer
-          ? _to
-          : null,
-      holding: _mode == ComposeMode.investment ? _holding : null,
-      shares: _mode != ComposeMode.investment
-          ? 0
-          : _reducing
-          ? -_shares
-          : _shares,
-      recurring: widget.entry?.recurring ?? widget.draft?.recurring,
-      merchant: type == EntryType.expense ? _merchant : '',
-      tags: type == EntryType.expense || type == EntryType.income ? _tags : [],
-      parts: parts != null && parts.length > 1 ? parts : const [],
-      fee: type == EntryType.transfer ? (_takesFee ? _fee : 0) : fee,
-      tax: type == EntryType.dividend ? (_reducing ? 0 : _withheld) : tax,
-      refundOf: _refunded?.id ?? widget.entry?.refundOf,
-      installments: _onCard ? _installments : 0,
-      average: type == EntryType.sell && _average,
-      split: _stock && _splitShares && !_reducing,
-      home: _foreign ? _homeValue : null,
-      received: _crossing ? _receivedValue : null,
-    );
-  }
+  void _changeTrade(EntryType trade) => setState(() => _f.changeTrade(trade));
 
   /// A receipt photo the camera took while the phone closed the app goes
   /// with the next new entry.
   Future<void> _takeLeftover() async {
     final photos = widget.photos;
-    if (photos == null || widget.entry != null || _refunded != null) return;
+    if (photos == null || widget.entry != null || _f.refunded != null) return;
     final String? name;
     try {
       name = await photos.takeLeftover();
@@ -827,7 +473,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       return;
     }
     if (name == null || !mounted) return;
-    setState(() => _receipt = name);
+    setState(() => _f.receipt = name);
   }
 
   /// A new entry written part way is kept as the app leaves, so a phone
@@ -836,14 +482,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// away again, unless it was put aside with 暫存 before.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (widget.entry != null || _viewing || _refunded != null) return;
+    if (widget.entry != null || _viewing || _f.refunded != null) return;
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
-        if (_keptAway || (_amount == 0 && _receipt == null)) return;
+        if (_keptAway || (_f.amount == 0 && _f.receipt == null)) return;
         try {
-          final draft = _Draft(_build(), _receipt);
-          _before = _ledger.draft(_tab.name);
-          _drafts[_tab] = draft;
+          final draft = _Draft(_f.build(), _f.receipt);
+          _before = _ledger.draft(_f.tab.name);
+          _drafts[_f.tab] = draft;
           _keptAway = true;
         } on Object {
           // A form that cannot be built yet is not worth keeping.
@@ -851,36 +497,36 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         if (!_keptAway) return;
         _keptAway = false;
-        _ledger.setDraft(_tab.name, _before);
+        _ledger.setDraft(_f.tab.name, _before);
       default:
         break;
     }
   }
 
   void _submit() {
-    final problem = _check;
+    final problem = _f.problem;
     if (problem != null) {
       setState(() => _problem = problem);
       return;
     }
-    final entry = _build();
+    final entry = _f.build();
     try {
       if (widget.entry == null) {
-        _ledger.add(entry, receipt: _receipt);
+        _ledger.add(entry, receipt: _f.receipt);
       } else {
-        _ledger.replace(entry, receipt: _receipt);
+        _ledger.replace(entry, receipt: _f.receipt);
       }
     } on StateError catch (error) {
       setState(() => _problem = error.message);
       return;
     }
-    _drafts.remove(_tab);
+    _drafts.remove(_f.tab);
     Navigator.of(context).pop((ComposeOutcome.saved, entry));
   }
 
   void _putAside() {
     _keptAway = false;
-    _drafts[_tab] = _Draft(_build(), _receipt);
+    _drafts[_f.tab] = _Draft(_f.build(), _f.receipt);
     Navigator.of(context).pop();
   }
 
@@ -897,7 +543,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final problem = _problem;
     final entry = widget.entry;
-    final refunded = _refunded;
+    final refunded = _f.refunded;
     final most = refunded == null
         ? 0
         : _ledger.refundable(refunded) + (entry?.amount ?? 0);
@@ -907,57 +553,83 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         entry.type == EntryType.expense &&
         _ledger.refundable(entry) > 0;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 重填, the handle to drag the sheet by, and 關閉 on one row:
+          // the tabs below already say what is being written.
           Row(
             children: [
-              Visibility.maintain(
-                visible: !_viewing && entry == null,
-                child: TextButton(
-                  onPressed: () => setState(() {
-                    _drafts.remove(_tab);
-                    _mode = _tab;
-                    _fresh();
-                  }),
-                  style: TextButton.styleFrom(foregroundColor: Hue.ink),
-                  child: const Text('重填', style: TextStyle(fontSize: 13)),
-                ),
-              ),
               Expanded(
-                child: Text(
-                  _title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Visibility.maintain(
+                    visible: !_viewing && entry == null,
+                    child: TextButton(
+                      onPressed: () => setState(() {
+                        _drafts.remove(_f.tab);
+                        _f.mode = _f.tab;
+                        _fresh();
+                      }),
+                      style: TextButton.styleFrom(foregroundColor: Hue.ink),
+                      child: const Text('重填', style: TextStyle(fontSize: 13)),
+                    ),
                   ),
                 ),
               ),
-              IconButton(
-                tooltip: '關閉',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const GlyphIcon(Glyph.close, size: 20, color: Hue.muted),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Hue.faint,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: '關閉',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const GlyphIcon(
+                      Glyph.close,
+                      size: 20,
+                      color: Hue.muted,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
+          if (_marks.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 6,
+                children: [
+                  for (final (label, color) in _marks)
+                    Pill(label, color: color),
+                ],
+              ),
+            ),
           if (refunded != null)
             _OriginalTile(ledger: _ledger, entry: refunded)
           else if (_viewing)
-            Center(child: Pill(_mode.label, color: _mode.color))
+            Center(child: Pill(_f.mode.label, color: _f.mode.color))
           else if (entry == null)
             Segments(
-              labels: [for (final m in _tabs) m.label],
-              selected: _tabs.indexOf(_tab),
-              selectedColor: _tab.color,
-              onChanged: (i) => _switch(_tabs[i]),
+              labels: [for (final m in ComposeForm.tabs) m.label],
+              selected: ComposeForm.tabs.indexOf(_f.tab),
+              selectedColor: _f.tab.color,
+              onChanged: (i) => _switch(ComposeForm.tabs[i]),
             ),
-          if (_mode == ComposeMode.investment && refunded == null) ...[
+          if (_f.mode == ComposeMode.investment && refunded == null) ...[
             const SizedBox(height: 8),
             _TradeChips(
-              trade: _trade,
+              trade: _f.trade,
               locked: _viewing,
               onChanged: _changeTrade,
             ),
@@ -968,29 +640,40 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Tile(
-                  hero: true,
-                  icon: Glyph.calculator,
-                  label: switch (_type) {
-                    _ when refunded != null => '退款金額',
-                    _ when _mode == ComposeMode.lend => _back ? '還款金額' : '代墊金額',
-                    EntryType.transfer => '轉出金額',
-                    EntryType.buy || EntryType.sell => '成交金額',
-                    EntryType.dividend when _reducing => '退還股款',
-                    _ => '金額',
-                  },
-                  value: '$_sign${amountIn(_amount, _currency)}',
-                  valueColor: _color,
-                  size: 34,
-                  sub: refunded == null
-                      ? null
-                      : '最多可退 ${_ledger.moneyIn(most, _currency)}',
-                  onTap: _trading ? null : _calculate,
-                ),
+                // A trade's amount is in its settlement, under shares and
+                // price.
+                if (!_f.trading)
+                  Tile(
+                    hero: true,
+                    icon: Glyph.calculator,
+                    label: switch (_f.type) {
+                      _ when refunded != null => '退款金額',
+                      _ when _f.mode == ComposeMode.lend =>
+                        _f.back ? '還款金額' : '代墊金額',
+                      EntryType.transfer => '轉出金額',
+                      EntryType.buy || EntryType.sell => '成交金額',
+                      EntryType.dividend when _f.reducing => '退還股款',
+                      _ => '金額',
+                    },
+                    value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
+                    valueColor: _color,
+                    size: 34,
+                    sub: refunded == null
+                        ? null
+                        : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
+                    onTap: _f.trading ? null : _calculate,
+                  ),
                 ..._fields(),
               ],
             ),
           ),
+          // The categories over the keys: pick one, type the amount, save.
+          if (_inline) ...[
+            if (_f.mode != ComposeMode.transfer)
+              _categories(_f.tab == ComposeMode.expense),
+            const SizedBox(height: 10),
+            AmountPad(onKey: _padKey, decimal: _cents),
+          ],
           if (problem != null)
             Padding(
               padding: const EdgeInsets.only(top: 10),

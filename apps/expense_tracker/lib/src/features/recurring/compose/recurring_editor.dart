@@ -9,6 +9,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
+import '../model/recurring_form.dart';
 
 /// Opens the form of a recurring item as a bottom sheet: a new one, or
 /// [item] to change. Saving writes to [ledger] directly.
@@ -36,36 +37,13 @@ class _RecurringEditor extends StatefulWidget {
 }
 
 class _RecurringEditorState extends State<_RecurringEditor> {
-  late final _name = TextEditingController(text: widget.item?.name ?? '');
-  late var _income = widget.item?.income ?? false;
-  late var _amount = widget.item?.amount ?? 0;
+  /// The fields and what saving does.
+  late final _f = RecurringForm(widget.ledger, old: widget.item);
+  late final TextEditingController _name = TextEditingController(text: _f.name)
+    ..addListener(() => _f.name = _name.text);
   String? _problem;
-  late var _category = widget.item?.category ?? _firstCategory(false);
-  late var _account =
-      widget.item?.account ?? widget.ledger.openAccounts.first.id;
-  late var _unit = widget.item?.unit ?? RepeatUnit.month;
-  late var _every = widget.item?.every ?? 1;
-  late var _start = _firstDay();
-  late DateTime? _end = widget.item?.end;
-  late var _active = widget.item?.active ?? true;
 
   Ledger get _ledger => widget.ledger;
-
-  String get _currency => _ledger.account(_account).currency;
-
-  String _firstCategory(bool income) {
-    final choices = widget.ledger.categoriesFor(income: income);
-    return choices.isEmpty ? '' : choices.first.name;
-  }
-
-  DateTime _firstDay() {
-    final item = widget.item;
-    if (item == null) return widget.ledger.today;
-    final start = item.start;
-    if (start != null) return start;
-    final today = widget.ledger.today;
-    return DateTime.utc(today.year, today.month, item.day);
-  }
 
   @override
   void dispose() {
@@ -74,29 +52,11 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   }
 
   void _save() {
-    final name = _name.text.trim();
-    if (name.isEmpty || _amount <= 0) {
-      setState(() => _problem = name.isEmpty ? '請輸入名稱' : '請輸入金額');
-      return;
+    if (_f.save()) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _problem = _f.problem);
     }
-    _ledger.saveRecurring(
-      Recurring(
-        id: widget.item?.id ?? _ledger.newId(),
-        name: name,
-        amount: _amount,
-        day: _start.day,
-        account: _account,
-        category: _category,
-        active: _active,
-        unit: _unit,
-        every: _every,
-        start: _start,
-        end: _end,
-        income: _income,
-        merchant: widget.item?.merchant ?? '',
-      ),
-    );
-    Navigator.of(context).pop();
   }
 
   Future<void> _remove() async {
@@ -117,9 +77,9 @@ class _RecurringEditorState extends State<_RecurringEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final category = _ledger.category(_category);
-    final account = _ledger.account(_account);
-    final end = _end;
+    final category = _ledger.category(_f.category);
+    final account = _ledger.account(_f.account);
+    final end = _f.end;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -134,11 +94,10 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           const SizedBox(height: 12),
           Segments(
             labels: const ['支出', '收入'],
-            selected: _income ? 1 : 0,
-            selectedColor: _income ? Hue.positive : Hue.negative,
+            selected: _f.income ? 1 : 0,
+            selectedColor: _f.income ? Hue.positive : Hue.negative,
             onChanged: (i) => setState(() {
-              _income = i == 1;
-              _category = _firstCategory(_income);
+              _f.setIncome(i == 1);
             }),
           ),
           const SizedBox(height: 8),
@@ -158,17 +117,17 @@ class _RecurringEditorState extends State<_RecurringEditor> {
             Tile(
               icon: Glyph.calculator,
               label: '金額',
-              value: amountIn(_amount, _currency),
-              valueColor: _income ? Hue.positive : Hue.negative,
+              value: amountIn(_f.amount, _f.currency),
+              valueColor: _f.income ? Hue.positive : Hue.negative,
               onTap: () async {
                 final value = await showCalculator(
                   context,
                   title: '金額',
-                  initial: _amount,
-                  color: _income ? Hue.positive : Hue.negative,
-                  unit: _currency,
+                  initial: _f.amount,
+                  color: _f.income ? Hue.positive : Hue.negative,
+                  unit: _f.currency,
                 );
-                if (value != null) setState(() => _amount = value);
+                if (value != null) setState(() => _f.amount = value);
               },
             ),
             Tile(
@@ -180,10 +139,10 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 final picked = await pickOption<String>(
                   context,
                   title: '分類',
-                  selected: _category,
-                  options: categoryOptions(_ledger, income: _income),
+                  selected: _f.category,
+                  options: categoryOptions(_ledger, income: _f.income),
                 );
-                if (picked != null) setState(() => _category = picked);
+                if (picked != null) setState(() => _f.category = picked);
               },
             ),
           ]),
@@ -197,28 +156,24 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 final picked = await pickOption<String>(
                   context,
                   title: '帳戶',
-                  selected: _account,
+                  selected: _f.account,
                   columns: 3,
                   options: accountOptions(_ledger),
                 );
                 if (picked == null) return;
                 setState(() {
-                  // An amount in another currency means something else.
-                  if (_ledger.account(picked).currency != _currency) {
-                    _amount = 0;
-                  }
-                  _account = picked;
+                  _f.setAccount(picked);
                 });
               },
             ),
             Tile(
               icon: Glyph.calendar,
               label: '開始',
-              value: '${_start.year}/${_start.month}/${_start.day}',
+              value: '${_f.start.year}/${_f.start.month}/${_f.start.day}',
               size: 15,
               onTap: () async {
-                final day = await _pick('開始日', _start);
-                if (day != null) setState(() => _start = day);
+                final day = await _pick('開始日', _f.start);
+                if (day != null) setState(() => _f.start = day);
               },
             ),
           ]),
@@ -234,9 +189,9 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               children: [
                 Segments(
                   labels: const ['每天', '每週', '每月', '每年'],
-                  selected: _unit.index,
+                  selected: _f.unit.index,
                   onChanged: (i) =>
-                      setState(() => _unit = RepeatUnit.values[i]),
+                      setState(() => _f.unit = RepeatUnit.values[i]),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -244,13 +199,13 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     const Text('每', style: TextStyle(fontSize: 15)),
                     IconButton(
                       tooltip: '減少',
-                      onPressed: _every > 1
-                          ? () => setState(() => _every--)
+                      onPressed: _f.every > 1
+                          ? () => setState(() => _f.step(-1))
                           : null,
                       icon: const Text('−', style: TextStyle(fontSize: 20)),
                     ),
                     Text(
-                      '$_every',
+                      '${_f.every}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -258,25 +213,12 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     ),
                     IconButton(
                       tooltip: '增加',
-                      onPressed: () => setState(() => _every++),
+                      onPressed: () => setState(() => _f.step(1)),
                       icon: const Text('＋', style: TextStyle(fontSize: 18)),
                     ),
-                    Text(_unit.label, style: const TextStyle(fontSize: 15)),
+                    Text(_f.unit.label, style: const TextStyle(fontSize: 15)),
                     const Spacer(),
-                    Text(
-                      Recurring(
-                        id: '',
-                        name: '',
-                        amount: 0,
-                        day: _start.day,
-                        account: '',
-                        category: '',
-                        unit: _unit,
-                        every: _every,
-                        start: _start,
-                      ).rhythm,
-                      style: mutedSmall,
-                    ),
+                    Text(_f.rhythm, style: mutedSmall),
                   ],
                 ),
               ],
@@ -294,20 +236,20 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   ? null
                   : TapArea(
                       label: '不結束',
-                      onTap: () => setState(() => _end = null),
+                      onTap: () => setState(() => _f.end = null),
                       child: const GlyphIcon(Glyph.close, size: 16),
                     ),
               onTap: () async {
-                final day = await _pick('結束日', end ?? _start);
-                if (day != null) setState(() => _end = day);
+                final day = await _pick('結束日', end ?? _f.start);
+                if (day != null) setState(() => _f.end = day);
               },
             ),
             Tile(
               icon: Glyph.recurring,
               label: '狀態',
-              value: _active ? '進行中' : '已暫停',
+              value: _f.active ? '進行中' : '已暫停',
               size: 15,
-              onTap: () => setState(() => _active = !_active),
+              onTap: () => setState(() => _f.active = !_f.active),
             ),
           ]),
           if (_problem case final problem?)
