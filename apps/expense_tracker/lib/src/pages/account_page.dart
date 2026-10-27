@@ -61,7 +61,9 @@ class _AccountPageState extends State<AccountPage> {
       builder: (context, _) {
         // Gone by another way, such as a restore: nothing to show.
         if (!ledger.hasAccount(widget.accountId)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => widget.nav.back());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => widget.nav.back(),
+          );
           return const SizedBox.shrink();
         }
         final account = ledger.account(widget.accountId);

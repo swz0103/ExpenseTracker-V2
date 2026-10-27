@@ -38,7 +38,10 @@ void main() {
     expect(tax(InstrumentKind.etf, dayTrade: true), ntd(100));
     // Bond ETFs are exempt through 2026.
     expect(tax(InstrumentKind.bondEtf), ntd(0));
-    expect(tax(InstrumentKind.bondEtf, on: BusinessDate(2016, 12, 30)), ntd(100));
+    expect(
+      tax(InstrumentKind.bondEtf, on: BusinessDate(2016, 12, 30)),
+      ntd(100),
+    );
     expect(tax(InstrumentKind.bondEtf, on: BusinessDate(2027, 1, 4)), ntd(100));
   });
 

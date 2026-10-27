@@ -204,9 +204,7 @@ void main() {
     for (var i = 0; i < 7; i++) {
       await client.upload(backup('記帳本-$i.etbk', '$i'), ledger: 'L1');
     }
-    final mine = [
-      for (final f in await client.list(ledger: 'L1')) f.name,
-    ];
+    final mine = [for (final f in await client.list(ledger: 'L1')) f.name];
     expect(mine, [for (var i = 6; i >= 2; i--) '記帳本-$i.etbk']);
     expect(http.kept.where((f) => f.ledger == 'L2'), hasLength(6));
     expect(http.kept.where((f) => f.ledger == null), hasLength(1));
@@ -321,37 +319,40 @@ void main() {
     );
   });
 
-  test('a second ledger screen does not send a backup while one goes up', () async {
-    final preferences = Preferences(
-      file: File('${directory.path}/preferences.json'),
-    );
-    final hold = Completer<void>();
-    DriveSync make() => DriveSync(
-      drive(),
-      preferences,
-      withBackup: (use) async {
-        await hold.future;
-        final file = backup('記帳本.etbk', 'x');
-        try {
-          await use(file);
-        } finally {
-          file.deleteSync();
-        }
-      },
-      revision: () => 1,
-      ledger: 'L1',
-    );
-    final first = make();
-    final second = make();
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
-    preferences.update(driveLinked: true);
-    final going = first.backUpNow();
-    expect(second.busy, isTrue);
-    expect(await second.backUpIfDue(), isFalse);
-    hold.complete();
-    await going;
-    expect(second.busy, isFalse);
-    expect(http.kept, hasLength(1));
-  });
+  test(
+    'a second ledger screen does not send a backup while one goes up',
+    () async {
+      final preferences = Preferences(
+        file: File('${directory.path}/preferences.json'),
+      );
+      final hold = Completer<void>();
+      DriveSync make() => DriveSync(
+        drive(),
+        preferences,
+        withBackup: (use) async {
+          await hold.future;
+          final file = backup('記帳本.etbk', 'x');
+          try {
+            await use(file);
+          } finally {
+            file.deleteSync();
+          }
+        },
+        revision: () => 1,
+        ledger: 'L1',
+      );
+      final first = make();
+      final second = make();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      preferences.update(driveLinked: true);
+      final going = first.backUpNow();
+      expect(second.busy, isTrue);
+      expect(await second.backUpIfDue(), isFalse);
+      hold.complete();
+      await going;
+      expect(second.busy, isFalse);
+      expect(http.kept, hasLength(1));
+    },
+  );
 }

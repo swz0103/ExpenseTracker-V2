@@ -83,7 +83,8 @@ final class DriveSync extends ChangeNotifier {
     try {
       final revision = _revision();
       await _withBackup(
-        (file) => _drive.upload(file, ledger: _ledger, interactive: interactive),
+        (file) =>
+            _drive.upload(file, ledger: _ledger, interactive: interactive),
       );
       _preferences.driveBackup(_clock(), revision);
     } finally {

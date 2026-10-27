@@ -384,9 +384,8 @@ final class DriveBackup {
     try {
       await _send(
         'PATCH',
-        Uri.parse(
-          '$_api/${Uri.encodeComponent(id)}',
-        ).replace(queryParameters: {'fields': 'id'}),
+        Uri.parse('$_api/${Uri.encodeComponent(id)}')
+            .replace(queryParameters: {'fields': 'id'}),
         interactive: interactive,
         headers: {'content-type': 'application/json; charset=utf-8'},
         text: jsonEncode({'trashed': true}),
