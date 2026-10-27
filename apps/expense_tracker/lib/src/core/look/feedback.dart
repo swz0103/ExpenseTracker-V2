@@ -33,12 +33,16 @@ void showNote(
 /// Opens [builder] in a sheet from the bottom of the screen, full width,
 /// as tall as its content and lifted over the keyboard. Every form and
 /// picker in the app opens this way.
-Future<T?> showSheet<T>(BuildContext context, WidgetBuilder builder) {
+Future<T?> showSheet<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool handle = true,
+}) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
+    showDragHandle: handle,
     backgroundColor: Hue.panel,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),

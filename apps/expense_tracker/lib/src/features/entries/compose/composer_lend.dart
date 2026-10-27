@@ -6,14 +6,14 @@ extension _LendFields on _ComposerState {
   /// 代墊 under 支出 (paid for someone) or 對方還錢 under 收入. Each
   /// person has an account of their own that keeps what they owe.
   List<Widget> _lendFields() {
-    final person = _to.isEmpty ? null : _ledger.account(_to);
+    final person = _f.to.isEmpty ? null : _ledger.account(_f.to);
     final owed = person == null ? 0 : _ledger.balance(person.id);
     return [
-      _categories(!_back),
+      if (!_inline) _categories(!_f.back),
       TileRow([
         Tile(
           icon: Glyph.heart,
-          label: _back ? '誰還錢' : '幫誰付',
+          label: _f.back ? '誰還錢' : '幫誰付',
           value: person?.name ?? '新增對象',
           valueColor: person == null ? Hue.accent : Hue.ink,
           sub: person == null || owed == 0
@@ -23,7 +23,7 @@ extension _LendFields on _ComposerState {
           onTap: _pickPerson,
         ),
       ]),
-      TileRow([_accountTile(_back ? '收款帳戶' : '付款帳戶'), _dateTile()]),
+      TileRow([_accountTile(_f.back ? '收款帳戶' : '付款帳戶'), _dateTile()]),
       _extras(false),
     ];
   }
@@ -31,21 +31,21 @@ extension _LendFields on _ComposerState {
   /// Picks whom the money is for, or adds a new person.
   Future<void> _pickPerson() async {
     const adding = '';
-    final picked = _people.isEmpty
+    final picked = _f.people.isEmpty
         ? adding
         : await pickOption<String>(
             context,
             title: '代墊對象',
-            selected: _to,
+            selected: _f.to,
             columns: 3,
             options: [
-              ...accountOptions(_ledger, among: _people),
+              ...accountOptions(_ledger, among: _f.people),
               const Option(adding, '新增對象', Glyph.add, Hue.accent),
             ],
           );
     if (picked == null || !mounted) return;
     if (picked != adding) {
-      _set(() => _to = picked);
+      _set(() => _f.to = picked);
       return;
     }
     final name = await askText(context, '代墊對象的名字');
@@ -57,6 +57,6 @@ extension _LendFields on _ComposerState {
       0,
     );
     _ledger.addAccount(account);
-    _set(() => _to = account.id);
+    _set(() => _f.to = account.id);
   }
 }

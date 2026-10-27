@@ -3,18 +3,18 @@ part of 'composer.dart';
 /// The form's fields, one builder each, by kind of entry.
 extension _Fields on _ComposerState {
   Widget _accountTile(String label) {
-    final account = _ledger.account(_account);
+    final account = _ledger.account(_f.account);
     return Tile(
       icon: accountIcon(account),
       label: label,
       value: account.name,
       size: 15,
       onTap: () async {
-        final picked = await _pickAccount('選擇帳戶', _account);
+        final picked = await _pickAccount('選擇帳戶', _f.account);
         if (picked == null) return;
         _set(() {
-          _account = picked;
-          _home = null;
+          _f.account = picked;
+          _f.home = null;
         });
       },
     );
@@ -22,8 +22,8 @@ extension _Fields on _ComposerState {
 
   /// The worth in NT$ of a foreign amount, at today's rate until typed.
   Widget _homeTile() {
-    final value = _homeValue;
-    final rate = _ledger.rates[_currency];
+    final value = _f.homeValue;
+    final rate = _ledger.rates[_f.currency];
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Tile(
@@ -32,23 +32,23 @@ extension _Fields on _ComposerState {
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? Hue.hint : Hue.ink,
         size: 15,
-        sub: _home != null || rate == null ? null : '臺銀即期買入 $rate',
+        sub: _f.home != null || rate == null ? null : '臺銀即期買入 $rate',
         onTap: () async {
           final typed = await _ask('折合台幣', value ?? 0);
-          if (typed != null) _set(() => _home = typed);
+          if (typed != null) _set(() => _f.home = typed);
         },
       ),
     );
   }
 
   Widget _dateTile() {
-    final day = '${_date.month}/${_date.day}';
+    final day = '${_f.date.month}/${_f.date.day}';
     return Tile(
       icon: Glyph.calendar,
       label: '日期',
-      value: _date == _ledger.today
+      value: _f.date == _ledger.today
           ? '今天 $day'
-          : '$day 週${weekdayNames[_date.weekday - 1]}',
+          : '$day 週${weekdayNames[_f.date.weekday - 1]}',
       size: 15,
       onTap: _pickDate,
     );
@@ -80,29 +80,30 @@ extension _Fields on _ComposerState {
   }
 
   List<Widget> _fields() {
-    if (_refunded != null) {
+    if (_f.refunded != null) {
       return [
         TileRow([_accountTile('退回到'), _dateTile()]),
         _noteField(),
       ];
     }
-    switch (_mode) {
+    switch (_f.mode) {
       case ComposeMode.expense || ComposeMode.income:
-        final expense = _mode == ComposeMode.expense;
+        final expense = _f.mode == ComposeMode.expense;
         return [
-          _categories(expense),
+          // Over the keys instead, when the amount is typed on them.
+          if (!_inline) _categories(expense),
           TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
-          if (_foreign) _homeTile(),
-          if (_onCard)
+          if (_f.foreign) _homeTile(),
+          if (_f.onCard)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Tile(
                 icon: Glyph.card,
                 label: '分期付款',
-                value: _installments < 2
+                value: _f.installments < 2
                     ? '不分期'
-                    : '$_installments 期 · 每期 '
-                          '${groupDigits(_amount ~/ _installments)}',
+                    : '${_f.installments} 期 · 每期 '
+                          '${groupDigits(_f.amount ~/ _f.installments)}',
                 size: 15,
                 onTap: _pickInstallments,
               ),
@@ -110,8 +111,8 @@ extension _Fields on _ComposerState {
           _extras(expense),
         ];
       case ComposeMode.transfer:
-        final from = _ledger.account(_account);
-        final to = _ledger.account(_to);
+        final from = _ledger.account(_f.account);
+        final to = _ledger.account(_f.to);
         return [
           FormBlock(
             child: Row(
@@ -125,11 +126,11 @@ extension _Fields on _ComposerState {
                       from.currency,
                     ),
                     onTap: () async {
-                      final picked = await _pickAccount('轉出帳戶', _account);
+                      final picked = await _pickAccount('轉出帳戶', _f.account);
                       if (picked == null) return;
                       _set(() {
-                        _account = picked;
-                        _received = null;
+                        _f.account = picked;
+                        _f.received = null;
                       });
                     },
                   ),
@@ -145,11 +146,11 @@ extension _Fields on _ComposerState {
                     ),
                     end: true,
                     onTap: () async {
-                      final picked = await _pickAccount('轉入帳戶', _to);
+                      final picked = await _pickAccount('轉入帳戶', _f.to);
                       if (picked == null) return;
                       _set(() {
-                        _to = picked;
-                        _received = null;
+                        _f.to = picked;
+                        _f.received = null;
                       });
                     },
                   ),
@@ -157,18 +158,18 @@ extension _Fields on _ComposerState {
               ],
             ),
           ),
-          if (_crossing) _receivedTile(),
+          if (_f.crossing) _receivedTile(),
           TileRow([
-            if (_takesFee)
+            if (_f.takesFee)
               Tile(
                 icon: Glyph.coins,
                 label: '手續費',
-                value: groupDigits(_fee),
-                valueColor: _fee > 0 ? Hue.negative : Hue.ink,
+                value: groupDigits(_f.fee),
+                valueColor: _f.fee > 0 ? Hue.negative : Hue.ink,
                 size: 15,
                 onTap: () async {
-                  final value = await _ask('手續費', _fee);
-                  if (value != null) _set(() => _fee = value);
+                  final value = await _ask('手續費', _f.fee);
+                  if (value != null) _set(() => _f.fee = value);
                 },
               ),
             _dateTile(),
@@ -185,19 +186,19 @@ extension _Fields on _ComposerState {
   /// What a transfer between currencies delivers, at today's rates until
   /// typed.
   Widget _receivedTile() {
-    final value = _receivedValue;
+    final value = _f.receivedValue;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Tile(
         icon: Glyph.coins,
         label: '轉入金額',
-        value: value == null ? '請輸入' : amountIn(value, _toCurrency),
+        value: value == null ? '請輸入' : amountIn(value, _f.toCurrency),
         valueColor: value == null ? Hue.hint : Hue.ink,
         size: 15,
-        sub: _received == null && value != null ? '依臺銀即期匯率換算' : null,
+        sub: _f.received == null && value != null ? '依臺銀即期匯率換算' : null,
         onTap: () async {
-          final typed = await _ask('轉入金額', value ?? 0, unit: _toCurrency);
-          if (typed != null) _set(() => _received = typed);
+          final typed = await _ask('轉入金額', value ?? 0, unit: _f.toCurrency);
+          if (typed != null) _set(() => _f.received = typed);
         },
       ),
     );
@@ -205,17 +206,17 @@ extension _Fields on _ComposerState {
 
   /// The categories as a grid of marks, or the parts of a split.
   Widget _categories(bool expense) {
-    final parts = _parts;
+    final parts = _f.parts;
     final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);
-    final left = _amount - used;
-    final choices = _categoryChoices();
+    final left = _f.amount - used;
+    final choices = _f.categoryChoices();
     // Five, then 更多, 代墊 and 新增 fill two rows of four.
     final shown = choices.take(5).toList();
-    final lending = _mode == ComposeMode.lend;
+    final lending = _f.mode == ComposeMode.lend;
     if (shown.isNotEmpty &&
-        !shown.contains(_category) &&
-        _category.isNotEmpty) {
-      shown[shown.length - 1] = _category;
+        !shown.contains(_f.category) &&
+        _f.category.isNotEmpty) {
+      shown[shown.length - 1] = _f.category;
     }
     return FormBlock(
       child: Column(
@@ -234,7 +235,7 @@ extension _Fields on _ComposerState {
                 _Chip('均分', _evenly),
                 const SizedBox(width: 6),
               ],
-              if (expense && !_viewing && !_foreign && !lending)
+              if (expense && !_viewing && !_f.foreign && !lending)
                 _Chip(parts == null ? '拆分' : '不拆分', _split),
             ],
           ),
@@ -246,7 +247,7 @@ extension _Fields on _ComposerState {
                 for (final name in shown)
                   _CategoryChoice(
                     category: _ledger.category(name),
-                    picked: !lending && name == _category,
+                    picked: !lending && name == _f.category,
                     onTap: () => _pickCategoryName(name),
                   ),
                 if (choices.length > shown.length)
@@ -254,11 +255,11 @@ extension _Fields on _ComposerState {
                     category: const Category('更多', 'other', Hue.muted),
                     picked: false,
                     onTap: () async {
-                      final picked = await _pickCategory(_category);
+                      final picked = await _pickCategory(_f.category);
                       if (picked != null) _pickCategoryName(picked);
                     },
                   ),
-                if ((!_viewing && !_foreign) || lending)
+                if ((!_viewing && !_f.foreign) || lending)
                   _CategoryChoice(
                     category: Category(
                       expense ? '代墊' : '對方還錢',
@@ -281,7 +282,7 @@ extension _Fields on _ComposerState {
               _PartRow(
                 category: _ledger.category(name),
                 amount: value,
-                share: _amount == 0 ? 0 : value / _amount,
+                share: _f.amount == 0 ? 0 : value / _f.amount,
                 onTap: () => _editPart(i),
               ),
             if (!_viewing)
@@ -307,18 +308,18 @@ extension _Fields on _ComposerState {
   /// filled in.
   Widget _extras(bool expense) {
     final filled = [
-      if (expense && _merchant.isNotEmpty) _merchant,
-      for (final tag in _tags) '#$tag',
+      if (expense && _f.merchant.isNotEmpty) _f.merchant,
+      for (final tag in _f.tags) '#$tag',
       if (_note.text.trim().isNotEmpty) _note.text.trim(),
-      if (_receipt != null) '收據',
+      if (_f.receipt != null) '收據',
     ];
     final photos = widget.photos;
-    final withPhoto = photos != null || _receipt != null;
+    final withPhoto = photos != null || _f.receipt != null;
     if (_viewing && filled.isEmpty) return const SizedBox.shrink();
-    final open = _more || _viewing;
+    final open = _f.more || _viewing;
     final heading = InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: _viewing ? null : () => _set(() => _more = !_more),
+      onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
         child: Row(
@@ -366,12 +367,12 @@ extension _Fields on _ComposerState {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (expense && (!_viewing || _merchant.isNotEmpty))
+                      if (expense && (!_viewing || _f.merchant.isNotEmpty))
                         Tile(
                           icon: Glyph.store,
                           label: '商家',
-                          value: _merchant.isEmpty ? '未填' : _merchant,
-                          valueColor: _merchant.isEmpty ? Hue.hint : Hue.ink,
+                          value: _f.merchant.isEmpty ? '未填' : _f.merchant,
+                          valueColor: _f.merchant.isEmpty ? Hue.hint : Hue.ink,
                           size: 15,
                           onTap: _pickMerchant,
                         ),
@@ -390,12 +391,12 @@ extension _Fields on _ComposerState {
   /// The receipt photo: a thumbnail that opens it whole, or buttons to
   /// take one or pick one from the gallery.
   Widget _receiptBlock(ReceiptPhotos photos) {
-    final receipt = _receipt;
+    final receipt = _f.receipt;
     if (_viewing && receipt == null) return const SizedBox.shrink();
     Future<void> take({required bool camera}) async {
       try {
         final name = await photos.take(camera: camera);
-        if (name != null) _set(() => _receipt = name);
+        if (name != null) _set(() => _f.receipt = name);
       } on Object {
         _set(() => _problem = camera ? '無法開啟相機' : '無法讀取這張照片');
       }
@@ -435,7 +436,7 @@ extension _Fields on _ComposerState {
             ),
             if (!_viewing) ...[
               const SizedBox(width: 8),
-              _Chip('移除', () => _set(() => _receipt = null)),
+              _Chip('移除', () => _set(() => _f.receipt = null)),
             ],
           ],
         ],
@@ -460,7 +461,7 @@ extension _Fields on _ComposerState {
   );
 
   Widget _tagBlock() {
-    if (_viewing && _tags.isEmpty) return const SizedBox.shrink();
+    if (_viewing && _f.tags.isEmpty) return const SizedBox.shrink();
     return FormBlock(
       child: Row(
         children: [
@@ -471,7 +472,7 @@ extension _Fields on _ComposerState {
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final tag in _tags) _TagChip('#$tag', solid: true),
+                for (final tag in _f.tags) _TagChip('#$tag', solid: true),
                 if (!_viewing)
                   TapArea(
                     label: '新增標籤',
