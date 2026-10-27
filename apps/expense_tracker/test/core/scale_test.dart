@@ -112,14 +112,7 @@ void main() {
     accounts: const [
       Account('bank', '銀行', AccountKind.bank, 300000),
       Account('cash', '現金', AccountKind.cash, 5000),
-      Account(
-        'card',
-        '信用卡',
-        AccountKind.card,
-        0,
-        closingDay: 25,
-        dueDay: 10,
-      ),
+      Account('card', '信用卡', AccountKind.card, 0, closingDay: 25, dueDay: 10),
     ],
     categories: [
       for (final (i, name) in spending.indexed)
