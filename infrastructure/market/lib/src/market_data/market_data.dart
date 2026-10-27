@@ -137,6 +137,17 @@ final class MarketDataGateway {
   );
   static final bankRatesUri = Uri.https('rate.bot.com.tw', '/xrt/flcsv/0/day');
 
+  /// TWSE's month report of one listed stock: each trading day's open,
+  /// high, low and close. The fallback for a stock the daily snapshot
+  /// has no close for, such as one not traded that day.
+  static const twseHistoryHost = 'www.twse.com.tw';
+  static Uri twseHistoryUri(String symbol, int year, int month) =>
+      Uri.https(twseHistoryHost, '/exchangeReport/STOCK_DAY', {
+        'response': 'json',
+        'date': '$year${month.toString().padLeft(2, '0')}01',
+        'stockNo': symbol,
+      });
+
   final MarketTransport _transport;
   final DateTime Function() _clock;
 
@@ -196,6 +207,84 @@ final class MarketDataGateway {
     } on FormatException {
       return const MarketResult(MarketState.failed, reason: 'Bad snapshot');
     }
+  }
+
+  /// The last close of listed [symbol] in TWSE's month reports, this
+  /// month's and, when it has none yet, last month's: the price before a
+  /// day with no trade, or one the daily snapshot leaves out. Stale when
+  /// older than [maximumObservationAge].
+  Future<MarketResult<StockClose>> listedHistoryClose(String symbol) async {
+    if (!_symbol.hasMatch(symbol)) {
+      return const MarketResult(
+        MarketState.unsupported,
+        reason: 'Only TWSE stocks and ETFs',
+      );
+    }
+    final today = _taipeiDate(_clock());
+    MarketResult<StockClose>? last;
+    for (var back = 0; back < 2; back++) {
+      final month = DateTime.utc(today.year, today.month - back);
+      final fetched = await _fetch(
+        twseHistoryUri(symbol, month.year, month.month),
+      );
+      final snapshot = fetched.snapshot;
+      if (snapshot == null) {
+        last = MarketResult(fetched.state, reason: fetched.reason);
+        continue;
+      }
+      try {
+        final close = _lastClose(snapshot, symbol);
+        if (close == null) {
+          last = const MarketResult(MarketState.missing, reason: 'No trade');
+          continue;
+        }
+        final stale = fetched.state == MarketState.stale || _old(close.asOf);
+        return MarketResult(
+          stale ? MarketState.stale : MarketState.available,
+          value: close,
+          reason: stale ? fetched.reason ?? 'Old observation' : null,
+        );
+      } on FormatException {
+        return const MarketResult(MarketState.failed, reason: 'Bad report');
+      }
+    }
+    return last ?? const MarketResult(MarketState.missing, reason: 'No trade');
+  }
+
+  /// The newest day with a close in a month report; null when the month
+  /// has none, or the report says there is no such data.
+  StockClose? _lastClose(_Snapshot snapshot, String symbol) {
+    final report = snapshot.decoded;
+    if (report is! Map<String, Object?>) {
+      throw const FormatException('Expected a report');
+    }
+    if (report['stat'] != 'OK') return null;
+    final fields = report['fields'];
+    final rows = report['data'];
+    if (fields is! List || rows is! List) {
+      throw const FormatException('Expected fields and rows');
+    }
+    final dayAt = fields.indexOf('日期');
+    final closeAt = fields.indexOf('收盤價');
+    final changeAt = fields.indexOf('漲跌價差');
+    if (dayAt < 0 || closeAt < 0) {
+      throw const FormatException('Unexpected report columns');
+    }
+    for (final row in rows.reversed) {
+      if (row is! List || row.length != fields.length) {
+        throw const FormatException('Invalid report row');
+      }
+      final price = _positiveDecimal(row[closeAt]);
+      if (price == null) continue;
+      return StockClose(
+        symbol: symbol,
+        decimalPrice: price,
+        asOf: _rocSlashDate(row[dayAt]),
+        fetchedAt: snapshot.fetchedAt,
+        decimalChange: changeAt < 0 ? null : _signedDecimal(row[changeAt]),
+      );
+    }
+    return null;
   }
 
   /// Today's Bank of Taiwan board.
@@ -396,6 +485,19 @@ String? _signedDecimal(Object? value) {
   final match = RegExp(r'^([+-]?)([0-9]+(?:\.[0-9]+)?)$').firstMatch(clean);
   if (match == null) return null;
   return '${match[1] == '-' ? '-' : ''}${match[2]}';
+}
+
+/// A ROC date as a month report writes it, `115/10/01`.
+BusinessDate _rocSlashDate(Object? value) {
+  final match = value is String
+      ? RegExp(r'^([0-9]{2,3})/([0-9]{2})/([0-9]{2})$').firstMatch(value.trim())
+      : null;
+  if (match == null) throw const FormatException('Invalid ROC date');
+  return BusinessDate(
+    int.parse(match[1]!) + 1911,
+    int.parse(match[2]!),
+    int.parse(match[3]!),
+  );
 }
 
 BusinessDate _rocDate(Object? value) {

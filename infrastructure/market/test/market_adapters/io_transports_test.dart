@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 /// The checks run before any connection opens, so no network is needed.
 void main() {
-  test('only HTTPS to the three market data hosts', () {
+  test('only HTTPS to the four market data hosts', () {
     for (final uri in [
       'https://example.com/v1/exchangeReport/STOCK_DAY_ALL',
       'http://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL',
@@ -19,6 +19,7 @@ void main() {
       'openapi.twse.com.tw',
       'www.tpex.org.tw',
       'rate.bot.com.tw',
+      'www.twse.com.tw',
     });
   });
 }

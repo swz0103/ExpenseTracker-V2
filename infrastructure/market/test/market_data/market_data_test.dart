@@ -243,4 +243,86 @@ void main() {
       expect(result.state, MarketState.failed, reason: response.body);
     }
   });
+
+  group('a listed stock without a close today', () {
+    String report(List<List<String>> rows) => jsonEncode({
+      'stat': 'OK',
+      'date': '20260901',
+      'fields': [
+        '日期',
+        '成交股數',
+        '成交金額',
+        '開盤價',
+        '最高價',
+        '最低價',
+        '收盤價',
+        '漲跌價差',
+        '成交筆數',
+      ],
+      'data': rows,
+    });
+    List<String> day(String date, String close, String change) => [
+      date,
+      '1,000',
+      '30,000',
+      close,
+      close,
+      close,
+      close,
+      change,
+      '3',
+    ];
+
+    test('takes the last close in this month\'s report', () async {
+      final transport = FakeTransport((uri) async {
+        expect(uri.host, MarketDataGateway.twseHistoryHost);
+        expect(uri.queryParameters['stockNo'], '2317');
+        return MarketResponse(
+          200,
+          report([
+            day('115/09/26', '201.50', '+1.50'),
+            day('115/09/29', '--', ' 0.00'),
+          ]),
+        );
+      });
+      final result = await gateway(transport).listedHistoryClose('2317');
+      expect(result.state, MarketState.available);
+      expect(result.value!.decimalPrice, '201.50');
+      expect(result.value!.decimalChange, '1.50');
+      final asOf = result.value!.asOf;
+      expect((asOf.year, asOf.month, asOf.day), (2026, 9, 26));
+      expect(transport.requests.single.queryParameters['date'], '20260901');
+    });
+
+    test('goes back a month when this one has none yet', () async {
+      now = DateTime.utc(2026, 10, 1, 1);
+      final transport = FakeTransport((uri) async {
+        final date = uri.queryParameters['date'];
+        return MarketResponse(
+          200,
+          date == '20261001'
+              ? jsonEncode({'stat': '很抱歉，沒有符合條件的資料!'})
+              : report([day('115/09/30', '199.00', '-2.50')]),
+        );
+      });
+      final result = await gateway(transport).listedHistoryClose('2317');
+      expect(result.value!.decimalPrice, '199.00');
+      expect(transport.requests.map((u) => u.queryParameters['date']), [
+        '20261001',
+        '20260901',
+      ]);
+    });
+
+    test('a page that is not a report fails closed', () async {
+      final transport = FakeTransport(
+        (_) async => const MarketResponse(200, '{"stat":"OK","data":[]}'),
+      );
+      final result = await gateway(transport).listedHistoryClose('2317');
+      expect(result.state, MarketState.failed);
+      expect(
+        (await gateway(transport).listedHistoryClose('AAPL')).state,
+        MarketState.unsupported,
+      );
+    });
+  });
 }

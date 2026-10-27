@@ -41,12 +41,14 @@ final class Ledger extends ChangeNotifier {
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
     DateTime? quotedOn,
+    Map<String, DateTime> quoteDays = const {},
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
        _drafts = {...drafts},
        _day = today,
        _quotedOn = quotedOn,
+       _quoteDays = {...quoteDays},
        _receipts = {...receipts},
        _rates = {...rates},
        _moves = {...moves},
@@ -155,6 +157,19 @@ final class Ledger extends ChangeNotifier {
   /// last bought at standing in for one.
   bool hasQuote(String code) => _startHoldings.any((h) => h.code == code);
   DateTime? _quotedOn;
+
+  /// The day of [code]'s kept close, when it is older than [quotedOn]:
+  /// the last trading day of a stock not traded since, or a close kept
+  /// from before when the latest could not be fetched. Null when it is
+  /// the latest, or not known.
+  DateTime? olderQuote(String code) {
+    final day = _quoteDays[code];
+    final latest = _quotedOn;
+    if (day == null || latest == null || !day.isBefore(latest)) return null;
+    return day;
+  }
+
+  final Map<String, DateTime> _quoteDays;
 
   /// Each stock's change on its last trading day, per share, by code.
   final Map<String, double> _moves;
@@ -483,10 +498,14 @@ final class Ledger extends ChangeNotifier {
     required Map<String, double> moves,
     required Map<String, double> rates,
     DateTime? quotedOn,
+    Map<String, DateTime> quoteDays = const {},
   }) {
     _startHoldings
       ..clear()
       ..addAll(holdings);
+    _quoteDays
+      ..clear()
+      ..addAll(quoteDays);
     _moves
       ..clear()
       ..addAll(moves);
@@ -1082,6 +1101,9 @@ final class Ledger extends ChangeNotifier {
       ..clear()
       ..addAll(fresh._drafts);
     _quotedOn = fresh._quotedOn;
+    _quoteDays
+      ..clear()
+      ..addAll(fresh._quoteDays);
     _day = fresh.today;
     _replay(lenient: true);
     notifyListeners();
