@@ -40,7 +40,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Hosts the app and answers `expense_tracker/platform` (lib/src/platform.dart):
+ * Hosts the app and answers `expense_tracker/platform` (lib/src/app/platform.dart):
  * the private files folder; a Keystore AES key that only a fingerprint or face
  * can use, which wraps the ledger key for unlocking without the password; and
  * the system's save and open dialogs, for taking backups out and back in;

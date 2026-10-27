@@ -26,7 +26,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## Google 雲端硬碟備份
 
-`play-services-auth` 的 `AuthorizationClient` 要 `https://www.googleapis.com/auth/drive.file` 的存取權杖（`MainActivity.kt` 的 `driveToken`），Dart 端直接呼叫 Drive REST v3（`lib/src/book/drive_backup.dart`）。不需要 Firebase、`google-services.json` 或伺服器用戶端 ID，但 Google Cloud 要設定：
+`play-services-auth` 的 `AuthorizationClient` 要 `https://www.googleapis.com/auth/drive.file` 的存取權杖（`MainActivity.kt` 的 `driveToken`），Dart 端直接呼叫 Drive REST v3（`lib/src/features/backup/model/drive_backup.dart`）。不需要 Firebase、`google-services.json` 或伺服器用戶端 ID，但 Google Cloud 要設定：
 
 1. 建專案、啟用 Google Drive API。
 2. Google Auth Platform：品牌（App 名稱、聯絡信箱）、目標對象選「外部」並發布（`drive.file` 是非敏感權限，不需審查）。
@@ -39,7 +39,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 `allowBackup="true"`，規則在 `res/xml/data_extraction_rules.xml`（Android 12 以上）與 `backup_rules.xml`。帳本與每週備份會進使用者的 Google 備份，Android 以螢幕鎖加密；不帶走的有：
 
 - `device-id`（這支手機的指紋登記）、`no-fingerprint`（拒絕指紋的紀錄）：換手機要重新登記。
-- `exports`：要交出去的檔案（附照片的備份、CSV）只在這裡放到系統存檔畫面寫完為止，之後立即刪除；App 啟動時也會清掉上次沒刪到的（`lib/src/book/leftovers.dart`，連同快取裡的相機暫存與選取的備份副本）。所以附照片的匯出備份不會佔用 25 MB 的備份額度；每週備份（不含照片）仍在 `backups/`，照常備份。
+- `exports`：要交出去的檔案（附照片的備份、CSV）只在這裡放到系統存檔畫面寫完為止，之後立即刪除；App 啟動時也會清掉上次沒刪到的（`lib/src/features/backup/model/leftovers.dart`，連同快取裡的相機暫存與選取的備份副本）。所以附照片的匯出備份不會佔用 25 MB 的備份額度；每週備份（不含照片）仍在 `backups/`，照常備份。
 - `calendar`：選的日曆，換手機要重新選。
 - `diagnostics.log`：「設定 › 效能」的錯誤紀錄，只屬於這支手機（只記錯誤類型與簡短訊息，不含帳本內容）。
 - `receipts`：收據照片，不進雲端備份（很快就會超過 25 MB 額度）；裝置對裝置轉移（`device-transfer`）仍會帶走。要保留照片請匯出備份檔，它會附上照片。

@@ -28,7 +28,7 @@
 
 計算規則不在畫面模型另寫：賣出成本、配股減資與分割呼叫 domain 的 `lot_math.dart`；帳單週期、結帳日變更前的舊週期、單期調整、分期入帳月份與每期金額呼叫 domain 的 `CardSchedule` 與分期函式；台股手續費、證交稅、補充保費呼叫 `taiwan.dart`。能不能記（`checks.dart`）也只有一處。
 
-分層由 `test/layers_test.dart` 守住：model 不碰畫面與儲存、compose 與 look 不碰 pages、範例帳本只在網頁預覽。
+分層由 `test/app/layers_test.dart` 守住；2026-10 起 App 改成依功能分資料夾，規則見 [ADR-0002](0002-feature-folders.md)。
 
 2026-10-21 前是兩套：畫面一套、加密帳本另一套（domain 指令 → 事件日誌 → 二十張投影表），兩邊各算一次再於開帳本時核對；FIFO 進位、結帳日歷史遺失都是兩套不一致造成的。兩套之間還有只為多人同步才需要的 OperationKey、workspace、版本號與事件重播。個人單機記帳用不到，又沒有舊帳本要相容，所以整套換掉，少了約 1.4 萬行。
 

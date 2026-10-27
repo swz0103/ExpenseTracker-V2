@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/app.dart';
-import 'package:expense_tracker/src/book/table_journal.dart';
-import 'package:expense_tracker/src/model/journal.dart';
-import 'package:expense_tracker/src/model/ledger.dart';
-import 'package:expense_tracker/src/pages/shell.dart';
+import 'package:expense_tracker/src/app/app.dart';
+import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
