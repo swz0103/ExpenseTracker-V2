@@ -85,4 +85,8 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     // Google sign-in for backups on Drive (drive.file), in MainActivity.kt.
     implementation("com.google.android.gms:play-services-auth:22.0.0")
+    // X25519 and HKDF for sealing items into the ledger's inbox
+    // (InboxWriter.kt), on every Android version the app runs on.
+    implementation("com.google.crypto.tink:tink-android:1.15.0")
+    testImplementation("junit:junit:4.13.2")
 }

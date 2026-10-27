@@ -21,6 +21,7 @@ import '../features/reminders/model/calendar_sync.dart';
 import '../features/entries/model/receipt_photos.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
+import '../features/reminders/model/inbox_apply.dart';
 import '../features/reminders/model/notifications.dart';
 import '../features/lock/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
@@ -208,6 +209,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await FileBox.derive(widget.vault.keys, 'receipts'),
       );
     }
+    await _readInbox(ledger);
     _bookDue(ledger);
     final market = _market = MarketFeed(_journal, ledger);
     unawaited(market.refresh());
@@ -215,6 +217,51 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
     return ledger;
+  }
+
+  /// Applies what was written into the ledger's inbox while it was
+  /// locked (「確認入帳」 on notifications), then empties it; what could
+  /// not be booked is listed once. Opening the inbox also writes its
+  /// public key, which the notifications seal with.
+  Future<void> _readInbox(Ledger ledger) async {
+    final InboxOutcome outcome;
+    try {
+      final inbox = await LedgerInbox.open(
+        widget.startup.directory,
+        widget.vault.keys,
+      );
+      final items = await inbox.read();
+      if (items.isEmpty) return;
+      outcome = applyInbox(ledger, items);
+      for (final item in items) {
+        await inbox.remove(item.name);
+      }
+    } on Object catch (error) {
+      Perf.instance.problem('收件匣', error);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (outcome.booked > 0) {
+        showNote(context, '已依通知上的確認記下 ${outcome.booked} 筆');
+      }
+      if (outcome.review.isEmpty) return;
+      unawaited(
+        showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('通知上的確認'),
+            content: Text(outcome.review.join('\n')),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   /// Books the recurring items marked to book themselves whose day has

@@ -10,6 +10,7 @@ final class Reminder {
     required this.title,
     this.note = '',
     this.daysAhead = 0,
+    this.recurring,
   });
 
   /// Stable across syncs, so the same reminder is not written twice.
@@ -22,6 +23,10 @@ final class Reminder {
 
   /// How many days before [day] to remind as well.
   final int daysAhead;
+
+  /// The recurring item falling due, which a notification can confirm;
+  /// null for a card payment.
+  final String? recurring;
 }
 
 /// What falls due in the next [days] days, soonest first: each unbooked
@@ -51,6 +56,7 @@ extension LedgerReminders on Ledger {
               day: d,
               title: '${r.income ? '入帳' : '扣款'}：${r.name} $amount',
               note: '定期交易，扣款帳戶：${account(r.account).name}',
+              recurring: r.id,
             ),
           );
         }

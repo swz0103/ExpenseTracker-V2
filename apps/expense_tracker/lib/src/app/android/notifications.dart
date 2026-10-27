@@ -33,6 +33,12 @@ final class AndroidNotifications implements NotifyPort {
           'text': a.text,
           'quick': a.quick?.name,
           'tag': a.tag,
+          if (a.confirms case (final id, final day)) ...{
+            'recurring': id,
+            'day':
+                '${day.year}-${day.month.toString().padLeft(2, '0')}'
+                '-${day.day.toString().padLeft(2, '0')}',
+          },
         },
     ],
   });
