@@ -19,8 +19,19 @@ void main() {
       haptics: false,
       dailyNudge: true,
       nudgeHour: 22,
+      nudgeMinute: 45,
+      exactReminders: true,
+      phoneDaily: true,
     );
+    Preferences(file: file).phoneFolderSet('content://tree/backups', name: '備份');
     final again = Preferences(file: file);
+    expect(again.nudgeMinute, 45);
+    expect(again.exactReminders, isTrue);
+    expect(again.phoneDaily, isTrue);
+    expect((again.phoneFolder, again.phoneFolderName), (
+      'content://tree/backups',
+      '備份',
+    ));
     expect(again.appearance, Appearance.dark);
     expect(again.haptics, isFalse);
     expect(again.dueAlerts, isFalse);
@@ -137,6 +148,27 @@ void main() {
       expect(alerts.first.at, DateTime(2026, 10, 5, 21));
       expect(alerts, hasLength(6));
       expect(alerts.every((a) => a.quick == QuickAction.expense), isTrue);
+      expect(alerts.every((a) => a.tag == nudgeTag), isTrue);
+    });
+
+    test('the nudge comes on the minute chosen', () {
+      final preferences = Preferences()
+        ..update(dailyNudge: true, nudgeHour: 20, nudgeMinute: 30);
+      expect(alertsFor(ledger, preferences, morning).first.at.minute, 30);
+    });
+
+    test('a nudge showing is taken away once something is recorded', () {
+      final preferences = Preferences()
+        ..update(dailyNudge: true, dueAlerts: true);
+      // The demo book has entries on its today.
+      final wanted = wantedTags(ledger, preferences);
+      expect(wanted, isNot(contains(nudgeTag)));
+      expect(wanted.every((tag) => tag.startsWith('due:')), isTrue);
+      final dueTags = {
+        for (final a in alertsFor(ledger, preferences, morning))
+          if (a.tag.startsWith('due:')) a.tag,
+      };
+      expect(wanted, containsAll(dueTags));
     });
   });
 }

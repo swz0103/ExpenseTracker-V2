@@ -54,7 +54,12 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final preferences = services.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([ledger, ?preferences, ?services.drive]),
+      listenable: Listenable.merge([
+        ledger,
+        ?preferences,
+        ?services.drive,
+        ?services.phone,
+      ]),
       builder: (context, _) {
         final part = this.part;
         return ListView(
@@ -98,6 +103,11 @@ class SettingsPage extends StatelessWidget {
   String _detail(SettingsPart part) {
     switch (part) {
       case SettingsPart.backup:
+        final phone = services.phone;
+        if (phone != null && phone.on) {
+          final at = phone.backedUp?.toLocal();
+          return at == null ? '手機 · 還沒有備份' : '手機 · 上次 ${at.month}/${at.day}';
+        }
         final drive = services.drive;
         if (drive != null && drive.linked) {
           final at = drive.backedUp?.toLocal();
@@ -135,7 +145,11 @@ class SettingsPage extends StatelessWidget {
     return switch (part) {
       SettingsPart.backup => [
         if (keeper != null)
-          BackupSection(keeper: keeper, drive: services.drive),
+          BackupSection(
+            keeper: keeper,
+            drive: services.drive,
+            phone: services.phone,
+          ),
       ],
       SettingsPart.exchange => [
         ExchangeSection(ledger: ledger, keeper: keeper),

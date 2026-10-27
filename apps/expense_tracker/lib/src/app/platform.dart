@@ -11,3 +11,4 @@ export 'android/network.dart';
 export 'android/notifications.dart';
 export 'android/photos.dart';
 export 'android/quick.dart';
+export 'android/folder.dart';

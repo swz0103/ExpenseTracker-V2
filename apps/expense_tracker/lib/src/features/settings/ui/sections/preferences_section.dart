@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/glyphs.dart';
@@ -66,43 +68,124 @@ class AppearanceSection extends StatelessWidget {
   }
 }
 
-/// 通知: due dates and the daily nudge, and when it comes.
-class NotificationsSection extends StatelessWidget {
+/// 通知: due dates and the daily nudge, when it comes, on the minute or
+/// not, a test, and what the phone allows.
+class NotificationsSection extends StatefulWidget {
   const NotificationsSection({super.key, required this.notifier});
 
   final Notifier notifier;
 
+  @override
+  State<NotificationsSection> createState() => _NotificationsSectionState();
+}
+
+class _NotificationsSectionState extends State<NotificationsSection>
+    with WidgetsBindingObserver {
+  Notifier get _notifier => widget.notifier;
+
+  /// What the phone allows, read again when back from its settings.
+  ReminderStatus? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _readStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _readStatus();
+  }
+
+  Future<void> _readStatus() async {
+    try {
+      final status = await _notifier.port.status();
+      if (mounted) setState(() => _status = status);
+    } on Object {
+      // A phone that cannot say shows no status.
+    }
+  }
+
   /// Turns a kind of notification on, once the phone allows them.
-  Future<void> _notify(BuildContext context, {bool? due, bool? nudge}) async {
+  Future<void> _notify({bool? due, bool? nudge}) async {
     final turningOn = (due ?? false) || (nudge ?? false);
     if (turningOn) {
       bool allowed;
       try {
-        allowed = await notifier.port.access();
+        allowed = await _notifier.port.access();
       } on Object {
         allowed = false;
       }
       if (!allowed) {
-        if (context.mounted) showNote(context, '沒有取得通知權限，可以到系統設定開啟');
+        if (mounted) showNote(context, '沒有取得通知權限，可以到系統設定開啟');
         return;
       }
     }
-    notifier.preferences.update(dueAlerts: due, dailyNudge: nudge);
+    _notifier.preferences.update(dueAlerts: due, dailyNudge: nudge);
+    unawaited(_readStatus());
   }
 
-  Future<void> _pickNudgeHour(BuildContext context) async {
-    final preferences = notifier.preferences;
+  /// Asks again to post notifications; turned off in the system
+  /// settings, only the person can turn them back on there.
+  Future<void> _askAccess() async {
+    bool allowed;
+    try {
+      allowed = await _notifier.port.access();
+    } on Object {
+      allowed = false;
+    }
+    if (!allowed && mounted) showNote(context, '請到系統設定開啟記帳本的通知');
+    await _readStatus();
+  }
+
+  Future<void> _pickNudgeTime() async {
+    final preferences = _notifier.preferences;
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: preferences.nudgeHour, minute: 0),
-      helpText: '每天幾點提醒（以整點計）',
+      initialTime: TimeOfDay(
+        hour: preferences.nudgeHour,
+        minute: preferences.nudgeMinute,
+      ),
+      helpText: '每天幾點提醒',
     );
-    if (picked != null) preferences.update(nudgeHour: picked.hour);
+    if (picked != null) {
+      preferences.update(nudgeHour: picked.hour, nudgeMinute: picked.minute);
+    }
   }
+
+  /// Reminders on the minute need the phone's permission for alarms,
+  /// given in its settings.
+  Future<void> _exact(bool on) async {
+    _notifier.preferences.update(exactReminders: on);
+    if (on && _status?.exact == false) {
+      showNote(context, '請在接下來的畫面允許「鬧鐘與提醒」');
+      await _notifier.port.openExactSettings();
+    }
+  }
+
+  Future<void> _test() async {
+    try {
+      await _notifier.port.test(exact: _notifier.preferences.exactReminders);
+      if (mounted) showNote(context, '一分鐘後會跳出一則測試通知');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '無法傳送測試通知：$error');
+    }
+  }
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context) {
-    final preferences = notifier.preferences;
+    final preferences = _notifier.preferences;
+    final status = _status;
+    final asked = preferences.dueAlerts || preferences.dailyNudge;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -114,7 +197,7 @@ class NotificationsSection extends StatelessWidget {
             detail: '定期扣款、卡費',
             trailing: Switch(
               value: preferences.dueAlerts,
-              onChanged: (on) => _notify(context, due: on),
+              onChanged: (on) => _notify(due: on),
             ),
           ),
           MenuRow(
@@ -123,17 +206,61 @@ class NotificationsSection extends StatelessWidget {
             detail: '當天沒記帳才提醒',
             trailing: Switch(
               value: preferences.dailyNudge,
-              onChanged: (on) => _notify(context, nudge: on),
+              onChanged: (on) => _notify(nudge: on),
             ),
           ),
           if (preferences.dailyNudge)
             MenuRow(
               glyph: Glyph.calendar,
               title: '提醒時間',
-              detail: '每天 ${preferences.nudgeHour}:00',
-              onTap: () => _pickNudgeHour(context),
+              detail:
+                  '每天 ${preferences.nudgeHour}:${_two(preferences.nudgeMinute)}',
+              onTap: _pickNudgeTime,
+            ),
+          if (asked)
+            MenuRow(
+              glyph: Glyph.bolt,
+              title: '準時提醒',
+              detail: '不讓手機延後，需要允許鬧鐘',
+              trailing: Switch(
+                value: preferences.exactReminders,
+                onChanged: _exact,
+              ),
+            ),
+          if (asked)
+            MenuRow(
+              glyph: Glyph.chat,
+              title: '傳送測試通知',
+              detail: '一分鐘後跳出',
+              onTap: _test,
             ),
         ]),
+        if (asked && status != null) ...[
+          const SectionHead('手機設定'),
+          MenuPanel([
+            MenuRow(
+              glyph: Glyph.bell,
+              title: '通知權限',
+              detail: status.notifications ? '已允許' : '未允許，點一下開啟',
+              color: status.notifications ? Hue.ink : Hue.danger,
+              onTap: status.notifications ? null : _askAccess,
+            ),
+            if (preferences.exactReminders)
+              MenuRow(
+                glyph: Glyph.bolt,
+                title: '鬧鐘與提醒',
+                detail: status.exact ? '已允許' : '未允許，點一下開啟',
+                color: status.exact ? Hue.ink : Hue.danger,
+                onTap: status.exact ? null : _notifier.port.openExactSettings,
+              ),
+            MenuRow(
+              glyph: Glyph.shield,
+              title: '電池最佳化',
+              detail: status.battery ? '不限制' : '可能延後提醒，點一下調整',
+              onTap: status.battery ? null : _notifier.port.openBatterySettings,
+            ),
+          ]),
+        ],
       ],
     );
   }

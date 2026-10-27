@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/connector.dart';
 import '../../backup/model/drive_sync.dart';
 import '../../backup/model/keeper.dart';
+import '../../backup/model/phone_backup.dart';
 import '../../reminders/model/calendar_sync.dart';
 import '../../entries/model/receipt_photos.dart';
 import '../../../core/ledger/ledger.dart';
@@ -26,6 +27,7 @@ final class Services {
     this.sample,
     this.receipts,
     this.drive,
+    this.phone,
     this.market,
   });
 
@@ -48,6 +50,9 @@ final class Services {
 
   /// Backups on Google Drive, on Android.
   final DriveSync? drive;
+
+  /// Backups to a folder on the phone, on Android.
+  final PhoneBackup? phone;
 
   /// Closing prices and rates; none in the preview.
   final Connector? market;

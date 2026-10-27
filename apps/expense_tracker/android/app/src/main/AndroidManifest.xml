@@ -11,6 +11,9 @@
     <!-- Due dates and the daily nudge as notifications, kept after a restart. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Reminders on the minute, only when the person asks for them and
+         allows it in the system settings. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <application
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"

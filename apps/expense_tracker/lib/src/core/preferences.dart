@@ -38,6 +38,15 @@ final class Preferences extends ChangeNotifier {
         json['driveBackedUp'] as String? ?? '',
       );
       _driveRevision = (json['driveRevision'] as num?)?.toInt();
+      _nudgeMinute = (json['nudgeMinute'] as num?)?.toInt() ?? 0;
+      _exactReminders = json['exactReminders'] as bool? ?? false;
+      _phoneFolder = json['phoneFolder'] as String?;
+      _phoneFolderName = json['phoneFolderName'] as String? ?? '';
+      _phoneDaily = json['phoneDaily'] as bool? ?? false;
+      _phoneBackedUp = DateTime.tryParse(
+        json['phoneBackedUp'] as String? ?? '',
+      );
+      _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
     } on Object {
       // An unreadable file leaves the defaults.
     }
@@ -63,6 +72,56 @@ final class Preferences extends ChangeNotifier {
 
   int get nudgeHour => _nudgeHour;
   var _nudgeHour = 21;
+
+  /// The minute past [nudgeHour] the nudge comes at.
+  int get nudgeMinute => _nudgeMinute;
+  var _nudgeMinute = 0;
+
+  /// Reminders come on the minute, with the phone's alarm permission,
+  /// rather than when the phone finds it convenient.
+  bool get exactReminders => _exactReminders;
+  var _exactReminders = false;
+
+  /// The folder on the phone backups are kept in, as the system names it
+  /// for the app; null when none was chosen.
+  String? get phoneFolder => _phoneFolder;
+  String? _phoneFolder;
+
+  /// The folder's name as the chooser showed it.
+  String get phoneFolderName => _phoneFolderName;
+  var _phoneFolderName = '';
+
+  /// Backups to the phone's folder daily rather than weekly.
+  bool get phoneDaily => _phoneDaily;
+  var _phoneDaily = false;
+
+  /// When the last backup reached the phone's folder, and the ledger's
+  /// revision in it.
+  DateTime? get phoneBackedUp => _phoneBackedUp;
+  DateTime? _phoneBackedUp;
+  int? get phoneRevision => _phoneRevision;
+  int? _phoneRevision;
+
+  /// Keeps backups in the folder [uri] named [name], or stops with null.
+  void phoneFolderSet(String? uri, {String name = ''}) {
+    _phoneFolder = uri;
+    _phoneFolderName = uri == null ? '' : name;
+    if (uri == null) {
+      _phoneBackedUp = null;
+      _phoneRevision = null;
+    }
+    notifyListeners();
+    _save();
+  }
+
+  /// Notes a backup of the ledger at [revision] kept in the phone's
+  /// folder.
+  void phoneBackup(DateTime at, int revision) {
+    _phoneBackedUp = at;
+    _phoneRevision = revision;
+    notifyListeners();
+    _save();
+  }
 
   /// The 開始使用 card was put away.
   bool get started => _started;
@@ -98,6 +157,9 @@ final class Preferences extends ChangeNotifier {
     bool? dueAlerts,
     bool? dailyNudge,
     int? nudgeHour,
+    int? nudgeMinute,
+    bool? exactReminders,
+    bool? phoneDaily,
     bool? started,
     bool? widgetShown,
     bool? driveLinked,
@@ -107,6 +169,9 @@ final class Preferences extends ChangeNotifier {
     _dueAlerts = dueAlerts ?? _dueAlerts;
     _dailyNudge = dailyNudge ?? _dailyNudge;
     _nudgeHour = (nudgeHour ?? _nudgeHour).clamp(0, 23);
+    _nudgeMinute = (nudgeMinute ?? _nudgeMinute).clamp(0, 59);
+    _exactReminders = exactReminders ?? _exactReminders;
+    _phoneDaily = phoneDaily ?? _phoneDaily;
     _started = started ?? _started;
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
@@ -134,6 +199,13 @@ final class Preferences extends ChangeNotifier {
           'driveLinked': _driveLinked,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,
+          'nudgeMinute': _nudgeMinute,
+          'exactReminders': _exactReminders,
+          'phoneFolder': _phoneFolder,
+          'phoneFolderName': _phoneFolderName,
+          'phoneDaily': _phoneDaily,
+          'phoneBackedUp': _phoneBackedUp?.toUtc().toIso8601String(),
+          'phoneRevision': _phoneRevision,
         }),
         flush: true,
       );
