@@ -142,7 +142,8 @@ final class RowStore {
   String get journalMode =>
       '${_db.select('PRAGMA journal_mode').single.values.single}';
 
-  /// How many writes this file has had; any change moves it on.
+  /// How many changes this file has had; a write that does not count
+  /// (see [write]) leaves it.
   int get revision {
     _requireOpen();
     final rows = _db.select("SELECT value FROM meta WHERE key = 'revision'");
@@ -185,14 +186,17 @@ final class RowStore {
   }
 
   /// Applies [changes] in one transaction: all of them, or none when it
-  /// throws.
-  void write(void Function(RowWriter writer) changes) {
+  /// throws. A write that [counts] moves [revision] on; one that does not,
+  /// such as fetched prices, leaves it, so a backup is not taken for it.
+  void write(void Function(RowWriter writer) changes, {bool counts = true}) {
     _requireOpen();
     final writer = RowWriter._(_db);
     _db.execute('BEGIN IMMEDIATE');
     try {
       changes(writer);
-      _db.execute("UPDATE meta SET value = value + 1 WHERE key = 'revision'");
+      if (counts) {
+        _db.execute("UPDATE meta SET value = value + 1 WHERE key = 'revision'");
+      }
       _db.execute('COMMIT');
     } catch (_) {
       if (!_db.autocommit) _db.execute('ROLLBACK');

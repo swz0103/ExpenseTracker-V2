@@ -22,16 +22,20 @@ int brokerFee(int amount, int shares) {
 
 /// The securities transaction tax on selling [shares] of [code] for
 /// [amount] on [tradedOn], at that day's rate; codes starting with 00 are
-/// ETFs.
+/// ETFs, and those ending in B bond ETFs.
 int saleTax(String code, int amount, int shares, DateTime tradedOn) {
   if (amount <= 0 || shares <= 0) return 0;
-  final etf = code.startsWith('00');
+  final kind = !code.startsWith('00')
+      ? InstrumentKind.stock
+      : code.toUpperCase().endsWith('B')
+      ? InstrumentKind.bondEtf
+      : InstrumentKind.etf;
   try {
     return _charges
         .sellTax(
           _ntd(amount),
           ShareQuantity.parse('$shares'),
-          kind: etf ? InstrumentKind.etf : InstrumentKind.stock,
+          kind: kind,
           tradedOn: _day(tradedOn),
         )
         .minorUnits

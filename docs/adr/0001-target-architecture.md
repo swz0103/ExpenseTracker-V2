@@ -44,7 +44,7 @@
 
 ### 5. 備份
 
-備份 v3 是全部資料的快照：分塊、gzip、AES-256-GCM，AAD 綁定標頭雜湊與塊的順序。還原時每一筆先用 App 的讀取器檢查，先寫暫存庫，完整性檢查後才換上。App 每週在手機留備份（帳本 `revision` 沒變就不備），Android 自動備份帶到新手機；匯出的備份附收據照片。連結 Google 後，附照片的備份經暫存上傳到雲端硬碟（`book/drive_backup.dart` 走 Drive REST，`drive.file` 權限；權杖由 Google Identity 的 AuthorizationClient 在 `MainActivity.kt` 取得，不經伺服器），每週帳本有變才傳，留最新 5 份。
+備份 v3 是全部資料的快照：分塊、gzip、AES-256-GCM，AAD 綁定標頭雜湊與塊的順序。還原時每一筆先用 App 的讀取器檢查，先寫暫存庫，完整性檢查後才換上。App 每週在手機留備份（帳本 `revision` 沒變就不備），Android 自動備份帶到新手機；匯出的備份附收據照片。連結 Google 後，附照片的備份經暫存上傳到雲端硬碟（`book/drive_backup.dart` 走 Drive REST，`drive.file` 權限；權杖由 Google Identity 的 AuthorizationClient 在 `MainActivity.kt` 取得，不經伺服器），每週帳本有變才傳（行情寫入不算變更：`RowStore.write(counts: false)`），只整理同一本帳本的備份，留最新 5 份、較舊的進雲端垃圾桶。
 
 ## 後果
 

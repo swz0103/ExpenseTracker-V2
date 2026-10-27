@@ -32,7 +32,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 2. Google Auth Platform：品牌（App 名稱、聯絡信箱）、目標對象選「外部」並發布（`drive.file` 是非敏感權限，不需審查）。
 3. 用戶端：類型 Android，套件名稱 `io.github.swz0103.expensetracker`，SHA-1 用發佈簽章的（`keytool -list -v -keystore <jks> -alias <alias>`）。換簽章要再加一個用戶端。
 
-備份寫在 `exports/`，上傳完就刪；雲端資料夾是「記帳本備份」，留最新 5 份。還原畫面的「從 Google 雲端硬碟選擇」把挑到的那份下載到快取 `restore.etbk`（啟動時清掉）。
+備份寫在 `exports/`，上傳完就刪；雲端資料夾是「記帳本備份」。每份標上帳本 id（Drive `appProperties.ledger`，即 keyring id），只整理同一本帳本的備份：留最新 5 份，較舊的移到雲端硬碟垃圾桶（30 天內可救回）；別本帳本的、或沒有標記的舊備份不動。「停止」會呼叫 `oauth2.googleapis.com/revoke` 撤銷授權，下次連結重新選帳號。還原畫面的「從 Google 雲端硬碟選擇」把挑到的那份下載到快取 `restore.etbk`（啟動時清掉）。
 
 ## Android 自動備份
 
@@ -77,7 +77,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
    keyPassword=…
    ```
 
-4. 之後要接 Google 登入時，用 `keytool -list -v -keystore ~/expense-tracker.jks -alias expense-tracker` 取得 SHA-1。
+4. Google 雲端硬碟登入用的 Android OAuth 用戶端要填發佈簽章的 SHA-1：`keytool -list -v -keystore ~/expense-tracker.jks -alias expense-tracker`（設定步驟見上方「Google 雲端硬碟備份」）。
 
 ## 本機建置
 

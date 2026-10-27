@@ -137,7 +137,11 @@ class MainActivity : FlutterFragmentActivity() {
                 } else if (!interactive || pending == null) {
                     finishDrive(null)
                 } else {
-                    askDrive.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+                    pendingDrive?.let { waiting ->
+                        launchOr(waiting, { pendingDrive = null }) {
+                            askDrive.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+                        }
+                    }
                 }
             }
             .addOnFailureListener { e ->
@@ -146,6 +150,24 @@ class MainActivity : FlutterFragmentActivity() {
                 val code = (e as? ApiException)?.statusCode?.toString() ?: "drive"
                 waiting.error(code, e.message, null)
             }
+    }
+
+    /**
+     * Starts another app's screen for [result]; when none can be started
+     * (no camera app, the file chooser turned off), [clear]s what waits for
+     * it and says so, so the next try is not refused as busy.
+     */
+    private inline fun launchOr(
+        result: MethodChannel.Result,
+        clear: () -> Unit,
+        start: () -> Unit,
+    ) {
+        try {
+            start()
+        } catch (e: Exception) {
+            clear()
+            result.error("unavailable", e.message ?: "No app can do this.", null)
+        }
     }
 
     private fun finishDrive(token: String?) {
@@ -359,11 +381,14 @@ class MainActivity : FlutterFragmentActivity() {
                             result.error("busy", "A photo is being taken.", null)
                         } else {
                             pendingPhoto = result
-                            if (call.argument<Boolean>("camera") == true) {
-                                val uri = FileProvider.getUriForFile(this, "$packageName.files", cameraFile)
-                                takePicture.launch(uri)
-                            } else {
-                                pickImage.launch("image/*")
+                            val camera = call.argument<Boolean>("camera") == true
+                            launchOr(result, { pendingPhoto = null }) {
+                                if (camera) {
+                                    val uri = FileProvider.getUriForFile(this, "$packageName.files", cameraFile)
+                                    takePicture.launch(uri)
+                                } else {
+                                    pickImage.launch("image/*")
+                                }
                             }
                         }
                     }
@@ -392,7 +417,7 @@ class MainActivity : FlutterFragmentActivity() {
                             result.error("bad-arguments", "path and name are required", null)
                         } else {
                             pendingExport = path to result
-                            createDocument.launch(name)
+                            launchOr(result, { pendingExport = null }) { createDocument.launch(name) }
                         }
                     }
                     "calendarAccess" -> {
@@ -445,7 +470,7 @@ class MainActivity : FlutterFragmentActivity() {
                             result.error("busy", "A file is being chosen.", null)
                         } else {
                             pendingPick = result
-                            openDocument.launch(arrayOf("*/*"))
+                            launchOr(result, { pendingPick = null }) { openDocument.launch(arrayOf("*/*")) }
                         }
                     }
                     "driveToken" -> driveToken(call.argument<Boolean>("interactive") == true, result)

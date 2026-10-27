@@ -152,6 +152,10 @@ final class Ledger extends ChangeNotifier {
       if (c.income == income && !c.archived) c,
   ];
 
+  /// Whether [id] is an account of this book, archived ones included.
+  bool hasAccount(String id) =>
+      (_accountIndex ??= {for (final a in _accounts) a.id: a}).containsKey(id);
+
   Account account(String id) {
     final accounts = _accountIndex ??= {for (final a in _accounts) a.id: a};
     return accounts[id] ?? Account(id, id, AccountKind.bank, 0);

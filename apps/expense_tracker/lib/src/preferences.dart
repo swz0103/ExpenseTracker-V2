@@ -119,7 +119,10 @@ final class Preferences extends ChangeNotifier {
     if (file == null) return;
     try {
       file.parent.createSync(recursive: true);
-      file.writeAsStringSync(
+      // Written beside, then renamed over: a crash part way leaves the
+      // old file whole rather than half a new one.
+      final next = File('${file.path}.new');
+      next.writeAsStringSync(
         jsonEncode({
           'appearance': _appearance.name,
           'haptics': _haptics,
@@ -134,6 +137,7 @@ final class Preferences extends ChangeNotifier {
         }),
         flush: true,
       );
+      next.renameSync(file.path);
     } on Object {
       // Kept in memory for this run; the next change tries again.
     }

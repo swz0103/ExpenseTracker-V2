@@ -129,6 +129,18 @@ void main() {
     expect(importInvoices(ledger, text, account: 'card').entries, isEmpty);
   });
 
+  test('invoices are not recorded on a foreign-currency account', () {
+    final ledger = demoLedger()
+      ..addAccount(
+        const Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
+      );
+    const text = 'M|手機條碼|/ABC123|20261003|12345678|全聯福利中心|AB00000001|268|開立\n';
+    final found = importInvoices(ledger, text, account: 'usd');
+    expect(found.entries, isEmpty);
+    expect(found.skipped, 1);
+    expect(found.problems, isNotEmpty);
+  });
+
   test("the ministry's invoice CSV adds up each invoice's items", () {
     final ledger = demoLedger();
     const text =

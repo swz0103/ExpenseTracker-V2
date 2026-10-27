@@ -59,6 +59,13 @@ class _AccountPageState extends State<AccountPage> {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
+        // Gone by another way, such as a restore: nothing to show.
+        if (!ledger.hasAccount(widget.accountId)) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => widget.nav.back(),
+          );
+          return const SizedBox.shrink();
+        }
         final account = ledger.account(widget.accountId);
         final balance = ledger.balance(account.id);
         final code = account.currency;
@@ -87,7 +94,15 @@ class _AccountPageState extends State<AccountPage> {
               account.name,
               onBack: widget.nav.back,
               trailing: TextButton(
-                onPressed: () => editAccount(context, ledger, account: account),
+                onPressed: () async {
+                  final gone = await editAccount(
+                    context,
+                    ledger,
+                    account: account,
+                  );
+                  // Deleted or archived: back to the accounts.
+                  if (gone) widget.nav.back();
+                },
                 style: TextButton.styleFrom(foregroundColor: Hue.accent),
                 child: const Text('編輯'),
               ),

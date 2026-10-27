@@ -28,6 +28,18 @@ void main() {
     expect(again.nudgeHour, 22);
   });
 
+  test('a save leaves one whole file behind', () {
+    final directory = Directory.systemTemp.createTempSync('preferences-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final file = File('${directory.path}/preferences.json');
+    final preferences = Preferences(file: file)..update(haptics: false);
+    preferences.driveBackup(DateTime.utc(2026, 10, 27), 4);
+    expect(File('${file.path}.new').existsSync(), isFalse);
+    final again = Preferences(file: file);
+    expect(again.haptics, isFalse);
+    expect(again.driveRevision, 4);
+  });
+
   test('a broken file leaves the defaults', () {
     final directory = Directory.systemTemp.createTempSync('preferences-');
     addTearDown(() => directory.deleteSync(recursive: true));

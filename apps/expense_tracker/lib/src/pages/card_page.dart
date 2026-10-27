@@ -89,6 +89,11 @@ class CardPage extends StatelessWidget {
     return ListenableBuilder(
       listenable: ledger,
       builder: (context, _) {
+        // Gone by another way, such as a restore: nothing to show.
+        if (!ledger.hasAccount(accountId)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => nav.back());
+          return const SizedBox.shrink();
+        }
         final card = ledger.account(accountId);
         final today = ledger.today;
         final (start, end, due) = ledger.statement(card);
@@ -122,7 +127,15 @@ class CardPage extends StatelessWidget {
               card.name,
               onBack: nav.back,
               trailing: TextButton(
-                onPressed: () => editAccount(context, ledger, account: card),
+                onPressed: () async {
+                  final gone = await editAccount(
+                    context,
+                    ledger,
+                    account: card,
+                  );
+                  // Deleted or archived: back to the accounts.
+                  if (gone) nav.back();
+                },
                 style: TextButton.styleFrom(foregroundColor: Hue.accent),
                 child: const Text('編輯'),
               ),

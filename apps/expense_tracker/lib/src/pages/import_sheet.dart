@@ -49,10 +49,15 @@ class _ImportSheetState extends State<_ImportSheet> {
 
   String _first() {
     final open = widget.ledger.openAccounts;
-    for (final a in open) {
-      if (widget.invoices && a.kind == AccountKind.card) return a.id;
+    if (!widget.invoices) return open.first.id;
+    final home = [
+      for (final a in open)
+        if (a.currency == homeCode) a,
+    ];
+    for (final a in home) {
+      if (a.kind == AccountKind.card) return a.id;
     }
-    return open.first.id;
+    return (home.isEmpty ? open : home).first.id;
   }
 
   @override
@@ -100,7 +105,11 @@ class _ImportSheetState extends State<_ImportSheet> {
       title: widget.invoices ? '用哪個帳戶付款' : '找不到帳戶時記到',
       selected: _account,
       columns: 3,
-      options: accountOptions(ledger),
+      // Invoices are in NT$: only accounts in it can pay them.
+      options: accountOptions(
+        ledger,
+        currency: widget.invoices ? homeCode : null,
+      ),
     );
     if (picked == null || !mounted) return;
     _account = picked;

@@ -20,16 +20,18 @@ Future<bool> ensureAccount(BuildContext context, Ledger ledger) async {
 }
 
 /// Opens the account form: a new account, or [account] to change. Saving
-/// writes to [ledger] directly.
-Future<void> editAccount(
+/// writes to [ledger] directly. True when the account was deleted or
+/// archived, so the page showing it should go back.
+Future<bool> editAccount(
   BuildContext context,
   Ledger ledger, {
   Account? account,
-}) {
-  return showSheet<void>(
+}) async {
+  final gone = await showSheet<bool>(
     context,
     (_) => _AccountEditor(ledger: ledger, account: account),
   );
+  return gone ?? false;
 }
 
 class _AccountEditor extends StatefulWidget {
@@ -162,7 +164,7 @@ class _AccountEditorState extends State<_AccountEditor> {
       );
     }
     ledger.updateAccount(old.copyWith(archived: !old.archived));
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(!old.archived);
   }
 
   Future<void> _remove() async {
@@ -171,7 +173,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final ok = await confirm(context, '刪除「${old.name}」？', '刪除', danger: true);
     if (!ok || !mounted) return;
     widget.ledger.removeAccount(old.id);
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
   }
 
   Future<void> _pickDay(bool closing) async {

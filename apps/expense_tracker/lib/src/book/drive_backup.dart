@@ -68,7 +68,15 @@ final class IoDriveHttp implements DriveHttp {
       if (saveTo != null && ok) {
         final sink = saveTo.openWrite();
         try {
-          await sink.addStream(response);
+          // A body that stops arriving for a minute is given up on.
+          await sink.addStream(
+            response.timeout(
+              const Duration(minutes: 1),
+              onTimeout: (sink) => sink.addError(
+                const HttpException('The download stopped arriving.'),
+              ),
+            ),
+          );
           await sink.flush();
         } finally {
           await sink.close();
@@ -108,10 +116,13 @@ enum DriveProblem {
 }
 
 final class DriveException implements Exception {
-  const DriveException(this.problem, [this.detail]);
+  const DriveException(this.problem, [this.detail, this.status]);
 
   final DriveProblem problem;
   final String? detail;
+
+  /// Drive's HTTP status, when it answered.
+  final int? status;
 
   /// What to tell the person.
   String get message => switch (problem) {
@@ -153,12 +164,29 @@ final class DriveBackup {
   Future<bool> signIn({bool interactive = true}) async =>
       await _access(interactive: interactive) != null;
 
-  /// Forgets the token this run holds, so the next request asks Google.
+  /// Takes back the access Google gave this app, so the next sign-in asks
+  /// for an account again; best effort, offline it only forgets here.
   Future<void> signOut() async {
-    final token = _cached;
+    String? token;
+    try {
+      token = _cached ?? await _token(interactive: false);
+    } on Object {
+      token = null;
+    }
     _cached = null;
     _folder = null;
-    if (token != null) await _forget(token);
+    if (token == null) return;
+    try {
+      await _http.send(
+        'POST',
+        Uri.parse('https://oauth2.googleapis.com/revoke'),
+        headers: {'content-type': 'application/x-www-form-urlencoded'},
+        text: 'token=${Uri.encodeQueryComponent(token)}',
+      );
+    } on Object {
+      // Revoked later from the Google account's settings, if wanted.
+    }
+    await _forget(token);
   }
 
   Future<String?> _access({required bool interactive}) async {
@@ -207,6 +235,7 @@ final class DriveBackup {
         throw DriveException(
           DriveProblem.refused,
           '${response.status} ${_reason(response.body)}',
+          response.status,
         );
       }
       return response;
@@ -258,14 +287,20 @@ final class DriveBackup {
         (jsonDecode(made.body) as Map<String, Object?>)['id']! as String;
   }
 
-  /// The backups in the folder, newest first.
-  Future<List<DriveFile>> list({bool interactive = true}) async {
+  /// The backups in the folder, newest first; with [ledger], only those
+  /// of that ledger.
+  Future<List<DriveFile>> list({
+    bool interactive = true,
+    String? ledger,
+  }) async {
     final folder = await _folderId(interactive: interactive);
     final response = await _send(
       'GET',
       Uri.parse(_api).replace(
         queryParameters: {
-          'q': "'${_quote(folder)}' in parents and trashed=false",
+          'q':
+              "'${_quote(folder)}' in parents and trashed=false"
+              '${ledger == null ? '' : " and appProperties has { key='ledger' and value='${_quote(ledger)}' }"}',
           'fields': 'files(id,name,size,modifiedTime)',
           'orderBy': 'modifiedTime desc',
           'pageSize': '100',
@@ -291,9 +326,14 @@ final class DriveBackup {
     ]..sort((a, b) => b.modified.compareTo(a.modified));
   }
 
-  /// Uploads [file] into the folder, then keeps only the newest [keep].
+  /// Uploads [file] into the folder, marked as a backup of [ledger], then
+  /// moves that ledger's older backups beyond the newest [keep] to the
+  /// Drive trash. Backups of other ledgers, and those made before backups
+  /// were marked, are never touched. Pruning is best effort: the upload
+  /// stands even when it fails.
   Future<void> upload(
     File file, {
+    required String ledger,
     bool interactive = true,
     int keep = 5,
   }) async {
@@ -314,6 +354,7 @@ final class DriveBackup {
         'name': name,
         'parents': [folder],
         'mimeType': 'application/octet-stream',
+        'appProperties': {'ledger': ledger},
       }),
     );
     final location = start.headers['location'];
@@ -327,13 +368,30 @@ final class DriveBackup {
       headers: {'content-type': 'application/octet-stream'},
       file: file,
     );
-    final kept = await list(interactive: interactive);
-    for (final old in kept.skip(keep)) {
+    try {
+      final kept = await list(interactive: interactive, ledger: ledger);
+      for (final old in kept.skip(keep)) {
+        await _trash(old.id, interactive: interactive);
+      }
+    } on DriveException {
+      // Tried again after the next upload.
+    }
+  }
+
+  /// Moves [id] to the Drive trash, where it stays restorable for 30 days;
+  /// one already gone is fine.
+  Future<void> _trash(String id, {required bool interactive}) async {
+    try {
       await _send(
-        'DELETE',
-        Uri.parse('$_api/${Uri.encodeComponent(old.id)}'),
+        'PATCH',
+        Uri.parse('$_api/${Uri.encodeComponent(id)}')
+            .replace(queryParameters: {'fields': 'id'}),
         interactive: interactive,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+        text: jsonEncode({'trashed': true}),
       );
+    } on DriveException catch (error) {
+      if (error.status != 404) rethrow;
     }
   }
 

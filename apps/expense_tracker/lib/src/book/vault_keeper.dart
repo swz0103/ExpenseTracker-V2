@@ -75,6 +75,10 @@ final class VaultKeeper implements Keeper {
   /// The ledger's revision: it changes with every change kept.
   int get revision => _vault.store.revision;
 
+  /// The ledger's own id, the same in its backups and on another phone it
+  /// is restored to.
+  String get ledgerId => _vault.keys.keyring.id;
+
   /// Writes a backup with the receipt photos where files wait to be handed
   /// over, gives it to [use], then deletes it.
   Future<T> withBackup<T>(Future<T> Function(File file) use) async {

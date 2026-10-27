@@ -294,7 +294,13 @@ ThemeData appTheme() {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: dark ? Hue.surface : Hue.ink,
-      contentTextStyle: TextStyle(color: dark ? Hue.ink : Hue.white),
+      // Named outright: this style replaces the theme's, font included.
+      contentTextStyle: TextStyle(
+        fontFamily: 'Nunito',
+        fontFamilyFallback: const ['Huninn'],
+        fontSize: 14,
+        color: dark ? Hue.ink : Hue.white,
+      ),
       elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
