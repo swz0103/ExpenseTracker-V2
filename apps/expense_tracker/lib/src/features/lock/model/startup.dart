@@ -166,7 +166,12 @@ final class Startup extends ChangeNotifier {
         ? await codec.unlockWithRecovery(header.keyring, secret)
         : await codec.unlockWithPassword(header.keyring, secret);
     final receipts = Directory('${directory.path}/receipts');
-    final open = await _vault.restore(keys, (staging) async {
+    // From settings, the closed ledger is replaced; a backup of it was
+    // kept first.
+    final replacing = _state is Locked;
+    final open = await _vault.restore(keys, replacing: replacing, (
+      staging,
+    ) async {
       await LedgerBackup.restore(
         file: file,
         keys: keys,
@@ -222,6 +227,29 @@ final class Startup extends ChangeNotifier {
 
   /// The device's key was lost and its old entry must be replaced.
   var _reEnrol = false;
+
+  /// Closes the database, and opens the lock screen on restoring a
+  /// backup in place of this ledger: from settings, after a backup of
+  /// this one was kept.
+  void lockToRestore() {
+    _restoreNext = true;
+    lock();
+  }
+
+  /// Whether the lock screen should open on restoring a backup; asked
+  /// once.
+  bool takeRestore() {
+    final next = _restoreNext;
+    _restoreNext = false;
+    return next;
+  }
+
+  var _restoreNext = false;
+
+  /// When the backup at [path] was taken and how many records it holds,
+  /// read without opening it.
+  Future<BackupHeader> peek(String path) =>
+      LedgerBackup.readHeader(File(path));
 
   /// Closes the database.
   void lock() {

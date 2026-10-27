@@ -232,6 +232,32 @@ void main() {
       expect(rowsOf(reopened.store), rowsOf(source.store));
     });
 
+    test('a ledger is replaced only when asked, and kept on a failure', () async {
+      final (open, _) = await target.create('another password');
+      open.store.write((w) => w.put('account', 'old', '{"name":"舊"}'));
+      open.close();
+      await expectLater(
+        target.restore(source.keys, (staging) async {
+          await copy(staging);
+          throw StateError('connection lost');
+        }, replacing: true),
+        throwsStateError,
+      );
+      final kept = await target.unlockWithPassword('another password');
+      expect(rowsOf(kept.store).single.$2, 'old');
+      kept.close();
+
+      final restored = await target.restore(
+        source.keys,
+        copy,
+        replacing: true,
+      );
+      restored.close();
+      final reopened = await target.unlockWithPassword(password);
+      addTearDown(reopened.close);
+      expect(rowsOf(reopened.store), rowsOf(source.store));
+    });
+
     test('an existing ledger is never replaced', () async {
       final (open, _) = await target.create(password);
       open.close();

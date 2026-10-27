@@ -18,6 +18,7 @@ class RestoreView extends StatelessWidget {
     this.onPickDrive,
     this.onBack,
     this.problem,
+    this.about,
   });
 
   /// The backup's path: typed, or filled in by [onPickFile].
@@ -39,6 +40,9 @@ class RestoreView extends StatelessWidget {
   /// Back to the first screen; none when there is nothing to go back to.
   final VoidCallback? onBack;
   final String? problem;
+
+  /// When the chosen backup was taken and what it holds.
+  final String? about;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +67,12 @@ class RestoreView extends StatelessWidget {
             hint: '備份檔路徑，例如 C:\\Users\\me\\記帳本.etbk',
             hidden: false,
             boxed: true,
+          ),
+        if (about case final about?)
+          Text(
+            about,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13),
           ),
         if (drive != null)
           OutlinedButton(

@@ -44,7 +44,6 @@ class AppearanceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHead('外觀與操作'),
         MenuPanel([
           MenuRow(
             glyph: Glyph.moon,

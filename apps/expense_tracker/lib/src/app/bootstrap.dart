@@ -25,6 +25,8 @@ import '../features/lock/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/recovery_code.dart';
 import 'shell.dart';
+import '../core/away_clock.dart';
+import '../core/look/theme.dart';
 import '../core/perf.dart';
 import 'platform.dart';
 import '../core/preferences.dart';
@@ -125,7 +127,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// How long the app may sit in the background before the ledger locks.
   static const _away = Duration(minutes: 5);
 
-  DateTime? _leftAt;
+  /// How long the app was away, by a clock that cannot be set back.
+  final _awayClock = AwayClock();
+
+  /// Covers the screens while the app is off screen, so the recent apps
+  /// list shows no amounts.
+  var _covered = false;
 
   late final _journal = TableJournal(
     widget.vault.store,
@@ -268,16 +275,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
+      case AppLifecycleState.inactive:
+        // Covered first, before the phone takes the picture for the
+        // recent apps list.
+        if (!_covered) setState(() => _covered = true);
       case AppLifecycleState.paused || AppLifecycleState.hidden:
-        _leftAt ??= DateTime.now();
+        _awayClock.leave();
+        if (!_covered) setState(() => _covered = true);
       case AppLifecycleState.resumed:
+        if (_covered) setState(() => _covered = false);
         _ledger.then((ledger) => ledger.checkDay()).ignore();
         _market?.refresh().ignore();
-        final left = _leftAt;
-        _leftAt = null;
-        if (left != null &&
-            !widget.startup.passwordless &&
-            DateTime.now().difference(left) >= _away) {
+        if (_awayClock.back(_away) && !widget.startup.passwordless) {
           unawaited(_keeper.lock());
         }
       default:
@@ -296,7 +305,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      return AppShell(
+      final shell = AppShell(
         ledger: ledger,
         services: Services(
           keeper: _keeper,
@@ -310,6 +319,32 @@ class _OpenedLedgerState extends State<OpenedLedger>
           market: _market,
         ),
       );
+      return Stack(
+        fit: StackFit.expand,
+        children: [shell, if (_covered) const _Cover()],
+      );
     },
+  );
+}
+
+/// What the recent apps list shows of an open ledger: the app's name on
+/// a plain panel, without a figure.
+class _Cover extends StatelessWidget {
+  const _Cover();
+
+  @override
+  Widget build(BuildContext context) => const ColoredBox(
+    color: Hue.panel,
+    child: Center(
+      child: Text(
+        '記帳本',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Hue.muted,
+          decoration: TextDecoration.none,
+        ),
+      ),
+    ),
   );
 }

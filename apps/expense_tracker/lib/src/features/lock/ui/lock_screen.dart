@@ -63,9 +63,12 @@ class _LockScreenState extends State<LockScreen> {
   bool get _welcome =>
       widget.startup.state is NeedsSetup && !_restoring && !_withPassword;
 
-  /// A ledger without a password, opening by itself.
+  /// A ledger without a password, opening by itself, unless a backup is
+  /// being restored in its place.
   bool get _quiet =>
-      widget.startup.state is Locked && widget.startup.passwordless;
+      widget.startup.state is Locked &&
+      widget.startup.passwordless &&
+      !_restoring;
 
   /// This phone can open the ledger with a fingerprint or face.
   bool get _biometric => switch (widget.startup.state) {
@@ -83,9 +86,15 @@ class _LockScreenState extends State<LockScreen> {
   /// the person chose to restore a backup instead.
   Timer? _autoStart;
 
+  /// When the chosen backup was taken and what it holds.
+  String? _about;
+
   @override
   void initState() {
     super.initState();
+    // Asked for in settings: restore a backup in place of this ledger.
+    _restoring = widget.startup.takeRestore();
+    if (_restoring) return;
     if (_welcome) {
       _autoStart = Timer(const Duration(milliseconds: 1600), () {
         if (mounted && _welcome) unawaited(_start());
@@ -225,6 +234,24 @@ class _LockScreenState extends State<LockScreen> {
     if (path != _picked) _forgetPicked();
     _picked = path;
     setState(() => _file.text = path);
+    await _describe(path);
+  }
+
+  /// Says when the backup at [path] was taken and how many records it
+  /// holds, before its password is asked for.
+  Future<void> _describe(String path) async {
+    String about;
+    try {
+      final header = await widget.startup.peek(path);
+      final at = header.createdAt.toLocal();
+      String two(int n) => n.toString().padLeft(2, '0');
+      about =
+          '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)}'
+          ' 的備份 · ${header.rows} 筆資料';
+    } on Object {
+      about = '這個檔案不是記帳本的備份';
+    }
+    if (mounted) setState(() => _about = about);
   }
 
   /// Lists the backups in 記帳本備份 on Google Drive, after Google's
@@ -273,6 +300,7 @@ class _LockScreenState extends State<LockScreen> {
         _busy = false;
         _file.text = into.path;
       });
+      await _describe(into.path);
     } on DriveException catch (error) {
       _fail(error.message);
     } on Object catch (error) {
@@ -307,7 +335,27 @@ class _LockScreenState extends State<LockScreen> {
           _recovery = false;
           _problem = null;
         })
+      : _restoring
+      ? _keepLedger
       : null;
+
+  /// Restoring from settings given up: back to this ledger, which opens
+  /// by itself when it has no password.
+  void _keepLedger() {
+    _forgetPicked();
+    setState(() {
+      _restoring = false;
+      _recovery = false;
+      _problem = null;
+      _about = null;
+      _file.clear();
+      _password.clear();
+    });
+    if (_quiet) {
+      setState(() => _busy = true);
+      unawaited(_openQuietly());
+    }
+  }
 
   /// Between the password and the recovery code.
   void _toggleRecovery() => setState(() {
@@ -363,6 +411,7 @@ class _LockScreenState extends State<LockScreen> {
         onPickFile: widget.sources.pickFile == null ? null : _pickBackup,
         onPickDrive: widget.sources.drive == null ? null : _pickDrive,
         onBack: _back,
+        about: _about,
       );
     } else if (_recovery) {
       form = RecoveryView(
@@ -390,6 +439,10 @@ class _LockScreenState extends State<LockScreen> {
       canPop: !away,
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
+        if (_restoring && widget.startup.state is Locked) {
+          _keepLedger();
+          return;
+        }
         setState(() {
           _withPassword = false;
           _restoring = false;

@@ -258,7 +258,7 @@ void main() {
       ('預算管理', '分類與標籤額度'),
       ('定期交易', '管理固定項目'),
       ('分類管理', '支出分類'),
-      ('設定與資料', '匯出全部'),
+      ('設定與資料', '匯入與匯出'),
     ]) {
       await tester.tap(find.text(tool));
       await tester.pumpAndSettle();
@@ -266,6 +266,15 @@ void main() {
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
     }
+    // A page of settings returns to the list of them.
+    await tester.tap(find.text('設定與資料'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('匯入與匯出'));
+    await tester.pumpAndSettle();
+    expect(find.text('匯出全部'), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.text('最近刪除'), findsOneWidget);
   });
 
   testWidgets('an expense is recorded with the calculator', (tester) async {

@@ -14,6 +14,20 @@ enum Section {
   labels,
 }
 
+/// The pages under 設定與資料, each with a back arrow to it.
+enum SettingsPart {
+  backup('備份與還原'),
+  exchange('匯入與匯出'),
+  reminders('通知與提醒'),
+  security('安全'),
+  appearance('外觀與操作'),
+  about('關於');
+
+  const SettingsPart(this.label);
+
+  final String label;
+}
+
 /// A page the app frame can open: a [Section], an account or a holding.
 /// Typed, so a page is told what it shows rather than parsing a key, and
 /// the frame can check the account or holding is still there.
@@ -66,6 +80,22 @@ final class HoldingPlace extends Place {
   int get hashCode => Object.hash(HoldingPlace, code);
 }
 
+/// A page of 設定與資料, which returns to it.
+final class SettingsPlace extends Place {
+  const SettingsPlace(this.part);
+
+  final SettingsPart part;
+
+  @override
+  Place get parent => Pages.settings;
+
+  @override
+  bool operator ==(Object other) => other is SettingsPlace && other.part == part;
+
+  @override
+  int get hashCode => Object.hash(SettingsPlace, part);
+}
+
 /// The places pages open, by name.
 abstract final class Pages {
   static const reports = SectionPlace(Section.reports);
@@ -78,6 +108,7 @@ abstract final class Pages {
 
   static Place account(String id) => AccountPlace(id);
   static Place holding(String code) => HoldingPlace(code);
+  static Place settingsPart(SettingsPart part) => SettingsPlace(part);
 }
 
 /// What a page may ask of the app frame.

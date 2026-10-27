@@ -39,4 +39,9 @@ abstract interface class Keeper {
   /// Closes the ledger once pending changes are kept, and returns to the
   /// lock screen.
   Future<void> lock();
+
+  /// Keeps a backup of this ledger with its photos in the app's backup
+  /// folder, then closes it and opens the lock screen on restoring
+  /// another backup in its place. Returns where the backup was kept.
+  Future<String> restoreAnother();
 }

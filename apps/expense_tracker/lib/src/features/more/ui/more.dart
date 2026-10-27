@@ -5,11 +5,10 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 
-/// 更多: what falls due as the main tile, the four tools with the figure
-/// each one is about, and the settings in a list.
+/// 更多: the four tools with the figure each one is about, and the
+/// settings in a list. What falls due is on 定期交易's tile.
 class MorePage extends StatelessWidget {
   const MorePage({super.key, required this.ledger, required this.nav});
 
@@ -33,27 +32,10 @@ class MorePage extends StatelessWidget {
           today.month,
         );
         final next = items.isEmpty ? null : items.first;
-        String shown(Recurring r) => ledger.orDots(recurringAmount(ledger, r));
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             const PageHeader('更多'),
-            Tile(
-              hero: true,
-              icon: Glyph.calendar,
-              label: due.isEmpty ? '即將扣款' : '已到期',
-              trailing: const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
-              value: '${items.length} 筆',
-              valueColor: due.isEmpty ? Hue.ink : Hue.negative,
-              size: 28,
-              sub: items.isEmpty
-                  ? '沒有待扣款項目'
-                  : [
-                      for (final r in items.take(3))
-                        '${ledger.nextLabel(r)} ${r.name} ${shown(r)}',
-                    ].join(' · '),
-              onTap: () => nav.open(Pages.recurring),
-            ),
             const SectionHead('分析與規劃'),
             TileRow([
               Tile(
@@ -88,7 +70,13 @@ class MorePage extends StatelessWidget {
               Tile(
                 icon: Glyph.recurring,
                 label: '定期交易',
-                value: next == null ? '—' : ledger.nextLabel(next),
+                // What is due shows here, not as a tile of its own.
+                value: due.isNotEmpty
+                    ? '${due.length} 筆到期'
+                    : next == null
+                    ? '—'
+                    : ledger.nextLabel(next),
+                valueColor: due.isEmpty ? Hue.ink : Hue.negative,
                 sub: next == null ? '沒有待扣款項目' : '下一筆 ${next.name}',
                 onTap: () => nav.open(Pages.recurring),
               ),
@@ -112,7 +100,7 @@ class MorePage extends StatelessWidget {
               MenuRow(
                 glyph: Glyph.sliders,
                 title: '設定與資料',
-                detail: '匯出、重設',
+                detail: '備份、還原、提醒',
                 vertical: 10,
                 onTap: () => nav.open(Pages.settings),
               ),
