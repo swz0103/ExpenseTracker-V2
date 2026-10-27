@@ -1,4 +1,5 @@
 import 'dart:collection' show UnmodifiableListView;
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:core/foundation_values.dart'
@@ -40,7 +41,9 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> moves = const {},
     DateTime? quotedOn,
     Map<String, String> receipts = const {},
+    Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
+       _drafts = {...drafts},
        _day = today,
        _quotedOn = quotedOn,
        _receipts = {...receipts},
@@ -101,7 +104,37 @@ final class Ledger extends ChangeNotifier {
   String? receiptOf(String id) => _receipts[id];
 
   /// Every receipt photo an entry keeps, deleted entries' included.
-  Set<String> get receiptFiles => {..._receipts.values};
+  Set<String> get receiptFiles => {
+    ..._receipts.values,
+    // A form put aside keeps the photo chosen for it.
+    for (final draft in _drafts.values)
+      if (_draftReceipt(draft) case final file?) file,
+  };
+
+  static String? _draftReceipt(String draft) {
+    try {
+      return (jsonDecode(draft) as Map<String, Object?>)['receipt'] as String?;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// The forms put aside in the composer, as JSON by tab, kept across a
+  /// restart of the app.
+  final Map<String, String> _drafts;
+
+  String? draft(String tab) => _drafts[tab];
+
+  /// Keeps the form put aside on [tab], or clears it when [json] is null.
+  void setDraft(String tab, String? json) {
+    if (_drafts[tab] == json) return;
+    if (json == null) {
+      _drafts.remove(tab);
+    } else {
+      _drafts[tab] = json;
+    }
+    _keep(Batch(drafts: {tab: json}));
+  }
 
   /// Gives the entry with [id] the receipt photo [file], or takes its
   /// photo away when null.
@@ -992,6 +1025,9 @@ final class Ledger extends ChangeNotifier {
     _receipts
       ..clear()
       ..addAll(fresh._receipts);
+    _drafts
+      ..clear()
+      ..addAll(fresh._drafts);
     _quotedOn = fresh._quotedOn;
     _day = fresh.today;
     _replay(lenient: true);

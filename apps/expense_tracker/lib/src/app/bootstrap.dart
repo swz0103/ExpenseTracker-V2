@@ -162,6 +162,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           withBackup: _keeper.withBackup<void>,
           revision: () => _keeper.revision,
           ledger: _keeper.ledgerId,
+          unmetered: androidUnmetered,
         )
       : null;
   Ledger? _loaded;

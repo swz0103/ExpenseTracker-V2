@@ -4,15 +4,35 @@ import 'dart:io';
 /// stopped part way: files waiting in `exports` to be handed over (a
 /// backup with photos, a CSV), and, in [cache], the camera's photo before
 /// it was sealed, the photo made smaller, and the copy of a chosen backup
-/// or file (`MainActivity.kt`). Runs at start, before anything is written
-/// there again.
-Future<void> clearLeftovers(Directory files, {Directory? cache}) async {
+/// or file (`PhotosPart.kt`, `FilesPart.kt`). Runs at start, before
+/// anything is written there again.
+///
+/// A photo the camera took while the phone closed the app is kept for a
+/// day for 記一筆 to take back (`receipt-leftover.jpg`), and the camera's
+/// own file while it may still be on its way there.
+Future<void> clearLeftovers(
+  Directory files, {
+  Directory? cache,
+  DateTime? now,
+}) async {
+  final at = now ?? DateTime.now();
+  bool older(FileSystemEntity entity, Duration than) {
+    try {
+      return at.difference(entity.statSync().modified) > than;
+    } on FileSystemException {
+      return true;
+    }
+  }
+
   final leftovers = <FileSystemEntity>[
     Directory('${files.path}/exports'),
     if (cache != null) ...[
-      Directory('${cache.path}/camera'),
+      for (final camera in [Directory('${cache.path}/camera')])
+        if (older(camera, const Duration(minutes: 5))) camera,
       File('${cache.path}/receipt-ready.jpg'),
       File('${cache.path}/restore.etbk'),
+      for (final kept in [File('${cache.path}/receipt-leftover.jpg')])
+        if (older(kept, const Duration(days: 1))) kept,
     ],
   ];
   for (final leftover in leftovers) {

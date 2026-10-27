@@ -275,7 +275,10 @@ final class RowStore {
       throw const StorageUnavailable(StorageProblem.wrongKey);
     }
     db.select('PRAGMA journal_mode = WAL');
-    db.execute('PRAGMA synchronous = FULL');
+    // In WAL mode NORMAL is still safe from crashes of the app; only a
+    // power cut in the moment after a save can lose that last save. FULL
+    // made every save wait for the disk, a dropped frame on slow phones.
+    db.execute('PRAGMA synchronous = NORMAL');
     db.execute('PRAGMA temp_store = MEMORY');
     // Hold the file for as long as this connection is open, so a second
     // isolate or process cannot write past this one.

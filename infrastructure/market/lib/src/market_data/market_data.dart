@@ -245,8 +245,11 @@ final class MarketDataGateway {
       final response = await _transport.get(uri);
       if (response.statusCode == 200 &&
           response.body.length <= marketResponseLimit) {
-        final snapshot = _Snapshot(response.body, now);
-        if (uri != bankRatesUri) {
+        final bank = uri == bankRatesUri;
+        // An exchange's snapshot keeps only its decoded rows, not the
+        // several MiB of text they came from.
+        final snapshot = _Snapshot(bank ? response.body : '', now);
+        if (!bank) {
           try {
             snapshot.decoded = await _decode(response.body);
           } on FormatException {
@@ -330,7 +333,8 @@ final class _Snapshot {
   final String body;
   final UtcInstant fetchedAt;
 
-  /// The exchange's rows as decoded JSON; null when they did not decode.
+  /// The exchange's rows as decoded JSON, until indexed; null when they
+  /// did not decode.
   Object? decoded;
   Map<String, Map<String, Object?>>? _rows;
   BankRates? bankRates;
@@ -358,6 +362,8 @@ final class _Snapshot {
       if (symbol is! String) continue;
       rows[symbol] = rows.containsKey(symbol) ? _duplicate : row;
     }
+    // Indexed once: the list is no longer needed.
+    this.decoded = null;
     return rows;
   }
 }

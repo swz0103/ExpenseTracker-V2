@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/ledger/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/calculator.dart';
@@ -52,11 +54,34 @@ final class _Draft {
 
   final Entry entry;
   final String? receipt;
+
+  String toJson() =>
+      jsonEncode({'entry': entryToJson(entry), 'receipt': ?receipt});
+
+  static _Draft? read(String? json) {
+    if (json == null) return null;
+    try {
+      final map = jsonDecode(json) as Map<String, Object?>;
+      return _Draft(
+        entryFromJson(map['entry']! as Map<String, Object?>),
+        map['receipt'] as String?,
+      );
+    } on Object {
+      return null;
+    }
+  }
 }
 
-/// Forms put aside with 暫存, by tab, kept with the ledger they were
-/// written for: another book opened in the same run starts with none.
-final _draftsOf = Expando<Map<ComposeMode, _Draft>>('drafts');
+/// Forms put aside with 暫存, by tab, kept in the ledger they were
+/// written for, so they outlast the app being closed by the phone.
+extension type const _Drafts(Ledger ledger) {
+  _Draft? operator [](ComposeMode tab) => _Draft.read(ledger.draft(tab.name));
+
+  void operator []=(ComposeMode tab, _Draft draft) =>
+      ledger.setDraft(tab.name, draft.toJson());
+
+  void remove(ComposeMode tab) => ledger.setDraft(tab.name, null);
+}
 
 /// How the composer was left, when not just closed.
 enum ComposeOutcome { saved, deleted, refund }
@@ -123,7 +148,7 @@ class Composer extends StatefulWidget {
   State<Composer> createState() => _ComposerState();
 }
 
-class _ComposerState extends State<Composer> {
+class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   late ComposeMode _mode;
   late EntryType _trade;
   late int _amount;
@@ -178,13 +203,22 @@ class _ComposerState extends State<Composer> {
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
-  Map<ComposeMode, _Draft> get _drafts => _draftsOf[_ledger] ??= {};
+  _Drafts get _drafts => _Drafts(_ledger);
+
+  /// The form was put aside as the app went to the background, in case
+  /// the phone closes it there; taken back when the app returns.
+  var _keptAway = false;
+
+  /// The draft that tab had before, put back when the app returns.
+  String? _before;
 
   Entry? get _refunded => widget.refundOf;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_takeLeftover());
     _mode = ComposeMode.of(widget.type);
     _trade = widget.type.index >= EntryType.buy.index
         ? widget.type
@@ -248,6 +282,7 @@ class _ComposerState extends State<Composer> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _note.dispose();
     super.dispose();
   }
@@ -784,6 +819,48 @@ class _ComposerState extends State<Composer> {
     );
   }
 
+  /// A receipt photo the camera took while the phone closed the app goes
+  /// with the next new entry.
+  Future<void> _takeLeftover() async {
+    final photos = widget.photos;
+    if (photos == null || widget.entry != null || _refunded != null) return;
+    final String? name;
+    try {
+      name = await photos.takeLeftover();
+    } on Object {
+      return;
+    }
+    if (name == null || !mounted) return;
+    setState(() => _receipt = name);
+  }
+
+  /// A new entry written part way is kept as the app leaves, so a phone
+  /// short of memory closing the app loses nothing: it is there, with
+  /// its photo, the next time 記一筆 opens. Back in time, it is taken
+  /// away again, unless it was put aside with 暫存 before.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.entry != null || _viewing || _refunded != null) return;
+    switch (state) {
+      case AppLifecycleState.paused || AppLifecycleState.hidden:
+        if (_keptAway || (_amount == 0 && _receipt == null)) return;
+        try {
+          final draft = _Draft(_build(), _receipt);
+          _before = _ledger.draft(_tab.name);
+          _drafts[_tab] = draft;
+          _keptAway = true;
+        } on Object {
+          // A form that cannot be built yet is not worth keeping.
+        }
+      case AppLifecycleState.resumed:
+        if (!_keptAway) return;
+        _keptAway = false;
+        _ledger.setDraft(_tab.name, _before);
+      default:
+        break;
+    }
+  }
+
   void _submit() {
     final problem = _check;
     if (problem != null) {
@@ -806,6 +883,7 @@ class _ComposerState extends State<Composer> {
   }
 
   void _putAside() {
+    _keptAway = false;
     _drafts[_tab] = _Draft(_build(), _receipt);
     Navigator.of(context).pop();
   }

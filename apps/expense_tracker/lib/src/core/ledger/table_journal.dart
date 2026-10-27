@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
@@ -32,6 +33,43 @@ const _keptInTrash = Duration(days: 30);
 /// and foreign accounts are valued offline.
 const _market = 'market';
 
+/// When each record was deleted, by `shelf/id`, so a deletion can be told
+/// from a record never kept (for a later sync); dropped when the id is
+/// kept again.
+const _gone = 'gone';
+
+/// Forms put aside in the composer, by tab ([Batch.drafts]).
+const _draft = 'draft';
+
+/// The version of the record rows this app writes; each row carries it as
+/// `_v`, with `_at`, when it was written. A row without `_v` is version 1.
+/// A newer version's row is refused rather than misread.
+const recordVersion = 1;
+
+/// The shelves whose deletions are noted in [_gone].
+const _noted = {
+  Shelf.account,
+  Shelf.category,
+  Shelf.entry,
+  Shelf.budget,
+  Shelf.recurring,
+};
+
+/// Brings a stored row up to [recordVersion], one version at a time; a
+/// change of a record's shape adds a step here.
+Map<String, Object?> upgradeRecord(String shelf, Map<String, Object?> json) {
+  final version = (json['_v'] as num?)?.toInt() ?? 1;
+  if (version > recordVersion) {
+    throw FormatException('A newer app wrote this $shelf ($version).');
+  }
+  // No step yet: version 1 is the first.
+  return json;
+}
+
+/// Above this many rows the JSON is decoded on a worker isolate, so the
+/// screen does not freeze while a large book opens.
+const _decodeApart = 2000;
+
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
 final class TableJournal implements Journal {
@@ -56,21 +94,34 @@ final class TableJournal implements Journal {
   @override
   Future<Ledger> load() => Perf.instance.timeLoad(() async {
     try {
-      return _load();
+      return await _load();
     } on StateError catch (error) {
       throw JournalFailure(error);
     }
   });
 
-  Ledger _load() {
+  Future<Ledger> _load() async {
     _start();
     final shelves = <String, List<StoredRow>>{};
     for (final row in _store.rows()) {
       (shelves[row.shelf] ??= []).add(row);
     }
+    final records = [
+      for (final shelf in Shelf.values)
+        if (shelf != Shelf.receipt) ...?shelves[shelf.name],
+    ];
+    final bodies = [for (final row in records) row.body];
+    List<Object?> decodeAll() => [for (final b in bodies) jsonDecode(b)];
+    final decoded = bodies.length > _decodeApart
+        ? await Isolate.run(decodeAll)
+        : decodeAll();
+    final json = <StoredRow, Map<String, Object?>>{
+      for (final (i, row) in records.indexed)
+        row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
+    };
     List<T> read<T>(Shelf shelf, T Function(Map<String, Object?>) from) => [
       for (final row in shelves[shelf.name] ?? const <StoredRow>[])
-        from(jsonDecode(row.body) as Map<String, Object?>),
+        from(json[row]!),
     ];
     final market = _marketFrom(shelves[_market] ?? const []);
     final today = _today();
@@ -107,6 +158,10 @@ final class TableJournal implements Journal {
       ],
       receipts: {
         for (final row in shelves[Shelf.receipt.name] ?? const <StoredRow>[])
+          row.id: row.body,
+      },
+      drafts: {
+        for (final row in shelves[_draft] ?? const <StoredRow>[])
           row.id: row.body,
       },
       journal: this,
@@ -146,25 +201,32 @@ final class TableJournal implements Journal {
   }
 
   void _write(Batch batch) {
-    String text(Map<String, Object?> json) => jsonEncode(json);
+    final at = DateTime.now().millisecondsSinceEpoch;
+    String text(Map<String, Object?> json) =>
+        jsonEncode({...json, '_v': recordVersion, '_at': at});
     _store.write((w) {
+      void keep(Shelf shelf, String id, Map<String, Object?> json) {
+        w.put(shelf.name, id, text(json));
+        if (_noted.contains(shelf)) w.drop(_gone, '${shelf.name}/$id');
+      }
+
       for (final a in batch.accounts) {
-        w.put(Shelf.account.name, a.id, text(accountToJson(a)));
+        keep(Shelf.account, a.id, accountToJson(a));
       }
       for (final c in batch.categories) {
-        w.put(Shelf.category.name, c.name, text(categoryToJson(c)));
+        keep(Shelf.category, c.name, categoryToJson(c));
       }
       for (final e in batch.entries) {
-        w.put(Shelf.entry.name, e.id, text(entryToJson(e)));
+        keep(Shelf.entry, e.id, entryToJson(e));
       }
       for (final b in batch.budgets) {
-        w.put(Shelf.budget.name, b.category, text(budgetToJson(b)));
+        keep(Shelf.budget, b.category, budgetToJson(b));
       }
       for (final r in batch.recurring) {
-        w.put(Shelf.recurring.name, r.id, text(recurringToJson(r)));
+        keep(Shelf.recurring, r.id, recurringToJson(r));
       }
       for (final t in batch.trash) {
-        w.put(Shelf.trash.name, t.entry.id, text(trashedToJson(t)));
+        keep(Shelf.trash, t.entry.id, trashedToJson(t));
       }
       for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
         if (file == null) {
@@ -175,8 +237,18 @@ final class TableJournal implements Journal {
       }
       for (final (shelf, id) in batch.dropped) {
         w.drop(shelf.name, id);
+        if (_noted.contains(shelf)) {
+          w.put(_gone, '${shelf.name}/$id', jsonEncode({'at': at}));
+        }
       }
-    });
+      for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
+        if (json == null) {
+          w.drop(_draft, tab);
+        } else {
+          w.put(_draft, tab, json);
+        }
+      }
+    }, counts: !batch.onlyDrafts);
   }
 
   /// Throws a [FormatException] for a record this app cannot read, so a
@@ -194,6 +266,16 @@ final class TableJournal implements Journal {
     } on Object {
       throw FormatException('Unreadable $shelf');
     }
+    if (shelf == _draft) {
+      final entry = json['entry'];
+      if (entry is! Map<String, Object?>) throw const FormatException('draft');
+      entryFromJson(upgradeRecord(shelf, entry));
+      return;
+    }
+    if (shelf == _gone) {
+      if (json['at'] is! num) throw const FormatException('gone');
+      return;
+    }
     if (shelf == _market) {
       if (id != 'quotes' && id != 'rates') throw FormatException(id);
       _marketFrom([StoredRow(0, shelf, id, body)]);
@@ -208,7 +290,7 @@ final class TableJournal implements Journal {
       Shelf.trash => trashedFromJson,
       _ => throw FormatException('Unknown shelf $shelf'),
     };
-    reader(json);
+    reader(upgradeRecord(shelf, json));
   }
 
   // Market data.
