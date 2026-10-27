@@ -2,6 +2,7 @@ import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
 import '../../../core/look/dialogs.dart';
+import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
@@ -49,11 +50,11 @@ class _AccountEditorState extends State<_AccountEditor> {
 
   /// The fields and what saving does.
   late final _f = AccountForm(widget.ledger, old: _old);
-  late final _name = TextEditingController(text: _f.name)
+  late final TextEditingController _name = TextEditingController(text: _f.name)
     ..addListener(() => _f.name = _name.text);
-  late final _balance = TextEditingController(text: _f.balance)
+  late final TextEditingController _balance = TextEditingController(text: _f.balance)
     ..addListener(() => _f.balance = _balance.text);
-  late final _limit = TextEditingController(text: _f.limit)
+  late final TextEditingController _limit = TextEditingController(text: _f.limit)
     ..addListener(() => _f.limit = _limit.text);
 
   /// The currencies offered first; the rest open from 更多.

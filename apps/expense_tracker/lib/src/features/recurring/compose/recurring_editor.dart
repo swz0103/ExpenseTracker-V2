@@ -39,7 +39,7 @@ class _RecurringEditor extends StatefulWidget {
 class _RecurringEditorState extends State<_RecurringEditor> {
   /// The fields and what saving does.
   late final _f = RecurringForm(widget.ledger, old: widget.item);
-  late final _name = TextEditingController(text: _f.name)
+  late final TextEditingController _name = TextEditingController(text: _f.name)
     ..addListener(() => _f.name = _name.text);
   String? _problem;
 
