@@ -19,7 +19,7 @@
 - 每個密文的 AAD 綁定 keyring id 與用途，搬移或交換 slot 會解密失敗。
 - Argon2id 參數只由程式決定，檔案內的 policy id 必須完全相符；`PasswordKdf.insecureForTests` 寫出的 keyring 正式版不會接受。
 - 解析時嚴格檢查欄位、長度與 canonical base64，任何偏差都是 `invalidFormat`。
-- `DeviceKeyWrapper` 已由 Android 端實作：App 的 `KeystoreDeviceKey`（`lib/src/platform.dart`）透過平台通道交給 `MainActivity.kt`，用需要指紋或臉部確認的 Keystore AES-GCM 金鑰包裝與解開。
+- `DeviceKeyWrapper` 已由 Android 端實作：App 的 `KeystoreDeviceKey`（`lib/src/app/platform.dart`）透過平台通道交給 `MainActivity.kt`，用需要指紋或臉部確認的 Keystore AES-GCM 金鑰包裝與解開。
 
 ## ledger_vault
 

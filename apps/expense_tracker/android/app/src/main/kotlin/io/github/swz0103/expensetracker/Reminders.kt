@@ -18,7 +18,7 @@ import org.json.JSONObject
 import java.util.Calendar
 
 /**
- * The app's notifications (lib/src/notifications.dart): each alert is an
+ * The app's notifications (lib/src/features/reminders/model/notifications.dart): each alert is an
  * alarm that posts it when due. The alerts are kept in preferences, so a
  * restart of the phone schedules them again.
  *

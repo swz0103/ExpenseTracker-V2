@@ -1,11 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-import 'src/app.dart';
-import 'src/demo/seed.dart';
-import 'src/look/phone_frame.dart';
-import 'src/pages/shell.dart';
-import 'src/preferences.dart';
-import 'src/services.dart';
+import 'src/app/app.dart';
+import 'src/app/demo/seed.dart';
+import 'src/core/look/phone_frame.dart';
+import 'src/app/shell.dart';
+import 'src/core/preferences.dart';
+import 'src/features/settings/model/services.dart';
 
 /// The web preview: the interface over made-up data in memory, never the
 /// encrypted ledger, shown at phone size on a wide screen.

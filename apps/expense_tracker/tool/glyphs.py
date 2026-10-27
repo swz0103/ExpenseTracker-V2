@@ -1,6 +1,6 @@
 """The app's icons, defined once.
 
-Writes lib/src/look/glyphs.dart (the painter the app uses) and, with
+Writes lib/src/core/look/glyphs.dart (the painter the app uses) and, with
 --sheet PATH, a PNG contact sheet for review. Run from the package root:
 
     python3 tool/glyphs.py [--sheet glyphs.png]
@@ -1040,7 +1040,7 @@ def sheet(path_out, px=48):
 
 
 if __name__ == "__main__":
-    with open("lib/src/look/glyphs.dart", "w") as fh:
+    with open("lib/src/core/look/glyphs.dart", "w") as fh:
         fh.write(dart())
     if "--sheet" in sys.argv:
         sheet(sys.argv[sys.argv.index("--sheet") + 1])

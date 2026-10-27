@@ -4,7 +4,7 @@
 
 ## 現況
 
-功能完成，介面可日常使用；剩下真機驗收。固定簽章與 Google Cloud 設定都已完成（OAuth 同意畫面為正式版）。架構見 [ADR-0001](adr/0001-target-architecture.md)，每輪的細節在 git 歷史與 PR #74–#106（PR #106 起依 `claude/plan-2026-10-27.md` 施工）。
+功能完成，介面可日常使用；剩下真機驗收。固定簽章與 Google Cloud 設定都已完成（OAuth 同意畫面為正式版）。架構見 [ADR-0001](adr/0001-target-architecture.md) 與 [ADR-0002](adr/0002-feature-folders.md)（依功能分資料夾），每輪的細節在 git 歷史與 PR #74–#106（PR #106 起依 `claude/plan-2026-10-27.md` 施工）。
 
 ## 已有功能
 
@@ -24,8 +24,8 @@
 
 ## 品質
 
-- 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1（`test/preferences_test.dart`）。
-- 系統元件（日期、時間選擇器、複製貼上）為繁體中文；字型涵蓋程式用到的每個中文字（`test/font_coverage_test.dart`）。
+- 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/app/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1（`test/core/preferences_test.dart`）。
+- 系統元件（日期、時間選擇器、複製貼上）為繁體中文；字型涵蓋程式用到的每個中文字（`test/app/font_coverage_test.dart`）。
 
 - 5 個模組加 App，同一份嚴格 lint；架構邊界、lockfile 一致性在 CI 檢查。
 - 發布安裝檔：main 的驗證通過後才建置；建置工作只能讀取 repo，只有另一個發布工作能寫 release，且它不會被之後的驗證或建置取消（見 [Android 建置](delivery/android.md#下載安裝檔)）。

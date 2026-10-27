@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 
-import 'src/book/leftovers.dart';
-import 'src/bootstrap.dart';
-import 'src/perf.dart';
-import 'src/platform.dart';
-import 'src/preferences.dart';
-import 'src/screen_privacy.dart';
+import 'src/features/backup/model/leftovers.dart';
+import 'src/app/bootstrap.dart';
+import 'src/core/perf.dart';
+import 'src/app/platform.dart';
+import 'src/core/preferences.dart';
+import 'src/core/screen_privacy.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`.

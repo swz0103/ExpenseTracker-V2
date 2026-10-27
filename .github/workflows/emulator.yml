@@ -13,8 +13,7 @@ on:
     paths:
       - '.github/workflows/emulator.yml'
       - 'apps/expense_tracker/integration_test/**'
-      - 'apps/expense_tracker/lib/src/book/**'
-      - 'apps/expense_tracker/lib/src/model/**'
+      - 'apps/expense_tracker/lib/src/core/ledger/**'
       - 'infrastructure/**'
       - 'packages/**'
   workflow_dispatch:
