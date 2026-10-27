@@ -6,15 +6,13 @@ import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../import/model/exchange.dart';
 import '../../../../core/ledger/ledger.dart';
-import '../../../../core/perf.dart';
 import '../../../../core/problems.dart';
 import '../../../import/ui/import_sheet.dart';
-import '../../../entries/ui/trash_sheet.dart';
 
-/// 紀錄: exporting a month or the whole book, importing, the diagnostics
-/// and what was deleted lately.
-class RecordsSection extends StatefulWidget {
-  const RecordsSection({super.key, required this.ledger, this.keeper});
+/// 匯入與匯出: exporting a month or the whole book as CSV, and importing
+/// a CSV or the e-invoices of a carrier.
+class ExchangeSection extends StatefulWidget {
+  const ExchangeSection({super.key, required this.ledger, this.keeper});
 
   final Ledger ledger;
 
@@ -22,10 +20,10 @@ class RecordsSection extends StatefulWidget {
   final Keeper? keeper;
 
   @override
-  State<RecordsSection> createState() => _RecordsSectionState();
+  State<ExchangeSection> createState() => _ExchangeSectionState();
 }
 
-class _RecordsSectionState extends State<RecordsSection> {
+class _ExchangeSectionState extends State<ExchangeSection> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
   Future<void> _copy(String text, String note) async {
@@ -54,7 +52,6 @@ class _RecordsSectionState extends State<RecordsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHead('紀錄'),
         MenuPanel([
           MenuRow(
             glyph: Glyph.calendar,
@@ -102,19 +99,6 @@ class _RecordsSectionState extends State<RecordsSection> {
               invoices: true,
               readFile: keeper?.readFile,
             ),
-          ),
-          if (keeper != null)
-            MenuRow(
-              glyph: Glyph.note,
-              title: '匯出診斷紀錄',
-              detail: '回報問題用',
-              onTap: () => _save('記帳本-診斷紀錄.txt', Perf.instance.text, '診斷紀錄'),
-            ),
-          MenuRow(
-            glyph: Glyph.reset,
-            title: '最近刪除',
-            detail: ledger.trash.isEmpty ? '沒有' : '${ledger.trash.length} 筆可放回',
-            onTap: () => showTrash(context, ledger),
           ),
         ]),
       ],

@@ -174,6 +174,13 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
+        SettingsPlace(:final part) => SettingsPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          services: widget.services,
+          part: part,
+        ),
         HoldingPlace(:final code) => HoldingPage(
           key: ValueKey(page),
           ledger: ledger,

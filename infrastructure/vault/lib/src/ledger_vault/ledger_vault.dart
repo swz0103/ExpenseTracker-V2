@@ -162,11 +162,17 @@ final class LedgerVault {
   /// Only then is it renamed into place, and the keyring, which is what
   /// makes a ledger exist, is written last. A failure or crash at any
   /// point leaves no ledger, so setup or restore can simply start again.
+  ///
+  /// With [replacing], a closed ledger already here is replaced, as when
+  /// a backup is restored from settings: until the copy has passed its
+  /// check the old ledger is untouched, and a failure before then keeps
+  /// it. The app keeps a backup of it first.
   Future<OpenVault> restore(
     UnlockedKeyring keys,
-    Future<void> Function(RowStore staging) fill,
-  ) async {
-    _requireAbsent();
+    Future<void> Function(RowStore staging) fill, {
+    bool replacing = false,
+  }) async {
+    if (!replacing) _requireAbsent();
     await directory.create(recursive: true);
     final staging = File('${directory.path}/ledger.db.restore');
     await _deleteDatabase(staging);

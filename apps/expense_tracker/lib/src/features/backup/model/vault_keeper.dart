@@ -220,4 +220,12 @@ final class VaultKeeper implements Keeper {
     await _beforeLock?.call();
     _startup.lock();
   }
+
+  @override
+  Future<String> restoreAnother() async {
+    await _beforeLock?.call();
+    final kept = await backUp(withPhotos: true);
+    _startup.lockToRestore();
+    return kept;
+  }
 }
