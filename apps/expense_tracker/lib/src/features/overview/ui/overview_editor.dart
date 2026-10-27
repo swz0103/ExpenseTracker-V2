@@ -30,8 +30,8 @@ class _OverviewEditorState extends State<_OverviewEditor> {
 
   void _move(int from, int to) {
     final next = [..._choices];
-    final moved = next.removeAt(from);
-    next.insert(to > from ? to - 1 : to, moved);
+    // [to] already counts the block taken out.
+    next.insert(to, next.removeAt(from));
     _keep(next);
   }
 
@@ -64,7 +64,7 @@ class _OverviewEditorState extends State<_OverviewEditor> {
           ReorderableListView(
             shrinkWrap: true,
             buildDefaultDragHandles: false,
-            onReorder: _move,
+            onReorderItem: _move,
             children: [
               for (final (i, (:block, :shown)) in _choices.indexed)
                 Material(
