@@ -256,6 +256,10 @@ final class TableJournal implements Journal {
     return true;
   }
 
+  /// The codes the last [refreshQuotes] found no close for: not quoted
+  /// by either exchange, or out of reach.
+  List<String> unquoted = const [];
+
   /// Fetches the latest close of each of [codes], for the holdings' value;
   /// one not found on TWSE is tried on TPEx. Returns whether any price
   /// changed.
@@ -268,6 +272,7 @@ final class TableJournal implements Journal {
     final names = {...kept.names};
     var quotedOn = kept.quotedOn;
     var changed = false;
+    final missed = <String>[];
     for (final code in codes) {
       try {
         var result = await gateway.stockClose(Listing(code));
@@ -278,7 +283,10 @@ final class TableJournal implements Journal {
         final price = close == null
             ? null
             : double.tryParse(close.decimalPrice);
-        if (close == null || price == null) continue;
+        if (close == null || price == null) {
+          missed.add(code);
+          continue;
+        }
         final day = DateTime.utc(
           close.asOf.year,
           close.asOf.month,
@@ -304,9 +312,11 @@ final class TableJournal implements Journal {
         if (name != null) names[code] = name;
         changed = true;
       } on Object {
+        missed.add(code);
         continue;
       }
     }
+    unquoted = List.unmodifiable(missed);
     if (changed) {
       _store.write(
         (w) => w.put(

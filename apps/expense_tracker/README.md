@@ -17,7 +17,7 @@
 | `core/look/`、`core/charts/`、`core/ui/` | 主題、圖示、共用元件、圖表、選項與計算機、紀錄列。 | `core/` |
 | `core/` 根目錄 | 導覽（`nav.dart`）、偏好設定、效能紀錄、錯誤說明、快速動作、螢幕隱私。 | `core/` |
 | `features/<功能>/` | `model/`（資料與服務）、`ui/`（頁面）、`compose/`（表單）。功能有：entries（記一筆、紀錄）、accounts、cards、investments、budgets、recurring、reports、overview、more、categories、import、reminders、backup、lock、settings。 | `core/`、其他功能；不能引用 `app/` |
-| `app/` | 組裝：`app.dart`、`bootstrap.dart`（正式）、`shell.dart`（底部分頁）、`platform.dart`（Android 通道）、`demo/`（網頁預覽的範例帳本）。 | 全部 |
+| `app/` | 組裝：`app.dart`、`bootstrap.dart`（正式）、`shell.dart`（底部分頁）、`android/`（Android 通道，每個部分一個檔案，`platform.dart` 一次匯出）、`demo/`（網頁預覽的範例帳本）。 | 全部 |
 
 `test/app/layers_test.dart` 守住上表的方向。測試資料夾跟著分：`test/core/`、`test/features/<功能>/`、`test/app/`。
 

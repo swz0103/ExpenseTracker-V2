@@ -6,7 +6,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
 import '../../backup/model/drive_backup.dart';
-import '../../../app/platform.dart';
+import '../model/restore_sources.dart';
 import '../model/startup.dart';
 import 'views/create_view.dart';
 import 'views/lock_parts.dart';
@@ -20,9 +20,16 @@ import 'views/welcome_view.dart';
 /// from a backup. A ledger with a password asks for it, a fingerprint or
 /// the recovery code; one without opens by itself.
 class LockScreen extends StatefulWidget {
-  const LockScreen({super.key, required this.startup});
+  const LockScreen({
+    super.key,
+    required this.startup,
+    this.sources = const RestoreSources(),
+  });
 
   final Startup startup;
+
+  /// The file picker and Google Drive, on a phone.
+  final RestoreSources sources;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -211,7 +218,9 @@ class _LockScreenState extends State<LockScreen> {
   /// Opens the system's file chooser; the chosen backup is copied where
   /// the app can read it.
   Future<void> _pickBackup() async {
-    final path = await androidPickFile();
+    final pick = widget.sources.pickFile;
+    if (pick == null) return;
+    final path = await pick();
     if (path == null || !mounted) return;
     if (path != _picked) _forgetPicked();
     _picked = path;
@@ -221,7 +230,10 @@ class _LockScreenState extends State<LockScreen> {
   /// Lists the backups in 記帳本備份 on Google Drive, after Google's
   /// sign-in, and downloads the one chosen into the cache.
   Future<void> _pickDrive() async {
-    final drive = _drive ??= androidDrive();
+    final make = widget.sources.drive;
+    final cache = widget.sources.cacheDirectory;
+    if (make == null || cache == null) return;
+    final drive = _drive ??= make();
     setState(() {
       _busy = true;
       _problem = null;
@@ -253,7 +265,7 @@ class _LockScreenState extends State<LockScreen> {
       if (chosen == null || !mounted) return;
       setState(() => _busy = true);
       _forgetPicked();
-      final into = File('${(await androidCacheDirectory()).path}/restore.etbk');
+      final into = File('${(await cache()).path}/restore.etbk');
       await drive.download(chosen.id, into);
       _picked = into.path;
       if (!mounted) return;
@@ -348,8 +360,8 @@ class _LockScreenState extends State<LockScreen> {
         problem: _problem,
         onSubmit: _submit,
         onToggleRecovery: _toggleRecovery,
-        onPickFile: Platform.isAndroid ? _pickBackup : null,
-        onPickDrive: Platform.isAndroid ? _pickDrive : null,
+        onPickFile: widget.sources.pickFile == null ? null : _pickBackup,
+        onPickDrive: widget.sources.drive == null ? null : _pickDrive,
         onBack: _back,
       );
     } else if (_recovery) {

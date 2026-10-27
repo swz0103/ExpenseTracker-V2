@@ -82,6 +82,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               widget.ledger.money(h.value),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
+            // Without a close the value is the buying price: said so.
+            if (!widget.ledger.hasQuote(h.code))
+              const Text('尚無收盤價，以成本估算', style: mutedSmall),
             const SizedBox(height: 4),
             AxisBar(
               value: h.gain,
@@ -104,8 +107,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
+    final market = widget.nav.market;
     return ListenableBuilder(
-      listenable: ledger,
+      listenable: Listenable.merge([ledger, ?market]),
       builder: (context, _) {
         final value = ledger.investValue;
         final cost = ledger.investCost;
@@ -116,7 +120,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         final tone = gain < 0 ? Hue.negative : Hue.positive;
         final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
         final today = ledger.today;
-        return ListView(
+        final list = ListView(
+          // Pulled down to fetch the closes again, even when empty.
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
@@ -161,9 +167,12 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     valueColor: ledger.dayChange < 0
                         ? Hue.negative
                         : Hue.positive,
-                    sub: ledger.quotedOn == null
-                        ? '連上網路後更新收盤價'
-                        : '${holdings.length} 檔 · 收盤價',
+                    sub: switch ((market?.problem, ledger.quotedOn)) {
+                      (final problem?, _) => problem,
+                      (_, null) => '連上網路後更新收盤價',
+                      _ when market?.busy ?? false => '更新收盤價中…',
+                      _ => '${holdings.length} 檔 · 下拉可更新',
+                    },
                   ),
                 ]),
                 for (final (title, etf) in const [('ETF', true), ('個股', false)])
@@ -179,6 +188,11 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               ],
             ),
           ],
+        );
+        if (market == null) return list;
+        return RefreshIndicator(
+          onRefresh: () => market.refresh(force: true),
+          child: list,
         );
       },
     );

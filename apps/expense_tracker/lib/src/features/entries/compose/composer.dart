@@ -585,8 +585,14 @@ class _ComposerState extends State<Composer> {
   }
 
   Future<void> _newHolding() async {
-    final code = await askText(context, '新增標的代號');
-    if (code != null) setState(() => _holding = code.toUpperCase());
+    final typed = await askText(context, '新增標的代號');
+    if (typed == null) return;
+    final code = tidyCode(typed);
+    if (code.isEmpty) return;
+    setState(() => _holding = code);
+    if (!quotable(code) && mounted) {
+      showNote(context, '證交所與櫃買中心沒有「$code」這個代號，市值會以成本估算');
+    }
   }
 
   Future<void> _pickMerchant() async {

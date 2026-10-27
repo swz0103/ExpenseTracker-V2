@@ -21,7 +21,7 @@ lib/src/
 規則由 `test/app/layers_test.dart` 檢查：
 
 - `core/` 不引用任何功能，也不引用 `app/`。
-- 功能可以引用 `core/` 與其他功能，但不能引用 `app/`。暫時例外：鎖定畫面直接用 `app/platform.dart` 的選檔與雲端硬碟，PR-3 改成由外部傳入。
+- 功能可以引用 `core/` 與其他功能，但不能引用 `app/`；需要手機能力的功能（例如鎖定畫面的選檔與雲端硬碟）由 `app/` 傳入（`RestoreSources`）。
 - `core/ledger/` 只引用自己與 `core/perf.dart`；只有 `table_journal.dart` 碰儲存。
 - 各功能的 `model/` 與帳本都不碰畫面。
 - 範例帳本只在 `app/demo/`，正式入口碰不到（`test/app/entry_test.dart`）。
@@ -36,9 +36,11 @@ lib/src/
 
 每列 JSON 帶版本號，讀取時逐版升級；新增欄位一律選填、有預設值。同時加上修改時間與刪除標記，為日後可能的同步預留。
 
-### 4. 連接器（PR-3）
+### 4. 連接器（PR-3a 完成收盤價與匯率）
 
-收盤價、匯率、雲端硬碟、手機資料夾等外部來源統一成 `Connector`：狀態、上次成功時間、錯誤、節流、重試。使用者動作的失敗一律顯示；背景失敗一律記錄，並在相關頁面標示。長期服務由 App 層持有，不隨解鎖重建。
+收盤價、匯率、雲端硬碟、手機資料夾等外部來源統一成 `Connector`：狀態、上次成功時間、錯誤、節流、重試。使用者動作的失敗一律顯示；背景失敗一律記錄，並在相關頁面標示。依附帳本金鑰的服務（備份、雲端硬碟、日曆、通知、行情）跟著開啟的帳本建立與結束，這是刻意的：鎖定後它們不該再碰帳本；跨帳本的狀態（例如「正在備份」）放在全 App 共用的靜態欄位。
+
+Android 端（PR-3a）：`MainActivity.kt` 只留快速動作與隱藏畫面，其餘各一個 `ChannelPart`：`KeystorePart`、`PhotosPart`、`FilesPart`、`CalendarPart`、`RemindersPart`、`DrivePart`；Dart 端對應 `lib/src/app/android/`。頁面切換改用型別化的 `Place`（`core/nav.dart`），打開帳戶前確認它還在。
 
 ### 5. 背景收件匣與小工具快照（PR-7）
 

@@ -14,12 +14,14 @@ import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/leftovers.dart';
 import '../core/ledger/table_journal.dart';
+import '../features/investments/model/market_feed.dart';
 import '../features/backup/model/vault_keeper.dart';
 import '../features/reminders/model/calendar_sync.dart';
 import '../features/entries/model/receipt_photos.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/notifications.dart';
+import '../features/lock/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/recovery_code.dart';
 import 'shell.dart';
@@ -85,6 +87,13 @@ class VaultRoot extends StatelessWidget {
         final state => LockScreen(
           key: ValueKey(state.runtimeType),
           startup: startup,
+          sources: Platform.isAndroid
+              ? const RestoreSources(
+                  pickFile: androidPickFile,
+                  drive: androidDrive,
+                  cacheDirectory: androidCacheDirectory,
+                )
+              : const RestoreSources(),
         ),
       },
     ),
@@ -158,6 +167,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
+  /// Closing prices and rates, once the book is loaded.
+  MarketFeed? _market;
+
   /// The phone's receipt photos, sealed with the ledger's key.
   ReceiptPhotos? _receipts;
 
@@ -180,7 +192,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await FileBox.derive(widget.vault.keys, 'receipts'),
       );
     }
-    unawaited(_quotes(ledger));
+    final market = _market = MarketFeed(_journal, ledger);
+    unawaited(market.refresh());
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
@@ -208,29 +221,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
       }
     } on Object catch (error) {
       Perf.instance.problem('雲端硬碟備份', error);
-    }
-  }
-
-  Future<void> _quotes(Ledger ledger) async {
-    try {
-      final quotes = await _journal.refreshQuotes([
-        for (final h in ledger.holdings)
-          if (h.shares > 0) h.code,
-      ]);
-      final rates = await _journal.refreshRates();
-      if ((quotes || rates) && mounted) {
-        final market = _journal.market();
-        ledger.setMarket(
-          holdings: market.holdings,
-          moves: market.moves,
-          rates: market.rates,
-          quotedOn: market.quotedOn,
-        );
-      }
-    } on Object catch (error) {
-      // Prices and rates are only informational; the ledger may have
-      // locked.
-      Perf.instance.problem('收盤價與匯率', error);
     }
   }
 
@@ -268,6 +258,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _calendar?.stop();
     _notifier?.stop();
     _drive?.dispose();
+    _market?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -280,6 +271,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         _leftAt ??= DateTime.now();
       case AppLifecycleState.resumed:
         _ledger.then((ledger) => ledger.checkDay()).ignore();
+        _market?.refresh().ignore();
         final left = _leftAt;
         _leftAt = null;
         if (left != null &&
@@ -314,6 +306,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           quick: Platform.isAndroid ? quickAction : null,
           receipts: _receipts,
           drive: _drive,
+          market: _market,
         ),
       );
     },

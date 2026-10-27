@@ -1,6 +1,20 @@
 import 'package:core/foundation_values.dart';
 import 'package:domain/investments.dart';
 
+/// The codes the exchanges quote: 2330, 0050, 00679B, 6488.
+final _quotable = RegExp(r'^(?:[1-9][0-9]{3}|00[0-9]{2,4})[A-Z]?$');
+
+/// [code] as the exchanges write it: no spaces, upper case, without a
+/// `.TW` or `.TWO` ending.
+String tidyCode(String code) => code
+    .trim()
+    .toUpperCase()
+    .replaceAll(RegExp(r'\s+'), '')
+    .replaceFirst(RegExp(r'\.TWO?$'), '');
+
+/// Whether the exchanges quote [code], so its closing price can be fetched.
+bool quotable(String code) => _quotable.hasMatch(code);
+
 /// Suggested charges for the composer, from the ledger's own Taiwan rules
 /// (`TaiwanTradeCharges`, `TaiwanRates`), so what it suggests is what the
 /// ledger would work out. The person can still type what was charged.
