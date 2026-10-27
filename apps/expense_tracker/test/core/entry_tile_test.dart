@@ -1,4 +1,3 @@
-import 'package:expense_tracker/src/core/ledger/batch.dart';
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
