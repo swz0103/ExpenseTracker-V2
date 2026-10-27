@@ -12,13 +12,30 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 /// Times the app on an emulator in profile mode: writing and loading
-/// three years of entries in the encrypted ledger, then switching tabs,
-/// scrolling the records and opening the reports. The emulator workflow
-/// runs it and prints the timings.
+/// three years of entries in the encrypted ledger, then switching tabs and
+/// months, scrolling the records, opening the reports and saving one. Run
+/// with 3,600 entries (the figures kept since round 22) and with 10,000
+/// (keys starting `10k_`). The emulator workflow prints the timings.
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  binding.reportData = {};
 
   testWidgets('three years of entries', (tester) async {
+    await bench(binding, tester, count: 3600, key: (name) => name);
+  });
+
+  testWidgets('ten thousand entries', (tester) async {
+    await bench(binding, tester, count: 10000, key: (name) => '10k_$name');
+  });
+}
+
+Future<void> bench(
+  IntegrationTestWidgetsFlutterBinding binding,
+  WidgetTester tester, {
+  required int count,
+  required String Function(String name) key,
+}) async {
+  final report = binding.reportData!;
     final directory = Directory.systemTemp.createTempSync('bench-');
     final vault = LedgerVault(
       directory,
@@ -36,7 +53,6 @@ void main() {
     ];
     final earning = ledger.categoriesFor(income: true).first.name;
     final today = ledger.today;
-    const count = 3600;
     final entries = [
       for (var i = 0; i < count; i++)
         Entry(
@@ -56,11 +72,9 @@ void main() {
     final loading = Stopwatch()..start();
     ledger = await journal.load();
     loading.stop();
-    binding.reportData = {
-      'entries': count,
-      'write_ms': writing.elapsedMilliseconds,
-      'load_ms': loading.elapsedMilliseconds,
-    };
+    report[key('entries')] = count;
+    report[key('write_ms')] = writing.elapsedMilliseconds;
+    report[key('load_ms')] = loading.elapsedMilliseconds;
 
     await tester.pumpWidget(ExpenseApp(home: AppShell(ledger: ledger)));
     await tester.pumpAndSettle();
@@ -86,17 +100,31 @@ void main() {
       }
     }
 
-    Future<void> reports() async {
-      await tap('財務報表');
-      await scroll();
+    // Six months back on 總覽, each drawn in full.
+    final months = Stopwatch();
+    Future<void> monthsBack() async {
+      months.start();
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(find.byTooltip('上個月').first);
+        await tester.pumpAndSettle();
+      }
+      months.stop();
     }
 
-    await binding.watchPerformance(tabs, reportKey: 'tabs');
-    await binding.watchPerformance(scroll, reportKey: 'overview_scroll');
+    await binding.watchPerformance(monthsBack, reportKey: key('months'));
+    report[key('month_ms')] = months.elapsedMilliseconds ~/ 6;
+    await binding.watchPerformance(tabs, reportKey: key('tabs'));
+    await binding.watchPerformance(scroll, reportKey: key('overview_scroll'));
     await tap('紀錄');
-    await binding.watchPerformance(scroll, reportKey: 'records_scroll');
+    await binding.watchPerformance(scroll, reportKey: key('records_scroll'));
     await tap('更多');
-    await binding.watchPerformance(reports, reportKey: 'reports');
+    final opening = Stopwatch()..start();
+    await tap('財務報表');
+    opening.stop();
+    report[key('reports_open_ms')] = opening.elapsedMilliseconds;
+    await binding.watchPerformance(scroll, reportKey: key('reports'));
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pumpAndSettle();
 
     // One entry saved while the records show.
     final saving = Stopwatch();
@@ -109,9 +137,8 @@ void main() {
     }
 
     await tap('紀錄');
-    await binding.watchPerformance(save, reportKey: 'save');
-    binding.reportData!['save_ms'] = saving.elapsedMilliseconds;
+    await binding.watchPerformance(save, reportKey: key('save'));
+    report[key('save_ms')] = saving.elapsedMilliseconds;
     open.close();
     directory.deleteSync(recursive: true);
-  });
 }

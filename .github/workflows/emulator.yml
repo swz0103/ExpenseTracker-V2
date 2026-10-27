@@ -1,8 +1,9 @@
 name: Emulator timings
 
 # Runs the app in profile mode on an Android emulator and prints how long
-# loading three years of entries takes and how smooth scrolling and
-# switching pages are (integration_test/bench_test.dart). An emulator is
+# loading three years of entries takes (3,600 and 10,000 of them) and how
+# smooth scrolling and switching pages and months are
+# (integration_test/bench_test.dart). An emulator is
 # not a phone: the figures are for spotting a slow-down between changes.
 # Too slow for every pull request: it runs on demand and after a change to
 # main where speed is decided.
@@ -80,8 +81,11 @@ jobs:
           data = json.loads(path.read_text())
           print(json.dumps(data, ensure_ascii=False, indent=1))
           lines = ['| 項目 | 數值 |', '|---|---|']
-          for key in ('entries', 'write_ms', 'load_ms', 'save_ms'):
-              lines.append(f'| {key} | {data.get(key)} |')
+          # The plain figures first (entries, write, load, month, reports,
+          # save; 10k_ for ten thousand entries), then the frame timings.
+          for key, value in data.items():
+              if not isinstance(value, dict):
+                  lines.append(f'| {key} | {value} |')
           for key, value in data.items():
               if isinstance(value, dict):
                   lines.append(
