@@ -256,6 +256,13 @@ class _RecurringEditorState extends State<_RecurringEditor> {
             ),
           ),
           line(
+            '到期自動入帳',
+            Switch(
+              value: _f.auto,
+              onChanged: (on) => setState(() => _f.auto = on),
+            ),
+          ),
+          line(
             '暫停',
             Switch(
               value: !_f.active,

@@ -504,11 +504,16 @@ final class Recurring {
     this.end,
     this.income = false,
     this.merchant = '',
+    this.auto = false,
   });
 
   final String id;
   final String name;
   final int amount;
+
+  /// Booked by itself on its day, when the ledger is next opened, rather
+  /// than confirmed each time.
+  final bool auto;
 
   /// Day of the month it falls due, for monthly items without [start].
   final int day;
@@ -553,6 +558,7 @@ final class Recurring {
     String? account,
     String? category,
     bool? active,
+    bool? auto,
   }) => Recurring(
     id: id,
     name: name ?? this.name,
@@ -567,6 +573,7 @@ final class Recurring {
     end: end,
     income: income,
     merchant: merchant,
+    auto: auto ?? this.auto,
   );
 
   /// The days in [year]/[month] it falls due.

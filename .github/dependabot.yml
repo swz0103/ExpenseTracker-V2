@@ -1,0 +1,23 @@
+# Weekly updates: the actions (pinned by commit, so each update is a
+# reviewed change) and each Dart package's dependencies. Every update is a
+# pull request that has to pass the same checks; nothing merges by itself.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: pub
+    directories:
+      - /apps/expense_tracker
+      - /packages/core
+      - /packages/domain
+      - /infrastructure/market
+      - /infrastructure/storage
+      - /infrastructure/vault
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

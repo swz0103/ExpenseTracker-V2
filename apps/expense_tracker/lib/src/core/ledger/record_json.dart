@@ -190,6 +190,7 @@ Map<String, Object?> recurringToJson(Recurring r) => {
   if (r.end case final end?) 'end': _day(end),
   if (r.income) 'income': true,
   if (r.merchant.isNotEmpty) 'merchant': r.merchant,
+  if (r.auto) 'auto': true,
 };
 
 Recurring recurringFromJson(Map<String, Object?> json) => _read(
@@ -213,6 +214,7 @@ Recurring recurringFromJson(Map<String, Object?> json) => _read(
     },
     income: json['income'] == true,
     merchant: json['merchant'] as String? ?? '',
+    auto: json['auto'] == true,
   ),
 );
 

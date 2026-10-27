@@ -1,5 +1,6 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
+import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -74,5 +75,38 @@ void main() {
     expect(ledger.holding('2330')!.change, -5500);
     expect(ledger.holding('0050')!.change, 0);
     expect(ledger.dayChange, -5500);
+  });
+
+  test('items marked to book themselves are booked once, on their day', () {
+    Recurring item(String id, int day, {bool auto = true}) => Recurring(
+      id: id,
+      name: id,
+      amount: 1000,
+      day: day,
+      account: 'bank',
+      category: '居家',
+      auto: auto,
+      start: DateTime.utc(2026, 9, day),
+    );
+    final ledger = Ledger(
+      today: DateTime.utc(2026, 10, 4),
+      accounts: const [Account('bank', '銀行', AccountKind.bank, 50000)],
+      categories: const [Category('居家', 'home', Color(0xFF5B8DB0))],
+      entries: const [],
+      holdings: const [],
+      budgets: const [],
+      recurring: [
+        item('rent', 1),
+        item('gym', 3, auto: false),
+        item('phone', 10),
+      ],
+    );
+    expect(ledger.bookDue(), 1);
+    final rent = ledger.entries.single;
+    expect((rent.recurring, rent.date), ('rent', DateTime.utc(2026, 10, 1)));
+    expect(ledger.balance('bank'), 49000);
+    // Booked already; the gym is confirmed by hand, the phone not due.
+    expect(ledger.bookDue(), 0);
+    expect(ledger.due.map((r) => r.id), ['gym']);
   });
 }
