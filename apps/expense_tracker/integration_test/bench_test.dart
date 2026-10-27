@@ -123,8 +123,6 @@ Future<void> bench(
   opening.stop();
   report[key('reports_open_ms')] = opening.elapsedMilliseconds;
   await binding.watchPerformance(scroll, reportKey: key('reports'));
-  await tester.tap(find.byTooltip('返回').first);
-  await tester.pumpAndSettle();
 
   // One entry saved while the records show.
   final saving = Stopwatch();
