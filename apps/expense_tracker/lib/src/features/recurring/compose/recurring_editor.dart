@@ -75,11 +75,197 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     latest: DateTime.utc(_ledger.today.year + 5),
   );
 
+  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+
+  static String _date(DateTime d) => '${d.year}/${d.month}/${d.day}';
+
+  /// A choice inside the repeat card: a small tinted button with ▾.
+  Widget _chip(String text, String label, VoidCallback onTap) => TapArea(
+    label: label,
+    onTap: onTap,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Hue.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '$text ▾',
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    ),
+  );
+
+  Future<void> _pickEvery() async {
+    final picked = await pickOption<int>(
+      context,
+      title: '每幾${_f.unit.label}',
+      selected: _f.every,
+      columns: 4,
+      options: [
+        for (var n = 1; n <= 12; n++)
+          Option(n, '$n', Glyph.recurring, Hue.accent),
+      ],
+    );
+    if (picked != null) setState(() => _f.every = picked);
+  }
+
+  Future<void> _pickDayOfMonth() async {
+    final picked = await pickOption<int>(
+      context,
+      title: '每月幾日',
+      selected: _f.start.day,
+      columns: 7,
+      options: [
+        for (var d = 1; d <= 31; d++)
+          Option(d, '$d', Glyph.calendar, Hue.accent),
+      ],
+    );
+    if (picked != null) setState(() => _f.setDayOfMonth(picked));
+  }
+
+  Future<void> _pickWeekday() async {
+    final picked = await pickOption<int>(
+      context,
+      title: '星期幾',
+      selected: _f.start.weekday,
+      columns: 4,
+      options: [
+        for (var w = 1; w <= 7; w++)
+          Option(w, '週${_weekdays[w - 1]}', Glyph.calendar, Hue.accent),
+      ],
+    );
+    if (picked != null) setState(() => _f.setWeekday(picked));
+  }
+
+  /// The anchor of the rhythm: the day of the month, the weekday, or the
+  /// date in the year; a daily item has none.
+  Widget? _anchor() => switch (_f.unit) {
+    RepeatUnit.day => null,
+    RepeatUnit.week => _chip(
+      '週${_weekdays[_f.start.weekday - 1]}',
+      '星期幾',
+      _pickWeekday,
+    ),
+    RepeatUnit.month => _chip('${_f.start.day} 日', '每月幾日', _pickDayOfMonth),
+    RepeatUnit.year => _chip(
+      '${_f.start.month}/${_f.start.day}',
+      '每年哪一天',
+      () async {
+        final day = await _pick('每年哪一天', _f.start);
+        if (day != null) setState(() => _f.start = day);
+      },
+    ),
+  };
+
+  /// 重複: how often, said once at the top; the unit; every how many and
+  /// on which day; then when it starts and ends, and whether it is paused.
+  Widget _repeatCard() {
+    final end = _f.end;
+    final anchor = _anchor();
+    Widget line(String label, Widget value) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 14.5)),
+          const Spacer(),
+          value,
+        ],
+      ),
+    );
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 8),
+      decoration: BoxDecoration(
+        color: Hue.tile,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const GlyphIcon(Glyph.recurring, size: 18, color: Hue.accent),
+              const SizedBox(width: 8),
+              const Text(
+                '重複',
+                style: TextStyle(fontSize: 13, color: Hue.muted),
+              ),
+              const Spacer(),
+              Text(
+                _f.active ? _f.rhythm : '${_f.rhythm}（已暫停）',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Segments(
+            labels: const ['天', '週', '月', '年'],
+            selected: _f.unit.index,
+            onChanged: (i) => setState(() => _f.unit = RepeatUnit.values[i]),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              const Text('每', style: TextStyle(fontSize: 15)),
+              _chip('${_f.every}', '每幾${_f.unit.label}', _pickEvery),
+              Text(
+                anchor == null ? _f.unit.label : '${_f.unit.label}，',
+                style: const TextStyle(fontSize: 15),
+              ),
+              ?anchor,
+            ],
+          ),
+          const Divider(height: 20),
+          line(
+            '開始',
+            _chip(_date(_f.start), '開始日', () async {
+              final day = await _pick('開始日', _f.start);
+              if (day != null) setState(() => _f.start = day);
+            }),
+          ),
+          line(
+            '結束',
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (end != null)
+                  TapArea(
+                    label: '不結束',
+                    onTap: () => setState(() => _f.end = null),
+                    child: const GlyphIcon(Glyph.close, size: 16),
+                  ),
+                _chip(end == null ? '不結束' : _date(end), '結束日', () async {
+                  final day = await _pick('結束日', end ?? _f.start);
+                  if (day != null) setState(() => _f.end = day);
+                }),
+              ],
+            ),
+          ),
+          line(
+            '暫停',
+            Switch(
+              value: !_f.active,
+              onChanged: (paused) => setState(() => _f.active = !paused),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final category = _ledger.category(_f.category);
     final account = _ledger.account(_f.account);
-    final end = _f.end;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -166,92 +352,8 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 });
               },
             ),
-            Tile(
-              icon: Glyph.calendar,
-              label: '開始',
-              value: '${_f.start.year}/${_f.start.month}/${_f.start.day}',
-              size: 15,
-              onTap: () async {
-                final day = await _pick('開始日', _f.start);
-                if (day != null) setState(() => _f.start = day);
-              },
-            ),
           ]),
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-            decoration: BoxDecoration(
-              color: Hue.tile,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Segments(
-                  labels: const ['每天', '每週', '每月', '每年'],
-                  selected: _f.unit.index,
-                  onChanged: (i) =>
-                      setState(() => _f.unit = RepeatUnit.values[i]),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text('每', style: TextStyle(fontSize: 15)),
-                    IconButton(
-                      tooltip: '減少',
-                      onPressed: _f.every > 1
-                          ? () => setState(() => _f.step(-1))
-                          : null,
-                      icon: const Text('−', style: TextStyle(fontSize: 20)),
-                    ),
-                    Text(
-                      '${_f.every}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '增加',
-                      onPressed: () => setState(() => _f.step(1)),
-                      icon: const Text('＋', style: TextStyle(fontSize: 18)),
-                    ),
-                    Text(_f.unit.label, style: const TextStyle(fontSize: 15)),
-                    const Spacer(),
-                    Text(_f.rhythm, style: mutedSmall),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          TileRow([
-            Tile(
-              icon: Glyph.calendar,
-              label: '結束',
-              value: end == null
-                  ? '不結束'
-                  : '${end.year}/${end.month}/${end.day}',
-              size: 15,
-              trailing: end == null
-                  ? null
-                  : TapArea(
-                      label: '不結束',
-                      onTap: () => setState(() => _f.end = null),
-                      child: const GlyphIcon(Glyph.close, size: 16),
-                    ),
-              onTap: () async {
-                final day = await _pick('結束日', end ?? _f.start);
-                if (day != null) setState(() => _f.end = day);
-              },
-            ),
-            Tile(
-              icon: Glyph.recurring,
-              label: '狀態',
-              value: _f.active ? '進行中' : '已暫停',
-              size: 15,
-              onTap: () => setState(() => _f.active = !_f.active),
-            ),
-          ]),
+          _repeatCard(),
           if (_problem case final problem?)
             Padding(
               padding: const EdgeInsets.only(top: 10),

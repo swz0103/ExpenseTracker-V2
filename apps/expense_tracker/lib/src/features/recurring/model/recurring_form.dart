@@ -69,6 +69,27 @@ final class RecurringForm {
     if (every + by >= 1) every += by;
   }
 
+  /// Paid on day [day] of the month: the start moves to the first such
+  /// day on or after it (a 31st waits for a month that has one).
+  void setDayOfMonth(int day) {
+    for (var k = 0; k < 12; k++) {
+      final month = DateTime.utc(start.year, start.month + k);
+      final candidate = DateTime.utc(month.year, month.month, day);
+      if (candidate.month != month.month) continue;
+      if (!candidate.isBefore(start) || k > 0) {
+        start = candidate;
+        return;
+      }
+    }
+  }
+
+  /// Paid on [weekday] (1 Monday … 7 Sunday): the start moves to the
+  /// first such day on or after it.
+  void setWeekday(int weekday) {
+    final ahead = (weekday - start.weekday) % 7;
+    start = DateTime.utc(start.year, start.month, start.day + ahead);
+  }
+
   /// Why the item cannot be saved yet; null when it can.
   String? get problem {
     if (name.trim().isEmpty) return '請輸入名稱';

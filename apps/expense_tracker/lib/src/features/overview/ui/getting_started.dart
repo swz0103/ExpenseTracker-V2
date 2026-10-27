@@ -61,7 +61,7 @@ class GettingStarted extends StatelessWidget {
             '打開到期提醒',
             '扣款、卡費當天會通知你',
             preferences.dueAlerts,
-            () => nav.open(Pages.settings),
+            () => nav.open(Pages.settingsPart(SettingsPart.reminders)),
           ),
           (
             '放上桌面小工具',
@@ -71,6 +71,13 @@ class GettingStarted extends StatelessWidget {
           ),
         ];
         final left = steps.where((s) => !s.$3).length;
+        if (left == 0 && !preferences.started) {
+          // All done: put away for good, so it does not come back when a
+          // step is undone later.
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => preferences.update(started: true),
+          );
+        }
         if (preferences.started || left == 0) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),

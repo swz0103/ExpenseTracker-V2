@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
+import '../../../overview/ui/overview_editor.dart';
 import '../../../reminders/model/notifications.dart';
 import '../../../../core/preferences.dart';
 
@@ -61,6 +62,12 @@ class AppearanceSection extends StatelessWidget {
               value: preferences.haptics,
               onChanged: (on) => preferences.update(haptics: on),
             ),
+          ),
+          MenuRow(
+            glyph: Glyph.overview,
+            title: '總覽區塊',
+            detail: '排序、隱藏',
+            onTap: () => editOverview(context, preferences),
           ),
         ]),
       ],
