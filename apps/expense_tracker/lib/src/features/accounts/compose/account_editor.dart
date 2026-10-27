@@ -52,10 +52,12 @@ class _AccountEditorState extends State<_AccountEditor> {
   late final _f = AccountForm(widget.ledger, old: _old);
   late final TextEditingController _name = TextEditingController(text: _f.name)
     ..addListener(() => _f.name = _name.text);
-  late final TextEditingController _balance = TextEditingController(text: _f.balance)
-    ..addListener(() => _f.balance = _balance.text);
-  late final TextEditingController _limit = TextEditingController(text: _f.limit)
-    ..addListener(() => _f.limit = _limit.text);
+  late final TextEditingController _balance = TextEditingController(
+    text: _f.balance,
+  )..addListener(() => _f.balance = _balance.text);
+  late final TextEditingController _limit = TextEditingController(
+    text: _f.limit,
+  )..addListener(() => _f.limit = _limit.text);
 
   /// The currencies offered first; the rest open from 更多.
   static const _common = {homeCode, 'USD', 'JPY', 'EUR', 'CNY'};
