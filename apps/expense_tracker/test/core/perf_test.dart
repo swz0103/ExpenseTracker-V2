@@ -14,7 +14,8 @@ void main() {
         '/data/user/0/io.github.swz0103.expensetracker/files/ledger.db',
         OSError('No such file', 2),
       ): 'FileSystemException: Cannot open file (errno 2)',
-      StateError("Entry '午餐 120' missing"): 'StateError: Bad state: Entry … missing',
+      StateError("Entry '午餐 120' missing"):
+          'StateError: Bad state: Entry … missing',
       const FormatException('amount 12345 for 全聯'):
           'FormatException: FormatException: amount # for …',
       PlatformException(code: 'key-invalidated', message: '/secret/path'):

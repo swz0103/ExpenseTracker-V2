@@ -385,4 +385,3 @@ void main() {
     expect(http.kept, hasLength(1));
   });
 }
-

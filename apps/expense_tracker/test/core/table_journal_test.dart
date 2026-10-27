@@ -321,4 +321,3 @@ void main() {
     expect(cleared.draft('expense'), isNull);
   });
 }
-

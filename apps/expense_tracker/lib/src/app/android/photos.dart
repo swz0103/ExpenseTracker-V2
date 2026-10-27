@@ -22,9 +22,7 @@ final class AndroidReceipts implements ReceiptPhotos {
 
   @override
   Future<String?> take({required bool camera}) async => _seal(
-    await platformChannel.invokeMethod<String>('takePhoto', {
-      'camera': camera,
-    }),
+    await platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
   );
 
   @override
