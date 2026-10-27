@@ -92,7 +92,8 @@ extension LedgerReports on Ledger {
   }
 
   /// Known merchants, most used first.
-  List<String> get merchants => _remember('merchants', _merchants);
+  List<String> get merchants =>
+      _remember('merchants', _merchants, on: const {Area.entries});
 
   List<String> _merchants() {
     final counts = <String, int>{};
@@ -115,11 +116,12 @@ extension LedgerReports on Ledger {
     return {
       for (final MapEntry(:key, :value) in latest.entries) key: value.category,
     };
-  })[merchant];
+  }, on: const {Area.entries})[merchant];
 
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
-  List<(String, int, int)> get tagStats => _remember('tagStats', _tagStats);
+  List<(String, int, int)> get tagStats =>
+      _remember('tagStats', _tagStats, on: const {Area.entries});
 
   List<(String, int, int)> _tagStats() {
     final counts = <String, int>{};
@@ -327,7 +329,7 @@ extension LedgerReports on Ledger {
         account,
         weeks,
         today,
-      ), () => _weeklyChanges(account, weeks));
+      ), () => _weeklyChanges(account, weeks), on: _cardAreas);
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
     final monday = today.subtract(Duration(days: today.weekday - 1));

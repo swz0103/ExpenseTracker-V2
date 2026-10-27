@@ -2,6 +2,9 @@ part of 'ledger.dart';
 
 /// Card statements: what has been billed, what is due and what is not
 /// billed yet. A statement closes at the end of its day.
+/// What a card's sums rest on: its entries and the card itself.
+const _cardAreas = {Area.entries, Area.accounts};
+
 extension LedgerCards on Ledger {
   /// How much of [e] has reached its card's statements by [at]: all of
   /// it, or the instalments billed so far.
@@ -22,12 +25,16 @@ extension LedgerCards on Ledger {
         final end = card.closingOn(closedBy);
         final (start, due) = card.cycleEnding(end);
         return (start, end, due);
-      });
+      }, on: const {Area.accounts});
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
   int statementDue(Account card) =>
-      _remember(('due', card.id, closedBy), () => _statementDue(card));
+      _remember(
+        ('due', card.id, closedBy),
+        () => _statementDue(card),
+        on: _cardAreas,
+      );
 
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
@@ -45,7 +52,11 @@ extension LedgerCards on Ledger {
   /// Purchases on [card] since its last statement closed, and the
   /// refunds and rewards credited against them.
   List<Entry> unbilled(Account card) =>
-      _remember(('unbilled', card.id, closedBy), () => _unbilled(card));
+      _remember(
+        ('unbilled', card.id, closedBy),
+        () => _unbilled(card),
+        on: _cardAreas,
+      );
 
   List<Entry> _unbilled(Account card) {
     final (_, end, _) = statement(card);
@@ -62,6 +73,7 @@ extension LedgerCards on Ledger {
 
   /// Purchases on [card] still being paid in instalments.
   List<Entry> instalmentsOn(Account card) => _remember(
+    on: _cardAreas,
     ('instalments', card.id, closedBy),
     () => [
       for (final e in _entries)

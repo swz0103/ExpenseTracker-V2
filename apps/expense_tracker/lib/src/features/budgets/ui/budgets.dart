@@ -57,7 +57,8 @@ class _BudgetsPageState extends State<BudgetsPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger,
+      // Spending and budgets only: a price or a card change leaves it.
+      listenable: ledger.watch(const {Area.entries, Area.budgets, Area.categories}),
       builder: (context, _) {
         final (year, month) = _month;
         final spent = ledger.expense(year, month);

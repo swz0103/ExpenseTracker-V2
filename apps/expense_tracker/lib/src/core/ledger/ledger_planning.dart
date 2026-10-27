@@ -66,7 +66,7 @@ extension LedgerPlanning on Ledger {
     item.id,
     item.active,
     today,
-  ), () => _pendingDate(item));
+  ), () => _pendingDate(item), on: const {Area.entries, Area.recurring});
 
   DateTime? _pendingDate(Recurring item) {
     if (!item.active) return null;
