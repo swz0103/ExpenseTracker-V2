@@ -34,8 +34,6 @@ void main() {
       'camera/receipt.jpg',
       at: now.subtract(const Duration(hours: 1)),
     );
-    Directory('${cache.path}/camera')
-        .setLastModifiedSync(now.subtract(const Duration(hours: 1)));
     final ledger = make(files, 'ledger.db');
     await clearLeftovers(files, cache: cache, now: now);
     for (final gone in [export, ready, restore, camera]) {

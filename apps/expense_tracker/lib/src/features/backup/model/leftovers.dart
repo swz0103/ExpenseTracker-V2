@@ -24,11 +24,13 @@ Future<void> clearLeftovers(
     }
   }
 
+  final camera = cache == null ? null : Directory('${cache.path}/camera');
   final leftovers = <FileSystemEntity>[
     Directory('${files.path}/exports'),
+    if (camera != null && camera.existsSync())
+      for (final photo in camera.listSync())
+        if (older(photo, const Duration(minutes: 5))) photo,
     if (cache != null) ...[
-      for (final camera in [Directory('${cache.path}/camera')])
-        if (older(camera, const Duration(minutes: 5))) camera,
       File('${cache.path}/receipt-ready.jpg'),
       File('${cache.path}/restore.etbk'),
       for (final kept in [File('${cache.path}/receipt-leftover.jpg')])
