@@ -4,7 +4,15 @@ import 'connector.dart';
 import 'ledger/ledger.dart';
 
 /// The pages under 更多, each opened over the tab with a back arrow.
-enum Section { reports, investments, budgets, recurring, categories, settings, labels }
+enum Section {
+  reports,
+  investments,
+  budgets,
+  recurring,
+  categories,
+  settings,
+  labels,
+}
 
 /// A page the app frame can open: a [Section], an account or a holding.
 /// Typed, so a page is told what it shows rather than parsing a key, and

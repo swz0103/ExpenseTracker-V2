@@ -37,22 +37,25 @@ void main() {
     expect(probe.problem, isNull);
   });
 
-  test('a failure is shown, not kept quiet, and cleared by a success', () async {
-    final probe = _Probe(DateTime.now);
-    addTearDown(probe.dispose);
-    probe.fails = true;
-    await probe.refresh(force: true);
-    expect(probe.problem, isNotNull);
-    expect(probe.lastSuccess, isNull);
-    probe
-      ..fails = false
-      ..says = '0050X 抓不到收盤價';
-    await probe.refresh(force: true);
-    expect(probe.problem, '0050X 抓不到收盤價');
-    probe.says = null;
-    await probe.refresh(force: true);
-    expect(probe.problem, isNull);
-  });
+  test(
+    'a failure is shown, not kept quiet, and cleared by a success',
+    () async {
+      final probe = _Probe(DateTime.now);
+      addTearDown(probe.dispose);
+      probe.fails = true;
+      await probe.refresh(force: true);
+      expect(probe.problem, isNotNull);
+      expect(probe.lastSuccess, isNull);
+      probe
+        ..fails = false
+        ..says = '0050X 抓不到收盤價';
+      await probe.refresh(force: true);
+      expect(probe.problem, '0050X 抓不到收盤價');
+      probe.says = null;
+      await probe.refresh(force: true);
+      expect(probe.problem, isNull);
+    },
+  );
 
   test('codes are tidied the way the exchanges write them', () {
     expect(tidyCode(' 2330.tw '), '2330');
