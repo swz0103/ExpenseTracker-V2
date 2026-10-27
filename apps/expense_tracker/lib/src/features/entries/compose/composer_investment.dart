@@ -10,7 +10,8 @@ extension _InvestmentFields on _ComposerState {
     final (fee, tax) = _f.charges;
     final suggested = _f.suggested;
     final sell = _f.trade == EntryType.sell;
-    final cost = sell && code != null && held != null && _f.shares <= held.shares
+    final cost =
+        sell && code != null && held != null && _f.shares <= held.shares
         ? _ledger.saleCost(code, _f.shares, average: _f.average)
         : null;
     final settled = settlementDay(_f.date);

@@ -51,22 +51,25 @@ void main() {
     expect(entry.type, EntryType.expense);
   });
 
-  test("a trade's amount follows shares and price, and the price the amount", () {
-    final form = ComposeForm(book(), type: EntryType.buy)..holding = '2330';
-    form
-      ..setShares(1000)
-      ..setPrice(600.5);
-    expect(form.amount, 600500);
-    form.setAmount(610000);
-    expect(form.price, 610);
-    final (fee, tax) = form.charges;
-    expect(fee, brokerFee(610000, 1000));
-    expect(tax, 0);
-    expect(form.settlement, 610000 + fee);
-    // A fee typed from the broker's slip is kept over the suggestion.
-    form.tradeFee = 500;
-    expect(form.settlement, 610500);
-  });
+  test(
+    "a trade's amount follows shares and price, and the price the amount",
+    () {
+      final form = ComposeForm(book(), type: EntryType.buy)..holding = '2330';
+      form
+        ..setShares(1000)
+        ..setPrice(600.5);
+      expect(form.amount, 600500);
+      form.setAmount(610000);
+      expect(form.price, 610);
+      final (fee, tax) = form.charges;
+      expect(fee, brokerFee(610000, 1000));
+      expect(tax, 0);
+      expect(form.settlement, 610000 + fee);
+      // A fee typed from the broker's slip is kept over the suggestion.
+      form.tradeFee = 500;
+      expect(form.settlement, 610500);
+    },
+  );
 
   test('a split must add up to the amount', () {
     final form = ComposeForm(book(), type: EntryType.expense)

@@ -286,8 +286,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   List<(String, Color)> get _marks => [
     if (_f.refunded != null) ('退款', Hue.positive),
     if (widget.entry != null && !_viewing) ('編輯中', Hue.accent),
-    if (_f.mode == ComposeMode.lend)
-      (_f.back ? '還款' : '代墊', Hue.receivable),
+    if (_f.mode == ComposeMode.lend) (_f.back ? '還款' : '代墊', Hue.receivable),
   ];
 
   String get _action {
@@ -612,7 +611,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 alignment: WrapAlignment.center,
                 spacing: 6,
                 children: [
-                  for (final (label, color) in _marks) Pill(label, color: color),
+                  for (final (label, color) in _marks)
+                    Pill(label, color: color),
                 ],
               ),
             ),
@@ -645,24 +645,25 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 // price.
                 if (!_f.trading)
                   Tile(
-                  hero: true,
-                  icon: Glyph.calculator,
-                  label: switch (_f.type) {
-                    _ when refunded != null => '退款金額',
-                    _ when _f.mode == ComposeMode.lend => _f.back ? '還款金額' : '代墊金額',
-                    EntryType.transfer => '轉出金額',
-                    EntryType.buy || EntryType.sell => '成交金額',
-                    EntryType.dividend when _f.reducing => '退還股款',
-                    _ => '金額',
-                  },
-                  value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
-                  valueColor: _color,
-                  size: 34,
-                  sub: refunded == null
-                      ? null
-                      : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
-                  onTap: _f.trading ? null : _calculate,
-                ),
+                    hero: true,
+                    icon: Glyph.calculator,
+                    label: switch (_f.type) {
+                      _ when refunded != null => '退款金額',
+                      _ when _f.mode == ComposeMode.lend =>
+                        _f.back ? '還款金額' : '代墊金額',
+                      EntryType.transfer => '轉出金額',
+                      EntryType.buy || EntryType.sell => '成交金額',
+                      EntryType.dividend when _f.reducing => '退還股款',
+                      _ => '金額',
+                    },
+                    value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
+                    valueColor: _color,
+                    size: 34,
+                    sub: refunded == null
+                        ? null
+                        : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
+                    onTap: _f.trading ? null : _calculate,
+                  ),
                 ..._fields(),
               ],
             ),
