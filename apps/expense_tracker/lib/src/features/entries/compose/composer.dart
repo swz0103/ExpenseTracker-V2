@@ -609,12 +609,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       columns: 3,
       options: [
         for (final h in _ledger.holdings)
-          Option(
-            h.code,
-            holdingLabel(h),
-            Glyph.investment,
-            Hue.investment,
-          ),
+          Option(h.code, holdingLabel(h), Glyph.investment, Hue.investment),
       ],
     );
     if (picked != null) setState(() => _holding = picked);

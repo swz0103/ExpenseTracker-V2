@@ -165,10 +165,7 @@ class SwipeActionsState extends State<SwipeActions>
               ),
               // A Material, not a plain colour, so the row's own ink
               // still shows on it.
-              child: Material(
-                color: widget.background,
-                child: widget.child,
-              ),
+              child: Material(color: widget.background, child: widget.child),
             ),
           ),
         ),

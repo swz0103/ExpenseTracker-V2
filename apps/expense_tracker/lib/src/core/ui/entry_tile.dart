@@ -205,7 +205,11 @@ class EntryRow extends StatelessWidget {
       key: ValueKey(entry.id),
       actions: [
         SwipeAction('編輯', Hue.accent, () => onOpen(entry)),
-        SwipeAction('刪除', Hue.danger, () => removeEntry(context, ledger, entry)),
+        SwipeAction(
+          '刪除',
+          Hue.danger,
+          () => removeEntry(context, ledger, entry),
+        ),
       ],
       child: GestureDetector(
         onLongPress: onLongPress,

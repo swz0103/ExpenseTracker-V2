@@ -202,9 +202,9 @@ class _LotRow extends StatelessWidget {
           if (bars) ...[
             const SizedBox(height: 6),
             PairBars(
-            now: worth / largest,
-            then: lot.cost / largest,
-            color: Hue.investment,
+              now: worth / largest,
+              then: lot.cost / largest,
+              color: Hue.investment,
               thenOpacity: 0.7,
             ),
           ],

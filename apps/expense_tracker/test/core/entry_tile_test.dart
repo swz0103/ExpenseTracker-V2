@@ -57,9 +57,7 @@ void main() {
         ),
       );
 
-  testWidgets('a spending partly refunded shows what is left', (
-    tester,
-  ) async {
+  testWidgets('a spending partly refunded shows what is left', (tester) async {
     final ledger = book();
     await show(tester, ledger, lunch);
     expect(find.text('−700'), findsOneWidget);
