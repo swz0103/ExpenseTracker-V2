@@ -90,7 +90,8 @@ final class SettingsPlace extends Place {
   Place get parent => Pages.settings;
 
   @override
-  bool operator ==(Object other) => other is SettingsPlace && other.part == part;
+  bool operator ==(Object other) =>
+      other is SettingsPlace && other.part == part;
 
   @override
   int get hashCode => Object.hash(SettingsPlace, part);

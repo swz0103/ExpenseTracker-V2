@@ -60,14 +60,8 @@ class SettingsPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: part == null
-              ? [
-                  PageHeader('設定與資料', onBack: nav.back),
-                  _index(context),
-                ]
-              : [
-                  PageHeader(part.label, onBack: nav.back),
-                  ..._page(part),
-                ],
+              ? [PageHeader('設定與資料', onBack: nav.back), _index(context)]
+              : [PageHeader(part.label, onBack: nav.back), ..._page(part)],
         );
       },
     );
@@ -140,9 +134,12 @@ class SettingsPage extends StatelessWidget {
     final preferences = services.preferences;
     return switch (part) {
       SettingsPart.backup => [
-        if (keeper != null) BackupSection(keeper: keeper, drive: services.drive),
+        if (keeper != null)
+          BackupSection(keeper: keeper, drive: services.drive),
       ],
-      SettingsPart.exchange => [ExchangeSection(ledger: ledger, keeper: keeper)],
+      SettingsPart.exchange => [
+        ExchangeSection(ledger: ledger, keeper: keeper),
+      ],
       SettingsPart.reminders => [
         if (notifier != null) NotificationsSection(notifier: notifier),
         if (calendar != null) LinksSection(ledger: ledger, calendar: calendar),

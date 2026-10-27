@@ -248,8 +248,7 @@ final class Startup extends ChangeNotifier {
 
   /// When the backup at [path] was taken and how many records it holds,
   /// read without opening it.
-  Future<BackupHeader> peek(String path) =>
-      LedgerBackup.readHeader(File(path));
+  Future<BackupHeader> peek(String path) => LedgerBackup.readHeader(File(path));
 
   /// Closes the database.
   void lock() {
