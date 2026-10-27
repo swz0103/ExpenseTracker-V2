@@ -116,6 +116,34 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+      - name: Check 16 KB page alignment
+        # Phones with 16 KB memory pages (Android 15 and later) load only
+        # native libraries whose LOAD segments are aligned to 16 KB, kept
+        # uncompressed at 16 KB boundaries in the APK; Google Play requires
+        # it too. Checked on every build so a dependency cannot slip it in.
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/ExpenseTracker.apk"
+          zipalign=$(ls "$ANDROID_HOME"/build-tools/*/zipalign | sort -V | tail -1)
+          if ! "$zipalign" -c -P 16 -v 4 "$apk" > "$RUNNER_TEMP/zipalign.txt"; then
+            grep -v 'OK' "$RUNNER_TEMP/zipalign.txt" | tail -20
+            echo "::error::The APK is not aligned for 16 KB pages."
+            exit 1
+          fi
+          libs="$RUNNER_TEMP/libs"
+          mkdir -p "$libs"
+          unzip -q -o "$apk" 'lib/*' -d "$libs"
+          bad=0
+          while IFS= read -r so; do
+            for align in $(readelf -lW "$so" | awk '$1 == "LOAD" { print $NF }' | sort -u); do
+              if [ $((align)) -lt 16384 ]; then
+                echo "::error::${so#"$libs"/} has a LOAD segment aligned to $align."
+                bad=1
+              fi
+            done
+            echo "${so#"$libs"/}: OK"
+          done < <(find "$libs" -name '*.so')
+          exit "$bad"
       - name: Remove the signing key
         if: always() && github.event_name == 'workflow_run'
         run: rm -f "$RUNNER_TEMP/release.jks" apps/expense_tracker/android/key.properties
@@ -198,5 +226,12 @@ jobs:
             while read -r id; do
               gh api -X DELETE "repos/$repo/releases/assets/$id"
             done
+          # The tag follows the release: it names the commit this APK was
+          # built from, not the one the release was first made on.
+          gh api -X PATCH "repos/$repo/git/refs/tags/android-latest" \
+            -f sha="$SOURCE_SHA" -F force=true > /dev/null
+          sum=$(sha256sum "$RUNNER_TEMP/apk/ExpenseTracker.apk" | cut -d' ' -f1)
           gh release edit android-latest --repo "$repo" \
-            --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。"
+            --notes "從 main 的 ${SOURCE_SHA:0:7} 建置。下載 ExpenseTracker.apk，在手機上開啟安裝。
+
+          SHA-256：\`$sum\`"

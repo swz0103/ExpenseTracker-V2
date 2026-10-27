@@ -11,7 +11,8 @@ final class RecurringForm {
       unit = old?.unit ?? RepeatUnit.month,
       every = old?.every ?? 1,
       end = old?.end,
-      active = old?.active ?? true {
+      active = old?.active ?? true,
+      auto = old?.auto ?? false {
     category = old?.category ?? _firstCategory(false);
     start = _firstDay();
   }
@@ -31,6 +32,9 @@ final class RecurringForm {
   late DateTime start;
   DateTime? end;
   bool active;
+
+  /// Booked by itself on its day rather than confirmed each time.
+  bool auto;
 
   String _firstCategory(bool income) {
     final choices = ledger.categoriesFor(income: income);
@@ -112,6 +116,7 @@ final class RecurringForm {
     end: end,
     income: income,
     merchant: old?.merchant ?? '',
+    auto: auto,
   );
 
   /// How often it comes, such as 每月 5 日.

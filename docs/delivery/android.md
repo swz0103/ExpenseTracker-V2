@@ -6,7 +6,7 @@
 
 每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-工作流程分成兩個工作：`build` 只有讀取權限，建置並存下 APK；`publish` 只在驗證過的 main 執行，是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
+工作流程分成兩個工作：`build` 只有讀取權限，建置並存下 APK；`publish` 只在驗證過的 main 執行，是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。發布時 `android-latest` 這個 tag 會移到這次建置的 commit，說明附上 APK 的 SHA-256。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
 
 APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型 Huninn 已是常用字子集；再縮要另寫子集化工具，目前不做。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在驗證過的 main 建置時寫出（建置完即刪除）；PR 與手動執行一律用 debug 金鑰，碰不到正式金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 

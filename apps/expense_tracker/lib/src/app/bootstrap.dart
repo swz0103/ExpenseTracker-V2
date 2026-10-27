@@ -208,12 +208,29 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await FileBox.derive(widget.vault.keys, 'receipts'),
       );
     }
+    _bookDue(ledger);
     final market = _market = MarketFeed(_journal, ledger);
     unawaited(market.refresh());
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
     return ledger;
+  }
+
+  /// Books the recurring items marked to book themselves whose day has
+  /// come, and says how many.
+  void _bookDue(Ledger ledger) {
+    final int booked;
+    try {
+      booked = ledger.bookDue();
+    } on Object catch (error) {
+      Perf.instance.problem('定期自動入帳', error);
+      return;
+    }
+    if (booked == 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showNote(context, '已自動記下 $booked 筆定期交易');
+    });
   }
 
   /// Writes the backup to the phone's folder when one is due. A failure
@@ -303,7 +320,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         _awayClock.leave();
       case AppLifecycleState.resumed:
-        _ledger.then((ledger) => ledger.checkDay()).ignore();
+        _ledger.then((ledger) {
+          ledger.checkDay();
+          _bookDue(ledger);
+        }).ignore();
         _market?.refresh().ignore();
         if (_loaded != null) unawaited(_phoneBackup());
         if (_awayClock.back(_away) && !widget.startup.passwordless) {
