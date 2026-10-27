@@ -27,7 +27,8 @@ void main() {
       final said = Perf.describe(error);
       expect(said, kept, reason: '$error');
       expect(said, isNot(contains('/data/')));
-      expect(RegExp(r'[^\x20-\x7e]').hasMatch(said), isFalse, reason: said);
+      // Nothing the person wrote: no Chinese, only ASCII and the ellipsis.
+      expect(RegExp(r'[^\x20-\x7e…]').hasMatch(said), isFalse, reason: said);
     }
   });
 
