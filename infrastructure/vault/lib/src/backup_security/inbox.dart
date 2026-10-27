@@ -201,9 +201,7 @@ final class LedgerInbox {
   /// Writes [plain] into the inbox of the ledger in [directory] with the
   /// public key alone, as a writer without the ledger does.
   static Future<void> post(Directory directory, List<int> plain) async {
-    final public = base64.decode(
-      _public(directory).readAsStringSync().trim(),
-    );
+    final public = base64.decode(_public(directory).readAsStringSync().trim());
     final item = await InboxSeal.seal(public, plain);
     final name =
         '${DateTime.now().toUtc().millisecondsSinceEpoch}-'

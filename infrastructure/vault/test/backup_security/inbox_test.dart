@@ -29,10 +29,7 @@ void main() {
 
   test('the worked example seals and opens the same', () async {
     final inbox = await pair(_inboxPrivate);
-    expect(
-      base64.encode((await inbox.extractPublicKey()).bytes),
-      _inboxPublic,
-    );
+    expect(base64.encode((await inbox.extractPublicKey()).bytes), _inboxPublic);
     final item = await InboxSeal.seal(
       base64.decode(_inboxPublic),
       utf8.encode(_plain),
@@ -61,36 +58,34 @@ void main() {
     bytes[0] ^= 1;
     final changed = jsonEncode({...json, 'c': base64.encode(bytes)});
     await expectLater(InboxSeal.open(inbox, changed), throwsA(anything));
-    await expectLater(
-      InboxSeal.open(inbox, '{"v":2}'),
-      throwsFormatException,
-    );
+    await expectLater(InboxSeal.open(inbox, '{"v":2}'), throwsFormatException);
   });
 
-  test('a writer posts with the public key; the ledger reads and removes',
-      () async {
-    final keys = (await codec.create('inbox password')).unlocked;
-    final inbox = await LedgerInbox.open(directory, keys);
-    await LedgerInbox.post(directory, utf8.encode('first'));
-    await LedgerInbox.post(directory, utf8.encode('second'));
-    File('${LedgerInbox.folder(directory).path}/0-junk.json')
-        .writeAsStringSync('not an item');
+  test(
+    'a writer posts with the public key; the ledger reads and removes',
+    () async {
+      final keys = (await codec.create('inbox password')).unlocked;
+      final inbox = await LedgerInbox.open(directory, keys);
+      await LedgerInbox.post(directory, utf8.encode('first'));
+      await LedgerInbox.post(directory, utf8.encode('second'));
+      File('${LedgerInbox.folder(directory).path}/0-junk.json')
+          .writeAsStringSync('not an item');
 
-    final items = await inbox.read();
-    expect(items, hasLength(3));
-    expect(items.first.plain, isNull, reason: 'the junk sorts first');
-    expect([for (final i in items.skip(1)) utf8.decode(i.plain!)], [
-      'first',
-      'second',
-    ]);
-    for (final i in items) {
-      await inbox.remove(i.name);
-    }
-    expect(await inbox.read(), isEmpty);
-  });
+      final items = await inbox.read();
+      expect(items, hasLength(3));
+      expect(items.first.plain, isNull, reason: 'the junk sorts first');
+      expect(
+        [for (final i in items.skip(1)) utf8.decode(i.plain!)],
+        ['first', 'second'],
+      );
+      for (final i in items) {
+        await inbox.remove(i.name);
+      }
+      expect(await inbox.read(), isEmpty);
+    },
+  );
 
-  test('the same ledger keeps its key; another ledger makes its own',
-      () async {
+  test('the same ledger keeps its key; another ledger makes its own', () async {
     final keys = (await codec.create('inbox password')).unlocked;
     await LedgerInbox.open(directory, keys);
     final public = File('${directory.path}/inbox.pub').readAsStringSync();

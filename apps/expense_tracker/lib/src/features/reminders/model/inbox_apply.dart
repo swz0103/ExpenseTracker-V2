@@ -44,7 +44,9 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       ledger.confirm(found);
       booked++;
     } else if (pending != null && pending.isBefore(day)) {
-      review.add('「${found.name}」還有 ${pending.month}/${pending.day} 那期沒入帳，請到定期交易確認');
+      review.add(
+        '「${found.name}」還有 ${pending.month}/${pending.day} 那期沒入帳，請到定期交易確認',
+      );
     }
     // Otherwise that day is booked already.
   }
