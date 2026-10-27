@@ -150,10 +150,10 @@ class _AccountPageState extends State<AccountPage> {
                       child: Column(
                         children: [
                           for (final e in entries)
-                            EntryTile(
+                            EntryRow(
                               ledger: ledger,
                               entry: e,
-                              onTap: () => widget.nav.showEntry(e),
+                              onOpen: widget.nav.showEntry,
                               divider: !identical(e, entries.last),
                             ),
                         ],

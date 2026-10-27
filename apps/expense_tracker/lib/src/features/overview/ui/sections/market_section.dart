@@ -9,6 +9,7 @@ import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/nav.dart';
+import '../../../../core/ui/entry_tile.dart' show holdingLabel;
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.
@@ -61,13 +62,22 @@ class _MarketSectionState extends State<MarketSection> {
         }, style: mutedSmall),
       ),
       TileRow([
-        Tile(
-          icon: Glyph.investment,
-          label: '當日損益',
-          value: ledger.moneySigned(change),
-          valueColor: tone,
-          sub: '當日 ${percentOf(change, before)}',
-        ),
+        // Before any close there is no move to tell, not a move of zero.
+        if (ledger.quotedOn == null)
+          const Tile(
+            icon: Glyph.investment,
+            label: '當日損益',
+            value: '—',
+            sub: '尚無收盤價',
+          )
+        else
+          Tile(
+            icon: Glyph.investment,
+            label: '當日損益',
+            value: ledger.moneySigned(change),
+            valueColor: tone,
+            sub: '當日 ${percentOf(change, before)}',
+          ),
         Tile(
           icon: Glyph.briefcase,
           label: '持股市值',
@@ -77,7 +87,8 @@ class _MarketSectionState extends State<MarketSection> {
         ),
       ]),
       const SizedBox(height: 8),
-      for (final h in holdings) _moveRow(h, largest, anyLoss ? 0.5 : 0),
+      for (final h in holdings)
+        _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.length > 1),
       if (picked != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -86,7 +97,7 @@ class _MarketSectionState extends State<MarketSection> {
               style: mutedSmall,
               children: [
                 TextSpan(
-                  text: '${picked.name} ${picked.code}　',
+                  text: '${holdingLabel(picked)}　',
                   style: const TextStyle(
                     color: Hue.ink,
                     fontWeight: FontWeight.w600,
@@ -111,8 +122,10 @@ class _MarketSectionState extends State<MarketSection> {
 
   /// One holding as a row of a bar chart: its name, today's move as a bar
   /// from a shared axis, and the amount.
-  Widget _moveRow(Holding h, int largest, double axis) {
+  Widget _moveRow(Holding h, int largest, double axis, {required bool bar}) {
     final picked = h.code == _holding;
+    final quoted =
+        widget.ledger.hasQuote(h.code) && widget.ledger.quotedOn != null;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
       borderRadius: BorderRadius.circular(8),
@@ -134,24 +147,31 @@ class _MarketSectionState extends State<MarketSection> {
                 style: const TextStyle(fontSize: 13),
               ),
             ),
+            // A single holding's bar would only ever be full.
             Expanded(
-              child: AxisBar(
-                value: h.change,
-                largest: largest,
-                axis: axis,
-                height: 8,
-                minimum: 0.08,
-              ),
+              child: bar && quoted
+                  ? AxisBar(
+                      value: h.change,
+                      largest: largest,
+                      axis: axis,
+                      height: 8,
+                      minimum: 0.08,
+                    )
+                  : const SizedBox.shrink(),
             ),
             SizedBox(
               width: 50,
               child: Text(
-                widget.ledger.moneySigned(h.change),
+                quoted ? widget.ledger.moneySigned(h.change) : '—',
                 textAlign: TextAlign.end,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: h.change < 0 ? Hue.negative : Hue.positive,
+                  color: !quoted
+                      ? Hue.muted
+                      : h.change < 0
+                      ? Hue.negative
+                      : Hue.positive,
                 ),
               ),
             ),

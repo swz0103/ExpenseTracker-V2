@@ -15,6 +15,7 @@ import '../../../core/ledger/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/calculator.dart';
+import '../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/receipt_photos.dart';
@@ -608,12 +609,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       columns: 3,
       options: [
         for (final h in _ledger.holdings)
-          Option(
-            h.code,
-            '${h.code} ${h.name}',
-            Glyph.investment,
-            Hue.investment,
-          ),
+          Option(h.code, holdingLabel(h), Glyph.investment, Hue.investment),
       ],
     );
     if (picked != null) setState(() => _holding = picked);

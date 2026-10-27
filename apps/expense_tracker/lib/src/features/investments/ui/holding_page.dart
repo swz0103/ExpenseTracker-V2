@@ -107,6 +107,8 @@ class HoldingPage extends StatelessWidget {
                       worth: (lot.shares * held.price).round(),
                       largest: largest,
                       first: i == 0,
+                      // One lot has nothing to be set against.
+                      bars: lots.length > 1,
                     ),
                 ],
               ),
@@ -128,10 +130,10 @@ class HoldingPage extends StatelessWidget {
         child: Column(
           children: [
             for (final e in trades)
-              EntryTile(
+              EntryRow(
                 ledger: ledger,
                 entry: e,
-                onTap: () => nav.showEntry(e),
+                onOpen: nav.showEntry,
                 divider: !identical(e, trades.last),
               ),
           ],
@@ -150,6 +152,7 @@ class _LotRow extends StatelessWidget {
     required this.worth,
     required this.largest,
     required this.first,
+    required this.bars,
   });
 
   final Ledger ledger;
@@ -157,6 +160,9 @@ class _LotRow extends StatelessWidget {
   final int worth;
   final int largest;
   final bool first;
+
+  /// Whether to draw cost and worth as bars.
+  final bool bars;
 
   @override
   Widget build(BuildContext context) {
@@ -193,13 +199,15 @@ class _LotRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          PairBars(
-            now: worth / largest,
-            then: lot.cost / largest,
-            color: Hue.investment,
-            thenOpacity: 0.7,
-          ),
+          if (bars) ...[
+            const SizedBox(height: 6),
+            PairBars(
+              now: worth / largest,
+              then: lot.cost / largest,
+              color: Hue.investment,
+              thenOpacity: 0.7,
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             '市值 ${ledger.money(worth)} · 成本 ${ledger.money(lot.cost)}',
