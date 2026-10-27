@@ -324,12 +324,11 @@ extension LedgerReports on Ledger {
   /// The change of [account] in each of the [weeks] calendar weeks
   /// ending with this one, oldest first, with each week's Monday.
   List<(DateTime, int)> weeklyChanges(String account, {int weeks = 4}) =>
-      _remember((
-        'weekly',
-        account,
-        weeks,
-        today,
-      ), () => _weeklyChanges(account, weeks), on: _cardAreas);
+      _remember(
+        ('weekly', account, weeks, today),
+        () => _weeklyChanges(account, weeks),
+        on: _cardAreas,
+      );
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {
     final monday = today.subtract(Duration(days: today.weekday - 1));

@@ -346,8 +346,7 @@ final class Ledger extends ChangeNotifier {
   /// Changes of [areas] only, and of how amounts are shown: for a screen
   /// that need not be built again when, say, a budget changes.
   Listenable watch(Set<Area> areas) => Listenable.merge([
-    for (final area in {...areas, Area.display})
-      _watchers[area] ??= _Watcher(),
+    for (final area in {...areas, Area.display}) _watchers[area] ??= _Watcher(),
   ]);
 
   /// Every entry, in the order written; the list cannot be changed.
@@ -355,12 +354,11 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries of any month whose note, merchant, category or tags hold
   /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) =>
-      _remember(
-        ('search', words),
-        () => _search(words),
-        on: const {Area.entries, Area.accounts, Area.categories},
-      );
+  List<Entry> search(String words) => _remember(
+    ('search', words),
+    () => _search(words),
+    on: const {Area.entries, Area.accounts, Area.categories},
+  );
 
   List<Entry> _search(String words) {
     final lower = words.toLowerCase();

@@ -29,12 +29,11 @@ extension LedgerCards on Ledger {
 
   /// What is still to pay on the last statement of [card]: what it owed
   /// when the statement closed, less what was paid in since.
-  int statementDue(Account card) =>
-      _remember(
-        ('due', card.id, closedBy),
-        () => _statementDue(card),
-        on: _cardAreas,
-      );
+  int statementDue(Account card) => _remember(
+    ('due', card.id, closedBy),
+    () => _statementDue(card),
+    on: _cardAreas,
+  );
 
   int _statementDue(Account card) {
     final (_, end, _) = statement(card);
@@ -51,12 +50,11 @@ extension LedgerCards on Ledger {
 
   /// Purchases on [card] since its last statement closed, and the
   /// refunds and rewards credited against them.
-  List<Entry> unbilled(Account card) =>
-      _remember(
-        ('unbilled', card.id, closedBy),
-        () => _unbilled(card),
-        on: _cardAreas,
-      );
+  List<Entry> unbilled(Account card) => _remember(
+    ('unbilled', card.id, closedBy),
+    () => _unbilled(card),
+    on: _cardAreas,
+  );
 
   List<Entry> _unbilled(Account card) {
     final (_, end, _) = statement(card);

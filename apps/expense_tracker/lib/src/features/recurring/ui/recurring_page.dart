@@ -40,9 +40,12 @@ class _RecurringPageState extends State<RecurringPage> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     return ListenableBuilder(
-      listenable: ledger.watch(
-        const {Area.entries, Area.recurring, Area.accounts, Area.categories},
-      ),
+      listenable: ledger.watch(const {
+        Area.entries,
+        Area.recurring,
+        Area.accounts,
+        Area.categories,
+      }),
       builder: (context, _) {
         final today = ledger.today;
         final due = ledger.due;
