@@ -44,16 +44,18 @@ void main() {
     expect(item.day, 4);
   });
 
-  test('income takes an income category; another currency clears the amount',
-      () {
-    final form = RecurringForm(book())
-      ..amount = 300
-      ..setIncome(true);
-    expect(form.category, '薪資');
-    form.setAccount('usd');
-    expect(form.amount, 0);
-    expect(form.currency, 'USD');
-  });
+  test(
+    'income takes an income category; another currency clears the amount',
+    () {
+      final form = RecurringForm(book())
+        ..amount = 300
+        ..setIncome(true);
+      expect(form.category, '薪資');
+      form.setAccount('usd');
+      expect(form.amount, 0);
+      expect(form.currency, 'USD');
+    },
+  );
 
   test('payments are at least one step apart', () {
     final form = RecurringForm(book())..step(-1);

@@ -218,10 +218,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     ),
                     Text(_f.unit.label, style: const TextStyle(fontSize: 15)),
                     const Spacer(),
-                    Text(
-                      _f.rhythm,
-                      style: mutedSmall,
-                    ),
+                    Text(_f.rhythm, style: mutedSmall),
                   ],
                 ),
               ],
