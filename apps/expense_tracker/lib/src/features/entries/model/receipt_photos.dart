@@ -6,5 +6,9 @@ abstract interface class ReceiptPhotos {
   /// kept file's name, or null when the person cancels.
   Future<String?> take({required bool camera});
 
+  /// A photo the camera took while the phone closed the app, kept the
+  /// same way as one [take] returns; null when there is none.
+  Future<String?> takeLeftover();
+
   ImageProvider image(String name);
 }

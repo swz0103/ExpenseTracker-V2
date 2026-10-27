@@ -21,10 +21,17 @@ final class AndroidReceipts implements ReceiptPhotos {
   Directory get _folder => Directory('${directory.path}/receipts');
 
   @override
-  Future<String?> take({required bool camera}) async {
-    final ready = await platformChannel.invokeMethod<String>('takePhoto', {
-      'camera': camera,
-    });
+  Future<String?> take({required bool camera}) async => _seal(
+    await platformChannel.invokeMethod<String>('takePhoto', {'camera': camera}),
+  );
+
+  @override
+  Future<String?> takeLeftover() async =>
+      _seal(await platformChannel.invokeMethod<String>('takeLeftoverPhoto'));
+
+  /// Seals the photo made ready at [ready] into the receipts folder and
+  /// deletes the plain copy.
+  Future<String?> _seal(String? ready) async {
     if (ready == null) return null;
     final source = File(ready);
     try {

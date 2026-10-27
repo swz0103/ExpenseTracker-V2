@@ -26,6 +26,7 @@ class MainActivity : FlutterFragmentActivity() {
         CalendarPart(this),
         RemindersPart(this),
         DrivePart(this),
+        NetworkPart(this),
     )
     private var channel: MethodChannel? = null
 

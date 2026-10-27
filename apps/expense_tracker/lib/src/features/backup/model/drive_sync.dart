@@ -17,8 +17,10 @@ final class DriveSync extends ChangeNotifier {
     withBackup,
     required int Function() revision,
     required String ledger,
+    Future<bool> Function()? unmetered,
     DateTime Function()? clock,
   }) : _withBackup = withBackup,
+       _unmetered = unmetered,
        _revision = revision,
        _ledger = ledger,
        _clock = clock ?? DateTime.now;
@@ -31,6 +33,10 @@ final class DriveSync extends ChangeNotifier {
   /// The ledger's own id, marking its backups on Drive apart from those of
   /// another ledger kept in the same folder.
   final String _ledger;
+
+  /// Whether the phone is on Wi-Fi: a weekly backup carries every photo,
+  /// so it waits for one rather than spend mobile data.
+  final Future<bool> Function()? _unmetered;
   final DateTime Function() _clock;
 
   bool get linked => _preferences.driveLinked;
@@ -61,9 +67,9 @@ final class DriveSync extends ChangeNotifier {
   /// Sends a backup now, asking Google's screens when needed.
   Future<void> backUpNow() => _send(interactive: true);
 
-  /// Sends a backup when linked, the last one is older than [every] and
-  /// the ledger changed since; never shows Google's screens. True when one
-  /// was sent.
+  /// Sends a backup when linked, the last one is older than [every], the
+  /// ledger changed since and the phone is on Wi-Fi; never shows Google's
+  /// screens. True when one was sent.
   Future<bool> backUpIfDue({Duration every = const Duration(days: 7)}) async {
     if (!linked || _busy) return false;
     final last = backedUp;
@@ -72,6 +78,8 @@ final class DriveSync extends ChangeNotifier {
             _preferences.driveRevision == _revision())) {
       return false;
     }
+    final unmetered = _unmetered;
+    if (unmetered != null && !await unmetered()) return false;
     await _send(interactive: false);
     return true;
   }

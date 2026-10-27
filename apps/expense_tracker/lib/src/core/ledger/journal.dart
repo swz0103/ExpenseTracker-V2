@@ -40,6 +40,7 @@ final class Batch {
     this.trash = const [],
     this.receipts = const {},
     this.dropped = const [],
+    this.drafts = const {},
   });
 
   final List<Account> accounts;
@@ -55,7 +56,13 @@ final class Batch {
   /// Records taken away, by shelf and key.
   final List<(Shelf, String)> dropped;
 
-  bool get isEmpty =>
+  /// Forms put aside in the composer, as JSON by tab; null clears one.
+  /// Kept like the records, but not a change of the book.
+  final Map<String, String?> drafts;
+
+  /// Only drafts: nothing a backup need be taken for.
+  bool get onlyDrafts =>
+      drafts.isNotEmpty &&
       accounts.isEmpty &&
       categories.isEmpty &&
       entries.isEmpty &&
@@ -64,4 +71,15 @@ final class Batch {
       trash.isEmpty &&
       receipts.isEmpty &&
       dropped.isEmpty;
+
+  bool get isEmpty =>
+      accounts.isEmpty &&
+      categories.isEmpty &&
+      entries.isEmpty &&
+      budgets.isEmpty &&
+      recurring.isEmpty &&
+      trash.isEmpty &&
+      receipts.isEmpty &&
+      dropped.isEmpty &&
+      drafts.isEmpty;
 }

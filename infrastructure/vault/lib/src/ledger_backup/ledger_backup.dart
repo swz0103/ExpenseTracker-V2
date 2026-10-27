@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -147,7 +148,6 @@ abstract final class LedgerBackup {
   }) async {
     final rows = store.rows();
     final epoch = keys.currentBackupEpoch;
-    final key = SecretKey(keys.backupKey(epoch));
     final header = BackupHeader(
       backupId: backupId,
       createdAt: createdAt,
@@ -157,8 +157,36 @@ abstract final class LedgerBackup {
       rows: rows.length,
     );
     final headerBytes = utf8.encode(jsonEncode(header.toJson()));
+    final keyBytes = List<int>.of(keys.backupKey(epoch));
+    final items = [
+      for (final row in rows) [row.shelf, row.id, row.body],
+    ];
+    final path = file.path;
+    final paths = {
+      for (final MapEntry(key: name, value: source) in files.entries)
+        name: source.path,
+    };
+    // Hashing, compressing and sealing every record and photo is seconds
+    // of pure-Dart work for a book with many photos: done on a worker
+    // isolate, so the screen keeps moving. The records were read above,
+    // so the backup is still one consistent state.
+    await Isolate.run(
+      () => _writeFrames(path, headerBytes, keyBytes, items, chunkSize, paths),
+    );
+    return header;
+  }
+
+  static Future<void> _writeFrames(
+    String path,
+    List<int> headerBytes,
+    List<int> keyBytes,
+    List<List<String>> items,
+    int chunkSize,
+    Map<String, String> files,
+  ) async {
+    final key = SecretKey(keyBytes);
     final digest = (await Sha256().hash(headerBytes)).bytes;
-    final sink = file.openWrite();
+    final sink = File(path).openWrite();
     var index = 0;
     try {
       sink.add(_magic);
@@ -174,33 +202,29 @@ abstract final class LedgerBackup {
         _frame(sink, [...box.nonce, ...box.cipherText, ...box.mac.bytes]);
       }
 
-      for (var at = 0; at < rows.length; at += chunkSize) {
-        final page = rows.skip(at).take(chunkSize);
+      for (var at = 0; at < items.length; at += chunkSize) {
         await seal({
           'type': 'rows',
-          'items': [
-            for (final row in page) [row.shelf, row.id, row.body],
-          ],
+          'items': items.skip(at).take(chunkSize).toList(),
         });
       }
       for (final MapEntry(key: name, value: source) in files.entries) {
         await seal({
           'type': 'file',
           'name': name,
-          'data': base64Encode(await source.readAsBytes()),
+          'data': base64Encode(await File(source).readAsBytes()),
         });
       }
       await seal({
         'type': 'end',
         'chunks': index,
-        'rows': rows.length,
+        'rows': items.length,
         if (files.isNotEmpty) 'files': files.length,
       });
       await sink.flush();
     } finally {
       await sink.close();
     }
-    return header;
   }
 
   /// Reads the header without any key, for choosing a backup and showing

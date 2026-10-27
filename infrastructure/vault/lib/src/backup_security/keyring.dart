@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -408,18 +409,27 @@ final class KeyringCodec {
     return normalized;
   }
 
-  Future<List<int>> _derive(String normalized, List<int> salt) async {
-    final argon = Argon2id(
-      memory: kdf.memory,
-      iterations: kdf.iterations,
-      parallelism: 1,
-      hashLength: 32,
-    );
-    final key = await argon.deriveKey(
-      secretKey: SecretKey(utf8.encode(normalized)),
-      nonce: salt,
-    );
-    return key.extractBytes();
+  /// Stretches [normalized] with Argon2id on a worker isolate: tens of
+  /// megabytes and most of a second of pure-Dart work that would
+  /// otherwise freeze the screen while unlocking.
+  Future<List<int>> _derive(String normalized, List<int> salt) {
+    final memory = kdf.memory;
+    final iterations = kdf.iterations;
+    final secret = utf8.encode(normalized);
+    final nonce = List<int>.of(salt);
+    return Isolate.run(() async {
+      final argon = Argon2id(
+        memory: memory,
+        iterations: iterations,
+        parallelism: 1,
+        hashLength: 32,
+      );
+      final key = await argon.deriveKey(
+        secretKey: SecretKey(secret),
+        nonce: nonce,
+      );
+      return key.extractBytes();
+    });
   }
 
   Future<_Box> _seal(

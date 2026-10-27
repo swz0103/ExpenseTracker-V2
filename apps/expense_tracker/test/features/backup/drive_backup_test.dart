@@ -355,4 +355,33 @@ void main() {
       expect(http.kept, hasLength(1));
     },
   );
+
+  test('a weekly backup waits for Wi-Fi', () async {
+    final preferences = Preferences(
+      file: File('${directory.path}/preferences.json'),
+    );
+    var wifi = false;
+    final sync = DriveSync(
+      drive(),
+      preferences,
+      withBackup: (use) async {
+        final file = backup('記帳本.etbk', 'x');
+        try {
+          await use(file);
+        } finally {
+          file.deleteSync();
+        }
+      },
+      revision: () => 1,
+      ledger: 'L1',
+      unmetered: () async => wifi,
+    );
+    addTearDown(sync.dispose);
+    preferences.update(driveLinked: true);
+    expect(await sync.backUpIfDue(), isFalse);
+    expect(http.kept, isEmpty);
+    wifi = true;
+    expect(await sync.backUpIfDue(), isTrue);
+    expect(http.kept, hasLength(1));
+  });
 }

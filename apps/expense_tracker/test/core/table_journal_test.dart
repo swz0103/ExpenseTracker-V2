@@ -238,4 +238,86 @@ void main() {
       );
     }
   });
+
+  test('rows carry their version; deletions are noted and forgotten', () async {
+    final ledger = await reopen();
+    final bank = ledger.accounts.last;
+    final entry = Entry(
+      id: 'e1',
+      date: DateTime.utc(2026, 10, 4),
+      type: EntryType.expense,
+      amount: 120,
+      account: bank.id,
+      category: ledger.categoriesFor(income: false).first.name,
+    );
+    ledger.add(entry);
+    await ledger.settled;
+    final row = store!.rows(shelf: Shelf.entry.name).single;
+    final json = jsonDecode(row.body) as Map<String, Object?>;
+    expect(json['_v'], recordVersion);
+    expect(json['_at'], isA<int>());
+
+    final removed = ledger.remove('e1')!;
+    await ledger.settled;
+    expect(store!.rows(shelf: 'gone').map((r) => r.id), ['entry/e1']);
+    // Brought back: no longer gone.
+    expect(ledger.restore(removed), isTrue);
+    await ledger.settled;
+    expect(store!.rows(shelf: 'gone'), isEmpty);
+    // A backup carrying the note is accepted.
+    TableJournal.check('gone', 'entry/e1', '{"at":1}');
+
+    final again = await reopen(ledger);
+    expect(again.entries.map((e) => e.id), contains('e1'));
+  });
+
+  test('a row from a newer app is refused, not misread', () {
+    expect(
+      () => upgradeRecord('entry', {'_v': recordVersion + 1}),
+      throwsA(isA<FormatException>()),
+    );
+    // Rows from before versions were kept read as the first version.
+    expect(upgradeRecord('entry', {'id': 'x'}), {'id': 'x'});
+  });
+
+  test('a large book is decoded off the screen thread', () async {
+    final opened = RowStore.open(file, key);
+    store = opened;
+    final journal = TableJournal(opened, clock: clock());
+    final first = await journal.load();
+    final bank = first.accounts.last;
+    final category = first.categoriesFor(income: false).first.name;
+    await journal.keep(
+      Batch(
+        entries: [
+          for (var i = 0; i < 2100; i++)
+            Entry(
+              id: 'e$i',
+              date: DateTime.utc(2026, 1 + i % 9, 1 + i % 27),
+              type: EntryType.expense,
+              amount: 10 + i,
+              account: bank.id,
+              category: category,
+            ),
+        ],
+      ),
+    );
+    final loaded = await reopen();
+    expect(loaded.entries, hasLength(2100));
+  });
+
+  test('a form put aside outlasts the app and keeps its photo', () async {
+    final ledger = await reopen();
+    final revision = store!.revision;
+    ledger.setDraft('expense', '{"entry":{"id":"d"},"receipt":"1.etr"}');
+    await ledger.settled;
+    // Not a change of the book: no backup is due for it.
+    expect(store!.revision, revision);
+    final again = await reopen(ledger);
+    expect(again.draft('expense'), contains('1.etr'));
+    expect(again.receiptFiles, contains('1.etr'));
+    again.setDraft('expense', null);
+    final cleared = await reopen(again);
+    expect(cleared.draft('expense'), isNull);
+  });
 }

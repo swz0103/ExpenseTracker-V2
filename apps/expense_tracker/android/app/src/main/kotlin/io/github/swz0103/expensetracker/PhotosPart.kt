@@ -24,16 +24,23 @@ class PhotosPart(private val activity: FragmentActivity) : ChannelPart {
     private val cameraFile: File
         get() = File(activity.cacheDir, "camera").apply { mkdirs() }.resolve("receipt.jpg")
 
-    // When the app was closed while the camera or picker was open, nothing
-    // waits for the photo any more (pendingPhoto is null): it is dropped
-    // rather than left in the cache.
+    /**
+     * A photo taken while the phone closed the app to make room: nothing
+     * waited for it (pendingPhoto is null), so it is made ready here and
+     * handed over by `takeLeftoverPhoto` when 記一筆 opens again.
+     */
+    private val leftover: File
+        get() = File(activity.cacheDir, "receipt-leftover.jpg")
+
     private val takePicture =
         activity.registerForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
-            if (taken && pendingPhoto != null) {
-                keepPhoto(Uri.fromFile(cameraFile))
-            } else {
-                cameraFile.delete()
-                finishPhoto(null)
+            when {
+                taken && pendingPhoto != null -> keepPhoto(Uri.fromFile(cameraFile))
+                taken && cameraFile.exists() -> keepPhoto(Uri.fromFile(cameraFile), leftover)
+                else -> {
+                    cameraFile.delete()
+                    finishPhoto(null)
+                }
             }
         }
 
@@ -43,6 +50,10 @@ class PhotosPart(private val activity: FragmentActivity) : ChannelPart {
         }
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
+        if (call.method == "takeLeftoverPhoto") {
+            result.success(if (leftover.exists()) leftover.absolutePath else null)
+            return true
+        }
         if (call.method != "takePhoto") return false
         if (pendingPhoto != null) {
             result.error("busy", "A photo is being taken.", null)
@@ -73,7 +84,7 @@ class PhotosPart(private val activity: FragmentActivity) : ChannelPart {
      * into the private `receipts` folder and deletes this copy. Off the
      * main thread.
      */
-    private fun keepPhoto(source: Uri) {
+    private fun keepPhoto(source: Uri, into: File = File(activity.cacheDir, "receipt-ready.jpg")) {
         Thread {
             try {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -105,7 +116,7 @@ class PhotosPart(private val activity: FragmentActivity) : ChannelPart {
                     postRotate(turn)
                 }
                 val photo = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-                val ready = File(activity.cacheDir, "receipt-ready.jpg")
+                val ready = into
                 ready.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 82, it) }
                 cameraFile.delete()
                 activity.runOnUiThread { finishPhoto(ready.absolutePath) }
