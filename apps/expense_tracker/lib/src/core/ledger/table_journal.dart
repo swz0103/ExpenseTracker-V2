@@ -152,6 +152,7 @@ final class TableJournal implements Journal {
       rates: market.rates,
       moves: market.moves,
       quotedOn: market.quotedOn,
+      quoteDays: market.days,
       trash: [
         for (final t in trash.reversed)
           if (!t.on.isBefore(from)) t,
@@ -301,6 +302,7 @@ final class TableJournal implements Journal {
     Map<String, double> moves,
     Map<String, double> rates,
     DateTime? quotedOn,
+    Map<String, DateTime> days,
   })
   market() {
     final kept = _marketFrom(_store.rows(shelf: _market));
@@ -309,6 +311,7 @@ final class TableJournal implements Journal {
       moves: kept.moves,
       rates: kept.rates,
       quotedOn: kept.quotedOn,
+      days: kept.days,
     );
   }
 
@@ -352,6 +355,7 @@ final class TableJournal implements Journal {
     final prices = {...kept.prices};
     final moves = {...kept.moves};
     final names = {...kept.names};
+    final days = {...kept.days};
     var quotedOn = kept.quotedOn;
     var changed = false;
     final missed = <String>[];
@@ -360,6 +364,12 @@ final class TableJournal implements Journal {
         var result = await gateway.stockClose(Listing(code));
         if (result.state == MarketState.missing) {
           result = await gateway.stockClose(Listing(code, market: 'TPEX'));
+        }
+        // Not traded on the day, or left out of the day's list, and no
+        // close kept from before: the last close in TWSE's month report.
+        if (result.value == null && !prices.containsKey(code)) {
+          final fallback = await gateway.listedHistoryClose(code);
+          if (fallback.value != null) result = fallback;
         }
         final close = result.value;
         final price = close == null
@@ -376,6 +386,10 @@ final class TableJournal implements Journal {
         );
         if (quotedOn == null || day.isAfter(quotedOn)) {
           quotedOn = day;
+          changed = true;
+        }
+        if (days[code] != day) {
+          days[code] = day;
           changed = true;
         }
         final move = double.tryParse(close.decimalChange ?? '');
@@ -408,6 +422,10 @@ final class TableJournal implements Journal {
             'prices': prices,
             'moves': moves,
             'names': names,
+            'days': {
+              for (final MapEntry(:key, :value) in days.entries)
+                key: value.toIso8601String(),
+            },
             'on': ?quotedOn?.toIso8601String(),
           }),
         ),
@@ -422,6 +440,7 @@ typedef _Market = ({
   Map<String, double> prices,
   Map<String, double> moves,
   Map<String, String> names,
+  Map<String, DateTime> days,
   DateTime? quotedOn,
   Map<String, double> rates,
 });
@@ -431,6 +450,7 @@ _Market _marketFrom(List<StoredRow> rows) {
   final prices = <String, double>{};
   final moves = <String, double>{};
   final names = <String, String>{};
+  final days = <String, DateTime>{};
   final rates = <String, double>{};
   DateTime? quotedOn;
   Map<String, Object?> part(Map<String, Object?> json, String key) =>
@@ -448,6 +468,9 @@ _Market _marketFrom(List<StoredRow> rows) {
         for (final MapEntry(:key, :value) in part(json, 'names').entries) {
           names[key] = value! as String;
         }
+        for (final MapEntry(:key, :value) in part(json, 'days').entries) {
+          days[key] = DateTime.parse(value! as String);
+        }
         if (json['on'] case final String on) quotedOn = DateTime.parse(on);
       case 'rates':
         for (final MapEntry(:key, :value) in part(json, 'rates').entries) {
@@ -459,6 +482,7 @@ _Market _marketFrom(List<StoredRow> rows) {
     prices: prices,
     moves: moves,
     names: names,
+    days: days,
     quotedOn: quotedOn,
     rates: rates,
   );

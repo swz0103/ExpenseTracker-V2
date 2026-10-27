@@ -83,9 +83,13 @@ class HoldingPage extends StatelessWidget {
                     : '—',
                 valueColor: held.change < 0 ? Hue.negative : Hue.positive,
                 // Without a close the value stands on the buying price.
-                sub: quoted
-                    ? '收盤 ${held.price.toStringAsFixed(2)}'
-                    : '尚無收盤價，以成本 ${held.price.toStringAsFixed(2)} 估算',
+                sub: !quoted
+                    ? '尚無收盤價，以成本 ${held.price.toStringAsFixed(2)} 估算'
+                    : switch (ledger.olderQuote(held.code)) {
+                        final day? =>
+                          '${day.month}/${day.day} 收盤 ${held.price.toStringAsFixed(2)}',
+                        null => '收盤 ${held.price.toStringAsFixed(2)}',
+                      },
               ),
               Tile(
                 icon: Glyph.dividend,

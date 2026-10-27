@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:market/market_data.dart';
 
-/// Android and desktop transport: HTTPS to the three known hosts only, no
+/// Android and desktop transport: HTTPS to the four known hosts only, no
 /// redirects, a ten-second budget per phase and a capped body.
 final class IoMarketTransport implements MarketTransport {
   const IoMarketTransport();
@@ -14,6 +14,7 @@ final class IoMarketTransport implements MarketTransport {
     MarketDataGateway.twseUri.host,
     MarketDataGateway.tpexUri.host,
     MarketDataGateway.bankRatesUri.host,
+    MarketDataGateway.twseHistoryHost,
   };
 
   @override

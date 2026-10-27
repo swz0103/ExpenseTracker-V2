@@ -10,8 +10,14 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 const _twse = '''[
-  {"Date":"1150929","Code":"2330","Name":"台積電","ClosingPrice":"1,234.50"}
+  {"Date":"1150929","Code":"2330","Name":"台積電","ClosingPrice":"1,234.50"},
+  {"Date":"1150929","Code":"2317","Name":"鴻海","ClosingPrice":"--"}
 ]''';
+
+/// TWSE's month report of 2317: traded on 9/26, not on 9/29.
+const _report = '''{"stat":"OK","fields":["日期","成交股數","成交金額","開盤價","最高價","最低價","收盤價","漲跌價差","成交筆數"],
+"data":[["115/09/26","1,000","201,500","201.50","201.50","201.50","201.50","+1.50","3"],
+["115/09/29","0","0","--","--","--","--"," 0.00","0"]]}''';
 
 /// Bank of Taiwan's board with one USD row: buy side, then sell side,
 /// each with cash, spot and seven forward columns.
@@ -35,6 +41,9 @@ final class _Market implements MarketTransport {
   Future<MarketResponse> get(Uri uri) async {
     calls++;
     if (uri == MarketDataGateway.twseUri) return MarketResponse(200, _twse);
+    if (uri.host == MarketDataGateway.twseHistoryHost) {
+      return const MarketResponse(200, _report);
+    }
     if (uri == MarketDataGateway.bankRatesUri) {
       return MarketResponse(200, _board());
     }
@@ -105,5 +114,28 @@ void main() {
     ledger = await journal.load();
     expect(ledger.worthOf(ledger.account(usd.id)), 3184);
     open.close();
+  });
+
+  test('a stock not traded on the day takes its last close, dated', () async {
+    final directory = Directory.systemTemp.createTempSync('market-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final vault = LedgerVault(
+      directory,
+      codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+    );
+    final clock = FixedClock(UtcInstant(DateTime.utc(2026, 9, 30, 4)));
+    final market = MarketDataGateway(
+      transport: _Market(),
+      clock: () => DateTime.utc(2026, 9, 30, 4),
+    );
+    final (open, _) = await vault.create('market password');
+    addTearDown(open.close);
+    final journal = TableJournal(open.store, clock: clock, market: market);
+    expect(await journal.refreshQuotes(['2330', '2317']), isTrue);
+    expect(journal.unquoted, isEmpty);
+    final ledger = await journal.load();
+    expect(ledger.hasQuote('2317'), isTrue);
+    expect(ledger.olderQuote('2317'), DateTime.utc(2026, 9, 26));
+    expect(ledger.olderQuote('2330'), isNull);
   });
 }

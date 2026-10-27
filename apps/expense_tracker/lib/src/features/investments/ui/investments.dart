@@ -107,7 +107,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             if (!ledger.hasQuote(h.code))
-              const Text('尚無收盤價，以成本估算', style: mutedSmall),
+              const Text('尚無收盤價，以成本估算', style: mutedSmall)
+            else if (ledger.olderQuote(h.code) case final day?)
+              Text('以 ${day.month}/${day.day} 收盤計', style: mutedSmall),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -156,7 +158,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             ),
             // Without a close the value is the buying price: said so.
             if (!widget.ledger.hasQuote(h.code))
-              const Text('尚無收盤價，以成本估算', style: mutedSmall),
+              const Text('尚無收盤價，以成本估算', style: mutedSmall)
+            else if (widget.ledger.olderQuote(h.code) case final day?)
+              Text('以 ${day.month}/${day.day} 收盤計', style: mutedSmall),
             const SizedBox(height: 4),
             AxisBar(
               value: h.gain,

@@ -42,6 +42,7 @@ final class MarketFeed extends Connector {
         moves: market.moves,
         rates: market.rates,
         quotedOn: market.quotedOn,
+        quoteDays: market.days,
       );
     }
     final missed = _journal.unquoted;
