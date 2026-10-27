@@ -79,8 +79,9 @@ final class InboxSeal {
     if (json is! Map<String, Object?> || json['v'] != version) {
       throw const FormatException('Not an inbox item.');
     }
+    final Map<String, Object?> fields = json;
     List<int> bytes(String name, {int? length}) {
-      final value = json[name];
+      final value = fields[name];
       if (value is! String) throw const FormatException('Not an inbox item.');
       final decoded = base64.decode(value);
       if (length != null && decoded.length != length) {

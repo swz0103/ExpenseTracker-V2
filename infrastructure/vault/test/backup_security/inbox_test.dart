@@ -52,12 +52,12 @@ void main() {
       base64.decode(_inboxPublic),
       utf8.encode(_plain),
     );
-    await expectLater(InboxSeal.open(other, item), throwsA(anything));
+    await expectLater(InboxSeal.open(other, item), throwsA(isA<SecretBoxAuthenticationError>()));
     final json = jsonDecode(item) as Map<String, Object?>;
     final bytes = base64.decode(json['c']! as String);
     bytes[0] ^= 1;
     final changed = jsonEncode({...json, 'c': base64.encode(bytes)});
-    await expectLater(InboxSeal.open(inbox, changed), throwsA(anything));
+    await expectLater(InboxSeal.open(inbox, changed), throwsA(isA<SecretBoxAuthenticationError>()));
     await expectLater(InboxSeal.open(inbox, '{"v":2}'), throwsFormatException);
   });
 
