@@ -131,7 +131,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// How long the app was away, by a clock that cannot be set back.
   final _awayClock = AwayClock();
 
-
   late final _journal = TableJournal(
     widget.vault.store,
     market: MarketDataGateway(
@@ -344,4 +343,3 @@ class _OpenedLedgerState extends State<OpenedLedger>
     },
   );
 }
-

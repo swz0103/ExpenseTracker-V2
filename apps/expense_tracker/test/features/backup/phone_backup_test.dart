@@ -106,10 +106,9 @@ void main() {
       revision++;
       await phone.backUpIfDue();
     }
-    final ours = folder.files.keys
-        .where((n) => n.startsWith('記帳本-ledger-'))
-        .toList()
-      ..sort();
+    final ours =
+        folder.files.keys.where((n) => n.startsWith('記帳本-ledger-')).toList()
+          ..sort();
     expect(ours, hasLength(PhoneBackup.keep));
     expect(ours.last, phone.nameAt(now));
     expect(folder.files['相片.jpg'], 'mine');
