@@ -221,11 +221,23 @@ final class VaultKeeper implements Keeper {
     _startup.lock();
   }
 
+  /// Keeps the ledger as it was before a restore from settings, with its
+  /// photos, apart from the weekly backups: out of Android's cloud backup
+  /// (res/xml/data_extraction_rules.xml), whose allowance photos would
+  /// fill. The newest two stay; the lock screen offers them to restore.
   @override
   Future<String> restoreAnother() async {
     await _beforeLock?.call();
-    final kept = await backUp(withPhotos: true);
+    final folder = _startup.beforeRestore;
+    final kept = await _write(folder, withPhotos: true);
+    final older = [
+      for (final entity in folder.listSync())
+        if (entity is File && entity.path.endsWith('.etbk')) entity,
+    ]..sort((a, b) => b.path.compareTo(a.path));
+    for (final old in older.skip(2)) {
+      await old.delete();
+    }
     _startup.lockToRestore();
-    return kept;
+    return kept.path;
   }
 }

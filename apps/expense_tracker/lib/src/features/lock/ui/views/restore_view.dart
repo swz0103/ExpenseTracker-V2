@@ -19,6 +19,7 @@ class RestoreView extends StatelessWidget {
     this.onBack,
     this.problem,
     this.about,
+    this.onPickKept,
   });
 
   /// The backup's path: typed, or filled in by [onPickFile].
@@ -43,6 +44,10 @@ class RestoreView extends StatelessWidget {
 
   /// When the chosen backup was taken and what it holds.
   final String? about;
+
+  /// Chooses the ledger kept before an earlier restore; none when there
+  /// is none.
+  final VoidCallback? onPickKept;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +86,14 @@ class RestoreView extends StatelessWidget {
               minimumSize: const Size.fromHeight(44),
             ),
             child: const Text('從 Google 雲端硬碟選擇'),
+          ),
+        if (onPickKept case final kept?)
+          OutlinedButton(
+            onPressed: busy ? null : kept,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+            ),
+            child: const Text('還原前自動留下的帳本'),
           ),
         PasswordField(
           controller: secret,

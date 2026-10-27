@@ -82,8 +82,10 @@ class MenuRow extends StatelessWidget {
                   style: TextStyle(fontSize: 15, color: color),
                 ),
               ),
+              // Expanded, not Flexible: the detail takes its half whatever
+              // its length, so the arrows line up down the panel.
               if (detail != null)
-                Flexible(
+                Expanded(
                   child: Text(
                     detail,
                     maxLines: 1,

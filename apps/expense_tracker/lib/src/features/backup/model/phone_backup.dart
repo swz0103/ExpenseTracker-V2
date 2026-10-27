@@ -36,9 +36,11 @@ final class PhoneBackup extends ChangeNotifier {
     required Future<void> Function(Future<void> Function(File file) use)
     withBackup,
     required int Function() revision,
+    required String ledger,
     DateTime Function()? clock,
   }) : _withBackup = withBackup,
        _revision = revision,
+       _mark = _markOf(ledger),
        _clock = clock ?? DateTime.now;
 
   final FolderPort _folder;
@@ -46,6 +48,16 @@ final class PhoneBackup extends ChangeNotifier {
   final Future<void> Function(Future<void> Function(File file) use) _withBackup;
   final int Function() _revision;
   final DateTime Function() _clock;
+
+  /// A short mark of the ledger in its backups' names, so the folder can
+  /// hold another ledger's backups (such as one restored in its place)
+  /// and only this ledger's are ever deleted.
+  final String _mark;
+
+  static String _markOf(String ledger) {
+    final plain = ledger.replaceAll(RegExp('[^A-Za-z0-9]'), '');
+    return plain.length > 6 ? plain.substring(0, 6) : plain;
+  }
 
   /// How many backups stay in the folder.
   static const keep = 5;
@@ -114,10 +126,10 @@ final class PhoneBackup extends ChangeNotifier {
     }
   }
 
-  /// The name of a backup taken at [at]: sorts by time.
-  static String nameAt(DateTime at) {
+  /// The name of this ledger's backup taken at [at]: sorts by time.
+  String nameAt(DateTime at) {
     String two(int n) => n.toString().padLeft(2, '0');
-    return '$_prefix${at.year}${two(at.month)}${two(at.day)}'
+    return '$_prefix$_mark-${at.year}${two(at.month)}${two(at.day)}'
         '-${two(at.hour)}${two(at.minute)}$_suffix';
   }
 
@@ -142,12 +154,15 @@ final class PhoneBackup extends ChangeNotifier {
     }
   }
 
-  /// Deletes the app's backups beyond the newest [keep]; other files in
-  /// the folder are never touched.
+  /// Deletes this ledger's backups beyond the newest [keep]; other files
+  /// in the folder, another ledger's backups among them, are never
+  /// touched.
   Future<void> _prune(String uri) async {
     final ours = [
       for (final file in await _folder.list(uri))
-        if (file.name.startsWith(_prefix) && file.name.endsWith(_suffix)) file,
+        if (file.name.startsWith('$_prefix$_mark-') &&
+            file.name.endsWith(_suffix))
+          file,
     ]..sort((a, b) => b.name.compareTo(a.name));
     for (final old in ours.skip(keep)) {
       await _folder.delete(uri, old.id);

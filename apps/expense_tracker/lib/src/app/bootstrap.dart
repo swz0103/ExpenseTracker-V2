@@ -27,7 +27,6 @@ import '../features/lock/ui/lock_screen.dart';
 import '../features/lock/ui/recovery_code.dart';
 import 'shell.dart';
 import '../core/away_clock.dart';
-import '../core/look/theme.dart';
 import '../core/perf.dart';
 import 'platform.dart';
 import '../core/preferences.dart';
@@ -77,6 +76,7 @@ class VaultRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ExpenseApp(
     preferences: preferences,
+    cover: Platform.isAndroid,
     home: ListenableBuilder(
       listenable: startup,
       builder: (context, _) => switch (startup.state) {
@@ -131,10 +131,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// How long the app was away, by a clock that cannot be set back.
   final _awayClock = AwayClock();
 
-  /// Covers the screens while the app is off screen, so the recent apps
-  /// list shows no amounts.
-  var _covered = false;
-
   late final _journal = TableJournal(
     widget.vault.store,
     market: MarketDataGateway(
@@ -181,6 +177,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           widget.preferences,
           withBackup: _keeper.withBackup<void>,
           revision: () => _keeper.revision,
+          ledger: _keeper.ledgerId,
         )
       : null;
   Ledger? _loaded;
@@ -219,16 +216,20 @@ class _OpenedLedgerState extends State<OpenedLedger>
     return ledger;
   }
 
-  /// Writes the backup to the phone's folder when one is due; a failure
-  /// is said once.
+  /// Writes the backup to the phone's folder when one is due. A failure
+  /// is said once a run, not at each return to the app; the settings page
+  /// keeps showing it.
   Future<void> _phoneBackup() async {
     final phone = _phone;
     if (phone == null || await phone.backUpIfDue()) return;
     final problem = phone.problem;
-    if (problem == null) return;
+    if (problem == null || _phoneWarned) return;
+    _phoneWarned = true;
     Perf.instance.problem('手機資料夾備份', problem);
     if (mounted) showNote(context, '沒有備份到手機資料夾，可以到「設定」重新選擇');
   }
+
+  var _phoneWarned = false;
 
   /// Takes the weekly backup, then sends one to Google Drive when linked;
   /// a failure is said, not kept quiet. Drive out of reach is tried again
@@ -299,15 +300,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
-      case AppLifecycleState.inactive:
-        // Covered first, before the phone takes the picture for the
-        // recent apps list.
-        if (!_covered) setState(() => _covered = true);
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         _awayClock.leave();
-        if (!_covered) setState(() => _covered = true);
       case AppLifecycleState.resumed:
-        if (_covered) setState(() => _covered = false);
         _ledger.then((ledger) => ledger.checkDay()).ignore();
         _market?.refresh().ignore();
         if (_loaded != null) unawaited(_phoneBackup());
@@ -330,7 +325,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       if (ledger == null) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      final shell = AppShell(
+      return AppShell(
         ledger: ledger,
         services: Services(
           keeper: _keeper,
@@ -345,32 +340,6 @@ class _OpenedLedgerState extends State<OpenedLedger>
           market: _market,
         ),
       );
-      return Stack(
-        fit: StackFit.expand,
-        children: [shell, if (_covered) const _Cover()],
-      );
     },
-  );
-}
-
-/// What the recent apps list shows of an open ledger: the app's name on
-/// a plain panel, without a figure.
-class _Cover extends StatelessWidget {
-  const _Cover();
-
-  @override
-  Widget build(BuildContext context) => const ColoredBox(
-    color: Hue.panel,
-    child: Center(
-      child: Text(
-        '記帳本',
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: Hue.muted,
-          decoration: TextDecoration.none,
-        ),
-      ),
-    ),
   );
 }

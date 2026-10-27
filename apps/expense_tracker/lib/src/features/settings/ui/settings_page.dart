@@ -133,7 +133,7 @@ class SettingsPage extends StatelessWidget {
       case SettingsPart.appearance:
         return services.preferences?.appearance.label ?? '';
       case SettingsPart.about:
-        return '效能與診斷';
+        return '版本、效能與診斷';
     }
   }
 
@@ -169,7 +169,22 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-/// 關於: the load and frame timings with the background faults, sent on
+/// Which build this is, set by the APK build (android.yml); empty in a
+/// build made by hand and in the preview.
+const _version = String.fromEnvironment('APP_VERSION');
+const _build = String.fromEnvironment('APP_BUILD');
+const _commit = String.fromEnvironment('APP_COMMIT');
+
+/// This build as 關於 says it.
+String get buildLabel => _version.isEmpty
+    ? '開發版'
+    : [
+        _version,
+        if (_build.isNotEmpty) '第 $_build 版',
+        if (_commit.isNotEmpty) _commit,
+      ].join(' · ');
+
+/// 關於: which build this is, the load and frame timings with the background faults, sent on
 /// when reporting a problem; and, in the preview, starting the made-up
 /// book over.
 class _About extends StatelessWidget {
@@ -209,6 +224,9 @@ class _About extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        MenuPanel([
+          MenuRow(glyph: Glyph.note, title: '版本', detail: buildLabel),
+        ]),
         const SectionHead('效能與診斷'),
         FormBlock(
           child: Column(

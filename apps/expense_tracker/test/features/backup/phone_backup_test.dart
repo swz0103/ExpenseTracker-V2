@@ -40,6 +40,7 @@ void main() {
   late Preferences preferences;
   late DateTime now;
   var revision = 1;
+  var ledger = 'ledger-one';
 
   setUp(() {
     directory = Directory.systemTemp.createTempSync('phone-backup-');
@@ -47,6 +48,7 @@ void main() {
     preferences = Preferences();
     now = DateTime(2026, 10, 27, 9);
     revision = 1;
+    ledger = 'ledger-one';
   });
   tearDown(() => directory.deleteSync(recursive: true));
 
@@ -59,6 +61,7 @@ void main() {
       await use(file);
     },
     revision: () => revision,
+    ledger: ledger,
     clock: () => now,
   );
 
@@ -67,7 +70,7 @@ void main() {
     expect(await phone.choose(), isTrue);
     expect(phone.on, isTrue);
     expect(phone.folderName, '備份');
-    expect(folder.files.keys, [PhoneBackup.nameAt(now)]);
+    expect(folder.files.keys, [phone.nameAt(now)]);
     expect(phone.backedUp, now);
   });
 
@@ -93,6 +96,8 @@ void main() {
 
   test('the newest five of its own are kept; other files are left', () async {
     folder.files['相片.jpg'] = 'mine';
+    // Another ledger's backup, such as the one before a restore.
+    folder.files['記帳本-other-20260101-0900.etbk'] = 'other';
     final phone = backup();
     await phone.choose();
     phone.setDaily(true);
@@ -101,11 +106,13 @@ void main() {
       revision++;
       await phone.backUpIfDue();
     }
-    final ours = folder.files.keys.where((n) => n.endsWith('.etbk')).toList()
-      ..sort();
+    final ours =
+        folder.files.keys.where((n) => n.startsWith('記帳本-ledger-')).toList()
+          ..sort();
     expect(ours, hasLength(PhoneBackup.keep));
-    expect(ours.last, PhoneBackup.nameAt(now));
+    expect(ours.last, phone.nameAt(now));
     expect(folder.files['相片.jpg'], 'mine');
+    expect(folder.files['記帳本-other-20260101-0900.etbk'], 'other');
   });
 
   test('a folder no longer allowed is a problem, not a crash', () async {

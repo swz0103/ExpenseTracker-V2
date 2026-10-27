@@ -12,6 +12,8 @@
         <exclude domain="file" path="diagnostics.log"/>
         <!-- Receipt photos would soon fill the 25 MB backup allowance. -->
         <exclude domain="file" path="receipts"/>
+        <!-- The ledger kept before a restore, with its photos. -->
+        <exclude domain="file" path="before-restore"/>
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="."/>
