@@ -141,15 +141,12 @@ final class MarketDataGateway {
   /// high, low and close. The fallback for a stock the daily snapshot
   /// has no close for, such as one not traded that day.
   static const twseHistoryHost = 'www.twse.com.tw';
-  static Uri twseHistoryUri(String symbol, int year, int month) => Uri.https(
-    twseHistoryHost,
-    '/exchangeReport/STOCK_DAY',
-    {
-      'response': 'json',
-      'date': '$year${month.toString().padLeft(2, '0')}01',
-      'stockNo': symbol,
-    },
-  );
+  static Uri twseHistoryUri(String symbol, int year, int month) =>
+      Uri.https(twseHistoryHost, '/exchangeReport/STOCK_DAY', {
+        'response': 'json',
+        'date': '$year${month.toString().padLeft(2, '0')}01',
+        'stockNo': symbol,
+      });
 
   final MarketTransport _transport;
   final DateTime Function() _clock;
@@ -251,8 +248,7 @@ final class MarketDataGateway {
         return const MarketResult(MarketState.failed, reason: 'Bad report');
       }
     }
-    return last ??
-        const MarketResult(MarketState.missing, reason: 'No trade');
+    return last ?? const MarketResult(MarketState.missing, reason: 'No trade');
   }
 
   /// The newest day with a close in a month report; null when the month
