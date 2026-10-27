@@ -704,7 +704,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 onPressed: entry != null ? _delete : _putAside,
                 style: TextButton.styleFrom(
                   foregroundColor: entry != null ? Hue.danger : Hue.muted,
-                  minimumSize: const Size(64, 46),
+                  minimumSize: const Size(64, 48),
                 ),
                 child: Text(entry != null ? '刪除' : '暫存'),
               ),
@@ -714,14 +714,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                       Navigator.of(context).pop((ComposeOutcome.refund, entry)),
                   style: TextButton.styleFrom(
                     foregroundColor: Hue.positive,
-                    minimumSize: const Size(64, 46),
+                    minimumSize: const Size(64, 48),
                   ),
                   child: const Text('退款'),
                 ),
               const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
-                  height: 46,
+                  height: 48,
                   child: FilledButton(
                     onPressed: _viewing
                         ? () => setState(() => _viewing = false)
