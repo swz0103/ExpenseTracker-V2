@@ -22,7 +22,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，每週的雲端硬碟備份（含照片）只在 Wi-Fi 上傳（`NetworkPart.kt`）。
   - `SCHEDULE_EXACT_ALARM`：只在打開「準時提醒」時使用；Android 12 起要使用者在系統設定允許「鬧鐘與提醒」（App 會帶過去），沒允許時退回一般鬧鐘。不申請 `USE_EXACT_ALARM`（Play 只給鬧鐘、行事曆類 App）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。
-- 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testReleaseUnitTest` 驗證與 Dart 端相同的範例。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
+- 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testDebugUnitTest` 驗證與 Dart 端相同的範例。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
 - 通知（`Reminders.kt`）：每則提醒記下手機當地的日期與時、分（另存當時的時間點，給舊版留下的資料用）。重開機、改時間或改時區時，依現在的時區重新算出時間點，所以 9:00 的提醒到了別的時區仍是當地 9:00；時間已過的則取消。鬧鐘預設用 `setAndAllowWhileIdle`，不是精準鬧鐘，手機休眠（Doze）時可能晚幾分鐘；打開「準時提醒」且系統允許時改用 `setExactAndAllowWhileIdle`。每則提醒帶標籤（`nudge`、`due:<key>`），重排時把已跳出但不再適用的通知收回（當天記過帳的每日提醒、已入帳或已繳的到期通知；測試通知除外）。「傳送測試通知」用另一個鬧鐘在一分鐘後跳出。設定頁的狀態列讀 `areNotificationsEnabled`、`canScheduleExactAlarms`、`isIgnoringBatteryOptimizations`，並可開 `ACTION_REQUEST_SCHEDULE_EXACT_ALARM`、`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`。
   - 已知限制：為了重開機後能重排，每則提醒的標題、內文（可能含金額）與點下去要開的畫面以明文存在 App 的 SharedPreferences（`reminders`）。這是 App 私有資料，其他 App 讀不到，也不在自動備份規則內（規則只收 `file` 網域），但不受帳本的 SQLCipher 加密保護。關掉通知後下次同步就會清空。
 - 收據照片：相機寫到快取的 `camera/`（`FileProvider`，`res/xml/file_paths.xml`），縮小、加密存進 `receipts/` 後刪掉。
