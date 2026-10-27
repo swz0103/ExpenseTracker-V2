@@ -23,15 +23,16 @@ void main() {
       exactReminders: true,
       phoneDaily: true,
     );
-    Preferences(file: file).phoneFolderSet('content://tree/backups', name: '備份');
+    Preferences(file: file)
+        .phoneFolderSet('content://tree/backups', name: '備份');
     final again = Preferences(file: file);
     expect(again.nudgeMinute, 45);
     expect(again.exactReminders, isTrue);
     expect(again.phoneDaily, isTrue);
-    expect((again.phoneFolder, again.phoneFolderName), (
-      'content://tree/backups',
-      '備份',
-    ));
+    expect(
+      (again.phoneFolder, again.phoneFolderName),
+      ('content://tree/backups', '備份'),
+    );
     expect(again.appearance, Appearance.dark);
     expect(again.haptics, isFalse);
     expect(again.dueAlerts, isFalse);

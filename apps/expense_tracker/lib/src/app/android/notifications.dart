@@ -17,26 +17,25 @@ final class AndroidNotifications implements NotifyPort {
     List<Alert> alerts, {
     bool exact = false,
     Set<String>? wanted,
-  }) =>
-      platformChannel.invokeMethod<void>('scheduleNotifications', {
-        'exact': exact,
-        'wanted': ?wanted?.toList(),
-        'alerts': [
-          for (final a in alerts)
-            {
-              'at': a.at.millisecondsSinceEpoch,
-              'y': a.at.toLocal().year,
-              'm': a.at.toLocal().month,
-              'd': a.at.toLocal().day,
-              'hour': a.at.toLocal().hour,
-              'minute': a.at.toLocal().minute,
-              'title': a.title,
-              'text': a.text,
-              'quick': a.quick?.name,
-              'tag': a.tag,
-            },
-        ],
-      });
+  }) => platformChannel.invokeMethod<void>('scheduleNotifications', {
+    'exact': exact,
+    'wanted': ?wanted?.toList(),
+    'alerts': [
+      for (final a in alerts)
+        {
+          'at': a.at.millisecondsSinceEpoch,
+          'y': a.at.toLocal().year,
+          'm': a.at.toLocal().month,
+          'd': a.at.toLocal().day,
+          'hour': a.at.toLocal().hour,
+          'minute': a.at.toLocal().minute,
+          'title': a.title,
+          'text': a.text,
+          'quick': a.quick?.name,
+          'tag': a.tag,
+        },
+    ],
+  });
 
   @override
   Future<void> test({bool exact = false}) =>

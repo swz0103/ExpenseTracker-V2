@@ -220,10 +220,7 @@ class _BackupSectionState extends State<BackupSection> {
             glyph: Glyph.calendar,
             title: '自動備份頻率',
             detail: phone.daily ? '每天（有變更才備份）' : '每週（有變更才備份）',
-            trailing: Switch(
-              value: phone.daily,
-              onChanged: phone.setDaily,
-            ),
+            trailing: Switch(value: phone.daily, onChanged: phone.setDaily),
           ),
         ],
       );

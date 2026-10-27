@@ -14,14 +14,15 @@ final class AndroidFolder implements FolderPort {
       'pickFolder',
     );
     if (picked == null) return null;
-    return (uri: picked['uri']! as String, name: picked['name'] as String? ?? '');
+    return (
+      uri: picked['uri']! as String,
+      name: picked['name'] as String? ?? '',
+    );
   }
 
   @override
   Future<bool> allowed(String uri) async =>
-      await platformChannel.invokeMethod<bool>('folderAllowed', {
-        'uri': uri,
-      }) ??
+      await platformChannel.invokeMethod<bool>('folderAllowed', {'uri': uri}) ??
       false;
 
   @override
@@ -57,9 +58,6 @@ final class AndroidFolder implements FolderPort {
       });
 
   @override
-  Future<void> delete(String uri, String id) =>
-      platformChannel.invokeMethod<void>('deleteInFolder', {
-        'uri': uri,
-        'id': id,
-      });
+  Future<void> delete(String uri, String id) => platformChannel
+      .invokeMethod<void>('deleteInFolder', {'uri': uri, 'id': id});
 }

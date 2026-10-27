@@ -173,6 +173,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           unmetered: androidUnmetered,
         )
       : null;
+
   /// Backups to a folder on the phone, on Android.
   late final _phone = Platform.isAndroid
       ? PhoneBackup(
