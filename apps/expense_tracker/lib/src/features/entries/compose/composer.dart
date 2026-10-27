@@ -9,7 +9,6 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
-import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/record_json.dart';
 import '../../../core/ledger/trading.dart';

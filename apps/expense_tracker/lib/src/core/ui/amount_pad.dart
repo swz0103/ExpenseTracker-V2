@@ -64,9 +64,9 @@ class AmountPad extends StatelessWidget {
           },
           child: Center(
             child: key == '⌫'
-                ? const Semantics(
+                ? Semantics(
                     label: '退格',
-                    child: GlyphIcon(
+                    child: const GlyphIcon(
                       Glyph.backspace,
                       size: 22,
                       color: Hue.accent,
