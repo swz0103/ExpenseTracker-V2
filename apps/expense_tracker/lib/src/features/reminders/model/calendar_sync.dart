@@ -48,6 +48,27 @@ final class CalendarSync {
     return (id, lines.length > 1 ? lines[1] : '');
   }
 
+  /// Whether the events show amounts (「繳卡費：玉山卡 12,345」); off
+  /// writes them without (「繳卡費：玉山卡」), for a calendar others see
+  /// or that shows on the lock screen. Kept as a third line of the file.
+  bool get amounts {
+    if (!_file.existsSync()) return true;
+    final lines = _file.readAsLinesSync();
+    return lines.length < 3 || lines[2] != 'no-amounts';
+  }
+
+  /// Writes the events with or without amounts from now on, and again
+  /// now for [ledger].
+  Future<void> setAmounts(bool on, Ledger ledger) async {
+    final calendar = chosen;
+    if (calendar == null) return;
+    await _write(calendar.$1, calendar.$2, amounts: on);
+    await sync(ledger);
+  }
+
+  Future<void> _write(int id, String name, {required bool amounts}) => _file
+      .writeAsString('$id\n$name${amounts ? '' : '\nno-amounts'}', flush: true);
+
   /// Syncs to [calendar] from now on; reminders still to come leave the
   /// calendar chosen before, so they are not shown twice.
   Future<void> choose(CalendarChoice calendar, Ledger ledger) async {
@@ -59,7 +80,7 @@ final class CalendarSync {
         Perf.instance.problem('清除舊日曆的提醒', error);
       }
     }
-    await _file.writeAsString('${calendar.id}\n${calendar.name}', flush: true);
+    await _write(calendar.id, calendar.name, amounts: amounts);
   }
 
   /// Stops syncing and takes the reminders still to come off the calendar.
@@ -100,7 +121,10 @@ final class CalendarSync {
     final calendar = chosen;
     if (calendar == null) return null;
     try {
-      return await port.replace(calendar.$1, ledger.today, ledger.reminders());
+      final reminders = ledger.reminders();
+      return await port.replace(calendar.$1, ledger.today, [
+        for (final r in reminders) amounts ? r : r.withoutAmount,
+      ]);
     } on Object catch (error) {
       Perf.instance.problem('日曆同步', error);
       return null;

@@ -90,6 +90,19 @@ class _LinksSectionState extends State<LinksSection> {
             },
             onTap: () => _linkCalendar(calendar),
           ),
+          if (calendar.chosen != null)
+            MenuRow(
+              glyph: Glyph.eye,
+              title: '日曆寫入金額',
+              detail: calendar.amounts ? '例：繳卡費：玉山卡 12,345' : '例：繳卡費：玉山卡',
+              trailing: Switch(
+                value: calendar.amounts,
+                onChanged: (on) async {
+                  await calendar.setAmounts(on, widget.ledger);
+                  if (mounted) setState(() {});
+                },
+              ),
+            ),
         ]),
       ],
     );

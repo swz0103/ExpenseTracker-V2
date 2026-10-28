@@ -47,6 +47,13 @@ class _ImportSheetState extends State<_ImportSheet> {
   late var _account = _first();
   Import? _found;
 
+  /// The places in what was read of the lines unticked, left out of the
+  /// import.
+  final _left = <int>{};
+
+  /// 「怎麼判斷重複」 is open.
+  var _rules = false;
+
   String _first() {
     final open = widget.ledger.openAccounts;
     if (!widget.invoices) return open.first.id;
@@ -70,6 +77,7 @@ class _ImportSheetState extends State<_ImportSheet> {
     final ledger = widget.ledger;
     final text = _text.text;
     setState(() {
+      _left.clear();
       _found = widget.invoices
           ? importInvoices(ledger, text, account: _account)
           : importCsv(ledger, text, fallback: _account);
@@ -116,21 +124,37 @@ class _ImportSheetState extends State<_ImportSheet> {
     _read();
   }
 
-  void _add() {
+  /// What is ticked of what was read.
+  Import? get _chosen {
     final found = _found;
-    if (found == null || found.entries.isEmpty) return;
-    addImport(widget.ledger, found);
-    showNote(context, '已匯入 ${found.entries.length} 筆紀錄');
+    if (found == null) return null;
+    return found.only({
+      for (var i = 0; i < found.entries.length; i++)
+        if (!_left.contains(i)) i,
+    });
+  }
+
+  void _add() {
+    final chosen = _chosen;
+    if (chosen == null || chosen.entries.isEmpty) return;
+    addImport(widget.ledger, chosen);
+    showNote(context, '已匯入 ${chosen.entries.length} 筆紀錄');
     Navigator.of(context).pop();
   }
+
+  void _toggle(int index) => setState(() {
+    if (!_left.remove(index)) _left.add(index);
+  });
 
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final found = _found;
-    final total = found == null
+    final chosen = _chosen;
+    final total = chosen == null
         ? 0
-        : found.entries.fold(0, (sum, e) => sum + e.amount);
+        : chosen.entries.fold(0, (sum, e) => sum + e.amount);
+    final count = chosen?.entries.length ?? 0;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -190,27 +214,48 @@ class _ImportSheetState extends State<_ImportSheet> {
             Tile(
               icon: Glyph.download,
               label: '讀到',
-              value: '${found.entries.length} 筆',
+              value: count == found.entries.length
+                  ? '${found.entries.length} 筆'
+                  : '勾選 $count / ${found.entries.length} 筆',
               sub: found.skipped == 0
                   ? '合計 ${ledger.money(total)}'
-                  : '合計 ${ledger.money(total)} · 略過 ${found.skipped} 行',
+                  : '合計 ${ledger.money(total)} · 略過 ${found.skipped} 行'
+                        '（重複或看不懂）',
             ),
-          if (found != null && found.accounts.isNotEmpty)
+          if (found != null)
+            TapArea(
+              onTap: () => setState(() => _rules = !_rules),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+                child: Text(
+                  _rules ? '怎麼判斷重複 ▴' : '怎麼判斷重複 ▾',
+                  style: accentLabel,
+                ),
+              ),
+            ),
+          if (found != null && _rules) const _Note(duplicateRules),
+          if (chosen != null && chosen.accounts.isNotEmpty)
             _Note(
               '會新增帳戶：'
-              '${found.accounts.map((a) => a.name).join('、')}'
+              '${chosen.accounts.map((a) => a.name).join('、')}'
               '（信用卡預設 1 日結帳、15 日繳款，可到帳戶修改）',
             ),
-          if (found != null && found.categories.isNotEmpty)
-            _Note('會新增分類：${found.categories.map((c) => c.name).join('、')}'),
+          if (chosen != null && chosen.categories.isNotEmpty)
+            _Note('會新增分類：${chosen.categories.map((c) => c.name).join('、')}'),
           for (final problem in found?.problems ?? const <String>[])
             _Note(problem, color: Hue.danger),
+          if (found != null && found.entries.isNotEmpty)
+            const _Note('取消勾選的不會匯入'),
           if (found != null)
-            for (final e in found.entries.take(5))
-              Padding(
-                padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
+            for (final (i, e) in found.entries.indexed)
+              InkWell(
+                onTap: () => _toggle(i),
                 child: Row(
                   children: [
+                    Checkbox(
+                      value: !_left.contains(i),
+                      onChanged: (_) => _toggle(i),
+                    ),
                     Text('${e.date.month}/${e.date.day}', style: mutedSmall),
                     const SizedBox(width: 10),
                     Expanded(
@@ -242,7 +287,7 @@ class _ImportSheetState extends State<_ImportSheet> {
               ),
           const SizedBox(height: 14),
           FilledButton(
-            onPressed: found == null || found.entries.isEmpty ? null : _add,
+            onPressed: count == 0 ? null : _add,
             style: FilledButton.styleFrom(
               backgroundColor: Hue.accent,
               minimumSize: const Size.fromHeight(46),
@@ -250,11 +295,7 @@ class _ImportSheetState extends State<_ImportSheet> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(
-              found == null || found.entries.isEmpty
-                  ? '匯入'
-                  : '匯入 ${found.entries.length} 筆',
-            ),
+            child: Text(count == 0 ? '匯入' : '匯入 $count 筆'),
           ),
         ],
       ),

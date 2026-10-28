@@ -243,6 +243,43 @@ class _BackupSectionState extends State<BackupSection> {
     }
   }
 
+  var _checking = false;
+
+  /// Opens the newest backup as a restore would, and says what was found.
+  Future<void> _check(Keeper keeper) async {
+    setState(() => _checking = true);
+    try {
+      final found = await keeper.checkNewest();
+      if (!mounted) return;
+      final at = found.at.toLocal();
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('備份可以還原'),
+          content: Text(
+            '${at.year}/${at.month}/${at.day} '
+            '${at.hour.toString().padLeft(2, '0')}:'
+            '${at.minute.toString().padLeft(2, '0')} 的備份完整打開了：'
+            '${found.rows} 筆資料'
+            '${found.photos == 0 ? '' : '、${found.photos} 張收據照片'}。',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    } on Object catch (error) {
+      if (mounted) {
+        showNote(context, '最新的備份打不開：${describeProblem(error)}，請重新備份');
+      }
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final keeper = widget.keeper;
@@ -255,6 +292,12 @@ class _BackupSectionState extends State<BackupSection> {
       ),
       if (widget.phone case final phone?) _phoneRows(phone),
       if (widget.drive case final drive?) _driveRow(keeper, drive),
+      MenuRow(
+        glyph: Glyph.shield,
+        title: '檢查備份',
+        detail: _checking ? '檢查中…' : '試開最新一份，確認還原得回來',
+        onTap: _checking ? null : () => _check(keeper),
+      ),
       MenuRow(
         glyph: Glyph.reset,
         title: '從備份還原',
