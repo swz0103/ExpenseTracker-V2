@@ -90,6 +90,10 @@ final class VaultKeeper implements Keeper {
     }
   }
 
+  /// Writes a backup with the receipt photos into [folder] and leaves it
+  /// there, for the background job to deliver (outbox.dart).
+  Future<File> writeInto(Directory folder) => _write(folder, withPhotos: true);
+
   @override
   Future<bool> exportFile(String name, String text) async {
     // Written beside the ledger only until it is handed over.

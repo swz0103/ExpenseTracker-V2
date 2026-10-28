@@ -40,7 +40,7 @@ final class PhoneBackup extends ChangeNotifier {
     DateTime Function()? clock,
   }) : _withBackup = withBackup,
        _revision = revision,
-       _mark = _markOf(ledger),
+       _mark = markOf(ledger),
        _clock = clock ?? DateTime.now;
 
   final FolderPort _folder;
@@ -54,7 +54,9 @@ final class PhoneBackup extends ChangeNotifier {
   /// and only this ledger's are ever deleted.
   final String _mark;
 
-  static String _markOf(String ledger) {
+  /// The mark of [ledger] in its backups' names; the background worker
+  /// (BackupWorker.kt) is given it in the outbox.
+  static String markOf(String ledger) {
     final plain = ledger.replaceAll(RegExp('[^A-Za-z0-9]'), '');
     return plain.length > 6 ? plain.substring(0, 6) : plain;
   }
