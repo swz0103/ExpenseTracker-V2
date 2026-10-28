@@ -30,6 +30,7 @@ class MainActivity : FlutterFragmentActivity() {
         FolderPart(this),
         BackupsPart(this),
         WidgetsPart(this),
+        UpdatePart(this),
     )
     private var channel: MethodChannel? = null
 

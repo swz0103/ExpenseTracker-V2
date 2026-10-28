@@ -33,6 +33,8 @@ Future<void> clearLeftovers(
     if (cache != null) ...[
       File('${cache.path}/receipt-ready.jpg'),
       File('${cache.path}/restore.etbk'),
+      // A newer version handed to the installer: installed, or not wanted.
+      Directory('${cache.path}/updates'),
       for (final kept in [File('${cache.path}/receipt-leftover.jpg')])
         if (older(kept, const Duration(days: 1))) kept,
     ],

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Where the camera writes a receipt photo before it is made smaller. -->
+<!-- Where the camera writes a receipt photo before it is made smaller,
+     and where a newer version waits for Android's installer. -->
 <paths>
     <cache-path name="camera" path="camera/" />
+    <cache-path name="updates" path="updates/" />
 </paths>
