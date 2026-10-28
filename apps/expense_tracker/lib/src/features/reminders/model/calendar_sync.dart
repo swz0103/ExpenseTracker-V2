@@ -66,11 +66,8 @@ final class CalendarSync {
     await sync(ledger);
   }
 
-  Future<void> _write(int id, String name, {required bool amounts}) =>
-      _file.writeAsString(
-        '$id\n$name${amounts ? '' : '\nno-amounts'}',
-        flush: true,
-      );
+  Future<void> _write(int id, String name, {required bool amounts}) => _file
+      .writeAsString('$id\n$name${amounts ? '' : '\nno-amounts'}', flush: true);
 
   /// Syncs to [calendar] from now on; reminders still to come leave the
   /// calendar chosen before, so they are not shown twice.

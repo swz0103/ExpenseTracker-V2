@@ -241,9 +241,7 @@ class _ImportSheetState extends State<_ImportSheet> {
               '（信用卡預設 1 日結帳、15 日繳款，可到帳戶修改）',
             ),
           if (chosen != null && chosen.categories.isNotEmpty)
-            _Note(
-              '會新增分類：${chosen.categories.map((c) => c.name).join('、')}',
-            ),
+            _Note('會新增分類：${chosen.categories.map((c) => c.name).join('、')}'),
           for (final problem in found?.problems ?? const <String>[])
             _Note(problem, color: Hue.danger),
           if (found != null && found.entries.isNotEmpty)
