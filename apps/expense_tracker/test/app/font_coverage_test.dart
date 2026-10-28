@@ -58,10 +58,13 @@ void main() {
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       for (final rune in file.readAsStringSync().runes) {
-        // CJK ideographs and full-width punctuation: what the system
-        // font would otherwise draw in another style.
+        // CJK ideographs, full-width punctuation, and the kana block a
+        // separator such as ・ comes from: next to a Chinese character,
+        // text shaping draws the whole run in the Chinese font, so a
+        // glyph missing there shows as a box even when Nunito has it.
         final chinese =
             (rune >= 0x3000 && rune <= 0x303F) ||
+            (rune >= 0x3040 && rune <= 0x30FF) ||
             (rune >= 0x4E00 && rune <= 0x9FFF) ||
             (rune >= 0xFF00 && rune <= 0xFFEF);
         if (chinese && !covered.contains(rune)) {
