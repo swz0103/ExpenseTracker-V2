@@ -10,6 +10,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'android/backups.dart';
+import 'android/update.dart';
 import 'android/widgets.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
@@ -36,6 +37,7 @@ import '../core/perf.dart';
 import 'platform.dart';
 import '../core/preferences.dart';
 import '../core/screen_privacy.dart';
+import '../features/settings/model/app_update.dart';
 import '../features/settings/model/services.dart';
 import '../features/lock/model/startup.dart';
 
@@ -214,6 +216,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// Closing prices and rates, once the book is loaded.
   MarketFeed? _market;
 
+  /// Newer versions of the app, on Android, once the book is loaded.
+  AppUpdate? _update;
+
   /// The phone's receipt photos, sealed with the ledger's key.
   ReceiptPhotos? _receipts;
 
@@ -241,6 +246,18 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final market = _market = MarketFeed(_journal, ledger);
     unawaited(market.refresh());
     unawaited(_weeklyBackup());
+    if (Platform.isAndroid) {
+      try {
+        _update = AppUpdate(
+          const AndroidUpdatePort(),
+          widget.preferences,
+          cache: await androidCacheDirectory(),
+        );
+        unawaited(_checkUpdate());
+      } on Object catch (error) {
+        Perf.instance.problem('檢查更新', error);
+      }
+    }
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
     _homeWidget?.follow(ledger);
@@ -322,6 +339,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
   }
 
   var _phoneWarned = false;
+
+  /// Looks for a newer version once a day at most, and says so when one
+  /// is found; installing waits for the person, in 設定 › 關於.
+  Future<void> _checkUpdate() async {
+    final newer = await _update?.checkIfDue();
+    if (newer == null || !mounted) return;
+    showNote(context, '有新版本（${newer.label}），可以到「設定 › 關於」更新');
+  }
 
   /// Leaves the backup for the background job when the app is left with
   /// changes not in one yet, so it reaches the phone's folder and Drive
@@ -412,6 +437,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     _drive?.dispose();
     _phone?.dispose();
     _market?.dispose();
+    _update?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -465,6 +491,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           drive: _drive,
           phone: _phone,
           market: _market,
+          update: _update,
         ),
       );
     },

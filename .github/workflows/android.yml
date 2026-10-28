@@ -116,6 +116,14 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+          # What the app reads to update itself (app_update.dart): this
+          # build's number, its SHA-256 and size, published beside the APK.
+          apk="$RUNNER_TEMP/ExpenseTracker.apk"
+          printf '{"build":%s,"version":"%s","commit":"%s","sha256":"%s","size":%s}\n' \
+            "${{ github.run_number }}" "$version" "${SOURCE_SHA:0:7}" \
+            "$(sha256sum "$apk" | cut -d' ' -f1)" "$(stat -c %s "$apk")" \
+            > "$RUNNER_TEMP/update.json"
+          cat "$RUNNER_TEMP/update.json"
       - name: Kotlin unit tests
         # The Android side's own checks, such as the inbox sealing the
         # vault's worked example the same (InboxWriterTest.kt). The Android
@@ -189,7 +197,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: apk
-          path: ${{ runner.temp }}/ExpenseTracker.apk
+          path: |
+            ${{ runner.temp }}/ExpenseTracker.apk
+            ${{ runner.temp }}/update.json
           if-no-files-found: error
           retention-days: 3
 
@@ -247,6 +257,10 @@ jobs:
           fi
           gh api -X PATCH "repos/$repo/releases/assets/$new_id" \
             -f name=ExpenseTracker.apk > /dev/null
+          # Only once the APK is in place: the app never reads of a build
+          # it cannot download.
+          gh release upload android-latest "$RUNNER_TEMP/apk/update.json" \
+            --repo "$repo" --clobber
           # Leftovers from an earlier publish that stopped half way.
           gh api "repos/$repo/releases/tags/android-latest" \
             --jq '.assets[] | select(.name | test("^ExpenseTracker-[0-9]+\\.apk$")) | .id' |

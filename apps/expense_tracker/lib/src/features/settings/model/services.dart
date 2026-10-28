@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/connector.dart';
+import 'app_update.dart';
 import '../../backup/model/drive_sync.dart';
 import '../../backup/model/keeper.dart';
 import '../../backup/model/phone_backup.dart';
@@ -29,6 +30,7 @@ final class Services {
     this.drive,
     this.phone,
     this.market,
+    this.update,
   });
 
   final Keeper? keeper;
@@ -56,4 +58,7 @@ final class Services {
 
   /// Closing prices and rates; none in the preview.
   final Connector? market;
+
+  /// Newer versions of the app, on Android.
+  final AppUpdate? update;
 }

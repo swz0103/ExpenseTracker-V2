@@ -61,6 +61,10 @@ final class Preferences extends ChangeNotifier {
       );
       _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
       _overview = (json['overview'] as List<Object?>?)?.cast<String>();
+      _updateChecks = json['updateChecks'] as bool? ?? true;
+      _updateCheckedAt = DateTime.tryParse(
+        json['updateCheckedAt'] as String? ?? '',
+      );
       _widgetFigures = WidgetFigures.values.firstWhere(
         (f) => f.name == json['widgetFigures'],
         orElse: () => WidgetFigures.off,
@@ -162,6 +166,20 @@ final class Preferences extends ChangeNotifier {
   WidgetFigures get widgetFigures => _widgetFigures;
   var _widgetFigures = WidgetFigures.off;
 
+  /// Whether the app looks for a newer version by itself, at most daily.
+  bool get updateChecks => _updateChecks;
+  var _updateChecks = true;
+
+  /// When it last looked.
+  DateTime? get updateCheckedAt => _updateCheckedAt;
+  DateTime? _updateCheckedAt;
+
+  /// Notes that the app looked for a newer version at [at].
+  void updateChecked(DateTime at) {
+    _updateCheckedAt = at;
+    _save();
+  }
+
   /// The way to the home-screen widget was shown.
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
@@ -199,6 +217,7 @@ final class Preferences extends ChangeNotifier {
     bool? widgetShown,
     bool? driveLinked,
     WidgetFigures? widgetFigures,
+    bool? updateChecks,
   }) {
     _appearance = appearance ?? _appearance;
     _haptics = haptics ?? _haptics;
@@ -212,6 +231,7 @@ final class Preferences extends ChangeNotifier {
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
     _widgetFigures = widgetFigures ?? _widgetFigures;
+    _updateChecks = updateChecks ?? _updateChecks;
     notifyListeners();
     _save();
   }
@@ -245,6 +265,8 @@ final class Preferences extends ChangeNotifier {
           'phoneRevision': _phoneRevision,
           'overview': _overview,
           'widgetFigures': _widgetFigures.name,
+          'updateChecks': _updateChecks,
+          'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
         }),
         flush: true,
       );

@@ -8,8 +8,10 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/perf.dart';
+import '../../../core/preferences.dart';
 import '../../../core/problems.dart';
 import '../../entries/ui/trash_sheet.dart';
+import '../model/app_update.dart';
 import '../model/services.dart';
 import 'sections/backup_section.dart';
 import 'sections/exchange_section.dart';
@@ -227,6 +229,8 @@ class _About extends StatelessWidget {
         MenuPanel([
           MenuRow(glyph: Glyph.note, title: '版本', detail: buildLabel),
         ]),
+        if (services.update case final update?)
+          _Updates(update: update, preferences: services.preferences),
         const SectionHead('效能與診斷'),
         FormBlock(
           child: Column(
@@ -274,6 +278,85 @@ class _About extends StatelessWidget {
             ),
         ]),
       ],
+    );
+  }
+}
+
+/// 檢查更新: looks for a newer version, then downloads it and opens
+/// Android's installer; and whether to look by itself.
+class _Updates extends StatelessWidget {
+  const _Updates({required this.update, this.preferences});
+
+  final AppUpdate update;
+  final Preferences? preferences;
+
+  String get _detail {
+    if (!update.possible) return '自行建置的版本不能更新';
+    final progress = update.progress;
+    if (progress != null) return '下載中 ${(progress * 100).round()}%';
+    if (update.checking) return '檢查中…';
+    final newer = update.newer;
+    if (newer != null) return '有新版本：${newer.label}';
+    final problem = update.problem;
+    if (problem != null) return problem;
+    if (update.upToDate) return '已是最新版本';
+    return '從 GitHub 發布頁取得';
+  }
+
+  Future<void> _tap(BuildContext context) async {
+    if (!update.possible || update.busy) return;
+    final newer = update.newer;
+    if (newer == null) {
+      await update.check();
+      return;
+    }
+    final mb = (newer.size / 1024 / 1024).toStringAsFixed(1);
+    final ok = await confirm(
+      context,
+      '下載${newer.label}（$mb MB）並安裝？下載後 Android 會請你確認，帳本資料會保留。',
+      '下載並安裝',
+    );
+    if (!ok) return;
+    final outcome = await update.install();
+    if (!context.mounted) return;
+    switch (outcome) {
+      case UpdateInstall.needsPermission:
+        showNote(context, '請允許「記帳本」安裝應用程式，回來後再按一次');
+      case UpdateInstall.damaged:
+      case null:
+        final problem = update.problem;
+        if (problem != null) showNote(context, problem);
+      case UpdateInstall.started:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = this.preferences;
+    return ListenableBuilder(
+      listenable: Listenable.merge([update, ?preferences]),
+      builder: (context, _) => Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: MenuPanel([
+          MenuRow(
+            glyph: Glyph.download,
+            title: update.newer == null ? '檢查更新' : '下載並安裝更新',
+            detail: _detail,
+            onTap: update.possible ? () => _tap(context) : null,
+          ),
+          if (preferences != null && update.possible)
+            MenuRow(
+              glyph: Glyph.bell,
+              title: '自動檢查更新',
+              detail: '打開 App 時，每天最多一次',
+              trailing: Switch(
+                value: preferences.updateChecks,
+                onChanged: (on) => preferences.update(updateChecks: on),
+              ),
+            ),
+        ]),
+      ),
     );
   }
 }

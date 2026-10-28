@@ -45,6 +45,10 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 `preferences.json` 的設定判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤寫進 `outbox/delivered.json`（只有 App 會寫 `preferences.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、時間格式、檔名、只整理同一本）由 `BackupPlanTest.kt` 驗證。
 
+## App 內更新
+
+每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdatePart.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+
 ## 桌面小工具
 
 「記一筆」（`QuickWidget.kt`）只有按鈕。「本月概況」（`SummaryWidget.kt`）顯示 App 寫在 `filesDir/widget.json` 的文字（`lib/src/features/overview/model/home_widget.dart`：帳本變動後 1 秒、或改了設定時重寫，再經 `refreshWidgets` 通知小工具），自己不讀帳本，所以帳本鎖著也能顯示。選「只顯示百分比」時檔案裡只有百分比；選「不顯示數字」時檔案刪除。每 3 小時重畫一次，月份不是這個月就請使用者打開 App。`widget.json` 不進雲端備份也不隨裝置轉移；`WidgetViewTest.kt` 驗證顯示規則。
