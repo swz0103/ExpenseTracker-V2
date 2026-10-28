@@ -45,6 +45,10 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 `preferences.json` 的設定判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤寫進 `outbox/delivered.json`（只有 App 會寫 `preferences.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、時間格式、檔名、只整理同一本）由 `BackupPlanTest.kt` 驗證。
 
+## 桌面小工具
+
+「記一筆」（`QuickWidget.kt`）只有按鈕。「本月概況」（`SummaryWidget.kt`）顯示 App 寫在 `filesDir/widget.json` 的文字（`lib/src/features/overview/model/home_widget.dart`：帳本變動後 1 秒、或改了設定時重寫，再經 `refreshWidgets` 通知小工具），自己不讀帳本，所以帳本鎖著也能顯示。選「只顯示百分比」時檔案裡只有百分比；選「不顯示數字」時檔案刪除。每 3 小時重畫一次，月份不是這個月就請使用者打開 App。`widget.json` 不進雲端備份也不隨裝置轉移；`WidgetViewTest.kt` 驗證顯示規則。
+
 Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `WorkDatabase_Impl`，`android/app/proguard-rules.pro` 保留它與各 worker 的建構子（少了它 App 一打開就停止運作）。CI 每次建置後都在模擬器上安裝這個 APK、打開、切到背景再打開（`.github/scripts/launch-check.sh`），閃退就失敗、不發布。
 
 ## 從設定還原
@@ -61,6 +65,7 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 - `diagnostics.log`：「設定 › 關於」的錯誤紀錄，只屬於這支手機（只記錯誤類型與簡短訊息，不含帳本內容）。
 - `before-restore`：從設定還原前留下的帳本（含照片），只放在這支手機。
 - `outbox`：等背景工作送出的備份，只屬於這支手機。
+- `widget.json`：桌面小工具顯示的文字。
 - `receipts`：收據照片，不進雲端備份（很快就會超過 25 MB 額度）；裝置對裝置轉移（`device-transfer`）仍會帶走。要保留照片請匯出備份檔，它會附上照片。
 
 沒設密碼時，帳本金鑰存在 App 的私有資料夾，會跟著帳本進 Android 的雲端備份（由 Google 以手機螢幕鎖加密）；新手機還原後可直接打開，但也代表帳本的安全等同那份雲端備份。設了密碼後，金鑰只以密碼、救援碼與指紋包裝存放，還原後要輸入密碼或救援碼。

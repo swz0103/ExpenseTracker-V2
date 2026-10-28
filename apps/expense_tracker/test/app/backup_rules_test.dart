@@ -29,7 +29,7 @@ void main() {
 
   // This phone's own: its fingerprint enrolment, the files waiting to be
   // handed over, the calendar chosen, the error log, the backup waiting
-  // for the background job.
+  // for the background job, the home-screen widget's figures.
   const ownPhone = {
     'device-id',
     'no-fingerprint',
@@ -37,6 +37,7 @@ void main() {
     'calendar',
     'diagnostics.log',
     'outbox',
+    'widget.json',
   };
   // Too large for the 25 MB cloud allowance; they still move with the
   // phone-to-phone transfer.

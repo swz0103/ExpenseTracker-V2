@@ -14,6 +14,19 @@ enum Appearance {
   final String label;
 }
 
+/// What the home-screen widget 本月概況 shows: nothing of the ledger, the
+/// month's spending and what is left of the budget, or only the share of
+/// the budget used.
+enum WidgetFigures {
+  off('不顯示數字'),
+  amounts('顯示金額'),
+  percent('只顯示百分比');
+
+  const WidgetFigures(this.label);
+
+  final String label;
+}
+
 /// How this phone shows the app: colours, taps felt, notifications. Kept
 /// beside the ledger in a file of its own, so it holds from the lock
 /// screen on; the preview keeps it in memory.
@@ -48,6 +61,10 @@ final class Preferences extends ChangeNotifier {
       );
       _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
       _overview = (json['overview'] as List<Object?>?)?.cast<String>();
+      _widgetFigures = WidgetFigures.values.firstWhere(
+        (f) => f.name == json['widgetFigures'],
+        orElse: () => WidgetFigures.off,
+      );
     } on Object {
       // An unreadable file leaves the defaults.
     }
@@ -140,6 +157,11 @@ final class Preferences extends ChangeNotifier {
   bool get started => _started;
   var _started = false;
 
+  /// What the home-screen widget shows; nothing until chosen, as the
+  /// home screen is seen by anyone holding the phone.
+  WidgetFigures get widgetFigures => _widgetFigures;
+  var _widgetFigures = WidgetFigures.off;
+
   /// The way to the home-screen widget was shown.
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
@@ -176,6 +198,7 @@ final class Preferences extends ChangeNotifier {
     bool? started,
     bool? widgetShown,
     bool? driveLinked,
+    WidgetFigures? widgetFigures,
   }) {
     _appearance = appearance ?? _appearance;
     _haptics = haptics ?? _haptics;
@@ -188,6 +211,7 @@ final class Preferences extends ChangeNotifier {
     _started = started ?? _started;
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
+    _widgetFigures = widgetFigures ?? _widgetFigures;
     notifyListeners();
     _save();
   }
@@ -220,6 +244,7 @@ final class Preferences extends ChangeNotifier {
           'phoneBackedUp': _phoneBackedUp?.toUtc().toIso8601String(),
           'phoneRevision': _phoneRevision,
           'overview': _overview,
+          'widgetFigures': _widgetFigures.name,
         }),
         flush: true,
       );
