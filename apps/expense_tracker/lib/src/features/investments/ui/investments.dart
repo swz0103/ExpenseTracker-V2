@@ -10,6 +10,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/entry_tile.dart' show holdingLabel;
+import '../model/returns.dart';
 
 /// 投資與股息: unrealised and realised profit, dividends by month, and
 /// each holding's profit as a bar on a shared scale.
@@ -264,6 +265,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     },
                   ),
                 ]),
+                _Returns(ledger: ledger),
                 if (holdings.length == 1)
                   _solo(holdings.single)
                 else
@@ -284,6 +286,123 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
           child: list,
         );
       },
+    );
+  }
+}
+
+/// A rate as 「+8.4%」.
+String yearlyRate(double rate) =>
+    '${rate > 0 ? '+' : ''}${(rate * 100).toStringAsFixed(1)}%';
+
+/// What the money invested earned a year, and the dividends to expect
+/// over the next twelve months, month by month.
+class _Returns extends StatelessWidget {
+  const _Returns({required this.ledger});
+
+  final Ledger ledger;
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = returnOf(ledger);
+    final since = investedSince(ledger);
+    final guesses = expectedDividends(ledger);
+    final total = guesses.fold(0, (sum, g) => sum + g.amount);
+    final young =
+        since != null && ledger.today.difference(since).inDays < 365;
+    final months = <DateTime, List<DividendGuess>>{};
+    for (final g in guesses) {
+      (months[g.month] ??= []).add(g);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TileRow([
+          Tile(
+            icon: Glyph.reports,
+            label: '年化報酬',
+            value: rate == null ? '—' : yearlyRate(rate),
+            valueColor: rate == null
+                ? Hue.muted
+                : rate < 0
+                ? Hue.negative
+                : Hue.positive,
+            sub: rate == null
+                ? since == null
+                      ? '還沒有交易'
+                      : '有期初持股，無法計算'
+                : young
+                ? '投資未滿一年，僅供參考'
+                : '含股息、已賣出（XIRR）',
+          ),
+          Tile(
+            icon: Glyph.dividend,
+            label: '未來 12 個月股息',
+            value: total == 0 ? '—' : '約 ${ledger.money(total)}',
+            sub: '依過去一年配息與目前股數推估',
+          ),
+        ]),
+        if (months.isNotEmpty) ...[
+          const SectionHead('預計配息'),
+          SoftPanel(
+            color: Hue.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Column(
+              children: [
+                for (final (i, MapEntry(key: month, value: list))
+                    in months.entries.indexed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: i == 0 ? null : ruleAbove,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 56,
+                          child: Text(
+                            '${month.month} 月',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final g in list)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        g.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text(
+                                      '約 ${ledger.money(g.amount)}',
+                                      style: const TextStyle(
+                                        color: Hue.positive,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              '依去年同月的配息推估，實際以公司公告為準',
+              style: mutedSmall,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
