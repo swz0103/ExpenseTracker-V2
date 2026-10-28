@@ -25,6 +25,10 @@ abstract interface class Keeper {
   /// Throws when it does not open.
   Future<BackupCheck> checkNewest();
 
+  /// Saves [bytes] as a file named [name] outside the app, as
+  /// [exportFile] does. False when the person cancels.
+  Future<bool> exportBytes(String name, List<int> bytes);
+
   /// Lets the person choose a text file, such as a CSV to import, and
   /// returns its text; null when they cancel or there is no file picker.
   Future<String?> readFile();

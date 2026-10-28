@@ -24,6 +24,9 @@ final class _Keeper implements Keeper {
   Future<String?> readFile() async => null;
 
   @override
+  Future<bool> exportBytes(String name, List<int> bytes) async => true;
+
+  @override
   Future<BackupCheck> checkNewest() async =>
       (at: DateTime.utc(2026, 10, 1), rows: 0, photos: 0);
 
