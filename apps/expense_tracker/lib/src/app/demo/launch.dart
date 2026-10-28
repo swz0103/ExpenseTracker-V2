@@ -513,7 +513,8 @@ class _WidgetCard extends StatelessWidget {
         color: const Color(0xF2F3F4F1),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: DefaultTextStyle(
+      // Merged, not replaced: the app's fonts (Chinese among them) stay.
+      child: DefaultTextStyle.merge(
         style: const TextStyle(decoration: TextDecoration.none),
         child: child,
       ),
