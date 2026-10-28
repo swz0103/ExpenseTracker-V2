@@ -9,6 +9,8 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
+import '../model/returns.dart';
+import 'investments.dart' show yearlyRate;
 
 /// One holding: its market value and profit, today's move and the
 /// dividends it paid, the lots still held against what they are worth
@@ -98,6 +100,31 @@ class HoldingPage extends StatelessWidget {
                 sub: '已實現 ${ledger.moneySigned(held.realized)}',
               ),
             ]),
+            Builder(
+              builder: (context) {
+                final rate = returnOf(ledger, code: code);
+                final months = payingMonths(ledger, code);
+                return TileRow([
+                  Tile(
+                    icon: Glyph.reports,
+                    label: '年化報酬',
+                    value: rate == null ? '—' : yearlyRate(rate),
+                    valueColor: rate == null
+                        ? Hue.muted
+                        : rate < 0
+                        ? Hue.negative
+                        : Hue.positive,
+                    sub: rate == null ? '有期初持股，無法計算' : '含股息（XIRR）',
+                  ),
+                  Tile(
+                    icon: Glyph.calendar,
+                    label: '配息月份',
+                    value: months.isEmpty ? '—' : '${months.join('、')} 月',
+                    sub: '近兩年領到股息的月份',
+                  ),
+                ]);
+              },
+            ),
             const SectionHead('持有批次'),
             SoftPanel(
               color: Hue.white,
