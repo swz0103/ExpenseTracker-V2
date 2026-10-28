@@ -247,10 +247,7 @@ List<Widget> _subscriptions(Ledger ledger) {
     ),
     Padding(
       padding: const EdgeInsets.only(top: 6, left: 4),
-      child: Text(
-        '依接下來 12 個月的扣款次數計，共 ${rows.length} 項',
-        style: mutedSmall,
-      ),
+      child: Text('依接下來 12 個月的扣款次數計，共 ${rows.length} 項', style: mutedSmall),
     ),
   ];
 }

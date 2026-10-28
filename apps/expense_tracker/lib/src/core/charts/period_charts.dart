@@ -69,8 +69,7 @@ class PeriodBars extends StatelessWidget {
               },
               // Dragging across reads each stretch under the finger.
               onHorizontalDragStart: (d) => _follow(d.localPosition.dx, width),
-              onHorizontalDragUpdate: (d) =>
-                  _follow(d.localPosition.dx, width),
+              onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
                 duration: const Duration(milliseconds: 600),

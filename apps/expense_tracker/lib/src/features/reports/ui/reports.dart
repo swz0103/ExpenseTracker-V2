@@ -254,8 +254,7 @@ class _ReportsPageState extends State<ReportsPage> {
           '${biggest.date.month}/${biggest.date.day} ${biggest.title} '
               '${ledger.money(biggest.spending)}',
         ),
-      if (merchant != null)
-        ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
+      if (merchant != null) ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
     ];
     return [
       const SectionHead('年度總結'),
@@ -271,10 +270,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 96,
-                      child: Text(label, style: mutedSmall),
-                    ),
+                    SizedBox(width: 96, child: Text(label, style: mutedSmall)),
                     Expanded(
                       child: Text(
                         value,
@@ -334,9 +330,11 @@ class _ReportsPageState extends State<ReportsPage> {
     ]..sort((a, b) => b.date.compareTo(a.date));
     final total = entries.fold(
       0,
-      (sum, e) => sum + e.spendingParts
-          .where((p) => p.$1 == name)
-          .fold(0, (s, p) => s + p.$2),
+      (sum, e) =>
+          sum +
+          e.spendingParts
+              .where((p) => p.$1 == name)
+              .fold(0, (s, p) => s + p.$2),
     );
     return showSheet<void>(
       context,

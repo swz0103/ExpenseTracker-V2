@@ -62,9 +62,9 @@ void main() {
       journal: _Nowhere(),
     );
     final rows = yearlyCosts(ledger);
-    expect([for (final (r, yearly) in rows) (r.name, yearly)], [
-      ('Netflix', 390 * 12),
-      ('保險', 12000),
-    ]);
+    expect(
+      [for (final (r, yearly) in rows) (r.name, yearly)],
+      [('Netflix', 390 * 12), ('保險', 12000)],
+    );
   });
 }
