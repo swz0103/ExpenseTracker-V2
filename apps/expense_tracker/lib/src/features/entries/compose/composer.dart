@@ -235,7 +235,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       }
       _problem = null;
       _showNote();
-      });
+    });
   }
 
   Color get _color {
@@ -283,7 +283,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     if (value == null) return;
     setState(() {
       _f.setAmount(value);
-      });
+    });
   }
 
   Future<void> _pickDate() async {
