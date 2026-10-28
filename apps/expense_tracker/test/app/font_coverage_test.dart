@@ -52,7 +52,7 @@ Set<int> _coverage(Uint8List font) {
 void main() {
   test('the Chinese font draws every Chinese character the screens use', () {
     final covered = _coverage(
-      File('fonts/Huninn-Regular.ttf').readAsBytesSync(),
+      File('fonts/NotoSansTC-Regular.ttf').readAsBytesSync(),
     );
     final missing = <String>{};
     for (final file in Directory('lib').listSync(recursive: true)) {

@@ -19,7 +19,7 @@ void main() {
   setUpAll(() async {
     for (final (family, files) in const [
       ('Nunito', ['Nunito-Regular', 'Nunito-SemiBold', 'Nunito-Bold']),
-      ('Huninn', ['Huninn-Regular']),
+      ('NotoSansTC', ['NotoSansTC-Regular', 'NotoSansTC-Bold']),
     ]) {
       final loader = FontLoader(family);
       for (final file in files) {
