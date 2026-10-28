@@ -122,6 +122,27 @@ jobs:
         # build tools make unit tests for the debug build only.
         working-directory: apps/expense_tracker/android
         run: ./gradlew --no-daemon --quiet :app:testDebugUnitTest
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the APK on an emulator
+        # The release build itself, shrunk by R8, opened, sent to the
+        # background and opened again: a build that stops as it opens (as
+        # one did when R8 removed WorkManager's database) fails here rather
+        # than on a phone. The emulator runs the arm64 APK through Android's
+        # translation.
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          cores: 4
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/launch-check.sh" "$RUNNER_TEMP/ExpenseTracker.apk"
       - name: Check 16 KB page alignment
         # Phones with 16 KB memory pages (Android 15 and later) load only
         # native libraries whose LOAD segments are aligned to 16 KB, kept
