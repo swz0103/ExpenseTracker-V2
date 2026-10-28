@@ -145,6 +145,16 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       valueColor: Hue.positive,
                     ),
                   ]),
+                  if (current && passed < days)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _Forecast(
+                        ledger: ledger,
+                        heading: ledger.forecast(spent, year, month),
+                        total: total,
+                        passed: passed,
+                      ),
+                    ),
                   const SectionHead('分類與標籤額度'),
                   SoftPanel(
                     color: Hue.white,
@@ -394,6 +404,42 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Where the month's spending is heading at its pace so far, against the
+/// total budget when there is one.
+class _Forecast extends StatelessWidget {
+  const _Forecast({
+    required this.ledger,
+    required this.heading,
+    required this.total,
+    required this.passed,
+  });
+
+  final Ledger ledger;
+  final int heading;
+  final int total;
+  final int passed;
+
+  @override
+  Widget build(BuildContext context) {
+    final over = total > 0 && heading > total;
+    final notes = [
+      if (total > 0)
+        over
+            ? '會超出總預算 ${ledger.money(heading - total)}'
+            : '在總預算內，約剩 ${ledger.money(total - heading)}',
+      // A few days in, one big purchase sways it.
+      if (passed < 7) '月初的估計，僅供參考',
+    ];
+    return Tile(
+      icon: Glyph.reports,
+      label: '照目前速度，月底約',
+      value: ledger.money(heading),
+      valueColor: over ? Hue.negative : Hue.ink,
+      sub: notes.isEmpty ? null : notes.join(' · '),
     );
   }
 }

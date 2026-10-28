@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/charts/waterfall.dart';
 import '../compose/account_editor.dart';
+import 'reconcile_sheet.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/icons.dart';
@@ -123,6 +124,8 @@ class _AccountPageState extends State<AccountPage> {
                       (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
                   ),
+                  if (account.kind != AccountKind.receivable)
+                    ReconcileButton(ledger: ledger, account: account),
                   if (account.kind == AccountKind.receivable)
                     _Owed(
                       ledger: ledger,

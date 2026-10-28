@@ -61,6 +61,10 @@ final class Preferences extends ChangeNotifier {
       );
       _phoneRevision = (json['phoneRevision'] as num?)?.toInt();
       _overview = (json['overview'] as List<Object?>?)?.cast<String>();
+      _budgetAlerts = json['budgetAlerts'] as bool? ?? true;
+      _budgetAlerted = {
+        ...?(json['budgetAlerted'] as List<Object?>?)?.whereType<String>(),
+      };
       _updateChecks = json['updateChecks'] as bool? ?? true;
       _updateCheckedAt = DateTime.tryParse(
         json['updateCheckedAt'] as String? ?? '',
@@ -166,6 +170,23 @@ final class Preferences extends ChangeNotifier {
   WidgetFigures get widgetFigures => _widgetFigures;
   var _widgetFigures = WidgetFigures.off;
 
+  /// A notification when a budget reaches its warning share, and again
+  /// when it is used up.
+  bool get budgetAlerts => _budgetAlerts;
+  var _budgetAlerts = true;
+
+  /// The budget notifications already posted this month, as
+  /// `<month>|<budget>|<level>`, so each comes once.
+  Set<String> get budgetAlerted => Set.unmodifiable(_budgetAlerted);
+  var _budgetAlerted = <String>{};
+
+  /// Keeps [keys] as the budget notifications posted; those of earlier
+  /// months are let go by the caller.
+  void budgetAlertedSet(Set<String> keys) {
+    _budgetAlerted = {...keys};
+    _save();
+  }
+
   /// Whether the app looks for a newer version by itself, at most daily.
   bool get updateChecks => _updateChecks;
   var _updateChecks = true;
@@ -218,6 +239,7 @@ final class Preferences extends ChangeNotifier {
     bool? driveLinked,
     WidgetFigures? widgetFigures,
     bool? updateChecks,
+    bool? budgetAlerts,
   }) {
     _appearance = appearance ?? _appearance;
     _haptics = haptics ?? _haptics;
@@ -232,6 +254,7 @@ final class Preferences extends ChangeNotifier {
     _driveLinked = driveLinked ?? _driveLinked;
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
+    _budgetAlerts = budgetAlerts ?? _budgetAlerts;
     notifyListeners();
     _save();
   }
@@ -266,6 +289,8 @@ final class Preferences extends ChangeNotifier {
           'overview': _overview,
           'widgetFigures': _widgetFigures.name,
           'updateChecks': _updateChecks,
+          'budgetAlerts': _budgetAlerts,
+          'budgetAlerted': _budgetAlerted.toList(),
           'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
         }),
         flush: true,
