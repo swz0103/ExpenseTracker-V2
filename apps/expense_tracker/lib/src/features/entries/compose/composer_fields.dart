@@ -91,7 +91,7 @@ extension _Fields on _ComposerState {
         final expense = _f.mode == ComposeMode.expense;
         return [
           // Over the keys instead, when the amount is typed on them.
-          if (!_inline) _categories(expense),
+          _categories(expense),
           TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
           if (_f.foreign) _homeTile(),
           if (_f.onCard)
