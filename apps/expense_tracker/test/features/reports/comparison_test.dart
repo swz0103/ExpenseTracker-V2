@@ -37,9 +37,27 @@ void main() {
     categories: const [],
     entries: [
       entry('a', DateTime.utc(2026, 9, 3), 300),
-      entry('b', DateTime.utc(2026, 9, 10), 1200, category: '交通', tags: const ['花蓮']),
-      entry('c', DateTime.utc(2026, 9, 12), 800, category: '住宿', tags: const ['花蓮']),
-      entry('s', DateTime.utc(2026, 9, 25), 50000, type: EntryType.income, category: '薪資'),
+      entry(
+        'b',
+        DateTime.utc(2026, 9, 10),
+        1200,
+        category: '交通',
+        tags: const ['花蓮'],
+      ),
+      entry(
+        'c',
+        DateTime.utc(2026, 9, 12),
+        800,
+        category: '住宿',
+        tags: const ['花蓮'],
+      ),
+      entry(
+        's',
+        DateTime.utc(2026, 9, 25),
+        50000,
+        type: EntryType.income,
+        category: '薪資',
+      ),
       entry('d', DateTime.utc(2026, 10, 2), 500),
       entry('e', DateTime.utc(2026, 10, 15), 400, category: '交通'),
     ],
@@ -68,11 +86,7 @@ void main() {
       ('支出', 900, 2300),
       ('結餘', -900, 47700),
     ]);
-    expect(rows.skip(3), [
-      ('住宿', 0, 800),
-      ('交通', 400, 1200),
-      ('飲食', 500, 300),
-    ]);
+    expect(rows.skip(3), [('住宿', 0, 800), ('交通', 400, 1200), ('飲食', 500, 300)]);
   });
 
   test('a tag as a project: when it ran, what it cost, on what', () {

@@ -167,88 +167,92 @@ class _ReportsPageState extends State<ReportsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-            BalanceHero(
-              ledger: ledger,
-              icon: Glyph.reports,
-              label: to.isAfter(today)
-                  ? '結餘 · 至 ${today.month}/${today.day}'
-                  : '結餘',
-              income: income,
-              expense: expense,
-              third: (
-                Glyph.dividend,
-                '其中股息',
-                ledger.money(report.dividends),
-                Hue.investment,
-              ),
-            ),
-            TileRow([
-              Tile(
-                icon: Glyph.payout,
-                label: byMonth ? '平均每月支出' : '平均每週支出',
-                value: ledger.money(report.perStretch),
-                sub: _versus(expense, report.lastExpense),
-              ),
-              Tile(
-                icon: Glyph.calendar,
-                label: '支出最高',
-                value: peak == null ? '—' : _stretchName(buckets[peak]),
-                sub: peak == null ? null : ledger.money(buckets[peak].expense),
-              ),
-            ]),
-            TileRow([
-              Tile(
-                icon: Glyph.wallet,
-                label: '淨資產變化',
-                value: ledger.moneySigned(report.worthNow - report.worthBefore),
-                valueColor: report.worthNow < report.worthBefore
-                    ? Hue.negative
-                    : Hue.positive,
-                sub: '期末 ${ledger.money(report.worthNow)}',
-              ),
-              Tile(
-                icon: Glyph.categories,
-                label: '最大分類',
-                value: biggest ?? '—',
-                sub: biggest == null || expense == 0
-                    ? null
-                    : '占支出 ${report.spending[biggest]! * 100 ~/ expense}%',
-              ),
-            ]),
-            SectionHead(
-              '收支與淨資產',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LegendKey(Hue.positive, '收入'),
-                  const SizedBox(width: 10),
-                  const LegendKey(Hue.negative, '支出'),
-                  const SizedBox(width: 10),
-                  const LegendKey(Hue.investment, '淨資產', line: true),
-                ],
-              ),
-            ),
-            PeriodBars(
-              buckets: buckets,
-              worth: report.worth,
-              selected: selected,
-              onSelect: (i) => setState(() => _stretch = i),
-            ),
-            if (ledger.holdings.isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text(
-                  '過去的股票市值以今日股價估算',
-                  style: TextStyle(fontSize: 12.5, color: Hue.muted),
-                ),
-              ),
-            const SizedBox(height: 8),
-            _Readout(
-              ledger: ledger,
-              label: readout == null ? '整段期間' : _stretchName(readout),
-              income: readout?.income ?? income,
-              expense: readout?.expense ?? expense,
-            ),
+                    BalanceHero(
+                      ledger: ledger,
+                      icon: Glyph.reports,
+                      label: to.isAfter(today)
+                          ? '結餘 · 至 ${today.month}/${today.day}'
+                          : '結餘',
+                      income: income,
+                      expense: expense,
+                      third: (
+                        Glyph.dividend,
+                        '其中股息',
+                        ledger.money(report.dividends),
+                        Hue.investment,
+                      ),
+                    ),
+                    TileRow([
+                      Tile(
+                        icon: Glyph.payout,
+                        label: byMonth ? '平均每月支出' : '平均每週支出',
+                        value: ledger.money(report.perStretch),
+                        sub: _versus(expense, report.lastExpense),
+                      ),
+                      Tile(
+                        icon: Glyph.calendar,
+                        label: '支出最高',
+                        value: peak == null ? '—' : _stretchName(buckets[peak]),
+                        sub: peak == null
+                            ? null
+                            : ledger.money(buckets[peak].expense),
+                      ),
+                    ]),
+                    TileRow([
+                      Tile(
+                        icon: Glyph.wallet,
+                        label: '淨資產變化',
+                        value: ledger.moneySigned(
+                          report.worthNow - report.worthBefore,
+                        ),
+                        valueColor: report.worthNow < report.worthBefore
+                            ? Hue.negative
+                            : Hue.positive,
+                        sub: '期末 ${ledger.money(report.worthNow)}',
+                      ),
+                      Tile(
+                        icon: Glyph.categories,
+                        label: '最大分類',
+                        value: biggest ?? '—',
+                        sub: biggest == null || expense == 0
+                            ? null
+                            : '占支出 ${report.spending[biggest]! * 100 ~/ expense}%',
+                      ),
+                    ]),
+                    SectionHead(
+                      '收支與淨資產',
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const LegendKey(Hue.positive, '收入'),
+                          const SizedBox(width: 10),
+                          const LegendKey(Hue.negative, '支出'),
+                          const SizedBox(width: 10),
+                          const LegendKey(Hue.investment, '淨資產', line: true),
+                        ],
+                      ),
+                    ),
+                    PeriodBars(
+                      buckets: buckets,
+                      worth: report.worth,
+                      selected: selected,
+                      onSelect: (i) => setState(() => _stretch = i),
+                    ),
+                    if (ledger.holdings.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          '過去的股票市值以今日股價估算',
+                          style: TextStyle(fontSize: 12.5, color: Hue.muted),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    _Readout(
+                      ledger: ledger,
+                      label: readout == null ? '整段期間' : _stretchName(readout),
+                      income: readout?.income ?? income,
+                      expense: readout?.expense ?? expense,
+                    ),
                   ],
                 ),
               ),
