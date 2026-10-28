@@ -98,10 +98,16 @@ void main() {
 
   test('常用: alike three times in 90 days, most often first', () {
     final ledger = book([
-      for (var i = 0; i < 4; i++)
-        spend('b$i', i * 3, 65 + i, merchant: '早餐店'),
+      for (var i = 0; i < 4; i++) spend('b$i', i * 3, 65 + i, merchant: '早餐店'),
       for (var i = 0; i < 3; i++)
-        spend('m$i', i * 5, 1280, account: 'card', category: '交通', merchant: '捷運'),
+        spend(
+          'm$i',
+          i * 5,
+          1280,
+          account: 'card',
+          category: '交通',
+          merchant: '捷運',
+        ),
       // Twice only, and long ago: neither is usual.
       spend('x1', 2, 500, merchant: '書店'),
       spend('x2', 4, 500, merchant: '書店'),
