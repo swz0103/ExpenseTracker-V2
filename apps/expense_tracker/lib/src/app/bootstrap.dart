@@ -9,10 +9,12 @@ import 'package:market/market_data.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
+import 'android/backups.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/leftovers.dart';
+import '../features/backup/model/outbox.dart';
 import '../features/backup/model/phone_backup.dart';
 import '../core/ledger/table_journal.dart';
 import '../features/investments/model/market_feed.dart';
@@ -181,6 +183,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
           ledger: _keeper.ledgerId,
         )
       : null;
+
+  /// Backups left on leaving the app, delivered by a background job, on
+  /// Android.
+  late final _outbox = Platform.isAndroid
+      ? Outbox(
+          widget.startup.directory,
+          widget.preferences,
+          write: _keeper.writeInto,
+          revision: () => _keeper.revision,
+          ledger: _keeper.ledgerId,
+          schedule: androidBackgroundBackups,
+        )
+      : null;
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
@@ -295,6 +310,32 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   var _phoneWarned = false;
 
+  /// Leaves the backup for the background job when the app is left with
+  /// changes not in one yet, so it reaches the phone's folder and Drive
+  /// without the app being opened again.
+  Future<void> _prepareOutbox() async {
+    final outbox = _outbox;
+    final ledger = _loaded;
+    if (outbox == null || ledger == null) return;
+    try {
+      await ledger.settled;
+      await outbox.prepare();
+    } on Object catch (error) {
+      Perf.instance.problem('背景備份', error);
+    }
+  }
+
+  /// Notes what the background job delivered while the app was closed.
+  void _collectOutbox() {
+    try {
+      for (final problem in _outbox?.collect() ?? const <String>[]) {
+        Perf.instance.problem('背景備份', problem);
+      }
+    } on Object catch (error) {
+      Perf.instance.problem('背景備份', error);
+    }
+  }
+
   /// Takes the weekly backup, then sends one to Google Drive when linked;
   /// a failure is said, not kept quiet. Drive out of reach is tried again
   /// at the next start.
@@ -305,6 +346,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       Perf.instance.problem('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
     }
+    _collectOutbox();
     await _phoneBackup();
     final drive = _drive;
     if (drive == null) return;
@@ -366,13 +408,17 @@ class _OpenedLedgerState extends State<OpenedLedger>
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         _awayClock.leave();
+        unawaited(_prepareOutbox());
       case AppLifecycleState.resumed:
         _ledger.then((ledger) {
           ledger.checkDay();
           _bookDue(ledger);
         }).ignore();
         _market?.refresh().ignore();
-        if (_loaded != null) unawaited(_phoneBackup());
+        if (_loaded != null) {
+          _collectOutbox();
+          unawaited(_phoneBackup());
+        }
         if (_awayClock.back(_away) && !widget.startup.passwordless) {
           unawaited(_keeper.lock());
         }

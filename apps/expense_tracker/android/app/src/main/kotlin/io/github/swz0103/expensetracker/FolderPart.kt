@@ -54,71 +54,6 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
         return tree.lastPathSegment ?: ""
     }
 
-    /** Whether the lasting permission for [tree] is still held. */
-    private fun allowed(tree: Uri): Boolean =
-        activity.contentResolver.persistedUriPermissions.any {
-            it.uri == tree && it.isWritePermission
-        }
-
-    /** The files directly in [tree]: id, name, last change in ms. */
-    private fun list(tree: Uri): List<Map<String, Any>> {
-        val children = DocumentsContract.buildChildDocumentsUriUsingTree(
-            tree,
-            DocumentsContract.getTreeDocumentId(tree),
-        )
-        val found = mutableListOf<Map<String, Any>>()
-        activity.contentResolver.query(
-            children,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-            ),
-            null,
-            null,
-            null,
-        )?.use {
-            while (it.moveToNext()) {
-                found.add(
-                    mapOf(
-                        "id" to (it.getString(0) ?: continue),
-                        "name" to (it.getString(1) ?: ""),
-                        "modified" to it.getLong(2),
-                    ),
-                )
-            }
-        }
-        return found
-    }
-
-    /** Copies the file at [path] into [tree] as [name]. */
-    private fun write(tree: Uri, path: String, name: String) {
-        val folder = DocumentsContract.buildDocumentUriUsingTree(
-            tree,
-            DocumentsContract.getTreeDocumentId(tree),
-        )
-        val made = DocumentsContract.createDocument(
-            activity.contentResolver,
-            folder,
-            "application/octet-stream",
-            name,
-        ) ?: throw IllegalStateException("The folder cannot be written.")
-        try {
-            val output = activity.contentResolver.openOutputStream(made)
-                ?: throw IllegalStateException("The folder cannot be written.")
-            output.use { File(path).inputStream().use { input -> input.copyTo(it) } }
-        } catch (e: Exception) {
-            // Half a backup is worse than none.
-            DocumentsContract.deleteDocument(activity.contentResolver, made)
-            throw e
-        }
-    }
-
-    private fun delete(tree: Uri, id: String) {
-        val document = DocumentsContract.buildDocumentUriUsingTree(tree, id)
-        DocumentsContract.deleteDocument(activity.contentResolver, document)
-    }
-
     /** Runs [work] off the main thread and answers [result] on it. */
     private fun background(result: MethodChannel.Result, work: () -> Any?) {
         Thread {
@@ -143,9 +78,10 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
                 }
             }
             "folderAllowed" ->
-                if (tree == null) result.success(false) else result.success(allowed(tree))
+                if (tree == null) result.success(false)
+                else result.success(FolderFiles.allowed(activity.contentResolver, tree))
             "forgetFolder" -> {
-                if (tree != null && allowed(tree)) {
+                if (tree != null && FolderFiles.allowed(activity.contentResolver, tree)) {
                     activity.contentResolver.releasePersistableUriPermission(
                         tree,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
@@ -155,14 +91,17 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
             }
             "listFolder" ->
                 if (tree == null) result.error("bad-arguments", "uri is required", null)
-                else background(result) { list(tree) }
+                else background(result) { FolderFiles.list(activity.contentResolver, tree) }
             "writeToFolder" -> {
                 val path = call.argument<String>("path")
                 val name = call.argument<String>("name")
                 if (tree == null || path == null || name == null) {
                     result.error("bad-arguments", "uri, path and name are required", null)
                 } else {
-                    background(result) { write(tree, path, name); null }
+                    background(result) {
+                        FolderFiles.write(activity.contentResolver, tree, File(path), name)
+                        null
+                    }
                 }
             }
             "deleteInFolder" -> {
@@ -170,7 +109,10 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
                 if (tree == null || id == null) {
                     result.error("bad-arguments", "uri and id are required", null)
                 } else {
-                    background(result) { delete(tree, id); null }
+                    background(result) {
+                        FolderFiles.delete(activity.contentResolver, tree, id)
+                        null
+                    }
                 }
             }
             else -> return false

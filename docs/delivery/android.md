@@ -41,6 +41,10 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 `FolderPart.kt` 用系統的資料夾選擇（`OpenDocumentTree`）讓使用者選一次資料夾，並以 `takePersistableUriPermission` 取得長期讀寫權；之後用 `DocumentsContract` 建立、列出、刪除檔案（在背景執行緒）。檔名是「記帳本-<帳本代碼>-年月日-時分.etbk」，帳本代碼取自 keyring id 的前 6 碼；只整理同一本帳本的備份（留最新 5 份），資料夾裡的其他檔案、別本帳本的備份都不動。寫到一半失敗會把那個檔刪掉。使用者在系統設定收回權限後，下次備份會失敗並在設定頁標示，提示一次。「停止」會歸還權限，已寫的備份留著。這個資料夾在 App 外：其他 App、電腦或雲端同步軟體都看得到檔案（內容已加密）。
 
+## 不打開 App 的背景備份
+
+金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 `preferences.json` 的設定判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤寫進 `outbox/delivered.json`（只有 App 會寫 `preferences.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、時間格式、檔名、只整理同一本）由 `BackupPlanTest.kt` 驗證。
+
 ## 從設定還原
 
 設定 › 備份與還原 › 從備份還原：先把目前的帳本連同照片寫到 `before-restore/`（只留最新 2 份，不進 Android 雲端備份），關閉帳本，解鎖畫面直接開在還原表單。選好檔案、雲端硬碟的備份或「還原前自動留下的帳本」後，先顯示備份時間與筆數再輸入密碼或救援碼。`LedgerVault.restore(replacing: true)` 才會覆蓋已存在的帳本：暫存資料庫通過完整性檢查前不動原帳本，失敗就保留原帳本。按返回回到原帳本。
@@ -54,6 +58,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 - `calendar`：選的日曆，換手機要重新選。
 - `diagnostics.log`：「設定 › 關於」的錯誤紀錄，只屬於這支手機（只記錯誤類型與簡短訊息，不含帳本內容）。
 - `before-restore`：從設定還原前留下的帳本（含照片），只放在這支手機。
+- `outbox`：等背景工作送出的備份，只屬於這支手機。
 - `receipts`：收據照片，不進雲端備份（很快就會超過 25 MB 額度）；裝置對裝置轉移（`device-transfer`）仍會帶走。要保留照片請匯出備份檔，它會附上照片。
 
 沒設密碼時，帳本金鑰存在 App 的私有資料夾，會跟著帳本進 Android 的雲端備份（由 Google 以手機螢幕鎖加密）；新手機還原後可直接打開，但也代表帳本的安全等同那份雲端備份。設了密碼後，金鑰只以密碼、救援碼與指紋包裝存放，還原後要輸入密碼或救援碼。

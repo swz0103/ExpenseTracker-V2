@@ -28,6 +28,7 @@ class MainActivity : FlutterFragmentActivity() {
         DrivePart(this),
         NetworkPart(this),
         FolderPart(this),
+        BackupsPart(this),
     )
     private var channel: MethodChannel? = null
 
