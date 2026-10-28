@@ -10,6 +10,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/entry_tile.dart';
 import 'report_period.dart';
 
 /// 財務報表: any stretch of time, not only a month. A month, quarter, year
@@ -29,7 +30,6 @@ class ReportsPage extends StatefulWidget {
 class _ReportsPageState extends State<ReportsPage> {
   late var _period = ReportPeriod.of(ReportSpan.year, widget.ledger.today);
   int? _stretch;
-  String? _category;
 
   /// The sums for a period, kept until the ledger's data changes (its
   /// [Ledger.revision] moves on) or the day turns: picking a stretch or a
@@ -53,7 +53,6 @@ class _ReportsPageState extends State<ReportsPage> {
   void _show(ReportPeriod period) {
     setState(() {
       _stretch = null;
-      _category = null;
       _period = period;
     });
   }
@@ -212,6 +211,7 @@ class _ReportsPageState extends State<ReportsPage> {
               income: readout?.income ?? income,
               expense: readout?.expense ?? expense,
             ),
+            if (period.span == ReportSpan.year) ..._summary(report),
             ..._mix(report),
             ..._merchants(report),
             ..._tags(report),
@@ -230,31 +230,78 @@ class _ReportsPageState extends State<ReportsPage> {
     return '較去年同期 ${percentOf(now - then, then)}';
   }
 
-  /// 分類: what each stretch's spending was made of, then every category
-  /// with its share and the same time a year before.
+  /// 年度總結: the year in a few lines.
+  List<Widget> _summary(_Report report) {
+    final ledger = widget.ledger;
+    final income = report.income;
+    final kept = income - report.expense;
+    final biggest = report.biggestSpend;
+    final busiest = report.peak == null ? null : report.buckets[report.peak!];
+    final merchant = report.merchants.isEmpty ? null : report.merchants.first;
+    final lines = <(String, String)>[
+      (
+        '存下',
+        income <= 0
+            ? ledger.moneySigned(kept)
+            : '${ledger.moneySigned(kept)}（收入的 ${kept * 100 ~/ income}%）',
+      ),
+      ('記帳', '${report.days} 天、${report.count} 筆'),
+      if (busiest != null)
+        ('花最多的月份', '${busiest.label} 月 ${ledger.money(busiest.expense)}'),
+      if (biggest != null)
+        (
+          '最大一筆支出',
+          '${biggest.date.month}/${biggest.date.day} ${biggest.title} '
+              '${ledger.money(biggest.spending)}',
+        ),
+      if (merchant != null)
+        ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
+    ];
+    return [
+      const SectionHead('年度總結'),
+      SoftPanel(
+        color: Hue.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        child: Column(
+          children: [
+            for (final (i, (label, value)) in lines.indexed)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: i == 0 ? null : ruleAbove,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 96,
+                      child: Text(label, style: mutedSmall),
+                    ),
+                    Expanded(
+                      child: Text(
+                        value,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// 分類: every category ranked by what was spent, against the same time
+  /// a year before; each opens its entries.
   List<Widget> _mix(_Report report) {
     final names = report.names;
     if (names.isEmpty) return const [];
     final ledger = widget.ledger;
-    final top = report.top;
     final spending = report.spending;
     final lastSpending = report.lastSpending;
     final expense = report.expense;
-    final picked = _category;
-    final index = picked == null
-        ? null
-        : top.contains(picked)
-        ? top.indexOf(picked)
-        : top.length;
     return [
-      const SectionHead('分類', trailing: Text('對照去年同期', style: mutedSmall)),
-      MixBars(
-        columns: report.columns,
-        colors: report.colors,
-        labels: report.labels,
-        selected: index,
-      ),
-      const SizedBox(height: 12),
+      const SectionHead('分類', trailing: Text('點分類看紀錄', style: mutedSmall)),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -269,14 +316,71 @@ class _ReportsPageState extends State<ReportsPage> {
                 share: expense == 0 ? 0 : (spending[name] ?? 0) / expense,
                 largest: report.largest,
                 alone: names.length == 1,
-                picked: name == picked,
-                onTap: () =>
-                    setState(() => _category = name == picked ? null : name),
+                onTap: () => _showCategory(name),
               ),
           ],
         ),
       ),
     ];
+  }
+
+  /// The period's entries spent under [name], in a sheet; each opens.
+  Future<void> _showCategory(String name) {
+    final ledger = widget.ledger;
+    final period = _period;
+    final entries = [
+      for (final e in _Report._between(ledger, period.from, period.to))
+        if (e.spendingParts.any((p) => p.$1 == name)) e,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    final total = entries.fold(
+      0,
+      (sum, e) => sum + e.spendingParts
+          .where((p) => p.$1 == name)
+          .fold(0, (s, p) => s + p.$2),
+    );
+    return showSheet<void>(
+      context,
+      (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
+              textAlign: TextAlign.center,
+              style: mutedSmall,
+            ),
+            const SizedBox(height: 12),
+            SoftPanel(
+              color: Hue.white,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Column(
+                children: [
+                  for (final e in entries)
+                    EntryRow(
+                      ledger: ledger,
+                      entry: e,
+                      onOpen: (entry) {
+                        Navigator.of(context).pop();
+                        widget.nav.showEntry(entry);
+                      },
+                      divider: !identical(e, entries.last),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   List<Widget> _merchants(_Report report) {
@@ -382,13 +486,12 @@ final class _Report {
     required this.spending,
     required this.lastSpending,
     required this.names,
-    required this.top,
-    required this.columns,
-    required this.colors,
-    required this.labels,
     required this.largest,
     required this.merchants,
     required this.tags,
+    required this.count,
+    required this.days,
+    required this.biggestSpend,
   });
 
   factory _Report.of(Ledger ledger, ReportPeriod period) {
@@ -401,10 +504,17 @@ final class _Report {
     var income = 0;
     var expense = 0;
     var dividends = 0;
+    Entry? biggest;
+    final days = <DateTime>{};
     for (final e in entries) {
       income += e.earning;
       expense += e.spending;
       dividends += e.dividendNet;
+      days.add(e.date);
+      if (e.type == EntryType.expense &&
+          (biggest == null || e.spending > biggest.spending)) {
+        biggest = e;
+      }
     }
     final before = _between(ledger, _yearBefore(from), _yearBefore(until));
     final lastExpense = before.fold(0, (sum, e) => sum + e.spending);
@@ -430,15 +540,6 @@ final class _Report {
     final lastSpending = _spendingOf(before);
     final names = spending.keys.toList()
       ..sort((a, b) => spending[b]!.compareTo(spending[a]!));
-    final top = names.take(5).toList();
-    List<int> column(DateTime a, DateTime b) {
-      if (a.isAfter(today)) return const [];
-      final part = _spendingOf(_between(ledger, a, b));
-      final rest = part.entries
-          .where((e) => !top.contains(e.key))
-          .fold(0, (sum, e) => sum + e.value);
-      return [for (final name in top) part[name] ?? 0, rest];
-    }
 
     return _Report._(
       today: today,
@@ -461,21 +562,15 @@ final class _Report {
       spending: spending,
       lastSpending: lastSpending,
       names: names,
-      top: top,
-      columns: names.isEmpty
-          ? const []
-          : [for (final (_, a, b) in stretches) column(a, b)],
-      colors: [
-        for (final name in top) ledger.category(name).color,
-        if (names.length > top.length) Hue.faint,
-      ],
-      labels: [for (final (label, _, _) in stretches) label],
       largest: names.fold(
         1,
         (m, n) => max(m, max(spending[n] ?? 0, lastSpending[n] ?? 0)),
       ),
       merchants: ledger.merchantsBetween(from, to).take(5).toList(),
       tags: ledger.tagsBetween(from, to),
+      count: entries.length,
+      days: days.length,
+      biggestSpend: biggest,
     );
   }
 
@@ -502,23 +597,20 @@ final class _Report {
   final Map<String, int> spending;
   final Map<String, int> lastSpending;
 
-  /// The categories spent on, largest first, and the five drawn in colour.
+  /// The categories spent on, largest first.
   final List<String> names;
-  final List<String> top;
-
-  /// Each stretch's spending in the [top] categories and the rest.
-  final List<List<int>> columns;
-
-  /// The colour of each of [columns]' parts and each stretch's label,
-  /// kept with the sums so the chart sees the same lists until they
-  /// change and is not painted again for nothing.
-  final List<Color> colors;
-  final List<String> labels;
 
   /// The scale of the category bars.
   final int largest;
   final List<(String, int, int)> merchants;
   final List<(String, int)> tags;
+
+  /// How many entries, on how many days.
+  final int count;
+  final int days;
+
+  /// The largest single spending.
+  final Entry? biggestSpend;
 
   /// The same day a year earlier, the 29th of February becoming the 28th.
   static DateTime _yearBefore(DateTime day) => DateTime.utc(
@@ -572,7 +664,6 @@ class _CategoryRow extends StatelessWidget {
     required this.share,
     required this.largest,
     required this.alone,
-    required this.picked,
     required this.onTap,
   });
 
@@ -586,7 +677,6 @@ class _CategoryRow extends StatelessWidget {
   /// Whether this is the only category: its share is then all of it, and
   /// a bar is drawn only to set it against last year.
   final bool alone;
-  final bool picked;
   final VoidCallback onTap;
 
   @override
@@ -602,10 +692,7 @@ class _CategoryRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-        decoration: BoxDecoration(
-          color: picked ? Hue.selected : null,
-          borderRadius: BorderRadius.circular(14),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
         child: Row(
           children: [
             IconBadge(iconFor(category.icon), category.color, size: 34),

@@ -10,6 +10,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
+import '../model/subscriptions.dart';
 
 /// 定期交易: the next item, then items due, coming up, booked and
 /// paused. Booking opens the composer so the amount can change; every
@@ -186,12 +187,72 @@ class _RecurringPageState extends State<RecurringPage> {
                     ),
                 ]),
               ],
+              ..._subscriptions(ledger),
             ],
           ],
         );
       },
     );
   }
+}
+
+/// 訂閱總覽: what the fixed spending costs a year, item by item.
+List<Widget> _subscriptions(Ledger ledger) {
+  final rows = yearlyCosts(ledger);
+  if (rows.isEmpty) return const [];
+  final total = rows.fold(0, (sum, row) => sum + row.$2);
+  return [
+    SectionHead(
+      '訂閱總覽',
+      trailing: Text('一年約 ${ledger.money(total)}', style: mutedSmall),
+    ),
+    SoftPanel(
+      color: Hue.white,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Column(
+        children: [
+          for (final (i, (item, yearly)) in rows.indexed)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: i == 0 ? null : ruleAbove,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.name, style: const TextStyle(fontSize: 14)),
+                        Text(item.rhythm, style: mutedSmall),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '每年 ${ledger.money(yearly)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        '每月約 ${ledger.money(yearly ~/ 12)}',
+                        style: mutedSmall,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+    Padding(
+      padding: const EdgeInsets.only(top: 6, left: 4),
+      child: Text(
+        '依接下來 12 個月的扣款次數計，共 ${rows.length} 項',
+        style: mutedSmall,
+      ),
+    ),
+  ];
 }
 
 class _Card extends StatelessWidget {
