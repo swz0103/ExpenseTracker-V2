@@ -13,7 +13,6 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
-import '../../../core/ui/amount_pad.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../categories/compose/category_editor.dart';
@@ -190,41 +189,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     _note
       ..text = _f.note
       ..addListener(() => _f.note = _note.text);
-    _syncKeys();
-  }
-
-  /// Whether the amount is typed on keys laid in the form, so a quick
-  /// entry needs no calculator: a new, blank entry other than a trade.
-  bool get _inline =>
-      !_viewing &&
-      widget.entry == null &&
-      // A form filled in already, such as a recurring item to confirm or
-      // a card to pay, shows its amount without keys.
-      widget.draft == null &&
-      _f.refunded == null &&
-      _f.mode != ComposeMode.investment;
-
-  /// What the keys in the form have typed.
-  var _keys = AmountKeys('');
-
-  bool get _cents => takesCents(_f.currency);
-
-  /// A key of the form's keys: the amount follows what they come to.
-  void _padKey(String key) => setState(() {
-    if (_keys.decimal != _cents) {
-      _keys = AmountKeys(_keys.expression, decimal: _cents);
-    }
-    _keys.press(key);
-    final typed = _keys.result;
-    _f.setAmount(_cents ? (typed * 100).round() : typed.round());
-  });
-
-  /// Starts the keys from the amount, after it was set some other way.
-  void _syncKeys() {
-    _keys = AmountKeys(
-      _f.amount == 0 ? '' : plainAmount(_f.amount, _f.currency),
-      decimal: _cents,
-    );
   }
 
   /// Shows the form's note again after the form filled it afresh.
@@ -244,7 +208,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     _f.fresh();
     _problem = null;
     _showNote();
-    _syncKeys();
   }
 
   /// 代墊 from the expense tab, 對方還錢 from the income tab.
@@ -272,8 +235,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       }
       _problem = null;
       _showNote();
-      _syncKeys();
-    });
+      });
   }
 
   Color get _color {
@@ -321,8 +283,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     if (value == null) return;
     setState(() {
       _f.setAmount(value);
-      _syncKeys();
-    });
+      });
   }
 
   Future<void> _pickDate() async {
@@ -670,13 +631,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
               ],
             ),
           ),
-          // The categories over the keys: pick one, type the amount, save.
-          if (_inline) ...[
-            if (_f.mode != ComposeMode.transfer)
-              _categories(_f.tab == ComposeMode.expense),
-            const SizedBox(height: 10),
-            AmountPad(onKey: _padKey, decimal: _cents),
-          ],
           if (problem != null)
             Padding(
               padding: const EdgeInsets.only(top: 10),
