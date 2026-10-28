@@ -11,7 +11,7 @@ final class _Port implements UpdatePort {
   var info =
       '{"build":190,"version":"2.0.0","commit":"8af812b",'
       '"sha256":"$_sha","size":3}';
-  Object? fails;
+  Exception? fails;
   var fetched = 0;
   var downloads = 0;
   var outcome = UpdateInstall.started;
