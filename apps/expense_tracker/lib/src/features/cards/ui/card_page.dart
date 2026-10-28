@@ -153,18 +153,18 @@ class CardPage extends StatelessWidget {
                       child: const Text('對帳'),
                     ),
                   TextButton(
-                onPressed: () async {
-                  final gone = await editAccount(
-                    context,
-                    ledger,
-                    account: card,
-                  );
-                  // Deleted or archived: back to the accounts.
-                  if (gone) nav.back();
-                },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                child: const Text('編輯'),
-              ),
+                    onPressed: () async {
+                      final gone = await editAccount(
+                        context,
+                        ledger,
+                        account: card,
+                      );
+                      // Deleted or archived: back to the accounts.
+                      if (gone) nav.back();
+                    },
+                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    child: const Text('編輯'),
+                  ),
                 ],
               ),
             ),

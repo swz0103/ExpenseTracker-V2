@@ -98,25 +98,27 @@ class _AccountPageState extends State<AccountPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 對帳 needs NT$: another currency would need a rate.
-                  if (!account.foreign && account.kind != AccountKind.receivable)
+                  if (!account.foreign &&
+                      account.kind != AccountKind.receivable)
                     TextButton(
-                      onPressed: () => reconcileAccount(context, ledger, account),
+                      onPressed: () =>
+                          reconcileAccount(context, ledger, account),
                       style: TextButton.styleFrom(foregroundColor: Hue.accent),
                       child: const Text('對帳'),
                     ),
                   TextButton(
-                onPressed: () async {
-                  final gone = await editAccount(
-                    context,
-                    ledger,
-                    account: account,
-                  );
-                  // Deleted or archived: back to the accounts.
-                  if (gone) widget.nav.back();
-                },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                child: const Text('編輯'),
-              ),
+                    onPressed: () async {
+                      final gone = await editAccount(
+                        context,
+                        ledger,
+                        account: account,
+                      );
+                      // Deleted or archived: back to the accounts.
+                      if (gone) widget.nav.back();
+                    },
+                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    child: const Text('編輯'),
+                  ),
                 ],
               ),
             ),

@@ -342,9 +342,7 @@ class _Returns extends StatelessWidget {
             icon: Glyph.dividend,
             label: '未來 12 個月股息',
             value: total == 0 ? '—' : '約 ${ledger.money(total)}',
-            sub: total == 0
-                ? '記下領到的股息後才能推估'
-                : '依過去一年配息與目前股數推估',
+            sub: total == 0 ? '記下領到的股息後才能推估' : '依過去一年配息與目前股數推估',
           ),
         ]),
         if (months.isNotEmpty) ...[
