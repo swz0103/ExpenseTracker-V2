@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../core/ledger/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
 import '../../../core/perf.dart';
@@ -54,6 +55,9 @@ abstract interface class NotifyPort {
   /// A test notification in a minute.
   Future<void> test({bool exact = false});
 
+  /// Posts [alert] now, as notification [id].
+  Future<void> post(Alert alert, int id);
+
   Future<ReminderStatus> status();
 
   /// The system settings for alarms on the minute, and for the battery.
@@ -73,7 +77,53 @@ Set<String> wantedTags(Ledger ledger, Preferences preferences) => {
     for (final r in ledger.reminders(days: 30)) 'due:${r.key}',
   if (preferences.dailyNudge && ledger.entriesOn(ledger.today).isEmpty)
     nudgeTag,
+  // A budget's notice stays while the budget is still past its mark.
+  for (final c in budgetCrossings(ledger, preferences)) c.tag,
 };
+
+/// A budget past its warning share, or used up, this month.
+typedef BudgetCrossing = ({String key, String tag, String title, String text});
+
+/// The budgets past their warning share (or used up) this month, each as
+/// the notification to post once: its key names the month, budget and
+/// level, so the warning and the used up notice come once
+/// each. None when budget notifications are off.
+List<BudgetCrossing> budgetCrossings(Ledger ledger, Preferences preferences) {
+  if (!preferences.budgetAlerts) return const [];
+  final today = ledger.today;
+  final month = '${today.year}-${today.month}';
+  final found = <BudgetCrossing>[];
+  for (final b in ledger.budgets) {
+    if (b.limit <= 0) continue;
+    final allowed = ledger.allowance(b, today.year, today.month);
+    if (allowed <= 0) continue;
+    final spent = ledger.spentAgainst(b, today.year, today.month);
+    final share = spent * 100 ~/ allowed;
+    final name = b.category == Ledger.allSpending
+        ? '本月總預算'
+        : '「${b.category}」預算';
+    final BudgetCrossing crossing;
+    if (spent > allowed) {
+      crossing = (
+        key: '$month|${b.category}|over',
+        tag: 'budget:${b.category}',
+        title: '$name已超支',
+        text: '已用 ${groupDigits(spent)}，超出 ${groupDigits(spent - allowed)}',
+      );
+    } else if (share >= b.warning) {
+      crossing = (
+        key: '$month|${b.category}|${b.warning}',
+        tag: 'budget:${b.category}',
+        title: '$name已用 $share%',
+        text: '還剩 ${groupDigits(allowed - spent)}',
+      );
+    } else {
+      continue;
+    }
+    found.add(crossing);
+  }
+  return found;
+}
 
 /// The most notifications kept waiting at once.
 const _most = 48;
@@ -174,7 +224,8 @@ final class Notifier {
     _timer = Timer(const Duration(seconds: 3), () => unawaited(sync()));
   }
 
-  /// Schedules what [alertsFor] gives now; none when nothing is asked for.
+  /// Schedules what [alertsFor] gives now, none when nothing is asked
+  /// for; and posts each budget notice not posted yet this month.
   Future<void> sync() async {
     final ledger = _following;
     if (ledger == null) return;
@@ -184,8 +235,36 @@ final class Notifier {
         exact: preferences.exactReminders,
         wanted: wantedTags(ledger, preferences),
       );
+      await postBudgets(ledger);
     } on Object catch (error) {
       Perf.instance.problem('通知', error);
     }
+  }
+
+  /// Posts the budget notices of [budgetCrossings] not posted before, and
+  /// forgets those of earlier months.
+  Future<void> postBudgets(Ledger ledger) async {
+    final today = ledger.today;
+    final month = '${today.year}-${today.month}|';
+    final posted = {
+      for (final key in preferences.budgetAlerted)
+        if (key.startsWith(month)) key,
+    };
+    final fresh = [
+      for (final c in budgetCrossings(ledger, preferences))
+        if (!posted.contains(c.key)) c,
+    ];
+    if (fresh.isEmpty && posted.length == preferences.budgetAlerted.length) {
+      return;
+    }
+    for (final c in fresh) {
+      // Ids 700 to 763, apart from the alerts' and the test's (990).
+      await port.post(
+        Alert(DateTime.now(), c.title, c.text, tag: c.tag),
+        700 + (c.tag.hashCode & 0x3f),
+      );
+      posted.add(c.key);
+    }
+    preferences.budgetAlertedSet(posted);
   }
 }

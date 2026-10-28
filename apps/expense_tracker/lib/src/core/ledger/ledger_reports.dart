@@ -106,17 +106,47 @@ extension LedgerReports on Ledger {
   }
 
   /// The category last used with [merchant], if any.
-  String? categoryAt(String merchant) => _remember('categoryAt', () {
+  String? categoryAt(String merchant) => lastAt(merchant)?.category;
+
+  /// The latest spending at [merchant], if any: what a new entry there
+  /// starts from (its category and account).
+  Entry? lastAt(String merchant) => _remember('lastAt', () {
     final latest = <String, Entry>{};
     for (final e in _entries) {
       if (e.merchant.isEmpty || e.type != EntryType.expense) continue;
       final kept = latest[e.merchant];
-      if (kept == null || e.date.isAfter(kept.date)) latest[e.merchant] = e;
+      if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
     }
-    return {
-      for (final MapEntry(:key, :value) in latest.entries) key: value.category,
-    };
+    return latest;
   }, on: const {Area.entries})[merchant];
+
+  /// Spending recorded alike at least three times in the last 90 days
+  /// (the same category, merchant and account), the most often first, at
+  /// most [most]: each as its latest entry, which 記一筆 offers to start
+  /// from with one tap.
+  List<Entry> usual({int most = 6}) => _remember(('usual', today, most), () {
+    final since = today.subtract(const Duration(days: 90));
+    final counts = <(String, String, String), int>{};
+    final latest = <(String, String, String), Entry>{};
+    for (final e in _entries) {
+      if (e.type != EntryType.expense ||
+          e.date.isBefore(since) ||
+          e.parts.isNotEmpty ||
+          e.installments > 1 ||
+          e.home != null) {
+        continue;
+      }
+      final key = (e.category, e.merchant, e.account);
+      counts[key] = (counts[key] ?? 0) + 1;
+      final kept = latest[key];
+      if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
+    }
+    final keys = [
+      for (final MapEntry(:key, :value) in counts.entries)
+        if (value >= 3) key,
+    ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return [for (final key in keys.take(most)) latest[key]!];
+  }, on: const {Area.entries});
 
   /// Every tag with how many entries carry it and their spending, most
   /// used first.

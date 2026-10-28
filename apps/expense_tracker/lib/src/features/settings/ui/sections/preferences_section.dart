@@ -158,8 +158,8 @@ class _NotificationsSectionState extends State<NotificationsSection>
   }
 
   /// Turns a kind of notification on, once the phone allows them.
-  Future<void> _notify({bool? due, bool? nudge}) async {
-    final turningOn = (due ?? false) || (nudge ?? false);
+  Future<void> _notify({bool? due, bool? nudge, bool? budget}) async {
+    final turningOn = (due ?? false) || (nudge ?? false) || (budget ?? false);
     if (turningOn) {
       bool allowed;
       try {
@@ -172,7 +172,11 @@ class _NotificationsSectionState extends State<NotificationsSection>
         return;
       }
     }
-    _notifier.preferences.update(dueAlerts: due, dailyNudge: nudge);
+    _notifier.preferences.update(
+      dueAlerts: due,
+      dailyNudge: nudge,
+      budgetAlerts: budget,
+    );
     unawaited(_readStatus());
   }
 
@@ -242,6 +246,15 @@ class _NotificationsSectionState extends State<NotificationsSection>
             trailing: Switch(
               value: preferences.dueAlerts,
               onChanged: (on) => _notify(due: on),
+            ),
+          ),
+          MenuRow(
+            glyph: Glyph.budget,
+            title: '預算提醒',
+            detail: '用到警示比例、超支時',
+            trailing: Switch(
+              value: preferences.budgetAlerts,
+              onChanged: (on) => _notify(budget: on),
             ),
           ),
           MenuRow(

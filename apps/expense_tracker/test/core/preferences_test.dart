@@ -164,7 +164,13 @@ void main() {
       // The demo book has entries on its today.
       final wanted = wantedTags(ledger, preferences);
       expect(wanted, isNot(contains(nudgeTag)));
-      expect(wanted.every((tag) => tag.startsWith('due:')), isTrue);
+      // Due dates, and the demo's budgets already past their mark.
+      expect(
+        wanted.every(
+          (tag) => tag.startsWith('due:') || tag.startsWith('budget:'),
+        ),
+        isTrue,
+      );
       final dueTags = {
         for (final a in alertsFor(ledger, preferences, morning))
           if (a.tag.startsWith('due:')) a.tag,

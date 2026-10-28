@@ -250,12 +250,39 @@ final class ComposeForm {
     category = name;
   }
 
-  /// A merchant picked: the category it was last filed under comes with
-  /// it on a new entry that is not split.
+  /// A merchant picked: on a new entry, the category it was last filed
+  /// under comes with it (unless split), and the account it was paid
+  /// from, while that account is open and in the same currency.
   void pickMerchant(String name) {
     merchant = name;
-    final usual = ledger.categoryAt(name);
-    if (usual != null && parts == null && editing == null) category = usual;
+    if (editing != null) return;
+    final last = ledger.lastAt(name);
+    if (last == null) return;
+    if (parts == null) category = last.category;
+    _accountFrom(last);
+  }
+
+  /// [entry]'s account, when it is open and keeps the same currency as
+  /// the one chosen, so an amount typed stays in its unit.
+  void _accountFrom(Entry entry) {
+    final open = {for (final a in ledger.openAccounts) a.id};
+    if (!open.contains(entry.account)) return;
+    if (ledger.account(entry.account).currency != currency) return;
+    account = entry.account;
+  }
+
+  /// Starts a new expense from [entry], one of [Ledger.usual]: its
+  /// category, merchant, account and amount, on today.
+  void startFrom(Entry entry) {
+    category = entry.category;
+    merchant = entry.merchant;
+    if (entry.merchant.isNotEmpty) more = true;
+    final open = {for (final a in ledger.openAccounts) a.id};
+    if (open.contains(entry.account)) account = entry.account;
+    // The amount only in its own unit.
+    if (ledger.account(entry.account).currency == currency) {
+      setAmount(entry.amount);
+    }
   }
 
   /// The accounts that keep what someone owes, one per person.

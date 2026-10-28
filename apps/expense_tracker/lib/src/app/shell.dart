@@ -137,13 +137,36 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     Haptics.light();
+    // A new expense or income offers 再記一筆: the same again, on today,
+    // to change what differs; anything else, to look at what was saved.
+    final again =
+        entry == null &&
+        (saved.type == EntryType.expense || saved.type == EntryType.income) &&
+        !saved.isRefund;
     showNote(
       context,
       entry == null ? '已記下' : '已更新',
-      action: '查看',
-      onAction: () => _compose(entry: saved),
+      action: again ? '再記一筆' : '查看',
+      onAction: again
+          ? () => _compose(type: saved.type, draft: _again(saved))
+          : () => _compose(entry: saved),
     );
   }
+
+  /// A new entry like [saved]: its category, account, merchant, amount and
+  /// tags, on today, without its note, receipt or instalments.
+  Entry _again(Entry saved) => Entry(
+    id: '',
+    date: widget.ledger.today,
+    type: saved.type,
+    amount: saved.amount,
+    account: saved.account,
+    category: saved.category,
+    merchant: saved.merchant,
+    tags: saved.tags,
+    parts: saved.parts,
+    home: saved.home,
+  );
 
   /// A page whose account is gone closes after this frame.
   Widget _gone() {

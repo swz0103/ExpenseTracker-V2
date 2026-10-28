@@ -20,6 +20,14 @@ extension LedgerPlanning on Ledger {
     return total;
   }
 
+  /// Where [spent] in [year]/[month] is heading by the month's end at the
+  /// pace so far: the month's spending for a month gone by.
+  int forecast(int spent, int year, int month) {
+    final (passed, days) = daysGone(year, month);
+    if (passed >= days || passed == 0) return spent;
+    return (spent * days / passed).round();
+  }
+
   Budget budgetFor(String category) => _budgets.firstWhere(
     (b) => b.category == category,
     orElse: () => Budget(category, 0),

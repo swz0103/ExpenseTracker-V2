@@ -68,6 +68,23 @@ class RemindersPart(private val activity: FragmentActivity) : ChannelPart {
                     result.success(null)
                 }
             }
+            "showNotification" -> {
+                val title = call.argument<String>("title")
+                val text = call.argument<String>("text")
+                if (title == null || text == null) {
+                    result.error("bad-arguments", "title and text are required", null)
+                } else {
+                    Reminders.show(
+                        activity,
+                        call.argument<Int>("id") ?: 700,
+                        title,
+                        text,
+                        call.argument<String>("quick") ?: "",
+                        call.argument<String>("tag") ?: "",
+                    )
+                    result.success(null)
+                }
+            }
             "testNotification" -> {
                 Reminders.test(activity, call.argument<Boolean>("exact") == true)
                 result.success(null)

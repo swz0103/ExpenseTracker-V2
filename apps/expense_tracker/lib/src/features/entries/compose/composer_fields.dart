@@ -90,7 +90,7 @@ extension _Fields on _ComposerState {
       case ComposeMode.expense || ComposeMode.income:
         final expense = _f.mode == ComposeMode.expense;
         return [
-          // Over the keys instead, when the amount is typed on them.
+          if (expense) _usual(),
           _categories(expense),
           TileRow([_accountTile(expense ? '付款帳戶' : '收款帳戶'), _dateTile()]),
           if (_f.foreign) _homeTile(),
@@ -205,6 +205,39 @@ extension _Fields on _ComposerState {
   }
 
   /// The categories as a grid of marks, or the parts of a split.
+  /// 常用: spending recorded alike again and again, each a tap away from
+  /// a filled form; on a new, still empty expense only.
+  Widget _usual() {
+    if (_viewing ||
+        widget.entry != null ||
+        widget.draft != null ||
+        _f.amount != 0 ||
+        _f.merchant.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    final usual = _ledger.usual();
+    if (usual.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Text('常用', style: mutedSmall),
+            for (final e in usual) ...[
+              const SizedBox(width: 6),
+              _Chip(
+                '${e.merchant.isEmpty ? e.category : e.merchant} '
+                '${groupDigits(e.amount)}',
+                () => _set(() => _f.startFrom(e)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _categories(bool expense) {
     final parts = _f.parts;
     final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);

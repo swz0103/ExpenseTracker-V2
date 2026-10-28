@@ -48,6 +48,16 @@ final class AndroidNotifications implements NotifyPort {
       platformChannel.invokeMethod<void>('testNotification', {'exact': exact});
 
   @override
+  Future<void> post(Alert alert, int id) =>
+      platformChannel.invokeMethod<void>('showNotification', {
+        'id': id,
+        'title': alert.title,
+        'text': alert.text,
+        'tag': alert.tag,
+        'quick': alert.quick?.name ?? '',
+      });
+
+  @override
   Future<ReminderStatus> status() async {
     final found =
         await platformChannel.invokeMapMethod<String, Object?>(

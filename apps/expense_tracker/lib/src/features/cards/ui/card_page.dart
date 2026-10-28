@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../accounts/compose/account_editor.dart';
+import '../../accounts/ui/reconcile_sheet.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
@@ -35,6 +36,21 @@ class CardPage extends StatelessWidget {
         if (e.account == card.id && e.type == type && e.tags.contains(tag)) {
           total += e.amount;
         }
+      }
+    }
+    return total;
+  }
+
+  /// What entries on [card] of [type] carrying [tag] came to after
+  /// [after]: the cycle not yet billed, for cashback.
+  int _taggedAfter(Account card, String tag, EntryType type, DateTime after) {
+    var total = 0;
+    for (final e in ledger.entries) {
+      if (e.account == card.id &&
+          e.type == type &&
+          e.tags.contains(tag) &&
+          e.date.isAfter(after)) {
+        total += e.amount;
       }
     }
     return total;
@@ -177,6 +193,8 @@ class CardPage extends StatelessWidget {
                       ),
                     ),
             ),
+            ReconcileButton(ledger: ledger, account: card),
+            const SizedBox(height: 8),
             TileRow([
               Tile(
                 icon: Glyph.calendar,
@@ -205,6 +223,34 @@ class CardPage extends StatelessWidget {
                     : pending == 0
                     ? '總額度 ${ledger.orDots(shortAmount(limit))}'
                     : '含分期未繳 ${ledger.money(pending)}',
+                // How much of the limit is taken, the instalments still
+                // to be billed included.
+                child: limit == null || limit <= 0
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            LinearProgressIndicator(
+                              value: ((debt + pending) / limit)
+                                  .clamp(0, 1)
+                                  .toDouble(),
+                              minHeight: 6,
+                              borderRadius: BorderRadius.circular(3),
+                              color: (debt + pending) * 100 >= limit * 80
+                                  ? Hue.negative
+                                  : Hue.accent,
+                              backgroundColor: Hue.accentTrack,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '已用 ${((debt + pending) * 100 / limit).round()}%',
+                              style: mutedSmall,
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ]),
             Padding(
@@ -224,6 +270,8 @@ class CardPage extends StatelessWidget {
                 label: '今年回饋',
                 value: ledger.money(_tagged(card, '回饋', EntryType.income)),
                 valueColor: Hue.positive,
+                sub:
+                    '本期 ${ledger.money(_taggedAfter(card, '回饋', EntryType.income, end))}',
                 trailing: const GlyphIcon(Glyph.add, size: 16),
                 onTap: () => _extra(card, EntryType.income),
               ),
