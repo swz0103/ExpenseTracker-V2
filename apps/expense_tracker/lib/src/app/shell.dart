@@ -118,6 +118,7 @@ class _AppShellState extends State<AppShell> {
       draft: draft,
       refundOf: refundOf,
       photos: widget.services.receipts,
+      scan: widget.services.scanQr,
     );
     if (result == null || !mounted) return;
     final (outcome, saved) = result;

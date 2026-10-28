@@ -204,9 +204,9 @@ extension _Fields on _ComposerState {
     );
   }
 
-  /// The categories as a grid of marks, or the parts of a split.
   /// 常用: spending recorded alike again and again, each a tap away from
-  /// a filled form; on a new, still empty expense only.
+  /// a filled form, and 掃發票 to fill it from a paper e-invoice; on a new,
+  /// still empty expense only.
   Widget _usual() {
     if (_viewing ||
         widget.entry != null ||
@@ -216,14 +216,19 @@ extension _Fields on _ComposerState {
       return const SizedBox.shrink();
     }
     final usual = _ledger.usual();
-    if (usual.isEmpty) return const SizedBox.shrink();
+    final scan = widget.scan != null;
+    if (usual.isEmpty && !scan) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            const Text('常用', style: mutedSmall),
+            if (scan) _Chip('掃發票', _scanInvoice),
+            if (usual.isNotEmpty) ...[
+              if (scan) const SizedBox(width: 10),
+              const Text('常用', style: mutedSmall),
+            ],
             for (final e in usual) ...[
               const SizedBox(width: 6),
               _Chip(
@@ -238,6 +243,7 @@ extension _Fields on _ComposerState {
     );
   }
 
+  /// The categories as a grid of marks, or the parts of a split.
   Widget _categories(bool expense) {
     final parts = _f.parts;
     final used = parts == null ? 0 : parts.fold(0, (sum, p) => sum + p.$2);

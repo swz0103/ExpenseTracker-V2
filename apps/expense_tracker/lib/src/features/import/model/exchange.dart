@@ -784,6 +784,16 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
   return Import(entries, skipped);
 }
 
+/// The open NT$ account [shop] was last paid from, if any.
+String? _usualAccount(Ledger ledger, String shop) {
+  final last = shop.isEmpty ? null : ledger.lastAt(shop);
+  if (last == null) return null;
+  final account = ledger.account(last.account);
+  if (account.archived || account.currency != homeCode) return null;
+  if (!ledger.hasAccount(account.id)) return null;
+  return account.id;
+}
+
 /// Spending at [shop] on [day] for the invoice [number], noted with its
 /// first item and how many there were.
 Entry _invoice(
@@ -802,13 +812,20 @@ Entry _invoice(
     date: day,
     type: EntryType.expense,
     amount: value,
-    account: account,
+    // The account the shop was last paid from, while it is open and in
+    // NT$; the one chosen for the import otherwise.
+    account: _usualAccount(ledger, shop) ?? account,
     category: guessCategory(ledger, shop, bought.join(' ')),
     note: '$what$more 發票 $number'.trim(),
     merchant: shop,
     tags: const ['發票'],
   );
 }
+
+/// Whether the invoice [number] of [day] is in the book already, as an
+/// import or a scan would find it.
+bool invoiceRecorded(Ledger ledger, DateTime day, String number) =>
+    _hasInvoice(ledger, day, number);
 
 /// Whether the invoice [number] of [day] was imported before: its number
 /// is in a note, or an invoice entry of that day, shop and [amount] is

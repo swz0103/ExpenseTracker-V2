@@ -31,6 +31,7 @@ class MainActivity : FlutterFragmentActivity() {
         BackupsPart(this),
         WidgetsPart(this),
         UpdatePart(this),
+        ScanPart(this),
     )
     private var channel: MethodChannel? = null
 

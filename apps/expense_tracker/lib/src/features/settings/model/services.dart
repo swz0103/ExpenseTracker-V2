@@ -31,6 +31,7 @@ final class Services {
     this.phone,
     this.market,
     this.update,
+    this.scanQr,
   });
 
   final Keeper? keeper;
@@ -61,4 +62,8 @@ final class Services {
 
   /// Newer versions of the app, on Android.
   final AppUpdate? update;
+
+  /// Reads a QR code, such as a paper e-invoice's, with the camera; none
+  /// in the preview.
+  final Future<String?> Function()? scanQr;
 }
