@@ -50,7 +50,12 @@ void main() {
   });
 
   test('anything else is not an invoice', () {
-    expect(InvoiceQr.parse('https://example.com/a-long-address-that-is-long-enough-to-pass-77-chars-check-x'), isNull);
+    expect(
+      InvoiceQr.parse(
+        'https://example.com/a-long-address-that-is-long-enough-to-pass-77-chars-check-x',
+      ),
+      isNull,
+    );
     expect(InvoiceQr.parse('**牛奶:1:35'), isNull);
     // 13 is no month.
     expect(InvoiceQr.parse(head.replaceRange(13, 15, '13')), isNull);
