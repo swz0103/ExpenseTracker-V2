@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:core/foundation_values.dart';
+import 'package:storage/storage.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -188,6 +189,61 @@ final class VaultKeeper implements Keeper {
     }
     return path;
   }
+
+  @override
+  Future<BackupCheck> checkNewest() async {
+    final candidates = [
+      ..._backups(),
+      ..._etbk(Directory('${_startup.directory.path}/outbox')),
+    ];
+    File? newest;
+    DateTime? newestAt;
+    for (final file in candidates) {
+      try {
+        final at = (await LedgerBackup.readHeader(file)).createdAt;
+        if (newestAt == null || at.isAfter(newestAt)) {
+          newest = file;
+          newestAt = at;
+        }
+      } on Object {
+        // Unreadable: a newer good one is still checked; none is said below.
+      }
+    }
+    newest ??= candidates.isEmpty ? File(await backUp()) : candidates.first;
+    // The scratch copy goes where files wait to be handed over: kept out
+    // of the cloud backup and cleared at each start.
+    await _exports.create(recursive: true);
+    final scratch = File(
+      '${_exports.path}/check-${PublicId.generate().value}.db',
+    );
+    RowStore? store;
+    try {
+      store = RowStore.open(scratch, StorageKey.random());
+      var photos = 0;
+      final header = await LedgerBackup.restore(
+        file: newest,
+        keys: _vault.keys,
+        into: store,
+        accept: _startup.check,
+        onFile: (name, bytes) async => photos++,
+      );
+      return (at: header.createdAt, rows: header.rows, photos: photos);
+    } finally {
+      store?.close();
+      for (final end in ['', '-wal', '-shm', '-journal']) {
+        final file = File('${scratch.path}$end');
+        if (file.existsSync()) await file.delete();
+      }
+    }
+  }
+
+  /// The backups in [folder], if any.
+  static List<File> _etbk(Directory folder) => !folder.existsSync()
+      ? const []
+      : [
+          for (final entity in folder.listSync())
+            if (entity is File && entity.path.endsWith('.etbk')) entity,
+        ];
 
   @override
   bool get hasPassword => !_startup.passwordless;

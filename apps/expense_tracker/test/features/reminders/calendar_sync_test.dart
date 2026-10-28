@@ -70,4 +70,26 @@ void main() {
     port.reachable = false;
     expect(await sync.sync(ledger), isNull);
   });
+
+  test('events can leave the amounts out, and keep that choice', () async {
+    final ledger = demoLedger();
+    final port = _Calendars();
+    final sync = CalendarSync(port, directory);
+    await sync.choose(const CalendarChoice(1, '個人', 'me'), ledger);
+    expect(sync.amounts, isTrue);
+    await sync.sync(ledger);
+    final withAmounts = [for (final r in port.held[1]!) r.title];
+    expect(withAmounts.any((t) => RegExp(r'\d').hasMatch(t)), isTrue);
+
+    await sync.setAmounts(false, ledger);
+    expect(CalendarSync(port, directory).amounts, isFalse);
+    final bare = [for (final r in port.held[1]!) r.title];
+    expect(bare, hasLength(withAmounts.length));
+    for (final title in bare) {
+      expect(title, isNot(contains(RegExp(r'\d'))));
+    }
+    // The choice stays when the calendar changes.
+    await sync.choose(const CalendarChoice(2, '家庭', 'me'), ledger);
+    expect(sync.amounts, isFalse);
+  });
 }

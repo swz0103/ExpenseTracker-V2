@@ -24,6 +24,10 @@ final class _Keeper implements Keeper {
   Future<String?> readFile() async => null;
 
   @override
+  Future<BackupCheck> checkNewest() async =>
+      (at: DateTime.utc(2026, 10, 1), rows: 0, photos: 0);
+
+  @override
   bool get hasPassword => password.isNotEmpty;
 
   @override

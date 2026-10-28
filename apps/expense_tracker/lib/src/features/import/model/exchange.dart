@@ -26,7 +26,46 @@ final class Import {
   /// Why lines were left out, such as 「第 3 行：日期看不懂」; the first
   /// few only.
   final List<String> problems;
+
+  /// This import with only the entries at [kept] (their places in
+  /// [entries]), and only the new accounts and categories those use.
+  Import only(Set<int> kept) {
+    final chosen = [
+      for (final (i, e) in entries.indexed)
+        if (kept.contains(i)) e,
+    ];
+    final accountsUsed = {
+      for (final e in chosen) ...[e.account, ?e.to],
+    };
+    final categoriesUsed = {
+      for (final e in chosen) ...[
+        e.category,
+        for (final (name, _) in e.parts) name,
+      ],
+    };
+    return Import(
+      chosen,
+      skipped,
+      accounts: [
+        for (final a in accounts)
+          if (accountsUsed.contains(a.id)) a,
+      ],
+      categories: [
+        for (final c in categories)
+          if (categoriesUsed.contains(c.name)) c,
+      ],
+      problems: problems,
+    );
+  }
 }
+
+/// How an import tells a line already in the book, as the import form
+/// explains it.
+const duplicateRules =
+    'CSV：同一天、同類型、同金額、同帳戶、同備註（轉帳再看轉入帳戶，'
+    '股票再看代號與股數）都相同，就當作已經記過。'
+    '電子發票：備註裡已有同一個發票號碼；或同一天、同商家、同金額、'
+    '標了「發票」標籤的紀錄。檔案裡重複的發票也只算一次。';
 
 /// Adds what [found] holds to [ledger], its new accounts and categories
 /// with its entries, as one change.

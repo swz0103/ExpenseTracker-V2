@@ -11,7 +11,8 @@ final class Reminder {
     this.note = '',
     this.daysAhead = 0,
     this.recurring,
-  });
+    String? bare,
+  }) : _bare = bare;
 
   /// Stable across syncs, so the same reminder is not written twice.
   final String key;
@@ -27,6 +28,20 @@ final class Reminder {
   /// The recurring item falling due, which a notification can confirm;
   /// null for a card payment.
   final String? recurring;
+
+  /// [title] without the amount.
+  final String? _bare;
+
+  /// This reminder without its amount, for a calendar that should not
+  /// show one: 「繳卡費：玉山卡」.
+  Reminder get withoutAmount => Reminder(
+    key: key,
+    day: day,
+    title: _bare ?? title,
+    note: note,
+    daysAhead: daysAhead,
+    recurring: recurring,
+  );
 }
 
 /// What falls due in the next [days] days, soonest first: each unbooked
@@ -55,6 +70,7 @@ extension LedgerReminders on Ledger {
               key: key('r', r.id, d),
               day: d,
               title: '${r.income ? '入帳' : '扣款'}：${r.name} $amount',
+              bare: '${r.income ? '入帳' : '扣款'}：${r.name}',
               note: '定期交易，扣款帳戶：${account(r.account).name}',
               recurring: r.id,
             ),
@@ -72,6 +88,7 @@ extension LedgerReminders on Ledger {
           key: key('c', card.id, end),
           day: due,
           title: '繳卡費：${card.name} ${groupDigits(owed)}',
+          bare: '繳卡費：${card.name}',
           note: '${end.month}/${end.day} 結帳的帳單',
           daysAhead: 2,
         ),

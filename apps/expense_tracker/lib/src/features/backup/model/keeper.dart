@@ -1,3 +1,7 @@
+/// What opening a backup through found: when it was taken, its records
+/// and receipt photos.
+typedef BackupCheck = ({DateTime at, int rows, int photos});
+
 /// The ledger's keys and backups, for the settings screen. Only the
 /// encrypted ledger has one; the preview has none.
 abstract interface class Keeper {
@@ -14,6 +18,12 @@ abstract interface class Keeper {
   /// Saves [text] as a file named [name] outside the app, as
   /// [exportBackup] does. False when the person cancels.
   Future<bool> exportFile(String name, String text);
+
+  /// Opens the newest backup kept on this phone the way a restore does,
+  /// into a scratch copy that is thrown away, so a damaged backup is
+  /// found before it is needed; one is written first when there is none.
+  /// Throws when it does not open.
+  Future<BackupCheck> checkNewest();
 
   /// Lets the person choose a text file, such as a CSV to import, and
   /// returns its text; null when they cancel or there is no file picker.
