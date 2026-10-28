@@ -10,11 +10,13 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'android/backups.dart';
+import 'android/widgets.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
 import '../features/backup/model/leftovers.dart';
 import '../features/backup/model/outbox.dart';
+import '../features/overview/model/home_widget.dart';
 import '../features/backup/model/phone_backup.dart';
 import '../core/ledger/table_journal.dart';
 import '../features/investments/model/market_feed.dart';
@@ -196,6 +198,16 @@ class _OpenedLedgerState extends State<OpenedLedger>
           schedule: androidBackgroundBackups,
         )
       : null;
+
+  /// The figures the home-screen widget 本月概況 shows, on Android.
+  late final _homeWidget = Platform.isAndroid
+      ? HomeWidget(
+          File('${widget.startup.directory.path}/widget.json'),
+          widget.preferences,
+          refresh: androidRefreshWidgets,
+        )
+      : null;
+
   Ledger? _loaded;
   late final Future<Ledger> _ledger = _open();
 
@@ -231,6 +243,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     unawaited(_weeklyBackup());
     _calendar?.follow(ledger);
     _notifier?.follow(ledger);
+    _homeWidget?.follow(ledger);
     return ledger;
   }
 
@@ -395,6 +408,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void dispose() {
     _calendar?.stop();
     _notifier?.stop();
+    _homeWidget?.stop();
     _drive?.dispose();
     _phone?.dispose();
     _market?.dispose();

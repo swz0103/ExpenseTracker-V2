@@ -9,6 +9,8 @@
     <exclude domain="file" path="diagnostics.log"/>
     <!-- The backup waiting for the background job (BackupWorker.kt). -->
     <exclude domain="file" path="outbox"/>
+    <!-- What the home-screen widget shows (SummaryWidget.kt). -->
+    <exclude domain="file" path="widget.json"/>
     <!-- Receipt photos would soon fill the 25 MB backup allowance. -->
     <exclude domain="file" path="receipts"/>
     <exclude domain="file" path="before-restore"/>

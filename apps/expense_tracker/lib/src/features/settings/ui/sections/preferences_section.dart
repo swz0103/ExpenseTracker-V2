@@ -42,6 +42,37 @@ class AppearanceSection extends StatelessWidget {
     if (picked != null) preferences.update(appearance: picked);
   }
 
+  /// What the home-screen widget 本月概況 shows.
+  Future<void> _pickWidget(BuildContext context) async {
+    final picked = await showDialog<WidgetFigures>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        backgroundColor: Hue.panel,
+        title: const Text('桌面小工具「本月概況」'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text('桌面上任何人都看得到。只顯示百分比時，手機裡也只存百分比。', style: mutedSmall),
+          ),
+          for (final f in WidgetFigures.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(f),
+              child: Text(
+                f.label,
+                style: f == preferences.widgetFigures
+                    ? const TextStyle(
+                        color: Hue.accent,
+                        fontWeight: FontWeight.w700,
+                      )
+                    : null,
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked != null) preferences.update(widgetFigures: picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -62,6 +93,12 @@ class AppearanceSection extends StatelessWidget {
               value: preferences.haptics,
               onChanged: (on) => preferences.update(haptics: on),
             ),
+          ),
+          MenuRow(
+            glyph: Glyph.budget,
+            title: '桌面小工具',
+            detail: preferences.widgetFigures.label,
+            onTap: () => _pickWidget(context),
           ),
           MenuRow(
             glyph: Glyph.overview,

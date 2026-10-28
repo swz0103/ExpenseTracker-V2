@@ -79,6 +79,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/quick_widget_info" />
         </receiver>
+        <!-- The home-screen widget 本月概況 (SummaryWidget.kt). -->
+        <receiver
+            android:name=".SummaryWidget"
+            android:label="本月概況"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/summary_widget_info" />
+        </receiver>
         <!-- Lets the camera write a receipt photo into the app's cache. -->
         <provider
             android:name="androidx.core.content.FileProvider"
