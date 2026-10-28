@@ -64,8 +64,14 @@ void main() {
 
   test('a holding: trades, dividends, and what is held at its close', () {
     final ledger = book([
-      trade('b', DateTime.utc(2025, 10, 20), EntryType.buy, 36000,
-          shares: 1000, fee: 20),
+      trade(
+        'b',
+        DateTime.utc(2025, 10, 20),
+        EntryType.buy,
+        36000,
+        shares: 1000,
+        fee: 20,
+      ),
       trade('d1', DateTime.utc(2026, 1, 15), EntryType.dividend, 1000),
       trade('d2', DateTime.utc(2026, 7, 15), EntryType.dividend, 1000),
     ]);
@@ -89,9 +95,9 @@ void main() {
     ]);
     expect(sharesBefore(ledger, '0056', DateTime.utc(2026, 1, 15)), 1000);
     final guesses = expectedDividends(ledger);
-    expect([for (final g in guesses) (g.month, g.amount)], [
-      (DateTime.utc(2027), 2000),
-      (DateTime.utc(2027, 7), 2000),
-    ]);
+    expect(
+      [for (final g in guesses) (g.month, g.amount)],
+      [(DateTime.utc(2027), 2000), (DateTime.utc(2027, 7), 2000)],
+    );
   });
 }

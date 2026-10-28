@@ -58,7 +58,10 @@ int cashOf(Entry e) => switch (e.type) {
 /// held from before the book began (their buying day is not known).
 double? returnOf(Ledger ledger, {String? code}) {
   final codes = code == null
-      ? {for (final e in ledger.entries) if (e.isInvestment) e.holding}
+      ? {
+          for (final e in ledger.entries)
+            if (e.isInvestment) e.holding,
+        }
       : {code};
   for (final c in codes) {
     if (c == null) continue;
@@ -89,7 +92,12 @@ DateTime? investedSince(Ledger ledger, {String? code}) {
 }
 
 /// A dividend expected in [month], from what [code] paid a year before.
-typedef DividendGuess = ({String code, String name, DateTime month, int amount});
+typedef DividendGuess = ({
+  String code,
+  String name,
+  DateTime month,
+  int amount,
+});
 
 /// The shares of [code] held on the eve of [day]: those held now, less
 /// every change from [day] on.

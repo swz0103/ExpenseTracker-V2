@@ -307,8 +307,7 @@ class _Returns extends StatelessWidget {
     final since = investedSince(ledger);
     final guesses = expectedDividends(ledger);
     final total = guesses.fold(0, (sum, g) => sum + g.amount);
-    final young =
-        since != null && ledger.today.difference(since).inDays < 365;
+    final young = since != null && ledger.today.difference(since).inDays < 365;
     final months = <DateTime, List<DividendGuess>>{};
     for (final g in guesses) {
       (months[g.month] ??= []).add(g);
@@ -396,10 +395,7 @@ class _Returns extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              '依去年同月的配息推估，實際以公司公告為準',
-              style: mutedSmall,
-            ),
+            child: Text('依去年同月的配息推估，實際以公司公告為準', style: mutedSmall),
           ),
         ],
       ],
