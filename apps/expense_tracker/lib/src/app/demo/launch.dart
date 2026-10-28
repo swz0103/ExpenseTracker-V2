@@ -219,7 +219,10 @@ class _HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
     final snapshot = widgetSnapshot(ledger, WidgetFigures.amounts);
-    const white = TextStyle(color: Colors.white, decoration: TextDecoration.none);
+    const white = TextStyle(
+      color: Colors.white,
+      decoration: TextDecoration.none,
+    );
     return Material(
       type: MaterialType.transparency,
       child: _wallpaper(padding, snapshot, white),
@@ -240,7 +243,12 @@ class _HomeScreen extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, padding.top + 24, 20, padding.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          padding.top + 24,
+          20,
+          padding.bottom + 16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -299,7 +307,10 @@ class _HomeScreen extends StatelessWidget {
             Text(
               '預覽：選擇打開 App 的情境',
               textAlign: TextAlign.center,
-              style: white.copyWith(fontSize: 12, color: const Color(0xCCFFFFFF)),
+              style: white.copyWith(
+                fontSize: 12,
+                color: const Color(0xCCFFFFFF),
+              ),
             ),
           ],
         ),
@@ -413,7 +424,10 @@ class _SummaryWidget extends StatelessWidget {
               children: [
                 Text(
                   shown?['title'] as String? ?? '本月概況',
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670)),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF5B6670),
+                  ),
                 ),
                 Text(
                   shown?['figure'] as String? ?? '—',
@@ -439,7 +453,10 @@ class _SummaryWidget extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     detail,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF5B6670)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF5B6670),
+                    ),
                   ),
                 ],
               ],
