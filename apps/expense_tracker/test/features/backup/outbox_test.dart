@@ -44,9 +44,9 @@ void main() {
     for (final f in folder().listSync())
       if (f.path.endsWith('.etbk')) f.uri.pathSegments.last,
   ];
-  void deliver(Map<String, Object?> json) => File(
-    '${folder().path}/delivered.json',
-  ).writeAsStringSync(jsonEncode(json));
+  void deliver(Map<String, Object?> json) =>
+      File('${folder().path}/delivered.json')
+          .writeAsStringSync(jsonEncode(json));
 
   test('nothing is left, and the job stops, with nowhere to deliver', () async {
     expect(await outbox().prepare(), isFalse);

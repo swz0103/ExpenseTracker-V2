@@ -52,7 +52,8 @@ final class Outbox {
   File get _delivered => File('${_folder.path}/delivered.json');
 
   /// Somewhere to deliver to: a folder on the phone, or Google Drive.
-  bool get wanted => _preferences.phoneFolder != null || _preferences.driveLinked;
+  bool get wanted =>
+      _preferences.phoneFolder != null || _preferences.driveLinked;
 
   var _busy = false;
 
@@ -90,7 +91,9 @@ final class Outbox {
       });
       // The one waiting before is replaced: only the newest is delivered.
       for (final old in _folder.listSync()) {
-        if (old is File && old.path.endsWith('.etbk') && old.path != file.path) {
+        if (old is File &&
+            old.path.endsWith('.etbk') &&
+            old.path != file.path) {
           await old.delete();
         }
       }
