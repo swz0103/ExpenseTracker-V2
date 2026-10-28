@@ -1,6 +1,8 @@
 import '../../../core/ledger/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../import/model/exchange.dart' show guessCategory;
+import '../../import/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
@@ -269,6 +271,33 @@ final class ComposeForm {
     if (!open.contains(entry.account)) return;
     if (ledger.account(entry.account).currency != currency) return;
     account = entry.account;
+  }
+
+  /// Fills a new expense from a scanned paper e-invoice: its day and total,
+  /// its items and number in the note, tagged 發票, and a category guessed
+  /// from the items; the merchant is left to pick, which brings its usual
+  /// category and account.
+  void fillInvoice(InvoiceQr invoice) {
+    date = invoice.date;
+    note = invoice.note;
+    if (!tags.contains('發票')) tags = [...tags, '發票'];
+    more = true;
+    category = guessCategory(
+      ledger,
+      merchant,
+      [for (final item in invoice.items) item.name].join(' '),
+    );
+    // An invoice is in NT$: on an account in another currency, the first
+    // open one in NT$ pays it.
+    if (currency != homeCode) {
+      for (final a in ledger.openAccounts) {
+        if (a.currency == homeCode) {
+          account = a.id;
+          break;
+        }
+      }
+    }
+    setAmount(invoice.total);
   }
 
   /// Starts a new expense from [entry], one of [Ledger.usual]: its

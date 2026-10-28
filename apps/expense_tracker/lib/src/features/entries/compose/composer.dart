@@ -19,6 +19,8 @@ import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/compose_form.dart';
 import '../model/receipt_photos.dart';
+import '../../import/model/exchange.dart' show invoiceRecorded;
+import '../../import/model/invoice_qr.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
@@ -96,6 +98,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
   Entry? draft,
   Entry? refundOf,
   ReceiptPhotos? photos,
+  Future<String?> Function()? scan,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return null;
   return showSheet<(ComposeOutcome, Entry)>(
@@ -107,6 +110,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       draft: draft,
       refundOf: refundOf ?? _original(ledger, entry),
       photos: photos,
+      scan: scan,
     ),
     // The composer draws its own, between 重填 and 關閉.
     handle: false,
@@ -128,6 +132,7 @@ class Composer extends StatefulWidget {
     this.draft,
     this.refundOf,
     this.photos,
+    this.scan,
   });
 
   final Ledger ledger;
@@ -144,6 +149,10 @@ class Composer extends StatefulWidget {
 
   /// The phone's receipt photos; none in the preview, which hides them.
   final ReceiptPhotos? photos;
+
+  /// Reads a QR code with the camera, for a paper e-invoice; none in the
+  /// preview.
+  final Future<String?> Function()? scan;
 
   @override
   State<Composer> createState() => _ComposerState();
@@ -699,6 +708,38 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   /// Applies [change] while the form is still on screen: the field
   /// builders in composer_fields.dart run it after a dialog closes.
+  /// 掃發票: reads a paper e-invoice's left QR code (and its right one when
+  /// the items go on there) and fills the form: the day, the total, its
+  /// items and number in the note, tagged 發票, and a category guessed from
+  /// the items. One already in the book is said, not filled again.
+  Future<void> _scanInvoice() async {
+    final scan = widget.scan;
+    if (scan == null) return;
+    try {
+      final left = await scan();
+      if (left == null || !mounted) return;
+      var invoice = InvoiceQr.parse(left);
+      if (invoice == null) {
+        showNote(context, '這不是電子發票左邊的 QR Code，請掃左邊那個');
+        return;
+      }
+      if (invoiceRecorded(_ledger, invoice.date, invoice.number)) {
+        showNote(context, '發票 ${invoice.number} 已經記過了');
+        return;
+      }
+      if (invoice.wantsMore) {
+        showNote(context, '還有品項在右邊的 QR Code，請再掃一次');
+        final right = await scan();
+        if (right != null) invoice = invoice.withRight(right);
+      }
+      if (!mounted) return;
+      final scanned = invoice;
+      _set(() => _f.fillInvoice(scanned));
+    } on Object catch (error) {
+      if (mounted) showNote(context, '沒有掃到：$error');
+    }
+  }
+
   void _set(VoidCallback change) {
     if (mounted) setState(change);
   }

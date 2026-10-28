@@ -10,6 +10,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';
 
 import 'android/backups.dart';
+import 'android/scan.dart';
 import 'android/update.dart';
 import 'android/widgets.dart';
 import 'app.dart';
@@ -492,6 +493,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           phone: _phone,
           market: _market,
           update: _update,
+          scanQr: Platform.isAndroid ? androidScanQr : null,
         ),
       );
     },
