@@ -87,11 +87,7 @@ void main() {
       ('結餘', -900, 47700),
     ]);
     // 交通 and 住宿 differ alike (800): they keep the order first met.
-    expect(rows.skip(3), [
-      ('交通', 400, 1200),
-      ('住宿', 0, 800),
-      ('飲食', 500, 300),
-    ]);
+    expect(rows.skip(3), [('交通', 400, 1200), ('住宿', 0, 800), ('飲食', 500, 300)]);
   });
 
   test('a tag as a project: when it ran, what it cost, on what', () {
