@@ -64,7 +64,7 @@ void main() {
     final rows = yearlyCosts(ledger);
     expect(
       [for (final (r, yearly) in rows) (r.name, yearly)],
-      [('Netflix', 390 * 12), ('保險', 12000)],
+      [('保險', 12000), ('Netflix', 390 * 12)],
     );
   });
 }
