@@ -36,8 +36,11 @@ hooks:
 flutter:
   uses-material-design: true
   fonts:
-    # Nunito for numbers and Latin text, Huninn (jf 粉圓) for Chinese;
-    # both under the SIL Open Font License (fonts/OFL-*.txt).
+    # Nunito for numbers and Latin text, Noto Sans TC (Adobe's Source
+    # Han Sans, Traditional Chinese) for Chinese; both under the SIL
+    # Open Font License (fonts/OFL-*.txt). Noto Sans TC's own weights
+    # keep Chinese words crisp at small sizes instead of the system
+    # faking a bold out of one borrowed weight.
     - family: Nunito
       fonts:
         - asset: fonts/Nunito-Regular.ttf
@@ -45,6 +48,8 @@ flutter:
           weight: 600
         - asset: fonts/Nunito-Bold.ttf
           weight: 700
-    - family: Huninn
+    - family: NotoSansTC
       fonts:
-        - asset: fonts/Huninn-Regular.ttf
+        - asset: fonts/NotoSansTC-Regular.ttf
+        - asset: fonts/NotoSansTC-Bold.ttf
+          weight: 700

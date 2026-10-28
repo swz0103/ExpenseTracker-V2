@@ -112,8 +112,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       photos: photos,
       scan: scan,
     ),
-    // The composer draws its own, between 重填 and 關閉.
-    handle: false,
+    capHeight: true,
   );
 }
 
@@ -531,51 +530,26 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 重填, the handle to drag the sheet by, and 關閉 on one row:
-          // the tabs below already say what is being written.
-          Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Visibility.maintain(
-                    visible: !_viewing && entry == null,
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        _drafts.remove(_f.tab);
-                        _f.mode = _f.tab;
-                        _fresh();
-                      }),
-                      style: TextButton.styleFrom(foregroundColor: Hue.ink),
-                      child: const Text('重填', style: TextStyle(fontSize: 13)),
-                    ),
-                  ),
+          // The sheet's own drag handle, above this content, is what
+          // closes the form (dragged down, or tapped outside); 重填 is
+          // the only button this row still needs to draw.
+          if (!_viewing && entry == null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() {
+                  _drafts.remove(_f.tab);
+                  _f.mode = _f.tab;
+                  _fresh();
+                }),
+                style: TextButton.styleFrom(
+                  foregroundColor: Hue.ink,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: Size.zero,
                 ),
+                child: const Text('重填', style: TextStyle(fontSize: 13)),
               ),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Hue.faint,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    tooltip: '關閉',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const GlyphIcon(
-                      Glyph.close,
-                      size: 20,
-                      color: Hue.muted,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
           if (_marks.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),

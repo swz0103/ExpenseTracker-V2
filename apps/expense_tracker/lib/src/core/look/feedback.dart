@@ -33,10 +33,16 @@ void showNote(
 /// Opens [builder] in a sheet from the bottom of the screen, full width,
 /// as tall as its content and lifted over the keyboard. Every form and
 /// picker in the app opens this way.
+///
+/// [capHeight] holds the sheet to three quarters of the screen at most,
+/// its own content scrolling past that: for a sheet already built to
+/// scroll internally (a [Flexible] or [Expanded] region around whatever
+/// can grow long). Left off for one not yet checked against that.
 Future<T?> showSheet<T>(
   BuildContext context,
   WidgetBuilder builder, {
   bool handle = true,
+  bool capHeight = false,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -47,9 +53,20 @@ Future<T?> showSheet<T>(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
-    builder: (context) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: builder(context),
-    ),
+    builder: (context) {
+      final child = Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: builder(context),
+      );
+      if (!capHeight) return child;
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: child,
+      );
+    },
   );
 }

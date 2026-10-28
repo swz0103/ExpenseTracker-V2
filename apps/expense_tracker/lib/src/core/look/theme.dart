@@ -281,7 +281,7 @@ ThemeData appTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: Hue.paper,
     fontFamily: 'Nunito',
-    fontFamilyFallback: const ['Huninn'],
+    fontFamilyFallback: const ['NotoSansTC'],
     useMaterial3: true,
     // A soft ripple in the accent under the finger, so every tap is felt.
     splashFactory: InkRipple.splashFactory,
@@ -297,7 +297,7 @@ ThemeData appTheme() {
       // Named outright: this style replaces the theme's, font included.
       contentTextStyle: TextStyle(
         fontFamily: 'Nunito',
-        fontFamilyFallback: const ['Huninn'],
+        fontFamilyFallback: const ['NotoSansTC'],
         fontSize: 14,
         color: dark ? Hue.ink : Hue.white,
       ),

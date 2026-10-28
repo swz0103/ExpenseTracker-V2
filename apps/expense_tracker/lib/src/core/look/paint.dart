@@ -3,7 +3,7 @@ import 'package:flutter/painting.dart';
 /// Canvas text inherits nothing, so name the app's font outright.
 const _canvasFont = TextStyle(
   fontFamily: 'Nunito',
-  fontFamilyFallback: ['Huninn'],
+  fontFamilyFallback: ['NotoSansTC'],
 );
 
 /// Lays out one line of [text] for painting on a canvas.

@@ -7,7 +7,9 @@ import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../ledger/ledger.dart';
 
-/// A bottom sheet with a back arrow and a title over [builder]'s content.
+/// A bottom sheet with a title over [builder]'s content. The sheet's own
+/// drag handle closes it (down to the page below, when opened from one);
+/// a picker that only chooses something needs no back arrow of its own.
 Future<T?> showChildPage<T>(
   BuildContext context, {
   required String title,
@@ -16,35 +18,21 @@ Future<T?> showChildPage<T>(
   return showSheet<T>(
     context,
     (context) => Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: '返回',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const GlyphIcon(Glyph.back),
-              ),
-              Expanded(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Flexible(child: builder(context)),
         ],
       ),
     ),
+    capHeight: true,
   );
 }
 
