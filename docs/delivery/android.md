@@ -45,6 +45,8 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 金鑰只在帳本打開時存在，所以分兩段：離開 App（`paused`／`hidden`）時，若帳本有變更、而手機資料夾或雲端硬碟還沒有這個版本，`Outbox`（`lib/src/features/backup/model/outbox.dart`）先把加密好的備份（含照片）寫進 `filesDir/outbox/`，旁邊的 `ready.json` 記檔名、帳本版本、帳本 id 與代碼；新的會取代舊的。`BackupWorker.kt`（WorkManager 週期工作，約每 6 小時、電量不低時；重開機後 WorkManager 自己排回）照 `preferences.json` 的設定判斷是否到期（手機資料夾每天或每週、雲端硬碟每週，帳本有變才送），用與 App 相同的檔名與整理規則寫進手機資料夾（`FolderFiles.kt`），連上不計流量的網路時用不跳畫面的授權上傳雲端硬碟（`DriveUploader.kt`，`AuthorizationClient` 需要再次同意時就跳過）。結果與錯誤寫進 `outbox/delivered.json`（只有 App 會寫 `preferences.json`），App 打開或回到前景時併回設定。每個地方都有這個版本後，`outbox/` 裡的檔就刪掉。`outbox` 不進雲端備份也不隨裝置轉移。規則（到期、時間格式、檔名、只整理同一本）由 `BackupPlanTest.kt` 驗證。
 
+Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `WorkDatabase_Impl`，`android/app/proguard-rules.pro` 保留它與各 worker 的建構子（少了它 App 一打開就停止運作）。CI 每次建置後都在模擬器上安裝這個 APK、打開、切到背景再打開（`.github/scripts/launch-check.sh`），閃退就失敗、不發布。
+
 ## 從設定還原
 
 設定 › 備份與還原 › 從備份還原：先把目前的帳本連同照片寫到 `before-restore/`（只留最新 2 份，不進 Android 雲端備份），關閉帳本，解鎖畫面直接開在還原表單。選好檔案、雲端硬碟的備份或「還原前自動留下的帳本」後，先顯示備份時間與筆數再輸入密碼或救援碼。`LedgerVault.restore(replacing: true)` 才會覆蓋已存在的帳本：暫存資料庫通過完整性檢查前不動原帳本，失敗就保留原帳本。按返回回到原帳本。

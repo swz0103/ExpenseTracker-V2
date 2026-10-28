@@ -60,6 +60,12 @@ android {
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }
+            // R8 keeps what is found by name at run time (WorkManager's
+            // database and workers).
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             signingConfig =
                 if (keyProperties.isEmpty()) {
                     signingConfigs.getByName("debug")
