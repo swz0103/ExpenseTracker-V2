@@ -1,14 +1,13 @@
 import 'package:flutter/widgets.dart';
 
 import 'src/app/app.dart';
-import 'src/app/demo/seed.dart';
+import 'src/app/demo/launch.dart';
 import 'src/core/look/phone_frame.dart';
-import 'src/app/shell.dart';
 import 'src/core/preferences.dart';
-import 'src/features/settings/model/services.dart';
 
 /// The web preview: the interface over made-up data in memory, never the
-/// encrypted ledger, shown at phone size on a wide screen.
+/// encrypted ledger, shown at phone size on a wide screen, from the
+/// phone's home screen on (its icon and widgets, the opening, the lock).
 /// Built with `flutter build web -t lib/main_preview.dart`.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,10 +16,7 @@ void main() {
   runApp(
     ExpenseApp(
       preferences: preferences,
-      home: AppShell(
-        ledger: demoLedger(),
-        services: Services(preferences: preferences, sample: demoLedger),
-      ),
+      home: PreviewLaunch(preferences: preferences),
       frame: (context, child) => PhoneFrame(child: child ?? const SizedBox()),
     ),
   );
