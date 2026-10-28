@@ -45,7 +45,8 @@ void main() {
       if (f.path.endsWith('.etbk')) f.uri.pathSegments.last,
   ];
   void deliver(Map<String, Object?> json) =>
-      File('${folder().path}/delivered.json')
+      (File('${folder().path}/delivered.json')
+            ..parent.createSync(recursive: true))
           .writeAsStringSync(jsonEncode(json));
 
   test('nothing is left, and the job stops, with nowhere to deliver', () async {
