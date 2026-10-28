@@ -300,10 +300,13 @@ class _Line extends StatelessWidget {
 
 /// A small white button in a block's heading, such as 拆分.
 class _Chip extends StatelessWidget {
-  const _Chip(this.label, this.onTap);
+  const _Chip(this.label, this.onTap, {this.color = Hue.white});
 
   final String label;
   final VoidCallback onTap;
+
+  /// White on the form's tinted blocks; tinted on the sheet itself.
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +315,7 @@ class _Chip extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Hue.white,
+          color: color,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(

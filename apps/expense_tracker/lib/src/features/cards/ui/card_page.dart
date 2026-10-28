@@ -142,7 +142,17 @@ class CardPage extends StatelessWidget {
             PageHeader(
               card.name,
               onBack: nav.back,
-              trailing: TextButton(
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 對帳 needs NT$: another currency would need a rate.
+                  if (!card.foreign && card.kind != AccountKind.receivable)
+                    TextButton(
+                      onPressed: () => reconcileAccount(context, ledger, card),
+                      style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                      child: const Text('對帳'),
+                    ),
+                  TextButton(
                 onPressed: () async {
                   final gone = await editAccount(
                     context,
@@ -154,6 +164,8 @@ class CardPage extends StatelessWidget {
                 },
                 style: TextButton.styleFrom(foregroundColor: Hue.accent),
                 child: const Text('編輯'),
+              ),
+                ],
               ),
             ),
             Tile(
@@ -193,8 +205,6 @@ class CardPage extends StatelessWidget {
                       ),
                     ),
             ),
-            ReconcileButton(ledger: ledger, account: card),
-            const SizedBox(height: 8),
             TileRow([
               Tile(
                 icon: Glyph.calendar,

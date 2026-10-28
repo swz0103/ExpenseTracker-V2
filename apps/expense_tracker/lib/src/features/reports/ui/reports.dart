@@ -317,7 +317,7 @@ class _ReportsPageState extends State<ReportsPage> {
         '存下',
         income <= 0
             ? ledger.moneySigned(kept)
-            : '${ledger.moneySigned(kept)}（收入的 ${kept * 100 ~/ income}%）',
+            : '${ledger.moneySigned(kept)}（收入的 ${(kept * 100 / income).round()}%）',
       ),
       ('記帳', '${report.days} 天、${report.count} 筆'),
       if (busiest != null)

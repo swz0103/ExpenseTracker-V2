@@ -133,7 +133,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     Tile(
                       icon: Glyph.calendar,
                       label: '時間進度',
-                      value: '${passed * 100 ~/ days}%',
+                      value: '${(passed * 100 / days).round()}%',
                       sub: current ? '剩 ${days - passed + 1} 天' : '已結束',
                     ),
                     Tile(
@@ -145,14 +145,13 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       valueColor: Hue.positive,
                     ),
                   ]),
-                  if (current && passed < days)
+                  if (current && passed >= 7 && passed < days)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: _Forecast(
                         ledger: ledger,
                         heading: ledger.forecast(spent, year, month),
                         total: total,
-                        passed: passed,
                       ),
                     ),
                   const SectionHead('分類與標籤額度'),
@@ -415,13 +414,11 @@ class _Forecast extends StatelessWidget {
     required this.ledger,
     required this.heading,
     required this.total,
-    required this.passed,
   });
 
   final Ledger ledger;
   final int heading;
   final int total;
-  final int passed;
 
   @override
   Widget build(BuildContext context) {
@@ -431,8 +428,6 @@ class _Forecast extends StatelessWidget {
         over
             ? '會超出總預算 ${ledger.money(heading - total)}'
             : '在總預算內，約剩 ${ledger.money(total - heading)}',
-      // A few days in, one big purchase sways it.
-      if (passed < 7) '月初的估計，僅供參考',
     ];
     return Tile(
       icon: Glyph.reports,

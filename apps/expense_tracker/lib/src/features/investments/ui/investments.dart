@@ -304,6 +304,9 @@ class _Returns extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rate = returnOf(ledger);
+    final opening = ledger.holdings.any(
+      (h) => ledger.lotsOf(h.code).any((l) => l.isOpening),
+    );
     final since = investedSince(ledger);
     final guesses = expectedDividends(ledger);
     final total = guesses.fold(0, (sum, g) => sum + g.amount);
@@ -326,9 +329,11 @@ class _Returns extends StatelessWidget {
                 ? Hue.negative
                 : Hue.positive,
             sub: rate == null
-                ? since == null
+                ? opening
+                      ? '有期初持股，買進日不明，無法計算'
+                      : since == null
                       ? '還沒有交易'
-                      : '有期初持股，無法計算'
+                      : '交易還不夠計算'
                 : young
                 ? '投資未滿一年，僅供參考'
                 : '含股息、已賣出（XIRR）',
@@ -337,7 +342,9 @@ class _Returns extends StatelessWidget {
             icon: Glyph.dividend,
             label: '未來 12 個月股息',
             value: total == 0 ? '—' : '約 ${ledger.money(total)}',
-            sub: '依過去一年配息與目前股數推估',
+            sub: total == 0
+                ? '記下領到的股息後才能推估'
+                : '依過去一年配息與目前股數推估',
           ),
         ]),
         if (months.isNotEmpty) ...[
