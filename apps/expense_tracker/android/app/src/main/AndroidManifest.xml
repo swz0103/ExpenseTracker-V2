@@ -52,6 +52,10 @@
         <receiver
             android:name=".ReminderReceiver"
             android:exported="false" />
+        <!-- 確認入帳 on a due notification: into the ledger's inbox. -->
+        <receiver
+            android:name=".ConfirmReceiver"
+            android:exported="false" />
         <receiver
             android:name=".RestartReceiver"
             android:exported="true">

@@ -46,6 +46,8 @@ object Reminders {
     private const val KEY = "alerts"
     private const val EXACT = "exact"
     const val EXTRA_TAG = "tag"
+    const val EXTRA_RECURRING = "recurring"
+    const val EXTRA_DAY = "day"
 
     /** The test notification's alarm, apart from the kept alerts'. */
     private const val TEST_ID = 990
@@ -75,6 +77,8 @@ object Reminders {
                 .put("text", alert["text"] as? String ?: "")
                 .put("quick", alert["quick"] as? String ?: "")
                 .put("tag", alert["tag"] as? String ?: "")
+                .put("recurring", alert["recurring"] as? String ?: "")
+                .put("day", alert["day"] as? String ?: "")
             // The wall-clock time, when the app sends it (it always does
             // now); without it the alert keeps its instant [at].
             val clock = CLOCK_FIELDS.mapNotNull { name ->
@@ -186,6 +190,8 @@ object Reminders {
                 .putExtra(EXTRA_TEXT, alert.optString("text"))
                 .putExtra(MainActivity.EXTRA_QUICK, alert.optString("quick"))
                 .putExtra(EXTRA_TAG, alert.optString("tag"))
+                .putExtra(EXTRA_RECURRING, alert.optString("recurring"))
+                .putExtra(EXTRA_DAY, alert.optString("day"))
         }
         return PendingIntent.getBroadcast(
             context,
@@ -211,6 +217,27 @@ object Reminders {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
+    private fun confirming(
+        context: Context,
+        id: Int,
+        tag: String,
+        recurring: String,
+        day: String,
+    ): PendingIntent {
+        val intent = Intent(context, ConfirmReceiver::class.java)
+            .putExtra(EXTRA_ID, id)
+            .putExtra(EXTRA_TAG, tag)
+            .putExtra(EXTRA_RECURRING, recurring)
+            .putExtra(EXTRA_DAY, day)
+        // Request codes from 2000 on, apart from the alarms and taps.
+        return PendingIntent.getBroadcast(
+            context,
+            2000 + id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     /** Posts one alert; tapping it opens the app, or the composer. */
     fun show(
         context: Context,
@@ -219,6 +246,8 @@ object Reminders {
         text: String,
         quick: String,
         tag: String = "",
+        recurring: String = "",
+        day: String = "",
     ) {
         if (!allowed(context)) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -238,6 +267,13 @@ object Reminders {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(tap)
             .setAutoCancel(true)
+            .apply {
+                // A recurring item due today can be confirmed from here:
+                // booked when the ledger is next opened.
+                if (recurring.isNotEmpty() && day.isNotEmpty()) {
+                    addAction(0, "確認入帳", confirming(context, id, tag, recurring, day))
+                }
+            }
             // Amounts stay off the lock screen.
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(
@@ -263,7 +299,37 @@ class ReminderReceiver : BroadcastReceiver() {
             intent.getStringExtra(Reminders.EXTRA_TEXT) ?: "",
             intent.getStringExtra(MainActivity.EXTRA_QUICK) ?: "",
             intent.getStringExtra(Reminders.EXTRA_TAG) ?: "",
+            intent.getStringExtra(Reminders.EXTRA_RECURRING) ?: "",
+            intent.getStringExtra(Reminders.EXTRA_DAY) ?: "",
         )
+    }
+}
+
+/**
+ * 「確認入帳」 on a due notification: the item and its day go into the
+ * ledger's inbox, sealed, to be booked when the ledger is next opened;
+ * the notification goes. Nothing is booked here: the ledger stays locked.
+ */
+class ConfirmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val recurring = intent.getStringExtra(Reminders.EXTRA_RECURRING) ?: return
+        val day = intent.getStringExtra(Reminders.EXTRA_DAY) ?: return
+        // Ids and days only: no character JSON would need to escape.
+        if (!Regex("^[A-Za-z0-9_-]{1,64}$").matches(recurring) ||
+            !Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$").matches(day)
+        ) {
+            return
+        }
+        val plain = "{\"kind\":\"confirm\",\"recurring\":\"$recurring\",\"day\":\"$day\"}"
+        val posted = try {
+            InboxWriter.post(context, plain.toByteArray(Charsets.UTF_8))
+        } catch (e: Exception) {
+            false
+        }
+        if (!posted) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val tag = intent.getStringExtra(Reminders.EXTRA_TAG) ?: ""
+        manager.cancel(tag.ifEmpty { null }, intent.getIntExtra(Reminders.EXTRA_ID, 0))
     }
 }
 

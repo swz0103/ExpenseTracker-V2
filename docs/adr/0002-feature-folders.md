@@ -50,9 +50,15 @@ lib/src/
 
 Android 端（PR-3a）：`MainActivity.kt` 只留快速動作與隱藏畫面，其餘各一個 `ChannelPart`：`KeystorePart`、`PhotosPart`、`FilesPart`、`CalendarPart`、`RemindersPart`、`DrivePart`；Dart 端對應 `lib/src/app/android/`。頁面切換改用型別化的 `Place`（`core/nav.dart`），打開帳戶前確認它還在。
 
-### 5. 背景收件匣與小工具快照（PR-7）
+### 5. 背景收件匣與小工具快照（PR-7；收件匣 PR-7b 完成）
 
-背景工作（WorkManager、通知按鈕）不打開帳本，只把待辦事項寫進收件匣。收件匣以帳本金鑰庫新增的 X25519 公鑰封裝：背景能寫、不能讀。解鎖時用私鑰讀出，經過與手動輸入相同的檢查後才入帳，需要確認的會列出來讓使用者過目。小工具只讀一份另存的彙總快照（本月支出、預算剩餘），不含任何明細，使用者可以關閉。
+背景工作（WorkManager、通知按鈕）不打開帳本，只把待辦事項寫進收件匣。收件匣以 X25519 公鑰封裝：背景能寫、不能讀。解鎖時用私鑰讀出，經過與手動輸入相同的檢查後才入帳，需要確認的會列出來讓使用者過目。
+
+實作（PR-7b，`vault` 的 `inbox.dart`、Android 的 `InboxWriter.kt`）：
+- 金鑰對不放進金鑰庫（keyring），而是放在帳本旁：公鑰 `inbox.pub` 明文，私鑰 `inbox.key` 以帳本資料庫金鑰導出的 `FileBox`（用途 `inbox`）封住。效果與放進金鑰庫相同（沒有帳本金鑰就讀不到），但不必改金鑰庫格式，舊帳本與舊備份都不受影響；還原同一本帳本後私鑰照樣打得開，換成另一本則重新產生，舊的待辦列為「無法讀取」。
+- 每則待辦：新的 X25519 金鑰對與收件匣公鑰做 ECDH，HKDF-SHA256（salt = 待辦公鑰 ∥ 收件匣公鑰，info = `ExpenseTracker inbox v1`）得出 AES-256-GCM 金鑰，關聯資料同 info。一則一個 JSON 檔（`inbox/`），先寫暫存檔再改名。
+- 兩邊用同一組以 Python `cryptography` 算出的範例互相驗證（`inbox_test.dart`、`InboxWriterTest.kt`）。Android 端用 Tink 的 X25519 與 HKDF，任何 Android 版本都能用。
+- 目前的寫入者只有到期通知上的「確認入帳」：只寫定期項目代碼與日期。小工具只讀一份另存的彙總快照（本月支出、預算剩餘），不含任何明細，使用者可以關閉。
 
 ## 後果
 

@@ -8,7 +8,14 @@ import '../../../core/quick_action.dart';
 
 /// One notification to show at [at].
 final class Alert {
-  const Alert(this.at, this.title, this.text, {this.quick, this.tag = ''});
+  const Alert(
+    this.at,
+    this.title,
+    this.text, {
+    this.quick,
+    this.tag = '',
+    this.confirms,
+  });
 
   final DateTime at;
   final String title;
@@ -20,6 +27,10 @@ final class Alert {
   /// What it is about (`nudge`, `due:<key>`), so one showing can be taken
   /// away once it no longer applies.
   final String tag;
+
+  /// The recurring item and day 「確認入帳」 on it books, through the
+  /// ledger's inbox; null when it offers none.
+  final (String, DateTime)? confirms;
 }
 
 /// What the phone allows of reminders: posting them, alarms on the
@@ -78,7 +89,18 @@ List<Alert> alertsFor(Ledger ledger, Preferences preferences, DateTime now) {
       DateTime nine(int daysBefore) =>
           DateTime(r.day.year, r.day.month, r.day.day - daysBefore, 9);
       final tag = 'due:${r.key}';
-      alerts.add(Alert(nine(0), r.title, r.note, tag: tag));
+      alerts.add(
+        Alert(
+          nine(0),
+          r.title,
+          r.note,
+          tag: tag,
+          confirms: switch (r.recurring) {
+            final id? => (id, r.day),
+            null => null,
+          },
+        ),
+      );
       if (r.daysAhead > 0) {
         alerts.add(
           Alert(

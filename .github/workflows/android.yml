@@ -116,6 +116,12 @@ jobs:
             --split-debug-info="$RUNNER_TEMP/symbols"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
+      - name: Kotlin unit tests
+        # The Android side's own checks, such as the inbox sealing the
+        # vault's worked example the same (InboxWriterTest.kt). The Android
+        # build tools make unit tests for the debug build only.
+        working-directory: apps/expense_tracker/android
+        run: ./gradlew --no-daemon --quiet :app:testDebugUnitTest
       - name: Check 16 KB page alignment
         # Phones with 16 KB memory pages (Android 15 and later) load only
         # native libraries whose LOAD segments are aligned to 16 KB, kept
