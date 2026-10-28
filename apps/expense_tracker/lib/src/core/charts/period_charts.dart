@@ -23,7 +23,8 @@ final class PeriodBucket {
 
 /// Income and spending of each stretch as paired columns, with net worth
 /// at each stretch's end as a line on its own scale; stretches still
-/// ahead stay empty. Tap a stretch to choose it.
+/// ahead stay empty. Tap a stretch to choose it, or drag across to read
+/// one after another.
 class PeriodBars extends StatelessWidget {
   const PeriodBars({
     super.key,
@@ -42,6 +43,13 @@ class PeriodBars extends StatelessWidget {
   final ValueChanged<int?> onSelect;
   final double height;
 
+  /// Chooses the stretch under [x], one begun, while dragging.
+  void _follow(double x, double width) {
+    final i = (x / width * buckets.length).floor().clamp(0, buckets.length - 1);
+    if (buckets.isEmpty || buckets[i].ahead || i == selected) return;
+    onSelect(i);
+  }
+
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
@@ -59,6 +67,9 @@ class PeriodBars extends StatelessWidget {
                 if (i < 0 || i >= buckets.length || buckets[i].ahead) return;
                 onSelect(i == selected ? null : i);
               },
+              // Dragging across reads each stretch under the finger.
+              onHorizontalDragStart: (d) => _follow(d.localPosition.dx, width),
+              onHorizontalDragUpdate: (d) => _follow(d.localPosition.dx, width),
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: 1),
                 duration: const Duration(milliseconds: 600),
@@ -188,99 +199,4 @@ class _BarsPainter extends CustomPainter {
       old.worth != worth ||
       old.selected != selected ||
       old.grow != grow;
-}
-
-/// What each stretch's spending was made of: a column per stretch, as
-/// tall as its spending, stacked by category. A chosen category stays in
-/// colour and the rest fade.
-class MixBars extends StatelessWidget {
-  const MixBars({
-    super.key,
-    required this.columns,
-    required this.colors,
-    required this.labels,
-    required this.selected,
-    this.height = 150,
-  });
-
-  /// Per stretch, the amount of each category in [colors]' order.
-  final List<List<int>> columns;
-  final List<Color> colors;
-  final List<String> labels;
-  final int? selected;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOutCubic,
-        builder: (context, grow, _) => CustomPaint(
-          size: Size(double.infinity, height),
-          painter: _MixPainter(columns, colors, labels, selected, grow),
-        ),
-      ),
-    );
-  }
-}
-
-class _MixPainter extends CustomPainter {
-  _MixPainter(this.columns, this.colors, this.labels, this.selected, this.grow);
-
-  final List<List<int>> columns;
-  final List<Color> colors;
-  final List<String> labels;
-  final int? selected;
-  final double grow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (columns.isEmpty) return;
-    final plot = size.height - 18;
-    final slot = size.width / columns.length;
-    final width = min(22.0, slot * 0.62);
-    final largest = columns.fold(
-      1,
-      (m, c) => max(m, c.fold(0, (s, v) => s + v)),
-    );
-    for (final (i, column) in columns.indexed) {
-      final x = slot * i + slot / 2;
-      var top = plot;
-      for (final (k, value) in column.indexed) {
-        if (value <= 0) continue;
-        final h = plot * value / largest * grow;
-        final dim = selected != null && selected != k;
-        canvas.drawRect(
-          Rect.fromLTRB(x - width / 2, top - h, x + width / 2, top),
-          Paint()
-            ..color = dim
-                ? colors[k].withValues(alpha: 0.18)
-                : colors[k].withValues(alpha: 0.9),
-        );
-        top -= h;
-      }
-      if (i < labels.length) {
-        paintText(
-          canvas,
-          labels[i],
-          const TextStyle(fontSize: 11.5, color: Hue.muted),
-          Offset(x, size.height - 9),
-        );
-      }
-    }
-    canvas.drawLine(
-      Offset(0, plot),
-      Offset(size.width, plot),
-      Paint()..color = Hue.line,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MixPainter old) =>
-      old.columns != columns ||
-      old.selected != selected ||
-      old.grow != grow ||
-      old.colors != colors;
 }
