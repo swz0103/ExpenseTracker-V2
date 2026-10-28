@@ -196,14 +196,14 @@ class _RecurringPageState extends State<RecurringPage> {
   }
 }
 
-/// 訂閱總覽: what the fixed spending costs a year, item by item.
+/// 訂閱與固定支出: what the fixed spending costs a year, item by item.
 List<Widget> _subscriptions(Ledger ledger) {
   final rows = yearlyCosts(ledger);
   if (rows.isEmpty) return const [];
   final total = rows.fold(0, (sum, row) => sum + row.$2);
   return [
     SectionHead(
-      '訂閱總覽',
+      '訂閱與固定支出',
       trailing: Text('一年約 ${ledger.money(total)}', style: mutedSmall),
     ),
     SoftPanel(

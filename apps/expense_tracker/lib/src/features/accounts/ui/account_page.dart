@@ -94,18 +94,32 @@ class _AccountPageState extends State<AccountPage> {
             PageHeader(
               account.name,
               onBack: widget.nav.back,
-              trailing: TextButton(
-                onPressed: () async {
-                  final gone = await editAccount(
-                    context,
-                    ledger,
-                    account: account,
-                  );
-                  // Deleted or archived: back to the accounts.
-                  if (gone) widget.nav.back();
-                },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                child: const Text('編輯'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 對帳 needs NT$: another currency would need a rate.
+                  if (!account.foreign &&
+                      account.kind != AccountKind.receivable)
+                    TextButton(
+                      onPressed: () =>
+                          reconcileAccount(context, ledger, account),
+                      style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                      child: const Text('對帳'),
+                    ),
+                  TextButton(
+                    onPressed: () async {
+                      final gone = await editAccount(
+                        context,
+                        ledger,
+                        account: account,
+                      );
+                      // Deleted or archived: back to the accounts.
+                      if (gone) widget.nav.back();
+                    },
+                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    child: const Text('編輯'),
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -124,8 +138,6 @@ class _AccountPageState extends State<AccountPage> {
                       (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
                   ),
-                  if (account.kind != AccountKind.receivable)
-                    ReconcileButton(ledger: ledger, account: account),
                   if (account.kind == AccountKind.receivable)
                     _Owed(
                       ledger: ledger,

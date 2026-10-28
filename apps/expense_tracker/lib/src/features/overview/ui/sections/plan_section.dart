@@ -50,7 +50,7 @@ class PlanSection extends StatelessWidget {
       value: ledger.money(limit - spent),
       valueColor: limit < spent ? Hue.negative : Hue.ink,
       size: 18,
-      sub: '剩餘 · 時間 $pace%',
+      sub: '剩餘 · 本月已過 $pace%',
       onTap: () => nav.open(Pages.budgets),
     );
   }

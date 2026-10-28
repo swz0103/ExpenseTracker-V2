@@ -114,7 +114,7 @@ class HoldingPage extends StatelessWidget {
                         : rate < 0
                         ? Hue.negative
                         : Hue.positive,
-                    sub: rate == null ? '有期初持股，無法計算' : '含股息（XIRR）',
+                    sub: rate == null ? '有期初持股，買進日不明' : '含股息（XIRR）',
                   ),
                   Tile(
                     icon: Glyph.calendar,

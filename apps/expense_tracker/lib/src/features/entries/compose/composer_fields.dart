@@ -224,7 +224,7 @@ extension _Fields on _ComposerState {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            if (scan) _Chip('掃發票', _scanInvoice),
+            if (scan) _Chip('掃發票', _scanInvoice, color: Hue.tile),
             if (usual.isNotEmpty) ...[
               if (scan) const SizedBox(width: 10),
               const Text('常用', style: mutedSmall),
@@ -235,6 +235,7 @@ extension _Fields on _ComposerState {
                 '${e.merchant.isEmpty ? e.category : e.merchant} '
                 '${groupDigits(e.amount)}',
                 () => _set(() => _f.startFrom(e)),
+                color: Hue.tile,
               ),
             ],
           ],

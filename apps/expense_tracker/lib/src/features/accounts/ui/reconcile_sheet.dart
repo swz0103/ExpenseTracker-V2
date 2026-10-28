@@ -43,35 +43,3 @@ Future<void> reconcileAccount(
   ledger.add(entry);
   showNote(context, '已記下對帳調整 ${spent ? '−' : '+'}${groupDigits(entry.amount)}');
 }
-
-/// The 對帳 button under an account's balance.
-class ReconcileButton extends StatelessWidget {
-  const ReconcileButton({
-    super.key,
-    required this.ledger,
-    required this.account,
-  });
-
-  final Ledger ledger;
-  final Account account;
-
-  @override
-  Widget build(BuildContext context) {
-    // An adjustment needs NT$: one in another currency would need a rate.
-    if (account.foreign) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: OutlinedButton(
-        onPressed: () => reconcileAccount(context, ledger, account),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Hue.accent,
-          minimumSize: const Size.fromHeight(48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text(account.kind.isDebt ? '對帳：輸入實際欠款' : '對帳：輸入實際餘額'),
-      ),
-    );
-  }
-}
