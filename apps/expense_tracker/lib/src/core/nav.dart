@@ -120,6 +120,7 @@ final class Nav {
     required this.compose,
     required this.showEntry,
     this.market,
+    this.saveFile,
   });
 
   /// Opens a page from [Pages].
@@ -139,4 +140,9 @@ final class Nav {
   /// Closing prices and rates, to refresh and to say how they stand; none
   /// in the preview.
   final Connector? market;
+
+  /// Hands a file made on the page, such as a report as a picture, to the
+  /// person to keep outside the app; false when they cancel. None in the
+  /// preview.
+  final Future<bool> Function(String name, List<int> bytes)? saveFile;
 }

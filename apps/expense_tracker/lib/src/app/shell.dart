@@ -55,6 +55,7 @@ class _AppShellState extends State<AppShell> {
     compose: _compose,
     showEntry: (entry) => _compose(entry: entry),
     market: widget.services.market,
+    saveFile: widget.services.keeper?.exportBytes,
   );
 
   @override

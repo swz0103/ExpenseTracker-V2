@@ -110,6 +110,19 @@ final class VaultKeeper implements Keeper {
   }
 
   @override
+  Future<bool> exportBytes(String name, List<int> bytes) async {
+    final folder = _exports;
+    await folder.create(recursive: true);
+    final file = File('${folder.path}/$name');
+    await file.writeAsBytes(bytes, flush: true);
+    try {
+      return await _export(file.path, name);
+    } finally {
+      if (file.existsSync()) await file.delete();
+    }
+  }
+
+  @override
   Future<String?> readFile() async {
     final path = await _pick?.call();
     if (path == null) return null;

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/entry_tile.dart';
+import 'compare_sheet.dart';
 import 'report_period.dart';
 
 /// 財務報表: any stretch of time, not only a month. A month, quarter, year
@@ -38,6 +40,33 @@ class _ReportsPageState extends State<ReportsPage> {
   (Ledger, ReportPeriod, int, DateTime)? _reportFor;
 
   DateTime get _today => widget.ledger.today;
+
+  /// The part of the page 存成圖片 saves.
+  final _picture = GlobalKey();
+
+  /// Saves the period's sums and chart as a PNG, at three times the
+  /// screen's size so it stays sharp when shared.
+  Future<void> _savePicture(
+    Future<bool> Function(String name, List<int> bytes) save,
+    ReportPeriod period,
+  ) async {
+    final boundary =
+        _picture.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return;
+    try {
+      final image = await boundary.toImage(pixelRatio: 3);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) return;
+      final saved = await save(
+        '記帳本-報表-${period.title.replaceAll(RegExp(r'[ /]'), '')}.png',
+        data.buffer.asUint8List(),
+      );
+      if (saved && mounted) showNote(context, '已存成圖片');
+    } on Object catch (error) {
+      if (mounted) showNote(context, '沒有存成圖片：$error');
+    }
+  }
 
   _Report get _current {
     final ledger = widget.ledger;
@@ -129,6 +158,15 @@ class _ReportsPageState extends State<ReportsPage> {
               onLabelTap: _pickRange,
               labelHint: '選擇期間',
             ),
+            // What 存成圖片 saves: the period's sums and its chart, on the
+            // page's own background.
+            RepaintBoundary(
+              key: _picture,
+              child: ColoredBox(
+                color: Hue.paper,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
             BalanceHero(
               ledger: ledger,
               icon: Glyph.reports,
@@ -210,6 +248,37 @@ class _ReportsPageState extends State<ReportsPage> {
               label: readout == null ? '整段期間' : _stretchName(readout),
               income: readout?.income ?? income,
               expense: readout?.expense ?? expense,
+            ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () => showComparison(context, ledger, period),
+                    icon: const GlyphIcon(Glyph.reports, size: 18),
+                    label: const Text('與另一段比較'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Hue.accent,
+                      minimumSize: const Size(0, 48),
+                    ),
+                  ),
+                ),
+                if (widget.nav.saveFile case final save?)
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () => _savePicture(save, period),
+                      icon: const GlyphIcon(Glyph.download, size: 18),
+                      label: const Text('存成圖片'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Hue.accent,
+                        minimumSize: const Size(0, 48),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             if (period.span == ReportSpan.year) ..._summary(report),
             ..._mix(report),
