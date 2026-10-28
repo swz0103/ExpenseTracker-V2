@@ -198,6 +198,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           schedule: androidBackgroundBackups,
         )
       : null;
+
   /// The figures the home-screen widget 本月概況 shows, on Android.
   late final _homeWidget = Platform.isAndroid
       ? HomeWidget(

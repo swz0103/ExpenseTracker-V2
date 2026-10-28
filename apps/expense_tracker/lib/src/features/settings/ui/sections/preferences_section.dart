@@ -52,10 +52,7 @@ class AppearanceSection extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text(
-              '桌面上任何人都看得到。只顯示百分比時，手機裡也只存百分比。',
-              style: mutedSmall,
-            ),
+            child: Text('桌面上任何人都看得到。只顯示百分比時，手機裡也只存百分比。', style: mutedSmall),
           ),
           for (final f in WidgetFigures.values)
             SimpleDialogOption(

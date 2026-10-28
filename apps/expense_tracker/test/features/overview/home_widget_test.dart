@@ -73,10 +73,7 @@ void main() {
     );
     expect(snapshot?['figure'], '已用 62%');
     expect(jsonEncode(snapshot), isNot(contains('12')));
-    expect(
-      widgetSnapshot(book(), WidgetFigures.percent)?['figure'],
-      '—',
-    );
+    expect(widgetSnapshot(book(), WidgetFigures.percent)?['figure'], '—');
   });
 
   test('the file follows the choice, and the widget is told', () async {
@@ -101,7 +98,10 @@ void main() {
 
     preferences.update(widgetFigures: WidgetFigures.amounts);
     await widget.update();
-    expect(jsonDecode(file.readAsStringSync()), containsPair('figure', '12,345'));
+    expect(
+      jsonDecode(file.readAsStringSync()),
+      containsPair('figure', '12,345'),
+    );
     expect(refreshed, 2);
     // Unchanged: not written or told again.
     await widget.update();
