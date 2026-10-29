@@ -56,7 +56,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
   /// Started once: the welcome comes the first time only.
   var _started = false;
 
-  /// The app's tour, right after 第一次使用.
+  /// The app's tour, right after 建立新帳本.
   var _tour = false;
 
   @override

@@ -90,10 +90,10 @@ void main() {
     await show(tester, startup);
     await settleIn(tester);
     expect(find.text('記帳本'), findsOneWidget);
-    expect(find.text('我有備份'), findsOneWidget);
+    expect(find.text('還原備份'), findsOneWidget);
     expect(find.text('先設定密碼'), findsNothing);
 
-    await tester.tap(find.text('第一次使用'));
+    await tester.tap(find.text('建立新帳本'));
     await tester.pump();
     await settle(tester, () => startup.state is Ready);
     expect(startup.state, isA<Ready>());
@@ -103,18 +103,18 @@ void main() {
     startup.lock();
   });
 
-  testWidgets('我有備份 opens the backup form, and back returns to the '
+  testWidgets('還原備份 opens the backup form, and back returns to the '
       'choices', (tester) async {
     final startup = Startup(vault);
     await show(tester, startup);
     await settleIn(tester);
-    await tester.tap(find.text('我有備份'));
+    await tester.tap(find.text('還原備份'));
     await tester.pump();
     expect(find.text('從備份還原'), findsOneWidget);
 
     await tester.tap(find.text('返回'));
     await tester.pump();
-    expect(find.text('第一次使用'), findsOneWidget);
+    expect(find.text('建立新帳本'), findsOneWidget);
     expect(startup.state, isA<NeedsSetup>());
   });
 }
