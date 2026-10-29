@@ -202,7 +202,7 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
     return Positioned(
       left: 16,
       right: 16,
-      top: under ? light!.bottom + 14 : null,
+      top: under ? light.bottom + 14 : null,
       bottom: under
           ? null
           : light == null
