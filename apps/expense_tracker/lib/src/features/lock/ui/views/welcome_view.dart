@@ -223,7 +223,10 @@ class _Choice extends StatelessWidget {
                 if (busy)
                   SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: ink),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: ink,
+                    ),
                   )
                 else
                   GlyphIcon(Glyph.next, size: 16, weight: 2.2, color: ink),

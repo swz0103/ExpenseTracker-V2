@@ -308,41 +308,41 @@ class _AppShellState extends State<AppShell> {
 
   Widget _frame() {
     return Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 240),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            // Only the page coming in is drawn: the one going out fading
-            // under it leaves its words as a ghost.
-            layoutBuilder: (current, previous) => current ?? const SizedBox(),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween(
-                  begin: const Offset(0, 0.03),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              ),
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          // Only the page coming in is drawn: the one going out fading
+          // under it leaves its words as a ghost.
+          layoutBuilder: (current, previous) => current ?? const SizedBox(),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
             ),
-            child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
+          child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
         ),
-        bottomNavigationBar: _BottomBar(
-          tab: _tab,
-          onTab: (tab) {
-            if (tab != _tab || _page != null) Haptics.selection();
-            setState(() {
-              _tab = tab;
-              _page = null;
-            });
-          },
-          onRecord: () => _compose(),
-          recordKey: _recordKey,
-          moreKey: _moreKey,
-        ),
+      ),
+      bottomNavigationBar: _BottomBar(
+        tab: _tab,
+        onTab: (tab) {
+          if (tab != _tab || _page != null) Haptics.selection();
+          setState(() {
+            _tab = tab;
+            _page = null;
+          });
+        },
+        onRecord: () => _compose(),
+        recordKey: _recordKey,
+        moreKey: _moreKey,
+      ),
     );
   }
 }
@@ -440,30 +440,30 @@ class _BottomBar extends StatelessWidget {
                       child: KeyedSubtree(
                         key: item == _Tab.more ? moreKey : null,
                         child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedScale(
-                          scale: item == tab ? 1.12 : 1,
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutBack,
-                          child: GlyphIcon(
-                            icon,
-                            color: item == tab ? Hue.accent : Hue.muted,
-                            tinted: item == tab,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: item == tab ? Hue.accent : Hue.muted,
-                            fontWeight: item == tab
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
-                      ],
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedScale(
+                              scale: item == tab ? 1.12 : 1,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: GlyphIcon(
+                                icon,
+                                color: item == tab ? Hue.accent : Hue.muted,
+                                tinted: item == tab,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: item == tab ? Hue.accent : Hue.muted,
+                                fontWeight: item == tab
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
