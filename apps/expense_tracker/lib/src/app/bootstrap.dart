@@ -136,6 +136,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// How long the app may sit in the background before the ledger locks.
   static const _away = Duration(minutes: 5);
 
+  /// A ledger just started on this phone: the app shows its tour.
+  late final _fresh = widget.startup.takeFresh();
+
   /// How long the app was away, by a clock that cannot be set back.
   final _awayClock = AwayClock();
 
@@ -481,6 +484,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       }
       return AppShell(
         ledger: ledger,
+        tour: _fresh,
         services: Services(
           keeper: _keeper,
           calendar: _calendar,

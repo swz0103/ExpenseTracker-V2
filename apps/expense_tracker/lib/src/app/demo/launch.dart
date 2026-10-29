@@ -56,6 +56,9 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
   /// Started once: the welcome comes the first time only.
   var _started = false;
 
+  /// The app's tour, right after 第一次使用.
+  var _tour = false;
+
   @override
   void dispose() {
     _quick.dispose();
@@ -63,18 +66,21 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
     super.dispose();
   }
 
-  Future<void> _open({QuickAction? quick}) async {
+  void _open({QuickAction? quick}) {
     _quick.value = quick;
-    setState(() => _stage = _Stage.splash);
-    await Future<void>.delayed(const Duration(milliseconds: 1300));
+    _tour = false;
+    _password.clear();
+    _problem = null;
+    // The very first time, the welcome plays the opening itself.
+    final first = _start == PreviewStart.first && !_started;
+    setState(() => _stage = first ? _Stage.lock : _Stage.splash);
+  }
+
+  /// After the opening: the lock screen when there is a password.
+  void _opened() {
     if (!mounted || _stage != _Stage.splash) return;
-    final asks =
-        _start == PreviewStart.password ||
-        (_start == PreviewStart.first && !_started);
     setState(() {
-      _password.clear();
-      _problem = null;
-      _stage = asks ? _Stage.lock : _Stage.app;
+      _stage = _start == PreviewStart.password ? _Stage.lock : _Stage.app;
     });
   }
 
@@ -96,13 +102,14 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
         }),
         onOpen: _open,
       ),
-      _Stage.splash => const LockSplash(),
+      _Stage.splash => LockSplash(onDone: _opened),
       _Stage.lock => Scaffold(
         backgroundColor: Hue.paper,
         body: SafeArea(child: _lock()),
       ),
       _Stage.app => AppShell(
         ledger: _ledger,
+        tour: _tour,
         services: Services(
           preferences: widget.preferences,
           sample: demoLedger,
@@ -135,11 +142,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
         busy: false,
         onStart: () => setState(() {
           _started = true;
-          _stage = _Stage.app;
-        }),
-        onWithPassword: () => setState(() {
-          _started = true;
-          _start = PreviewStart.password;
+          _tour = true;
           _stage = _Stage.app;
         }),
         onRestore: () => setState(() {
@@ -213,7 +216,7 @@ class _HomeScreen extends StatelessWidget {
   final Ledger ledger;
   final PreviewStart start;
   final ValueChanged<PreviewStart> onStart;
-  final Future<void> Function({QuickAction? quick}) onOpen;
+  final void Function({QuickAction? quick}) onOpen;
 
   @override
   Widget build(BuildContext context) {

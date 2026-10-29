@@ -76,4 +76,45 @@ void main() {
     await tester.pump();
     expect(find.text('打開帳本'), findsOneWidget);
   });
+
+  /// Plays the opening and the choices coming in.
+  Future<void> settleIn(WidgetTester tester) async {
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 700));
+  }
+
+  testWidgets('a new ledger opens on the welcome and starts without a '
+      'password', (tester) async {
+    final startup = Startup(vault);
+    expect(startup.state, isA<NeedsSetup>());
+    await show(tester, startup);
+    await settleIn(tester);
+    expect(find.text('記帳本'), findsOneWidget);
+    expect(find.text('我有備份'), findsOneWidget);
+    expect(find.text('先設定密碼'), findsNothing);
+
+    await tester.tap(find.text('第一次使用'));
+    await tester.pump();
+    await settle(tester, () => startup.state is Ready);
+    expect(startup.state, isA<Ready>());
+    expect(startup.passwordless, isTrue);
+    expect(startup.takeFresh(), isTrue, reason: 'the tour comes next');
+    expect(startup.takeFresh(), isFalse, reason: 'once');
+    startup.lock();
+  });
+
+  testWidgets('我有備份 opens the backup form, and back returns to the '
+      'choices', (tester) async {
+    final startup = Startup(vault);
+    await show(tester, startup);
+    await settleIn(tester);
+    await tester.tap(find.text('我有備份'));
+    await tester.pump();
+    expect(find.text('從備份還原'), findsOneWidget);
+
+    await tester.tap(find.text('返回'));
+    await tester.pump();
+    expect(find.text('第一次使用'), findsOneWidget);
+    expect(startup.state, isA<NeedsSetup>());
+  });
 }
