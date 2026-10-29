@@ -6,7 +6,6 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/preferences.dart';
 import '../model/overview_blocks.dart';
-import 'getting_started.dart';
 import 'overview_editor.dart';
 import '../../../core/nav.dart';
 import 'sections/assets_section.dart';
@@ -29,13 +28,17 @@ class OverviewPage extends StatefulWidget {
     required this.ledger,
     required this.nav,
     this.preferences,
+    this.summaryKey,
   });
 
   final Ledger ledger;
   final Nav nav;
 
-  /// Where the 開始使用 card keeps its progress; none hides the card.
+  /// The overview's own choices: its blocks and their order.
   final Preferences? preferences;
+
+  /// On the month's figures, for the app's tour to find.
+  final GlobalKey? summaryKey;
 
   @override
   State<OverviewPage> createState() => _OverviewPageState();
@@ -103,7 +106,6 @@ class _OverviewPageState extends State<OverviewPage> {
 
   Widget _page() {
     final ledger = widget.ledger;
-    final nav = widget.nav;
     final preferences = widget.preferences;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -133,9 +135,10 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           ),
         ),
-        if (widget.preferences case final preferences?)
-          GettingStarted(ledger: ledger, preferences: preferences, nav: nav),
-        SummarySection(ledger: ledger, month: _month),
+        KeyedSubtree(
+          key: widget.summaryKey,
+          child: SummarySection(ledger: ledger, month: _month),
+        ),
         for (final (:block, :shown) in blocksFrom(preferences?.overview))
           if (shown) _block(block),
         if (preferences != null)

@@ -8,6 +8,7 @@ import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
 import '../core/problems.dart';
 import '../core/quick_action.dart';
+import '../core/ui/tour.dart';
 import '../features/settings/model/services.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
@@ -35,9 +36,14 @@ class AppShell extends StatefulWidget {
     super.key,
     required this.ledger,
     this.services = const Services(),
+    this.tour = false,
   });
 
   final Ledger ledger;
+
+  /// Walks through 記一筆, the month's figures and 更多 first: for a
+  /// ledger just started.
+  final bool tour;
 
   /// Keys, backups, the calendar and screen hiding; none in the preview.
   final Services services;
@@ -49,6 +55,43 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   var _tab = _Tab.overview;
   Place? _page;
+  late var _touring = widget.tour;
+
+  /// The places the tour lights.
+  final _recordKey = GlobalKey();
+  final _summaryKey = GlobalKey();
+  final _moreKey = GlobalKey();
+
+  void _toured() {
+    setState(() => _touring = false);
+    widget.services.preferences?.update(started: true);
+  }
+
+  Widget _tour() => Tour(
+    onDone: _toured,
+    stops: [
+      TourStop(
+        target: _recordKey,
+        round: true,
+        pad: 10,
+        title: '點「＋」記下第一筆',
+        detail: '隨時都能記，幾秒就完成。',
+      ),
+      TourStop(
+        target: _summaryKey,
+        pad: 6,
+        title: '這個月的收支，一打開就看到',
+        detail: '收入、支出和結餘都在這裡。',
+      ),
+      TourStop(
+        target: _moreKey,
+        round: true,
+        pad: 8,
+        title: '提醒、備份、密碼都在「更多」',
+        detail: '想加密碼，之後再設就好。',
+      ),
+    ],
+  );
   late final Nav _nav = Nav(
     open: _open,
     back: () => setState(() => _page = _parent),
@@ -232,6 +275,7 @@ class _AppShellState extends State<AppShell> {
         ledger: ledger,
         nav: _nav,
         preferences: widget.services.preferences,
+        summaryKey: _touring ? _summaryKey : null,
       ),
       _Tab.ledger => LedgerPage(ledger: ledger, nav: _nav),
       _Tab.accounts => AccountsPage(ledger: ledger, nav: _nav),
@@ -253,40 +297,51 @@ class _AppShellState extends State<AppShell> {
           }
         });
       },
-      child: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 240),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            // Only the page coming in is drawn: the one going out fading
-            // under it leaves its words as a ghost.
-            layoutBuilder: (current, previous) => current ?? const SizedBox(),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween(
-                  begin: const Offset(0, 0.03),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              ),
+      child: Stack(
+        children: [
+          Positioned.fill(child: _frame()),
+          if (_touring) Positioned.fill(child: _tour()),
+        ],
+      ),
+    );
+  }
+
+  Widget _frame() {
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          // Only the page coming in is drawn: the one going out fading
+          // under it leaves its words as a ghost.
+          layoutBuilder: (current, previous) => current ?? const SizedBox(),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
             ),
-            child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
           ),
+          child: KeyedSubtree(key: ValueKey((_tab, _page)), child: _body()),
         ),
-        bottomNavigationBar: _BottomBar(
-          tab: _tab,
-          onTab: (tab) {
-            if (tab != _tab || _page != null) Haptics.selection();
-            setState(() {
-              _tab = tab;
-              _page = null;
-            });
-          },
-          onRecord: () => _compose(),
-        ),
+      ),
+      bottomNavigationBar: _BottomBar(
+        tab: _tab,
+        onTab: (tab) {
+          if (tab != _tab || _page != null) Haptics.selection();
+          setState(() {
+            _tab = tab;
+            _page = null;
+          });
+        },
+        onRecord: () => _compose(),
+        recordKey: _recordKey,
+        moreKey: _moreKey,
       ),
     );
   }
@@ -297,11 +352,17 @@ class _BottomBar extends StatelessWidget {
     required this.tab,
     required this.onTab,
     required this.onRecord,
+    this.recordKey,
+    this.moreKey,
   });
 
   final _Tab tab;
   final ValueChanged<_Tab> onTab;
   final VoidCallback onRecord;
+
+  /// The 記一筆 button and the 更多 tab, for the tour to find.
+  final GlobalKey? recordKey;
+  final GlobalKey? moreKey;
 
   static const _items = [
     (_Tab.overview, Glyph.overview, '總覽'),
@@ -351,10 +412,11 @@ class _BottomBar extends StatelessWidget {
                                   Haptics.light();
                                   onRecord();
                                 },
-                                child: const SizedBox(
+                                child: SizedBox(
+                                  key: recordKey,
                                   width: 50,
                                   height: 50,
-                                  child: Center(
+                                  child: const Center(
                                     child: GlyphIcon(
                                       Glyph.add,
                                       color: Hue.onAccent,
@@ -374,31 +436,36 @@ class _BottomBar extends StatelessWidget {
                     onTap: () => onTab(item),
                     highlightColor: Colors.transparent,
                     hoverColor: Colors.transparent,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AnimatedScale(
-                          scale: item == tab ? 1.12 : 1,
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutBack,
-                          child: GlyphIcon(
-                            icon,
-                            color: item == tab ? Hue.accent : Hue.muted,
-                            tinted: item == tab,
-                          ),
+                    child: Center(
+                      child: KeyedSubtree(
+                        key: item == _Tab.more ? moreKey : null,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedScale(
+                              scale: item == tab ? 1.12 : 1,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: GlyphIcon(
+                                icon,
+                                color: item == tab ? Hue.accent : Hue.muted,
+                                tinted: item == tab,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: item == tab ? Hue.accent : Hue.muted,
+                                fontWeight: item == tab
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: item == tab ? Hue.accent : Hue.muted,
-                            fontWeight: item == tab
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

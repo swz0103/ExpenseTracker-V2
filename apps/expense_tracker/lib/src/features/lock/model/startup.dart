@@ -97,7 +97,18 @@ final class Startup extends ChangeNotifier {
     final secret = _newSecret();
     await _quickKey.writeAsString(secret, flush: true);
     final (open, _) = await _vault.create(secret);
+    _fresh = true;
     _ready(open);
+  }
+
+  var _fresh = false;
+
+  /// Whether the ledger now open was just started empty on this phone,
+  /// once: the app then walks through its main places.
+  bool takeFresh() {
+    final fresh = _fresh;
+    _fresh = false;
+    return fresh;
   }
 
   static String _newSecret() {

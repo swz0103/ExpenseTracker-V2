@@ -161,7 +161,7 @@ final class Preferences extends ChangeNotifier {
     _save();
   }
 
-  /// The 開始使用 card was put away.
+  /// The first-start tour has been seen or skipped.
   bool get started => _started;
   var _started = false;
 

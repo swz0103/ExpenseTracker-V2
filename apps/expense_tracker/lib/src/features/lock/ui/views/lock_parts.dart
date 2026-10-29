@@ -163,70 +163,101 @@ class LockLink extends StatelessWidget {
   }
 }
 
-/// The opening animation: the mark grows in and the name fades up, on
-/// the paper colour of the app.
-class LockSplash extends StatelessWidget {
-  const LockSplash({super.key, this.onRestore});
+/// How long the opening animation takes: the mark comes in, its bars
+/// grow one after another and the arrow is drawn.
+const splashTime = Duration(milliseconds: 1400);
 
-  /// Restoring a backup instead of starting a new ledger; none when the
-  /// ledger exists already.
-  final VoidCallback? onRestore;
+/// The mark as the opening animation draws it, [t] from 0 to 1 over
+/// [splashTime].
+class OpeningMark extends StatelessWidget {
+  const OpeningMark({super.key, required this.t, this.size = 112});
+
+  final double t;
+  final double size;
+
+  static double _part(double t, double from, double to, Curve curve) =>
+      curve.transform(((t - from) / (to - from)).clamp(0.0, 1.0));
 
   @override
   Widget build(BuildContext context) {
-    final restore = onRestore;
+    final tile = _part(t, 0, 0.23, Curves.easeOutCubic);
+    double bar(int i) =>
+        _part(t, 0.16 + 0.086 * i, 0.46 + 0.086 * i, Curves.easeOutBack);
+    return Opacity(
+      opacity: tile,
+      child: Transform.scale(
+        scale: 0.7 + 0.3 * tile,
+        child: AppMark(
+          size: size,
+          bars: (bar(0), bar(1), bar(2)),
+          arrow: _part(t, 0.57, 0.96, Curves.easeOut),
+        ),
+      ),
+    );
+  }
+}
+
+/// Runs the opening animation once, at once when the phone asks for
+/// less motion, and calls [onDone] when it has played.
+mixin OpeningAnimation<T extends StatefulWidget>
+    on State<T>, TickerProviderStateMixin<T> {
+  late final opening = AnimationController(vsync: this, duration: splashTime)
+    ..addStatusListener((status) {
+      if (status == AnimationStatus.completed) openingDone();
+    });
+
+  /// Called once the mark is fully drawn.
+  void openingDone() {}
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (opening.isAnimating || opening.isCompleted) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // After this frame: what follows the animation may change the
+      // screens above this one.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) opening.value = 1;
+      });
+    } else {
+      opening.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    opening.dispose();
+    super.dispose();
+  }
+}
+
+/// The opening animation on the paper colour of the app, while a ledger
+/// without a password opens; [onDone] once it has played.
+class LockSplash extends StatefulWidget {
+  const LockSplash({super.key, this.onDone});
+
+  final VoidCallback? onDone;
+
+  @override
+  State<LockSplash> createState() => _LockSplashState();
+}
+
+class _LockSplashState extends State<LockSplash>
+    with TickerProviderStateMixin, OpeningAnimation {
+  @override
+  void openingDone() => widget.onDone?.call();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Hue.paper,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 900),
-                curve: Curves.easeOutCubic,
-                builder: (context, t, _) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Opacity(
-                      opacity: t,
-                      child: Transform.scale(
-                        scale: 0.8 + 0.2 * t,
-                        child: const AppMark(size: 96),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Opacity(
-                      opacity: t,
-                      child: Transform.translate(
-                        offset: Offset(0, 12 * (1 - t)),
-                        child: const Text(
-                          '記帳本',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: Hue.ink,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (restore != null)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: TextButton(
-                    onPressed: restore,
-                    style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                    child: const Text('換手機？從備份還原'),
-                  ),
-                ),
-              ),
-          ],
+      body: Center(
+        child: Semantics(
+          label: '記帳本',
+          child: AnimatedBuilder(
+            animation: opening,
+            builder: (context, _) => OpeningMark(t: opening.value),
+          ),
         ),
       ),
     );

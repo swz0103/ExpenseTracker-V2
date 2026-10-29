@@ -8,7 +8,6 @@ import 'package:vault/ledger_backup.dart';
 import '../../backup/model/drive_backup.dart';
 import '../model/restore_sources.dart';
 import '../model/startup.dart';
-import 'views/create_view.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
@@ -16,9 +15,10 @@ import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
-/// without a password (one can be set first, or later in settings), or
-/// from a backup. A ledger with a password asks for it, a fingerprint or
-/// the recovery code; one without opens by itself.
+/// without a password (one can be set later in settings), or from a
+/// backup. A ledger with a password asks for it, a fingerprint or the
+/// recovery code; one without opens by itself after the opening
+/// animation.
 class LockScreen extends StatefulWidget {
   const LockScreen({
     super.key,
@@ -37,15 +37,15 @@ class LockScreen extends StatefulWidget {
 
 class _LockScreenState extends State<LockScreen> {
   final _password = TextEditingController();
-  final _again = TextEditingController();
   final _file = TextEditingController();
   var _recovery = false;
 
   /// Restoring a backup instead of creating an empty ledger.
   var _restoring = false;
 
-  /// Setting a password before starting a new ledger.
-  var _withPassword = false;
+  /// Back on the first screen from the backup form: the choices show at
+  /// once, without the opening again.
+  var _cameBack = false;
   var _busy = false;
   String? _problem;
 
@@ -56,12 +56,8 @@ class _LockScreenState extends State<LockScreen> {
   /// Google Drive, once a backup is looked for there.
   DriveBackup? _drive;
 
-  bool get _creating =>
-      widget.startup.state is NeedsSetup && !_restoring && _withPassword;
-
   /// The first screen of a new ledger, before any choice.
-  bool get _welcome =>
-      widget.startup.state is NeedsSetup && !_restoring && !_withPassword;
+  bool get _welcome => widget.startup.state is NeedsSetup && !_restoring;
 
   /// A ledger without a password, opening by itself, unless a backup is
   /// being restored in its place.
@@ -82,10 +78,6 @@ class _LockScreenState extends State<LockScreen> {
     _ => false,
   };
 
-  /// Starts a new ledger once the opening animation has played, unless
-  /// the person chose to restore a backup instead.
-  Timer? _autoStart;
-
   /// When the chosen backup was taken and what it holds.
   String? _about;
 
@@ -94,18 +86,10 @@ class _LockScreenState extends State<LockScreen> {
     super.initState();
     // Asked for in settings: restore a backup in place of this ledger.
     _restoring = widget.startup.takeRestore();
-    if (_restoring) return;
-    if (_welcome) {
-      _autoStart = Timer(const Duration(milliseconds: 1600), () {
-        if (mounted && _welcome) unawaited(_start());
-      });
-      return;
-    }
+    if (_restoring || _welcome) return;
     if (_quiet) {
+      // Opened once the opening animation has played (see build).
       _busy = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_openQuietly());
-      });
       return;
     }
     if (_biometric && _askFirst) {
@@ -158,9 +142,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   void dispose() {
-    _autoStart?.cancel();
     _password.dispose();
-    _again.dispose();
     _file.dispose();
     _forgetPicked();
     super.dispose();
@@ -183,10 +165,6 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _submit() async {
     final secret = _password.text;
-    if (_creating && secret != _again.text) {
-      setState(() => _problem = '兩次輸入的密碼不一樣');
-      return;
-    }
     setState(() {
       _busy = true;
       _problem = null;
@@ -202,20 +180,15 @@ class _LockScreenState extends State<LockScreen> {
         _forgetPicked();
         return;
       }
-      if (!_creating) {
-        await (_recovery
-            ? startup.unlockWithRecovery(secret.trim())
-            : startup.unlockWithPassword(secret));
-        return;
-      }
-      await startup.setUp(secret);
+      await (_recovery
+          ? startup.unlockWithRecovery(secret.trim())
+          : startup.unlockWithPassword(secret));
     } on BackupException catch (error) {
       _fail('無法讀取這個備份（${error.problem.name}）');
     } on FileSystemException {
       _fail('找不到這個備份檔');
     } on KeyringException catch (error) {
       _fail(switch (error.error) {
-        KeyringError.weakPassword => '密碼至少要 6 個字',
         KeyringError.wrongSecret => _recovery ? '救援碼不正確' : '密碼不正確',
         _ => '無法開啟帳本（${error.error.name}）',
       });
@@ -360,12 +333,11 @@ class _LockScreenState extends State<LockScreen> {
     });
   }
 
-  /// Back from the password or backup form to the first screen; only a
-  /// ledger not made yet has one.
+  /// Back from the backup form to the first screen; only a ledger not
+  /// made yet has one.
   VoidCallback? get _back => widget.startup.state is NeedsSetup
       ? () => setState(() {
           _restoring = false;
-          _withPassword = false;
           _recovery = false;
           _problem = null;
         })
@@ -385,10 +357,8 @@ class _LockScreenState extends State<LockScreen> {
       _file.clear();
       _password.clear();
     });
-    if (_quiet) {
-      setState(() => _busy = true);
-      unawaited(_openQuietly());
-    }
+    // A ledger without a password opens after the opening animation.
+    if (_quiet) setState(() => _busy = true);
   }
 
   /// Between the password and the recovery code.
@@ -400,40 +370,24 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // A new ledger starts by itself, without a password: one can be set
-    // later in settings. Until then the opening animation plays, with a
-    // way to restore a backup instead.
-    if (_welcome && _problem == null) {
-      return LockSplash(
-        onRestore: _busy
-            ? null
-            : () {
-                _autoStart?.cancel();
-                setState(() => _restoring = true);
-              },
-      );
-    }
     if (_welcome) {
       return WelcomeView(
         busy: _busy,
         problem: _problem,
+        animate: !_cameBack,
         onStart: _start,
-        onWithPassword: () => setState(() => _withPassword = true),
-        onRestore: () => setState(() => _restoring = true),
+        onRestore: () => setState(() {
+          _restoring = true;
+          _cameBack = true;
+          _problem = null;
+        }),
       );
     }
-    if (_quiet && _problem == null) return const LockSplash();
+    if (_quiet && _problem == null) {
+      return LockSplash(onDone: () => unawaited(_openQuietly()));
+    }
     final Widget form;
-    if (_creating) {
-      form = CreateView(
-        password: _password,
-        again: _again,
-        busy: _busy,
-        problem: _problem,
-        onSubmit: _submit,
-        onBack: _back,
-      );
-    } else if (_restoring) {
+    if (_restoring) {
       form = RestoreView(
         file: _file,
         secret: _password,
@@ -472,26 +426,20 @@ class _LockScreenState extends State<LockScreen> {
         onBack: _back,
       );
     }
-    // Back from the password or backup form returns to the first screen.
-    final away = _withPassword || _restoring;
+    // Back from the backup form returns to the first screen.
     return PopScope(
-      canPop: !away,
+      canPop: !_restoring,
       onPopInvokedWithResult: (popped, _) {
         if (popped) return;
-        if (_restoring && widget.startup.state is Locked) {
+        if (widget.startup.state is Locked) {
           _keepLedger();
           return;
         }
         setState(() {
-          _withPassword = false;
           _restoring = false;
+          _recovery = false;
           _problem = null;
         });
-        // Back on the opening screen: a new ledger is not started behind
-        // the person's back; the welcome choices show instead.
-        if (widget.startup.state is NeedsSetup) {
-          setState(() => _problem = '');
-        }
       },
       child: form,
     );
