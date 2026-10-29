@@ -232,10 +232,7 @@ class _Measure extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+              Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
               const Spacer(),
               Text(
                 ledger.money(now),

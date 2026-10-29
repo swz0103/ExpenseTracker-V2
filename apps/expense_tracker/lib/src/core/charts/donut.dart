@@ -27,10 +27,7 @@ class Donut extends StatelessWidget {
       child: CustomPaint(
         painter: _DonutPainter(slices, thickness),
         child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(thickness + 4),
-            child: center,
-          ),
+          child: Padding(padding: EdgeInsets.all(thickness + 4), child: center),
         ),
       ),
     );
@@ -67,7 +64,13 @@ class _DonutPainter extends CustomPainter {
       if (value <= 0) continue;
       final sweep = 2 * pi * value / whole;
       final drawn = max(sweep - gap, 0.001);
-      canvas.drawArc(rect, start + gap / 2, drawn, false, stroke..color = color);
+      canvas.drawArc(
+        rect,
+        start + gap / 2,
+        drawn,
+        false,
+        stroke..color = color,
+      );
       start += sweep;
     }
   }

@@ -520,7 +520,11 @@ class _ChoiceRow extends StatelessWidget {
                 IconButton(
                   tooltip: '改回全部$label',
                   onPressed: clear,
-                  icon: const GlyphIcon(Glyph.close, size: 16, color: Hue.muted),
+                  icon: const GlyphIcon(
+                    Glyph.close,
+                    size: 16,
+                    color: Hue.muted,
+                  ),
                 )
               else
                 const Padding(

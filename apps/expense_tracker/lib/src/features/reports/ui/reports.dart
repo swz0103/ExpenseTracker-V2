@@ -536,10 +536,7 @@ class _ReportsPageState extends State<ReportsPage> {
     return [
       SectionHead(
         '星期',
-        trailing: Text(
-          '週${weekdayNames[heaviest]}花最多',
-          style: mutedSmall,
-        ),
+        trailing: Text('週${weekdayNames[heaviest]}花最多', style: mutedSmall),
       ),
       SoftPanel(
         color: Hue.white,
