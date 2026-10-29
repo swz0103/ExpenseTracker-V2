@@ -28,7 +28,9 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   for (final b in ledger.budgets) {
     if (b.category == Ledger.allSpending && b.limit > 0) total = b;
   }
-  final allowance = total == null ? null : ledger.allowance(total, today.year, m);
+  final allowance = total == null
+      ? null
+      : ledger.allowance(total, today.year, m);
   final hasBudget = allowance != null && allowance > 0;
   final used = hasBudget ? (spent * 100 / allowance).round() : null;
   final days = DateTime.utc(today.year, m + 1, 0).day;

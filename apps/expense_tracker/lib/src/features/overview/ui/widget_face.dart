@@ -210,9 +210,19 @@ class WidgetRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _Round(mark: '−', label: '記支出', color: WidgetLook.expense, onTap: onExpense),
+          _Round(
+            mark: '−',
+            label: '記支出',
+            color: WidgetLook.expense,
+            onTap: onExpense,
+          ),
           const SizedBox(width: 8),
-          _Round(mark: '＋', label: '記收入', color: WidgetLook.income, onTap: onIncome),
+          _Round(
+            mark: '＋',
+            label: '記收入',
+            color: WidgetLook.income,
+            onTap: onIncome,
+          ),
         ],
       ),
     );
@@ -220,7 +230,11 @@ class WidgetRow extends StatelessWidget {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.radius, required this.padding, required this.child});
+  const _Card({
+    required this.radius,
+    required this.padding,
+    required this.child,
+  });
 
   final double radius;
   final EdgeInsets padding;
@@ -234,7 +248,11 @@ class _Card extends StatelessWidget {
         color: WidgetLook.card,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: const [
-          BoxShadow(color: Color(0x1F1E2832), blurRadius: 18, offset: Offset(0, 6)),
+          BoxShadow(
+            color: Color(0x1F1E2832),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
       // Merged, not replaced: the app's fonts (Chinese among them) stay.
@@ -249,7 +267,11 @@ class _Card extends StatelessWidget {
 /// The share of the budget used, and a gold mark at how far through the
 /// month today is.
 class _BudgetBar extends StatelessWidget {
-  const _BudgetBar({required this.snapshot, required this.height, required this.top});
+  const _BudgetBar({
+    required this.snapshot,
+    required this.height,
+    required this.top,
+  });
 
   final Map<String, Object?> snapshot;
   final double height;
@@ -272,7 +294,10 @@ class _BudgetBar extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: DecoratedBox(
-                    decoration: BoxDecoration(color: WidgetLook.track, borderRadius: round),
+                    decoration: BoxDecoration(
+                      color: WidgetLook.track,
+                      borderRadius: round,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -281,7 +306,10 @@ class _BudgetBar extends StatelessWidget {
                   bottom: 0,
                   width: width * progress.clamp(0, 100) / 100,
                   child: DecoratedBox(
-                    decoration: BoxDecoration(color: WidgetLook.accent, borderRadius: round),
+                    decoration: BoxDecoration(
+                      color: WidgetLook.accent,
+                      borderRadius: round,
+                    ),
                   ),
                 ),
                 if (pace != null && pace > 0)
@@ -345,10 +373,14 @@ class _Week extends StatelessWidget {
                           )
                         : FractionallySizedBox(
                             alignment: Alignment.bottomCenter,
-                            heightFactor: week[i] == 0 ? 0.0 : week[i].clamp(6, 100) / 100,
+                            heightFactor: week[i] == 0
+                                ? 0.0
+                                : week[i].clamp(6, 100) / 100,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: i == today ? WidgetLook.accent : WidgetLook.bar,
+                                color: i == today
+                                    ? WidgetLook.accent
+                                    : WidgetLook.bar,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                             ),
@@ -366,7 +398,10 @@ class _Week extends StatelessWidget {
                 child: Text(
                   _days[i],
                   textAlign: TextAlign.center,
-                  style: _text(10, i == today ? WidgetLook.accent : WidgetLook.day),
+                  style: _text(
+                    10,
+                    i == today ? WidgetLook.accent : WidgetLook.day,
+                  ),
                 ),
               ),
           ],
@@ -378,7 +413,12 @@ class _Week extends StatelessWidget {
 
 /// 支出 or 收入 at the foot of the full widget.
 class _Half extends StatelessWidget {
-  const _Half({required this.label, required this.mark, required this.color, this.onTap});
+  const _Half({
+    required this.label,
+    required this.mark,
+    required this.color,
+    this.onTap,
+  });
 
   final String label;
   final String mark;
@@ -415,7 +455,12 @@ class _Half extends StatelessWidget {
 
 /// A round − or ＋ of the one-row widget.
 class _Round extends StatelessWidget {
-  const _Round({required this.mark, required this.label, required this.color, this.onTap});
+  const _Round({
+    required this.mark,
+    required this.label,
+    required this.color,
+    this.onTap,
+  });
 
   final String mark;
   final String label;
