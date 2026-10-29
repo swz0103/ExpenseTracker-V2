@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 記一筆 (QuickWidget.kt): 本月概況 one row high. No longer offered in
+     the picker, where 本月概況 shrinks to the same; the ones already
+     placed stay and can grow. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:initialLayout="@layout/quick_widget"
+    android:previewLayout="@layout/quick_widget"
     android:minWidth="250dp"
-    android:minHeight="56dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
     android:targetCellWidth="4"
     android:targetCellHeight="1"
-    android:resizeMode="horizontal"
-    android:updatePeriodMillis="0"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="10800000"
     android:widgetCategory="home_screen"
+    android:widgetFeatures="hide_from_picker"
     android:description="@string/widget_description" />

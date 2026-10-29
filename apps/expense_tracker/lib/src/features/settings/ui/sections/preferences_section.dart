@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/look/feedback.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../overview/ui/overview_editor.dart';
+import '../../../overview/ui/widget_face.dart';
 import '../../../reminders/model/notifications.dart';
 import '../../../../core/preferences.dart';
 
@@ -42,33 +44,11 @@ class AppearanceSection extends StatelessWidget {
     if (picked != null) preferences.update(appearance: picked);
   }
 
-  /// What the home-screen widget 本月概況 shows.
+  /// What the home-screen widget 本月概況 shows, each choice as it looks.
   Future<void> _pickWidget(BuildContext context) async {
-    final picked = await showDialog<WidgetFigures>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        backgroundColor: Hue.panel,
-        title: const Text('桌面小工具「本月概況」'),
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text('桌面上任何人都看得到。只顯示百分比時，手機裡也只存百分比。', style: mutedSmall),
-          ),
-          for (final f in WidgetFigures.values)
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(f),
-              child: Text(
-                f.label,
-                style: f == preferences.widgetFigures
-                    ? const TextStyle(
-                        color: Hue.accent,
-                        fontWeight: FontWeight.w700,
-                      )
-                    : null,
-              ),
-            ),
-        ],
-      ),
+    final picked = await showSheet<WidgetFigures>(
+      context,
+      (context) => _WidgetSheet(current: preferences.widgetFigures),
     );
     if (picked != null) preferences.update(widgetFigures: picked);
   }
@@ -108,6 +88,114 @@ class AppearanceSection extends StatelessWidget {
           ),
         ]),
       ],
+    );
+  }
+}
+
+/// The three choices for 本月概況, each drawn one row high with made-up
+/// figures, the chosen one outlined.
+class _WidgetSheet extends StatelessWidget {
+  const _WidgetSheet({required this.current});
+
+  final WidgetFigures current;
+
+  static const _samples = <WidgetFigures, Map<String, Object?>?>{
+    WidgetFigures.off: null,
+    WidgetFigures.amounts: {
+      'shortLabel': '10 月預算剩',
+      'shortFigure': '7,660',
+      'progress': 62,
+      'pace': 77,
+    },
+    WidgetFigures.percent: {
+      'shortLabel': '10 月預算',
+      'shortFigure': '已用 62%',
+      'progress': 62,
+      'pace': 77,
+    },
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '桌面小工具',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text('桌面上任何人都看得到', style: mutedSmall),
+          const SizedBox(height: 14),
+          for (final f in WidgetFigures.values) ...[
+            _WidgetChoice(
+              label: f.label,
+              chosen: f == current,
+              onTap: () => Navigator.of(context).pop(f),
+              child: WidgetRow(snapshot: _samples[f]),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WidgetChoice extends StatelessWidget {
+  const _WidgetChoice({
+    required this.label,
+    required this.chosen,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String label;
+  final bool chosen;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: chosen,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: Hue.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: chosen ? Hue.accent : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: chosen ? Hue.accent : Hue.ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                IgnorePointer(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

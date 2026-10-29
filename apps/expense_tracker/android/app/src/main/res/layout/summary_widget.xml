@@ -1,86 +1,571 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The home-screen widget 本月概況 (SummaryWidget.kt): the month's figures
-     as the app left them, then 記支出 and 記收入. -->
+<!-- 本月概況 at full size (SummaryWidget.kt): the month's spending over its
+     budget bar, this week day by day, and 支出 and 收入 at the foot. The
+     text and figures written here are what the widget picker shows. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="14dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="4dp">
 
     <LinearLayout
         android:id="@+id/summary_body"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:gravity="center_vertical"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/summary_title"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:textColor="#5B6670"
-            android:textSize="13sp" />
+            android:baselineAligned="true"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/summary_figure"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:textColor="#1E2428"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/summary_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:maxLines="1"
+                android:text="10 月支出"
+                android:textColor="#7A858B"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/summary_figure"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:text="12,340"
+                android:textColor="#26323A"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <ProgressBar
-            android:id="@+id/summary_progress"
+            android:id="@+id/summary_bar"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="6dp"
-            android:layout_marginTop="4dp"
+            android:layout_height="8dp"
+            android:layout_marginTop="6dp"
+            android:maxHeight="8dp"
+            android:minHeight="8dp"
             android:max="100"
-            android:progressDrawable="@drawable/widget_progress" />
+            android:progress="62"
+            android:progressDrawable="@drawable/widget_progress"
+            android:secondaryProgress="94" />
 
-        <TextView
-            android:id="@+id/summary_detail"
+        <LinearLayout
+            android:id="@+id/summary_foot"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:maxLines="2"
-            android:textColor="#5B6670"
-            android:textSize="13sp" />
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/summary_budget"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:maxLines="1"
+                android:text="預算 20,000"
+                android:textColor="#7A858B"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/summary_detail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:text="剩 7,660"
+                android:textColor="#7A858B"
+                android:textSize="10.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/week_box"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="本週"
+                    android:textColor="#7A858B"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/week_total"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="3,240"
+                    android:textColor="#26323A"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="4dp"
+                android:layout_weight="1"
+                android:minHeight="24dp"
+                android:orientation="horizontal">
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar0"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="46"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="visible" />
+
+                <ProgressBar
+                    android:id="@+id/today0"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="46"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot0"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="gone" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar1"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="70"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="visible" />
+
+                <ProgressBar
+                    android:id="@+id/today1"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="70"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot1"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="gone" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar2"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="30"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="visible" />
+
+                <ProgressBar
+                    android:id="@+id/today2"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="30"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot2"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="gone" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar3"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="58"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="gone" />
+
+                <ProgressBar
+                    android:id="@+id/today3"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="58"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="visible" />
+
+                <ImageView
+                    android:id="@+id/dot3"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="gone" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar4"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="gone" />
+
+                <ProgressBar
+                    android:id="@+id/today4"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot4"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="visible" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar5"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="gone" />
+
+                <ProgressBar
+                    android:id="@+id/today5"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot5"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="visible" />
+            </FrameLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/bar6"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day"
+                    android:visibility="gone" />
+
+                <ProgressBar
+                    android:id="@+id/today6"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:maxHeight="200dp"
+                    android:minHeight="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_day_today"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/dot6"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/widget_dot"
+                    android:visibility="visible" />
+            </FrameLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:orientation="horizontal">
+            <TextView
+                android:id="@+id/label0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="一"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="二"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="三"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="四"
+                android:textColor="#35657A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="五"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="六"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/label6"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="日"
+                android:textColor="#9AA4A9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="#EEF1EF"
+        android:importantForAccessibility="no" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
-
-        <TextView
+        <LinearLayout
             android:id="@+id/summary_expense"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@drawable/widget_button_expense"
+            android:contentDescription="記支出"
             android:gravity="center"
-            android:text="＋ 記支出"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal">
 
-        <TextView
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/widget_button_expense"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:text="−"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="7dp"
+                android:importantForAccessibility="no"
+                android:text="支出"
+                android:textColor="#9F4535"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="1dp"
+            android:layout_height="22dp"
+            android:background="#E1E4E0"
+            android:importantForAccessibility="no" />
+        <LinearLayout
             android:id="@+id/summary_income"
             android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@drawable/widget_button_income"
+            android:contentDescription="記收入"
             android:gravity="center"
-            android:text="＋ 記收入"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/widget_button_income"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:text="＋"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="7dp"
+                android:importantForAccessibility="no"
+                android:text="收入"
+                android:textColor="#276B58"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

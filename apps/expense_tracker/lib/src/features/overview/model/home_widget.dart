@@ -10,44 +10,85 @@ import '../../../core/preferences.dart';
 
 /// What the home-screen widget 本月概況 shows for [figures], as the text it
 /// shows and nothing more; null when it shows no figures. With
-/// [WidgetFigures.percent] no amount is kept at all, only the share of the
-/// month's total budget used.
+/// [WidgetFigures.percent] no amount is kept at all: the share of the
+/// month's total budget used, and this week's days only as heights.
+///
+/// `budget` and `detail` sit under the budget bar, left and right;
+/// `pace` is how far through the month today is, a mark on that bar;
+/// `week` is each day from Monday as a share of the week's largest day,
+/// -1 for days still to come; `shortLabel` and `shortFigure` are what the
+/// widget shows when made small.
 Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
   final today = ledger.today;
-  final month = '${today.year}-${today.month.toString().padLeft(2, '0')}';
-  final spent = ledger.expense(today.year, today.month);
+  final m = today.month;
+  final month = '${today.year}-${m.toString().padLeft(2, '0')}';
+  final spent = ledger.expense(today.year, m);
   Budget? total;
   for (final b in ledger.budgets) {
     if (b.category == Ledger.allSpending && b.limit > 0) total = b;
   }
-  final allowance = total == null
-      ? null
-      : ledger.allowance(total, today.year, today.month);
-  final used = allowance == null || allowance <= 0
-      ? null
-      : (spent * 100 / allowance).round();
+  final allowance = total == null ? null : ledger.allowance(total, today.year, m);
+  final hasBudget = allowance != null && allowance > 0;
+  final used = hasBudget ? (spent * 100 / allowance).round() : null;
+  final days = DateTime.utc(today.year, m + 1, 0).day;
+  final pace = hasBudget ? (today.day * 100 / days).round() : null;
+  // The same days as 總覽's week, from Monday.
+  final monday = today.subtract(Duration(days: today.weekday - 1));
+  final daySpent = [
+    for (var i = 0; i < 7; i++) ledger.spentOn(monday.add(Duration(days: i))),
+  ];
+  final most = daySpent.fold(0, (a, b) => max(a, b));
+  final weekday = today.weekday - 1;
+  final week = [
+    for (var i = 0; i < 7; i++)
+      i > weekday
+          ? -1
+          : most <= 0
+          ? 0
+          : (max(daySpent[i], 0) * 100 / most).round(),
+  ];
   const noBudget = '沒有設定每月總預算';
   return switch (figures) {
     WidgetFigures.amounts => {
-      'v': 1,
+      'v': 2,
       'month': month,
-      'title': '${today.month} 月支出',
+      'title': '$m 月支出',
       'figure': groupDigits(spent),
-      'detail': allowance == null
+      'budget': hasBudget ? '預算 ${groupDigits(allowance)}' : '',
+      'detail': !hasBudget
           ? noBudget
           : spent <= allowance
-          ? '預算剩 ${groupDigits(allowance - spent)}'
+          ? '剩 ${groupDigits(allowance - spent)}'
           : '超支 ${groupDigits(spent - allowance)}',
       'progress': used?.clamp(0, 100),
+      'pace': pace,
+      'week': week,
+      'weekTotal': groupDigits(daySpent.fold(0, (a, b) => a + b)),
+      'today': weekday,
+      'shortLabel': !hasBudget
+          ? '$m 月支出'
+          : spent <= allowance
+          ? '$m 月預算剩'
+          : '$m 月超支',
+      'shortFigure': !hasBudget
+          ? groupDigits(spent)
+          : groupDigits((allowance - spent).abs()),
     },
     WidgetFigures.percent => {
-      'v': 1,
+      'v': 2,
       'month': month,
-      'title': '${today.month} 月預算',
+      'title': '$m 月預算',
       'figure': used == null ? '—' : '已用 $used%',
+      'budget': '',
       'detail': used == null ? noBudget : '',
       'progress': used?.clamp(0, 100),
+      'pace': pace,
+      'week': week,
+      'weekTotal': '',
+      'today': weekday,
+      'shortLabel': '$m 月預算',
+      'shortFigure': used == null ? '—' : '已用 $used%',
     },
     WidgetFigures.off => null,
   };

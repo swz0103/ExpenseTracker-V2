@@ -1,18 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 本月概況's budget bar: the share used over a pale track. -->
+<!-- The budget bar: the share used over a pale track, and a gold mark at
+     how far through the month today is (the secondary progress, drawn
+     last so it stays on top). Scaled rather than clipped, so the ends
+     stay round. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape>
-            <solid android:color="#DDE1DC" />
-            <corners android:radius="3dp" />
+            <solid android:color="#EEF1EF" />
+            <corners android:radius="4dp" />
         </shape>
     </item>
     <item android:id="@android:id/progress">
-        <clip>
+        <scale android:scaleGravity="left" android:scaleWidth="100%">
             <shape>
-                <solid android:color="#5C9A83" />
-                <corners android:radius="3dp" />
+                <solid android:color="#35657A" />
+                <corners android:radius="4dp" />
             </shape>
-        </clip>
+        </scale>
+    </item>
+    <item android:id="@android:id/secondaryProgress">
+        <scale android:scaleGravity="left" android:scaleWidth="100%">
+            <layer-list>
+                <item android:gravity="right" android:width="2dp">
+                    <shape>
+                        <solid android:color="#C9A34A" />
+                    </shape>
+                </item>
+            </layer-list>
+        </scale>
     </item>
 </layer-list>
