@@ -159,6 +159,7 @@ class Tile extends StatelessWidget {
     this.valueColor = Hue.ink,
     this.sub,
     this.trailing,
+    this.beside,
     this.lead,
     this.child,
     this.hero = false,
@@ -172,6 +173,9 @@ class Tile extends StatelessWidget {
   final Color valueColor;
   final String? sub;
   final Widget? trailing;
+
+  /// Right after the label, such as the eye that hides the amounts.
+  final Widget? beside;
   final Widget? lead;
   final Widget? child;
   final bool hero;
@@ -254,11 +258,18 @@ class Tile extends StatelessWidget {
                       IconChip(icon, background: Hue.tile),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: accentLabel,
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: accentLabel,
+                            ),
+                          ),
+                          ?beside,
+                        ],
                       ),
                     ),
                     ?trailing,
@@ -550,10 +561,14 @@ class BalanceHero extends StatelessWidget {
     required this.third,
     this.rate = true,
     this.size,
+    this.hides = false,
   });
 
   /// Writes the amounts, as dots while they are hidden.
   final Ledger ledger;
+
+  /// Whether an eye beside the label hides and shows the amounts.
+  final bool hides;
   final Glyph icon;
   final String label;
   final int income;
@@ -577,12 +592,58 @@ class BalanceHero extends StatelessWidget {
       value: ledger.money(left),
       valueColor: left < 0 ? Hue.negative : Hue.ink,
       size: size,
+      beside: hides ? _HideAmounts(ledger) : null,
       trailing: rate ? Pill('結餘率 $kept%') : null,
       child: TileStats([
         (Glyph.income, '收入', ledger.money(income), Hue.positive),
         (Glyph.payout, '支出', ledger.money(expense), Hue.negative),
         third,
       ]),
+    );
+  }
+}
+
+/// The eye beside a balance: hides every amount in the app, or shows
+/// them again.
+class _HideAmounts extends StatelessWidget {
+  const _HideAmounts(this.ledger);
+
+  final Ledger ledger;
+
+  @override
+  Widget build(BuildContext context) {
+    final hidden = ledger.hidden;
+    // Drawn small beside the label, tapped as a full 48 dp square.
+    return SizedBox(
+      width: 36,
+      height: 28,
+      child: OverflowBox(
+        maxWidth: 48,
+        maxHeight: 48,
+        child: Tooltip(
+          message: hidden ? '顯示金額' : '隱藏金額',
+          child: Semantics(
+            button: true,
+            child: InkResponse(
+              onTap: () {
+                Haptics.selection();
+                ledger.toggleHidden();
+              },
+              radius: 20,
+              child: SizedBox.square(
+                dimension: 48,
+                child: Center(
+                  child: GlyphIcon(
+                    hidden ? Glyph.eyeOff : Glyph.eye,
+                    size: 18,
+                    color: Hue.accent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

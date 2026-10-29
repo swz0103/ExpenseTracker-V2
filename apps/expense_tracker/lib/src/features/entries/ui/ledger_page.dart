@@ -37,9 +37,6 @@ class _LedgerPageState extends State<LedgerPage> {
   /// not go through every entry.
   Timer? _typing;
 
-  /// Whether the search field is shown in place of the kind chips.
-  var _searchOpen = false;
-
   /// What is typed in the search field, kept here rather than in the
   /// field: the field is a line of the list, and lines scrolled far away
   /// are let go and built again.
@@ -69,22 +66,11 @@ class _LedgerPageState extends State<LedgerPage> {
     });
   }
 
-  void _openSearch() {
-    setState(() => _searchOpen = true);
-    // The field is there after this frame; the keyboard comes up once.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _searchOpen) _searchFocus.requestFocus();
-    });
-  }
-
-  void _closeSearch() {
+  void _clearSearch() {
     _typing?.cancel();
     _searchText.clear();
     _searchFocus.unfocus();
-    setState(() {
-      _searchOpen = false;
-      _search = null;
-    });
+    setState(() => _search = null);
   }
 
   void _toggle(Entry e) {
@@ -228,7 +214,7 @@ class _LedgerPageState extends State<LedgerPage> {
   }
 
   /// What sits above the entries: the title and month, the month's sums
-  /// or what to do with the picked entries, the kinds, search and filters.
+  /// or what to do with the picked entries, search and the filters on.
   List<Widget> _head(List<Entry> shown) {
     final ledger = widget.ledger;
     final (_, month) = _month;
@@ -275,81 +261,63 @@ class _LedgerPageState extends State<LedgerPage> {
           size: 28,
         ),
       const SizedBox(height: 10),
-      if (_searchOpen)
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
+      Row(
+        children: [
+          Expanded(
+            child: ListenableBuilder(
+              listenable: _searchText,
+              builder: (context, _) => TextField(
                 controller: _searchText,
                 focusNode: _searchFocus,
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: '搜尋備註、商家、標籤、金額',
                   isDense: true,
                   filled: true,
                   fillColor: Hue.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   prefixIcon: const Padding(
-                    padding: EdgeInsets.all(10),
-                    child: GlyphIcon(Glyph.search, size: 18),
+                    padding: EdgeInsets.all(12),
+                    child: GlyphIcon(Glyph.search, size: 18, color: Hue.muted),
                   ),
+                  suffixIcon: _searchText.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清除搜尋',
+                          onPressed: _clearSearch,
+                          icon: const GlyphIcon(
+                            Glyph.close,
+                            size: 16,
+                            color: Hue.muted,
+                          ),
+                        ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
                   ),
                 ),
                 onChanged: _typed,
               ),
             ),
-            _RoundButton(
-              tooltip: '關閉搜尋',
-              glyph: Glyph.close,
-              onTap: _closeSearch,
-            ),
-          ],
-        )
-      else
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final (i, option) in KindFilter.values.indexed)
-                      Padding(
-                        // Five 48 dp targets fit beside the search and
-                        // filter buttons.
-                        padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
-                        child: ChoicePill(
-                          label: option.label,
-                          selected: option == filter.kind,
-                          onTap: () => setState(
-                            () => _filter = _filter.withKind(option),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            _RoundButton(
-              tooltip: '搜尋',
-              glyph: Glyph.search,
-              onTap: _openSearch,
-            ),
-            _RoundButton(
-              tooltip: '篩選',
-              glyph: Glyph.sliders,
-              onTap: _openFilter,
-            ),
-          ],
-        ),
-      if (filter.range != null || filter.boundsAmount)
+          ),
+          const SizedBox(width: 8),
+          _FilterButton(count: filter.count, onTap: _openFilter),
+        ],
+      ),
+      if (filter.count > 0)
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
+              if (filter.kind != KindFilter.all)
+                ChoicePill.removable(
+                  label: filter.kind.label,
+                  onRemove: () => setState(
+                    () => _filter = _filter.withKind(KindFilter.all),
+                  ),
+                ),
               if (filter.range case final range?)
                 ChoicePill.removable(
                   label: LedgerFilter.rangeLabel(range),
@@ -362,31 +330,19 @@ class _LedgerPageState extends State<LedgerPage> {
                   onRemove: () =>
                       setState(() => _filter = _filter.withoutAmounts()),
                 ),
+              if (account != null)
+                ChoicePill.removable(
+                  label: ledger.account(account).name,
+                  onRemove: () =>
+                      setState(() => _filter = _filter.withoutAccount()),
+                ),
+              if (category != null)
+                ChoicePill.removable(
+                  label: category,
+                  onRemove: () =>
+                      setState(() => _filter = _filter.withoutCategory()),
+                ),
             ],
-          ),
-        ),
-      if (account != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ChoicePill.removable(
-              label: ledger.account(account).name,
-              onRemove: () =>
-                  setState(() => _filter = _filter.withoutAccount()),
-            ),
-          ),
-        ),
-      if (category != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ChoicePill.removable(
-              label: category,
-              onRemove: () =>
-                  setState(() => _filter = _filter.withoutCategory()),
-            ),
           ),
         ),
       if (shown.isEmpty)
@@ -523,30 +479,54 @@ class _PickBar extends StatelessWidget {
   }
 }
 
-/// A small round button beside the chips: search, filter, close.
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
-    required this.tooltip,
-    required this.glyph,
-    required this.onTap,
-  });
+/// 篩選 beside the search: filled in the accent, with how many filters
+/// are on, while any narrows the list.
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.count, required this.onTap});
 
-  final String tooltip;
-  final Glyph glyph;
+  final int count;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 2),
-    child: Material(
-      color: Hue.white,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onTap,
-        icon: GlyphIcon(glyph, size: 18),
+  Widget build(BuildContext context) {
+    final on = count > 0;
+    return Tooltip(
+      message: on ? '篩選（$count）' : '篩選',
+      child: Material(
+        color: on ? Hue.accent : Hue.white,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: on ? 12 : 15),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GlyphIcon(
+                    Glyph.sliders,
+                    size: 18,
+                    color: on ? Hue.onAccent : Hue.accent,
+                  ),
+                  if (on) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '$count',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Hue.onAccent,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

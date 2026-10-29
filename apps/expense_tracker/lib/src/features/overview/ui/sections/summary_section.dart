@@ -24,6 +24,7 @@ class SummarySection extends StatelessWidget {
           ledger: ledger,
           icon: Glyph.wallet,
           label: '本月結餘',
+          hides: true,
           income: ledger.income(year, m),
           expense: ledger.expense(year, m),
           third: (
