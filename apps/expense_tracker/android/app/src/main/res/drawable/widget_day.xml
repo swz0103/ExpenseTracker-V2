@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One day of the week's bars, grown from the bottom. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape><solid android:color="#00000000" /></shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <scale android:scaleGravity="bottom" android:scaleHeight="100%">
+            <shape>
+                <solid android:color="#A9C0C8" />
+                <corners android:radius="6dp" />
+            </shape>
+        </scale>
+    </item>
+</layer-list>

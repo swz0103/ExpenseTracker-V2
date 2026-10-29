@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The widget's card: white, like the app's own cards. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#F2F3F4F1" />
-    <corners android:radius="24dp" />
+    <solid android:color="#FFFFFF" />
+    <corners android:radius="26dp" />
 </shape>

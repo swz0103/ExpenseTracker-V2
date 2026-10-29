@@ -9,6 +9,7 @@ import '../../features/lock/ui/views/lock_parts.dart';
 import '../../features/lock/ui/views/unlock_view.dart';
 import '../../features/lock/ui/views/welcome_view.dart';
 import '../../features/overview/model/home_widget.dart';
+import '../../features/overview/ui/widget_face.dart';
 import '../../features/settings/model/services.dart';
 import '../shell.dart';
 import 'seed.dart';
@@ -27,7 +28,7 @@ enum PreviewStart {
 }
 
 /// The web preview from the phone's home screen on: the app's icon and
-/// its two home-screen widgets (本月概況 and 記一筆), the opening
+/// its home-screen widget 本月概況 at full size and one row high, the opening
 /// animation, the lock screen when there is one, then the app. The bar at
 /// the bottom goes back home, as the phone's gesture does.
 class PreviewLaunch extends StatefulWidget {
@@ -203,7 +204,7 @@ class _HomeHandle extends StatelessWidget {
   }
 }
 
-/// A home screen: the time, the two widgets, a row of other apps and the
+/// A home screen: the time, the widget at two sizes, a row of other apps and the
 /// app's icon; under them, which way the preview's app opens.
 class _HomeScreen extends StatelessWidget {
   const _HomeScreen({
@@ -264,14 +265,15 @@ class _HomeScreen extends StatelessWidget {
               style: white.copyWith(fontSize: 16),
             ),
             const SizedBox(height: 24),
-            _SummaryWidget(
+            WidgetFace(
               snapshot: snapshot,
               onOpen: () => onOpen(),
               onExpense: () => onOpen(quick: QuickAction.expense),
               onIncome: () => onOpen(quick: QuickAction.income),
             ),
             const SizedBox(height: 14),
-            _QuickWidget(
+            WidgetRow(
+              snapshot: snapshot,
               onOpen: () => onOpen(),
               onExpense: () => onOpen(quick: QuickAction.expense),
               onIncome: () => onOpen(quick: QuickAction.income),
@@ -391,183 +393,6 @@ class _OtherApp extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// The widget 本月概況 as the phone draws it (summary_widget.xml), with
-/// the figures shown as amounts.
-class _SummaryWidget extends StatelessWidget {
-  const _SummaryWidget({
-    required this.snapshot,
-    required this.onOpen,
-    required this.onExpense,
-    required this.onIncome,
-  });
-
-  final Map<String, Object?>? snapshot;
-  final VoidCallback onOpen;
-  final VoidCallback onExpense;
-  final VoidCallback onIncome;
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = snapshot;
-    final progress = shown?['progress'] as int?;
-    final detail = shown?['detail'] as String? ?? '';
-    return _WidgetCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GestureDetector(
-            onTap: onOpen,
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  shown?['title'] as String? ?? '本月概況',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF5B6670),
-                  ),
-                ),
-                Text(
-                  shown?['figure'] as String? ?? '—',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E2428),
-                  ),
-                ),
-                if (progress != null) ...[
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: progress / 100,
-                      minHeight: 6,
-                      color: const Color(0xFF5C9A83),
-                      backgroundColor: const Color(0xFFDDE1DC),
-                    ),
-                  ),
-                ],
-                if (detail.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    detail,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF5B6670),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          _WidgetButtons(onExpense: onExpense, onIncome: onIncome),
-        ],
-      ),
-    );
-  }
-}
-
-/// The widget 記一筆 (quick_widget.xml): the icon and the two buttons.
-class _QuickWidget extends StatelessWidget {
-  const _QuickWidget({
-    required this.onOpen,
-    required this.onExpense,
-    required this.onIncome,
-  });
-
-  final VoidCallback onOpen;
-  final VoidCallback onExpense;
-  final VoidCallback onIncome;
-
-  @override
-  Widget build(BuildContext context) {
-    return _WidgetCard(
-      padding: 8,
-      child: Row(
-        children: [
-          GestureDetector(onTap: onOpen, child: const AppMark(size: 40)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _WidgetButtons(onExpense: onExpense, onIncome: onIncome),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WidgetCard extends StatelessWidget {
-  const _WidgetCard({required this.child, this.padding = 12});
-
-  final Widget child;
-  final double padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(padding),
-      decoration: BoxDecoration(
-        color: const Color(0xF2F3F4F1),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      // Merged, not replaced: the app's fonts (Chinese among them) stay.
-      child: DefaultTextStyle.merge(
-        style: const TextStyle(decoration: TextDecoration.none),
-        child: child,
-      ),
-    );
-  }
-}
-
-/// ＋ 記支出 and ＋ 記收入, as the widgets draw them.
-class _WidgetButtons extends StatelessWidget {
-  const _WidgetButtons({required this.onExpense, required this.onIncome});
-
-  final VoidCallback onExpense;
-  final VoidCallback onIncome;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget button(String label, Color color, VoidCallback onTap) => Expanded(
-      child: Semantics(
-        button: true,
-        label: label,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: ExcludeSemantics(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return Row(
-      children: [
-        button('＋ 記支出', const Color(0xFFB5523E), onExpense),
-        const SizedBox(width: 8),
-        button('＋ 記收入', const Color(0xFF2F7A65), onIncome),
-      ],
     );
   }
 }

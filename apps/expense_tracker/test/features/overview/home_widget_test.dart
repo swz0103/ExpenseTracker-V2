@@ -46,14 +46,22 @@ void main() {
     expect(widgetSnapshot(book(), WidgetFigures.off), isNull);
   });
 
-  test('amounts: the month spent and what is left of the budget', () {
+  test('amounts: the month spent, the budget, the pace and the week', () {
+    // 2026-10-20 is a Tuesday: Monday spent nothing, Wednesday on is to come.
     expect(widgetSnapshot(book(budgets: [total]), WidgetFigures.amounts), {
-      'v': 1,
+      'v': 2,
       'month': '2026-10',
       'title': '10 月支出',
       'figure': '12,345',
-      'detail': '預算剩 7,655',
+      'budget': '預算 20,000',
+      'detail': '剩 7,655',
       'progress': 62,
+      'pace': 65,
+      'week': [0, 100, -1, -1, -1, -1, -1],
+      'weekTotal': '12,345',
+      'today': 1,
+      'shortLabel': '10 月預算剩',
+      'shortFigure': '7,655',
     });
     final over = widgetSnapshot(
       book(budgets: [const Budget(Ledger.allSpending, 10000)]),
@@ -61,9 +69,15 @@ void main() {
     );
     expect(over?['detail'], '超支 2,345');
     expect(over?['progress'], 100);
+    expect(over?['shortLabel'], '10 月超支');
+    expect(over?['shortFigure'], '2,345');
     final none = widgetSnapshot(book(), WidgetFigures.amounts);
     expect(none?['detail'], '沒有設定每月總預算');
+    expect(none?['budget'], '');
     expect(none?['progress'], isNull);
+    expect(none?['pace'], isNull);
+    expect(none?['shortLabel'], '10 月支出');
+    expect(none?['shortFigure'], '12,345');
   });
 
   test('percent keeps no amount at all', () {
@@ -72,6 +86,8 @@ void main() {
       WidgetFigures.percent,
     );
     expect(snapshot?['figure'], '已用 62%');
+    expect(snapshot?['weekTotal'], '');
+    expect(snapshot?['week'], [0, 100, -1, -1, -1, -1, -1]);
     expect(jsonEncode(snapshot), isNot(contains('12')));
     expect(widgetSnapshot(book(), WidgetFigures.percent)?['figure'], '—');
   });

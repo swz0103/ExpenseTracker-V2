@@ -3,5 +3,5 @@
     <string name="shortcut_expense">記支出</string>
     <string name="shortcut_income">記收入</string>
     <string name="widget_description">一點就記支出或收入</string>
-    <string name="summary_widget_description">本月支出與預算，一點就記一筆</string>
+    <string name="summary_widget_description">本月預算、本週每天花多少，一點就記一筆；可以拉小</string>
 </resources>
