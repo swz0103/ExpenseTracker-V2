@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -114,24 +113,10 @@ class _OverviewPageState extends State<OverviewPage> {
           listenable: ledger,
           builder: (context, _) => PageHeader(
             '總覽',
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: ledger.hidden ? '顯示金額' : '隱藏金額',
-                  onPressed: ledger.toggleHidden,
-                  icon: GlyphIcon(
-                    ledger.hidden ? Glyph.eyeOff : Glyph.eye,
-                    size: 20,
-                    color: Hue.muted,
-                  ),
-                ),
-                MonthSwitch(
-                  month: _month,
-                  latest: (ledger.today.year, ledger.today.month),
-                  onChanged: _showMonth,
-                ),
-              ],
+            trailing: MonthSwitch(
+              month: _month,
+              latest: (ledger.today.year, ledger.today.month),
+              onChanged: _showMonth,
             ),
           ),
         ),

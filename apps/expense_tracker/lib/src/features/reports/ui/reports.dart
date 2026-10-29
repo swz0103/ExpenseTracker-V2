@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 
+import '../../../core/charts/donut.dart';
 import '../../../core/charts/period_charts.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
@@ -13,7 +14,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/entry_tile.dart';
-import 'compare_sheet.dart';
+import 'compare_section.dart';
 import 'report_period.dart';
 
 /// 財務報表: any stretch of time, not only a month. A month, quarter, year
@@ -135,7 +136,18 @@ class _ReportsPageState extends State<ReportsPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
-            PageHeader('財務報表', onBack: widget.nav.back),
+            PageHeader(
+              '財務報表',
+              onBack: widget.nav.back,
+              trailing: switch (widget.nav.saveFile) {
+                final save? => IconButton(
+                  tooltip: '存成圖片',
+                  onPressed: () => _savePicture(save, period),
+                  icon: const GlyphIcon(Glyph.download, size: 20),
+                ),
+                null => null,
+              },
+            ),
             Segments(
               labels: const ['月', '季', '年', '自訂'],
               selected: period.span.index,
@@ -258,35 +270,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: () => showComparison(context, ledger, period),
-                    icon: const GlyphIcon(Glyph.reports, size: 18),
-                    label: const Text('與另一段比較'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Hue.accent,
-                      minimumSize: const Size(0, 48),
-                    ),
-                  ),
-                ),
-                if (widget.nav.saveFile case final save?)
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: () => _savePicture(save, period),
-                      icon: const GlyphIcon(Glyph.download, size: 18),
-                      label: const Text('存成圖片'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Hue.accent,
-                        minimumSize: const Size(0, 48),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            CompareSection(ledger: ledger, period: period),
             if (period.span == ReportSpan.year) ..._summary(report),
             ..._mix(report),
+            ..._weekdays(report),
             ..._merchants(report),
             ..._tags(report),
           ],
@@ -370,6 +357,9 @@ class _ReportsPageState extends State<ReportsPage> {
     final spending = report.spending;
     final lastSpending = report.lastSpending;
     final expense = report.expense;
+    // The five largest in their colours, the rest together in grey.
+    final top = names.take(5).toList();
+    final rest = names.skip(5).fold(0, (sum, n) => sum + (spending[n] ?? 0));
     return [
       const SectionHead('分類', trailing: Text('點分類看紀錄', style: mutedSmall)),
       SoftPanel(
@@ -377,6 +367,60 @@ class _ReportsPageState extends State<ReportsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+              child: Row(
+                children: [
+                  Donut(
+                    size: 124,
+                    thickness: 16,
+                    slices: [
+                      for (final n in top)
+                        (spending[n] ?? 0, ledger.category(n).color),
+                      if (rest > 0) (rest, Hue.faint),
+                    ],
+                    center: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('支出', style: mutedSmall),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            ledger.money(expense),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final n in top)
+                          _Share(
+                            color: ledger.category(n).color,
+                            name: n,
+                            share: expense == 0
+                                ? 0
+                                : (spending[n] ?? 0) / expense,
+                          ),
+                        if (rest > 0)
+                          _Share(
+                            color: Hue.faint,
+                            name: '其他',
+                            share: expense == 0 ? 0 : rest / expense,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             for (final name in names)
               _CategoryRow(
                 ledger: ledger,
@@ -459,40 +503,95 @@ class _ReportsPageState extends State<ReportsPage> {
     final rows = report.merchants;
     if (rows.isEmpty) return const [];
     final ledger = widget.ledger;
+    final most = rows.fold(1, (m, r) => max(m, r.$3));
     return [
       const SectionHead('常去商家'),
       SoftPanel(
         color: Hue.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Column(
           children: [
-            for (final (i, (name, count, amount)) in rows.indexed)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: i == 0 ? null : ruleAbove,
-                child: Row(
-                  children: [
-                    const IconBadge(Glyph.store, Hue.accent, size: 30),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontSize: 14)),
-                          Text('$count 次', style: mutedSmall),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      ledger.money(amount),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+            for (final (name, count, amount) in rows)
+              _BarLine(
+                lead: const IconBadge(Glyph.store, Hue.accent, size: 30),
+                name: name,
+                note: '$count 次',
+                amount: ledger.money(amount),
+                share: amount / most,
+                color: Hue.accent,
               ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// 星期: what was spent on each day of the week over the period, the
+  /// heaviest day in the spending colour.
+  List<Widget> _weekdays(_Report report) {
+    final days = report.weekdays;
+    final most = days.fold(0, max);
+    if (most <= 0) return const [];
+    final heaviest = days.indexOf(most);
+    return [
+      SectionHead(
+        '星期',
+        trailing: Text(
+          '週${weekdayNames[heaviest]}花最多',
+          style: mutedSmall,
+        ),
+      ),
+      SoftPanel(
+        color: Hue.white,
+        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 96,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final (i, spent) in days.indexed)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: FractionallySizedBox(
+                          heightFactor: spent <= 0
+                              ? 0.03
+                              : max(spent / most, 0.06),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: i == heaviest
+                                  ? Hue.negative
+                                  : softOf(Hue.negative),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                for (final (i, name) in weekdayNames.indexed)
+                  Expanded(
+                    child: Text(
+                      name,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: i == heaviest
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: i == heaviest ? Hue.negative : Hue.muted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -503,36 +602,23 @@ class _ReportsPageState extends State<ReportsPage> {
     final rows = report.tags;
     if (rows.isEmpty) return const [];
     final ledger = widget.ledger;
+    final most = rows.fold(1, (m, r) => max(m, r.$2));
     return [
       const SectionHead('標籤'),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final (tag, amount) in rows)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: Hue.tile,
-                borderRadius: BorderRadius.circular(14),
+      SoftPanel(
+        color: Hue.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Column(
+          children: [
+            for (final (tag, amount) in rows)
+              _BarLine(
+                name: '#$tag',
+                amount: ledger.money(amount),
+                share: amount / most,
+                color: Hue.investment,
               ),
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '#$tag  ',
-                      style: const TextStyle(color: Hue.accent),
-                    ),
-                    TextSpan(
-                      text: ledger.money(amount),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     ];
   }
@@ -564,6 +650,7 @@ final class _Report {
     required this.count,
     required this.days,
     required this.biggestSpend,
+    required this.weekdays,
   });
 
   factory _Report.of(Ledger ledger, ReportPeriod period) {
@@ -578,9 +665,11 @@ final class _Report {
     var dividends = 0;
     Entry? biggest;
     final days = <DateTime>{};
+    final weekdays = List.filled(7, 0);
     for (final e in entries) {
       income += e.earning;
       expense += e.spending;
+      weekdays[e.date.weekday - 1] += e.spending;
       dividends += e.dividendNet;
       days.add(e.date);
       if (e.type == EntryType.expense &&
@@ -643,6 +732,7 @@ final class _Report {
       count: entries.length,
       days: days.length,
       biggestSpend: biggest,
+      weekdays: weekdays,
     );
   }
 
@@ -683,6 +773,9 @@ final class _Report {
 
   /// The largest single spending.
   final Entry? biggestSpend;
+
+  /// Spending on each day of the week, Monday first.
+  final List<int> weekdays;
 
   /// The same day a year earlier, the 29th of February becoming the 28th.
   static DateTime _yearBefore(DateTime day) => DateTime.utc(
@@ -901,4 +994,120 @@ class _Readout extends StatelessWidget {
     ),
     style: const TextStyle(fontSize: 13),
   );
+}
+
+/// A slice of the ring of 分類: its colour, name and share.
+class _Share extends StatelessWidget {
+  const _Share({required this.color, required this.name, required this.share});
+
+  final Color color;
+  final String name;
+  final double share;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        Text('${(share * 100).round()}%', style: mutedSmall),
+      ],
+    ),
+  );
+}
+
+/// A line of a ranked list: a name over a bar as long as its share of
+/// the largest, and the amount.
+class _BarLine extends StatelessWidget {
+  const _BarLine({
+    required this.name,
+    required this.amount,
+    required this.share,
+    required this.color,
+    this.lead,
+    this.note,
+  });
+
+  final Widget? lead;
+  final String name;
+  final String? note;
+  final String amount;
+  final double share;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final side = lead;
+    final extra = note;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          if (side != null) ...[side, const SizedBox(width: 10)],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    if (extra != null) ...[
+                      const SizedBox(width: 6),
+                      Text(extra, style: mutedSmall),
+                    ],
+                    const Spacer(),
+                    Text(
+                      amount,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 6,
+                    child: ColoredBox(
+                      color: Hue.track,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: share.clamp(0.02, 1.0),
+                          heightFactor: 1,
+                          child: ColoredBox(color: color),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
