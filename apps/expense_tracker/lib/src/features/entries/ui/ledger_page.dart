@@ -498,12 +498,13 @@ class _FilterButton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: SizedBox(
-            height: 48,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: on ? 12 : 14),
+              padding: EdgeInsets.symmetric(horizontal: on ? 12 : 15),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GlyphIcon(
                     Glyph.sliders,

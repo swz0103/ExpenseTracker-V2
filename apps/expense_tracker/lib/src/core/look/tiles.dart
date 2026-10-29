@@ -613,24 +613,32 @@ class _HideAmounts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hidden = ledger.hidden;
-    return Tooltip(
-      message: hidden ? '顯示金額' : '隱藏金額',
-      child: Semantics(
-        button: true,
-        child: InkResponse(
-          onTap: () {
-            Haptics.selection();
-            ledger.toggleHidden();
-          },
-          radius: 20,
-          child: SizedBox(
-            width: 40,
-            height: 32,
-            child: Center(
-              child: GlyphIcon(
-                hidden ? Glyph.eyeOff : Glyph.eye,
-                size: 18,
-                color: Hue.accent,
+    // Drawn small beside the label, tapped as a full 48 dp square.
+    return SizedBox(
+      width: 36,
+      height: 28,
+      child: OverflowBox(
+        maxWidth: 48,
+        maxHeight: 48,
+        child: Tooltip(
+          message: hidden ? '顯示金額' : '隱藏金額',
+          child: Semantics(
+            button: true,
+            child: InkResponse(
+              onTap: () {
+                Haptics.selection();
+                ledger.toggleHidden();
+              },
+              radius: 20,
+              child: SizedBox.square(
+                dimension: 48,
+                child: Center(
+                  child: GlyphIcon(
+                    hidden ? Glyph.eyeOff : Glyph.eye,
+                    size: 18,
+                    color: Hue.accent,
+                  ),
+                ),
               ),
             ),
           ),

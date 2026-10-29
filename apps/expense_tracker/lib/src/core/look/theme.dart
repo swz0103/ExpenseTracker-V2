@@ -53,9 +53,11 @@ final class Shade extends Color {
         ..text = const TextSpan()
         ..text = text;
     } else if (box is RenderEditable) {
+      // Empty words rather than none: a text field with no words at all
+      // fails when it describes itself to the screen reader.
       final text = box.text;
       box
-        ..text = null
+        ..text = const TextSpan()
         ..text = text;
     } else if (box is RenderDecoratedBox) {
       final decoration = box.decoration;
