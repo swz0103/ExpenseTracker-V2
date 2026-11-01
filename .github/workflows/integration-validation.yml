@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Nothing here pushes: no token is left in .git/config.
           persist-credentials: false
@@ -50,7 +50,7 @@ jobs:
         with:
           sdk: '3.13.4'
       # v4.3.0
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-dart-3.13.4-${{ hashFiles('**/pubspec.lock') }}
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 22
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Nothing here pushes: no token is left in .git/config.
           persist-credentials: false

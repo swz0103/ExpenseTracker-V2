@@ -56,7 +56,7 @@ jobs:
       # the merge commit GitHub tests).
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
@@ -66,7 +66,7 @@ jobs:
           channel: stable
           cache: true
       # Gradle's downloads and build cache; v4.3.0.
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/.gradle/caches
@@ -142,7 +142,7 @@ jobs:
         # one did when R8 removed WorkManager's database) fails here rather
         # than on a phone. The emulator runs the arm64 APK through Android's
         # translation.
-        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 34
           arch: x86_64
@@ -185,7 +185,7 @@ jobs:
       - name: Keep the debug symbols
         # Turns a crash's stack trace from this build back into names
         # (flutter symbolize). v4.6.2.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: symbols-${{ env.SOURCE_SHA }}
           path: ${{ runner.temp }}/symbols
@@ -194,7 +194,7 @@ jobs:
       - name: Hand the APK to the publish job
         if: github.event_name == 'workflow_run'
         # v4.6.2.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: apk
           path: |
@@ -221,7 +221,7 @@ jobs:
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       # v4.3.0.
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: apk
           path: ${{ runner.temp }}/apk
