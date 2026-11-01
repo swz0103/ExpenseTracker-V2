@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/features/lock/model/startup.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
+import 'package:expense_tracker/src/features/lock/ui/views/lock_parts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
@@ -77,8 +78,10 @@ void main() {
     expect(find.text('打開帳本'), findsOneWidget);
   });
 
-  /// Plays the opening and the choices coming in.
+  /// Waits out the pause before the opening, plays it and the choices
+  /// coming in.
   Future<void> settleIn(WidgetTester tester) async {
+    await tester.pump(openingDelay);
     await tester.pump(const Duration(milliseconds: 1500));
     await tester.pump(const Duration(milliseconds: 700));
   }
