@@ -111,6 +111,17 @@ final class Startup extends ChangeNotifier {
     return fresh;
   }
 
+  var _opening = true;
+
+  /// Whether the app has just started and not yet played its opening
+  /// animation, once: a ledger locked again later goes straight to the
+  /// password.
+  bool takeOpening() {
+    final opening = _opening;
+    _opening = false;
+    return opening;
+  }
+
   static String _newSecret() {
     final random = Random.secure();
     return base64Url.encode([for (var i = 0; i < 32; i++) random.nextInt(256)]);
@@ -308,6 +319,7 @@ final class Startup extends ChangeNotifier {
   }
 
   void _ready(OpenVault open) {
+    _opening = false;
     _state = Ready(open);
     notifyListeners();
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/app_mark.dart';
@@ -197,6 +199,12 @@ class OpeningMark extends StatelessWidget {
   }
 }
 
+/// How long the opening waits before it starts: as the app starts, the
+/// phone's own splash is still fading and the first frames are slow
+/// (fonts loading, drawing set up), and an animation started at once had
+/// mostly played before it could be seen.
+const openingDelay = Duration(milliseconds: 450);
+
 /// Runs the opening animation once, at once when the phone asks for
 /// less motion, and calls [onDone] when it has played.
 mixin OpeningAnimation<T extends StatefulWidget>
@@ -205,6 +213,8 @@ mixin OpeningAnimation<T extends StatefulWidget>
     ..addStatusListener((status) {
       if (status == AnimationStatus.completed) openingDone();
     });
+
+  Timer? _wait;
 
   /// Called once the mark is fully drawn.
   void openingDone() {}
@@ -219,13 +229,16 @@ mixin OpeningAnimation<T extends StatefulWidget>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) opening.value = 1;
       });
-    } else {
-      opening.forward();
+    } else if (_wait == null) {
+      _wait = Timer(openingDelay, () {
+        if (mounted && !opening.isCompleted) unawaited(opening.forward());
+      });
     }
   }
 
   @override
   void dispose() {
+    _wait?.cancel();
     opening.dispose();
     super.dispose();
   }
