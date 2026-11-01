@@ -49,6 +49,10 @@ class _LockScreenState extends State<LockScreen> {
   var _busy = false;
   String? _problem;
 
+  /// The opening animation, on a ledger with a password when the app has
+  /// just started; the password form comes after it.
+  var _splash = false;
+
   /// The copy of the backup chosen with the file picker or downloaded
   /// from Google Drive, in the cache.
   String? _picked;
@@ -87,9 +91,16 @@ class _LockScreenState extends State<LockScreen> {
     // Asked for in settings: restore a backup in place of this ledger.
     _restoring = widget.startup.takeRestore();
     if (_restoring || _welcome) return;
+    // The opening plays once per start, with a password or without.
+    final opening = widget.startup.takeOpening();
     if (_quiet) {
       // Opened once the opening animation has played (see build).
       _busy = true;
+      return;
+    }
+    if (opening) {
+      // The fingerprint is asked for once it has played (see _opened).
+      _splash = true;
       return;
     }
     if (_biometric && _askFirst) {
@@ -117,6 +128,13 @@ class _LockScreenState extends State<LockScreen> {
     } on Object {
       _fail('指紋解鎖已取消，可以改用密碼');
     }
+  }
+
+  /// The opening has played: the password form, and the fingerprint
+  /// asked for when it is asked first.
+  void _opened() {
+    setState(() => _splash = false);
+    if (_biometric && _askFirst) unawaited(_unlockWithDevice());
   }
 
   Future<void> _openQuietly() async {
@@ -386,6 +404,7 @@ class _LockScreenState extends State<LockScreen> {
     if (_quiet && _problem == null) {
       return LockSplash(onDone: () => unawaited(_openQuietly()));
     }
+    if (_splash) return LockSplash(onDone: _opened);
     final Widget form;
     if (_restoring) {
       form = RestoreView(

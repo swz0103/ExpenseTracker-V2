@@ -83,6 +83,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
   }
 
+  testWidgets('with a password, the opening plays as the app starts, then '
+      'the password is asked for', (tester) async {
+    final first = await opened(tester);
+    first.lock();
+    // The app started again on the locked ledger.
+    final startup = Startup(vault);
+    await show(tester, startup);
+    expect(find.text('打開帳本'), findsNothing);
+    await settleIn(tester);
+    expect(find.text('打開帳本'), findsOneWidget);
+    expect(startup.takeOpening(), isFalse, reason: 'once per start');
+  });
+
   testWidgets('a new ledger opens on the welcome and starts without a '
       'password', (tester) async {
     final startup = Startup(vault);
