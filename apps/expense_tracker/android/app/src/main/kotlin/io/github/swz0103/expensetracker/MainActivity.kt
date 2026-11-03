@@ -3,6 +3,7 @@ package io.github.swz0103.expensetracker
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -14,7 +15,8 @@ import io.flutter.plugin.common.MethodChannel
  * (lib/src/app/android/), one [ChannelPart] per concern: the Keystore
  * key for fingerprint unlock, receipt photos, files and the save and open
  * dialogs, the calendar, notifications and Google Drive. This class keeps
- * only what belongs to the activity itself: hiding the screen, and the
+ * only what belongs to the activity itself: hiding the screen (from
+ * screenshots when asked, and always from the recent apps list), and the
  * shortcuts, widget and notifications that open the composer.
  */
 class MainActivity : FlutterFragmentActivity() {
@@ -64,6 +66,12 @@ class MainActivity : FlutterFragmentActivity() {
         // Set before the engine is configured (during super.onCreate).
         restored = savedInstanceState != null
         super.onCreate(savedInstanceState)
+        // Android 13 and later show no picture of the app in the recent
+        // apps list, so the app needs no cover of its own (privacy_cover.dart)
+        // and a screenshot or the notification shade leaves it as it is.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false)
+        }
     }
 
     /**
@@ -99,6 +107,8 @@ class MainActivity : FlutterFragmentActivity() {
                     pendingQuick = null
                     dartTakes = true
                 }
+                "hidesRecents" ->
+                    result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 "secureScreen" -> {
                     if (call.argument<Boolean>("on") == true) {
                         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)

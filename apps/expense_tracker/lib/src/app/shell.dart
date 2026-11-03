@@ -70,13 +70,28 @@ class _AppShellState extends State<AppShell> {
   Widget _tour() => Tour(
     onDone: _toured,
     stops: [
-      TourStop(target: _recordKey, round: true, pad: 10, title: '點「＋」記下第一筆'),
-      TourStop(target: _summaryKey, pad: 6, title: '這個月的收支都在這'),
+      TourStop(
+        target: _recordKey,
+        round: true,
+        pad: 10,
+        glyph: Glyph.add,
+        title: '記一筆從這裡開始',
+        detail: '支出、收入、轉帳都從這顆記',
+      ),
+      TourStop(
+        target: _summaryKey,
+        pad: 6,
+        glyph: Glyph.eye,
+        title: '這個月的收支都在這',
+        detail: '點眼睛可以先把金額藏起來',
+      ),
       TourStop(
         target: _moreKey,
         round: true,
         pad: 8,
-        title: '提醒、備份、密碼\n都在「更多」',
+        glyph: Glyph.safe,
+        title: '記得打開雲端備份',
+        detail: '在「更多」裡，換手機才拿得回帳本',
       ),
     ],
   );

@@ -15,6 +15,7 @@ class ExpenseApp extends StatefulWidget {
     this.frame,
     this.preferences,
     this.cover = false,
+    this.systemHides,
   });
 
   final Widget? home;
@@ -25,9 +26,13 @@ class ExpenseApp extends StatefulWidget {
   /// Colours and taps felt; the defaults when none.
   final Preferences? preferences;
 
-  /// Covers every screen, sheets and dialogs included, while the app is
+  /// Blurs every screen, sheets and dialogs included, while the app is
   /// off the screen: on a phone, for the recent apps list.
   final bool cover;
+
+  /// Whether the phone keeps the app out of the recent apps list itself;
+  /// then [cover] is not needed and nothing is blurred.
+  final Future<bool> Function()? systemHides;
 
   @override
   State<ExpenseApp> createState() => _ExpenseAppState();
@@ -112,7 +117,9 @@ class _ExpenseAppState extends State<ExpenseApp> with WidgetsBindingObserver {
               widget.frame?.call(context, child) ??
               child ??
               const SizedBox.shrink();
-          return widget.cover ? PrivacyCover(child: framed) : framed;
+          return widget.cover
+              ? PrivacyCover(systemHides: widget.systemHides, child: framed)
+              : framed;
         },
         home: widget.home ?? const Scaffold(body: Center(child: Text('記帳本'))),
       ),

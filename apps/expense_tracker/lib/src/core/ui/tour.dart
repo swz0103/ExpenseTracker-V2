@@ -3,14 +3,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../look/app_mark.dart';
 import '../look/glyphs.dart';
 
 /// One stop of a [Tour]: the place it lights and what it says there.
 final class TourStop {
   const TourStop({
     required this.target,
+    required this.glyph,
     required this.title,
+    this.detail,
     this.round = false,
     this.pad = 8,
   });
@@ -18,8 +19,14 @@ final class TourStop {
   /// The widget to light, found by its key once laid out.
   final GlobalKey target;
 
-  /// The one line said there; a \n breaks it where it reads best.
+  /// What the place is, at the start of the card.
+  final Glyph glyph;
+
+  /// The one line said there.
   final String title;
+
+  /// A short line under it, in small type.
+  final String? detail;
 
   /// Lit by a circle, for a button; a rounded box otherwise.
   final bool round;
@@ -30,9 +37,10 @@ final class TourStop {
 
 /// A short walk through the app's main places, over the whole screen: it
 /// dims, a light moves from one place to the next with a ring spreading
-/// from it, and a card beside the light, tinted like 總覽's main tile with
-/// the app's mark, says in one line what that place is for. 下一步 goes on
-/// and the last stop's 開始 ends it, as do 略過 and back.
+/// from it, and a slim pill beside the light says what that place is for:
+/// its glyph, a line and a small one under it, and a round button that
+/// goes on (a tick at the last stop ends it). A tap on the dim, or back,
+/// ends it at once.
 class Tour extends StatefulWidget {
   const Tour({super.key, required this.stops, required this.onDone});
 
@@ -196,7 +204,7 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () {},
+            onTap: () => unawaited(_finish()),
             child: CustomPaint(painter: _Dim(light, moving ? 0 : _ring.value)),
           ),
         ),
@@ -209,11 +217,9 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
               child: _Card(
                 // A new stop's card comes up into place.
                 key: ValueKey(settled ? _index : _index - 1),
-                index: settled ? _index : _index - 1,
-                count: widget.stops.length,
-                title: widget.stops[settled ? _index : _index - 1].title,
+                stop: widget.stops[settled ? _index : _index - 1],
+                last: (settled ? _index : _index - 1) == widget.stops.length - 1,
                 still: _still,
-                onSkip: () => unawaited(_finish()),
                 onNext: _next,
               ),
             ),
@@ -246,134 +252,121 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
   }
 }
 
-/// A stop's card: tinted like 總覽's main tile, the app's mark and
-/// 記帳本 · 1 / 3 at the top, the line in large type, then where the tour
-/// is, 略過 and a white 下一步 (開始 at the last stop).
+/// A stop's card: one slim pill on the app's paper colour, the stop's
+/// glyph on a tinted circle, its line with the small one under it, and a
+/// round button that goes on, a tick at the last stop.
 class _Card extends StatelessWidget {
   const _Card({
     super.key,
-    required this.index,
-    required this.count,
-    required this.title,
+    required this.stop,
+    required this.last,
     required this.still,
-    required this.onSkip,
     required this.onNext,
   });
 
-  final int index;
-  final int count;
-  final String title;
+  final TourStop stop;
+  final bool last;
   final bool still;
-  final VoidCallback onSkip;
   final VoidCallback onNext;
 
-  /// The tile's two tints, the same in dark mode as in light: the card
-  /// stands on the dimmed screen, not on the page.
-  static const _top = Color(0xFFE6EDEE);
-  static const _foot = Color(0xFFD3DEE0);
+  /// The same in dark mode as in light: the pill stands on the dimmed
+  /// screen, not on the page.
+  static const _paper = Color(0xFFF3F4F1);
+  static const _tint = Color(0xFFDCE6E8);
   static const _ink = Color(0xFF26323A);
   static const _accent = Color(0xFF35657A);
-  static const _muted = Color(0xFF525D63);
+  static const _muted = Color(0xFF66737A);
 
   @override
   Widget build(BuildContext context) {
-    final last = index == count - 1;
-    final card = Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_top, _foot],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+    final detail = stop.detail;
+    final label = last ? '開始' : '下一步';
+    final card = DecoratedBox(
+      decoration: const ShapeDecoration(
+        shape: StadiumBorder(),
+        shadows: [
           BoxShadow(
-            color: Color(0x47000000),
-            blurRadius: 36,
-            offset: Offset(0, 16),
+            color: Color(0x4D000000),
+            blurRadius: 30,
+            offset: Offset(0, 14),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
+      child: Material(
+        color: _paper,
+        shape: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+          child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: const AppMark(size: 30),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: _tint,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: GlyphIcon(stop.glyph, size: 21, color: _accent),
               ),
-              const SizedBox(width: 10),
-              Text(
-                '記帳本 · ${index + 1} / $count',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _accent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-              color: _ink,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              for (var i = 0; i < count; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  margin: const EdgeInsets.only(right: 5),
-                  width: i == index ? 16 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == index ? _accent : const Color(0x4035657A),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              const Spacer(),
-              if (!last)
-                TextButton(
-                  onPressed: onSkip,
-                  style: TextButton.styleFrom(foregroundColor: _muted),
-                  child: const Text('略過'),
-                ),
-              const SizedBox(width: 4),
-              FilledButton(
-                onPressed: onNext,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFFFFF),
-                  foregroundColor: _accent,
-                  elevation: 0,
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                child: Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      last ? '開始' : '下一步',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      stop.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                        color: _ink,
+                      ),
                     ),
-                    if (!last) ...[
-                      const SizedBox(width: 4),
-                      const GlyphIcon(Glyph.arrow, size: 16, color: _accent),
-                    ],
+                    if (detail != null)
+                      Text(
+                        detail,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: _muted,
+                        ),
+                      ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Tooltip(
+                message: label,
+                child: Material(
+                  color: _accent,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onNext,
+                    child: SizedBox.square(
+                      dimension: 48,
+                      child: Center(
+                        child: last
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 24,
+                                color: Color(0xFFFFFFFF),
+                              )
+                            : const GlyphIcon(
+                                Glyph.arrow,
+                                size: 21,
+                                color: Color(0xFFFFFFFF),
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
     final framed = Semantics(liveRegion: true, child: card);
