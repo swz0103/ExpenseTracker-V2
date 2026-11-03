@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/look/glyphs.dart';
 import 'package:expense_tracker/src/core/ui/tour.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,8 +29,18 @@ void main() {
                 child: Tour(
                   onDone: () => done++,
                   stops: [
-                    TourStop(target: top, title: '第一站'),
-                    TourStop(target: bottom, round: true, title: '第二站'),
+                    TourStop(
+                      target: top,
+                      glyph: Glyph.add,
+                      title: '第一站',
+                      detail: '說明',
+                    ),
+                    TourStop(
+                      target: bottom,
+                      round: true,
+                      glyph: Glyph.safe,
+                      title: '第二站',
+                    ),
                   ],
                 ),
               ),
@@ -43,36 +54,45 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('the tour lights each stop in turn and ends with 開始', (
+  testWidgets('the tour lights each stop in turn and ends with the tick', (
     tester,
   ) async {
     await show(tester);
     expect(find.text('第一站'), findsOneWidget);
+    expect(find.text('說明'), findsOneWidget);
     // Under a light in the upper half of the screen.
     expect(
       tester.getTopLeft(find.text('第一站')).dy,
       greaterThan(tester.getBottomLeft(find.byKey(top)).dy),
     );
 
-    await tester.tap(find.text('下一步'));
+    await tester.tap(find.byTooltip('下一步'));
     await tester.pumpAndSettle();
     expect(find.text('第二站'), findsOneWidget);
-    expect(find.text('略過'), findsNothing, reason: 'the last stop');
+    expect(find.byTooltip('下一步'), findsNothing, reason: 'the last stop');
     // Above a light in the lower half.
     expect(
-      tester.getBottomLeft(find.text('開始')).dy,
+      tester.getBottomLeft(find.byTooltip('開始')).dy,
       lessThan(tester.getTopLeft(find.byKey(bottom)).dy),
     );
 
-    await tester.tap(find.text('開始'));
+    await tester.tap(find.byTooltip('開始'));
     await tester.pumpAndSettle();
     expect(done, 1);
   });
 
-  testWidgets('略過 ends the tour at once', (tester) async {
+  testWidgets('a tap on the dim ends the tour at once', (tester) async {
     await show(tester);
-    await tester.tap(find.text('略過'));
+    await tester.tapAt(const Offset(300, 300));
     await tester.pumpAndSettle();
     expect(done, 1);
+  });
+
+  testWidgets('a tap on the card itself does not end it', (tester) async {
+    await show(tester);
+    await tester.tap(find.text('第一站'));
+    await tester.pumpAndSettle();
+    expect(done, 0);
+    expect(find.text('第一站'), findsOneWidget);
   });
 }

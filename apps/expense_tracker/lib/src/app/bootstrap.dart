@@ -85,6 +85,7 @@ class VaultRoot extends StatelessWidget {
   Widget build(BuildContext context) => ExpenseApp(
     preferences: preferences,
     cover: Platform.isAndroid,
+    systemHides: Platform.isAndroid ? androidHidesRecents : null,
     home: ListenableBuilder(
       listenable: startup,
       builder: (context, _) => switch (startup.state) {

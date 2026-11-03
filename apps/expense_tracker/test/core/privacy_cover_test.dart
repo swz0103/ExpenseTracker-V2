@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('a sheet is covered too while the app is away', (tester) async {
+  final blur = find.byKey(const ValueKey('privacy-blur'));
+
+  Future<void> show(
+    WidgetTester tester, {
+    Future<bool> Function()? systemHides,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
-        builder: (context, child) => PrivacyCover(child: child!),
+        builder: (context, child) =>
+            PrivacyCover(systemHides: systemHides, child: child!),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
@@ -20,20 +26,37 @@ void main() {
         ),
       ),
     );
+  }
+
+  testWidgets('a sheet is blurred too while the app is away', (tester) async {
+    await show(tester);
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    expect(find.text('記帳本'), findsNothing);
+    expect(blur, findsNothing);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
-    expect(find.text('記帳本'), findsOneWidget);
-    // The cover is drawn over the sheet.
-    final cover = tester.getRect(find.byType(ColoredBox).last);
-    expect(cover.size, tester.getSize(find.byType(MaterialApp)));
+    expect(blur, findsOneWidget);
+    // Over the whole app, the sheet included.
+    expect(tester.getSize(blur), tester.getSize(find.byType(MaterialApp)));
+    expect(find.text('記帳本'), findsNothing, reason: 'no name panel');
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
-    expect(find.text('記帳本'), findsNothing);
+    expect(blur, findsNothing);
     expect(find.text('NT\$ 12,345'), findsOneWidget);
+  });
+
+  testWidgets('nothing is blurred when the phone hides the app itself', (
+    tester,
+  ) async {
+    await show(tester, systemHides: () async => true);
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(blur, findsNothing);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
   });
 }

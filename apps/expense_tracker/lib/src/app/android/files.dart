@@ -33,6 +33,11 @@ Future<bool> androidExportFile(String path, String name) async {
 Future<void> androidSecureScreen(bool on) =>
     platformChannel.invokeMethod<void>('secureScreen', {'on': on});
 
+/// Whether the phone itself keeps the app's screen out of the recent
+/// apps list (Android 13 and later), so the app needs no cover of its own.
+Future<bool> androidHidesRecents() async =>
+    await platformChannel.invokeMethod<bool>('hidesRecents') ?? false;
+
 /// Lets the person choose a file and returns a copy the app can read, or
 /// null when they cancel.
 Future<String?> androidPickFile() =>
