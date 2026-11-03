@@ -53,9 +53,8 @@ void main() {
     final phone = startupIn('restored');
     await phone.restore(backup, password);
     expect(phone.state, isA<Ready>());
-    final restored = await TableJournal(
-      (phone.state as Ready).vault.store,
-    ).load();
+    final restored = await TableJournal((phone.state as Ready).vault.store)
+        .load();
     expect(restored.entries, hasLength(ledger.entries.length));
     phone.lock();
 
