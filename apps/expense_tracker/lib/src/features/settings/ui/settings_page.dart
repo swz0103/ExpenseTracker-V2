@@ -119,7 +119,7 @@ class SettingsPage extends StatelessWidget {
         }
         return '備份檔、雲端硬碟、還原';
       case SettingsPart.exchange:
-        return 'CSV、電子發票';
+        return 'CSV、電子發票、備份';
       case SettingsPart.reminders:
         final preferences = services.notifier?.preferences;
         if (preferences == null) return '日曆';
@@ -135,7 +135,7 @@ class SettingsPage extends StatelessWidget {
       case SettingsPart.appearance:
         return services.preferences?.appearance.label ?? '';
       case SettingsPart.about:
-        return '版本、效能與診斷';
+        return '版本、檢查更新';
     }
   }
 
@@ -186,14 +186,26 @@ String get buildLabel => _version.isEmpty
         if (_commit.isNotEmpty) _commit,
       ].join(' · ');
 
-/// 關於: which build this is, the load and frame timings with the background faults, sent on
-/// when reporting a problem; and, in the preview, starting the made-up
-/// book over.
-class _About extends StatelessWidget {
+/// 關於: which build this is and its updates; 效能與診斷, folded until
+/// opened, with the load and frame timings and the background faults to
+/// send on when reporting a problem; and, in the preview, starting the
+/// made-up book over.
+class _About extends StatefulWidget {
   const _About({required this.ledger, required this.services});
 
   final Ledger ledger;
   final Services services;
+
+  @override
+  State<_About> createState() => _AboutState();
+}
+
+class _AboutState extends State<_About> {
+  /// 效能與診斷 opened.
+  var _open = false;
+
+  Ledger get ledger => widget.ledger;
+  Services get services => widget.services;
 
   Future<void> _export(BuildContext context) async {
     final text = Perf.instance.text;
@@ -231,52 +243,72 @@ class _About extends StatelessWidget {
         ]),
         if (services.update case final update?)
           _Updates(update: update, preferences: services.preferences),
-        const SectionHead('效能與診斷'),
-        FormBlock(
-          child: Column(
-            children: [
-              if (report.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Text('還沒有紀錄', style: mutedSmall),
-                ),
-              for (final (name, figure) in report)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Text(name),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          figure,
-                          textAlign: TextAlign.end,
-                          style: mutedSmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
         const SizedBox(height: 8),
         MenuPanel([
           MenuRow(
-            glyph: Glyph.download,
-            title: '匯出診斷紀錄',
-            detail: '回報問題用',
-            onTap: () => _export(context),
+            glyph: Glyph.sliders,
+            title: '效能與診斷',
+            detail: _open ? '載入與影格時間、背景錯誤' : '回報問題時用',
+            trailing: AnimatedRotation(
+              turns: _open ? 0.25 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+            ),
+            onTap: () => setState(() => _open = !_open),
           ),
-          // Only the preview's made-up book can be reset.
-          if (services.sample case final sample?)
+        ]),
+        if (_open) ...[
+          const SizedBox(height: 8),
+          FormBlock(
+            child: Column(
+              children: [
+                if (report.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Text('還沒有紀錄', style: mutedSmall),
+                  ),
+                for (final (name, figure) in report)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Text(name),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            figure,
+                            textAlign: TextAlign.end,
+                            style: mutedSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          MenuPanel([
+            MenuRow(
+              glyph: Glyph.download,
+              title: '匯出診斷紀錄',
+              detail: '回報問題用',
+              onTap: () => _export(context),
+            ),
+          ]),
+        ],
+        // Only the preview's made-up book can be reset.
+        if (services.sample case final sample?) ...[
+          const SizedBox(height: 8),
+          MenuPanel([
             MenuRow(
               glyph: Glyph.reset,
               title: '重設範例資料',
               color: Hue.danger,
               onTap: () => _reset(context, sample),
             ),
-        ]),
+          ]),
+        ],
       ],
     );
   }

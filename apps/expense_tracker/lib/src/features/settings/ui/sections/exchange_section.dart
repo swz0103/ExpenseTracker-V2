@@ -8,9 +8,11 @@ import '../../../import/model/exchange.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/problems.dart';
 import '../../../import/ui/import_sheet.dart';
+import 'backup_section.dart';
 
-/// 匯入與匯出: exporting a month or the whole book as CSV, and importing
-/// a CSV or the e-invoices of a carrier.
+/// 匯入與匯出: exporting a month or the whole book as CSV, importing a
+/// CSV or the e-invoices of a carrier, and 匯入備份 to put a backup in
+/// this ledger's place (CSV carries entries only, not a whole book).
 class ExchangeSection extends StatefulWidget {
   const ExchangeSection({super.key, required this.ledger, this.keeper});
 
@@ -82,6 +84,13 @@ class _ExchangeSectionState extends State<ExchangeSection> {
               ' ${ledger.entries.length} 筆紀錄的 CSV',
             ),
           ),
+          if (keeper != null)
+            MenuRow(
+              glyph: Glyph.reset,
+              title: '匯入備份',
+              detail: '備份檔或雲端硬碟，換掉整本帳本',
+              onTap: () => restoreFromBackup(context, keeper),
+            ),
           MenuRow(
             glyph: Glyph.add,
             title: '匯入 CSV',

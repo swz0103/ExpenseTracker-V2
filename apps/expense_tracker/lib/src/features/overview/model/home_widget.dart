@@ -17,12 +17,15 @@ import '../../../core/preferences.dart';
 /// `pace` is how far through the month today is, a mark on that bar;
 /// `week` is each day from Monday as a share of the week's largest day,
 /// -1 for days still to come; `shortLabel` and `shortFigure` are what the
-/// widget shows when made small.
+/// widget shows when made small; `date` is the day it was written, so the
+/// widget can move the week on by itself when the app is not opened.
 Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   if (figures == WidgetFigures.off) return null;
   final today = ledger.today;
   final m = today.month;
-  final month = '${today.year}-${m.toString().padLeft(2, '0')}';
+  String two(int n) => n.toString().padLeft(2, '0');
+  final month = '${today.year}-${two(m)}';
+  final date = '$month-${two(today.day)}';
   final spent = ledger.expense(today.year, m);
   Budget? total;
   for (final b in ledger.budgets) {
@@ -55,6 +58,7 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
     WidgetFigures.amounts => {
       'v': 2,
       'month': month,
+      'date': date,
       'title': '$m 月支出',
       'figure': groupDigits(spent),
       'budget': hasBudget ? '預算 ${groupDigits(allowance)}' : '',
@@ -80,6 +84,7 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
     WidgetFigures.percent => {
       'v': 2,
       'month': month,
+      'date': date,
       'title': '$m 月預算',
       'figure': used == null ? '—' : '已用 $used%',
       'budget': '',

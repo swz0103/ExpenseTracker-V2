@@ -1,34 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12 and later. The ledger and its weekly backups go to the
-     person's Google backup, which Android encrypts with the screen lock;
-     what belongs to this phone alone (its fingerprint enrolment) stays. -->
+<!-- Nothing of the app goes with Android's own backup: not to Google's
+     cloud (allowBackup is off as well, for Android 11 and earlier), and
+     not in the move to a new phone. Reinstalled, or on a new phone, the
+     app starts on its welcome, and a ledger comes back only through
+     已經有帳本？還原備份, from a backup file or Google Drive. -->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="file" path="."/>
-        <exclude domain="file" path="device-id"/>
-        <exclude domain="file" path="no-fingerprint"/>
-        <exclude domain="file" path="exports"/>
-        <exclude domain="file" path="calendar"/>
-        <exclude domain="file" path="diagnostics.log"/>
-        <!-- The backup waiting for the background job (BackupWorker.kt). -->
-        <exclude domain="file" path="outbox"/>
-        <!-- What the home-screen widget shows (SummaryWidget.kt). -->
-        <exclude domain="file" path="widget.json"/>
-        <!-- Receipt photos would soon fill the 25 MB backup allowance. -->
-        <exclude domain="file" path="receipts"/>
-        <!-- The ledger kept before a restore, with its photos. -->
-        <exclude domain="file" path="before-restore"/>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
     </cloud-backup>
     <device-transfer>
-        <include domain="file" path="."/>
-        <exclude domain="file" path="device-id"/>
-        <exclude domain="file" path="no-fingerprint"/>
-        <exclude domain="file" path="exports"/>
-        <exclude domain="file" path="calendar"/>
-        <exclude domain="file" path="diagnostics.log"/>
-        <!-- The backup waiting for the background job (BackupWorker.kt). -->
-        <exclude domain="file" path="outbox"/>
-        <!-- What the home-screen widget shows (SummaryWidget.kt). -->
-        <exclude domain="file" path="widget.json"/>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
     </device-transfer>
 </data-extraction-rules>

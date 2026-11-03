@@ -61,18 +61,11 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 
 ## Android 自動備份
 
-`allowBackup="true"`，規則在 `res/xml/data_extraction_rules.xml`（Android 12 以上）與 `backup_rules.xml`。帳本與每週備份會進使用者的 Google 備份，Android 以螢幕鎖加密；不帶走的有：
+不用。`allowBackup="false"`（Android 11 以前與雲端備份），`res/xml/data_extraction_rules.xml` 把所有位置（root、file、database、sharedpref、external）都排除在雲端備份與裝置對裝置轉移之外（Android 12 以上即使 `allowBackup="false"` 仍會做裝置轉移，所以規則要寫）。重裝或換新手機，App 一律從歡迎頁開始；要拿回帳本，從「已經有帳本？還原備份」（或 設定 › 備份與還原 › 從備份還原、設定 › 匯入與匯出 › 匯入備份）選備份檔或 Google 雲端硬碟的備份。所以：
 
-- `device-id`（這支手機的指紋登記）、`no-fingerprint`（拒絕指紋的紀錄）：換手機要重新登記。
-- `exports`：要交出去的檔案（附照片的備份、CSV）只在這裡放到系統存檔畫面寫完為止，之後立即刪除；App 啟動時也會清掉上次沒刪到的（`lib/src/features/backup/model/leftovers.dart`，連同快取裡的相機暫存與選取的備份副本）。所以附照片的匯出備份不會佔用 25 MB 的備份額度；每週備份（不含照片）仍在 `backups/`，照常備份。
-- `calendar`：選的日曆，換手機要重新選。
-- `diagnostics.log`：「設定 › 關於」的錯誤紀錄，只屬於這支手機（只記錯誤類型與簡短訊息，不含帳本內容）。
-- `before-restore`：從設定還原前留下的帳本（含照片），只放在這支手機。
-- `outbox`：等背景工作送出的備份，只屬於這支手機。
-- `widget.json`：桌面小工具顯示的文字。
-- `receipts`：收據照片，不進雲端備份（很快就會超過 25 MB 額度）；裝置對裝置轉移（`device-transfer`）仍會帶走。要保留照片請匯出備份檔，它會附上照片。
-
-沒設密碼時，帳本金鑰存在 App 的私有資料夾，會跟著帳本進 Android 的雲端備份（由 Google 以手機螢幕鎖加密）；新手機還原後可直接打開，但也代表帳本的安全等同那份雲端備份。設了密碼後，金鑰只以密碼、救援碼與指紋包裝存放，還原後要輸入密碼或救援碼。
+- 換手機或重裝前，先在 App 裡備份（匯出備份檔、手機資料夾自動備份或 Google 雲端硬碟自動備份）。
+- 沒設密碼時的帳本金鑰（`quick-open.key`）也只在這支手機，不會出現在任何 Android 備份裡。
+- `test/app/backup_rules_test.dart` 檢查 manifest 與規則都維持「全部排除」。
 
 ## 指紋或臉部解鎖
 

@@ -37,8 +37,8 @@ import java.util.Calendar
  *
  * What is kept is what the notification shows (its title and text, which
  * can name an amount) and which screen tapping it opens. The preferences
- * stay on the phone: they are not in the cloud backup or a device
- * transfer (res/xml/data_extraction_rules.xml only includes files).
+ * stay on the phone: nothing of the app is in the cloud backup or a device
+ * transfer (res/xml/data_extraction_rules.xml).
  */
 object Reminders {
     private const val CHANNEL = "reminders"

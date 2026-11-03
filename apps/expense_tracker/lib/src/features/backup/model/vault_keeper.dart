@@ -55,9 +55,8 @@ final class VaultKeeper implements Keeper {
     };
   }
 
-  /// Where a file to hand over is written until the person has it. Kept
-  /// out of Android's cloud backup (res/xml/data_extraction_rules.xml),
-  /// and emptied at each start (leftovers.dart).
+  /// Where a file to hand over is written until the person has it;
+  /// emptied at each start (leftovers.dart).
   Directory get _exports => Directory('${_startup.directory.path}/exports');
 
   @override
@@ -295,9 +294,8 @@ final class VaultKeeper implements Keeper {
   }
 
   /// Keeps the ledger as it was before a restore from settings, with its
-  /// photos, apart from the weekly backups: out of Android's cloud backup
-  /// (res/xml/data_extraction_rules.xml), whose allowance photos would
-  /// fill. The newest two stay; the lock screen offers them to restore.
+  /// photos, apart from the weekly backups. The newest two stay; the lock
+  /// screen offers them to restore.
   @override
   Future<String> restoreAnother() async {
     await _beforeLock?.call();

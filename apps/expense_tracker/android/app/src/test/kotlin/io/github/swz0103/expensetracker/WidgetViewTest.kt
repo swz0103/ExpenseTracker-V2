@@ -52,4 +52,38 @@ class WidgetViewTest {
         assertEquals(100, shown.progress)
         assertEquals(100, shown.pace)
     }
+
+    // Written on Tuesday 2026-10-20: Monday nothing, Tuesday the most.
+    private val written = snapshot.copy(date = "2026-10-20")
+
+    @Test
+    fun daysCountFromMonday() {
+        assertEquals(1, WidgetView.Day(2026, 10, 20).weekday)
+        assertEquals(6, WidgetView.Day(2026, 11, 1).weekday)
+        assertEquals(20381L, WidgetView.Day(2025, 10, 20).epoch)
+    }
+
+    @Test
+    fun laterThatWeekTheDaysSinceAreEmpty() {
+        val shown = WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 22))
+        assertEquals(listOf(0, 100, 0, 0, -1, -1, -1), shown.week)
+        assertEquals(3, shown.today)
+        assertEquals("12,345", shown.weekTotal)
+        assertEquals(71, shown.pace)
+    }
+
+    @Test
+    fun aNewWeekStartsEmpty() {
+        val shown = WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 28))
+        assertEquals(listOf(0, 0, 0, -1, -1, -1, -1), shown.week)
+        assertEquals(2, shown.today)
+        assertEquals("0", shown.weekTotal)
+    }
+
+    @Test
+    fun theSameDayOrABackwardClockChangesNothing() {
+        assertEquals(week, WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 20)).week)
+        assertEquals(week, WidgetView.of(written, "2026-10", WidgetView.Day(2026, 10, 19)).week)
+        assertEquals(week, WidgetView.of(snapshot, "2026-10", WidgetView.Day(2026, 10, 22)).week)
+    }
 }
