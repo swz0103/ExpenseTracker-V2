@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kReleaseMode;
@@ -29,22 +30,6 @@ Future<void> main() async {
     Perf.instance.problem('未預期的錯誤', error);
     return true;
   };
-  // Plain copies a run stopped part way may have left: exports waiting to
-  // be handed over, camera photos, a chosen backup. The cache folder is
-  // asked for on its own, so exports are still cleared without it.
-  Directory? cache;
-  if (Platform.isAndroid) {
-    try {
-      cache = await androidCacheDirectory();
-    } on Object catch (error) {
-      Perf.instance.problem('清除暫存檔', error);
-    }
-  }
-  try {
-    await clearLeftovers(directory, cache: cache);
-  } on Object catch (error) {
-    Perf.instance.problem('清除暫存檔', error);
-  }
   final device = Platform.isAndroid
       ? await androidDeviceUnlock(directory)
       : null;
@@ -59,13 +44,6 @@ Future<void> main() async {
   final preferences = Preferences(
     file: File('${directory.path}/preferences.json'),
   );
-  if (Platform.isAndroid) {
-    try {
-      await listenForQuickActions();
-    } on Object catch (error) {
-      Perf.instance.problem('捷徑', error);
-    }
-  }
   runApp(
     VaultRoot(
       startup: productionStartup(directory, device: device),
@@ -73,4 +51,37 @@ Future<void> main() async {
       preferences: preferences,
     ),
   );
+  // After the first frame is asked for, so the opening is not kept
+  // waiting: the phone keeps the shortcut the app was opened with until
+  // it is taken, and nothing writes where the leftovers are cleared
+  // before the ledger is open.
+  if (Platform.isAndroid) unawaited(_listenForQuickActions());
+  unawaited(_clearLeftovers(directory));
+}
+
+Future<void> _listenForQuickActions() async {
+  try {
+    await listenForQuickActions();
+  } on Object catch (error) {
+    Perf.instance.problem('捷徑', error);
+  }
+}
+
+/// Plain copies a run stopped part way may have left: exports waiting to
+/// be handed over, camera photos, a chosen backup. The cache folder is
+/// asked for on its own, so exports are still cleared without it.
+Future<void> _clearLeftovers(Directory directory) async {
+  Directory? cache;
+  if (Platform.isAndroid) {
+    try {
+      cache = await androidCacheDirectory();
+    } on Object catch (error) {
+      Perf.instance.problem('清除暫存檔', error);
+    }
+  }
+  try {
+    await clearLeftovers(directory, cache: cache);
+  } on Object catch (error) {
+    Perf.instance.problem('清除暫存檔', error);
+  }
 }

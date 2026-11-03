@@ -199,14 +199,10 @@ class OpeningMark extends StatelessWidget {
   }
 }
 
-/// How long the opening waits before it starts: as the app starts, the
-/// phone's own splash is still fading and the first frames are slow
-/// (fonts loading, drawing set up), and an animation started at once had
-/// mostly played before it could be seen.
-const openingDelay = Duration(milliseconds: 450);
-
-/// Runs the opening animation once, at once when the phone asks for
-/// less motion, and calls [onDone] when it has played.
+/// Runs the opening animation once, from the first frame on the screen
+/// (the phone's own start screen shows only the paper colour, so there is
+/// nothing to wait out), at once when the phone asks for less motion, and
+/// calls [onDone] when it has played.
 mixin OpeningAnimation<T extends StatefulWidget>
     on State<T>, TickerProviderStateMixin<T> {
   late final opening = AnimationController(vsync: this, duration: splashTime)
@@ -214,7 +210,7 @@ mixin OpeningAnimation<T extends StatefulWidget>
       if (status == AnimationStatus.completed) openingDone();
     });
 
-  Timer? _wait;
+  var _started = false;
 
   /// Called once the mark is fully drawn.
   void openingDone() {}
@@ -229,8 +225,10 @@ mixin OpeningAnimation<T extends StatefulWidget>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) opening.value = 1;
       });
-    } else if (_wait == null) {
-      _wait = Timer(openingDelay, () {
+    } else if (!_started) {
+      _started = true;
+      // Once the first frame is drawn, so the start is seen.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !opening.isCompleted) unawaited(opening.forward());
       });
     }
@@ -238,7 +236,6 @@ mixin OpeningAnimation<T extends StatefulWidget>
 
   @override
   void dispose() {
-    _wait?.cancel();
     opening.dispose();
     super.dispose();
   }
