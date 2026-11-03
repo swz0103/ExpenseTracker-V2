@@ -197,9 +197,7 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {},
-            child: CustomPaint(
-              painter: _Dim(light, moving ? 0 : _ring.value),
-            ),
+            child: CustomPaint(painter: _Dim(light, moving ? 0 : _ring.value)),
           ),
         ),
         if (_shown)
@@ -386,7 +384,10 @@ class _Card extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, 8 * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 8 * (1 - t)),
+          child: child,
+        ),
       ),
       child: framed,
     );

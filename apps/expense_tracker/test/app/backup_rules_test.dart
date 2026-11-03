@@ -13,9 +13,8 @@ void main() {
 
   /// The `<exclude domain=… path=…>` of [section] as `domain:path`.
   Set<String> excluded(String section) {
-    final text = File(
-      '$android/res/xml/data_extraction_rules.xml',
-    ).readAsStringSync();
+    final text = File('$android/res/xml/data_extraction_rules.xml')
+        .readAsStringSync();
     final start = text.indexOf('<$section>');
     final end = text.indexOf('</$section>');
     expect(start, isNonNegative, reason: 'no <$section>');

@@ -14,11 +14,7 @@ import '../../../lock/ui/recovery_code.dart';
 /// the backup to restore, from the phone or Google Drive: 從備份還原 here
 /// and 匯入備份 in 匯入與匯出.
 Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
-  final ok = await confirm(
-    context,
-    '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。',
-    '選擇備份',
-  );
+  final ok = await confirm(context, '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。', '選擇備份');
   if (!ok) return;
   try {
     await keeper.restoreAnother();

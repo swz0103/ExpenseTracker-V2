@@ -70,17 +70,8 @@ class _AppShellState extends State<AppShell> {
   Widget _tour() => Tour(
     onDone: _toured,
     stops: [
-      TourStop(
-        target: _recordKey,
-        round: true,
-        pad: 10,
-        title: '點「＋」記下第一筆',
-      ),
-      TourStop(
-        target: _summaryKey,
-        pad: 6,
-        title: '這個月的收支都在這',
-      ),
+      TourStop(target: _recordKey, round: true, pad: 10, title: '點「＋」記下第一筆'),
+      TourStop(target: _summaryKey, pad: 6, title: '這個月的收支都在這'),
       TourStop(
         target: _moreKey,
         round: true,

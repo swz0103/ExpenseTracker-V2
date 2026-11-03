@@ -29,11 +29,7 @@ void main() {
                   onDone: () => done++,
                   stops: [
                     TourStop(target: top, title: '第一站'),
-                    TourStop(
-                      target: bottom,
-                      round: true,
-                      title: '第二站',
-                    ),
+                    TourStop(target: bottom, round: true, title: '第二站'),
                   ],
                 ),
               ),

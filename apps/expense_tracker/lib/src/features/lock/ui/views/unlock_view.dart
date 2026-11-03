@@ -259,7 +259,11 @@ class _UnlockViewState extends State<UnlockView>
     height: 32,
     child: Text(
       '記帳本',
-      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 1.8),
+      style: TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.8,
+      ),
     ),
   );
 
