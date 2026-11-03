@@ -37,7 +37,12 @@ void main() {
     });
   }
 
-  for (final dir in ['values', 'values-night', 'values-v31', 'values-night-v31']) {
+  for (final dir in [
+    'values',
+    'values-night',
+    'values-v31',
+    'values-night-v31',
+  ]) {
     test('$dir: nothing flashes between the start and the first frame', () {
       final text = File('$res/$dir/styles.xml').readAsStringSync();
       final normal = text.substring(text.indexOf('name="NormalTheme"'));
