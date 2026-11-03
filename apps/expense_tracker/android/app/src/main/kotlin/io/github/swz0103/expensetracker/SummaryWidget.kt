@@ -45,7 +45,7 @@ class SummaryWidget : AppWidgetProvider() {
          * when [small] (記一筆, placed before the two were one).
          */
         fun views(context: Context, small: Boolean = false): RemoteViews {
-            val shown = WidgetView.of(read(context), currentMonth())
+            val shown = WidgetView.of(read(context), currentMonth(), today())
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 return if (small) compact(context, shown, R.layout.quick_widget) else full(context, shown)
             }
@@ -133,11 +133,56 @@ class SummaryWidget : AppWidgetProvider() {
             val now = Calendar.getInstance()
             return "%04d-%02d".format(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1)
         }
+
+        private fun today(): WidgetView.Day {
+            val now = Calendar.getInstance()
+            return WidgetView.Day(
+                now.get(Calendar.YEAR),
+                now.get(Calendar.MONTH) + 1,
+                now.get(Calendar.DAY_OF_MONTH),
+            )
+        }
     }
 }
 
 /** What 本月概況 shows for a snapshot; kept apart from Android to be tested. */
 internal object WidgetView {
+    /** A day of the calendar, counted on from 1970-01-01. */
+    data class Day(val year: Int, val month: Int, val day: Int) {
+        /** Days since 1970-01-01 (Howard Hinnant's days_from_civil). */
+        val epoch: Long
+            get() {
+                val y = (if (month <= 2) year - 1 else year).toLong()
+                val era = y.floorDiv(400L)
+                val yoe = y - era * 400
+                val mp = (month + 9) % 12
+                val doy = (153 * mp + 2) / 5 + day - 1
+                val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+                return era * 146097 + doe - 719468
+            }
+
+        /** Monday 0 to Sunday 6; 1970-01-01 was a Thursday. */
+        val weekday: Int get() = (epoch + 3).mod(7L).toInt()
+
+        val daysInMonth: Int
+            get() = when (month) {
+                2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
+                4, 6, 9, 11 -> 30
+                else -> 31
+            }
+
+        companion object {
+            /** 2026-11-03; null when it is not one. */
+            fun parse(text: String): Day? {
+                val parts = text.split("-")
+                if (parts.size != 3) return null
+                val (y, m, d) = parts.map { it.toIntOrNull() ?: return null }
+                if (m !in 1..12 || d !in 1..31) return null
+                return Day(y, m, d)
+            }
+        }
+    }
+
     data class Snapshot(
         val month: String,
         val title: String,
@@ -151,6 +196,7 @@ internal object WidgetView {
         val today: Int = -1,
         val shortLabel: String = title,
         val shortFigure: String = figure,
+        val date: String = "",
     )
 
     data class Shown(
@@ -186,26 +232,54 @@ internal object WidgetView {
             today = json.optInt("today", -1),
             shortLabel = json.optString("shortLabel", title),
             shortFigure = json.optString("shortFigure", figure),
+            date = json.optString("date"),
         )
     }
 
     /**
      * The snapshot as it stands in [month]: one from an earlier month says
      * to open the app rather than show last month's figures as this one's.
+     * On a later day than it was written ([today]), the week moves on by
+     * itself: the days since have nothing spent (nothing was recorded, or
+     * the app would have written it anew), a new week starts empty, and
+     * the gold mark of the month's pace moves to today.
      */
-    fun of(snapshot: Snapshot?, month: String): Shown = when {
-        snapshot == null -> Shown("記帳本", "本月概況", "到 設定 › 外觀 選擇要顯示的數字", null)
-        snapshot.month != month -> Shown("本月概況", "—", "打開 App 更新本月數字", null)
-        else -> Shown(
+    fun of(snapshot: Snapshot?, month: String, today: Day? = null): Shown {
+        if (snapshot == null) {
+            return Shown("記帳本", "本月概況", "到 設定 › 外觀 選擇要顯示的數字", null)
+        }
+        if (snapshot.month != month) return Shown("本月概況", "—", "打開 App 更新本月數字", null)
+        val written = Day.parse(snapshot.date)
+        var week = snapshot.week
+        var weekTotal = snapshot.weekTotal
+        var at = snapshot.today
+        var pace = snapshot.pace
+        if (today != null && written != null && today.epoch > written.epoch) {
+            val sameWeek = today.epoch - today.weekday == written.epoch - written.weekday
+            week = week?.let { days ->
+                List(7) { i ->
+                    when {
+                        i > today.weekday -> -1
+                        !sameWeek -> 0
+                        i > written.weekday -> 0
+                        else -> days[i]
+                    }
+                }
+            }
+            if (!sameWeek && weekTotal.isNotEmpty()) weekTotal = "0"
+            at = today.weekday
+            if (pace != null) pace = Math.round(today.day * 100.0 / today.daysInMonth).toInt()
+        }
+        return Shown(
             title = snapshot.title,
             figure = snapshot.figure,
             detail = snapshot.detail,
             progress = snapshot.progress?.coerceIn(0, 100),
             budget = snapshot.budget,
-            pace = snapshot.pace?.coerceIn(0, 100),
-            week = snapshot.week,
-            weekTotal = snapshot.weekTotal,
-            today = snapshot.today,
+            pace = pace?.coerceIn(0, 100),
+            week = week,
+            weekTotal = weekTotal,
+            today = at,
             shortLabel = snapshot.shortLabel,
             shortFigure = snapshot.shortFigure,
         )

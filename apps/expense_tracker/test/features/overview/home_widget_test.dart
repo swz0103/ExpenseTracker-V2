@@ -51,6 +51,7 @@ void main() {
     expect(widgetSnapshot(book(budgets: [total]), WidgetFigures.amounts), {
       'v': 2,
       'month': '2026-10',
+      'date': '2026-10-20',
       'title': '10 月支出',
       'figure': '12,345',
       'budget': '預算 20,000',

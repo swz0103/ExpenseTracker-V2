@@ -167,6 +167,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
       onRecovery: () => setState(() => _stage = _Stage.app),
       onDevice: () => setState(() => _stage = _Stage.app),
       problem: _problem,
+      arrive: true,
     );
   }
 }

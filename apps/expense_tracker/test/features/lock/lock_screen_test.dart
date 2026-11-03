@@ -52,15 +52,15 @@ void main() {
     final startup = await opened(tester);
     startup.lock();
     await show(tester, startup);
-    expect(find.text('打開帳本'), findsOneWidget);
+    expect(find.text('忘記密碼？'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'not the password');
-    await tester.tap(find.text('打開'));
+    await tester.testTextInput.receiveAction(TextInputAction.go);
     await settle(tester, () => find.text('密碼不正確').evaluate().isNotEmpty);
     expect(find.text('密碼不正確'), findsOneWidget);
     expect(startup.state, isA<Locked>());
 
     await tester.enterText(find.byType(TextField), password);
-    await tester.tap(find.text('打開'));
+    await tester.testTextInput.receiveAction(TextInputAction.go);
     await settle(tester, () => startup.state is Ready);
     expect(startup.state, isA<Ready>());
     startup.lock();
@@ -75,7 +75,7 @@ void main() {
     expect(startup.takeRestore(), isFalse, reason: 'asked once');
     await tester.tap(find.text('返回'));
     await tester.pump();
-    expect(find.text('打開帳本'), findsOneWidget);
+    expect(find.text('忘記密碼？'), findsOneWidget);
   });
 
   /// Waits out the pause before the opening, plays it and the choices
@@ -93,9 +93,9 @@ void main() {
     // The app started again on the locked ledger.
     final startup = Startup(vault);
     await show(tester, startup);
-    expect(find.text('打開帳本'), findsNothing);
+    expect(find.text('忘記密碼？'), findsNothing);
     await settleIn(tester);
-    expect(find.text('打開帳本'), findsOneWidget);
+    expect(find.text('忘記密碼？'), findsOneWidget);
     expect(startup.takeOpening(), isFalse, reason: 'once per start');
   });
 

@@ -10,6 +10,25 @@ import '../../../../core/look/widgets.dart';
 import '../../../../core/problems.dart';
 import '../../../lock/ui/recovery_code.dart';
 
+/// Keeps a backup of this ledger, then opens the lock screen on choosing
+/// the backup to restore, from the phone or Google Drive: 從備份還原 here
+/// and 匯入備份 in 匯入與匯出.
+Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
+  final ok = await confirm(
+    context,
+    '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。',
+    '選擇備份',
+  );
+  if (!ok) return;
+  try {
+    await keeper.restoreAnother();
+  } on Object catch (error) {
+    if (context.mounted) {
+      showNote(context, '沒有開始還原：${describeProblem(error)}');
+    }
+  }
+}
+
 /// 備份與還原: a backup file to keep outside the app, weekly backups on
 /// Google Drive, and restoring a backup in place of this ledger.
 class BackupSection extends StatefulWidget {
@@ -227,22 +246,6 @@ class _BackupSectionState extends State<BackupSection> {
     },
   );
 
-  /// Keeps a backup of this ledger, then opens the lock screen on
-  /// choosing the backup to restore, from the phone or Google Drive.
-  Future<void> _restore(Keeper keeper) async {
-    final ok = await confirm(
-      context,
-      '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。',
-      '選擇備份',
-    );
-    if (!ok) return;
-    try {
-      await keeper.restoreAnother();
-    } on Object catch (error) {
-      if (mounted) showNote(context, '沒有開始還原：${describeProblem(error)}');
-    }
-  }
-
   var _checking = false;
 
   /// Opens the newest backup as a restore would, and says what was found.
@@ -302,7 +305,7 @@ class _BackupSectionState extends State<BackupSection> {
         glyph: Glyph.reset,
         title: '從備份還原',
         detail: '手機裡的檔案或雲端硬碟',
-        onTap: () => _restore(keeper),
+        onTap: () => restoreFromBackup(context, keeper),
       ),
     ]);
   }

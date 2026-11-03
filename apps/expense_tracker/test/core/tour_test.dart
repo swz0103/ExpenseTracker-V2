@@ -28,12 +28,11 @@ void main() {
                 child: Tour(
                   onDone: () => done++,
                   stops: [
-                    TourStop(target: top, title: '第一站', detail: '上面'),
+                    TourStop(target: top, title: '第一站'),
                     TourStop(
                       target: bottom,
                       round: true,
                       title: '第二站',
-                      detail: '下面',
                     ),
                   ],
                 ),

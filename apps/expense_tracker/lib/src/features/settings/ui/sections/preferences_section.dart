@@ -67,7 +67,6 @@ class AppearanceSection extends StatelessWidget {
           MenuRow(
             glyph: Glyph.vibrate,
             title: '震動',
-            detail: '點選與存檔時輕震',
             trailing: Switch(
               value: preferences.haptics,
               onChanged: (on) => preferences.update(haptics: on),

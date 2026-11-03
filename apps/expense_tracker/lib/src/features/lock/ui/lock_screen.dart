@@ -53,6 +53,10 @@ class _LockScreenState extends State<LockScreen> {
   /// just started; the password form comes after it.
   var _splash = false;
 
+  /// The password form follows the opening at once: it carries the mark
+  /// on from where the opening left it.
+  var _arrive = false;
+
   /// The copy of the backup chosen with the file picker or downloaded
   /// from Google Drive, in the cache.
   String? _picked;
@@ -133,7 +137,10 @@ class _LockScreenState extends State<LockScreen> {
   /// The opening has played: the password form, and the fingerprint
   /// asked for when it is asked first.
   void _opened() {
-    setState(() => _splash = false);
+    setState(() {
+      _splash = false;
+      _arrive = true;
+    });
     if (_biometric && _askFirst) unawaited(_unlockWithDevice());
   }
 
@@ -381,6 +388,7 @@ class _LockScreenState extends State<LockScreen> {
 
   /// Between the password and the recovery code.
   void _toggleRecovery() => setState(() {
+    _arrive = false;
     _recovery = !_recovery;
     _password.clear();
     _problem = null;
@@ -443,6 +451,7 @@ class _LockScreenState extends State<LockScreen> {
         onRecovery: _toggleRecovery,
         onDevice: _biometric ? _unlockWithDevice : null,
         onBack: _back,
+        arrive: _arrive,
       );
     }
     // Back from the backup form returns to the first screen.
