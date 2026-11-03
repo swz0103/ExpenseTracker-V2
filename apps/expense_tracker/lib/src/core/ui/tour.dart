@@ -218,7 +218,8 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
                 // A new stop's card comes up into place.
                 key: ValueKey(settled ? _index : _index - 1),
                 stop: widget.stops[settled ? _index : _index - 1],
-                last: (settled ? _index : _index - 1) == widget.stops.length - 1,
+                last:
+                    (settled ? _index : _index - 1) == widget.stops.length - 1,
                 still: _still,
                 onNext: _next,
               ),
