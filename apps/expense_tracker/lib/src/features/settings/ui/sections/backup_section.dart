@@ -123,7 +123,11 @@ class _BackupSectionState extends State<BackupSection> {
   }
 
   Future<void> _unlinkDrive(DriveSync drive) async {
-    final ok = await confirm(context, '不再把照片備份到 Google 雲端硬碟？已經在雲端的備份會留著。', '停止');
+    final ok = await confirm(
+      context,
+      '不再把照片備份到 Google 雲端硬碟？已經在雲端的備份會留著。',
+      '停止',
+    );
     if (!ok) return;
     await drive.unlink();
     if (mounted) showNote(context, '已停止雲端硬碟備份');

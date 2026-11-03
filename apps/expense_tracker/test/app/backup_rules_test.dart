@@ -12,8 +12,7 @@ void main() {
   const android = 'android/app/src/main';
   const onlyTheCopy = {'file:cloud/'};
 
-  String read(String name) =>
-      File('$android/res/xml/$name').readAsStringSync();
+  String read(String name) => File('$android/res/xml/$name').readAsStringSync();
 
   /// The `<include domain=… path=…>` of [part] as `domain:path`; [part]
   /// excludes nothing, so what is not included stays on the phone.
@@ -59,9 +58,8 @@ void main() {
   });
 
   test('the copy is where the app writes it', () {
-    final startup = File(
-      'lib/src/features/lock/model/startup.dart',
-    ).readAsStringSync();
+    final startup = File('lib/src/features/lock/model/startup.dart')
+        .readAsStringSync();
     expect(startup, contains(r"'${directory.path}/cloud/記帳本.etbk'"));
   });
 }
