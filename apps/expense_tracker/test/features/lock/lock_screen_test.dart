@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/features/lock/model/startup.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
+import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 const password = 'correct horse battery';
@@ -130,5 +132,46 @@ void main() {
     await tester.pump();
     expect(find.text('建立新帳本'), findsOneWidget);
     expect(startup.state, isA<NeedsSetup>());
+  });
+
+  testWidgets('a backup Android brought back is offered on the welcome, '
+      'and asks for its password', (tester) async {
+    final first = await opened(tester);
+    final open = (first.state as Ready).vault;
+    final elsewhere = Directory.systemTemp.createTempSync('lock-screen-new-');
+    addTearDown(() => elsewhere.deleteSync(recursive: true));
+    final phone = Startup(
+      LedgerVault(
+        elsewhere,
+        codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
+      ),
+    );
+    await tester.runAsync(() async {
+      await phone.cloudCopy.parent.create(recursive: true);
+      await LedgerBackup.write(
+        store: open.store,
+        keys: open.keys,
+        file: phone.cloudCopy,
+        backupId: PublicId.generate().value,
+        createdAt: DateTime(2026, 11, 3, 21, 3),
+        files: const {},
+      );
+    });
+    first.lock();
+
+    await show(tester, phone);
+    await settleIn(tester);
+    await settle(
+      tester,
+      () => find.text('還原 11 月 3 日的備份').evaluate().isNotEmpty,
+    );
+    expect(find.text('還原 11 月 3 日的備份'), findsOneWidget);
+    expect(find.text('建立新帳本'), findsOneWidget);
+    expect(find.text('還原備份'), findsNothing);
+
+    await tester.tap(find.text('還原 11 月 3 日的備份'));
+    await tester.pump();
+    expect(find.text('從備份還原'), findsOneWidget);
+    expect(phone.state, isA<NeedsSetup>());
   });
 }

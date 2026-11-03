@@ -7,8 +7,10 @@ import 'lock_parts.dart';
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
 /// name under it, and at the foot 建立新帳本 and, for a new phone,
-/// 已經有帳本？還原備份. No password is asked for here; one can be set in
-/// settings.
+/// 已經有帳本？還原備份. When Android brought this ledger's backup back
+/// ([found]: reinstalled, or a new phone), the foot offers that backup in
+/// a pill instead, with 建立新帳本 under it. No password is asked for
+/// here; one can be set in settings.
 class WelcomeView extends StatefulWidget {
   const WelcomeView({
     super.key,
@@ -17,6 +19,8 @@ class WelcomeView extends StatefulWidget {
     required this.onRestore,
     this.problem,
     this.animate = true,
+    this.found,
+    this.onRestoreFound,
   });
 
   final bool busy;
@@ -28,6 +32,12 @@ class WelcomeView extends StatefulWidget {
 
   /// Plays the opening first; off when coming back from the backup form.
   final bool animate;
+
+  /// The backup Android brought back: when it was taken and its records.
+  final ({DateTime at, int rows})? found;
+
+  /// Restores [found].
+  final VoidCallback? onRestoreFound;
 
   @override
   State<WelcomeView> createState() => _WelcomeViewState();
@@ -178,6 +188,8 @@ class _WelcomeViewState extends State<WelcomeView>
 
   Widget _choices() {
     final busy = widget.busy;
+    final found = widget.found;
+    if (found != null) return _foundChoices(found, busy);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -244,4 +256,129 @@ class _WelcomeViewState extends State<WelcomeView>
       ),
     );
   }
+
+  /// The backup Android brought back, in a pill: tapped, it asks for its
+  /// password or recovery code; 建立新帳本 under it.
+  Widget _foundChoices(({DateTime at, int rows}) found, bool busy) {
+    final at = found.at.toLocal();
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ProblemLine(widget.problem),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: const ShapeDecoration(
+                shape: StadiumBorder(),
+                shadows: [
+                  BoxShadow(
+                    color: Color(0x1A1E2832),
+                    blurRadius: 26,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Hue.white,
+                shape: const StadiumBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: busy ? null : widget.onRestoreFound,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                            color: Hue.accentTrack,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const GlyphIcon(
+                            Glyph.reset,
+                            size: 20,
+                            color: Hue.accent,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '還原 ${at.month} 月 ${at.day} 日的備份',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                '${_grouped(found.rows)} 筆紀錄',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: Hue.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: const BoxDecoration(
+                            color: Hue.accent,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: busy
+                              ? const BusyMark()
+                              : const GlyphIcon(
+                                  Glyph.arrow,
+                                  size: 20,
+                                  color: Hue.onAccent,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('或', style: TextStyle(color: Hue.muted)),
+                TextButton(
+                  onPressed: busy ? null : widget.onStart,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Hue.accent,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(48, 48),
+                  ),
+                  child: const Text(
+                    '建立新帳本',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 1234 as 1,234.
+  static String _grouped(int n) => n.toString().replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
 }

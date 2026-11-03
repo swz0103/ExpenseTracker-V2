@@ -89,11 +89,34 @@ class _LockScreenState extends State<LockScreen> {
   /// When the chosen backup was taken and what it holds.
   String? _about;
 
+  /// The backup Android brought back, offered on the welcome.
+  ({DateTime at, int rows})? _found;
+
+  Future<void> _lookForBroughtBack() async {
+    final header = await widget.startup.broughtBack();
+    if (header == null || !mounted) return;
+    setState(() => _found = (at: header.createdAt, rows: header.rows));
+  }
+
+  /// Asks for the password or recovery code of the backup Android
+  /// brought back.
+  Future<void> _restoreFound() async {
+    final path = widget.startup.cloudCopy.path;
+    setState(() {
+      _restoring = true;
+      _cameBack = true;
+      _problem = null;
+      _file.text = path;
+    });
+    await _describe(path);
+  }
+
   @override
   void initState() {
     super.initState();
     // Asked for in settings: restore a backup in place of this ledger.
     _restoring = widget.startup.takeRestore();
+    if (_welcome) unawaited(_lookForBroughtBack());
     if (_restoring || _welcome) return;
     // The opening plays once per start, with a password or without.
     final opening = widget.startup.takeOpening();
@@ -401,6 +424,8 @@ class _LockScreenState extends State<LockScreen> {
         busy: _busy,
         problem: _problem,
         animate: !_cameBack,
+        found: _found,
+        onRestoreFound: () => unawaited(_restoreFound()),
         onStart: _start,
         onRestore: () => setState(() {
           _restoring = true;

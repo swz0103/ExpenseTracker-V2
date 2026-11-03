@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:core/foundation_values.dart';
-import 'package:storage/storage.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
@@ -135,10 +134,10 @@ final class VaultKeeper implements Keeper {
 
   Directory get _folder => Directory('${_startup.directory.path}/backups');
 
-  @override
+  /// Where the weekly backups are kept.
   String get backupFolder => _folder.path;
 
-  @override
+  /// Writes an encrypted backup into [backupFolder] and returns its path.
   Future<String> backUp({bool withPhotos = false}) async {
     final file = await _write(_folder, withPhotos: withPhotos);
     return file.path;
@@ -202,60 +201,31 @@ final class VaultKeeper implements Keeper {
     return path;
   }
 
-  @override
-  Future<BackupCheck> checkNewest() async {
-    final candidates = [
-      ..._backups(),
-      ..._etbk(Directory('${_startup.directory.path}/outbox')),
-    ];
-    File? newest;
-    DateTime? newestAt;
-    for (final file in candidates) {
+  /// Keeps [Startup.cloudCopy], the copy Android's own backup takes to
+  /// the person's Google account, as the ledger now stands, without its
+  /// photos (they go to Drive or a folder). Written again only when the
+  /// ledger changed since. True when it was written.
+  Future<bool> keepCloudCopy() async {
+    final target = _startup.cloudCopy;
+    if (target.existsSync()) {
       try {
-        final at = (await LedgerBackup.readHeader(file)).createdAt;
-        if (newestAt == null || at.isAfter(newestAt)) {
-          newest = file;
-          newestAt = at;
-        }
+        final header = await LedgerBackup.readHeader(target);
+        if (header.revision == _vault.store.revision) return false;
       } on Object {
-        // Unreadable: a newer good one is still checked; none is said below.
+        // Unreadable: written again.
       }
     }
-    newest ??= candidates.isEmpty ? File(await backUp()) : candidates.first;
-    // The scratch copy goes where files wait to be handed over: kept out
-    // of the cloud backup and cleared at each start.
-    await _exports.create(recursive: true);
-    final scratch = File(
-      '${_exports.path}/check-${PublicId.generate().value}.db',
-    );
-    RowStore? store;
-    try {
-      store = RowStore.open(scratch, StorageKey.random());
-      var photos = 0;
-      final header = await LedgerBackup.restore(
-        file: newest,
-        keys: _vault.keys,
-        into: store,
-        accept: _startup.check,
-        onFile: (name, bytes) async => photos++,
-      );
-      return (at: header.createdAt, rows: header.rows, photos: photos);
-    } finally {
-      store?.close();
-      for (final end in ['', '-wal', '-shm', '-journal']) {
-        final file = File('${scratch.path}$end');
-        if (file.existsSync()) await file.delete();
-      }
-    }
+    final file = await _write(target.parent, withPhotos: false);
+    // Renamed over the last one: Android never takes half a file.
+    await file.rename(target.path);
+    return true;
   }
 
-  /// The backups in [folder], if any.
-  static List<File> _etbk(Directory folder) => !folder.existsSync()
-      ? const []
-      : [
-          for (final entity in folder.listSync())
-            if (entity is File && entity.path.endsWith('.etbk')) entity,
-        ];
+  @override
+  DateTime? get cloudCopyAt {
+    final copy = _startup.cloudCopy;
+    return copy.existsSync() ? copy.lastModifiedSync() : null;
+  }
 
   @override
   bool get hasPassword => !_startup.passwordless;
@@ -283,7 +253,7 @@ final class VaultKeeper implements Keeper {
   @override
   bool get recoveryGiven => _given.existsSync();
 
-  File get _given => File('${_startup.directory.path}/recovery-given');
+  File get _given => _startup.recoveryGiven;
 
   /// Locks once queued changes are kept, so nothing writes to a closed
   /// store.

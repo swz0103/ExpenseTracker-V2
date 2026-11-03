@@ -96,7 +96,10 @@ void main() {
     await startup.setUpWithoutPassword();
     expect(startup.state, isA<Ready>());
     expect(startup.passwordless, isTrue);
+    // Shown once: the copy Android takes to Google opens with it.
+    expect(startup.takeRecoveryCode(), isNotNull);
     expect(startup.takeRecoveryCode(), isNull);
+    expect(startup.recoveryGiven.existsSync(), isTrue);
 
     startup.lock();
     final again = Startup(vault);
@@ -104,6 +107,21 @@ void main() {
     expect(again.passwordless, isTrue);
     await again.openQuietly();
     expect(again.state, isA<Ready>());
+  });
+
+  test('a new ledger sets aside the copy Android brought back', () async {
+    final startup = Startup(vault);
+    final copy = startup.cloudCopy;
+    await copy.parent.create(recursive: true);
+    await copy.writeAsString('not a backup');
+    expect(await startup.broughtBack(), isNull, reason: 'unreadable');
+    await startup.setUpWithoutPassword();
+    expect(copy.existsSync(), isFalse);
+    expect(
+      startup.beforeRestore.listSync().whereType<File>().single.path,
+      contains('brought-back-'),
+    );
+    startup.lock();
   });
 }
 
