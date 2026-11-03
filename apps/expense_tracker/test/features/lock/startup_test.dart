@@ -123,6 +123,31 @@ void main() {
     );
     startup.lock();
   });
+
+  test('a ledger without a password that never showed its code shows a '
+      'new one once, as it opens', () async {
+    final startup = Startup(vault);
+    await startup.setUpWithoutPassword();
+    startup
+      ..takeRecoveryCode()
+      ..lock();
+    // As a ledger from before 0.5.1: no code was shown.
+    startup.recoveryGiven.deleteSync();
+    final again = Startup(vault);
+    await again.openQuietly();
+    final code = again.takeRecoveryCode();
+    expect(code, isNotNull);
+    again.lock();
+    final third = Startup(vault);
+    await third.openQuietly();
+    expect(third.takeRecoveryCode(), isNull, reason: 'once');
+    third.lock();
+    // The new code opens it.
+    final fourth = Startup(vault);
+    await fourth.unlockWithRecovery(code!);
+    expect(fourth.state, isA<Ready>());
+    fourth.lock();
+  });
 }
 
 /// A device key whose fingerprint prompt is always cancelled.

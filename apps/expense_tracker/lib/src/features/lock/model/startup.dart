@@ -174,12 +174,23 @@ final class Startup extends ChangeNotifier {
     final secret = _newSecret();
     await open.updateKeys(await open.keys.changePassword(secret));
     await _quickKey.writeAsString(secret, flush: true);
+    // The code was just typed: the person has it.
+    await recoveryGiven.writeAsString('', flush: true);
     return open;
   }
 
-  /// Opens a ledger set up without a password.
+  /// Opens a ledger set up without a password. One whose recovery code
+  /// was never shown gets a new one, shown once ([takeRecoveryCode]): the
+  /// copy Android takes to the person's Google account opens with it.
   Future<void> openQuietly() async {
-    _ready(await _vault.unlockWithPassword(await quickSecret()));
+    final open = await _vault.unlockWithPassword(await quickSecret());
+    if (!recoveryGiven.existsSync()) {
+      final rotated = await open.keys.rotateRecovery();
+      await open.updateKeys(rotated.unlocked);
+      await recoveryGiven.writeAsString('', flush: true);
+      _recovery = rotated.recoveryCode;
+    }
+    _ready(open);
   }
 
   /// The key a ledger without a password opens with.

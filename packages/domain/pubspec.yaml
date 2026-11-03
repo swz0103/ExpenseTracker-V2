@@ -8,4 +8,4 @@ dependencies:
   core:
     path: ../core
 dev_dependencies:
-  test: 1.32.0
+  test: 1.33.0
