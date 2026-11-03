@@ -1,16 +1,6 @@
-/// What opening a backup through found: when it was taken, its records
-/// and receipt photos.
-typedef BackupCheck = ({DateTime at, int rows, int photos});
-
 /// The ledger's keys and backups, for the settings screen. Only the
 /// encrypted ledger has one; the preview has none.
 abstract interface class Keeper {
-  /// Where backups are written.
-  String get backupFolder;
-
-  /// Writes an encrypted backup of the whole ledger and returns its path.
-  Future<String> backUp();
-
   /// Writes a backup and lets the person keep a copy outside the app, such
   /// as in Downloads or on Google Drive. False when they cancel.
   Future<bool> exportBackup();
@@ -19,11 +9,9 @@ abstract interface class Keeper {
   /// [exportBackup] does. False when the person cancels.
   Future<bool> exportFile(String name, String text);
 
-  /// Opens the newest backup kept on this phone the way a restore does,
-  /// into a scratch copy that is thrown away, so a damaged backup is
-  /// found before it is needed; one is written first when there is none.
-  /// Throws when it does not open.
-  Future<BackupCheck> checkNewest();
+  /// When the copy Android's own backup takes to the person's Google
+  /// account was last written; null before the first.
+  DateTime? get cloudCopyAt;
 
   /// Saves [bytes] as a file named [name] outside the app, as
   /// [exportFile] does. False when the person cancels.

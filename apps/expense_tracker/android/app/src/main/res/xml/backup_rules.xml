@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and earlier: the same one file as data_extraction_rules.xml,
+     the encrypted copy in files/cloud/. -->
+<full-backup-content>
+    <include domain="file" path="cloud/"/>
+</full-backup-content>

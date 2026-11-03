@@ -1,22 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Nothing of the app goes with Android's own backup: not to Google's
-     cloud (allowBackup is off as well, for Android 11 and earlier), and
-     not in the move to a new phone. Reinstalled, or on a new phone, the
-     app starts on its welcome, and a ledger comes back only through
-     已經有帳本？還原備份, from a backup file or Google Drive. -->
+<!-- Android's own backup takes one file of the app: files/cloud/, the
+     ledger without its photos, encrypted with its password or recovery
+     code (Startup.cloudCopy). It goes to the person's Google account and
+     to a new phone; nothing else does, not the ledger itself, its key or
+     the settings. Brought back, the welcome offers it; the ledger is
+     never replaced unasked. Android 11 and earlier: backup_rules.xml. -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="root" path="."/>
-        <exclude domain="file" path="."/>
-        <exclude domain="database" path="."/>
-        <exclude domain="sharedpref" path="."/>
-        <exclude domain="external" path="."/>
+        <include domain="file" path="cloud/"/>
     </cloud-backup>
     <device-transfer>
-        <exclude domain="root" path="."/>
-        <exclude domain="file" path="."/>
-        <exclude domain="database" path="."/>
-        <exclude domain="sharedpref" path="."/>
-        <exclude domain="external" path="."/>
+        <include domain="file" path="cloud/"/>
     </device-transfer>
 </data-extraction-rules>

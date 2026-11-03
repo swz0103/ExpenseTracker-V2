@@ -353,15 +353,22 @@ class _OpenedLedgerState extends State<OpenedLedger>
     showNote(context, '有新版本（${newer.label}），可以到「設定 › 關於」更新');
   }
 
-  /// Leaves the backup for the background job when the app is left with
-  /// changes not in one yet, so it reaches the phone's folder and Drive
-  /// without the app being opened again.
+  /// When the app is left with changes not in a backup yet, keeps the
+  /// copy Android takes to the person's Google account by itself, and
+  /// leaves the backup for the background job, so it reaches the phone's
+  /// folder and Drive without the app being opened again.
   Future<void> _prepareOutbox() async {
-    final outbox = _outbox;
     final ledger = _loaded;
-    if (outbox == null || ledger == null) return;
+    if (ledger == null) return;
     try {
       await ledger.settled;
+      if (Platform.isAndroid) await _keeper.keepCloudCopy();
+    } on Object catch (error) {
+      Perf.instance.problem('Google 備份', error);
+    }
+    final outbox = _outbox;
+    if (outbox == null) return;
+    try {
       await outbox.prepare();
     } on Object catch (error) {
       Perf.instance.problem('背景備份', error);
@@ -413,7 +420,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final recovered = widget.startup.takeRecoveryNotice();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (code != null) unawaited(showRecoveryCode(context, code));
+      if (code != null) {
+        unawaited(
+          widget.startup.passwordless
+              ? showRecoveryCode(
+                  context,
+                  code,
+                  why:
+                      '帳本會每天自動備份到你的 Google 帳戶。換手機還原時要輸入這組救援碼，'
+                      '請抄下來放在安全的地方，它只會顯示這一次。',
+                )
+              : showRecoveryCode(context, code),
+        );
+      }
       if (recovered) {
         unawaited(
           showDialog<void>(

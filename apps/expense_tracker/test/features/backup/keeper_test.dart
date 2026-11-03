@@ -192,4 +192,40 @@ void main() {
     expect(startup.state, isA<Ready>());
     startup.lock();
   });
+
+  test('the copy for Android\'s backup is written once per change, '
+      'without the photos, and restores', () async {
+    final startup = startupIn('cloud');
+    await startup.setUp(password);
+    final vault = vaultOf(startup);
+    final keeper = VaultKeeper(startup, vault);
+    final journal = TableJournal(vault.store, clock: clock);
+    final ledger = await journal.load();
+    await ledger.settled;
+    expect(keeper.cloudCopyAt, isNull);
+    expect(await keeper.keepCloudCopy(), isTrue);
+    expect(keeper.cloudCopyAt, isNotNull);
+    expect(await keeper.keepCloudCopy(), isFalse, reason: 'nothing changed');
+    final receipts = Directory('${startup.directory.path}/receipts')
+      ..createSync();
+    File('${receipts.path}/photo.bin').writeAsBytesSync([1, 2, 3]);
+    ledger.addAccount(
+      Account(ledger.newId(), '錢包', AccountKind.cash, 0, icon: 'safe'),
+    );
+    await ledger.settled;
+    expect(await keeper.keepCloudCopy(), isTrue);
+    expect(startup.cloudCopy.parent.listSync(), hasLength(1));
+    final copy = startup.cloudCopy.path;
+    await keeper.lock();
+
+    final phone = startupIn('new-phone');
+    await phone.restore(copy, password);
+    expect(phone.state, isA<Ready>());
+    expect(
+      Directory('${phone.directory.path}/receipts').existsSync(),
+      isFalse,
+      reason: 'no photos in the copy',
+    );
+    phone.lock();
+  });
 }

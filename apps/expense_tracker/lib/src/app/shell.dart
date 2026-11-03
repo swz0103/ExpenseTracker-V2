@@ -90,8 +90,8 @@ class _AppShellState extends State<AppShell> {
         round: true,
         pad: 8,
         glyph: Glyph.safe,
-        title: '記得打開雲端備份',
-        detail: '在「更多」裡，換手機才拿得回帳本',
+        title: '帳本每天自動備份',
+        detail: '照片要另外開雲端硬碟備份',
       ),
     ],
   );

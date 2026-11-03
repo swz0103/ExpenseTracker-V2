@@ -9,12 +9,6 @@ final class _Keeper implements Keeper {
   var locked = false;
 
   @override
-  String get backupFolder => '';
-
-  @override
-  Future<String> backUp() async => '';
-
-  @override
   Future<bool> exportBackup() async => true;
 
   @override
@@ -27,8 +21,7 @@ final class _Keeper implements Keeper {
   Future<bool> exportBytes(String name, List<int> bytes) async => true;
 
   @override
-  Future<BackupCheck> checkNewest() async =>
-      (at: DateTime.utc(2026, 10, 1), rows: 0, photos: 0);
+  DateTime? get cloudCopyAt => null;
 
   @override
   bool get hasPassword => password.isNotEmpty;

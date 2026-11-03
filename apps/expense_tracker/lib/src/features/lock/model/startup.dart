@@ -91,14 +91,53 @@ final class Startup extends ChangeNotifier {
   bool get passwordless => _quickKey.existsSync();
 
   /// Creates the ledger without asking for anything: a random key kept
-  /// on this device opens it, and a password can be set later.
+  /// on this device opens it, and a password can be set later. Its
+  /// recovery code is shown once ([takeRecoveryCode]): the copy Android
+  /// takes to the person's Google account opens with it on a new phone.
   Future<void> setUpWithoutPassword() async {
     await directory.create(recursive: true);
+    await _setAsideCloudCopy();
     final secret = _newSecret();
     await _quickKey.writeAsString(secret, flush: true);
-    final (open, _) = await _vault.create(secret);
+    final (open, recovery) = await _vault.create(secret);
+    _recovery = recovery;
+    await recoveryGiven.writeAsString('', flush: true);
     _fresh = true;
     _ready(open);
+  }
+
+  /// Kept once this ledger's recovery code has been shown, so a backup
+  /// leaving the phone does not make a new one (vault_keeper.dart).
+  File get recoveryGiven => File('${directory.path}/recovery-given');
+
+  /// The copy of the ledger, without its photos, that Android's own
+  /// backup takes to the person's Google account and brings back when the
+  /// app is installed again or on a new phone (res/xml): the only file
+  /// it takes.
+  File get cloudCopy => File('${directory.path}/cloud/記帳本.etbk');
+
+  /// The copy Android brought back with no ledger here yet: when it was
+  /// taken and how many records it holds. Null when there is none.
+  Future<BackupHeader?> broughtBack() async {
+    if (_state is! NeedsSetup || !cloudCopy.existsSync()) return null;
+    try {
+      return await LedgerBackup.readHeader(cloudCopy);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// A new ledger instead of the one brought back: that copy moves where
+  /// the ledgers kept before a restore are, so the new ledger's copy does
+  /// not replace it unseen.
+  Future<void> _setAsideCloudCopy() async {
+    final copy = cloudCopy;
+    if (!copy.existsSync()) return;
+    await beforeRestore.create(recursive: true);
+    await copy.rename(
+      '${beforeRestore.path}/brought-back-'
+      '${DateTime.now().millisecondsSinceEpoch}.etbk',
+    );
   }
 
   var _fresh = false;
@@ -154,6 +193,7 @@ final class Startup extends ChangeNotifier {
   /// Creates the ledger. Returns the recovery code, to show once; it is
   /// also kept for [takeRecoveryCode].
   Future<String> setUp(String password) async {
+    await _setAsideCloudCopy();
     final (open, recovery) = await _vault.create(password);
     await _enrolDevice(open);
     _recovery = recovery;

@@ -56,12 +56,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final preferences = services.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([
-        ledger,
-        ?preferences,
-        ?services.drive,
-        ?services.phone,
-      ]),
+      listenable: Listenable.merge([ledger, ?preferences]),
       builder: (context, _) {
         final part = this.part;
         return ListView(
@@ -105,21 +100,9 @@ class SettingsPage extends StatelessWidget {
   String _detail(SettingsPart part) {
     switch (part) {
       case SettingsPart.backup:
-        final phone = services.phone;
-        if (phone != null && phone.on) {
-          final at = phone.backedUp?.toLocal();
-          return at == null ? '手機 · 還沒有備份' : '手機 · 上次 ${at.month}/${at.day}';
-        }
-        final drive = services.drive;
-        if (drive != null && drive.linked) {
-          final at = drive.backedUp?.toLocal();
-          return at == null
-              ? '雲端硬碟 · 還沒有備份'
-              : '雲端硬碟 · 上次 ${at.month}/${at.day}';
-        }
-        return '備份檔、雲端硬碟、還原';
+        return '每天自動備份到 Google';
       case SettingsPart.exchange:
-        return 'CSV、電子發票、備份';
+        return 'CSV、電子發票';
       case SettingsPart.reminders:
         final preferences = services.notifier?.preferences;
         if (preferences == null) return '日曆';
