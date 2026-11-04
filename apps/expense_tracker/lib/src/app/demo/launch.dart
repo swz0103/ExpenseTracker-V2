@@ -118,12 +118,26 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
         ),
       ),
     };
+    // On a phone's browser there is no gesture bar of the system's: the
+    // app keeps room at its foot for the one drawn over it.
+    final media = MediaQuery.of(context);
+    final foot = media.padding.bottom;
     return Stack(
       children: [
         Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: KeyedSubtree(key: ValueKey(_stage), child: screen),
+          child: MediaQuery(
+            data: _stage == _Stage.home || foot >= _HomeHandle.height
+                ? media
+                : media.copyWith(
+                    padding: media.padding.copyWith(bottom: _HomeHandle.height),
+                    viewPadding: media.viewPadding.copyWith(
+                      bottom: _HomeHandle.height,
+                    ),
+                  ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: KeyedSubtree(key: ValueKey(_stage), child: screen),
+            ),
           ),
         ),
         if (_stage != _Stage.home)
@@ -178,6 +192,9 @@ class _HomeHandle extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  /// The least room it takes at the foot of the screen.
+  static const height = 14.0;
+
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
@@ -188,7 +205,7 @@ class _HomeHandle extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
-          height: inset > 14 ? inset : 14,
+          height: inset > height ? inset : height,
           child: Center(
             child: Container(
               width: 120,

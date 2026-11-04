@@ -9,7 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Every place a person reaches, checked against Android's accessibility
 /// guidelines: each tap target at least 48 dp and named for a screen
-/// reader; and every page still laid out with the phone's text at 150%.
+/// reader; every page still laid out with the phone's text at 150%; and
+/// no words drawn in Flutter's warning style, the yellow double underline
+/// of text with no Material above it.
+///
+/// [unstyled] is used by test/core/tour_test.dart too.
 void main() {
   setUpAll(() async {
     for (final (family, files) in const [
@@ -71,6 +75,9 @@ void main() {
     final semantics = tester.ensureSemantics();
     final faults = <String>[];
     Future<void> check(String where) async {
+      for (final words in unstyled(tester)) {
+        faults.add('$where: 「$words」 has no text style');
+      }
       for (final guideline in [
         androidTapTargetGuideline,
         labeledTapTargetGuideline,
@@ -106,3 +113,12 @@ void main() {
     await tester.pumpAndSettle();
   });
 }
+
+/// The words on screen drawn in the style Flutter gives text with no
+/// Material above it: a yellow double underline.
+List<String> unstyled(WidgetTester tester) => [
+  for (final text in tester.widgetList<RichText>(find.byType(RichText)))
+    if (text.text.style?.decorationStyle == TextDecorationStyle.double &&
+        text.text.style?.decorationColor == const Color(0xFFFFFF00))
+      text.text.toPlainText(),
+];

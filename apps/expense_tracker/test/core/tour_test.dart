@@ -3,6 +3,8 @@ import 'package:expense_tracker/src/core/ui/tour.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../app/accessibility_test.dart' show unstyled;
+
 void main() {
   final top = GlobalKey();
   final bottom = GlobalKey();
@@ -94,5 +96,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(done, 0);
     expect(find.text('第一站'), findsOneWidget);
+  });
+
+  testWidgets('the card keeps the text style with no Material under it', (
+    tester,
+  ) async {
+    // As in the shell: the tour lies over the whole app, above the
+    // page's Scaffold, where text would take Flutter's yellow underline.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            Positioned(
+              left: 20,
+              top: 40,
+              child: SizedBox(key: top, width: 60, height: 40),
+            ),
+            Positioned.fill(
+              child: Tour(
+                onDone: () {},
+                stops: [
+                  TourStop(
+                    target: top,
+                    glyph: Glyph.add,
+                    title: '第一站',
+                    detail: '說明',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('第一站'), findsOneWidget);
+    expect(unstyled(tester), isEmpty);
   });
 }
