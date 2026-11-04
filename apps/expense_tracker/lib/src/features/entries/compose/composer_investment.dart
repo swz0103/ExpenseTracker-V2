@@ -112,7 +112,7 @@ extension _InvestmentFields on _ComposerState {
         ),
       ],
       if (_f.trade == EntryType.dividend) ...[
-        Expanded(child: _hero()),
+        _hero(),
         if (!_f.shareChange && !_viewing)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -188,31 +188,50 @@ extension _InvestmentFields on _ComposerState {
         _accountPick(_f.trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
         _datePick(),
       ),
-      if (_f.trading && sell && !_viewing)
+      // How a sale's cost is reckoned, what it made and when it settles:
+      // one line under the accounts.
+      if (_f.trading && ((sell && !_viewing) || _f.amount > 0))
         Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Segments(
-            labels: const ['先進先出', '平均成本'],
-            selected: _f.average ? 1 : 0,
-            onChanged: (i) => _set(() => _f.average = i == 1),
-          ),
-        ),
-      if (_f.trading && (cost != null || _f.amount > 0))
-        FormBlock(
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Row(
             children: [
-              if (cost != null && _f.amount > 0)
-                _Line(
-                  '已實現損益',
-                  signed(settles - cost),
-                  color: settles < cost ? Hue.negative : Hue.positive,
+              if (sell && !_viewing)
+                _MiniSegments(
+                  labels: const ['先進先出', '平均成本'],
+                  selected: _f.average ? 1 : 0,
+                  onChanged: (i) => _set(() => _f.average = i == 1),
                 ),
-              _Line('交割日', '${settled.month}/${settled.day}'),
+              const Spacer(),
+              if (_f.amount > 0)
+                Flexible(
+                  flex: 3,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        if (cost != null) ...[
+                          const TextSpan(text: '已實現 '),
+                          TextSpan(
+                            text: signed(settles - cost),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: settles < cost
+                                  ? Hue.negative
+                                  : Hue.positive,
+                            ),
+                          ),
+                          const TextSpan(text: ' · '),
+                        ],
+                        TextSpan(text: '交割 ${settled.month}/${settled.day}'),
+                      ],
+                    ),
+                    textAlign: TextAlign.end,
+                    style: mutedSmall,
+                  ),
+                ),
             ],
           ),
         ),
       _noteRow(),
-      if (_f.trading) const Spacer(),
     ];
   }
 

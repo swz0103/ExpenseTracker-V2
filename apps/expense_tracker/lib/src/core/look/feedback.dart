@@ -42,7 +42,7 @@ void showNote(
 /// can grow long). Left off for one not yet checked against that.
 ///
 /// [height] instead makes the sheet that share of the screen however
-/// much it holds, as [sheetHeight] for 記一筆 and its pickers: one tab or
+/// much it holds, as [sheetHeight] for the pickers 記一筆 opens: one
 /// picker after another, the sheet stays put. Its content fills it, and
 /// scrolls inside it when longer.
 Future<T?> showSheet<T>(
@@ -88,6 +88,6 @@ Future<T?> showSheet<T>(
   );
 }
 
-/// The share of the screen 記一筆 and the pickers it opens take, all
-/// alike so the sheet does not jump from one to the next.
+/// The share of the screen the pickers 記一筆 opens take, all alike so
+/// the sheet does not jump from one to the next.
 const sheetHeight = 0.62;

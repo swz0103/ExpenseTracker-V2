@@ -1,8 +1,7 @@
 part of 'composer.dart';
 
 /// The form's fields, one builder each, by kind of entry. Each kind's
-/// list has the amount (or, for a trade, the end of the list) as its one
-/// stretch that takes the sheet's spare height.
+/// list starts at the amount (a trade's at what is traded).
 extension _Fields on _ComposerState {
   /// Two cards side by side, such as the account and the day.
   Widget _pair(Widget left, Widget right) => Padding(
@@ -131,7 +130,7 @@ extension _Fields on _ComposerState {
   List<Widget> _fields() {
     if (_f.refunded != null) {
       return [
-        Expanded(child: _hero()),
+        _hero(),
         _pair(_accountPick('退回到'), _datePick()),
         _noteRow(),
       ];
@@ -141,9 +140,7 @@ extension _Fields on _ComposerState {
         final expense = _f.mode == ComposeMode.expense;
         final parts = _f.parts;
         return [
-          Expanded(
-            child: _hero(under: parts == null ? _usual() : _splitState()),
-          ),
+          _hero(under: parts == null ? _usual() : _splitState()),
           if (parts != null)
             _AllocationBar(
               parts: [
@@ -173,7 +170,7 @@ extension _Fields on _ComposerState {
         ];
       case ComposeMode.transfer:
         return [
-          Expanded(child: _hero(under: _usualTransfers())),
+          _hero(under: _usualTransfers()),
           _ends(),
           if (_f.crossing) _receivedTile(),
           _pair(
@@ -292,50 +289,60 @@ extension _Fields on _ComposerState {
     );
   }
 
-  /// 常用: spending recorded alike again and again, each a tap away from
-  /// a filled form, and 掃發票 to fill it from a paper e-invoice; on a new,
-  /// still empty expense only.
+  /// 常用: spending or income recorded alike again and again, each a tap
+  /// away from a filled form, and, for spending, 掃發票 to fill it from a
+  /// paper e-invoice. On a new entry only; it stays once an amount is
+  /// typed, so the form keeps its shape, and a tap still fills it all.
   Widget? _usual() {
-    if (_f.mode != ComposeMode.expense ||
+    final income = _f.mode == ComposeMode.income;
+    if ((_f.mode != ComposeMode.expense && !income) ||
         _viewing ||
         widget.entry != null ||
-        widget.draft != null ||
-        _f.amount != 0 ||
-        _f.merchant.isNotEmpty) {
+        widget.draft != null) {
       return null;
     }
-    final usual = _ledger.usual();
-    final scan = widget.scan != null;
+    final usual = _ledger.usual(income: income);
+    final scan = widget.scan != null && !income;
     if (usual.isEmpty && !scan) return null;
-    return _Bubbles([
-      if (scan) _Bubble('掃發票', _scanInvoice, ink: Hue.accent),
-      for (final e in usual)
-        _Bubble(
-          '${e.merchant.isEmpty ? e.category : e.merchant} '
-          '${groupDigits(e.amount)}',
-          () => _set(() => _f.startFrom(e)),
+    return _UsualRow([
+      if (scan)
+        _UsualChip(
+          icon: Glyph.scan,
+          color: Hue.accent,
+          name: '掃發票',
+          onTap: _scanInvoice,
+        ),
+      for (final (e, category) in [
+        for (final e in usual) (e, _ledger.category(e.category)),
+      ])
+        _UsualChip(
+          icon: iconFor(category.icon),
+          color: category.color,
+          name: e.merchant.isEmpty ? e.category : e.merchant,
+          amount: groupDigits(e.amount),
+          onTap: () => _set(() => _f.startFrom(e)),
         ),
     ]);
   }
 
   /// 常用轉帳: the same two accounts and amount moved again and again, a
-  /// tap away; on a new, still empty transfer only.
+  /// tap away; on a new transfer only, and kept once an amount is typed.
   Widget? _usualTransfers() {
-    if (_viewing ||
-        widget.entry != null ||
-        widget.draft != null ||
-        _f.amount != 0) {
+    if (_viewing || widget.entry != null || widget.draft != null) {
       return null;
     }
     final usual = _ledger.usualTransfers();
     if (usual.isEmpty) return null;
-    return _Bubbles([
+    return _UsualRow([
       for (final e in usual)
-        _Bubble(
-          '${_ledger.account(e.account).name}→'
-          '${_ledger.account(e.to ?? e.account).name} '
-          '${groupDigits(e.amount)}',
-          () => _set(() => _f.startTransferFrom(e)),
+        _UsualChip(
+          icon: Glyph.transfer,
+          color: Hue.transfer,
+          name:
+              '${_ledger.account(e.account).name}→'
+              '${_ledger.account(e.to ?? e.account).name}',
+          amount: groupDigits(e.amount),
+          onTap: () => _set(() => _f.startTransferFrom(e)),
         ),
     ]);
   }

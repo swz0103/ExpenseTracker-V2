@@ -124,12 +124,17 @@ extension LedgerReports on Ledger {
   /// (the same category, merchant and account), the most often first, at
   /// most [most]: each as its latest entry, which 記一筆 offers to start
   /// from with one tap.
-  List<Entry> usual({int most = 6}) => _remember(('usual', today, most), () {
+  ///
+  /// With [income], income instead, refunds left out.
+  List<Entry> usual({int most = 6, bool income = false}) =>
+      _remember(('usual', today, most, income), () {
     final since = today.subtract(const Duration(days: 90));
     final counts = <(String, String, String), int>{};
     final latest = <(String, String, String), Entry>{};
+    final kind = income ? EntryType.income : EntryType.expense;
     for (final e in _entries) {
-      if (e.type != EntryType.expense ||
+      if (e.type != kind ||
+          e.refundOf != null ||
           e.date.isBefore(since) ||
           e.parts.isNotEmpty ||
           e.installments > 1 ||

@@ -172,4 +172,22 @@ void main() {
       ..startTransferFrom(usual.single);
     expect((form.account, form.to, form.amount), ('bank', 'cash', 3000));
   });
+
+  test('income recorded alike three times lately is offered again', () {
+    final ledger = book();
+    for (final (i, days) in const [5, 35, 65].indexed) {
+      ledger.add(
+        Entry(
+          id: 'pay$i',
+          date: day.subtract(Duration(days: days)),
+          type: EntryType.income,
+          amount: 52000,
+          account: 'bank',
+          category: '薪資',
+        ),
+      );
+    }
+    expect(ledger.usual(), isEmpty);
+    expect([for (final e in ledger.usual(income: true)) e.id], ['pay0']);
+  });
 }

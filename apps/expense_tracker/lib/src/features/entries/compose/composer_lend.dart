@@ -9,7 +9,7 @@ extension _LendFields on _ComposerState {
     final person = _f.to.isEmpty ? null : _ledger.account(_f.to);
     final owed = person == null ? 0 : _ledger.balance(person.id);
     return [
-      Expanded(child: _hero()),
+      _hero(),
       _categories(!_f.back),
       TileRow([
         Tile(
