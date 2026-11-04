@@ -81,7 +81,7 @@ extension _LendFields on _ComposerState {
       '代墊給誰',
       (done) => _PeopleChoices(
         people: _f.people,
-        selected: [for (final (p, _) in _f.lent ?? const []) p],
+        selected: [for (final (p, _) in _f.lent ?? const <(String, int)>[]) p],
         color: _color,
         onDone: done,
         onAdd: _addPerson,
