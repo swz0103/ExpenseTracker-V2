@@ -19,7 +19,6 @@ extension _Fields on _ComposerState {
     final account = _ledger.account(_f.account);
     return _Pick(
       icon: accountIcon(account),
-      iconColor: accountColor(account.kind),
       label: label,
       value: account.name,
       onTap: () async {
@@ -66,22 +65,18 @@ extension _Fields on _ComposerState {
     );
   }
 
-  Widget _noteField() {
+  Widget _noteField({int lines = 1, String hint = '寫點備註…'}) {
     if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: TextField(
         controller: _note,
-        minLines: 1,
-        maxLines: 3,
+        minLines: lines,
+        maxLines: math.max(lines, 3),
         decoration: InputDecoration(
-          hintText: '備註（選填）',
-          prefixIcon: const Padding(
-            padding: EdgeInsets.all(12),
-            child: GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
-          ),
+          hintText: hint,
           filled: true,
-          fillColor: Hue.tile,
+          fillColor: Hue.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -104,7 +99,7 @@ extension _Fields on _ComposerState {
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
+              GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -112,13 +107,13 @@ extension _Fields on _ComposerState {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Hue.accent,
+                    color: Hue.muted,
                   ),
                 ),
               ),
               RotatedBox(
                 quarterTurns: 1,
-                child: GlyphIcon(Glyph.next, size: 16, color: Hue.accent),
+                child: GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
               ),
             ],
           ),
@@ -230,7 +225,7 @@ extension _Fields on _ComposerState {
                   },
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               Expanded(
                 child: _TransferEnd(
                   account: to,
@@ -287,33 +282,31 @@ extension _Fields on _ComposerState {
 
   /// 常用: spending or income recorded alike again and again, each a tap
   /// away from a filled form, and, for spending, 掃發票 to fill it from a
-  /// paper e-invoice. On a new entry only; it stays once an amount is
-  /// typed, so the form keeps its shape, and a tap still fills it all.
+  /// paper e-invoice; first of all 代墊 or 對方還錢, a switch to money paid
+  /// for someone or paid back. On a new entry, 常用 stays once an amount
+  /// is typed, so the form keeps its shape, and a tap still fills it all.
   Widget? _usual() {
     final income = _f.mode == ComposeMode.income;
-    if ((_f.mode != ComposeMode.expense && !income) ||
-        _viewing ||
-        widget.entry != null ||
-        widget.draft != null) {
-      return null;
-    }
-    final usual = _ledger.usual(income: income);
-    final scan = widget.scan != null && !income;
-    if (usual.isEmpty && !scan) return null;
-    return _UsualRow([
-      if (scan)
-        _UsualChip(
-          icon: Glyph.scan,
-          color: Hue.accent,
-          name: '掃發票',
-          onTap: _scanInvoice,
-        ),
+    if (_f.mode != ComposeMode.expense && !income) return null;
+    final fresh = !_viewing && widget.entry == null && widget.draft == null;
+    final lend = !_viewing && !_f.foreign
+        ? _UsualChip(
+            icon: Glyph.heart,
+            name: income ? '對方還錢' : '代墊',
+            strong: true,
+            onTap: () => _lend(back: income),
+          )
+        : null;
+    final usual = fresh ? _ledger.usual(income: income) : const <Entry>[];
+    final scan = fresh && widget.scan != null && !income;
+    if (usual.isEmpty && !scan && lend == null) return null;
+    return _UsualRow(lead: lend, [
+      if (scan) _UsualChip(icon: Glyph.scan, name: '掃發票', onTap: _scanInvoice),
       for (final (e, category) in [
         for (final e in usual) (e, _ledger.category(e.category)),
       ])
         _UsualChip(
           icon: iconFor(category.icon),
-          color: category.color,
           name: e.merchant.isEmpty ? e.category : e.merchant,
           amount: groupDigits(e.amount),
           onTap: () => _set(() => _f.startFrom(e)),
@@ -333,7 +326,6 @@ extension _Fields on _ComposerState {
       for (final e in usual)
         _UsualChip(
           icon: Glyph.transfer,
-          color: Hue.transfer,
           name:
               '${_ledger.account(e.account).name}→'
               '${_ledger.account(e.to ?? e.account).name}',
@@ -363,16 +355,17 @@ extension _Fields on _ComposerState {
     ]);
   }
 
-  /// The categories as a row of marks that slides sideways, then 代墊,
-  /// 全部 and 新增; 拆分 kept still at the right end. While splitting, a
-  /// tap adds a category as a part or takes it away.
+  /// The categories as a row of marks that slides sideways, then 全部
+  /// and 新增; 拆分 kept still at the right end. Grey until picked, then in
+  /// the tab's colour; while splitting, each part in its category's own
+  /// colour, and a tap adds a category as a part or takes it away.
   Widget _categories(bool expense) {
     final parts = _f.parts;
     final splitting = parts != null;
     final inParts = {for (final p in parts ?? const <(String, int)>[]) p.$1};
     final choices = _f.categoryChoices();
-    // Four of the most used, then 代墊, 全部 and 新增: as many as the row
-    // shows without sliding.
+    // Four of the most used, then 全部 and 新增: as many as the row shows
+    // without sliding.
     final shown = choices.take(4).toList();
     final lending = _f.mode == ComposeMode.lend;
     if (!splitting &&
@@ -389,7 +382,7 @@ extension _Fields on _ComposerState {
         _StripItem(
           label: category.name,
           icon: iconFor(category.icon),
-          color: category.color,
+          color: splitting ? category.color : _color,
           picked: splitting
               ? inParts.contains(category.name)
               : !lending && category.name == _f.category,
@@ -397,19 +390,11 @@ extension _Fields on _ComposerState {
               ? () => _set(() => _f.togglePart(category.name))
               : () => _pickCategoryName(category.name),
         ),
-      if (!splitting && ((!_viewing && !_f.foreign) || lending))
-        _StripItem(
-          label: expense ? '代墊' : '對方還錢',
-          icon: Glyph.heart,
-          color: Hue.receivable,
-          picked: lending,
-          onTap: () => _lend(back: !expense),
-        ),
       if (choices.length > shown.length || splitting)
         _StripItem(
           label: '全部',
           icon: Glyph.categories,
-          color: Hue.muted,
+          color: _color,
           picked: false,
           onTap: splitting
               ? _addPart
@@ -422,9 +407,12 @@ extension _Fields on _ComposerState {
         _StripItem(
           label: '新增',
           icon: Glyph.add,
-          color: Hue.accent,
+          color: _color,
           picked: false,
-          onTap: _newCategory,
+          onTap: () async {
+            final made = await _newCategory();
+            if (made != null) _pickCategoryName(made);
+          },
         ),
     ];
     final canSplit = expense && !_viewing && !_f.foreign && !lending;
@@ -434,7 +422,7 @@ extension _Fields on _ComposerState {
           ? _StripItem(
               label: splitting ? '拆分中' : '拆分',
               icon: Glyph.sliders,
-              color: splitting ? Hue.negative : Hue.accent,
+              color: Hue.negative,
               solid: splitting,
               picked: false,
               onTap: _split,
@@ -443,10 +431,10 @@ extension _Fields on _ComposerState {
     );
   }
 
-  /// Opens the fields a quick entry leaves out.
-  /// The merchant, tags and note under one heading at the foot of the
-  /// form, opened and closed with it; closed, the heading shows what is
-  /// filled in.
+  /// The merchant, tags, note and receipt under one heading at the foot
+  /// of the form, opened and closed with it; closed, the heading shows
+  /// what is filled in. Open, they are no list: the note a large box with
+  /// the receipt beside it, merchants and tags words to tap in a row.
   Widget _extras(bool expense) {
     final filled = [
       if (expense && _f.merchant.isNotEmpty) _f.merchant,
@@ -458,6 +446,89 @@ extension _Fields on _ComposerState {
     final withPhoto = photos != null || _f.receipt != null;
     if (_viewing && filled.isEmpty) return const SizedBox.shrink();
     final open = _f.more || _viewing;
+    final names = [if (expense) '商家', '標籤', '備註', if (withPhoto) '收據'];
+    return _fold(
+      closed: filled.isEmpty ? names.join('、') : filled.join(' · '),
+      open: open,
+      body: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _noteField(lines: 3)),
+            if (photos != null && (!_viewing || _f.receipt != null)) ...[
+              const SizedBox(width: 8),
+              _receiptSquare(photos),
+            ],
+          ],
+        ),
+        if (expense && (!_viewing || _f.merchant.isNotEmpty)) ...[
+          const _GroupLabel('商家'),
+          _WordRow([
+            for (final name in _merchantChoices())
+              _WordChip(
+                name,
+                () => _set(() {
+                  if (name == _f.merchant) {
+                    _f.merchant = '';
+                  } else {
+                    _f.pickMerchant(name);
+                  }
+                }),
+                color: _color,
+                picked: name == _f.merchant,
+              ),
+            if (!_viewing) _WordChip('＋', _pickMerchant, color: _color),
+          ]),
+        ],
+        if (!_viewing || _f.tags.isNotEmpty) ...[
+          const _GroupLabel('標籤'),
+          _WordRow([
+            for (final tag in _tagChoices())
+              _WordChip(
+                '#$tag',
+                () => _set(() {
+                  _f.tags = _f.tags.contains(tag)
+                      ? [
+                          for (final t in _f.tags)
+                            if (t != tag) t,
+                        ]
+                      : [..._f.tags, tag];
+                }),
+                color: _color,
+                picked: _f.tags.contains(tag),
+              ),
+            if (!_viewing) _WordChip('＋', _pickTags, color: _color),
+          ]),
+        ],
+      ],
+    );
+  }
+
+  /// The merchants to tap: the one chosen first, then the most used.
+  List<String> _merchantChoices() {
+    final known = _ledger.merchants.take(8).toList();
+    final chosen = _f.merchant;
+    return [
+      if (chosen.isNotEmpty) chosen,
+      for (final name in known)
+        if (name != chosen) name,
+    ];
+  }
+
+  /// The tags to tap: those on the entry first, then the others in use.
+  List<String> _tagChoices() => [
+    ..._f.tags,
+    for (final tag in _ledger.tags.take(8))
+      if (!_f.tags.contains(tag)) tag,
+  ];
+
+  /// A heading at the foot of the form that opens and closes [body]:
+  /// closed, [closed] says what is in it.
+  Widget _fold({
+    required String closed,
+    required bool open,
+    required List<Widget> body,
+  }) {
     final heading = InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),
@@ -465,37 +536,31 @@ extension _Fields on _ComposerState {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
         child: Row(
           children: [
-            const GlyphIcon(Glyph.note, size: 18, color: Hue.accent),
+            const GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
             const SizedBox(width: 8),
-            Text(
-              [if (expense) '商家', '標籤', '備註', if (withPhoto) '收據'].join('、'),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Hue.accent,
-              ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                open ? '' : filled.join(' · '),
+                closed,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: mutedSmall,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: open ? FontWeight.w700 : FontWeight.w600,
+                  color: open ? Hue.ink : Hue.muted,
+                ),
               ),
             ),
             if (!_viewing)
               RotatedBox(
                 quarterTurns: open ? 3 : 1,
-                child: const GlyphIcon(Glyph.next, size: 16, color: Hue.accent),
+                child: const GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
               ),
           ],
         ),
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -507,20 +572,7 @@ extension _Fields on _ComposerState {
             child: open
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (expense && (!_viewing || _f.merchant.isNotEmpty))
-                        Tile(
-                          icon: Glyph.store,
-                          label: '商家',
-                          value: _f.merchant.isEmpty ? '未填' : _f.merchant,
-                          valueColor: _f.merchant.isEmpty ? Hue.hint : Hue.ink,
-                          size: 15,
-                          onTap: _pickMerchant,
-                        ),
-                      _tagBlock(),
-                      _noteField(),
-                      if (photos != null) _receiptBlock(photos),
-                    ],
+                    children: body,
                   )
                 : const SizedBox(width: double.infinity),
           ),
@@ -529,11 +581,10 @@ extension _Fields on _ComposerState {
     );
   }
 
-  /// The receipt photo: a thumbnail that opens it whole, or buttons to
-  /// take one or pick one from the gallery.
-  Widget _receiptBlock(ReceiptPhotos photos) {
+  /// The receipt photo as a square beside the note: its thumbnail, which
+  /// opens it whole, or a camera mark that asks for one.
+  Widget _receiptSquare(ReceiptPhotos photos) {
     final receipt = _f.receipt;
-    if (_viewing && receipt == null) return const SizedBox.shrink();
     Future<void> take({required bool camera}) async {
       try {
         final name = await photos.take(camera: camera);
@@ -543,45 +594,85 @@ extension _Fields on _ComposerState {
       }
     }
 
-    return FormBlock(
-      child: Row(
-        children: [
-          const IconChip(Glyph.image),
-          const SizedBox(width: 8),
-          const Text('收據', style: accentLabel),
-          const Spacer(),
-          if (receipt == null) ...[
-            _Chip('拍照', () => unawaited(take(camera: true))),
-            const SizedBox(width: 6),
-            _Chip('從相簿', () => unawaited(take(camera: false))),
-          ] else ...[
-            TapArea(
-              label: '查看收據',
-              onTap: () => unawaited(_showReceipt(photos.image(receipt))),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image(
-                  image: photos.image(receipt),
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: Center(
-                      child: GlyphIcon(Glyph.image, color: Hue.faint),
-                    ),
-                  ),
+    const size = 84.0;
+    if (receipt == null) {
+      return TapArea(
+        label: '收據',
+        onTap: () async {
+          final camera = await _open<bool>(
+            '收據',
+            (done) => Row(
+              children: [
+                Expanded(
+                  child: _WordChip('拍照', () => done(true), color: _color),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _WordChip('從相簿', () => done(false), color: _color),
+                ),
+              ],
+            ),
+          );
+          if (camera != null) await take(camera: camera);
+        },
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Hue.line, width: 1.5),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GlyphIcon(Glyph.camera, size: 22, color: Hue.muted),
+              SizedBox(height: 4),
+              Text(
+                '收據',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Hue.muted,
                 ),
               ),
-            ),
-            if (!_viewing) ...[
-              const SizedBox(width: 8),
-              _Chip('移除', () => _set(() => _f.receipt = null)),
             ],
-          ],
-        ],
-      ),
+          ),
+        ),
+      );
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        TapArea(
+          label: '查看收據',
+          onTap: () => unawaited(_showReceipt(photos.image(receipt))),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image(
+              image: photos.image(receipt),
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox(
+                width: size,
+                height: size,
+                child: Center(child: GlyphIcon(Glyph.image, color: Hue.faint)),
+              ),
+            ),
+          ),
+        ),
+        if (!_viewing)
+          Positioned(
+            right: -10,
+            top: -10,
+            child: IconButton(
+              tooltip: '移除收據',
+              onPressed: () => _set(() => _f.receipt = null),
+              style: IconButton.styleFrom(backgroundColor: Hue.white),
+              icon: const GlyphIcon(Glyph.close, size: 14, color: Hue.muted),
+            ),
+          ),
+      ],
     );
   }
 
@@ -600,31 +691,4 @@ extension _Fields on _ComposerState {
       ),
     ),
   );
-
-  Widget _tagBlock() {
-    if (_viewing && _f.tags.isEmpty) return const SizedBox.shrink();
-    return FormBlock(
-      child: Row(
-        children: [
-          const IconChip(Glyph.ticket),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final tag in _f.tags) _TagChip('#$tag', solid: true),
-                if (!_viewing)
-                  TapArea(
-                    label: '新增標籤',
-                    onTap: _pickTags,
-                    child: const _TagChip('＋ 標籤', solid: false),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
