@@ -914,16 +914,8 @@ class _TransferEnd extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
               child: Row(
                 children: end
-                    ? [
-                        Expanded(child: text),
-                        const SizedBox(width: 8),
-                        badge,
-                      ]
-                    : [
-                        badge,
-                        const SizedBox(width: 8),
-                        Expanded(child: text),
-                      ],
+                    ? [Expanded(child: text), const SizedBox(width: 8), badge]
+                    : [badge, const SizedBox(width: 8), Expanded(child: text)],
               ),
             ),
           ),
@@ -976,11 +968,7 @@ class _Figure extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    IconChip(
-                      icon,
-                      color: Hue.investment,
-                      background: Hue.tile,
-                    ),
+                    IconChip(icon, color: Hue.investment, background: Hue.tile),
                     const SizedBox(width: 8),
                     Text(
                       label,

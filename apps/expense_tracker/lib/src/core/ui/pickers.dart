@@ -351,17 +351,17 @@ class _CalendarState extends State<_Calendar> {
       children: [
         if (quick.isNotEmpty)
           Row(
-          children: [
-            for (final (name, day) in quick) ...[
-              ChoicePill(
-                label: name,
-                selected: day == widget.selected,
-                onTap: () => Navigator.of(context).pop(day),
-              ),
-              const SizedBox(width: 6),
+            children: [
+              for (final (name, day) in quick) ...[
+                ChoicePill(
+                  label: name,
+                  selected: day == widget.selected,
+                  onTap: () => Navigator.of(context).pop(day),
+                ),
+                const SizedBox(width: 6),
+              ],
             ],
-          ],
-        ),
+          ),
         const SizedBox(height: 4),
         StepSwitch(
           label: '${first.year} 年 ${first.month} 月',

@@ -153,10 +153,7 @@ extension _Fields on _ComposerState {
               onTap: _editPart,
             ),
           _categories(expense),
-          _pair(
-            _accountPick(expense ? '付款帳戶' : '收款帳戶'),
-            _datePick(),
-          ),
+          _pair(_accountPick(expense ? '付款帳戶' : '收款帳戶'), _datePick()),
           if (_f.foreign) _homeTile(),
           if (_f.onCard)
             Padding(
@@ -246,9 +243,7 @@ extension _Fields on _ComposerState {
                   account: to,
                   label: '轉入帳戶',
                   end: true,
-                  after: moved
-                      ? '變 ${held(to, arrives)}'
-                      : '餘額 ${held(to, 0)}',
+                  after: moved ? '變 ${held(to, arrives)}' : '餘額 ${held(to, 0)}',
                   onTap: () async {
                     final picked = await _pickAccount('轉入帳戶', _f.to);
                     if (picked == null) return;

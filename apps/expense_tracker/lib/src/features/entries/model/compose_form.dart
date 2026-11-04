@@ -507,7 +507,9 @@ final class ComposeForm {
   void startTransferFrom(Entry entry) {
     final open = {for (final a in ledger.openAccounts) a.id};
     final other = entry.to;
-    if (!open.contains(entry.account) || other == null || !open.contains(other)) {
+    if (!open.contains(entry.account) ||
+        other == null ||
+        !open.contains(other)) {
       return;
     }
     account = entry.account;

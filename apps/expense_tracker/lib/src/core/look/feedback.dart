@@ -70,7 +70,10 @@ Future<T?> showSheet<T>(
         child: share == null
             ? builder(context)
             : SizedBox(
-                height: math.max(0.0, math.min(screen * share, screen * 0.9 - inset)),
+                height: math.max(
+                  0.0,
+                  math.min(screen * share, screen * 0.9 - inset),
+                ),
                 child: builder(context),
               ),
       );
