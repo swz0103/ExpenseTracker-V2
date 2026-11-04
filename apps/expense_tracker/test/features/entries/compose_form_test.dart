@@ -127,4 +127,49 @@ void main() {
       (95, 'cash', '便當店', '午餐'),
     );
   });
+
+  test('while splitting, a category is added as a part or taken away', () {
+    final form = ComposeForm(book(), type: EntryType.expense)
+      ..setAmount(300)
+      ..category = '飲食'
+      ..toggleSplit();
+    expect(form.parts, [('飲食', 300)]);
+    form
+      ..setPart(0, 200)
+      ..togglePart('居家');
+    expect(form.parts, [('飲食', 200), ('居家', 100)]);
+    form.togglePart('飲食');
+    expect(form.parts, [('居家', 100)]);
+  });
+
+  test('a transfer turned round swaps its accounts', () {
+    final form = ComposeForm(book(), type: EntryType.transfer)
+      ..account = 'bank'
+      ..to = 'cash'
+      ..swapEnds();
+    expect((form.account, form.to), ('cash', 'bank'));
+  });
+
+  test('transfers made alike twice lately are offered again', () {
+    final ledger = book();
+    Entry move(String id, int days, int amount) => Entry(
+      id: id,
+      date: day.subtract(Duration(days: days)),
+      type: EntryType.transfer,
+      amount: amount,
+      account: 'bank',
+      to: 'cash',
+    );
+    ledger
+      ..add(move('a', 30, 3000))
+      ..add(move('b', 2, 3000))
+      ..add(move('c', 5, 800));
+    final usual = ledger.usualTransfers();
+    expect([for (final e in usual) (e.id, e.amount)], [('b', 3000)]);
+    final form = ComposeForm(ledger, type: EntryType.transfer)
+      ..account = 'cash'
+      ..to = 'bank'
+      ..startTransferFrom(usual.single);
+    expect((form.account, form.to, form.amount), ('bank', 'cash', 3000));
+  });
 }

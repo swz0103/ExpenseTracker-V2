@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
@@ -38,11 +40,17 @@ void showNote(
 /// its own content scrolling past that: for a sheet already built to
 /// scroll internally (a [Flexible] or [Expanded] region around whatever
 /// can grow long). Left off for one not yet checked against that.
+///
+/// [height] instead makes the sheet that share of the screen however
+/// much it holds, as [sheetHeight] for 記一筆 and its pickers: one tab or
+/// picker after another, the sheet stays put. Its content fills it, and
+/// scrolls inside it when longer.
 Future<T?> showSheet<T>(
   BuildContext context,
   WidgetBuilder builder, {
   bool handle = true,
   bool capHeight = false,
+  double? height,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -54,13 +62,22 @@ Future<T?> showSheet<T>(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
     builder: (context) {
+      final share = height;
+      final screen = MediaQuery.sizeOf(context).height;
+      final inset = MediaQuery.viewInsetsOf(context).bottom;
       final child = Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: builder(context),
+        padding: EdgeInsets.only(bottom: inset),
+        child: share == null
+            ? builder(context)
+            : SizedBox(
+                height: math.max(
+                  0.0,
+                  math.min(screen * share, screen * 0.9 - inset),
+                ),
+                child: builder(context),
+              ),
       );
-      if (!capHeight) return child;
+      if (!capHeight || share != null) return child;
       return ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.sizeOf(context).height * 0.75,
@@ -70,3 +87,7 @@ Future<T?> showSheet<T>(
     },
   );
 }
+
+/// The share of the screen 記一筆 and the pickers it opens take, all
+/// alike so the sheet does not jump from one to the next.
+const sheetHeight = 0.62;

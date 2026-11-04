@@ -479,6 +479,44 @@ final class ComposeForm {
     parts = [...now, (name, amount - used)];
   }
 
+  /// Adds a part for [name], or takes away the one it has: a tap on a
+  /// category while splitting.
+  void togglePart(String name) {
+    final now = parts ?? [];
+    final at = now.indexWhere((p) => p.$1 == name);
+    if (at < 0) {
+      addPart(name);
+    } else {
+      parts = [
+        for (final (i, p) in now.indexed)
+          if (i != at) p,
+      ];
+    }
+  }
+
+  /// The two accounts of a transfer the other way round.
+  void swapEnds() {
+    final from = account;
+    account = to;
+    to = from;
+    received = null;
+  }
+
+  /// Starts a new transfer from [entry], one of [Ledger.usualTransfers]:
+  /// its two accounts and amount, on today.
+  void startTransferFrom(Entry entry) {
+    final open = {for (final a in ledger.openAccounts) a.id};
+    final other = entry.to;
+    if (!open.contains(entry.account) ||
+        other == null ||
+        !open.contains(other)) {
+      return;
+    }
+    account = entry.account;
+    to = other;
+    setAmount(entry.amount);
+  }
+
   /// Changes the part at [index] to [value]; zero takes it away.
   void setPart(int index, int value) {
     final now = parts;

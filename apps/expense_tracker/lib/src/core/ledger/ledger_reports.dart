@@ -148,6 +148,35 @@ extension LedgerReports on Ledger {
     return [for (final key in keys.take(most)) latest[key]!];
   }, on: const {Area.entries});
 
+  /// Transfers made alike again and again lately, the most made first:
+  /// the same two accounts and amount, two times or more in 90 days.
+  /// Money lent and paid back has its own tab and is left out.
+  List<Entry> usualTransfers({int most = 4}) =>
+      _remember(('usualTransfers', today, most), () {
+        final since = today.subtract(const Duration(days: 90));
+        final counts = <(String, String, int), int>{};
+        final latest = <(String, String, int), Entry>{};
+        for (final e in _entries) {
+          final to = e.to;
+          if (e.type != EntryType.transfer ||
+              to == null ||
+              e.date.isBefore(since) ||
+              account(e.account).kind == AccountKind.receivable ||
+              account(to).kind == AccountKind.receivable) {
+            continue;
+          }
+          final key = (e.account, to, e.amount);
+          counts[key] = (counts[key] ?? 0) + 1;
+          final kept = latest[key];
+          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
+        }
+        final keys = [
+          for (final MapEntry(:key, :value) in counts.entries)
+            if (value >= 2) key,
+        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+        return [for (final key in keys.take(most)) latest[key]!];
+      }, on: const {Area.entries, Area.accounts});
+
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
   List<(String, int, int)> get tagStats =>

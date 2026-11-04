@@ -9,6 +9,7 @@ extension _LendFields on _ComposerState {
     final person = _f.to.isEmpty ? null : _ledger.account(_f.to);
     final owed = person == null ? 0 : _ledger.balance(person.id);
     return [
+      Expanded(child: _hero()),
       _categories(!_f.back),
       TileRow([
         Tile(
@@ -23,7 +24,7 @@ extension _LendFields on _ComposerState {
           onTap: _pickPerson,
         ),
       ]),
-      TileRow([_accountTile(_f.back ? '收款帳戶' : '付款帳戶'), _dateTile()]),
+      _pair(_accountPick(_f.back ? '收款帳戶' : '付款帳戶'), _datePick()),
       _extras(false),
     ];
   }
@@ -42,6 +43,7 @@ extension _LendFields on _ComposerState {
               ...accountOptions(_ledger, among: _f.people),
               const Option(adding, '新增對象', Glyph.add, Hue.accent),
             ],
+            height: sheetHeight,
           );
     if (picked == null || !mounted) return;
     if (picked != adding) {

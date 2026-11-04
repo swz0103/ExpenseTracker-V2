@@ -16,50 +16,38 @@ extension _InvestmentFields on _ComposerState {
         : null;
     final settled = settlementDay(_f.date);
     final settles = _f.settlement;
-    // In the order a trade is written down: what, how many at what price,
-    // when and from where; then what it settles at, and what it made.
+    // In the order a trade is written down: buy or sell, what, how many
+    // at what price and what that settles at; when and from where; then
+    // what it made.
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Tile(
-          icon: Glyph.investment,
-          label: '標的',
-          value: code == null
-              ? '選擇標的'
-              : held == null
-              ? code
-              : holdingLabel(held),
-          size: 15,
-          sub: held == null
-              ? null
-              : '持有 ${_ledger.orDots(groupDigits(held.shares))} 股',
-          trailing: _viewing
-              ? null
-              : TapArea(
-                  label: '新增標的',
-                  onTap: _newHolding,
-                  child: const GlyphIcon(Glyph.add, size: 18),
-                ),
-          onTap: _pickHolding,
+        padding: const EdgeInsets.only(top: 4),
+        child: _TradeChips(
+          trade: _f.trade,
+          locked: _viewing,
+          onChanged: _changeTrade,
         ),
       ),
-      if (_f.trading)
-        TileRow([
-          Tile(
+      _holdings(),
+      if (_f.trading) ...[
+        _pair(
+          _Figure(
             icon: Glyph.briefcase,
             label: '股數',
             value: groupDigits(_f.shares),
+            current: _f.shares == 0,
             onTap: () async {
               final value = await _ask('股數', _f.shares, unit: '股');
               if (value != null) _set(() => _f.setShares(value));
             },
           ),
-          Tile(
+          _Figure(
             icon: Glyph.coins,
             label: '成交價',
             value: _f.price == _f.price.roundToDouble()
                 ? '${_f.price.round()}'
                 : _f.price.toStringAsFixed(2),
+            current: _f.shares > 0 && _f.price == 0,
             onTap: () async {
               final value = await showPriceCalculator(
                 context,
@@ -70,20 +58,73 @@ extension _InvestmentFields on _ComposerState {
               if (value != null) _set(() => _f.setPrice(value));
             },
           ),
-        ]),
-      if (_f.trade == EntryType.dividend && !_f.shareChange && !_viewing)
+        ),
+        // What the trade settles at: the sums it is made of on the left,
+        // each opened with a tap, and the total on the right.
         Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SmallLink(
-              '＋ 配股、分割或減資',
-              () => _set(() => _f.shareChange = true),
-              inset: 6,
-            ),
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 10,
+                  children: [
+                    // Typed here, the amount sets the price for the shares.
+                    _EditWords(
+                      '成交 ${groupDigits(_f.amount)}',
+                      _viewing ? null : _calculate,
+                    ),
+                    _chargeWords('手續費', fee, suggested.$1, (v) {
+                      _f.tradeFee = v;
+                    }),
+                    if (sell)
+                      _chargeWords('證交稅', tax, suggested.$2, (v) {
+                        _f.tradeTax = v;
+                      }),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    sell ? '實收' : '應付',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Hue.muted,
+                    ),
+                  ),
+                  Text(
+                    groupDigits(settles),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                      color: _color,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
+      ],
       if (_f.trade == EntryType.dividend) ...[
+        Expanded(child: _hero()),
+        if (!_f.shareChange && !_viewing)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SmallLink(
+                '＋ 配股、分割或減資',
+                () => _set(() => _f.shareChange = true),
+                inset: 6,
+              ),
+            ),
+          ),
         if (_f.shareChange)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -143,34 +184,10 @@ extension _InvestmentFields on _ComposerState {
             ),
           ),
       ],
-      TileRow([
-        _dateTile(),
-        _accountTile(_f.trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
-      ]),
-      if (_f.trading)
-        FormBlock(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Line(
-                sell ? '實收' : '應付',
-                groupDigits(settles),
-                strong: true,
-                color: _color,
-              ),
-              const Divider(height: 8),
-              // Typed here, the amount sets the price for the shares.
-              _Line(
-                '成交金額',
-                groupDigits(_f.amount),
-                onTap: _viewing ? null : _calculate,
-              ),
-              _chargeLine('手續費', fee, suggested.$1, (v) => _f.tradeFee = v),
-              if (sell)
-                _chargeLine('證交稅', tax, suggested.$2, (v) => _f.tradeTax = v),
-            ],
-          ),
-        ),
+      _pair(
+        _accountPick(_f.trade == EntryType.buy ? '扣款帳戶' : '入帳帳戶'),
+        _datePick(),
+      ),
       if (_f.trading && sell && !_viewing)
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -194,23 +211,67 @@ extension _InvestmentFields on _ComposerState {
             ],
           ),
         ),
-      _noteField(),
+      _noteRow(),
+      if (_f.trading) const Spacer(),
     ];
   }
 
-  /// A trade's fee or tax as a line of the settlement: what the broker
-  /// charged, typed in, or the suggestion until then.
-  Widget _chargeLine(
+  /// The holdings as a row of their codes that slides sideways, those
+  /// held first, then 新增; 全部 kept still at the right end.
+  Widget _holdings() {
+    final code = _f.holding;
+    final holdings = _ledger.holdings;
+    final known = {for (final h in holdings) h.code};
+    return _Strip(
+      items: [
+        if (code != null && !known.contains(code))
+          _StripItem(
+            label: code,
+            code: code,
+            color: _codeColor(code),
+            picked: true,
+            ring: Hue.investment,
+            onTap: () {},
+          ),
+        for (final h in holdings)
+          _StripItem(
+            label: h.name.isEmpty ? h.code : h.name,
+            code: h.code,
+            color: _codeColor(h.code),
+            picked: h.code == code,
+            ring: Hue.investment,
+            onTap: () => _set(() => _f.holding = h.code),
+          ),
+        if (!_viewing)
+          _StripItem(
+            label: '新增',
+            icon: Glyph.add,
+            color: Hue.accent,
+            picked: false,
+            onTap: _newHolding,
+          ),
+      ],
+      pinned: _StripItem(
+        label: '全部',
+        icon: Glyph.investment,
+        color: Hue.muted,
+        picked: false,
+        onTap: _pickHolding,
+      ),
+    );
+  }
+
+  /// A trade's fee or tax among the sums it settles at: what the broker
+  /// charged, typed in, or the suggestion until then (試算).
+  Widget _chargeWords(
     String label,
     int value,
     int suggested,
     void Function(int value) keep,
   ) {
-    return _Line(
-      value == suggested ? '$label（試算）' : label,
-      groupDigits(value),
-      color: value > 0 ? Hue.negative : Hue.ink,
-      onTap: _viewing
+    return _EditWords(
+      '${value == suggested ? '$label（試算）' : label} ${groupDigits(value)}',
+      _viewing
           ? null
           : () async {
               final typed = await _ask(label, value);
