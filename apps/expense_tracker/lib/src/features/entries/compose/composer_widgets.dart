@@ -685,7 +685,6 @@ class _Pick extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
-    this.iconColor = Hue.muted,
     this.valueColor = Hue.ink,
   });
 
@@ -693,7 +692,6 @@ class _Pick extends StatelessWidget {
   final String label;
   final String value;
   final VoidCallback onTap;
-  final Color iconColor;
   final Color valueColor;
 
   @override
@@ -723,7 +721,7 @@ class _Pick extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    IconChip(icon, color: iconColor, background: Hue.tile),
+                    IconChip(icon, color: Hue.muted, background: Hue.tile),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
