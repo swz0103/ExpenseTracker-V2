@@ -182,6 +182,35 @@ extension LedgerReports on Ledger {
         return [for (final key in keys.take(most)) latest[key]!];
       }, on: const {Area.entries, Area.accounts});
 
+  /// What [person] still owes, payment by payment: each sum paid for
+  /// them, with what is left of it once what they paid back is taken off
+  /// the oldest first; those paid off are left out. Newest first.
+  List<(Entry, int)> owedBy(String person) =>
+      _remember(('owedBy', person), () {
+        final moves = [
+          for (final e in _entries)
+            if (e.type == EntryType.transfer &&
+                (e.to == person || e.account == person))
+              e,
+        ]..sort((a, b) => a.date.compareTo(b.date));
+        var back = 0;
+        final lent = <Entry>[];
+        for (final e in moves) {
+          if (e.to == person) {
+            lent.add(e);
+          } else {
+            back += e.amount;
+          }
+        }
+        final owed = <(Entry, int)>[];
+        for (final e in lent) {
+          final taken = back < e.amount ? back : e.amount;
+          back -= taken;
+          if (e.amount > taken) owed.add((e, e.amount - taken));
+        }
+        return owed.reversed.toList();
+      }, on: const {Area.entries});
+
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
   List<(String, int, int)> get tagStats =>

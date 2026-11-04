@@ -51,98 +51,17 @@ class _OriginalTile extends StatelessWidget {
     );
   }
 }
-
-class _TradeChips extends StatelessWidget {
-  const _TradeChips({
-    required this.trade,
-    required this.locked,
-    required this.onChanged,
-  });
-
-  final EntryType trade;
-  final bool locked;
-  final ValueChanged<EntryType> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final (type, label) in const [
-          (EntryType.buy, '買進'),
-          (EntryType.sell, '賣出'),
-          (EntryType.dividend, '股息'),
-        ])
-          if (!locked || type == trade)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ChoicePill(
-                label: label,
-                selected: type == trade,
-                onTap: locked ? null : () => onChanged(type),
-              ),
-            ),
-      ],
-    );
-  }
-}
-
-/// A small white button in a block's heading, such as 拍照.
-class _Chip extends StatelessWidget {
-  const _Chip(this.label, this.onTap);
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Small to look at, a full finger to tap.
-    return TapArea(
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Hue.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(label, style: accentLabel),
-        ),
-      ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip(this.label, {required this.solid});
-
-  final String label;
-  final bool solid;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: solid ? Hue.accent : Hue.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          color: solid ? Hue.onAccent : Hue.accent,
-        ),
-      ),
-    );
-  }
-}
-
 /// A merchant's name, typed or picked from those used before.
 class _MerchantPicker extends StatefulWidget {
-  const _MerchantPicker({required this.known, required this.initial});
+  const _MerchantPicker({
+    required this.known,
+    required this.initial,
+    required this.onDone,
+  });
 
   final List<String> known;
   final String initial;
+  final ValueChanged<String> onDone;
 
   @override
   State<_MerchantPicker> createState() => _MerchantPickerState();
@@ -173,7 +92,7 @@ class _MerchantPickerState extends State<_MerchantPicker> {
           controller: _text,
           autofocus: true,
           onChanged: (_) => setState(() {}),
-          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+          onSubmitted: (value) => widget.onDone(value.trim()),
           decoration: InputDecoration(
             hintText: '商家名稱',
             filled: true,
@@ -185,30 +104,27 @@ class _MerchantPickerState extends State<_MerchantPicker> {
           ),
         ),
         const SizedBox(height: 8),
-        Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
+        Column(
+          children: [
               if (typed.isNotEmpty && !widget.known.contains(typed))
                 ListTile(
                   leading: const GlyphIcon(Glyph.add, color: Hue.accent),
                   title: Text('新增「$typed」'),
-                  onTap: () => Navigator.of(context).pop(typed),
+                  onTap: () => widget.onDone(typed),
                 ),
               for (final name in matches.take(12))
                 ListTile(
                   leading: const GlyphIcon(Glyph.store, color: Hue.accent),
                   title: Text(name),
-                  onTap: () => Navigator.of(context).pop(name),
+                  onTap: () => widget.onDone(name),
                 ),
               if (widget.initial.isNotEmpty)
                 ListTile(
                   leading: const GlyphIcon(Glyph.close, color: Hue.muted),
                   title: const Text('不記商家'),
-                  onTap: () => Navigator.of(context).pop(''),
+                  onTap: () => widget.onDone(''),
                 ),
-            ],
-          ),
+          ],
         ),
       ],
     );
@@ -217,10 +133,15 @@ class _MerchantPickerState extends State<_MerchantPicker> {
 
 /// Tags to put on an entry: those in use, and new ones.
 class _TagPicker extends StatefulWidget {
-  const _TagPicker({required this.known, required this.initial});
+  const _TagPicker({
+    required this.known,
+    required this.initial,
+    required this.onDone,
+  });
 
   final List<String> known;
   final List<String> initial;
+  final ValueChanged<List<String>> onDone;
 
   @override
   State<_TagPicker> createState() => _TagPickerState();
@@ -297,7 +218,7 @@ class _TagPickerState extends State<_TagPicker> {
         ),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(_picked),
+          onPressed: () => widget.onDone(_picked),
           style: FilledButton.styleFrom(
             backgroundColor: Hue.accent,
             minimumSize: const Size.fromHeight(44),
@@ -309,8 +230,9 @@ class _TagPickerState extends State<_TagPicker> {
   }
 }
 
-/// The kinds of entry as words along the top, the chosen one underlined
-/// in its colour; [onReset] adds 重填 at the end, as a mark.
+/// The kinds of entry along the top, sharing the width; the chosen one
+/// in ink over a thick line of its colour, the others faint over a thin
+/// one. [onReset] adds 重填 at the end, level with the words.
 class _Tabs extends StatelessWidget {
   const _Tabs({
     required this.labels,
@@ -329,47 +251,87 @@ class _Tabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reset = onReset;
+    Widget cell(Widget child, {required bool on}) => Container(
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: on ? color : Hue.line,
+            width: on ? 3 : 1,
+          ),
+        ),
+      ),
+      child: child,
+    );
     return Row(
       children: [
         for (final (i, label) in labels.indexed)
-          TapArea(
-            selected: i == selected,
-            onTap: () => onChanged(i),
-            child: Padding(
-              padding: EdgeInsets.only(left: i == 0 ? 0 : 10, right: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: i == selected ? Hue.ink : Hue.faint,
-                    ),
+          Expanded(
+            child: TapArea(
+              selected: i == selected,
+              onTap: () => onChanged(i),
+              child: cell(
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: i == selected ? Hue.ink : Hue.faint,
                   ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 22,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: i == selected ? color : Colors.transparent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ],
+                ),
+                on: i == selected,
               ),
             ),
           ),
-        const Spacer(),
         if (reset != null)
-          IconButton(
-            tooltip: '重填',
-            onPressed: reset,
-            icon: const GlyphIcon(Glyph.reset, size: 20, color: Hue.faint),
+          SizedBox(
+            width: 48,
+            child: cell(
+              IconButton(
+                tooltip: '重填',
+                onPressed: reset,
+                icon: const GlyphIcon(Glyph.reset, size: 20, color: Hue.faint),
+              ),
+              on: false,
+            ),
           ),
       ],
+    );
+  }
+}
+
+/// The title of a choice opened inside the sheet, centred, with the
+/// arrow back to the form on its left.
+class _PageHeader extends StatelessWidget {
+  const _PageHeader({required this.title, required this.onBack});
+
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Hue.line)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: '返回',
+            onPressed: onBack,
+            icon: const GlyphIcon(Glyph.back, size: 20, color: Hue.muted),
+          ),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 }
@@ -534,40 +496,29 @@ class _Bubbles extends StatelessWidget {
   }
 }
 
-/// One square in a row of choices, such as a category or a holding: a
-/// tinted mark over its name, ringed when [picked].
+/// One square in a row of choices, such as a category: a grey mark over
+/// its name, tinted and ringed in [color] when [picked]; [solid] fills it
+/// with [color] instead, such as 拆分中.
 class _StripItem extends StatelessWidget {
   const _StripItem({
     required this.label,
+    required this.icon,
     required this.color,
     required this.picked,
     required this.onTap,
-    this.icon,
-    this.code,
     this.solid = false,
-    this.ring,
   });
 
   final String label;
+  final Glyph icon;
   final Color color;
   final bool picked;
   final VoidCallback? onTap;
-  final Glyph? icon;
-
-  /// Words in place of the mark, white on [color], such as 0050.
-  final String? code;
-
-  /// Filled with [color] rather than tinted by it.
   final bool solid;
-
-  /// The ring's colour when picked; the interface colour by default.
-  final Color? ring;
 
   @override
   Widget build(BuildContext context) {
-    final mark = icon;
-    final words = code;
-    final filled = solid || words != null;
+    final lit = picked || solid;
     return TapArea(
       onTap: onTap,
       selected: picked,
@@ -581,34 +532,23 @@ class _StripItem extends StatelessWidget {
               height: 50,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: filled ? color : color.withValues(alpha: 0.14),
+                color: solid
+                    ? color
+                    : picked
+                    ? color.withValues(alpha: 0.14)
+                    : Hue.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: picked
-                    ? Border.all(color: ring ?? Hue.accent, width: 2.5)
-                    : null,
+                border: picked ? Border.all(color: color, width: 2) : null,
               ),
-              child: words != null
-                  ? FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          words,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    )
-                  : mark == null
-                  ? null
-                  : GlyphIcon(
-                      mark,
-                      size: 22,
-                      color: solid ? Colors.white : color,
-                    ),
+              child: GlyphIcon(
+                icon,
+                size: 22,
+                color: solid
+                    ? Colors.white
+                    : picked
+                    ? color
+                    : Hue.muted,
+              ),
             ),
             const SizedBox(height: 5),
             Text(
@@ -617,8 +557,8 @@ class _StripItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12.5,
-                fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
-                color: picked ? Hue.ink : Hue.muted,
+                fontWeight: lit ? FontWeight.w700 : FontWeight.w500,
+                color: lit ? color : Hue.muted,
               ),
             ),
           ],
@@ -745,7 +685,7 @@ class _Pick extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
-    this.iconColor = Hue.accent,
+    this.iconColor = Hue.muted,
     this.valueColor = Hue.ink,
   });
 
@@ -808,8 +748,9 @@ class _Pick extends StatelessWidget {
   }
 }
 
-/// One end of a transfer: the account's mark and name, and what it will
-/// hold once the transfer is made; [end] lays it out from the right.
+/// One end of a transfer on a grey card: the account's mark on the left,
+/// its name over what it will hold once the transfer is made. [end] is
+/// the right-hand card, with room on its inner side for the arrow.
 class _TransferEnd extends StatelessWidget {
   const _TransferEnd({
     required this.account,
@@ -831,43 +772,13 @@ class _TransferEnd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accountColor(account.kind);
     final radius = BorderRadius.circular(18);
-    final badge = Container(
-      width: 34,
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Hue.white,
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: GlyphIcon(accountIcon(account), size: 18, color: color),
-    );
-    final text = Column(
-      crossAxisAlignment: end
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Text(
-          account.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
-        Text(
-          after,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, color: Hue.muted),
-        ),
-      ],
-    );
     return Semantics(
       button: true,
       label: '$label：${account.name}，$after',
       excludeSemantics: true,
       child: Material(
-        color: color.withValues(alpha: 0.12),
+        color: Hue.surface,
         borderRadius: radius,
         child: InkWell(
           borderRadius: radius,
@@ -875,11 +786,50 @@ class _TransferEnd extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 60),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              padding: EdgeInsets.fromLTRB(end ? 22 : 12, 9, end ? 10 : 22, 9),
               child: Row(
-                children: end
-                    ? [Expanded(child: text), const SizedBox(width: 8), badge]
-                    : [badge, const SizedBox(width: 8), Expanded(child: text)],
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Hue.white,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: GlyphIcon(
+                      accountIcon(account),
+                      size: 17,
+                      color: Hue.muted,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          account.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          after,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Hue.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -889,8 +839,9 @@ class _TransferEnd extends StatelessWidget {
   }
 }
 
-/// A card to tap for a figure of a trade, such as 股數, its name over
-/// the figure; ringed while [current].
+/// A white card to tap for a figure of a trade, such as 股數: a grey
+/// mark and the name on the left, the figure large on the right; ringed
+/// while [current].
 class _Figure extends StatelessWidget {
   const _Figure({
     required this.icon,
@@ -909,55 +860,60 @@ class _Figure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(18);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: Hue.tileShadow,
-      ),
-      child: Material(
-        color: Hue.white,
-        shape: RoundedRectangleBorder(
+    return Semantics(
+      button: true,
+      label: '$label：$value',
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: radius,
-          side: current
-              ? const BorderSide(color: Hue.investment, width: 2)
-              : BorderSide.none,
+          boxShadow: Hue.tileShadow,
         ),
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        child: Material(
+          color: Hue.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: current
+                ? const BorderSide(color: Hue.investment, width: 2)
+                : BorderSide.none,
+          ),
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
                   children: [
-                    IconChip(icon, color: Hue.investment, background: Hue.tile),
+                    IconChip(icon, color: Hue.muted, background: Hue.tile),
                     const SizedBox(width: 8),
                     Text(
                       label,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w700,
-                        color: Hue.investment,
+                        color: Hue.muted,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          value,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Hue.ink,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.ink,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -966,54 +922,154 @@ class _Figure extends StatelessWidget {
   }
 }
 
-/// Small words that open a figure to change it, with a pen after them.
-class _EditWords extends StatelessWidget {
-  const _EditWords(this.words, this.onTap);
+/// One sum in the line a trade settles at, such as 成交 1,000: its name
+/// over the figure; white with a pen when it can be changed.
+class _EqBox extends StatelessWidget {
+  const _EqBox(this.label, this.value, this.onTap);
 
-  final String words;
+  final String label;
+  final String value;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final tap = onTap;
-    final text = Text.rich(
-      TextSpan(
-        text: words,
-        children: [
-          if (tap != null)
-            const TextSpan(
-              text: ' ✎',
-              style: TextStyle(color: Hue.accent),
+    final radius = BorderRadius.circular(14);
+    return Semantics(
+      button: tap != null,
+      label: '$label：$value',
+      excludeSemantics: true,
+      child: Material(
+        color: tap == null ? Hue.surface : Hue.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: tap == null ? BorderSide.none : const BorderSide(color: Hue.line),
+        ),
+        child: InkWell(
+          borderRadius: radius,
+          onTap: tap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Hue.muted,
+                    ),
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      tap == null ? value : '$value ✎',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
+          ),
+        ),
       ),
-      style: mutedSmall,
     );
-    if (tap == null) return text;
+  }
+}
+
+/// A holding as a pill in one row: its code bold, then its name cut
+/// short; tinted and ringed when [picked].
+class _CodePill extends StatelessWidget {
+  const _CodePill({
+    required this.code,
+    required this.name,
+    required this.picked,
+    required this.onTap,
+  });
+
+  final String code;
+  final String name;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return TapArea(
-      onTap: tap,
-      child: Align(alignment: Alignment.centerLeft, child: text),
+      onTap: onTap,
+      selected: picked,
+      label: '$code $name',
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: picked
+              ? Hue.investment.withValues(alpha: 0.12)
+              : Hue.surface,
+          borderRadius: BorderRadius.circular(13),
+          border: picked ? Border.all(color: Hue.investment, width: 2) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              code,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: picked ? Hue.investment : Hue.ink,
+              ),
+            ),
+            if (name.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: picked ? Hue.investment : Hue.muted,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// A colour of its own for each holding's code, the same every time.
-Color _codeColor(String code) {
-  var sum = 0;
-  for (final unit in code.codeUnits) {
-    sum = (sum * 31 + unit) & 0x7fffffff;
+/// A holding's name cut to four characters at most, without the fund
+/// house it starts with, such as 台灣50 for 元大台灣50.
+String _shortName(String name) {
+  const houses = [
+    '元大', '國泰', '富邦', '群益', '中信', '永豐', '凱基', '復華', '統一',
+    '新光', '兆豐', '第一金', '台新', '華南永昌', '國票', '元富', '大華銀',
+    '野村', '街口', '安聯', '摩根', '日盛', '台灣人壽',
+  ];
+  var short = name;
+  for (final house in houses) {
+    if (short.startsWith(house) && short.length > house.length) {
+      short = short.substring(house.length);
+      break;
+    }
   }
-  return Hue.categoryColors[sum % Hue.categoryColors.length];
+  final chars = short.characters;
+  return chars.length <= 4 ? short : chars.take(4).toString();
 }
 
-/// One holding in the list of them: its code as a coloured mark, its
-/// name and how many shares are held.
-class _HoldingRow extends StatelessWidget {
-  const _HoldingRow({
+/// One holding in the page of them all: its code large, its short name
+/// and how many shares are held; tinted and ringed when [picked].
+class _HoldingCard extends StatelessWidget {
+  const _HoldingCard({
     required this.code,
     required this.name,
     required this.held,
-    required this.color,
     required this.picked,
     required this.onTap,
   });
@@ -1021,63 +1077,47 @@ class _HoldingRow extends StatelessWidget {
   final String code;
   final String name;
   final String held;
-  final Color color;
   final bool picked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(16);
     return Material(
-      color: picked ? Hue.selected : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: picked
+            ? const BorderSide(color: Hue.investment, width: 2)
+            : BorderSide.none,
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-          child: Row(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      code,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+              Text(
+                code,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: picked ? Hue.investment : Hue.ink,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(held, style: mutedSmall),
-                  ],
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              Text(held, maxLines: 1, style: mutedSmall),
             ],
           ),
         ),
@@ -1086,22 +1126,54 @@ class _HoldingRow extends StatelessWidget {
   }
 }
 
-/// One of 常用 under the amount: a small white pill with the category's
-/// mark, its name and amount, a tap from a filled form.
-class _UsualChip extends StatelessWidget {
-  const _UsualChip({
+/// A grey square with a mark, such as the one that opens every holding.
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({
     required this.icon,
-    required this.color,
-    required this.name,
+    required this.label,
     required this.onTap,
-    this.amount,
   });
 
   final Glyph icon;
-  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TapArea(
+      onTap: onTap,
+      label: label,
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Hue.surface,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: GlyphIcon(icon, size: 19, color: Hue.muted),
+      ),
+    );
+  }
+}
+
+/// One of 常用 under the amount: a small white pill with a grey mark,
+/// its name and amount, a tap from a filled form. [strong] writes the
+/// name in ink, for a switch such as 代墊 at the front of the row.
+class _UsualChip extends StatelessWidget {
+  const _UsualChip({
+    required this.icon,
+    required this.name,
+    required this.onTap,
+    this.amount,
+    this.strong = false,
+  });
+
+  final Glyph icon;
   final String name;
   final String? amount;
   final VoidCallback onTap;
+  final bool strong;
 
   @override
   Widget build(BuildContext context) {
@@ -1122,17 +1194,21 @@ class _UsualChip extends StatelessWidget {
               width: 24,
               height: 24,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
+              decoration: const BoxDecoration(
+                color: Hue.surface,
                 shape: BoxShape.circle,
               ),
-              child: GlyphIcon(icon, size: 14, color: color),
+              child: GlyphIcon(icon, size: 14, color: Hue.muted),
             ),
             const SizedBox(width: 7),
             Text(
               name,
               maxLines: 1,
-              style: const TextStyle(fontSize: 13, color: Hue.muted),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: strong ? FontWeight.w700 : FontWeight.w400,
+                color: strong ? Hue.ink : Hue.muted,
+              ),
             ),
             if (figure != null) ...[
               const SizedBox(width: 6),
@@ -1153,18 +1229,31 @@ class _UsualChip extends StatelessWidget {
   }
 }
 
-/// 常用 as one row from the left that slides sideways.
+/// 常用 as one row from the left that slides sideways; [lead], such as
+/// 代墊, stays first with a thin line after it.
 class _UsualRow extends StatelessWidget {
-  const _UsualRow(this.children);
+  const _UsualRow(this.children, {this.lead});
 
   final List<Widget> children;
+  final Widget? lead;
 
   @override
   Widget build(BuildContext context) {
+    final first = lead;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          if (first != null) ...[
+            first,
+            if (children.isNotEmpty)
+              Container(
+                width: 1,
+                height: 22,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                color: Hue.line,
+              ),
+          ],
           for (final (i, child) in children.indexed) ...[
             if (i > 0) const SizedBox(width: 8),
             child,
@@ -1175,57 +1264,405 @@ class _UsualRow extends StatelessWidget {
   }
 }
 
-/// Two or three small choices side by side, the chosen one raised, such
-/// as 先進先出 and 平均成本.
-class _MiniSegments extends StatelessWidget {
-  const _MiniSegments({
-    required this.labels,
-    required this.selected,
-    required this.onChanged,
+/// Whom money is paid for or from, under the amount in place of 常用:
+/// a tinted pill with the person's name, a tap to change them, and a
+/// cross back to a plain entry.
+class _PersonPill extends StatelessWidget {
+  const _PersonPill({
+    required this.text,
+    required this.sub,
+    required this.color,
+    required this.onTap,
+    this.onClear,
   });
 
-  final List<String> labels;
-  final int selected;
-  final ValueChanged<int> onChanged;
+  final String text;
+  final String sub;
+  final Color color;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Hue.surface,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(2),
+    final clear = onClear;
+    return Center(
+      child: Container(
+        padding: EdgeInsets.only(left: 5, right: clear == null ? 12 : 0),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color, width: 1.5),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final (i, label) in labels.indexed)
-              TapArea(
-                selected: i == selected,
-                onTap: () => onChanged(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: i == selected ? Hue.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: i == selected ? Hue.ink : Hue.muted,
+            Flexible(
+              child: TapArea(
+                onTap: onTap,
+                label: '$text，$sub，換人',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Hue.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: GlyphIcon(Glyph.heart, size: 13, color: color),
                     ),
-                  ),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            ),
+            if (clear != null)
+              IconButton(
+                tooltip: '不是代墊',
+                onPressed: clear,
+                icon: GlyphIcon(Glyph.close, size: 14, color: color),
               ),
           ],
         ),
       ),
     );
   }
+}
+
+/// One sum someone still owes, as a card to tick: what it was for, when,
+/// and what is left of it; ticked ones are what is being paid back.
+class _OwedCard extends StatelessWidget {
+  const _OwedCard({
+    required this.title,
+    required this.when,
+    required this.amount,
+    required this.picked,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String when;
+  final String amount;
+  final bool picked;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(16);
+    return Semantics(
+      button: true,
+      selected: picked,
+      label: '$title，$when，$amount',
+      excludeSemantics: true,
+      child: Material(
+        color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: picked ? BorderSide(color: color, width: 1.5) : BorderSide.none,
+        ),
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: SizedBox(
+            width: 150,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          when,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Hue.muted,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          amount,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: picked ? color : Hue.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: picked ? color : Hue.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: picked
+                        ? const Text(
+                            '✓',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A word to pick in a row of them, such as a merchant or a tag: grey,
+/// or tinted and ringed in [color] when [picked].
+class _WordChip extends StatelessWidget {
+  const _WordChip(this.label, this.onTap, {required this.color, this.picked = false});
+
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+  final bool picked;
+
+  @override
+  Widget build(BuildContext context) {
+    return TapArea(
+      onTap: onTap,
+      selected: picked,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: picked ? Border.all(color: color, width: 1.5) : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: picked ? color : Hue.ink,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Words in a row that slides sideways, such as the merchants.
+class _WordRow extends StatelessWidget {
+  const _WordRow(this.children);
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (i, child) in children.indexed) ...[
+            if (i > 0) const SizedBox(width: 7),
+            child,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A small grey heading over a group of fields, such as 商家.
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 10, 2, 2),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: Hue.muted,
+        ),
+      ),
+    );
+  }
+}
+
+/// The form's fields one under another, stretched to the width, and at
+/// least [minHeight] tall: height to spare goes above and below the child
+/// at [grow], such as the amount, so the form keeps one size from tab to
+/// tab with nothing left empty at its foot. Its own height without the
+/// spare is told to [onHeight].
+class _Fill extends MultiChildRenderObjectWidget {
+  const _Fill({
+    required this.minHeight,
+    required this.grow,
+    required this.onHeight,
+    required super.children,
+  });
+
+  final double minHeight;
+  final int grow;
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFill(minHeight, grow, onHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderFill renderObject) {
+    renderObject
+      ..minHeight = minHeight
+      ..grow = grow
+      ..onHeight = onHeight;
+  }
+}
+
+class _FillData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderFill extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FillData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FillData> {
+  _RenderFill(this._minHeight, this._grow, this.onHeight);
+
+  double _minHeight;
+  set minHeight(double value) {
+    if (value == _minHeight) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  int _grow;
+  set grow(int value) {
+    if (value == _grow) return;
+    _grow = value;
+    markNeedsLayout();
+  }
+
+  ValueChanged<double> onHeight;
+  double? _told;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FillData) child.parentData = _FillData();
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final inner = BoxConstraints.tightFor(width: width);
+    var natural = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      child.layout(inner, parentUsesSize: true);
+      natural += child.size.height;
+      child = childAfter(child);
+    }
+    final height = constraints.constrainHeight(math.max(natural, _minHeight));
+    final spare = math.max(0.0, height - natural);
+    var y = 0.0;
+    var i = 0;
+    child = firstChild;
+    while (child != null) {
+      if (i == _grow) y += spare / 2;
+      (child.parentData! as _FillData).offset = Offset(0, y);
+      y += child.size.height;
+      if (i == _grow) y += spare / 2;
+      i++;
+      child = childAfter(child);
+    }
+    size = constraints.constrain(Size(width, height));
+    if (_told != natural) {
+      _told = natural;
+      final told = natural;
+      WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(told));
+    }
+  }
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) {
+    final inner = BoxConstraints.tightFor(width: constraints.maxWidth);
+    var natural = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      natural += child.getDryLayout(inner).height;
+      child = childAfter(child);
+    }
+    return constraints.constrain(
+      Size(constraints.maxWidth, math.max(natural, _minHeight)),
+    );
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) {
+    var sum = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      sum += child.getMinIntrinsicHeight(width);
+      child = childAfter(child);
+    }
+    return math.max(sum, _minHeight);
+  }
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      computeMinIntrinsicHeight(width);
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

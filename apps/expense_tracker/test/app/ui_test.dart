@@ -322,8 +322,7 @@ void main() {
     expect(inSheet('代墊'), findsOneWidget);
     await tester.tap(inSheet('代墊'));
     await tester.pumpAndSettle();
-    expect(inSheet('幫誰付'), findsOneWidget);
-    expect(inSheet('代墊朋友'), findsOneWidget);
+    expect(inSheet('幫 代墊朋友 付'), findsOneWidget);
     await type('代墊金額', ['5', '0', '0']);
     await tester.tap(find.text('記下代墊'));
     await tester.pumpAndSettle();
@@ -336,7 +335,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(inSheet('對方還錢'));
     await tester.pumpAndSettle();
-    expect(inSheet('誰還錢'), findsOneWidget);
+    expect(inSheet('代墊朋友 還錢'), findsOneWidget);
     await type('還款金額', ['3', '0', '0']);
     await tester.tap(find.text('記下還款'));
     await tester.pumpAndSettle();

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -82,6 +83,16 @@ extension type const _Drafts(Ledger ledger) {
       ledger.setDraft(tab.name, draft.toJson());
 
   void remove(ComposeMode tab) => ledger.setDraft(tab.name, null);
+}
+
+/// A choice opened inside the sheet in place of the form, such as the
+/// accounts: its title, what it shows, and how it is left without one.
+final class _Page {
+  const _Page(this.title, this.body, this.close);
+
+  final String title;
+  final Widget body;
+  final VoidCallback close;
 }
 
 /// How the composer was left, when not just closed.
@@ -185,6 +196,17 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// The draft that tab had before, put back when the app returns.
   String? _before;
 
+  /// A choice open in place of the form, if any.
+  _Page? _page;
+
+  /// The tallest the fields have stood while closed, this run: every tab
+  /// is made as tall, the amount taking the room to spare, so the sheet
+  /// keeps one size from tab to tab.
+  static var _tallest = 0.0;
+
+  /// The sums someone paid back is made of, by entry, while 對方還錢.
+  Set<String> _paying = {};
+
   @override
   void initState() {
     super.initState();
@@ -207,6 +229,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _page?.close();
     _note.dispose();
     super.dispose();
   }
@@ -220,8 +243,56 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   /// 代墊 from the expense tab, 對方還錢 from the income tab.
   void _lend({required bool back}) {
-    _set(() => _f.lend(back: back));
+    _set(() {
+      _f.lend(back: back);
+      if (back) _payAll();
+    });
     if (_f.people.isEmpty) unawaited(_pickPerson());
+  }
+
+  /// Back from 代墊 or 對方還錢 to a plain entry of the same tab.
+  void _unlend() => _set(() {
+    _f.mode = _f.tab;
+    _paying = {};
+  });
+
+  /// Everything the person owes is being paid back: each sum ticked and
+  /// the amount their total.
+  void _payAll() {
+    if (_f.to.isEmpty) return;
+    final owed = _ledger.owedBy(_f.to);
+    _paying = {for (final (e, _) in owed) e.id};
+    final total = owed.fold(0, (sum, o) => sum + o.$2);
+    if (total > 0) _f.setAmount(total);
+  }
+
+  /// One sum ticked or not among what is being paid back; the amount
+  /// follows.
+  void _togglePaying(String id) => _set(() {
+    _paying = {..._paying};
+    if (!_paying.remove(id)) _paying.add(id);
+    final owed = _ledger.owedBy(_f.to);
+    _f.setAmount(
+      owed.fold(0, (sum, o) => _paying.contains(o.$1.id) ? sum + o.$2 : sum),
+    );
+  });
+
+  /// Opens a choice inside the sheet in place of the form, titled
+  /// [title]; [build] is given what to call with the value chosen. The
+  /// arrow back or the phone's back returns to the form with none.
+  Future<T?> _open<T>(String title, Widget Function(ValueChanged<T> done) build) {
+    _page?.close();
+    final result = Completer<T?>();
+    late final _Page page;
+    void finish(T? value) {
+      if (result.isCompleted) return;
+      result.complete(value);
+      if (identical(_page, page)) _set(() => _page = null);
+    }
+
+    page = _Page(title, build(finish), () => finish(null));
+    _set(() => _page = page);
+    return result.future;
   }
 
   /// A category picked: back to a plain expense or income from 代墊.
@@ -248,8 +319,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   Color get _color {
     if (_f.refunded != null) return Hue.positive;
-    if (_f.mode != ComposeMode.investment) return _f.tab.color;
-    return _f.trade == EntryType.sell ? Hue.positive : Hue.investment;
+    return _f.tab.color;
   }
 
   /// What the tabs do not say: an entry being changed, money paid for
@@ -258,7 +328,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   List<(String, Color)> get _marks => [
     if (_f.refunded != null) ('退款', Hue.positive),
     if (widget.entry != null && !_viewing) ('編輯中', Hue.accent),
-    if (_f.mode == ComposeMode.lend) (_f.back ? '還款' : '代墊', Hue.receivable),
   ];
 
   String get _action {
@@ -298,14 +367,16 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final marked = {
       for (final e in _ledger.entriesIn(_f.date.year, _f.date.month)) e.date,
     };
-    final day = await pickDate(
-      context,
-      title: '入帳日期',
-      selected: _f.date,
-      latest: _ledger.today,
-      today: _ledger.today,
-      marked: marked,
-      height: sheetHeight,
+    final day = await _open<DateTime>(
+      '日期',
+      (done) => DayChoices(
+        selected: _f.date,
+        latest: _ledger.today,
+        today: _ledger.today,
+        marked: marked,
+        color: _color,
+        onPick: done,
+      ),
     );
     if (day != null) setState(() => _f.date = day);
   }
@@ -316,47 +387,51 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final currency = refunded == null
         ? null
         : _ledger.account(refunded.account).currency;
-    return pickAccount(
-      context,
-      _ledger,
-      title: title,
-      selected: selected,
-      currency: currency,
+    return _open<String>(
+      title,
+      (done) => AccountChoices(
+        ledger: _ledger,
+        selected: selected,
+        currency: currency,
+        ring: _color,
+        onPick: done,
+      ),
     );
   }
 
-  Future<String?> _pickCategory(String? selected) {
-    final income = _f.mode == ComposeMode.income;
-    return pickOption<String>(
-      context,
-      title: income ? '收入分類' : '支出分類',
-      selected: selected,
-      options: categoryOptions(_ledger, income: income),
-      height: sheetHeight,
+  /// A category from them all; 新增 at the end makes one and gives it.
+  Future<String?> _pickCategory(String? selected) async {
+    final income = _f.tab == ComposeMode.income;
+    const adding = '';
+    final picked = await _open<String>(
+      income ? '收入分類' : '支出分類',
+      (done) => OptionGrid<String>(
+        options: [
+          ...categoryOptions(_ledger, income: income),
+          if (!_viewing) const Option(adding, '新增', Glyph.add, Hue.muted),
+        ],
+        selected: selected,
+        ring: _color,
+        onPick: done,
+      ),
     );
+    if (picked != adding) return picked;
+    return _newCategory();
   }
 
   Future<void> _pickHolding() async {
-    final picked = await showChildPage<String>(
-      context,
-      title: '投資標的',
-      height: sheetHeight,
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        children: [
-          for (final h in _ledger.holdings)
-            _HoldingRow(
-              code: h.code,
-              name: holdingLabel(h),
-              held: '持有 ${_ledger.orDots(groupDigits(h.shares))} 股',
-              color: _codeColor(h.code),
-              picked: h.code == _f.holding,
-              onTap: () => Navigator.of(context).pop(h.code),
-            ),
-        ],
+    final picked = await _open<String>(
+      '標的',
+      (done) => _HoldingChoices(
+        ledger: _ledger,
+        selected: _f.holding,
+        onPick: done,
+        onAdd: _viewing ? null : () => done(''),
       ),
     );
-    if (picked != null) setState(() => _f.holding = picked);
+    if (picked == null) return;
+    if (picked.isEmpty) return _newHolding();
+    _set(() => _f.holding = picked);
   }
 
   Future<void> _newHolding() async {
@@ -371,42 +446,45 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   }
 
   Future<void> _pickMerchant() async {
-    final picked = await showChildPage<String>(
-      context,
-      title: '商家',
-      builder: (_) =>
-          _MerchantPicker(known: _ledger.merchants, initial: _f.merchant),
+    final picked = await _open<String>(
+      '商家',
+      (done) => _MerchantPicker(
+        known: _ledger.merchants,
+        initial: _f.merchant,
+        onDone: done,
+      ),
     );
     if (picked == null) return;
     setState(() => _f.pickMerchant(picked));
   }
 
   Future<void> _pickTags() async {
-    final picked = await showChildPage<List<String>>(
-      context,
-      title: '標籤',
-      builder: (_) => _TagPicker(known: _ledger.tags, initial: _f.tags),
+    final picked = await _open<List<String>>(
+      '標籤',
+      (done) => _TagPicker(known: _ledger.tags, initial: _f.tags, onDone: done),
     );
     if (picked != null) setState(() => _f.tags = picked);
   }
 
   Future<void> _pickInstallments() async {
-    final picked = await pickOption<int>(
-      context,
-      title: '分期付款',
-      selected: _f.installments,
-      columns: 3,
-      options: [
-        for (final n in const [0, 3, 6, 12, 24, 30])
-          Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.card),
-      ],
-      height: sheetHeight,
+    final picked = await _open<int>(
+      '分期付款',
+      (done) => OptionGrid<int>(
+        selected: _f.installments,
+        columns: 3,
+        ring: _color,
+        onPick: done,
+        options: [
+          for (final n in const [0, 3, 6, 12, 24, 30])
+            Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.muted),
+        ],
+      ),
     );
     if (picked != null) setState(() => _f.installments = picked);
   }
 
-  Future<void> _newCategory() async {
-    final income = _f.mode == ComposeMode.income;
+  Future<String?> _newCategory() async {
+    final income = _f.tab == ComposeMode.income;
     final count = _ledger.categories.length;
     final made = await showCategoryEditor(
       context,
@@ -420,9 +498,9 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       colors: Hue.categoryColors,
       ledger: _ledger,
     );
-    if (made == null) return;
+    if (made == null) return null;
     _ledger.addCategory(made);
-    setState(() => _f.category = made.name);
+    return made.name;
   }
 
   void _split() => setState(_f.toggleSplit);
@@ -539,14 +617,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   };
 
   /// The amount in the middle of the form, [under] it such as 常用.
-  Widget _hero({Widget? under}) {
+  Widget _hero({Widget? under, String? unit}) {
     final refunded = _f.refunded;
     final most = refunded == null
         ? 0
         : _ledger.refundable(refunded) + (widget.entry?.amount ?? 0);
     return _AmountHero(
       label: _amountLabel,
-      unit: _f.currency == homeCode ? r'NT$' : _f.currency,
+      unit: unit ?? (_f.currency == homeCode ? r'NT$' : _f.currency),
       value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
       color: _color,
       onTap: _calculate,
@@ -557,8 +635,41 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     );
   }
 
+  /// The fields' own height, kept when it is the tallest yet; only while
+  /// the form shows closed, so an opened fold or a problem does not make
+  /// every tab taller.
+  void _measured(double height) {
+    if (!mounted || _page != null || _f.more || _problem != null) return;
+    if (height > _tallest + 0.5) setState(() => _tallest = height);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final page = _page;
+    if (page != null) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) page.close();
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _PageHeader(title: page.title, onBack: page.close),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: page.body,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final problem = _problem;
     final entry = widget.entry;
     final refunded = _f.refunded;
@@ -569,7 +680,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         _ledger.refundable(entry) > 0;
     // The top stays put: the kind of entry, or what is being changed.
     final top = Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -607,27 +718,33 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         ],
       ),
     );
-    // The sheet is as tall as its fields, which scroll inside it past
-    // three quarters of the screen.
+    // The sheet is as tall as the tallest tab's fields, which scroll
+    // inside it past three quarters of the screen.
     final fields = SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
       child: IgnorePointer(
         ignoring: _viewing,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ..._fields(),
-            if (problem != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(
-                  problem,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Hue.danger),
+        child: Builder(
+          builder: (context) {
+            final children = [
+              ..._fields(),
+              if (problem != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    problem,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Hue.danger),
+                  ),
                 ),
-              ),
-          ],
+            ];
+            return _Fill(
+              minHeight: _tallest,
+              grow: children.indexWhere((w) => w is _AmountHero),
+              onHeight: _measured,
+              children: children,
+            );
+          },
         ),
       ),
     );

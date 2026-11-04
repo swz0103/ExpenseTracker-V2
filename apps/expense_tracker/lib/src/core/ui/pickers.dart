@@ -92,38 +92,127 @@ Future<T?> pickOption<T>(
     context,
     title: title,
     height: height,
-    builder: (context) => GridView.count(
-      crossAxisCount: columns,
-      shrinkWrap: true,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 0.95,
+    builder: (context) => SingleChildScrollView(
+      child: OptionGrid<T>(
+        options: options,
+        selected: selected,
+        columns: columns,
+        onPick: (value) => Navigator.of(context).pop(value),
+      ),
+    ),
+  );
+}
+
+/// The choices of [pickOption] as a grid, for a page of its own or one
+/// opened inside another sheet. The chosen one is tinted and ringed in
+/// [ring] when given, or has a soft background.
+class OptionGrid<T> extends StatelessWidget {
+  const OptionGrid({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onPick,
+    this.columns = 4,
+    this.ring,
+  });
+
+  final List<Option<T>> options;
+  final T? selected;
+  final ValueChanged<T> onPick;
+  final int columns;
+  final Color? ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      for (var i = 0; i < options.length; i += columns)
+        options.sublist(
+          i,
+          i + columns < options.length ? i + columns : options.length,
+        ),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final option in options)
-          Material(
-            color: option.value == selected ? Hue.selected : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => Navigator.of(context).pop(option.value),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconBadge(option.icon, option.color, size: 40),
-                  const SizedBox(height: 6),
-                  Text(
-                    option.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                for (var i = 0; i < columns; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: i < row.length
+                        ? _OptionCell(
+                            option: row[i],
+                            picked: row[i].value == selected,
+                            ring: ring,
+                            onTap: () => onPick(row[i].value),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
       ],
-    ),
-  );
+    );
+  }
+}
+
+class _OptionCell<T> extends StatelessWidget {
+  const _OptionCell({
+    required this.option,
+    required this.picked,
+    required this.onTap,
+    this.ring,
+  });
+
+  final Option<T> option;
+  final bool picked;
+  final VoidCallback onTap;
+  final Color? ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = ring;
+    final radius = BorderRadius.circular(14);
+    return Material(
+      color: picked
+          ? (edge == null ? Hue.selected : edge.withValues(alpha: 0.12))
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: picked && edge != null
+            ? BorderSide(color: edge, width: 1.5)
+            : BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconBadge(option.icon, option.color, size: 40),
+              const SizedBox(height: 6),
+              Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
+                  color: picked ? (edge ?? Hue.ink) : Hue.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The open accounts to choose from, two to a row in groups by kind:
@@ -139,22 +228,57 @@ Future<String?> pickAccount(
   List<Account>? among,
   double? height = sheetHeight,
 }) {
-  final open = [
-    for (final a in among ?? ledger.openAccounts)
-      if (currency == null || a.currency == currency) a,
-  ];
-  final groups = [
-    ('銀行', {AccountKind.bank}),
-    ('現金', {AccountKind.cash}),
-    ('卡片與電子支付', {AccountKind.card, AccountKind.wallet}),
-    ('其他', {AccountKind.loan, AccountKind.receivable}),
-  ];
   return showChildPage<String>(
     context,
     title: title,
     height: height,
-    builder: (context) => ListView(
-      shrinkWrap: true,
+    builder: (context) => SingleChildScrollView(
+      child: AccountChoices(
+        ledger: ledger,
+        selected: selected,
+        currency: currency,
+        among: among,
+        onPick: (id) => Navigator.of(context).pop(id),
+      ),
+    ),
+  );
+}
+
+/// The accounts of [pickAccount], for a page of its own or one opened
+/// inside another sheet; the chosen one ringed in [ring].
+class AccountChoices extends StatelessWidget {
+  const AccountChoices({
+    super.key,
+    required this.ledger,
+    required this.selected,
+    required this.onPick,
+    this.currency,
+    this.among,
+    this.ring = Hue.accent,
+  });
+
+  final Ledger ledger;
+  final String? selected;
+  final ValueChanged<String> onPick;
+  final String? currency;
+  final List<Account>? among;
+  final Color ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = [
+      for (final a in among ?? ledger.openAccounts)
+        if (currency == null || a.currency == currency) a,
+    ];
+    final groups = [
+      ('銀行', {AccountKind.bank}),
+      ('現金', {AccountKind.cash}),
+      ('卡片與電子支付', {AccountKind.card, AccountKind.wallet}),
+      ('其他', {AccountKind.loan, AccountKind.receivable}),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (name, kinds) in groups)
           if (open.any((a) => kinds.contains(a.kind))) ...[
@@ -163,9 +287,9 @@ Future<String?> pickAccount(
               child: Text(
                 name,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: Hue.faint,
+                  color: Hue.muted,
                 ),
               ),
             ),
@@ -176,13 +300,14 @@ Future<String?> pickAccount(
                     account: a,
                     balance: ledger.moneyIn(ledger.balance(a.id), a.currency),
                     picked: a.id == selected,
-                    onTap: () => Navigator.of(context).pop(a.id),
+                    ring: ring,
+                    onTap: () => onPick(a.id),
                   ),
             ]),
           ],
       ],
-    ),
-  );
+    );
+  }
 }
 
 /// Widgets two to a row, the last alone on the left when odd.
@@ -215,44 +340,54 @@ class _Pairs extends StatelessWidget {
   }
 }
 
-/// One account in [pickAccount]: its mark, name and balance.
+/// One account in [AccountChoices]: its mark, name and balance; the mark
+/// grey until chosen.
 class _AccountChoice extends StatelessWidget {
   const _AccountChoice({
     required this.account,
     required this.balance,
     required this.picked,
+    required this.ring,
     required this.onTap,
   });
 
   final Account account;
   final String balance;
   final bool picked;
+  final Color ring;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(14);
     return Material(
-      color: picked ? Hue.selected : Hue.surface,
+      color: picked ? ring.withValues(alpha: 0.12) : Hue.surface,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
-        side: picked
-            ? const BorderSide(color: Hue.accent, width: 1.5)
-            : BorderSide.none,
+        side: picked ? BorderSide(color: ring, width: 1.5) : BorderSide.none,
       ),
       child: InkWell(
         borderRadius: radius,
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
+          constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(
               children: [
-                IconBadge(
-                  accountIcon(account),
-                  accountColor(account.kind),
-                  size: 32,
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Hue.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: GlyphIcon(
+                    accountIcon(account),
+                    size: 17,
+                    color: picked ? ring : Hue.muted,
+                  ),
                 ),
                 const SizedBox(width: 9),
                 Expanded(
@@ -287,7 +422,7 @@ class _AccountChoice extends StatelessWidget {
 }
 
 /// A month calendar, six rows from Monday; days after [latest] cannot
-/// be chosen and days in [marked] have a soft background.
+/// be chosen and days in [marked] have a dot.
 Future<DateTime?> pickDate(
   BuildContext context, {
   required String title,
@@ -301,35 +436,46 @@ Future<DateTime?> pickDate(
     context,
     title: title,
     height: height,
-    builder: (context) => _Calendar(
-      selected: selected,
-      latest: latest,
-      marked: marked,
-      today: today,
+    builder: (context) => SingleChildScrollView(
+      child: DayChoices(
+        selected: selected,
+        latest: latest,
+        marked: marked,
+        today: today,
+        onPick: (day) => Navigator.of(context).pop(day),
+      ),
     ),
   );
 }
 
-class _Calendar extends StatefulWidget {
-  const _Calendar({
+/// The calendar of [pickDate], for a page of its own or one opened inside
+/// another sheet, the chosen day filled with [color].
+class DayChoices extends StatefulWidget {
+  const DayChoices({
+    super.key,
     required this.selected,
     required this.latest,
-    required this.marked,
+    required this.onPick,
+    this.marked = const {},
     this.today,
+    this.color = Hue.accent,
   });
 
   final DateTime selected;
   final DateTime latest;
+  final ValueChanged<DateTime> onPick;
   final Set<DateTime> marked;
 
-  /// Given, 今天, 昨天 and 前天 are picked at once above the calendar.
+  /// Given, 今天, 昨天 and 前天 are cards above the calendar, each with
+  /// its date and day of the week.
   final DateTime? today;
+  final Color color;
 
   @override
-  State<_Calendar> createState() => _CalendarState();
+  State<DayChoices> createState() => _DayChoicesState();
 }
 
-class _CalendarState extends State<_Calendar> {
+class _DayChoicesState extends State<DayChoices> {
   late var _month = DateTime.utc(widget.selected.year, widget.selected.month);
 
   @override
@@ -350,19 +496,25 @@ class _CalendarState extends State<_Calendar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (quick.isNotEmpty)
-          Row(
-            children: [
-              for (final (name, day) in quick) ...[
-                ChoicePill(
-                  label: name,
-                  selected: day == widget.selected,
-                  onTap: () => Navigator.of(context).pop(day),
-                ),
-                const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                for (final (i, (name, day)) in quick.indexed) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _QuickDay(
+                      name: name,
+                      day: day,
+                      picked: day == widget.selected,
+                      color: widget.color,
+                      onTap: () => widget.onPick(day),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        const SizedBox(height: 4),
         StepSwitch(
           label: '${first.year} 年 ${first.month} 月',
           previousLabel: '上個月',
@@ -378,7 +530,7 @@ class _CalendarState extends State<_Calendar> {
                   _month = DateTime.utc(first.year, first.month + 1);
                 }),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Row(
           children: [
             for (final name in weekdayNames)
@@ -391,7 +543,7 @@ class _CalendarState extends State<_Calendar> {
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         for (var week = 0; week < 6; week++)
           Row(
             children: [
@@ -407,50 +559,104 @@ class _CalendarState extends State<_Calendar> {
     final inMonth = day.month == _month.month;
     final future = day.isAfter(widget.latest);
     final picked = day == widget.selected;
-    final weekend = day.weekday >= DateTime.saturday;
     // Only the chosen day is filled; a day with entries has a dot.
     final ink = picked
         ? Hue.onAccent
         : !inMonth || future
         ? Hue.faint
-        : weekend
-        ? Hue.negative
         : Hue.ink;
     final dotted = inMonth && !picked && widget.marked.contains(day);
-    return Padding(
-      padding: const EdgeInsets.all(2.5),
-      child: Material(
-        color: picked ? Hue.accent : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: future || !inMonth
-              ? null
-              : () => Navigator.of(context).pop(day),
-          child: SizedBox(
+    return InkResponse(
+      onTap: future || !inMonth ? null : () => widget.onPick(day),
+      radius: 24,
+      child: SizedBox(
+        height: 48,
+        child: Center(
+          child: Container(
+            width: 40,
             height: 40,
+            decoration: BoxDecoration(
+              color: picked ? widget.color : null,
+              shape: BoxShape.circle,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   '${day.day}',
                   style: TextStyle(
+                    fontSize: 15,
                     color: ink,
-                    fontWeight: picked ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight: picked ? FontWeight.w800 : FontWeight.w500,
                   ),
                 ),
                 if (dotted)
                   Container(
                     width: 4,
                     height: 4,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: const BoxDecoration(
-                      color: Hue.accent,
+                    margin: const EdgeInsets.only(top: 1),
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: 0.6),
                       shape: BoxShape.circle,
                     ),
                   ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 今天, 昨天 or 前天 as a card with its date and day of the week, centred.
+class _QuickDay extends StatelessWidget {
+  const _QuickDay({
+    required this.name,
+    required this.day,
+    required this.picked,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String name;
+  final DateTime day;
+  final bool picked;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(16);
+    return Material(
+      color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: picked ? BorderSide(color: color, width: 1.5) : BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: picked ? color : Hue.ink,
+                ),
+              ),
+              Text(
+                '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+                style: const TextStyle(fontSize: 12, color: Hue.muted),
+              ),
+            ],
+          ),
           ),
         ),
       ),
