@@ -86,36 +86,6 @@ class _TradeChips extends StatelessWidget {
   }
 }
 
-/// One line of a trade's sums, such as its settlement day.
-class _Line extends StatelessWidget {
-  const _Line(this.label, this.value, {this.color = Hue.ink});
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13.5)),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// A small white button in a block's heading, such as 拍照.
 class _Chip extends StatelessWidget {
   const _Chip(this.label, this.onTap);
@@ -464,9 +434,9 @@ class _AmountHero extends StatelessWidget {
       ],
     );
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const SizedBox(height: 14),
         Row(
           children: [
             const SizedBox(width: 48),
@@ -488,12 +458,6 @@ class _AmountHero extends StatelessWidget {
                   : IconButton(
                       tooltip: label,
                       onPressed: tap,
-                      style: IconButton.styleFrom(
-                        backgroundColor: Hue.surface,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                      ),
                       icon: const GlyphIcon(
                         Glyph.calculator,
                         size: 20,
@@ -505,7 +469,7 @@ class _AmountHero extends StatelessWidget {
         ),
         if (note != null)
           Text(note, textAlign: TextAlign.center, style: mutedSmall),
-        if (below != null) ...[const SizedBox(height: 10), below],
+        if (below != null) ...[const SizedBox(height: 12), below],
       ],
     );
   }
@@ -1116,6 +1080,150 @@ class _HoldingRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One of 常用 under the amount: a small white pill with the category's
+/// mark, its name and amount, a tap from a filled form.
+class _UsualChip extends StatelessWidget {
+  const _UsualChip({
+    required this.icon,
+    required this.color,
+    required this.name,
+    required this.onTap,
+    this.amount,
+  });
+
+  final Glyph icon;
+  final Color color;
+  final String name;
+  final String? amount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final figure = amount;
+    return TapArea(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
+        decoration: BoxDecoration(
+          color: Hue.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Hue.line),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: GlyphIcon(icon, size: 14, color: color),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              name,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 13, color: Hue.muted),
+            ),
+            if (figure != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                figure,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Hue.ink,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 常用 as one row from the left that slides sideways.
+class _UsualRow extends StatelessWidget {
+  const _UsualRow(this.children);
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (i, child) in children.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            child,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Two or three small choices side by side, the chosen one raised, such
+/// as 先進先出 and 平均成本.
+class _MiniSegments extends StatelessWidget {
+  const _MiniSegments({
+    required this.labels,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Hue.surface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, label) in labels.indexed)
+              TapArea(
+                selected: i == selected,
+                onTap: () => onChanged(i),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: i == selected ? Hue.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: i == selected ? Hue.ink : Hue.muted,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

@@ -112,7 +112,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       photos: photos,
       scan: scan,
     ),
-    height: sheetHeight,
+    capHeight: true,
   );
 }
 
@@ -607,43 +607,38 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         ],
       ),
     );
-    // The fields fill the sheet, the amount taking what is left over, and
-    // scroll inside it when they are longer.
-    final fields = LayoutBuilder(
-      builder: (context, box) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: box.maxHeight),
-          child: IntrinsicHeight(
-            child: IgnorePointer(
-              ignoring: _viewing,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ..._fields(),
-                  if (problem != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        problem,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Hue.danger),
-                      ),
-                    ),
-                ],
+    // The sheet is as tall as its fields, which scroll inside it past
+    // three quarters of the screen.
+    final fields = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: IgnorePointer(
+        ignoring: _viewing,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ..._fields(),
+            if (problem != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  problem,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Hue.danger),
+                ),
               ),
-            ),
-          ),
+          ],
         ),
       ),
     );
     // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
     // reach however long the form is.
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         top,
-        Expanded(child: fields),
+        Flexible(child: fields),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
           child: Row(
