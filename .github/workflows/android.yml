@@ -124,6 +124,15 @@ jobs:
             "$(sha256sum "$apk" | cut -d' ' -f1)" "$(stat -c %s "$apk")" \
             > "$RUNNER_TEMP/update.json"
           cat "$RUNNER_TEMP/update.json"
+      - name: Make the test backup
+        # The test ledger's backup (tool/test_ledger.py, password test1234),
+        # published beside the APK for trying the app with real-looking data.
+        working-directory: apps/expense_tracker
+        env:
+          TEST_BACKUP_OUT: ${{ runner.temp }}/test-ledger.etbk
+        run: |
+          flutter test test/tool/test_ledger_test.dart
+          test -s "$TEST_BACKUP_OUT"
       - name: Kotlin unit tests
         # The Android side's own checks, such as the inbox sealing the
         # vault's worked example the same (InboxWriterTest.kt). The Android
@@ -200,6 +209,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ExpenseTracker.apk
             ${{ runner.temp }}/update.json
+            ${{ runner.temp }}/test-ledger.etbk
           if-no-files-found: error
           retention-days: 3
 
@@ -260,6 +270,8 @@ jobs:
           # Only once the APK is in place: the app never reads of a build
           # it cannot download.
           gh release upload android-latest "$RUNNER_TEMP/apk/update.json" \
+            --repo "$repo" --clobber
+          gh release upload android-latest "$RUNNER_TEMP/apk/test-ledger.etbk" \
             --repo "$repo" --clobber
           # Leftovers from an earlier publish that stopped half way.
           gh api "repos/$repo/releases/tags/android-latest" \
