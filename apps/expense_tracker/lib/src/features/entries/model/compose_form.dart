@@ -441,12 +441,12 @@ final class ComposeForm {
   /// A new amount typed: what was worked out from the old one goes.
   void setAmount(int value) {
     // Shares still even follow the new amount; those typed stay.
-    final shares = lent;
-    if (shares != null &&
-        shares.every((p) => p.$2 == shares.first.$2) &&
-        shares.first.$2 == amount ~/ (shares.length + 1)) {
-      final share = value ~/ (shares.length + 1);
-      lent = [for (final (p, _) in shares) (p, share)];
+    final split = lent;
+    if (split != null &&
+        split.every((p) => p.$2 == split.first.$2) &&
+        split.first.$2 == amount ~/ (split.length + 1)) {
+      final share = value ~/ (split.length + 1);
+      lent = [for (final (p, _) in split) (p, share)];
     }
     amount = value;
     home = null;
