@@ -128,30 +128,30 @@ extension LedgerReports on Ledger {
   /// With [income], income instead, refunds left out.
   List<Entry> usual({int most = 6, bool income = false}) =>
       _remember(('usual', today, most, income), () {
-    final since = today.subtract(const Duration(days: 90));
-    final counts = <(String, String, String), int>{};
-    final latest = <(String, String, String), Entry>{};
-    final kind = income ? EntryType.income : EntryType.expense;
-    for (final e in _entries) {
-      if (e.type != kind ||
-          e.refundOf != null ||
-          e.date.isBefore(since) ||
-          e.parts.isNotEmpty ||
-          e.installments > 1 ||
-          e.home != null) {
-        continue;
-      }
-      final key = (e.category, e.merchant, e.account);
-      counts[key] = (counts[key] ?? 0) + 1;
-      final kept = latest[key];
-      if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
-    }
-    final keys = [
-      for (final MapEntry(:key, :value) in counts.entries)
-        if (value >= 3) key,
-    ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-    return [for (final key in keys.take(most)) latest[key]!];
-  }, on: const {Area.entries});
+        final since = today.subtract(const Duration(days: 90));
+        final counts = <(String, String, String), int>{};
+        final latest = <(String, String, String), Entry>{};
+        final kind = income ? EntryType.income : EntryType.expense;
+        for (final e in _entries) {
+          if (e.type != kind ||
+              e.refundOf != null ||
+              e.date.isBefore(since) ||
+              e.parts.isNotEmpty ||
+              e.installments > 1 ||
+              e.home != null) {
+            continue;
+          }
+          final key = (e.category, e.merchant, e.account);
+          counts[key] = (counts[key] ?? 0) + 1;
+          final kept = latest[key];
+          if (kept == null || !e.date.isBefore(kept.date)) latest[key] = e;
+        }
+        final keys = [
+          for (final MapEntry(:key, :value) in counts.entries)
+            if (value >= 3) key,
+        ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+        return [for (final key in keys.take(most)) latest[key]!];
+      }, on: const {Area.entries});
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.

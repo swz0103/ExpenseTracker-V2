@@ -129,11 +129,7 @@ extension _Fields on _ComposerState {
 
   List<Widget> _fields() {
     if (_f.refunded != null) {
-      return [
-        _hero(),
-        _pair(_accountPick('退回到'), _datePick()),
-        _noteRow(),
-      ];
+      return [_hero(), _pair(_accountPick('退回到'), _datePick()), _noteRow()];
     }
     switch (_f.mode) {
       case ComposeMode.expense || ComposeMode.income:
