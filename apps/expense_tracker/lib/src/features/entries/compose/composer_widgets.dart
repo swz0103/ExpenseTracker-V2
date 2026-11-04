@@ -254,7 +254,7 @@ class _Tabs extends StatelessWidget {
     Widget cell(Widget child, {required bool on}) => Container(
       height: 48,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
+      foregroundDecoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
             color: on ? color : Hue.line,

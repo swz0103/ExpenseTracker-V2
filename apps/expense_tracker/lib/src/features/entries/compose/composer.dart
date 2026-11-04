@@ -258,13 +258,12 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   });
 
   /// Everything the person owes is being paid back: each sum ticked and
-  /// the amount their total.
+  /// the amount all they owe.
   void _payAll() {
     if (_f.to.isEmpty) return;
-    final owed = _ledger.owedBy(_f.to);
-    _paying = {for (final (e, _) in owed) e.id};
-    final total = owed.fold(0, (sum, o) => sum + o.$2);
-    if (total > 0) _f.setAmount(total);
+    _paying = {for (final (e, _) in _ledger.owedBy(_f.to)) e.id};
+    final owed = _ledger.balance(_f.to);
+    if (owed > 0) _f.setAmount(owed);
   }
 
   /// One sum ticked or not among what is being paid back; the amount
@@ -272,10 +271,11 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   void _togglePaying(String id) => _set(() {
     _paying = {..._paying};
     if (!_paying.remove(id)) _paying.add(id);
-    final owed = _ledger.owedBy(_f.to);
-    _f.setAmount(
-      owed.fold(0, (sum, o) => _paying.contains(o.$1.id) ? sum + o.$2 : sum),
-    );
+    // All they owe but the sums not ticked, which stay owed.
+    final kept = _ledger
+        .owedBy(_f.to)
+        .fold(0, (sum, o) => _paying.contains(o.$1.id) ? sum : sum + o.$2);
+    _f.setAmount(math.max(0, _ledger.balance(_f.to) - kept));
   });
 
   /// Opens a choice inside the sheet in place of the form, titled

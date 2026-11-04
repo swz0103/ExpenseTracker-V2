@@ -184,7 +184,8 @@ extension LedgerReports on Ledger {
 
   /// What [person] still owes, payment by payment: each sum paid for
   /// them, with what is left of it once what they paid back is taken off
-  /// the oldest first; those paid off are left out. Newest first.
+  /// the oldest first, after what they owed from the start; those paid
+  /// off are left out. Newest first.
   List<(Entry, int)> owedBy(String person) =>
       _remember(('owedBy', person), () {
         final moves = [
@@ -193,7 +194,8 @@ extension LedgerReports on Ledger {
                 (e.to == person || e.account == person))
               e,
         ]..sort((a, b) => a.date.compareTo(b.date));
-        var back = 0;
+        // What they owed from the start is paid back before anything lent.
+        var back = -account(person).opening;
         final lent = <Entry>[];
         for (final e in moves) {
           if (e.to == person) {
@@ -204,7 +206,11 @@ extension LedgerReports on Ledger {
         }
         final owed = <(Entry, int)>[];
         for (final e in lent) {
-          final taken = back < e.amount ? back : e.amount;
+          final taken = back <= 0
+              ? 0
+              : back < e.amount
+              ? back
+              : e.amount;
           back -= taken;
           if (e.amount > taken) owed.add((e, e.amount - taken));
         }

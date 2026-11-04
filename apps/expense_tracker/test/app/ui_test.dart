@@ -336,7 +336,8 @@ void main() {
     await tester.tap(inSheet('對方還錢'));
     await tester.pumpAndSettle();
     expect(inSheet('代墊朋友 還錢'), findsOneWidget);
-    await type('還款金額', ['3', '0', '0']);
+    // It opens at all they owe; cleared, 300 of it.
+    await type('還款金額', ['C', '3', '0', '0']);
     await tester.tap(find.text('記下還款'));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3700 - 300);
