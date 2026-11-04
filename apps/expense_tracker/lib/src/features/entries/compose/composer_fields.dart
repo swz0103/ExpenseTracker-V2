@@ -301,8 +301,7 @@ extension _Fields on _ComposerState {
     final scan = fresh && widget.scan != null && !income;
     if (usual.isEmpty && !scan && lend == null) return null;
     return _UsualRow(lead: lend, [
-      if (scan)
-        _UsualChip(icon: Glyph.scan, name: '掃發票', onTap: _scanInvoice),
+      if (scan) _UsualChip(icon: Glyph.scan, name: '掃發票', onTap: _scanInvoice),
       for (final (e, category) in [
         for (final e in usual) (e, _ledger.category(e.category)),
       ])
@@ -489,7 +488,10 @@ extension _Fields on _ComposerState {
                 '#$tag',
                 () => _set(() {
                   _f.tags = _f.tags.contains(tag)
-                      ? [for (final t in _f.tags) if (t != tag) t]
+                      ? [
+                          for (final t in _f.tags)
+                            if (t != tag) t,
+                        ]
                       : [..._f.tags, tag];
                 }),
                 color: _color,

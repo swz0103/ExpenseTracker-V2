@@ -431,7 +431,9 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
                 for (var j = i; j < i + 3; j++) ...[
                   if (j > i) const SizedBox(width: 8),
                   Expanded(
-                    child: j < cards.length ? cards[j] : const SizedBox.shrink(),
+                    child: j < cards.length
+                        ? cards[j]
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ],
@@ -480,7 +482,10 @@ class _OutcomeCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(sub, style: const TextStyle(fontSize: 12, color: Hue.muted)),
+                Text(
+                  sub,
+                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                ),
               ],
             ),
           ),

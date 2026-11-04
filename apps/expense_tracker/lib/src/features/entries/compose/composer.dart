@@ -281,7 +281,10 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// Opens a choice inside the sheet in place of the form, titled
   /// [title]; [build] is given what to call with the value chosen. The
   /// arrow back or the phone's back returns to the form with none.
-  Future<T?> _open<T>(String title, Widget Function(ValueChanged<T> done) build) {
+  Future<T?> _open<T>(
+    String title,
+    Widget Function(ValueChanged<T> done) build,
+  ) {
     _page?.close();
     final result = Completer<T?>();
     late final _Page page;

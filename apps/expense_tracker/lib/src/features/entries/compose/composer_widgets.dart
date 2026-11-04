@@ -51,6 +51,7 @@ class _OriginalTile extends StatelessWidget {
     );
   }
 }
+
 /// A merchant's name, typed or picked from those used before.
 class _MerchantPicker extends StatefulWidget {
   const _MerchantPicker({
@@ -106,24 +107,24 @@ class _MerchantPickerState extends State<_MerchantPicker> {
         const SizedBox(height: 8),
         Column(
           children: [
-              if (typed.isNotEmpty && !widget.known.contains(typed))
-                ListTile(
-                  leading: const GlyphIcon(Glyph.add, color: Hue.accent),
-                  title: Text('新增「$typed」'),
-                  onTap: () => widget.onDone(typed),
-                ),
-              for (final name in matches.take(12))
-                ListTile(
-                  leading: const GlyphIcon(Glyph.store, color: Hue.accent),
-                  title: Text(name),
-                  onTap: () => widget.onDone(name),
-                ),
-              if (widget.initial.isNotEmpty)
-                ListTile(
-                  leading: const GlyphIcon(Glyph.close, color: Hue.muted),
-                  title: const Text('不記商家'),
-                  onTap: () => widget.onDone(''),
-                ),
+            if (typed.isNotEmpty && !widget.known.contains(typed))
+              ListTile(
+                leading: const GlyphIcon(Glyph.add, color: Hue.accent),
+                title: Text('新增「$typed」'),
+                onTap: () => widget.onDone(typed),
+              ),
+            for (final name in matches.take(12))
+              ListTile(
+                leading: const GlyphIcon(Glyph.store, color: Hue.accent),
+                title: Text(name),
+                onTap: () => widget.onDone(name),
+              ),
+            if (widget.initial.isNotEmpty)
+              ListTile(
+                leading: const GlyphIcon(Glyph.close, color: Hue.muted),
+                title: const Text('不記商家'),
+                onTap: () => widget.onDone(''),
+              ),
           ],
         ),
       ],
@@ -256,10 +257,7 @@ class _Tabs extends StatelessWidget {
       alignment: Alignment.center,
       foregroundDecoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: on ? color : Hue.line,
-            width: on ? 3 : 1,
-          ),
+          bottom: BorderSide(color: on ? color : Hue.line, width: on ? 3 : 1),
         ),
       ),
       child: child,
@@ -941,7 +939,9 @@ class _EqBox extends StatelessWidget {
         color: tap == null ? Hue.surface : Hue.white,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
-          side: tap == null ? BorderSide.none : const BorderSide(color: Hue.line),
+          side: tap == null
+              ? BorderSide.none
+              : const BorderSide(color: Hue.line),
         ),
         child: InkWell(
           borderRadius: radius,
@@ -1008,9 +1008,7 @@ class _CodePill extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: picked
-              ? Hue.investment.withValues(alpha: 0.12)
-              : Hue.surface,
+          color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
           borderRadius: BorderRadius.circular(13),
           border: picked ? Border.all(color: Hue.investment, width: 2) : null,
         ),
@@ -1046,9 +1044,29 @@ class _CodePill extends StatelessWidget {
 /// house it starts with, such as 台灣50 for 元大台灣50.
 String _shortName(String name) {
   const houses = [
-    '元大', '國泰', '富邦', '群益', '中信', '永豐', '凱基', '復華', '統一',
-    '新光', '兆豐', '第一金', '台新', '華南永昌', '國票', '元富', '大華銀',
-    '野村', '街口', '安聯', '摩根', '日盛', '台灣人壽',
+    '元大',
+    '國泰',
+    '富邦',
+    '群益',
+    '中信',
+    '永豐',
+    '凱基',
+    '復華',
+    '統一',
+    '新光',
+    '兆豐',
+    '第一金',
+    '台新',
+    '華南永昌',
+    '國票',
+    '元富',
+    '大華銀',
+    '野村',
+    '街口',
+    '安聯',
+    '摩根',
+    '日盛',
+    '台灣人壽',
   ];
   var short = name;
   for (final house in houses) {
@@ -1330,7 +1348,10 @@ class _PersonPill extends StatelessWidget {
                         sub,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Hue.muted,
+                        ),
                       ),
                     ),
                   ],
@@ -1459,7 +1480,12 @@ class _OwedCard extends StatelessWidget {
 /// A word to pick in a row of them, such as a merchant or a tag: grey,
 /// or tinted and ringed in [color] when [picked].
 class _WordChip extends StatelessWidget {
-  const _WordChip(this.label, this.onTap, {required this.color, this.picked = false});
+  const _WordChip(
+    this.label,
+    this.onTap, {
+    required this.color,
+    this.picked = false,
+  });
 
   final String label;
   final VoidCallback onTap;

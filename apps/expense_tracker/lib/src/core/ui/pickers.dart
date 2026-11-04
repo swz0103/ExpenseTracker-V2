@@ -642,21 +642,21 @@ class _QuickDay extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Column(
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: picked ? color : Hue.ink,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: picked ? color : Hue.ink,
+                  ),
                 ),
-              ),
-              Text(
-                '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
-                style: const TextStyle(fontSize: 12, color: Hue.muted),
-              ),
-            ],
-          ),
+                Text(
+                  '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                ),
+              ],
+            ),
           ),
         ),
       ),
