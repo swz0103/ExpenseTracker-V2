@@ -650,6 +650,54 @@ final class Ledger extends ChangeNotifier {
     _keep(Batch(entries: [for (final i in before.keys) _entries[i]]));
   }
 
+  /// Puts [entries], written as one, in place of the entries [was] held:
+  /// those kept are changed, new ones added and the rest taken away (not
+  /// to the trash: they are part of the same change), with the receipt
+  /// photo [receipt] on [receiptOn].
+  void replaceGroup(
+    List<Entry> entries,
+    Iterable<String> was, {
+    String? receipt,
+    String? receiptOn,
+  }) {
+    final before = List.of(_entries);
+    final ids = {for (final e in entries) e.id};
+    final gone = {...was}..removeAll(ids);
+    _entries.removeWhere((e) => gone.contains(e.id));
+    for (final e in entries) {
+      final index = _entries.indexWhere((x) => x.id == e.id);
+      if (index < 0) {
+        _entries.add(e);
+      } else {
+        _entries[index] = e;
+      }
+    }
+    _replayOrUndo(
+      () => _entries
+        ..clear()
+        ..addAll(before),
+      trades: entries.any((e) => e.isInvestment),
+    );
+    final photos = <String, String?>{};
+    for (final id in {...was, ...ids}) {
+      final now = id == receiptOn ? receipt : null;
+      if (_receipts[id] == now) continue;
+      photos[id] = now;
+      if (now == null) {
+        _receipts.remove(id);
+      } else {
+        _receipts[id] = now;
+      }
+    }
+    _keep(
+      Batch(
+        entries: entries,
+        receipts: photos,
+        dropped: [for (final id in gone) (Shelf.entry, id)],
+      ),
+    );
+  }
+
   /// Removes the entry with [id] and returns it with its place, for undo.
   /// Null when there is none, or when taking it away would leave a later
   /// sale short of shares: that is told through [problem].
@@ -747,16 +795,34 @@ final class Ledger extends ChangeNotifier {
       _keep(Batch(dropped: [(Shelf.trash, entry.id)]));
       return true;
     }
-    final at = _trash.indexOf(trashed);
-    _trash.remove(trashed);
-    _entries.add(entry);
+    // An entry written as one with others comes back with them.
+    final group = entry.group;
+    final back = [
+      for (final t in _trash)
+        if (identical(t, trashed) ||
+            (group != null &&
+                t.entry.group == group &&
+                byId(t.entry.id) == null))
+          t,
+    ];
+    final before = List.of(_trash);
+    _trash.removeWhere(back.contains);
+    final count = _entries.length;
+    _entries.addAll([for (final t in back) t.entry]);
     if (!_tryReplay(() {
-      _entries.removeLast();
-      _trash.insert(at < 0 ? 0 : at, trashed);
-    }, trades: entry.isInvestment)) {
+      _entries.removeRange(count, _entries.length);
+      _trash
+        ..clear()
+        ..addAll(before);
+    }, trades: back.any((t) => t.entry.isInvestment))) {
       return false;
     }
-    _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
+    _keep(
+      Batch(
+        entries: [for (final t in back) t.entry],
+        dropped: [for (final t in back) (Shelf.trash, t.entry.id)],
+      ),
+    );
     return true;
   }
 

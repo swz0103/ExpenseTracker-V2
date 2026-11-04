@@ -34,6 +34,12 @@ extension BatchEdits on Ledger {
       final next = e.withAccount(id);
       if (problemWith(next, replacing: e) != null) continue;
       moved.add(next);
+      // What was paid in it for others went from the same account.
+      for (final m in groupOf(e)) {
+        if (m.type == EntryType.transfer && m.account == e.account) {
+          moved.add(m.withAccount(id));
+        }
+      }
     }
     replaceAll(moved);
     return moved.length;

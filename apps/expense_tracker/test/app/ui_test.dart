@@ -322,8 +322,21 @@ void main() {
     expect(inSheet('代墊'), findsOneWidget);
     await tester.tap(inSheet('代墊'));
     await tester.pumpAndSettle();
-    expect(inSheet('幫 代墊朋友 付'), findsOneWidget);
-    await type('代墊金額', ['5', '0', '0']);
+    // Whom it is paid for, inside the sheet.
+    expect(inSheet('代墊給誰'), findsOneWidget);
+    await tester.tap(inSheet('代墊朋友'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('好了（1 人）'));
+    await tester.pumpAndSettle();
+    // Shared evenly, one's own share counted; all of it for the friend.
+    await type('金額', ['5', '0', '0']);
+    expect(inSheet('250'), findsNWidgets(2));
+    await tester.tap(inSheet('代墊朋友'));
+    await tester.pumpAndSettle();
+    for (final key in ['C', '5', '0', '0', '完成']) {
+      await tester.tap(find.text(key).last);
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('記下代墊'));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3200 + 500);

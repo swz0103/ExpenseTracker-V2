@@ -174,13 +174,16 @@ class _AppShellState extends State<AppShell> {
     }
     if (outcome == ComposeOutcome.deleted) {
       Haptics.medium();
-      final removed = ledger.remove(saved.id);
-      if (removed == null) return;
+      // An entry written as one with others goes with them.
+      final removed = ledger.removeAll([
+        for (final e in ledger.groupOf(saved)) e.id,
+      ]);
+      if (removed.isEmpty) return;
       showNote(
         context,
         '已刪除「${saved.title}」',
         action: '復原',
-        onAction: () => ledger.restore(removed),
+        onAction: () => ledger.restoreAll(removed),
       );
       return;
     }

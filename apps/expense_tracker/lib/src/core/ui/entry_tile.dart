@@ -99,11 +99,16 @@ class EntryTile extends StatelessWidget {
     required this.entry,
     required this.onTap,
     this.divider = true,
+    this.merge = false,
   });
 
   final Ledger ledger;
   final Entry entry;
   final VoidCallback onTap;
+
+  /// Shows an entry written as one with what was paid in it for others
+  /// as the whole: in the record list, which leaves the others out.
+  final bool merge;
 
   /// A rule under the tile; the last one of a list goes without.
   final bool divider;
@@ -113,11 +118,24 @@ class EntryTile extends StatelessWidget {
     final currency = ledger.account(entry.account).currency;
     // A spending partly given back shows what is left of it.
     final back = entry.type == EntryType.expense ? ledger.refunded(entry) : 0;
+    // Written as one with what was paid for others: the whole paid, and
+    // for whom how much.
+    final group = merge ? ledger.groupOf(entry) : [entry];
+    final lent = [
+      for (final m in group)
+        if (m.type == EntryType.transfer) m,
+    ];
+    final whole = group.fold(0, (sum, m) => sum + m.amount);
     final shown = ledger.orDots(
-      back == 0
+      group.length > 1
+          ? '−${amountIn(whole - back, currency)}'
+          : back == 0
           ? entryAmount(entry, currency: currency)
           : '−${amountIn(entry.amount - back, currency)}',
     );
+    final forOthers = group.length < 2
+        ? null
+        : '代墊 ${[for (final m in lent) '${ledger.account(m.to ?? m.account).name} ${ledger.orDots(groupDigits(m.amount))}'].join('、')}';
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -148,6 +166,17 @@ class EntryTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: mutedSmall,
                     ),
+                    if (forOthers != null)
+                      Text(
+                        forOthers,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Hue.receivable,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -189,6 +218,7 @@ class EntryRow extends StatelessWidget {
     required this.onOpen,
     this.divider = true,
     this.onLongPress,
+    this.merge = false,
   });
 
   final Ledger ledger;
@@ -198,6 +228,9 @@ class EntryRow extends StatelessWidget {
   final ValueChanged<Entry> onOpen;
   final bool divider;
   final VoidCallback? onLongPress;
+
+  /// As [EntryTile.merge].
+  final bool merge;
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +250,7 @@ class EntryRow extends StatelessWidget {
           ledger: ledger,
           entry: entry,
           divider: divider,
+          merge: merge,
           onTap: () => onOpen(entry),
         ),
       ),
@@ -228,13 +262,16 @@ class EntryRow extends StatelessWidget {
 /// refuses (it would oversell shares), which it says itself.
 bool removeEntry(BuildContext context, Ledger ledger, Entry entry) {
   Haptics.medium();
-  final removed = ledger.remove(entry.id);
-  if (removed == null) return false;
+  // An entry written as one with others goes with them.
+  final removed = ledger.removeAll([
+    for (final e in ledger.groupOf(entry)) e.id,
+  ]);
+  if (removed.isEmpty) return false;
   showNote(
     context,
     '已刪除「${entry.title}」',
     action: '復原',
-    onAction: () => ledger.restore(removed),
+    onAction: () => ledger.restoreAll(removed),
   );
   return true;
 }

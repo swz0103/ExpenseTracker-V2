@@ -53,21 +53,38 @@ extension ComposeModeLook on ComposeMode {
 /// A form put aside with 暫存: the entry as it stood and the receipt
 /// photo chosen for it, which is not part of the entry until it is saved.
 final class _Draft {
-  const _Draft(this.entry, this.receipt);
+  const _Draft(this.entry, this.receipt, [this.lent]);
 
   final Entry entry;
   final String? receipt;
 
-  String toJson() =>
-      jsonEncode({'entry': entryToJson(entry), 'receipt': ?receipt});
+  /// What was paid in the spending for others, by person.
+  final List<(String, int)>? lent;
+
+  String toJson() => jsonEncode({
+    'entry': entryToJson(entry),
+    'receipt': ?receipt,
+    if (lent case final shares?)
+      'lent': [
+        for (final (p, a) in shares) [p, a],
+      ],
+  });
 
   static _Draft? read(String? json) {
     if (json == null) return null;
     try {
       final map = jsonDecode(json) as Map<String, Object?>;
+      final lent = map['lent'] as List?;
       return _Draft(
         entryFromJson(map['entry']! as Map<String, Object?>),
         map['receipt'] as String?,
+        lent == null
+            ? null
+            : [
+                for (final p in lent)
+                  if (p case [final String person, final int amount])
+                    (person, amount),
+              ],
       );
     } on Object {
       return null;
@@ -215,12 +232,23 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     unawaited(_takeLeftover());
     if (widget.entry == null && widget.draft == null && _f.refunded == null) {
       final draft = _drafts[_f.mode];
-      if (draft != null) _f.restore(draft.entry, draft.receipt);
+      if (draft != null) _takeDraft(draft);
     }
     _note
       ..text = _f.note
       ..addListener(() => _f.note = _note.text);
   }
+
+  /// Fills the form from [draft], and what it paid for others.
+  void _takeDraft(_Draft draft) {
+    _f.restore(draft.entry, draft.receipt);
+    if (draft.lent != null && _f.mode == ComposeMode.expense) {
+      _f.lent = draft.lent;
+    }
+  }
+
+  /// The form as it stands, to put aside.
+  _Draft get _asDraft => _Draft(_f.build(), _f.receipt, _f.lent);
 
   /// Shows the form's note again after the form filled it afresh.
   void _showNote() {
@@ -313,7 +341,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       final draft = _drafts[mode];
       if (draft != null && widget.entry == null) {
         final photo = _f.receipt;
-        _f.restore(draft.entry, draft.receipt);
+        _takeDraft(draft);
         _f.receipt ??= photo;
       }
       _problem = null;
@@ -337,6 +365,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   String get _action {
     if (widget.entry != null) return '儲存修改';
     if (_f.refunded != null) return '記下退款';
+    if (_f.lending && _f.own <= 0) return '記下代墊';
     return switch (_f.type) {
       EntryType.expense => '記下支出',
       EntryType.income => '記下收入',
@@ -558,7 +587,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
         if (_keptAway || (_f.amount == 0 && _f.receipt == null)) return;
         try {
-          final draft = _Draft(_f.build(), _f.receipt);
+          final draft = _asDraft;
           _before = _ledger.draft(_f.tab.name);
           _drafts[_f.tab] = draft;
           _keptAway = true;
@@ -580,12 +609,23 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       setState(() => _problem = problem);
       return;
     }
-    final entry = _f.build();
+    // Paid partly for others, more than one entry, written as one.
+    final made = _f.buildAll();
+    final entry = made.first;
     try {
-      if (widget.entry == null) {
+      if (widget.entry != null) {
+        _ledger.replaceGroup(
+          made,
+          _f.openedIds,
+          receipt: _f.receipt,
+          receiptOn: entry.id,
+        );
+      } else if (made.length == 1) {
         _ledger.add(entry, receipt: _f.receipt);
       } else {
-        _ledger.replace(entry, receipt: _f.receipt);
+        _ledger.addAll(made);
+        final photo = _f.receipt;
+        if (photo != null) _ledger.setReceipt(entry.id, photo);
       }
     } on StateError catch (error) {
       setState(() => _problem = error.message);
@@ -597,7 +637,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   void _putAside() {
     _keptAway = false;
-    _drafts[_f.tab] = _Draft(_f.build(), _f.receipt);
+    _drafts[_f.tab] = _asDraft;
     Navigator.of(context).pop();
   }
 

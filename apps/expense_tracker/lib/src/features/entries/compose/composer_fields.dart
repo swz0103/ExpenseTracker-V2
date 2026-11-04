@@ -131,7 +131,13 @@ extension _Fields on _ComposerState {
         final expense = _f.mode == ComposeMode.expense;
         final parts = _f.parts;
         return [
-          _hero(under: parts == null ? _usual() : _splitState()),
+          _hero(
+            under: _f.lending
+                ? _lendRow()
+                : parts == null
+                ? _usual()
+                : _splitState(),
+          ),
           if (parts != null)
             _AllocationBar(
               parts: [
@@ -294,7 +300,7 @@ extension _Fields on _ComposerState {
             icon: Glyph.heart,
             name: income ? '對方還錢' : '代墊',
             strong: true,
-            onTap: () => _lend(back: income),
+            onTap: income ? () => _lend(back: true) : _pickLent,
           )
         : null;
     final usual = fresh ? _ledger.usual(income: income) : const <Entry>[];
@@ -415,7 +421,8 @@ extension _Fields on _ComposerState {
           },
         ),
     ];
-    final canSplit = expense && !_viewing && !_f.foreign && !lending;
+    final canSplit =
+        expense && !_viewing && !_f.foreign && !lending && !_f.lending;
     return _Strip(
       items: items,
       pinned: canSplit

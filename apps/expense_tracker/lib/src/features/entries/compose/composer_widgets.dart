@@ -1245,6 +1245,73 @@ class _UsualChip extends StatelessWidget {
   }
 }
 
+/// Someone's share of a spending paid partly for them: a pill tinted in
+/// [color] with their name and amount, a tap to change it.
+class _LentChip extends StatelessWidget {
+  const _LentChip({
+    required this.name,
+    required this.amount,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String name;
+  final String amount;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TapArea(
+      onTap: onTap,
+      label: '幫$name付 $amount',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Hue.white,
+                shape: BoxShape.circle,
+              ),
+              child: GlyphIcon(Glyph.heart, size: 13, color: color),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              name,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              amount,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 常用 as one row from the left that slides sideways; [lead], such as
 /// 代墊, stays first with a thin line after it.
 class _UsualRow extends StatelessWidget {

@@ -182,6 +182,37 @@ extension LedgerReports on Ledger {
         return [for (final key in keys.take(most)) latest[key]!];
       }, on: const {Area.entries, Area.accounts});
 
+  /// Every entry written as one with [entry]: a spending first, then
+  /// what was paid in it for others; [entry] alone when it has no group.
+  List<Entry> groupOf(Entry entry) {
+    final group = entry.group;
+    if (group == null) return [entry];
+    final all = _remember('groups', () {
+      final groups = <String, List<Entry>>{};
+      for (final e in _entries) {
+        final key = e.group;
+        if (key != null) (groups[key] ??= []).add(e);
+      }
+      for (final members in groups.values) {
+        members.sort(
+          (a, b) => (a.type == EntryType.expense ? 0 : 1).compareTo(
+            b.type == EntryType.expense ? 0 : 1,
+          ),
+        );
+      }
+      return groups;
+    }, on: const {Area.entries});
+    return all[group] ?? [entry];
+  }
+
+  /// The entry that stands for its group in a list: the spending, or the
+  /// first of the group when it has none.
+  Entry groupLead(Entry entry) => groupOf(entry).first;
+
+  /// One of a group that its lead stands for in a list.
+  bool isGroupTail(Entry entry) =>
+      entry.group != null && groupLead(entry).id != entry.id;
+
   /// What [person] still owes, payment by payment: each sum paid for
   /// them, with what is left of it once what they paid back is taken off
   /// the oldest first, after what they owed from the start; those paid
