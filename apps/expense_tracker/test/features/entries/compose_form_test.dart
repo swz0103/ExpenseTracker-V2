@@ -205,18 +205,28 @@ void main() {
     expect(form.own, 600);
     expect(form.problem, isNull);
     final made = form.buildAll();
-    expect([for (final e in made) (e.type, e.amount, e.to)], [
-      (EntryType.expense, 600, null),
-      (EntryType.transfer, 600, 'ann'),
-      (EntryType.transfer, 600, 'bo'),
-    ]);
+    expect(
+      [for (final e in made) (e.type, e.amount, e.to)],
+      [
+        (EntryType.expense, 600, null),
+        (EntryType.transfer, 600, 'ann'),
+        (EntryType.transfer, 600, 'bo'),
+      ],
+    );
     expect({for (final e in made) e.group}.single, isNotNull);
     ledger.addAll(made);
     expect(ledger.balance('ann'), 600);
     expect(ledger.expense(2026, 10), 600);
     // Opened again from any of them, the whole comes back.
-    final again = ComposeForm(ledger, type: EntryType.transfer, editing: made[2]);
-    expect((again.mode, again.amount, again.own), (ComposeMode.expense, 1800, 600));
+    final again = ComposeForm(
+      ledger,
+      type: EntryType.transfer,
+      editing: made[2],
+    );
+    expect(
+      (again.mode, again.amount, again.own),
+      (ComposeMode.expense, 1800, 600),
+    );
     expect(again.lent, [('ann', 600), ('bo', 600)]);
     again.setLent(1, 300);
     ledger.replaceGroup(again.buildAll(), again.openedIds);

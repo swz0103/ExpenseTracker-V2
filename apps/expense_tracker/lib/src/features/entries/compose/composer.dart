@@ -65,7 +65,9 @@ final class _Draft {
     'entry': entryToJson(entry),
     'receipt': ?receipt,
     if (lent case final shares?)
-      'lent': [for (final (p, a) in shares) [p, a]],
+      'lent': [
+        for (final (p, a) in shares) [p, a],
+      ],
   });
 
   static _Draft? read(String? json) {

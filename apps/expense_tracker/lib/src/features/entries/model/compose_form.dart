@@ -306,7 +306,8 @@ final class ComposeForm {
 
   /// One's own share of a spending paid partly for others.
   int get own =>
-      amount - (lent ?? const <(String, int)>[]).fold(0, (sum, p) => sum + p.$2);
+      amount -
+      (lent ?? const <(String, int)>[]).fold(0, (sum, p) => sum + p.$2);
 
   /// The tab showing: 代墊 sits under 支出, 還款 under 收入.
   ComposeMode get tab => switch (mode) {
