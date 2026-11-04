@@ -112,7 +112,7 @@ Future<(ComposeOutcome, Entry)?> openComposer(
       photos: photos,
       scan: scan,
     ),
-    capHeight: true,
+    height: sheetHeight,
   );
 }
 
@@ -303,7 +303,9 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       title: '入帳日期',
       selected: _f.date,
       latest: _ledger.today,
+      today: _ledger.today,
       marked: marked,
+      height: sheetHeight,
     );
     if (day != null) setState(() => _f.date = day);
   }
@@ -314,12 +316,12 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final currency = refunded == null
         ? null
         : _ledger.account(refunded.account).currency;
-    return pickOption<String>(
+    return pickAccount(
       context,
+      _ledger,
       title: title,
       selected: selected,
-      columns: 3,
-      options: accountOptions(_ledger, currency: currency),
+      currency: currency,
     );
   }
 
@@ -330,19 +332,29 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       title: income ? '收入分類' : '支出分類',
       selected: selected,
       options: categoryOptions(_ledger, income: income),
+      height: sheetHeight,
     );
   }
 
   Future<void> _pickHolding() async {
-    final picked = await pickOption<String>(
+    final picked = await showChildPage<String>(
       context,
       title: '投資標的',
-      selected: _f.holding,
-      columns: 3,
-      options: [
-        for (final h in _ledger.holdings)
-          Option(h.code, holdingLabel(h), Glyph.investment, Hue.investment),
-      ],
+      height: sheetHeight,
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        children: [
+          for (final h in _ledger.holdings)
+            _HoldingRow(
+              code: h.code,
+              name: holdingLabel(h),
+              held: '持有 ${_ledger.orDots(groupDigits(h.shares))} 股',
+              color: _codeColor(h.code),
+              picked: h.code == _f.holding,
+              onTap: () => Navigator.of(context).pop(h.code),
+            ),
+        ],
+      ),
     );
     if (picked != null) setState(() => _f.holding = picked);
   }
@@ -388,6 +400,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         for (final n in const [0, 3, 6, 12, 24, 30])
           Option(n, n == 0 ? '不分期' : '$n 期', Glyph.card, Hue.card),
       ],
+      height: sheetHeight,
     );
     if (picked != null) setState(() => _f.installments = picked);
   }
@@ -416,9 +429,13 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   void _evenly() => setState(_f.evenly);
 
+  /// A category from the whole list while splitting: added as a part,
+  /// unless it is one already.
   Future<void> _addPart() async {
     final name = await _pickCategory(null);
     if (name == null) return;
+    final parts = _f.parts ?? const [];
+    if (parts.any((p) => p.$1 == name)) return;
     setState(() => _f.addPart(name));
   }
 
@@ -511,48 +528,73 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     }
   }
 
+  /// What a screen reader calls the amount, and the keypad's title.
+  String get _amountLabel => switch (_f.type) {
+    _ when _f.refunded != null => '退款金額',
+    _ when _f.mode == ComposeMode.lend => _f.back ? '還款金額' : '代墊金額',
+    EntryType.transfer => '轉出金額',
+    EntryType.dividend when _f.reducing => '退還股款',
+    EntryType.dividend => '股息金額',
+    _ => '金額',
+  };
+
+  /// The amount in the middle of the form, [under] it such as 常用.
+  Widget _hero({Widget? under}) {
+    final refunded = _f.refunded;
+    final most = refunded == null
+        ? 0
+        : _ledger.refundable(refunded) + (widget.entry?.amount ?? 0);
+    return _AmountHero(
+      label: _amountLabel,
+      unit: _f.currency == homeCode ? r'NT$' : _f.currency,
+      value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
+      color: _color,
+      onTap: _calculate,
+      sub: refunded == null
+          ? null
+          : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
+      under: under,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final problem = _problem;
     final entry = widget.entry;
     final refunded = _f.refunded;
-    final most = refunded == null
-        ? 0
-        : _ledger.refundable(refunded) + (entry?.amount ?? 0);
     final canRefund =
         _viewing &&
         entry != null &&
         entry.type == EntryType.expense &&
         _ledger.refundable(entry) > 0;
-    final fields = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+    // The top stays put: the kind of entry, or what is being changed.
+    final top = Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The sheet's own drag handle, above this content, is what
-          // closes the form (dragged down, or tapped outside); 重填 is
-          // the only button this row still needs to draw.
-          if (!_viewing && entry == null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => setState(() {
-                  _drafts.remove(_f.tab);
-                  _f.mode = _f.tab;
-                  _fresh();
-                }),
-                style: TextButton.styleFrom(
-                  foregroundColor: Hue.ink,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  minimumSize: Size.zero,
-                ),
-                child: const Text('重填', style: TextStyle(fontSize: 13)),
-              ),
+          if (refunded != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 4),
+              child: _OriginalTile(ledger: _ledger, entry: refunded),
+            )
+          else if (_viewing)
+            Center(child: Pill(_f.mode.label, color: _f.mode.color))
+          else if (entry == null)
+            _Tabs(
+              labels: [for (final m in ComposeForm.tabs) m.label],
+              selected: ComposeForm.tabs.indexOf(_f.tab),
+              color: _f.tab.color,
+              onChanged: (i) => _switch(ComposeForm.tabs[i]),
+              onReset: () => setState(() {
+                _drafts.remove(_f.tab);
+                _f.mode = _f.tab;
+                _fresh();
+              }),
             ),
           if (_marks.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(top: 4, right: 8),
               child: Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 6,
@@ -562,79 +604,48 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 ],
               ),
             ),
-          if (refunded != null)
-            _OriginalTile(ledger: _ledger, entry: refunded)
-          else if (_viewing)
-            Center(child: Pill(_f.mode.label, color: _f.mode.color))
-          else if (entry == null)
-            Segments(
-              labels: [for (final m in ComposeForm.tabs) m.label],
-              selected: ComposeForm.tabs.indexOf(_f.tab),
-              selectedColor: _f.tab.color,
-              onChanged: (i) => _switch(ComposeForm.tabs[i]),
-            ),
-          if (_f.mode == ComposeMode.investment && refunded == null) ...[
-            const SizedBox(height: 8),
-            _TradeChips(
-              trade: _f.trade,
-              locked: _viewing,
-              onChanged: _changeTrade,
-            ),
-          ],
-          const SizedBox(height: 8),
-          IgnorePointer(
-            ignoring: _viewing,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // A trade's amount is in its settlement, under shares and
-                // price.
-                if (!_f.trading)
-                  Tile(
-                    hero: true,
-                    icon: Glyph.calculator,
-                    label: switch (_f.type) {
-                      _ when refunded != null => '退款金額',
-                      _ when _f.mode == ComposeMode.lend =>
-                        _f.back ? '還款金額' : '代墊金額',
-                      EntryType.transfer => '轉出金額',
-                      EntryType.buy || EntryType.sell => '成交金額',
-                      EntryType.dividend when _f.reducing => '退還股款',
-                      _ => '金額',
-                    },
-                    value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
-                    valueColor: _color,
-                    size: 34,
-                    sub: refunded == null
-                        ? null
-                        : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
-                    onTap: _f.trading ? null : _calculate,
-                  ),
-                ..._fields(),
-              ],
-            ),
-          ),
-          if (problem != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                problem,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Hue.danger),
-              ),
-            ),
         ],
       ),
     );
+    // The fields fill the sheet, the amount taking what is left over, and
+    // scroll inside it when they are longer.
+    final fields = LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: IntrinsicHeight(
+            child: IgnorePointer(
+              ignoring: _viewing,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ..._fields(),
+                  if (problem != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        problem,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Hue.danger),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
-    // reach however long the form is; the fields scroll above them.
+    // reach however long the form is.
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Flexible(child: fields),
+        top,
+        Expanded(child: fields),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+          padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
           child: Row(
             children: [
               TextButton(
@@ -658,15 +669,19 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
               const SizedBox(width: 8),
               Expanded(
                 child: SizedBox(
-                  height: 48,
+                  height: 54,
                   child: FilledButton(
                     onPressed: _viewing
                         ? () => setState(() => _viewing = false)
                         : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: _viewing ? Hue.accent : _color,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                     child: Text(_viewing ? '編輯' : _action),

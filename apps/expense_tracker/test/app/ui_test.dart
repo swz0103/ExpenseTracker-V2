@@ -285,7 +285,8 @@ void main() {
     await tester.tap(find.text('記下支出'));
     await tester.pump();
     expect(find.text('請輸入金額'), findsOneWidget);
-    await tester.tap(find.text('金額'));
+    // The calculator mark beside the amount.
+    await tester.tap(find.byTooltip('金額'));
     await tester.pumpAndSettle();
     for (final key in ['1', '8', '0', '完成']) {
       await tester.tap(find.text(key).last);
@@ -308,7 +309,7 @@ void main() {
     Finder inSheet(String text) =>
         find.descendant(of: find.byType(Composer), matching: find.text(text));
     Future<void> type(String label, List<String> keys) async {
-      await tester.tap(find.text(label));
+      await tester.tap(find.byTooltip(label));
       await tester.pumpAndSettle();
       for (final key in [...keys, '完成']) {
         await tester.tap(find.text(key).last);
