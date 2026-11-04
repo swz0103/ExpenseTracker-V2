@@ -86,29 +86,18 @@ class _TradeChips extends StatelessWidget {
   }
 }
 
-/// One line of a trade's sums.
+/// One line of a trade's sums, such as its settlement day.
 class _Line extends StatelessWidget {
-  const _Line(
-    this.label,
-    this.value, {
-    this.strong = false,
-    this.color = Hue.ink,
-    this.onTap,
-  });
+  const _Line(this.label, this.value, {this.color = Hue.ink});
 
   final String label;
   final String value;
-  final bool strong;
   final Color color;
-
-  /// Opens the value to change it; a pen marks a line that can be.
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final tap = onTap;
-    final line = Padding(
-      padding: EdgeInsets.symmetric(vertical: tap == null ? 5 : 9),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           Text(label, style: const TextStyle(fontSize: 13.5)),
@@ -116,36 +105,23 @@ class _Line extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: strong ? 22 : 14.5,
-              fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
               color: color,
             ),
           ),
-          if (tap != null) ...[
-            const SizedBox(width: 6),
-            const GlyphIcon(Glyph.edit, size: 14, color: Hue.muted),
-          ],
         ],
       ),
-    );
-    if (tap == null) return line;
-    return InkWell(
-      onTap: tap,
-      borderRadius: BorderRadius.circular(8),
-      child: Semantics(button: true, child: line),
     );
   }
 }
 
-/// A small white button in a block's heading, such as 拆分.
+/// A small white button in a block's heading, such as 拍照.
 class _Chip extends StatelessWidget {
-  const _Chip(this.label, this.onTap, {this.color = Hue.white});
+  const _Chip(this.label, this.onTap);
 
   final String label;
   final VoidCallback onTap;
-
-  /// White on the form's tinted blocks; tinted on the sheet itself.
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +130,7 @@ class _Chip extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: color,
+          color: Hue.white,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
