@@ -190,4 +190,69 @@ void main() {
     expect(ledger.usual(), isEmpty);
     expect([for (final e in ledger.usual(income: true)) e.id], ['pay0']);
   });
+
+  Ledger withFriends() => book()
+    ..addAccount(const Account('ann', '阿安', AccountKind.receivable, 0))
+    ..addAccount(const Account('bo', '小博', AccountKind.receivable, 0));
+
+  test('a spending paid partly for others is written as one', () {
+    final ledger = withFriends();
+    final form = ComposeForm(ledger, type: EntryType.expense)
+      ..category = '飲食'
+      ..lendTo(['ann', 'bo'])
+      ..setAmount(1800);
+    expect(form.lent, [('ann', 600), ('bo', 600)]);
+    expect(form.own, 600);
+    expect(form.problem, isNull);
+    final made = form.buildAll();
+    expect([for (final e in made) (e.type, e.amount, e.to)], [
+      (EntryType.expense, 600, null),
+      (EntryType.transfer, 600, 'ann'),
+      (EntryType.transfer, 600, 'bo'),
+    ]);
+    expect({for (final e in made) e.group}.single, isNotNull);
+    ledger.addAll(made);
+    expect(ledger.balance('ann'), 600);
+    expect(ledger.expense(2026, 10), 600);
+    // Opened again from any of them, the whole comes back.
+    final again = ComposeForm(ledger, type: EntryType.transfer, editing: made[2]);
+    expect((again.mode, again.amount, again.own), (ComposeMode.expense, 1800, 600));
+    expect(again.lent, [('ann', 600), ('bo', 600)]);
+    again.setLent(1, 300);
+    ledger.replaceGroup(again.buildAll(), again.openedIds);
+    expect(ledger.balance('bo'), 300);
+    expect(ledger.expense(2026, 10), 900);
+    expect(ledger.groupOf(made.first), hasLength(3));
+  });
+
+  test('all of it paid for one person is a plain 代墊', () {
+    final ledger = withFriends();
+    final form = ComposeForm(ledger, type: EntryType.expense)
+      ..lendTo(['ann'])
+      ..setAmount(500)
+      ..setLent(0, 500);
+    expect(form.own, 0);
+    final made = form.buildAll().single;
+    expect((made.type, made.to, made.group), (EntryType.transfer, 'ann', null));
+    expect(form.problem, isNull);
+  });
+
+  test('paying for others and splitting do not mix', () {
+    final form = ComposeForm(withFriends(), type: EntryType.expense)
+      ..setAmount(300)
+      ..toggleSplit()
+      ..lendTo(['ann']);
+    expect(form.parts, isNull);
+    form.toggleSplit();
+    expect(form.parts, isNull);
+    expect(form.lent, [('ann', 150)]);
+  });
+
+  test('more paid for others than the whole is refused', () {
+    final form = ComposeForm(withFriends(), type: EntryType.expense)
+      ..setAmount(300)
+      ..lendTo(['ann'])
+      ..setLent(0, 400);
+    expect(form.problem, '代墊的金額超過總額（多 100）');
+  });
 }

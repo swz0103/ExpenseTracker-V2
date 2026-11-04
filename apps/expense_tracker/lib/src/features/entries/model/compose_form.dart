@@ -48,7 +48,9 @@ final class ComposeForm {
     final editingNow = editing;
     if (editingNow != null) receipt = ledger.receiptOf(editingNow.id);
     final refundedNow = refunded;
-    if (source != null) {
+    if (editing != null && editing!.group != null) {
+      loadGroup(editing!);
+    } else if (source != null) {
       load(source);
       findLending(source);
     } else if (refundedNow != null) {
@@ -86,6 +88,20 @@ final class ComposeForm {
 
   /// The parts of a split, or null when the whole goes to [category].
   List<(String, int)>? parts;
+
+  /// What was paid in a spending for others, by person (the account that
+  /// keeps what they owe), or null when none was; the rest is one's own.
+  /// Kept apart from [parts]: a spending is split or paid for others,
+  /// not both.
+  List<(String, int)>? lent;
+
+  /// The entries the form was opened from when they were written as one,
+  /// by id, so a change keeps their ids: the spending's, and each
+  /// person's.
+  final _ids = <String>{};
+  String? _ownId;
+  final _lentIds = <String, String>{};
+  String? _group;
   var fee = 0;
 
   /// What a foreign amount is worth in NT$, and what a transfer between
@@ -193,6 +209,7 @@ final class ComposeForm {
     reduce = false;
     back = false;
     receipt = null;
+    lent = null;
     if (mode == ComposeMode.lend) {
       // Paid from the main account, for the first person owing.
       final main = ledger.mainAccount;
@@ -207,8 +224,14 @@ final class ComposeForm {
     final other = entry.to;
     if (other == null) return;
     if (ledger.account(other).kind == AccountKind.receivable) {
-      mode = ComposeMode.lend;
+      // Paid for someone: a spending of which none is one's own.
+      mode = ComposeMode.expense;
       back = false;
+      lent = [(other, entry.amount)];
+      _lentIds[other] = entry.id;
+      _ids.add(entry.id);
+      final common = categoryChoices();
+      category = common.isEmpty ? '' : common.first;
     } else if (ledger.account(entry.account).kind == AccountKind.receivable) {
       // Saved from the person to the account; the form keeps the person
       // in [to] either way.
@@ -218,6 +241,71 @@ final class ComposeForm {
       to = entry.account;
     }
   }
+
+  /// Puts the entries written as one with [entry] in the fields: the
+  /// spending, and what was paid in it for each person.
+  void loadGroup(Entry entry) {
+    final members = ledger.groupOf(entry);
+    final own = [
+      for (final m in members)
+        if (m.type == EntryType.expense) m,
+    ];
+    final others = [
+      for (final m in members)
+        if (m.type == EntryType.transfer && m.to != null) m,
+    ];
+    load(own.isEmpty ? members.first : own.first);
+    mode = ComposeMode.expense;
+    if (own.isEmpty) {
+      final common = categoryChoices();
+      category = common.isEmpty ? '' : common.first;
+      merchant = '';
+    }
+    _group = entry.group;
+    _ownId = own.isEmpty ? null : own.first.id;
+    _ids.addAll([for (final m in members) m.id]);
+    for (final m in others) {
+      _lentIds[m.to!] = m.id;
+    }
+    lent = [for (final m in others) (m.to!, m.amount)];
+    amount = members.fold(0, (sum, m) => sum + m.amount);
+  }
+
+  /// The ids of the entries the form was opened from: one, or all those
+  /// written as one with it.
+  Set<String> get openedIds => {..._ids, ?editing?.id};
+
+  /// Starts paying for [people] in this spending, or changes who: the
+  /// amount is shared evenly, one's own share counted too, the rest of a
+  /// cent going to one's own. Splitting stops, as the two do not mix.
+  void lendTo(List<String> people) {
+    if (people.isEmpty) {
+      lent = null;
+      return;
+    }
+    parts = null;
+    final share = amount ~/ (people.length + 1);
+    lent = [for (final p in people) (p, share)];
+  }
+
+  /// What is paid for the person at [index] changed.
+  void setLent(int index, int value) {
+    final now = lent;
+    if (now == null) return;
+    lent = [
+      for (final (i, p) in now.indexed)
+        if (i == index) (p.$1, value) else p,
+    ];
+  }
+
+  /// Back to a spending all one's own.
+  void stopLending() => lent = null;
+
+  /// Paying for others in a spending.
+  bool get lending => mode == ComposeMode.expense && lent != null;
+
+  /// One's own share of a spending paid partly for others.
+  int get own => amount - (lent ?? const []).fold(0, (sum, p) => sum + p.$2);
 
   /// The tab showing: 代墊 sits under 支出, 還款 under 收入.
   ComposeMode get tab => switch (mode) {
@@ -351,6 +439,14 @@ final class ComposeForm {
 
   /// A new amount typed: what was worked out from the old one goes.
   void setAmount(int value) {
+    // Shares still even follow the new amount; those typed stay.
+    final shares = lent;
+    if (shares != null &&
+        shares.every((p) => p.$2 == shares.first.$2) &&
+        shares.first.$2 == amount ~/ (shares.length + 1)) {
+      final share = value ~/ (shares.length + 1);
+      lent = [for (final (p, _) in shares) (p, share)];
+    }
     amount = value;
     home = null;
     received = null;
@@ -455,8 +551,10 @@ final class ComposeForm {
     return trade == EntryType.sell ? amount - fee - tax : amount + fee;
   }
 
-  /// Splits the amount into parts, or puts it back into one.
+  /// Splits the amount into parts, or puts it back into one; not while
+  /// paying for others.
   void toggleSplit() {
+    if (lending) return;
     parts = parts == null ? [(category, amount)] : null;
   }
 
@@ -555,6 +653,7 @@ final class ComposeForm {
   /// own checks, and a split that must add up to the amount.
   String? get problem {
     if (mode == ComposeMode.lend && to.isEmpty) return '請選擇代墊對象';
+    if (lending) return _lendingProblem;
     final found = ledger.problemWith(build(), replacing: editing);
     if (found != null) return found;
     final splitTotal = splitParts?.fold(0, (sum, p) => sum + p.$2);
@@ -564,7 +663,57 @@ final class ComposeForm {
     return null;
   }
 
+  String? get _lendingProblem {
+    if (amount <= 0) return '請輸入金額';
+    if (lent!.any((p) => p.$2 <= 0)) return '代墊的金額要大於 0';
+    if (own < 0) return '代墊的金額超過總額（多 ${groupDigits(-own)}）';
+    for (final e in buildAll()) {
+      final was = ledger.byId(e.id);
+      final found = ledger.problemWith(e, replacing: was);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
   bool get lendingBack => mode == ComposeMode.lend && back;
+
+  /// The entries the form makes: the one of [build], or, paying for
+  /// others, one's own spending (none when nothing of it is one's own)
+  /// and a transfer to each person, written as one.
+  List<Entry> buildAll() {
+    final shares = lent;
+    if (!lending || shares == null) return [build()];
+    final made = <Entry>[];
+    final group = _group ?? ledger.newId();
+    final mine = own;
+    if (mine > 0) {
+      final opened = editing;
+      final ownId =
+          _ownId ??
+          (opened != null && !_lentIds.containsValue(opened.id)
+              ? opened.id
+              : ledger.newId());
+      made.add(build().inGroup(null, id: ownId, amount: mine));
+    }
+    for (final (person, value) in shares) {
+      made.add(
+        Entry(
+          id: _lentIds[person] ?? ledger.newId(),
+          date: date,
+          type: EntryType.transfer,
+          amount: value,
+          account: account,
+          category: transferCategory,
+          note: note.trim(),
+          to: person,
+        ),
+      );
+    }
+    // One alone needs no group: all of it paid for one person is a
+    // transfer to them, as 代墊 always was.
+    if (made.length < 2) return made;
+    return [for (final e in made) e.inGroup(group)];
+  }
 
   /// The entry as the form now stands.
   Entry build() {

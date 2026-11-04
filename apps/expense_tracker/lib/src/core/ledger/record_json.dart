@@ -119,6 +119,7 @@ Map<String, Object?> entryToJson(Entry e) => {
   if (e.split) 'split': true,
   'home': ?e.home,
   'received': ?e.received,
+  'group': ?e.group,
 };
 
 /// The entry [entryToJson] wrote.
@@ -152,6 +153,7 @@ Entry entryFromJson(Map<String, Object?> json) => _read(
     split: json['split'] == true,
     home: _maybe(json['home']),
     received: _maybe(json['received']),
+    group: json['group'] as String?,
   ),
 );
 

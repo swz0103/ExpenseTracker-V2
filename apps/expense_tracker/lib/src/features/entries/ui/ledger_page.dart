@@ -131,7 +131,11 @@ class _LedgerPageState extends State<LedgerPage> {
   /// shares) nothing is taken, the ledger says why, and the picks stay.
   void _removePicked() {
     final ledger = widget.ledger;
-    final removed = ledger.removeAll(_picked);
+    // Entries written as one go with the one standing for them.
+    final removed = ledger.removeAll({
+      for (final e in _pickedEntries)
+        for (final m in ledger.groupOf(e)) m.id,
+    });
     if (removed.isEmpty) {
       if (_pickedEntries.isEmpty) setState(_picked.clear);
       return;
@@ -170,8 +174,9 @@ class _LedgerPageState extends State<LedgerPage> {
       source = ledger.entriesIn(year, month);
     }
     return [
+      // Entries written as one are shown as one, by the spending.
       for (final e in source)
-        if (filter.shows(ledger, e)) e,
+        if (filter.shows(ledger, e) && !ledger.isGroupTail(e)) e,
     ];
   }
 
@@ -391,6 +396,7 @@ class _LedgerPageState extends State<LedgerPage> {
           ledger: ledger,
           entry: e,
           divider: !last,
+          merge: true,
           onTap: () => _toggle(e),
         ),
       );
@@ -399,6 +405,7 @@ class _LedgerPageState extends State<LedgerPage> {
       ledger: ledger,
       entry: e,
       divider: !last,
+      merge: true,
       onOpen: widget.nav.showEntry,
       onLongPress: () => _toggle(e),
     );

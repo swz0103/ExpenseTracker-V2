@@ -178,6 +178,7 @@ final class Entry {
     this.split = false,
     this.home,
     this.received,
+    this.group,
   });
 
   final String id;
@@ -212,6 +213,11 @@ final class Entry {
 
   /// The bank's fee on a transfer, the broker's on a trade.
   final int fee;
+
+  /// What ties entries written as one together, such as a dinner paid
+  /// partly for oneself and partly for friends: a spending and a transfer
+  /// to each friend, with the same group. Null for an entry on its own.
+  final String? group;
 
   /// The securities transaction tax on a sale; the NHI supplementary
   /// premium (二代健保) withheld from a dividend.
@@ -310,6 +316,35 @@ final class Entry {
     split: split,
     home: home,
     received: received,
+    group: group,
+  );
+
+  /// This entry as one of those written together as [group] (none when
+  /// null), under [id] and for [amount] when given.
+  Entry inGroup(String? group, {String? id, int? amount}) => Entry(
+    id: id ?? this.id,
+    date: date,
+    type: type,
+    amount: amount ?? this.amount,
+    account: account,
+    category: category,
+    note: note,
+    to: to,
+    holding: holding,
+    shares: shares,
+    recurring: recurring,
+    merchant: merchant,
+    tags: tags,
+    parts: parts,
+    fee: fee,
+    tax: tax,
+    refundOf: refundOf,
+    installments: installments,
+    average: average,
+    split: split,
+    home: home,
+    received: received,
+    group: group,
   );
 
   /// This entry under another [id], as the store knows it after an edit.

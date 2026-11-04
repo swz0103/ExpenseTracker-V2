@@ -114,10 +114,14 @@ class OptionGrid<T> extends StatelessWidget {
     required this.onPick,
     this.columns = 4,
     this.ring,
+    this.chosen,
   });
 
   final List<Option<T>> options;
   final T? selected;
+
+  /// Every one chosen when any number can be, in place of [selected].
+  final Set<T>? chosen;
   final ValueChanged<T> onPick;
   final int columns;
   final Color? ring;
@@ -145,7 +149,9 @@ class OptionGrid<T> extends StatelessWidget {
                     child: i < row.length
                         ? _OptionCell(
                             option: row[i],
-                            picked: row[i].value == selected,
+                            picked:
+                                chosen?.contains(row[i].value) ??
+                                row[i].value == selected,
                             ring: ring,
                             onTap: () => onPick(row[i].value),
                           )
