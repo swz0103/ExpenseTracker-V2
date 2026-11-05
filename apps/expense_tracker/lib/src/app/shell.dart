@@ -234,9 +234,8 @@ class _AppShellState extends State<AppShell> {
     if (page != null) {
       return switch (page) {
         // Gone, such as after a restore: back to the tab.
-        AccountPlace(:final id) || DebtPlace(:final id)
-            when !ledger.hasAccount(id) =>
-          _gone(),
+        AccountPlace(:final id) ||
+        DebtPlace(:final id) when !ledger.hasAccount(id) => _gone(),
         // Money paid for someone and loans have pages of their own,
         // wherever they are opened from.
         AccountPlace(:final id) || DebtPlace(:final id)

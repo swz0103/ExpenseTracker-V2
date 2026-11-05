@@ -33,12 +33,10 @@ class MorePage extends StatelessWidget {
           today.month,
         );
         final next = items.isEmpty ? null : items.first;
-        final lent = peopleOwing(
-          ledger,
-        ).fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
-        final borrowed = openLoans(
-          ledger,
-        ).fold<int>(0, (sum, a) => sum + owedOn(ledger, a));
+        final lent = peopleOwing(ledger)
+            .fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
+        final borrowed = openLoans(ledger)
+            .fold<int>(0, (sum, a) => sum + owedOn(ledger, a));
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [

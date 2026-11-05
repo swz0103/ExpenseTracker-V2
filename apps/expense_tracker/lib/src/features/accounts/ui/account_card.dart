@@ -22,8 +22,7 @@ const cardStripHeight = 60.0;
 /// The kind of an account as its card writes it.
 String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.bank => account.foreign ? '銀行 · ${account.currency}' : '銀行',
-  AccountKind.wallet =>
-    account.foreign ? '電子支付 · ${account.currency}' : '電子支付',
+  AccountKind.wallet => account.foreign ? '電子支付 · ${account.currency}' : '電子支付',
   AccountKind.cash => account.foreign ? '現金 · ${account.currency}' : '現金',
   AccountKind.card => '信用卡',
   AccountKind.loan => '貸款',

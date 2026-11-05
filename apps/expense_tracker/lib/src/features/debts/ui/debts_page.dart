@@ -176,11 +176,7 @@ class _PersonCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconBadge.letter(
-              _initial(person.name),
-              Hue.receivable,
-              size: 36,
-            ),
+            IconBadge.letter(_initial(person.name), Hue.receivable, size: 36),
             const Spacer(),
             Text(
               person.name,
@@ -262,7 +258,10 @@ class _LoanCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('尚欠', style: TextStyle(fontSize: 12, color: Hue.muted)),
+              const Text(
+                '尚欠',
+                style: TextStyle(fontSize: 12, color: Hue.muted),
+              ),
               Text(
                 ledger.money(owedOn(ledger, loan)),
                 style: const TextStyle(
@@ -409,9 +408,7 @@ class PersonPage extends StatelessWidget {
                     SectionHead(
                       '還沒收回',
                       trailing: Text(
-                        ledger.money(
-                          owed.fold<int>(0, (sum, o) => sum + o.$2),
-                        ),
+                        ledger.money(owed.fold<int>(0, (sum, o) => sum + o.$2)),
                         style: mutedSmall,
                       ),
                     ),

@@ -39,10 +39,15 @@ Future<bool> editAccount(
 
 /// Opens the form of a loan: a new one, from 代墊與借貸, or [loan] to
 /// change. True when it was deleted or archived.
-Future<bool> editLoan(BuildContext context, Ledger ledger, {Account? loan}) async {
+Future<bool> editLoan(
+  BuildContext context,
+  Ledger ledger, {
+  Account? loan,
+}) async {
   final gone = await showSheet<bool>(
     context,
-    (_) => _AccountEditor(ledger: ledger, account: loan, kind: AccountKind.loan),
+    (_) =>
+        _AccountEditor(ledger: ledger, account: loan, kind: AccountKind.loan),
   );
   return gone ?? false;
 }
@@ -320,26 +325,26 @@ class _AccountEditorState extends State<_AccountEditor> {
             ),
           ),
           if (!_loanForm)
-          FormBlock(
-            title: '類型',
-            child: Row(
-              children: [
-                for (final (i, kind) in _kinds.indexed) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(
-                    child: ChoicePill(
-                      label: groupName(kind) == '銀行帳戶'
-                          ? '銀行'
-                          : groupName(kind),
-                      selected: kind == _f.kind,
-                      background: Hue.white,
-                      onTap: () => setState(() => _f.kind = kind),
+            FormBlock(
+              title: '類型',
+              child: Row(
+                children: [
+                  for (final (i, kind) in _kinds.indexed) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: ChoicePill(
+                        label: groupName(kind) == '銀行帳戶'
+                            ? '銀行'
+                            : groupName(kind),
+                        selected: kind == _f.kind,
+                        background: Hue.white,
+                        onTap: () => setState(() => _f.kind = kind),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           FormBlock(
             title: _loanForm
                 ? '名稱與金額'
@@ -407,46 +412,46 @@ class _AccountEditorState extends State<_AccountEditor> {
               ),
             ),
           if (!_loanForm)
-          FormBlock(
-            title: '圖示',
-            child: Row(
-              children: [
-                for (final key in _usual)
-                  Expanded(
-                    child: _Mark(
-                      icon: accountMark(key) ?? kindIcon(_f.kind),
-                      name: accountIconName(key),
-                      color: color,
-                      picked: key == shownIcon,
-                      onTap: () => setState(() => _f.icon = key),
-                    ),
-                  ),
-                Expanded(
-                  child: TapArea(
-                    label: '更多圖示',
-                    onTap: _moreIcons,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Hue.white,
-                        shape: BoxShape.circle,
+            FormBlock(
+              title: '圖示',
+              child: Row(
+                children: [
+                  for (final key in _usual)
+                    Expanded(
+                      child: _Mark(
+                        icon: accountMark(key) ?? kindIcon(_f.kind),
+                        name: accountIconName(key),
+                        color: color,
+                        picked: key == shownIcon,
+                        onTap: () => setState(() => _f.icon = key),
                       ),
-                      child: const Text(
-                        '更多',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Hue.muted,
+                    ),
+                  Expanded(
+                    child: TapArea(
+                      label: '更多圖示',
+                      onTap: _moreIcons,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Hue.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          '更多',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Hue.muted,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           if (old == null && _f.foreignAllowed && !_loanForm)
             FormBlock(
               title: '幣別',

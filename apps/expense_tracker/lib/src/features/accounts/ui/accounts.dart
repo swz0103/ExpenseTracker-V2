@@ -153,7 +153,8 @@ class _NetWorth extends StatelessWidget {
     final saved = ledger.assets - invest - lent;
     final net = ledger.assets - debt;
     final today = ledger.today;
-    final moved = net - ledger.netWorthAt(DateTime.utc(today.year, today.month, 0));
+    final moved =
+        net - ledger.netWorthAt(DateTime.utc(today.year, today.month, 0));
     final parts = [
       ('存款', saved, Hue.bank),
       ('投資', invest, Hue.holdings),
@@ -279,9 +280,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
 
   void _byKind() {
     final ledger = widget.ledger;
-    final first = {
-      for (final (i, a) in ledger.openAccounts.indexed) a.id: i,
-    };
+    final first = {for (final (i, a) in ledger.openAccounts.indexed) a.id: i};
     setState(() {
       _order.sort((a, b) {
         final byKind = walletKinds
@@ -334,10 +333,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(8, 8, 8, 4),
-                child: Text(
-                  '按住右邊 ≡ 拖曳。最下面那張會展開在卡包最前面。',
-                  style: mutedSmall,
-                ),
+                child: Text('按住右邊 ≡ 拖曳。最下面那張會展開在卡包最前面。', style: mutedSmall),
               ),
               Expanded(
                 child: ReorderableListView.builder(

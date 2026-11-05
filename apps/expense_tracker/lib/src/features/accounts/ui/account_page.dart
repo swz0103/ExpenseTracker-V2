@@ -202,7 +202,8 @@ class _AccountPageState extends State<AccountPage> {
                   ),
                   if (entries.isEmpty)
                     const Text('這個月沒有紀錄', style: TextStyle(color: Hue.muted)),
-                  for (final MapEntry(key: day, value: list) in days.entries) ...[
+                  for (final MapEntry(key: day, value: list)
+                      in days.entries) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
                       child: Row(
@@ -220,7 +221,8 @@ class _AccountPageState extends State<AccountPage> {
                               amountIn(
                                 list.fold<int>(
                                   0,
-                                  (sum, e) => sum + ledger.effect(e, account.id),
+                                  (sum, e) =>
+                                      sum + ledger.effect(e, account.id),
                                 ),
                                 code,
                               ),
