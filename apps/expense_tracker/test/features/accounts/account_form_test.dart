@@ -75,4 +75,42 @@ void main() {
     final owed = AccountForm.settlement(ledger, ledger.account('card'), 'bank');
     expect((owed.account, owed.to, owed.amount), ('bank', 'card', 1200));
   });
+
+  test('a new account comes after the placed ones; a change keeps its place',
+      () {
+    final ledger = book();
+    ledger.placeAccounts(['card', 'bank']);
+    expect(ledger.account('card').place, 0);
+    final form = AccountForm(ledger)..name = '郵局';
+    expect(form.save(), isTrue);
+    expect(ledger.accounts.last.place, 2);
+    final edit = AccountForm(ledger, old: ledger.account('bank'))..name = '薪轉';
+    expect(edit.save(), isTrue);
+    expect(ledger.account('bank').place, 1);
+  });
+
+  test('a loan keeps what was borrowed, and its money can go into an account',
+      () {
+    final ledger = book();
+    final form = AccountForm(ledger)
+      ..kind = AccountKind.loan
+      ..name = '車貸'
+      ..principal = '350,000'
+      ..balance = '300,000'
+      ..fundInto = 'bank';
+    expect(form.save(), isTrue);
+    final loan = ledger.accounts.last;
+    expect(loan.principal, 350000);
+    expect(loan.place, isNull);
+    expect(ledger.balance(loan.id), -300000);
+    expect(ledger.balance('bank'), 305000);
+    final plain = AccountForm(ledger)
+      ..kind = AccountKind.loan
+      ..name = '信貸'
+      ..balance = '50,000';
+    expect(plain.save(), isTrue);
+    expect(ledger.balance(ledger.accounts.last.id), -50000);
+    expect(ledger.accounts.last.principal, isNull);
+    expect(ledger.balance('bank'), 305000);
+  });
 }

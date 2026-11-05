@@ -14,7 +14,8 @@ final class AccountForm {
       closing = old?.closingDay ?? 1,
       due = old?.dueDay ?? 15,
       counted = old?.inNetWorth ?? true,
-      currency = old?.currency ?? homeCode;
+      currency = old?.currency ?? homeCode,
+      principal = '${old?.principal ?? ''}';
 
   final Ledger ledger;
 
@@ -39,6 +40,13 @@ final class AccountForm {
   /// Chosen when the account is opened; fixed after that.
   String currency;
 
+  /// A loan's amount when taken out, as typed.
+  String principal;
+
+  /// The account a new loan's money went into; null when only the debt
+  /// is kept.
+  String? fundInto;
+
   /// A debt is shown as what is owed: a card at −500 reads 500, and one
   /// overpaid by 300 reads −300.
   static String _startBalance(Ledger ledger, Account? account) {
@@ -52,6 +60,8 @@ final class AccountForm {
 
   bool get card => kind == AccountKind.card;
 
+  bool get loan => kind == AccountKind.loan;
+
   /// Why the account cannot be saved yet; null when it can.
   String? get problem => name.trim().isEmpty ? '請輸入帳戶名稱' : null;
 
@@ -62,6 +72,25 @@ final class AccountForm {
     if (typed == null) return null;
     return kind.isDebt ? -typed : typed;
   }
+
+  /// A loan's amount when taken out, from what was typed; null when left
+  /// empty or not a loan.
+  int? get typedPrincipal => loan ? minorOf(principal, homeCode) : null;
+
+  /// The place after every placed account, so a new one comes last on
+  /// 我的帳戶; null while none has been placed.
+  int? get _nextPlace {
+    int? last;
+    for (final a in ledger.accounts) {
+      final place = a.place;
+      if (place != null && (last == null || place > last)) last = place;
+    }
+    return last == null ? null : last + 1;
+  }
+
+  /// A new loan whose money went into [fundInto] opens at nothing owed;
+  /// the transfer [save] adds then sets what is owed.
+  bool get _funded => old == null && loan && fundInto != null;
 
   /// The account as the form now stands.
   Account build() {
@@ -76,13 +105,17 @@ final class AccountForm {
         ledger.newId(),
         name.trim(),
         kind,
-        typedBalance ?? 0,
+        _funded ? 0 : typedBalance ?? 0,
         icon: icon,
         closingDay: terms.closingDay,
         dueDay: terms.dueDay,
         limit: terms.limit,
         inNetWorth: counted,
         currency: foreignAllowed ? currency : homeCode,
+        principal: typedPrincipal,
+        place: kind == AccountKind.loan || kind == AccountKind.receivable
+            ? null
+            : _nextPlace,
       );
     }
     return Account(
@@ -97,6 +130,10 @@ final class AccountForm {
       archived: before.archived,
       inNetWorth: counted,
       currency: before.currency,
+      closes: before.closes,
+      history: before.history,
+      principal: typedPrincipal,
+      place: before.place,
     );
   }
 
@@ -106,6 +143,22 @@ final class AccountForm {
     final account = build();
     if (old == null) {
       ledger.addAccount(account);
+      final into = fundInto;
+      final owed = typedBalance;
+      if (_funded && into != null && owed != null && owed < 0) {
+        ledger.add(
+          Entry(
+            id: ledger.newId(),
+            date: ledger.today,
+            type: EntryType.transfer,
+            amount: -owed,
+            account: account.id,
+            category: transferCategory,
+            note: '${account.name}撥款',
+            to: into,
+          ),
+        );
+      }
       return true;
     }
     ledger.updateAccount(account);

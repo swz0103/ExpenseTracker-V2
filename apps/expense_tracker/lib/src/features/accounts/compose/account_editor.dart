@@ -10,6 +10,8 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/account_form.dart';
+import '../ui/account_card.dart';
+import '../ui/accounts.dart' show walletKinds;
 
 /// True when [ledger] has an open account, after offering to add one if
 /// it has none: entries, imports and recurring items all need one.
@@ -35,11 +37,24 @@ Future<bool> editAccount(
   return gone ?? false;
 }
 
+/// Opens the form of a loan: a new one, from 代墊與借貸, or [loan] to
+/// change. True when it was deleted or archived.
+Future<bool> editLoan(BuildContext context, Ledger ledger, {Account? loan}) async {
+  final gone = await showSheet<bool>(
+    context,
+    (_) => _AccountEditor(ledger: ledger, account: loan, kind: AccountKind.loan),
+  );
+  return gone ?? false;
+}
+
 class _AccountEditor extends StatefulWidget {
-  const _AccountEditor({required this.ledger, this.account});
+  const _AccountEditor({required this.ledger, this.account, this.kind});
 
   final Ledger ledger;
   final Account? account;
+
+  /// The kind a new account opens as.
+  final AccountKind? kind;
 
   @override
   State<_AccountEditor> createState() => _AccountEditorState();
@@ -49,12 +64,21 @@ class _AccountEditorState extends State<_AccountEditor> {
   late final _old = widget.account;
 
   /// The fields and what saving does.
-  late final _f = AccountForm(widget.ledger, old: _old);
+  late final _f = AccountForm(widget.ledger, old: _old)
+    ..kind = _old?.kind ?? widget.kind ?? AccountKind.bank;
+  late final TextEditingController _principal = TextEditingController(
+    text: _f.principal,
+  )..addListener(() => _f.principal = _principal.text);
+
+  /// A loan's form: no kinds, marks or currencies, but what was borrowed
+  /// and, for a new one, where the money went.
+  bool get _loanForm => _f.kind == AccountKind.loan;
+  // The card on top shows what is typed as it is typed.
   late final TextEditingController _name = TextEditingController(text: _f.name)
-    ..addListener(() => _f.name = _name.text);
+    ..addListener(() => setState(() => _f.name = _name.text));
   late final TextEditingController _balance = TextEditingController(
     text: _f.balance,
-  )..addListener(() => _f.balance = _balance.text);
+  )..addListener(() => setState(() => _f.balance = _balance.text));
   late final TextEditingController _limit = TextEditingController(
     text: _f.limit,
   )..addListener(() => _f.limit = _limit.text);
@@ -67,6 +91,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   void dispose() {
     _name.dispose();
     _balance.dispose();
+    _principal.dispose();
     _limit.dispose();
     super.dispose();
   }
@@ -151,12 +176,124 @@ class _AccountEditorState extends State<_AccountEditor> {
     });
   }
 
+  /// The kinds the form offers: those of 我的帳戶, and the account's own
+  /// when it is of another.
+  List<AccountKind> get _kinds {
+    final old = _old;
+    return [
+      ...walletKinds,
+      if (old != null && !walletKinds.contains(old.kind)) old.kind,
+    ];
+  }
+
+  /// The six marks shown for the kind, with the account's own in the
+  /// last place when it is not one of them.
+  List<String> get _usual {
+    final usual = usualAccountIcons(_f.kind);
+    final own = _f.icon;
+    if (usual.isEmpty) return own == null ? const [] : [own];
+    if (own == null || usual.contains(own)) return usual;
+    return [...usual.take(usual.length - 1), own];
+  }
+
+  /// The account as the form stands, for the card on top.
+  Account get _preview => Account(
+    _old?.id ?? '',
+    _f.name.trim(),
+    _f.kind,
+    0,
+    icon: _f.icon,
+    dueDay: _f.card ? _f.due : null,
+    currency: _f.foreignAllowed ? _f.currency : homeCode,
+  );
+
+  Future<void> _moreIcons() async {
+    final color = accountColor(_f.kind);
+    final shown = _f.icon ?? kindIcon(_f.kind).name;
+    final picked = await showSheet<String>(
+      context,
+      (context) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '選圖示',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            for (final (group, marks) in accountIconGroups) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 14, bottom: 6),
+                child: Text(group, style: accentLabel),
+              ),
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 1.1,
+                children: [
+                  for (final (key, name) in marks)
+                    TapArea(
+                      label: name,
+                      selected: key == shown,
+                      onTap: () => Navigator.of(context).pop(key),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _MarkCircle(
+                            icon: iconFor(key),
+                            color: color,
+                            picked: key == shown,
+                            size: 44,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Hue.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _f.icon = picked);
+  }
+
+  Future<void> _pickFund() async {
+    final ledger = widget.ledger;
+    final picked = await pickOption<String>(
+      context,
+      title: '撥款到',
+      selected: _f.fundInto ?? '',
+      columns: 3,
+      options: [
+        const Option('', '不入帳', Glyph.loan, Hue.investment),
+        ...accountOptions(
+          ledger,
+          currency: homeCode,
+          where: (a) => !a.kind.isDebt && a.kind != AccountKind.receivable,
+        ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _f.fundInto = picked.isEmpty ? null : picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final old = _old;
     final color = accountColor(_f.kind);
-    final key = _f.icon;
-    final icon = key == null ? kindIcon(_f.kind) : iconFor(key);
+    final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
     final removable = old != null && !widget.ledger.isUsed(old.id);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -165,85 +302,152 @@ class _AccountEditorState extends State<_AccountEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            old == null ? '新增帳戶' : '編輯帳戶',
+            _loanForm
+                ? (old == null ? '新增貸款' : '編輯貸款')
+                : (old == null ? '新增帳戶' : '編輯帳戶'),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Hue.hero,
-              borderRadius: BorderRadius.circular(22),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: AccountCard(
+              ledger: widget.ledger,
+              account: _preview,
+              preview:
+                  _f.typedBalance ??
+                  (old == null ? 0 : widget.ledger.balance(old.id)),
             ),
+          ),
+          if (!_loanForm)
+          FormBlock(
+            title: '類型',
             child: Row(
               children: [
-                IconBadge(icon, color, size: 46),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                for (final (i, kind) in _kinds.indexed) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    child: ChoicePill(
+                      label: groupName(kind) == '銀行帳戶'
+                          ? '銀行'
+                          : groupName(kind),
+                      selected: kind == _f.kind,
+                      background: Hue.white,
+                      onTap: () => setState(() => _f.kind = kind),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          FormBlock(
+            title: _loanForm
+                ? '名稱與金額'
+                : _f.kind.isDebt
+                ? '名稱與欠款'
+                : '名稱與餘額',
+            child: Column(
+              children: [
+                _Field(
+                  controller: _name,
+                  hint: _loanForm ? '貸款名稱，例如房貸' : '帳戶名稱',
+                ),
+                if (_loanForm) ...[
+                  const SizedBox(height: 8),
+                  _Field(
+                    controller: _principal,
+                    hint: '原借金額（可不填）',
+                    number: true,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                _Field(
+                  controller: _balance,
+                  hint: _loanForm
+                      ? '目前尚欠'
+                      : _f.kind.isDebt
+                      ? '目前欠款'
+                      : '目前餘額',
+                  number: true,
+                ),
+              ],
+            ),
+          ),
+          if (_loanForm && old == null)
+            FormBlock(
+              title: '撥款到',
+              child: TapArea(
+                label: '撥款到',
+                onTap: _pickFund,
+                child: Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: Hue.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
                     children: [
-                      _Field(controller: _name, hint: '帳戶名稱'),
-                      const SizedBox(height: 8),
-                      _Field(
-                        controller: _balance,
-                        hint: _f.kind.isDebt ? '目前欠款' : '目前餘額',
-                        number: true,
+                      Expanded(
+                        child: Text(
+                          switch (_f.fundInto) {
+                            final id? => widget.ledger.account(id).name,
+                            null => '不入帳（只記欠款）',
+                          },
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
+                      const GlyphIcon(Glyph.next, size: 16, color: Hue.faint),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          if (!_loanForm)
+          FormBlock(
+            title: '圖示',
+            child: Row(
+              children: [
+                for (final key in _usual)
+                  Expanded(
+                    child: _Mark(
+                      icon: accountMark(key) ?? kindIcon(_f.kind),
+                      name: accountIconName(key),
+                      color: color,
+                      picked: key == shownIcon,
+                      onTap: () => setState(() => _f.icon = key),
+                    ),
+                  ),
+                Expanded(
+                  child: TapArea(
+                    label: '更多圖示',
+                    onTap: _moreIcons,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Hue.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Text(
+                        '更多',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Hue.muted,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          FormBlock(
-            title: '類型',
-            child: Wrap(
-              spacing: 6,
-              children: [
-                for (final kind in AccountKind.values)
-                  ChoicePill(
-                    label: groupName(kind),
-                    selected: kind == _f.kind,
-                    background: Hue.white,
-                    onTap: () => setState(() => _f.kind = kind),
-                  ),
-              ],
-            ),
-          ),
-          FormBlock(
-            title: '圖示',
-            child: Wrap(
-              spacing: 0,
-              runSpacing: 0,
-              children: [
-                for (final (key, name) in accountIcons)
-                  TapArea(
-                    label: '圖示：$name',
-                    selected: key == _f.icon,
-                    onTap: () => setState(() => _f.icon = key),
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: key == _f.icon ? Hue.white : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: key == _f.icon ? color : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: GlyphIcon(
-                        iconFor(key),
-                        color: key == _f.icon ? color : Hue.muted,
-                        tinted: key == _f.icon,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (old == null && _f.foreignAllowed)
+          if (old == null && _f.foreignAllowed && !_loanForm)
             FormBlock(
               title: '幣別',
               child: Wrap(
@@ -294,8 +498,11 @@ class _AccountEditorState extends State<_AccountEditor> {
           FormBlock(
             child: Row(
               children: [
-                const Expanded(
-                  child: Text('計入資產與淨資產', style: TextStyle(fontSize: 14)),
+                Expanded(
+                  child: Text(
+                    _loanForm ? '算進負債與淨資產' : '計入資產與淨資產',
+                    style: const TextStyle(fontSize: 14),
+                  ),
                 ),
                 Switch(
                   value: _f.counted,
@@ -352,6 +559,70 @@ class _AccountEditorState extends State<_AccountEditor> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// One of the marks offered on the form, named for a screen reader.
+class _Mark extends StatelessWidget {
+  const _Mark({
+    required this.icon,
+    required this.name,
+    required this.color,
+    required this.picked,
+    required this.onTap,
+  });
+
+  final Glyph icon;
+  final String name;
+  final Color color;
+  final bool picked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TapArea(
+      label: '圖示：$name',
+      selected: picked,
+      onTap: onTap,
+      child: _MarkCircle(icon: icon, color: color, picked: picked),
+    );
+  }
+}
+
+/// A mark on a white circle; the picked one on its kind's tint, ringed.
+class _MarkCircle extends StatelessWidget {
+  const _MarkCircle({
+    required this.icon,
+    required this.color,
+    required this.picked,
+    this.size = 40,
+  });
+
+  final Glyph icon;
+  final Color color;
+  final bool picked;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: picked ? softOf(color) : Hue.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: picked ? color : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: GlyphIcon(
+        icon,
+        size: size * 0.5,
+        color: picked ? color : Hue.muted,
       ),
     );
   }

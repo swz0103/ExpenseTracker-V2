@@ -42,6 +42,17 @@ void main() {
     );
     final usd = accountFromJson(accountToJson(dollars));
     expect((usd.currency, usd.archived, usd.inNetWorth), ('USD', true, true));
+    const loan = Account(
+      'loan',
+      '房貸',
+      AccountKind.loan,
+      -1280000,
+      principal: 2000000,
+      place: 3,
+    );
+    final kept = accountFromJson(accountToJson(loan));
+    expect((kept.principal, kept.place), (2000000, 3));
+    expect(accountToJson(usd).containsKey('place'), isFalse);
   });
 
   test('categories, budgets and recurring items read back whole', () {

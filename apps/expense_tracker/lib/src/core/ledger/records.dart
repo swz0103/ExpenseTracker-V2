@@ -44,11 +44,21 @@ final class Account {
     this.currency = homeCode,
     this.closes = const {},
     this.history = const [],
+    this.principal,
+    this.place,
   });
 
   final String id;
   final String name;
   final AccountKind kind;
+
+  /// A loan's amount when it was taken out, so what is paid of it shows;
+  /// null when not given.
+  final int? principal;
+
+  /// Where the account stands on 我的帳戶, in the order set there; null
+  /// for one never placed, which follows the placed ones by kind.
+  final int? place;
 
   /// What the account is kept in, such as TWD or USD. Its [opening], its
   /// entries and its balance count the smallest unit of it: whole NT$,
@@ -97,6 +107,8 @@ final class Account {
     bool? inNetWorth,
     Map<DateTime, DateTime>? closes,
     List<CardScheduleChange>? history,
+    int? principal,
+    int? place,
   }) => Account(
     id,
     name ?? this.name,
@@ -111,6 +123,8 @@ final class Account {
     currency: currency,
     closes: closes ?? this.closes,
     history: history ?? this.history,
+    principal: principal ?? this.principal,
+    place: place ?? this.place,
   );
 }
 

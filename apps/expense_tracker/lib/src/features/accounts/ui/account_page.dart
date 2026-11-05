@@ -12,8 +12,9 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 
-/// One account: its balance, four weeks of changes as a waterfall, and
-/// this month's entries.
+/// One account: its balance and this month's flow, what is done with it,
+/// four weeks of changes as a waterfall, and a month of its entries by
+/// day.
 class AccountPage extends StatefulWidget {
   const AccountPage({
     super.key,
@@ -32,24 +33,39 @@ class AccountPage extends StatefulWidget {
 
 class _AccountPageState extends State<AccountPage> {
   var _week = 3;
+  late var _month = (widget.ledger.today.year, widget.ledger.today.month);
 
-  /// Opens the composer on money paid for someone, from the main account
-  /// into [account] ([lend]), or on money paid back, all that is owed by
-  /// default.
-  void _move(Account account, {required bool lend}) {
+  /// Opens the composer on a spending from [account].
+  void _record(Account account) {
+    final ledger = widget.ledger;
+    widget.nav.compose(
+      type: EntryType.expense,
+      draft: Entry(
+        id: '',
+        date: ledger.today,
+        type: EntryType.expense,
+        amount: 0,
+        account: account.id,
+      ),
+    );
+  }
+
+  /// Opens the composer on a transfer out of [account], or for a card a
+  /// payment into it from the main account.
+  void _move(Account account) {
     final ledger = widget.ledger;
     final main = ledger.mainAccount;
-    final owed = ledger.balance(account.id);
+    final card = account.kind == AccountKind.card;
     widget.nav.compose(
       type: EntryType.transfer,
       draft: Entry(
         id: '',
         date: ledger.today,
         type: EntryType.transfer,
-        amount: lend || owed < 0 ? 0 : owed,
-        account: lend ? main : account.id,
+        amount: card ? ledger.statementDue(account) : 0,
+        account: card || main == account.id ? main : account.id,
         category: transferCategory,
-        to: lend ? account.id : main,
+        to: card || main == account.id ? account.id : main,
       ),
     );
   }
@@ -72,13 +88,10 @@ class _AccountPageState extends State<AccountPage> {
         final code = account.currency;
         final weeks = ledger.weeklyChanges(account.id);
         final today = ledger.today;
-        final entries = [
-          for (final e in ledger.entriesIn(today.year, today.month))
-            if (e.account == account.id || e.to == account.id) e,
-        ];
         var inflow = 0;
         var outflow = 0;
-        for (final e in entries) {
+        for (final e in ledger.entriesIn(today.year, today.month)) {
+          if (e.account != account.id && e.to != account.id) continue;
           final change = ledger.effect(e, account.id);
           if (change > 0) {
             inflow += change;
@@ -88,38 +101,35 @@ class _AccountPageState extends State<AccountPage> {
         }
         final into = ledger.moneyIn(inflow, code);
         final out = ledger.moneyIn(outflow, code);
+        final (year, month) = _month;
+        final entries = [
+          for (final e in ledger.entriesIn(year, month))
+            if (e.account == account.id || e.to == account.id) e,
+        ]..sort((a, b) => b.date.compareTo(a.date));
+        final days = <DateTime, List<Entry>>{};
+        for (final e in entries) {
+          (days[e.date] ??= []).add(e);
+        }
+        // 對帳 needs NT$: another currency would need a rate.
+        final reconcilable = !account.foreign;
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
             PageHeader(
               account.name,
               onBack: widget.nav.back,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 對帳 needs NT$: another currency would need a rate.
-                  if (!account.foreign &&
-                      account.kind != AccountKind.receivable)
-                    TextButton(
-                      onPressed: () =>
-                          reconcileAccount(context, ledger, account),
-                      style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                      child: const Text('對帳'),
-                    ),
-                  TextButton(
-                    onPressed: () async {
-                      final gone = await editAccount(
-                        context,
-                        ledger,
-                        account: account,
-                      );
-                      // Deleted or archived: back to the accounts.
-                      if (gone) widget.nav.back();
-                    },
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                    child: const Text('編輯'),
-                  ),
-                ],
+              trailing: TextButton(
+                onPressed: () async {
+                  final gone = await editAccount(
+                    context,
+                    ledger,
+                    account: account,
+                  );
+                  // Deleted or archived: back to the accounts.
+                  if (gone) widget.nav.back();
+                },
+                style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                child: const Text('編輯'),
               ),
             ),
             Padding(
@@ -138,14 +148,41 @@ class _AccountPageState extends State<AccountPage> {
                       (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
                   ),
-                  if (account.kind == AccountKind.receivable)
-                    _Owed(
-                      ledger: ledger,
-                      account: account,
-                      balance: balance,
-                      onLend: () => _move(account, lend: true),
-                      onRepaid: () => _move(account, lend: false),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _Action(
+                            icon: Glyph.add,
+                            label: '記一筆',
+                            onTap: () => _record(account),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _Action(
+                            icon: Glyph.transfer,
+                            label: account.kind == AccountKind.card
+                                ? '繳卡費'
+                                : '轉帳',
+                            onTap: () => _move(account),
+                          ),
+                        ),
+                        if (reconcilable) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _Action(
+                              icon: Glyph.calculator,
+                              label: '對帳',
+                              onTap: () =>
+                                  reconcileAccount(context, ledger, account),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                  ),
                   const SectionHead('近四週'),
                   Waterfall(
                     weeks: weeks,
@@ -155,25 +192,60 @@ class _AccountPageState extends State<AccountPage> {
                     currency: code,
                     hidden: ledger.hidden,
                   ),
-                  const SectionHead('本月紀錄'),
+                  SectionHead(
+                    '紀錄',
+                    trailing: MonthSwitch(
+                      month: _month,
+                      latest: (today.year, today.month),
+                      onChanged: (m) => setState(() => _month = m),
+                    ),
+                  ),
                   if (entries.isEmpty)
-                    const Text('本月沒有紀錄', style: TextStyle(color: Hue.muted)),
-                  if (entries.isNotEmpty)
+                    const Text('這個月沒有紀錄', style: TextStyle(color: Hue.muted)),
+                  for (final MapEntry(key: day, value: list) in days.entries) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+                      child: Row(
+                        children: [
+                          Text(
+                            longDay(day),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            ledger.orDots(
+                              amountIn(
+                                list.fold<int>(
+                                  0,
+                                  (sum, e) => sum + ledger.effect(e, account.id),
+                                ),
+                                code,
+                              ),
+                            ),
+                            style: mutedSmall,
+                          ),
+                        ],
+                      ),
+                    ),
                     SoftPanel(
                       color: Hue.white,
                       padding: EdgeInsets.zero,
                       child: Column(
                         children: [
-                          for (final e in entries)
+                          for (final e in list)
                             EntryRow(
                               ledger: ledger,
                               entry: e,
                               onOpen: widget.nav.showEntry,
-                              divider: !identical(e, entries.last),
+                              divider: !identical(e, list.last),
                             ),
                         ],
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -184,66 +256,28 @@ class _AccountPageState extends State<AccountPage> {
   }
 }
 
-/// What [account], money paid for someone, still has owed, with the two
-/// things done with it: paying for them again, or taking money back.
-class _Owed extends StatelessWidget {
-  const _Owed({
-    required this.ledger,
-    required this.account,
-    required this.balance,
-    required this.onLend,
-    required this.onRepaid,
-  });
+/// One of the things done with an account, as a white tile.
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.label, required this.onTap});
 
-  final Ledger ledger;
-  final Account account;
-  final int balance;
-  final VoidCallback onLend;
-  final VoidCallback onRepaid;
+  final Glyph icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final style = OutlinedButton.styleFrom(
-      foregroundColor: Hue.accent,
-      minimumSize: const Size.fromHeight(44),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SoftPanel(
+      color: Hue.white,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      onTap: onTap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          IconChip(icon, size: 28, background: Hue.tile),
+          const SizedBox(width: 8),
           Text(
-            balance > 0
-                ? '${account.name}還欠 ${ledger.moneyIn(balance, account.currency)}'
-                : '${account.name}沒有欠款',
-            style: mutedSmall,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onLend,
-                  style: style,
-                  child: const Text('幫忙付'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: balance > 0 ? onRepaid : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Hue.accent,
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(balance > 0 ? '收回全部' : '收回'),
-                ),
-              ),
-            ],
+            label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ],
       ),

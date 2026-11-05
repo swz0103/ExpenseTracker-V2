@@ -6,8 +6,9 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../debts/ui/debts_page.dart';
 
-/// 更多: the four tools with the figure each one is about, and the
+/// 更多: the five tools with the figure each one is about, and the
 /// settings in a list. What falls due is on 定期交易's tile.
 class MorePage extends StatelessWidget {
   const MorePage({super.key, required this.ledger, required this.nav});
@@ -32,6 +33,12 @@ class MorePage extends StatelessWidget {
           today.month,
         );
         final next = items.isEmpty ? null : items.first;
+        final lent = peopleOwing(
+          ledger,
+        ).fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
+        final borrowed = openLoans(
+          ledger,
+        ).fold<int>(0, (sum, a) => sum + owedOn(ledger, a));
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
@@ -46,6 +53,16 @@ class MorePage extends StatelessWidget {
                 onTap: () => nav.open(Pages.reports),
               ),
               Tile(
+                icon: Glyph.budget,
+                label: '預算管理',
+                value: ledger.money(limit - expense),
+                valueColor: limit < expense ? Hue.negative : Hue.ink,
+                sub: '本月剩餘',
+                onTap: () => nav.open(Pages.budgets),
+              ),
+            ]),
+            TileRow([
+              Tile(
                 icon: Glyph.investment,
                 label: '投資與股息',
                 value: ledger.moneySigned(
@@ -57,16 +74,16 @@ class MorePage extends StatelessWidget {
                 sub: '未實現損益',
                 onTap: () => nav.open(Pages.investments),
               ),
+              Tile(
+                icon: Glyph.transfer,
+                label: '代墊與借貸',
+                value: ledger.moneySigned(lent - borrowed),
+                valueColor: lent < borrowed ? Hue.negative : Hue.ink,
+                sub: '往來淨額',
+                onTap: () => nav.open(Pages.debts),
+              ),
             ]),
             TileRow([
-              Tile(
-                icon: Glyph.budget,
-                label: '預算管理',
-                value: ledger.money(limit - expense),
-                valueColor: limit < expense ? Hue.negative : Hue.ink,
-                sub: '本月剩餘',
-                onTap: () => nav.open(Pages.budgets),
-              ),
               Tile(
                 icon: Glyph.recurring,
                 label: '定期交易',
