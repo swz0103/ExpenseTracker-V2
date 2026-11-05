@@ -234,19 +234,19 @@ class _Wallet extends StatelessWidget {
   final ValueChanged<Account> onOpen;
   final VoidCallback onSort;
 
-  /// How far each card sits below the one behind it.
-  static const _step = cardStripHeight - 12;
-
   @override
   Widget build(BuildContext context) {
     final last = accounts.length - 1;
+    final (strip, front) = cardHeights(context);
+    // How far each card sits below the one behind it.
+    final step = strip - 12;
     return SizedBox(
-      height: _step * last + frontCardHeight,
+      height: step * last + front,
       child: Stack(
         children: [
           for (final (i, a) in accounts.indexed)
             Positioned(
-              top: _step * i,
+              top: step * i,
               left: 0,
               right: 0,
               child: AccountCard(

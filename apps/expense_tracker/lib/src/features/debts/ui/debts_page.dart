@@ -109,7 +109,13 @@ class DebtsPage extends StatelessWidget {
               const Text('還沒有代墊。記一筆時選「代墊」，就會出現在這裡。', style: mutedSmall)
             else
               SizedBox(
-                height: 140,
+                // Taller with larger text, so the words still fit.
+                height:
+                    140 +
+                    50 *
+                        (MediaQuery.textScalerOf(context).scale(16) / 16 - 1)
+                            .clamp(0.0, 2.0)
+                            .toDouble(),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   clipBehavior: Clip.none,

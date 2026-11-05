@@ -11,6 +11,14 @@ import '../../../core/ledger/ledger.dart';
 const frontCardHeight = 150.0;
 const cardStripHeight = 60.0;
 
+/// The strip and front heights for the phone's text size: larger text
+/// makes the cards taller, so the words still fit.
+(double, double) cardHeights(BuildContext context) {
+  final grow = MediaQuery.textScalerOf(context).scale(16) / 16 - 1;
+  final more = grow > 0 ? grow : 0.0;
+  return (cardStripHeight + 26 * more, frontCardHeight + 80 * more);
+}
+
 /// The kind of an account as its card writes it.
 String cardKindLabel(Account account) => switch (account.kind) {
   AccountKind.bank => account.foreign ? '銀行 · ${account.currency}' : '銀行',
@@ -64,6 +72,7 @@ class AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = accountColor(account.kind);
     final radius = BorderRadius.circular(20);
+    final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');
     final head = Row(
       children: [
@@ -124,7 +133,7 @@ class AccountCard extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: SizedBox(
-            height: front ? frontCardHeight : cardStripHeight,
+            height: front ? frontHeight : stripHeight,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 16, 16, 14),
               child: Column(
