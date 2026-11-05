@@ -914,6 +914,21 @@ final class Ledger extends ChangeNotifier {
     );
   }
 
+  /// Puts the accounts of [ids] in that order on 我的帳戶; the others
+  /// keep their places.
+  void placeAccounts(List<String> ids) {
+    final moved = <Account>[];
+    for (final (place, id) in ids.indexed) {
+      final index = _accounts.indexWhere((a) => a.id == id);
+      if (index < 0 || _accounts[index].place == place) continue;
+      _accounts[index] = _accounts[index].copyWith(place: place);
+      moved.add(_accounts[index]);
+    }
+    if (moved.isEmpty) return;
+    _changed(const {Area.accounts});
+    _keep(Batch(accounts: moved));
+  }
+
   /// Corrects [id]'s balance today to [target] by moving its opening
   /// balance, so its history keeps its shape.
   void setBalance(String id, int target) {

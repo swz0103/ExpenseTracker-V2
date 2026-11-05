@@ -7,6 +7,7 @@ import 'ledger/ledger.dart';
 enum Section {
   reports,
   investments,
+  debts,
   budgets,
   recurring,
   categories,
@@ -80,6 +81,23 @@ final class HoldingPlace extends Place {
   int get hashCode => Object.hash(HoldingPlace, code);
 }
 
+/// A person paid for, or a loan, opened from 代墊與借貸 and returning
+/// to it.
+final class DebtPlace extends Place {
+  const DebtPlace(this.id);
+
+  final String id;
+
+  @override
+  Place get parent => Pages.debts;
+
+  @override
+  bool operator ==(Object other) => other is DebtPlace && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(DebtPlace, id);
+}
+
 /// A page of 設定與資料, which returns to it.
 final class SettingsPlace extends Place {
   const SettingsPlace(this.part);
@@ -101,6 +119,7 @@ final class SettingsPlace extends Place {
 abstract final class Pages {
   static const reports = SectionPlace(Section.reports);
   static const investments = SectionPlace(Section.investments);
+  static const debts = SectionPlace(Section.debts);
   static const budgets = SectionPlace(Section.budgets);
   static const recurring = SectionPlace(Section.recurring);
   static const categories = SectionPlace(Section.categories);
@@ -109,6 +128,7 @@ abstract final class Pages {
 
   static Place account(String id) => AccountPlace(id);
   static Place holding(String code) => HoldingPlace(code);
+  static Place debt(String id) => DebtPlace(id);
   static Place settingsPart(SettingsPart part) => SettingsPlace(part);
 }
 

@@ -15,6 +15,7 @@ import '../features/accounts/ui/accounts.dart';
 import '../features/budgets/ui/budgets.dart';
 import '../features/cards/ui/card_page.dart';
 import '../features/categories/ui/categories_page.dart';
+import '../features/debts/ui/debts_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
 import '../features/categories/ui/labels_page.dart';
@@ -233,7 +234,22 @@ class _AppShellState extends State<AppShell> {
     if (page != null) {
       return switch (page) {
         // Gone, such as after a restore: back to the tab.
-        AccountPlace(:final id) when !ledger.hasAccount(id) => _gone(),
+        AccountPlace(:final id) ||
+        DebtPlace(:final id) when !ledger.hasAccount(id) => _gone(),
+        // Money paid for someone and loans have pages of their own,
+        // wherever they are opened from.
+        AccountPlace(:final id) || DebtPlace(:final id)
+            when ledger.account(id).kind == AccountKind.receivable =>
+          PersonPage(
+            key: ValueKey(page),
+            ledger: ledger,
+            nav: _nav,
+            personId: id,
+          ),
+        AccountPlace(:final id) || DebtPlace(:final id)
+            when ledger.account(id).kind == AccountKind.loan =>
+          LoanPage(key: ValueKey(page), ledger: ledger, nav: _nav, loanId: id),
+        DebtPlace() => _gone(),
         AccountPlace(:final id) =>
           ledger.account(id).kind == AccountKind.card
               ? CardPage(
@@ -264,6 +280,7 @@ class _AppShellState extends State<AppShell> {
         SectionPlace(:final section) => switch (section) {
           Section.reports => ReportsPage(ledger: ledger, nav: _nav),
           Section.investments => InvestmentsPage(ledger: ledger, nav: _nav),
+          Section.debts => DebtsPage(ledger: ledger, nav: _nav),
           Section.budgets => BudgetsPage(ledger: ledger, nav: _nav),
           Section.recurring => RecurringPage(ledger: ledger, nav: _nav),
           Section.categories => CategoriesPage(ledger: ledger, nav: _nav),
