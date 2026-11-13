@@ -63,3 +63,9 @@ abstract class Connector extends ChangeNotifier {
     }
   }
 }
+
+/// A holding's daily closes, for its chart: what the exchanges answered,
+/// kept on the phone once read. The preview has none.
+abstract interface class PriceHistory {
+  Future<List<(DateTime, double)>> history(String code, DateTime from);
+}

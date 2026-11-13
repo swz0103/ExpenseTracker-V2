@@ -248,7 +248,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     }
     await _readInbox(ledger);
     _bookDue(ledger);
-    final market = _market = MarketFeed(_journal, ledger);
+    final market = _market = MarketFeed(
+      _journal,
+      ledger,
+      historyDir: Directory('${widget.startup.directory.path}/prices'),
+    );
     unawaited(market.refresh());
     unawaited(_weeklyBackup());
     if (Platform.isAndroid) {

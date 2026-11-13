@@ -86,6 +86,10 @@ final class TableJournal implements Journal {
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
 
+  /// The exchanges, for a holding's daily closes; none in tests and the
+  /// preview.
+  MarketDataGateway? get gateway => _gateway;
+
   DateTime _today() {
     final day = _clock.today();
     return DateTime.utc(day.year, day.month, day.day);

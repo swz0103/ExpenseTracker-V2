@@ -18,6 +18,16 @@ final class MarketResult<T> {
 }
 
 /// One day's closing price from TWSE or TPEx.
+/// One trading day's close in a month report.
+final class DayClose {
+  const DayClose(this.date, this.decimalPrice);
+
+  final BusinessDate date;
+
+  /// The close as the exchange writes it, such as `2330.00`.
+  final String decimalPrice;
+}
+
 final class StockClose {
   const StockClose({
     required this.symbol,
@@ -148,6 +158,15 @@ final class MarketDataGateway {
         'stockNo': symbol,
       });
 
+  /// TPEx's month report of one stock traded over the counter: each
+  /// trading day's open, high, low and close, under `tables[0]`.
+  static Uri tpexHistoryUri(String symbol, int year, int month) =>
+      Uri.https('www.tpex.org.tw', '/www/zh-tw/afterTrading/tradingStock', {
+        'code': symbol,
+        'date': '$year/${month.toString().padLeft(2, '0')}/01',
+        'response': 'json',
+      });
+
   final MarketTransport _transport;
   final DateTime Function() _clock;
 
@@ -249,6 +268,42 @@ final class MarketDataGateway {
       }
     }
     return last ?? const MarketResult(MarketState.missing, reason: 'No trade');
+  }
+
+  /// Every trading day's close of [symbol] in [year]/[month], oldest
+  /// first: from TWSE's month report, or TPEx's when [otc]. Missing when
+  /// the exchange has no such stock or no trade that month.
+  Future<MarketResult<List<DayClose>>> monthCloses(
+    String symbol,
+    int year,
+    int month, {
+    bool otc = false,
+  }) async {
+    if (!_symbol.hasMatch(symbol)) {
+      return const MarketResult(
+        MarketState.unsupported,
+        reason: 'Only Taiwan stocks and ETFs',
+      );
+    }
+    final fetched = await _fetch(
+      otc
+          ? tpexHistoryUri(symbol, year, month)
+          : twseHistoryUri(symbol, year, month),
+    );
+    final snapshot = fetched.snapshot;
+    if (snapshot == null) {
+      return MarketResult(fetched.state, reason: fetched.reason);
+    }
+    try {
+      final closes = monthReportCloses(snapshot.decoded);
+      return MarketResult(
+        closes.isEmpty ? MarketState.missing : MarketState.available,
+        value: closes,
+        reason: closes.isEmpty ? 'No trade' : null,
+      );
+    } on FormatException {
+      return const MarketResult(MarketState.failed, reason: 'Bad report');
+    }
   }
 
   /// The newest day with a close in a month report; null when the month
@@ -528,3 +583,43 @@ String? _positiveDecimal(Object? value) {
 final _decimal = RegExp(
   r'^(?:[0-9]+|[1-9][0-9]{0,2}(?:,[0-9]{3})+)(?:\.[0-9]{1,12})?$',
 );
+
+/// The closes in a month report of either exchange, oldest first: TWSE's
+/// `fields` and `data` with `stat` OK, or TPEx's under `tables[0]` with
+/// `stat` ok. Column names are matched without their spaces (TPEx writes
+/// `日 期`).
+List<DayClose> monthReportCloses(Object? report) {
+  if (report is! Map<String, Object?>) {
+    throw const FormatException('Expected a report');
+  }
+  final stat = report['stat'];
+  if (stat is! String || stat.toUpperCase() != 'OK') return const [];
+  Object? fields = report['fields'];
+  Object? rows = report['data'];
+  final tables = report['tables'];
+  if (tables is List && tables.isNotEmpty && tables.first is Map) {
+    final table = tables.first as Map;
+    fields = table['fields'];
+    rows = table['data'];
+  }
+  if (fields is! List || rows is! List) {
+    throw const FormatException('Expected fields and rows');
+  }
+  final names = [for (final f in fields) '$f'.replaceAll(' ', '')];
+  final dayAt = names.indexOf('日期');
+  var closeAt = names.indexOf('收盤價');
+  if (closeAt < 0) closeAt = names.indexOf('收盤');
+  if (dayAt < 0 || closeAt < 0) {
+    throw const FormatException('Unexpected report columns');
+  }
+  final closes = <DayClose>[];
+  for (final row in rows) {
+    if (row is! List || row.length <= (dayAt > closeAt ? dayAt : closeAt)) {
+      throw const FormatException('Invalid report row');
+    }
+    final price = _positiveDecimal(row[closeAt]);
+    if (price == null) continue;
+    closes.add(DayClose(_rocSlashDate(row[dayAt]), price));
+  }
+  return closes;
+}
