@@ -218,56 +218,47 @@ class _ReportsPageState extends State<ReportsPage> {
               ],
             ),
             const SizedBox(height: 12),
-            ...switch (_tab) {
-              0 => _flow(report, buckets, peak, byMonth, readout, selected),
-              1 => [
+            switch (_tab) {
+              0 => Sections([
+                for (final w in _flow(
+                  report,
+                  buckets,
+                  peak,
+                  byMonth,
+                  readout,
+                  selected,
+                ))
+                  if (w is! SizedBox) w,
+              ]),
+              1 => Sections([
                 if (biggest != null && expense > 0)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
-                    child: Row(
-                      children: [
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(text: '最大分類 '),
-                              TextSpan(
-                                text:
-                                    '$biggest ${report.spending[biggest]! * 100 ~/ expense}%',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const Spacer(),
-                        const Text('點分類看紀錄', style: mutedSmall),
-                      ],
-                    ),
+                  TitleRow(
+                    '最大分類 $biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+                    trailing: const Text('點分類看紀錄', style: mutedSmall),
                   ),
-                ..._mix(report),
+                section(null, _mix(report)),
                 if (biggest == null)
                   const EmptyState(
                     glyph: Glyph.grid,
                     color: Hue.faint,
                     message: '這段時間沒有紀錄',
                   ),
-              ],
-              2 => [CompareSection(ledger: ledger, period: period)],
-              _ => [
-                if (period.span == ReportSpan.year) ..._summary(report),
-                ..._highlights(report),
-                ..._weekdays(report),
-                ..._merchants(report),
-                ..._tags(report),
+              ], gap: 0),
+              2 => CompareSection(ledger: ledger, period: period),
+              _ => Sections([
+                if (period.span == ReportSpan.year)
+                  section(null, _summary(report)),
+                section(null, _highlights(report)),
+                section(null, _weekdays(report)),
+                section(null, _merchants(report)),
+                section(null, _tags(report)),
                 if (report.count == 0)
                   const EmptyState(
                     glyph: Glyph.calendar,
                     color: Hue.faint,
                     message: '這段時間沒有紀錄',
                   ),
-              ],
+              ]),
             },
           ],
         );
@@ -444,7 +435,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (merchant != null) ('最常去', '${merchant.$1}（${merchant.$2} 次）'),
     ];
     return [
-      const SectionHead('年度總結'),
+      const TitleRow('年度總結'),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -483,22 +474,48 @@ class _ReportsPageState extends State<ReportsPage> {
     final spending = report.spending;
     final lastSpending = report.lastSpending;
     final expense = report.expense;
-    // The seven largest as their own blocks, the rest together.
-    final top = names.take(7).toList();
-    final rest = names.skip(7).fold(0, (sum, n) => sum + (spending[n] ?? 0));
-    final blocks = [
-      for (final n in top) (n, spending[n] ?? 0, lastSpending[n]),
-      if (rest > 0) ('其他', rest, null),
-    ];
+    // As many of the largest as get a block big enough to read, the rest
+    // together: on a small phone or with large text, fewer blocks.
+    List<(String, int, int?)> blocksOf(int count) {
+      final rest = names
+          .skip(count)
+          .fold(0, (sum, n) => sum + (spending[n] ?? 0));
+      return [
+        for (final n in names.take(count))
+          (n, spending[n] ?? 0, lastSpending[n]),
+        if (rest > 0) ('其他', rest, null),
+      ];
+    }
+
     return [
-      const SizedBox(height: 10),
       LayoutBuilder(
         builder: (context, box) {
+          final scale = MediaQuery.textScalerOf(context).scale(1);
           final width = box.maxWidth;
-          final height = width * 0.82;
-          final rects = treemapLayout([
-            for (final b in blocks) b.$2,
-          ], Rect.fromLTWH(0, 0, width, height));
+          // What a block needs: its name with the share over its amount.
+          final minWidth = 84 * scale;
+          final minHeight = 56 * scale;
+          final base = width * 0.82;
+          var height = base;
+          var blocks = blocksOf(names.length);
+          var rects = <Rect>[];
+          // Taller first, then fewer blocks: a category merged into 其他
+          // only when no height up to half again more makes room for it.
+          search:
+          for (var count = min(7, names.length); count >= 1; count--) {
+            blocks = blocksOf(count);
+            for (final stretch in const [1.0, 1.2, 1.4, 1.6]) {
+              height = base * stretch;
+              rects = treemapLayout([
+                for (final b in blocks) b.$2,
+              ], Rect.fromLTWH(0, 0, width, height));
+              if (rects.every(
+                (r) => r.width - 8 >= minWidth && r.height - 8 >= minHeight,
+              )) {
+                break search;
+              }
+            }
+          }
           return SizedBox(
             height: height,
             child: Stack(
@@ -602,17 +619,11 @@ class _ReportsPageState extends State<ReportsPage> {
     final ledger = widget.ledger;
     final total = rows.fold(0, (sum, r) => sum + r.$3);
     return [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
-        child: Row(
-          children: [
-            Text(
-              '常去商家',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-            ),
-            Spacer(),
-            Text('依金額', style: mutedSmall),
-          ],
+      TitleRow(
+        '常去商家',
+        trailing: Text(
+          '這 ${rows.length} 家 · 合計 ${ledger.orDots(groupDigits(total))}',
+          style: mutedSmall,
         ),
       ),
       Container(
@@ -625,25 +636,12 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Row(
           children: [
             Donut(
-              size: 120,
-              thickness: 22,
+              size: 96,
+              thickness: 20,
               slices: [
                 for (final (i, r) in rows.indexed)
                   (r.$3, Hue.shades[(i + 2) % Hue.shades.length]),
               ],
-              center: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('這 ${rows.length} 家', style: mutedSmall),
-                  Text(
-                    ledger.orDots(groupDigits(total)),
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -714,7 +712,7 @@ class _ReportsPageState extends State<ReportsPage> {
     if (most <= 0) return const [];
     final heaviest = days.indexOf(most);
     return [
-      SectionHead('星期', trailing: const Text('虛線是每天平均', style: mutedSmall)),
+      TitleRow('星期', trailing: const Text('虛線是每天平均', style: mutedSmall)),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
@@ -795,13 +793,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final ledger = widget.ledger;
     final counts = {for (final (tag, n, _) in ledger.tagStats) tag: n};
     return [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
-        child: Text(
-          '標籤',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-      ),
+      const TitleRow('標籤'),
       CardGrid(columns: 3, gap: 8, [
         for (final (tag, amount) in rows.take(9))
           ColorCard(
@@ -1067,20 +1059,18 @@ class _Readout extends StatelessWidget {
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
           const SizedBox(width: 12),
-          // Shrinks rather than overflows when the phone's text is large.
+          // Wraps onto a second line rather than shrinking when the
+          // phone's text is large.
           Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                children: [
-                  _figure('收', income, Hue.positive),
-                  const SizedBox(width: 12),
-                  _figure('支', expense, Hue.negative),
-                  const SizedBox(width: 12),
-                  _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
-                ],
-              ),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 12,
+              runSpacing: 2,
+              children: [
+                _figure('收', income, Hue.positive),
+                _figure('支', expense, Hue.negative),
+                _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
+              ],
             ),
           ),
         ],
@@ -1151,46 +1141,37 @@ class _Hero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            until == null ? '結餘' : '結餘 · 至 ${until.month}/${until.day}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Hue.accent,
+            ),
+          ),
+          // 收入 goes under 結餘 when both do not fit on a line.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 12,
+            runSpacing: 2,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      until == null
-                          ? '結餘'
-                          : '結餘 · 至 ${until.month}/${until.day}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Hue.accent,
-                      ),
-                    ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        ledger.orDots(groupDigits(kept)),
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          color: kept < 0 ? Hue.negative : Hue.ink,
-                        ),
-                      ),
-                    ),
-                  ],
+              Text(
+                ledger.orDots(groupDigits(kept)),
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: kept < 0 ? Hue.negative : Hue.ink,
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('收入', style: mutedSmall),
                   Text(
-                    ledger.orDots(groupDigits(income)),
+                    '收入 ${ledger.orDots(groupDigits(income))}',
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: Hue.positive,
                     ),
@@ -1234,31 +1215,43 @@ class _Hero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 4,
             children: [
-              const LegendKey(Hue.negative, '支出'),
-              const SizedBox(width: 6),
-              Text(
-                ledger.orDots(groupDigits(expense)),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              if (change != null) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: change >= 0 ? Hue.negative : Hue.positive,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const LegendKey(Hue.negative, '支出'),
+                  const SizedBox(width: 6),
+                  Text(
+                    ledger.orDots(groupDigits(expense)),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                ),
-              ],
-              const Spacer(),
-              const LegendKey(Hue.positive, '存下'),
-              const SizedBox(width: 6),
-              Text(
-                '$keptShare%',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                  if (change != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: change >= 0 ? Hue.negative : Hue.positive,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const LegendKey(Hue.positive, '存下'),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$keptShare%',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1370,13 +1363,11 @@ class _Block extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
           if (sub.isNotEmpty)
             Text(sub, style: TextStyle(fontSize: 12.5, color: ink)),

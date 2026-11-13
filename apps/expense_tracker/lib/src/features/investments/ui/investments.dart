@@ -382,19 +382,18 @@ class _InvestHero extends StatelessWidget {
               color: Hue.accent,
             ),
           ),
-          Row(
+          // The chip goes under the figure when both do not fit on a line,
+          // rather than shrinking the figure.
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    ledger.orDots(groupDigits(value)),
-                    style: const TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+              Text(
+                ledger.orDots(groupDigits(value)),
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               if (ledger.quotedOn != null)

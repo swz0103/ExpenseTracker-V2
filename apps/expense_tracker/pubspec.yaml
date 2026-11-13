@@ -1,7 +1,7 @@
 name: expense_tracker
 description: "記帳本：個人記帳 Android App。"
 publish_to: 'none'
-version: 0.9.1+1
+version: 0.9.2+1
 
 environment:
   sdk: ^3.13.4
