@@ -204,6 +204,57 @@ void main() {
       for (final row in store.rows()) (row.shelf, row.id, row.body),
     ];
 
+    test(
+      'a crash at any step of replacing a ledger leaves one that opens',
+      () async {
+        // The restored files as a finished restore leaves them, to lay out
+        // each moment a crash could stop at.
+        final done = LedgerVault(
+          Directory('${directory.path}/done'),
+          codec: codec,
+        );
+        (await done.restore(source.keys, copy)).close();
+        const old = 'another password';
+
+        Future<LedgerVault> stoppedAt(String moment) async {
+          final here = LedgerVault(
+            Directory('${directory.path}/$moment'),
+            codec: codec,
+          );
+          final (open, _) = await here.create(old);
+          open.store.write((w) => w.put('account', 'old', '{"name":"舊"}'));
+          open.close();
+          final path = here.directory.path;
+          done.databaseFile.copySync('$path/ledger.db.restore');
+          done.keyringFile.copySync('$path/keyring.json.new');
+          if (moment != 'before') File('$path/ledger.db').deleteSync();
+          if (moment == 'renamed') {
+            File('$path/ledger.db.restore').renameSync('$path/ledger.db');
+          }
+          return here;
+        }
+
+        // The new keyring written, nothing replaced yet: the old ledger.
+        final before = await stoppedAt('before');
+        final kept = await before.unlockWithPassword(old);
+        expect(rowsOf(kept.store), [('account', 'old', '{"name":"舊"}')]);
+        kept.close();
+        expect(
+          before.directory.listSync().map((f) => f.uri.pathSegments.last),
+          unorderedEquals(['keyring.json', 'ledger.db']),
+        );
+
+        // The old database gone, or the copy in its place: the new ledger.
+        for (final moment in ['deleted', 'renamed']) {
+          final here = await stoppedAt(moment);
+          expect(here.exists, isTrue, reason: moment);
+          final back = await here.unlockWithPassword(password);
+          expect(rowsOf(back.store), rowsOf(source.store), reason: moment);
+          back.close();
+        }
+      },
+    );
+
     test('a checked copy becomes the ledger', () async {
       final restored = await target.restore(source.keys, copy);
       expect(rowsOf(restored.store), rowsOf(source.store));

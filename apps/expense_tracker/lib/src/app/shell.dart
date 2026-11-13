@@ -187,7 +187,8 @@ class _AppShellState extends State<AppShell> {
       if (removed.isEmpty) return;
       showNote(
         context,
-        '已刪除「${saved.title}」',
+        '已刪除「${saved.title}」'
+        '${saved.recurring == null ? '' : '，這一期跳過'}',
         action: '復原',
         onAction: () => ledger.restoreAll(removed),
       );

@@ -132,7 +132,37 @@ final class LedgerVault {
     if (exists) throw const VaultException(VaultProblem.alreadyExists);
   }
 
+  File get _staging => File('${directory.path}/ledger.db.restore');
+
+  /// Finishes, or undoes, what a crash during [restore] or [_write] left
+  /// part way, so the keyring and the database belong together:
+  ///
+  /// - the copy still waiting beside a database: the restore had not
+  ///   begun replacing, so the copy and its keyring go and the ledger
+  ///   here stays as it was;
+  /// - the copy waiting and no database: the old one was already gone,
+  ///   so the copy goes into place with the keyring written for it;
+  /// - no copy and a complete new keyring: the database is the new one
+  ///   (or the same, for a changed password), so the new keyring is used.
+  Future<void> _settle() async {
+    if (await _staging.exists()) {
+      if (!await databaseFile.exists() && _completePending()) {
+        await _staging.rename(databaseFile.path);
+      } else {
+        await _deleteDatabase(_staging);
+        if (await keyringFile.exists() && await _pending.exists()) {
+          await _pending.delete();
+        }
+        return;
+      }
+    }
+    if (await keyringFile.exists() && _completePending()) {
+      await _pending.rename(keyringFile.path);
+    }
+  }
+
   Future<Keyring> _keyring() async {
+    await _settle();
     if (!await keyringFile.exists()) {
       // A crash during the replace leaves only the new file behind.
       if (!_completePending()) {
@@ -159,9 +189,10 @@ final class LedgerVault {
   /// Restores a backup as this device's ledger, all or nothing. [fill]
   /// writes into a staging database, which must pass SQLite's integrity
   /// check.
-  /// Only then is it renamed into place, and the keyring, which is what
-  /// makes a ledger exist, is written last. A failure or crash at any
-  /// point leaves no ledger, so setup or restore can simply start again.
+  /// Only then is its keyring written beside the old one, the database
+  /// renamed into place, and the keyring, which is what makes a ledger
+  /// exist, named last. A failure before the check leaves things as they
+  /// were; a crash after it is finished on the next open ([_settle]).
   ///
   /// With [replacing], a closed ledger already here is replaced, as when
   /// a backup is restored from settings: until the copy has passed its
@@ -174,7 +205,7 @@ final class LedgerVault {
   }) async {
     if (!replacing) _requireAbsent();
     await directory.create(recursive: true);
-    final staging = File('${directory.path}/ledger.db.restore');
+    final staging = _staging;
     await _deleteDatabase(staging);
     try {
       final store = _openStore(staging, keys);
@@ -189,9 +220,14 @@ final class LedgerVault {
       if (await File('${staging.path}-wal').exists()) {
         throw const VaultException(VaultProblem.damagedRestore);
       }
+      // The new keyring is written in full before the database changes,
+      // and named last: a crash between any two steps leaves what
+      // [_settle] can finish or undo, never a keyring and a database that
+      // do not belong together.
+      await _pending.writeAsString(keys.keyring.encode(), flush: true);
       await _deleteDatabase(databaseFile);
       await staging.rename(databaseFile.path);
-      await _write(keys.keyring);
+      await _pending.rename(keyringFile.path);
     } on Object {
       await _deleteDatabase(staging);
       if (!exists) await _deleteDatabase(databaseFile);

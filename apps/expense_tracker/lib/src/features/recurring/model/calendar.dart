@@ -3,11 +3,17 @@ import '../../../core/ledger/ledger.dart';
 /// One time a recurring item falls due on the calendar, and the entry
 /// that booked it, if one has.
 final class Due {
-  const Due(this.item, this.day, this.booked);
+  const Due(this.item, this.day, this.booked, {this.skipped = false});
 
   final Recurring item;
   final DateTime day;
   final Entry? booked;
+
+  /// Let go: its booking was deleted, so it is not booked again.
+  final bool skipped;
+
+  /// Booked or let go: nothing more to do for it.
+  bool get settled => booked != null || skipped;
 }
 
 /// Each day of [year]/[month] with what falls due on it, the dearest
@@ -17,12 +23,19 @@ Map<int, List<Due>> monthPlan(Ledger ledger, int year, int month) {
   final days = <int, List<Due>>{};
   for (final item in ledger.recurring) {
     if (!item.active) continue;
-    final dates = item.datesIn(year, month);
     final booked = ledger.confirmationsIn(item, year, month);
-    for (final (i, day) in dates.indexed) {
+    var next = 0;
+    for (final day in item.datesIn(year, month)) {
+      final skipped = item.skipped.contains(day);
       (days[day.day] ??= []).add(
-        Due(item, day, i < booked.length ? booked[i] : null),
+        Due(
+          item,
+          day,
+          skipped || next >= booked.length ? null : booked[next],
+          skipped: skipped,
+        ),
       );
+      if (!skipped) next++;
     }
   }
   for (final list in days.values) {
@@ -44,10 +57,10 @@ int? firstShown(Map<int, List<Due>> plan, DateTime today, int year, int month) {
   final current = year == today.year && month == today.month;
   if (current) {
     for (final d in days) {
-      if (d >= today.day && plan[d]!.any((x) => x.booked == null)) return d;
+      if (d >= today.day && plan[d]!.any((x) => !x.settled)) return d;
     }
     for (final d in days) {
-      if (plan[d]!.any((x) => x.booked == null)) return d;
+      if (plan[d]!.any((x) => !x.settled)) return d;
     }
   }
   return days.first;

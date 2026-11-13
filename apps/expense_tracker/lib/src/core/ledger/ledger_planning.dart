@@ -65,10 +65,11 @@ extension LedgerPlanning on Ledger {
       if (e.recurring == item.id) e,
   ];
 
-  /// The first day [item] falls due and is not yet booked: one left over
-  /// from last month, once the item has been booked before it, else this
-  /// month's. Bookings count against a month's days in order, so one
-  /// booked early still settles that day.
+  /// The first day [item] falls due and is not yet booked or let go, from
+  /// the month of its latest booking on (this month's, before its first):
+  /// every period missed while the app was not opened, however long, and
+  /// none from before what was last booked. Bookings count against a
+  /// month's days in order, so one booked early still settles that day.
   DateTime? pendingDate(Recurring item) => _remember(
     ('pending', item.id, item.active, today),
     () => _pendingDate(item),
@@ -77,21 +78,28 @@ extension LedgerPlanning on Ledger {
 
   DateTime? _pendingDate(Recurring item) {
     if (!item.active) return null;
-    final last = DateTime.utc(today.year, today.month - 1);
-    final missed = _unbooked(item, last.year, last.month);
-    if (missed != null &&
-        _entries.any(
-          (e) => e.recurring == item.id && e.date.isBefore(missed),
-        )) {
-      return missed;
+    DateTime? latest;
+    for (final e in _entries) {
+      if (e.recurring == item.id &&
+          (latest == null || e.date.isAfter(latest))) {
+        latest = e.date;
+      }
     }
-    return _unbooked(item, today.year, today.month);
+    final now = DateTime.utc(today.year, today.month);
+    var month = latest == null ? now : DateTime.utc(latest.year, latest.month);
+    // Bounded: ten years of months at most.
+    for (var k = 0; k < 120 && !month.isAfter(now); k++) {
+      final day = _unbooked(item, month.year, month.month);
+      if (day != null) return day;
+      month = DateTime.utc(month.year, month.month + 1);
+    }
+    return null;
   }
 
   /// The first day of [year]/[month] [item] falls due that no booking of
   /// that month settles.
   DateTime? _unbooked(Recurring item, int year, int month) {
-    final dates = item.datesIn(year, month);
+    final dates = item.dueIn(year, month);
     final booked = confirmationsIn(item, year, month).length;
     return booked < dates.length ? dates[booked] : null;
   }
