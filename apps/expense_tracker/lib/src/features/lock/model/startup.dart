@@ -98,8 +98,12 @@ final class Startup extends ChangeNotifier {
     await directory.create(recursive: true);
     await _setAsideCloudCopy();
     final secret = _newSecret();
-    await _quickKey.writeAsString(secret, flush: true);
+    // Kept aside until the ledger it opens exists: a key with no ledger
+    // would say there is no password for a ledger never made.
+    final pending = File('${_quickKey.path}.new');
+    await pending.writeAsString(secret, flush: true);
     final (open, recovery) = await _vault.create(secret);
+    await pending.rename(_quickKey.path);
     _recovery = recovery;
     await recoveryGiven.writeAsString('', flush: true);
     _fresh = true;
@@ -204,6 +208,8 @@ final class Startup extends ChangeNotifier {
   /// Creates the ledger. Returns the recovery code, to show once; it is
   /// also kept for [takeRecoveryCode].
   Future<String> setUp(String password) async {
+    // A key left by an earlier try without a password opens nothing now.
+    await forgetQuickKey();
     await _setAsideCloudCopy();
     final (open, recovery) = await _vault.create(password);
     await _enrolDevice(open);
@@ -369,6 +375,18 @@ final class Startup extends ChangeNotifier {
     }
   }
 
+  /// A set-up without a password stopped part way: the key kept aside
+  /// is the ledger's when the ledger was made, and nothing otherwise.
+  void _settleQuickKey() {
+    final pending = File('${_quickKey.path}.new');
+    if (!pending.existsSync()) return;
+    if (_vault.exists && !_quickKey.existsSync()) {
+      pending.renameSync(_quickKey.path);
+    } else {
+      pending.deleteSync();
+    }
+  }
+
   void _ready(OpenVault open) {
     _opening = false;
     _state = Ready(open);
@@ -376,6 +394,7 @@ final class Startup extends ChangeNotifier {
   }
 
   StartupState _locked() {
+    _settleQuickKey();
     if (!_vault.exists) return const NeedsSetup();
     return Locked(
       deviceUnlock: device != null,

@@ -109,6 +109,34 @@ void main() {
     expect(again.state, isA<Ready>());
   });
 
+  test('a set-up without a password that stopped part way leaves no key '
+      'for a ledger never made, and keeps the one for a ledger made', () async {
+    final key = File('${directory.path}/quick-open.key');
+    final pending = File('${key.path}.new');
+    pending.writeAsStringSync('left over');
+    final none = Startup(vault);
+    expect(none.state, isA<NeedsSetup>());
+    expect(none.passwordless, isFalse);
+    expect(pending.existsSync(), isFalse);
+
+    final made = Startup(vault);
+    await made.setUpWithoutPassword();
+    made.lock();
+    key.renameSync(pending.path);
+    final again = Startup(vault);
+    expect(again.state, isA<Locked>());
+    expect(again.passwordless, isTrue);
+    await again.openQuietly();
+    expect(again.state, isA<Ready>());
+  });
+
+  test('a password set-up drops a key left from an earlier try', () async {
+    File('${directory.path}/quick-open.key').writeAsStringSync('old');
+    final startup = Startup(vault);
+    await startup.setUp(password);
+    expect(startup.passwordless, isFalse);
+  });
+
   test('a new ledger sets aside the copy Android brought back', () async {
     final startup = Startup(vault);
     final copy = startup.cloudCopy;

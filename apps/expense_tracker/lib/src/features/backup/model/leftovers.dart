@@ -25,8 +25,17 @@ Future<void> clearLeftovers(
   }
 
   final camera = cache == null ? null : Directory('${cache.path}/camera');
+  // Android's own backup takes all of cloud/: anything there but the one
+  // copy, such as a file from before copies were written elsewhere first,
+  // would go up with it.
+  final cloud = Directory('${files.path}/cloud');
   final leftovers = <FileSystemEntity>[
     Directory('${files.path}/exports'),
+    if (cloud.existsSync())
+      for (final entity in cloud.listSync())
+        if (entity.uri.pathSegments.where((s) => s.isNotEmpty).last !=
+            '記帳本.etbk')
+          entity,
     if (camera != null && camera.existsSync())
       for (final photo in camera.listSync())
         if (older(photo, const Duration(minutes: 5))) photo,
