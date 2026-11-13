@@ -136,6 +136,7 @@ final class Category {
     this.income = false,
     this.parent,
     this.archived = false,
+    this.place,
   });
 
   final String name;
@@ -151,11 +152,16 @@ final class Category {
   /// No longer offered for new entries; its history stays.
   final bool archived;
 
+  /// Where it stands on 分類 and in the composer's row, as dragged there;
+  /// null for one never moved, which follows the placed ones.
+  final int? place;
+
   Category copyWith({
     String? name,
     String? parent,
     bool clearParent = false,
     bool? archived,
+    int? place,
   }) => Category(
     name ?? this.name,
     icon,
@@ -163,6 +169,7 @@ final class Category {
     income: income,
     parent: clearParent ? null : parent ?? this.parent,
     archived: archived ?? this.archived,
+    place: place ?? this.place,
   );
 }
 

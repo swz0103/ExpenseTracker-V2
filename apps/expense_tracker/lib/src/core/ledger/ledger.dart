@@ -54,7 +54,7 @@ final class Ledger extends ChangeNotifier {
        _moves = {...moves},
        _trash = [...trash],
        _accounts = [...accounts],
-       _categories = [...categories],
+       _categories = _placed(categories),
        _entries = [...entries],
        _startHoldings = [...holdings],
        _budgets = [...budgets],
@@ -914,6 +914,40 @@ final class Ledger extends ChangeNotifier {
     );
   }
 
+  /// Puts the categories of [names] in that order, as dragged on 分類;
+  /// the others keep their places after them.
+  void placeCategories(List<String> names) {
+    final moved = <Category>[];
+    for (final (place, name) in names.indexed) {
+      final index = _categories.indexWhere((c) => c.name == name);
+      if (index < 0 || _categories[index].place == place) continue;
+      _categories[index] = _categories[index].copyWith(place: place);
+      moved.add(_categories[index]);
+    }
+    if (moved.isEmpty) return;
+    final sorted = _placed(_categories);
+    _categories
+      ..clear()
+      ..addAll(sorted);
+    _categoryIndex = null;
+    _changed(const {Area.categories});
+    _keep(Batch(categories: moved));
+  }
+
+  /// [categories] with the placed ones first, by place, then the others
+  /// in the order they came.
+  static List<Category> _placed(List<Category> categories) {
+    final indexed = [...categories.indexed];
+    indexed.sort((a, b) {
+      final (pa, pb) = (a.$2.place, b.$2.place);
+      if (pa != null && pb != null && pa != pb) return pa.compareTo(pb);
+      if (pa != null && pb == null) return -1;
+      if (pa == null && pb != null) return 1;
+      return a.$1.compareTo(b.$1);
+    });
+    return [for (final (_, c) in indexed) c];
+  }
+
   /// Puts the accounts of [ids] in that order on 我的帳戶; the others
   /// keep their places.
   void placeAccounts(List<String> ids) {
@@ -1118,7 +1152,10 @@ final class Ledger extends ChangeNotifier {
     }
     final before = _before;
     if (next.name != name) _renameCategory(name, next.name);
-    _categories[index] = next;
+    // An edit keeps the place it was dragged to.
+    _categories[index] = next.place == null
+        ? next.copyWith(place: _categories[index].place)
+        : next;
     notifyListeners();
     _keep(_since(before));
   }
