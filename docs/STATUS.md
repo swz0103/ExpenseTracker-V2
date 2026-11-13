@@ -36,6 +36,7 @@
 
 ## 品質
 
+- 版面：每一頁與分頁在 320／360／412 dp、字級 100／130／150% 下不溢位、文字不重疊、不被縮到六成以下（`test/app/layout_test.dart`）。
 - 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/app/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1（`test/core/preferences_test.dart`）。
 - 系統元件（日期、時間選擇器、複製貼上）為繁體中文；字型涵蓋程式用到的每個中文字（`test/app/font_coverage_test.dart`）。
 
