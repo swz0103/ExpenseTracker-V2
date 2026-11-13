@@ -8,19 +8,22 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/perf.dart';
-import '../../../core/preferences.dart';
 import '../../../core/problems.dart';
-import '../../entries/ui/trash_sheet.dart';
 import '../model/app_update.dart';
 import '../model/services.dart';
 import 'sections/backup_section.dart';
 import 'sections/exchange_section.dart';
-import 'sections/links_section.dart';
 import 'sections/preferences_section.dart';
+import 'sections/reminders_section.dart';
+import 'sections/trash_section.dart';
+import 'settings_hue.dart';
+import '../../../core/look/app_mark.dart';
 import 'sections/security_section.dart';
 
-/// 設定與資料: a list of its pages, each saying how it stands, and
-/// 最近刪除; or, with [part], one of those pages.
+/// 設定與資料: the main card says when the ledger was last backed up and
+/// which ways are on (gold after three days without one), then six cards
+/// two to a row, each saying how its page stands. With [part], one of
+/// those pages.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
@@ -39,93 +42,156 @@ class SettingsPage extends StatelessWidget {
   /// The page shown; null for the list of them.
   final SettingsPart? part;
 
-  /// The pages there is something on: the preview has no backups, no
-  /// notifications and no security.
-  List<SettingsPart> get _parts => [
-    if (services.keeper != null) SettingsPart.backup,
-    SettingsPart.exchange,
-    if (services.notifier != null || services.calendar != null)
-      SettingsPart.reminders,
-    if (services.keeper != null || services.privacy != null)
-      SettingsPart.security,
-    if (services.preferences != null) SettingsPart.appearance,
-    SettingsPart.about,
-  ];
-
   @override
   Widget build(BuildContext context) {
     final preferences = services.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([ledger, ?preferences]),
+      listenable: Listenable.merge([
+        ledger,
+        ?preferences,
+        ?services.drive,
+        ?services.phone,
+      ]),
       builder: (context, _) {
         final part = this.part;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: part == null
-              ? [PageHeader('設定', onBack: nav.back), _index(context)]
-              : [PageHeader(part.label, onBack: nav.back), ..._page(part)],
+              ? [CenterHeader('設定與資料', onBack: nav.back), ..._index(context)]
+              : [
+                  CenterHeader(part.label, onBack: nav.back),
+                  ..._page(context, part),
+                ],
         );
       },
     );
   }
 
-  Widget _index(BuildContext context) {
-    return MenuPanel([
-      for (final part in _parts)
-        MenuRow(
-          glyph: _glyph(part),
-          title: part.label,
-          detail: _detail(part),
-          onTap: () => nav.open(Pages.settingsPart(part)),
-        ),
-      MenuRow(
-        glyph: Glyph.reset,
-        title: '最近刪除',
-        detail: ledger.trash.isEmpty ? '沒有' : '${ledger.trash.length} 筆可放回',
-        onTap: () => showTrash(context, ledger),
-      ),
-    ]);
-  }
+  void _open(SettingsPart part) => nav.open(Pages.settingsPart(part));
 
-  static Glyph _glyph(SettingsPart part) => switch (part) {
-    SettingsPart.backup => Glyph.safe,
-    SettingsPart.exchange => Glyph.download,
-    SettingsPart.reminders => Glyph.bell,
-    SettingsPart.security => Glyph.shield,
-    SettingsPart.appearance => Glyph.moon,
-    SettingsPart.about => Glyph.note,
-  };
-
-  /// How the page stands, so the list says it without opening it.
-  String _detail(SettingsPart part) {
-    switch (part) {
-      case SettingsPart.backup:
-        return '每天自動備份到 Google';
-      case SettingsPart.exchange:
-        return 'CSV、電子發票';
-      case SettingsPart.reminders:
-        final preferences = services.notifier?.preferences;
-        if (preferences == null) return '日曆';
-        final on = [
-          if (preferences.dueAlerts) '到期',
-          if (preferences.dailyNudge) '每日',
-        ];
-        return on.isEmpty ? '都沒開' : '${on.join('、')}提醒';
-      case SettingsPart.security:
-        final keeper = services.keeper;
-        if (keeper == null) return '截圖';
-        return keeper.hasPassword ? '已設定密碼' : '目前不用密碼';
-      case SettingsPart.appearance:
-        return services.preferences?.appearance.label ?? '';
-      case SettingsPart.about:
-        return '版本、檢查更新';
-    }
-  }
-
-  List<Widget> _page(SettingsPart part) {
+  List<Widget> _index(BuildContext context) {
     final keeper = services.keeper;
-    final notifier = services.notifier;
-    final calendar = services.calendar;
+    final google = services.preferences?.googleBackup ?? true;
+    final folder = services.phone?.on ?? false;
+    final drive = services.drive;
+    DateTime? latest;
+    for (final at in [
+      if (google) keeper?.cloudCopyAt,
+      if (google && (drive?.linked ?? false)) drive?.backedUp,
+      if (folder) services.phone?.backedUp,
+    ]) {
+      if (at != null && (latest == null || at.isAfter(latest))) latest = at;
+    }
+    final on = google || folder;
+    final stale =
+        latest != null && DateTime.now().difference(latest).inDays > 3;
+    Widget way(String name, bool on) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Hue.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '${on ? '✓' : '!'} $name',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: on ? deepOf(SettingsHue.backup) : Hue.goldText,
+        ),
+      ),
+    );
+    final update = services.update;
+    return [
+      if (keeper != null) ...[
+        BackupHero(
+          at: latest,
+          on: on,
+          stale: stale,
+          label: on ? null : '沒有自動備份',
+          onTap: () => _open(SettingsPart.backup),
+          trailing: Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [way('Google 備份', google), way('檔案備份', folder)],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+      CardGrid([
+        if (services.notifier != null || services.calendar != null)
+          _Row(
+            glyph: Glyph.bell,
+            color: SettingsHue.reminders,
+            title: '通知與提醒',
+            detail: _reminders(),
+            onTap: () => _open(SettingsPart.reminders),
+          ),
+        if (keeper != null || services.privacy != null)
+          _Row(
+            glyph: Glyph.shield,
+            color: SettingsHue.security,
+            title: '安全',
+            detail: keeper == null
+                ? '截圖'
+                : keeper.hasPassword
+                ? '已設密碼'
+                : '目前不用密碼',
+            onTap: () => _open(SettingsPart.security),
+          ),
+        if (services.preferences case final preferences?)
+          _Row(
+            glyph: Glyph.moon,
+            color: SettingsHue.appearance,
+            title: '外觀與操作',
+            detail: preferences.appearance.label,
+            onTap: () => _open(SettingsPart.appearance),
+          ),
+        _Row(
+          glyph: Glyph.swap,
+          color: SettingsHue.exchange,
+          title: '匯入與匯出',
+          detail: 'CSV、發票',
+          onTap: () => _open(SettingsPart.exchange),
+        ),
+        _Row(
+          glyph: Glyph.reset,
+          color: SettingsHue.trash,
+          title: '最近刪除',
+          detail: ledger.trash.isEmpty ? '沒有' : '${ledger.trash.length} 筆可放回',
+          onTap: () => _open(SettingsPart.trash),
+        ),
+        _Row(
+          glyph: Glyph.info,
+          color: SettingsHue.about,
+          title: '關於',
+          detail: [
+            if (_version.isNotEmpty) _version else '開發版',
+            if (update?.newer != null)
+              '有新版'
+            else if (update?.upToDate ?? false)
+              '最新',
+          ].join(' · '),
+          onTap: () => _open(SettingsPart.about),
+        ),
+      ], gap: 10),
+    ];
+  }
+
+  /// How many kinds of reminder are on.
+  String _reminders() {
+    final preferences = services.notifier?.preferences;
+    final calendar = services.calendar?.chosen != null;
+    final on = [
+      if (preferences?.dueAlerts ?? false) 1,
+      if (preferences?.budgetAlerts ?? false) 1,
+      if (preferences?.dailyNudge ?? false) 1,
+      if (calendar) 1,
+    ].length;
+    return on == 0 ? '都沒開' : '$on 種開著';
+  }
+
+  List<Widget> _page(BuildContext context, SettingsPart part) {
+    final keeper = services.keeper;
     final preferences = services.preferences;
     return switch (part) {
       SettingsPart.backup => [
@@ -134,14 +200,19 @@ class SettingsPage extends StatelessWidget {
             keeper: keeper,
             drive: services.drive,
             phone: services.phone,
+            preferences: preferences,
           ),
       ],
       SettingsPart.exchange => [
         ExchangeSection(ledger: ledger, keeper: keeper),
       ],
       SettingsPart.reminders => [
-        if (notifier != null) NotificationsSection(notifier: notifier),
-        if (calendar != null) LinksSection(ledger: ledger, calendar: calendar),
+        RemindersSection(
+          ledger: ledger,
+          notifier: services.notifier,
+          calendar: services.calendar,
+          onBudgets: () => nav.open(Pages.budgets),
+        ),
       ],
       SettingsPart.security => [
         SecuritySection(keeper: keeper, privacy: services.privacy),
@@ -150,7 +221,65 @@ class SettingsPage extends StatelessWidget {
         if (preferences != null) AppearanceSection(preferences: preferences),
       ],
       SettingsPart.about => [_About(ledger: ledger, services: services)],
+      SettingsPart.trash => [TrashSection(ledger: ledger)],
     };
+  }
+}
+
+/// A card on the settings' first page: icon on the left, its name and
+/// one line of how it stands.
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String detail;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorCard(
+      color: color,
+      onTap: onTap,
+      label: '$title，$detail',
+      padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+      radius: 20,
+      child: Row(
+        children: [
+          SquareIcon(glyph, color, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(color),
+                  ),
+                ),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: deepOf(color)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -169,36 +298,27 @@ String get buildLabel => _version.isEmpty
         if (_commit.isNotEmpty) _commit,
       ].join(' · ');
 
-/// 關於: which build this is and its updates; 效能與診斷, folded until
-/// opened, with the load and frame timings and the background faults to
-/// send on when reporting a problem; and, in the preview, starting the
-/// made-up book over.
-class _About extends StatefulWidget {
+/// 關於: the main card says the version and how it stands against the
+/// newest (已是最新, 有新版 with 更新, or the download with its bar); two
+/// cards: 自動更新 and 診斷, whose panel has the load, frame and fault
+/// figures, the build's details, and 複製 or 下載. In the preview, starting
+/// the made-up book over.
+class _About extends StatelessWidget {
   const _About({required this.ledger, required this.services});
 
   final Ledger ledger;
   final Services services;
 
-  @override
-  State<_About> createState() => _AboutState();
-}
-
-class _AboutState extends State<_About> {
-  /// 效能與診斷 opened.
-  var _open = false;
-
-  Ledger get ledger => widget.ledger;
-  Services get services => widget.services;
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: Perf.instance.text));
+    if (context.mounted) showNote(context, '已複製診斷紀錄');
+  }
 
   Future<void> _export(BuildContext context) async {
     final text = Perf.instance.text;
     final keeper = services.keeper;
+    if (keeper == null) return _copy(context);
     try {
-      if (keeper == null) {
-        await Clipboard.setData(ClipboardData(text: text));
-        if (context.mounted) showNote(context, '已複製診斷紀錄');
-        return;
-      }
       final saved = await keeper.exportFile('記帳本-診斷紀錄.txt', text);
       if (context.mounted && saved) showNote(context, '已下載診斷紀錄');
     } on Object catch (error) {
@@ -215,110 +335,173 @@ class _AboutState extends State<_About> {
     if (context.mounted) showNote(context, '已重設範例資料');
   }
 
+  void _diagnostics(BuildContext context) {
+    const color = SettingsHue.about;
+    final figures = Perf.instance.figures;
+    Widget figure(String label, String value) => Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
+      decoration: BoxDecoration(
+        color: tintOf(color, 0.14),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: deepOf(color),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+    showPanel<void>(
+      context,
+      (context) => CenterPanel(
+        glyph: Glyph.bolt,
+        color: color,
+        title: '診斷',
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CardGrid(columns: 3, gap: 8, [
+              figure('載入', figures.load),
+              figure('影格', figures.frame),
+              figure('錯誤', '${figures.errors}'),
+            ]),
+            const SizedBox(height: 10),
+            Text(buildLabel, style: mutedSmall),
+            for (final (at, what) in Perf.instance.problems.take(3))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('${at.month}/${at.day} $what', style: mutedSmall),
+              ),
+          ],
+        ),
+        actions: [
+          PanelButton('複製', onTap: () => _copy(context)),
+          PanelButton('下載', color: color, onTap: () => _export(context)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final report = Perf.instance.report;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MenuPanel([
-          MenuRow(glyph: Glyph.note, title: '版本', detail: buildLabel),
-        ]),
-        if (services.update case final update?)
-          _Updates(update: update, preferences: services.preferences),
-        const SizedBox(height: 8),
-        MenuPanel([
-          MenuRow(
-            glyph: Glyph.sliders,
-            title: '效能與診斷',
-            detail: _open ? '載入與影格時間、背景錯誤' : '回報問題時用',
-            trailing: AnimatedRotation(
-              turns: _open ? 0.25 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
+    final update = services.update;
+    final preferences = services.preferences;
+    return ListenableBuilder(
+      listenable: Listenable.merge([?update, ?preferences]),
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _VersionCard(update: update),
+          const SizedBox(height: 12),
+          CardGrid([
+            if (preferences != null && (update?.possible ?? false))
+              _Row2(
+                glyph: Glyph.reset,
+                color: SettingsHue.main,
+                title: '自動更新',
+                trailing: TickSwitch(
+                  value: preferences.updateChecks,
+                  color: SettingsHue.main,
+                  label: '自動更新',
+                  onChanged: (on) => preferences.update(updateChecks: on),
+                ),
+                onTap: () =>
+                    preferences.update(updateChecks: !preferences.updateChecks),
+              ),
+            _Row2(
+              glyph: Glyph.bolt,
+              color: SettingsHue.about,
+              title: '診斷',
+              onTap: () => _diagnostics(context),
             ),
-            onTap: () => setState(() => _open = !_open),
-          ),
-        ]),
-        if (_open) ...[
-          const SizedBox(height: 8),
-          FormBlock(
-            child: Column(
-              children: [
-                if (report.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 6),
-                    child: Text('還沒有紀錄', style: mutedSmall),
-                  ),
-                for (final (name, figure) in report)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        Text(name),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            figure,
-                            textAlign: TextAlign.end,
-                            style: mutedSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          MenuPanel([
-            MenuRow(
-              glyph: Glyph.download,
-              title: '匯出診斷紀錄',
-              detail: '回報問題用',
-              onTap: () => _export(context),
-            ),
-          ]),
+          ], gap: 10),
+          // Only the preview's made-up book can be reset.
+          if (services.sample case final sample?) ...[
+            const SizedBox(height: 12),
+            PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
+          ],
         ],
-        // Only the preview's made-up book can be reset.
-        if (services.sample case final sample?) ...[
-          const SizedBox(height: 8),
-          MenuPanel([
-            MenuRow(
-              glyph: Glyph.reset,
-              title: '重設範例資料',
-              color: Hue.danger,
-              onTap: () => _reset(context, sample),
-            ),
-          ]),
-        ],
-      ],
+      ),
     );
   }
 }
 
-/// 檢查更新: looks for a newer version, then downloads it and opens
-/// Android's installer; and whether to look by itself.
-class _Updates extends StatelessWidget {
-  const _Updates({required this.update, this.preferences});
+/// A short card with its icon, name and a control on the right.
+class _Row2 extends StatelessWidget {
+  const _Row2({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.onTap,
+    this.trailing,
+  });
 
-  final AppUpdate update;
-  final Preferences? preferences;
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final VoidCallback onTap;
+  final Widget? trailing;
 
-  String get _detail {
-    if (!update.possible) return '自行建置的版本不能更新';
+  @override
+  Widget build(BuildContext context) => ColorCard(
+    color: color,
+    onTap: onTap,
+    radius: 20,
+    padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+    child: Row(
+      children: [
+        SquareIcon(glyph, color, size: 40),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: deepOf(color),
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
+    ),
+  );
+}
+
+/// The version and how it stands: 已是最新; 有新版 0.9.1 with 更新 in
+/// green; or 下載中 62% with a bar.
+class _VersionCard extends StatelessWidget {
+  const _VersionCard({this.update});
+
+  final AppUpdate? update;
+
+  String _state(AppUpdate? update) {
+    if (update == null || !update.possible) return '自行建置的版本';
     final progress = update.progress;
     if (progress != null) return '下載中 ${(progress * 100).round()}%';
     if (update.checking) return '檢查中…';
     final newer = update.newer;
-    if (newer != null) return '有新版本：${newer.label}';
+    if (newer != null) {
+      return '有新版 ${newer.version.isEmpty ? newer.label : newer.version}';
+    }
     final problem = update.problem;
     if (problem != null) return problem;
-    if (update.upToDate) return '已是最新版本';
-    return '從 GitHub 發布頁取得';
+    if (update.upToDate) return '已是最新';
+    return '點這裡檢查更新';
   }
 
-  Future<void> _tap(BuildContext context) async {
+  Future<void> _tap(BuildContext context, AppUpdate update) async {
     if (!update.possible || update.busy) return;
     final newer = update.newer;
     if (newer == null) {
@@ -348,29 +531,76 @@ class _Updates extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preferences = this.preferences;
-    return ListenableBuilder(
-      listenable: Listenable.merge([update, ?preferences]),
-      builder: (context, _) => Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: MenuPanel([
-          MenuRow(
-            glyph: Glyph.download,
-            title: update.newer == null ? '檢查更新' : '下載並安裝更新',
-            detail: _detail,
-            onTap: update.possible ? () => _tap(context) : null,
+    final update = this.update;
+    final newer = update?.newer != null;
+    final progress = update?.progress;
+    final color = newer ? Hue.positive : SettingsHue.main;
+    return ColorCard(
+      color: color,
+      amount: 0.2,
+      onTap: update == null || !update.possible
+          ? null
+          : () => _tap(context, update),
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      child: Row(
+        children: [
+          const ClipRRect(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+            child: AppMark(size: 60),
           ),
-          if (preferences != null && update.possible)
-            MenuRow(
-              glyph: Glyph.bell,
-              title: '自動檢查更新',
-              detail: '打開 App 時，每天最多一次',
-              trailing: Switch(
-                value: preferences.updateChecks,
-                onChanged: (on) => preferences.update(updateChecks: on),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _version.isEmpty ? '開發版' : _version,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  _state(update),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: deepOf(color),
+                  ),
+                ),
+                if (progress != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        color: SettingsHue.main,
+                        backgroundColor: Hue.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (newer && progress == null)
+            FilledButton(
+              onPressed: () => _tap(context, update!),
+              style: FilledButton.styleFrom(
+                backgroundColor: Hue.positive,
+                foregroundColor: Hue.onAccent,
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                '更新',
+                style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-        ]),
+        ],
       ),
     );
   }

@@ -153,6 +153,23 @@ final class Perf {
   }
 
   /// What 設定 › 效能 lists: a name and a figure.
+  /// The three figures 診斷 shows big: the last load, the frame nine in
+  /// ten are drawn within, and how many background faults are kept.
+  ({String load, String frame, int errors}) get figures {
+    final frames = [..._frames]..sort();
+    return (
+      load: _loads.isEmpty
+          ? '—'
+          : _loads.last >= 1000
+          ? '${(_loads.last / 1000).toStringAsFixed(1)} 秒'
+          : '${_loads.last} ms',
+      frame: frames.isEmpty
+          ? '—'
+          : '${(frames[frames.length * 9 ~/ 10] / 1000).round()} ms',
+      errors: _problems.length,
+    );
+  }
+
   List<(String, String)> get report {
     final frames = [..._frames]..sort();
     String ms(int micros) => (micros / 1000).toStringAsFixed(1);

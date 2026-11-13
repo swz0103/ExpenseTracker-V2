@@ -14,6 +14,7 @@ class PasswordField extends StatelessWidget {
     this.hidden = true,
     this.onSubmitted,
     this.boxed = false,
+    this.plain = false,
   });
 
   final TextEditingController controller;
@@ -27,6 +28,10 @@ class PasswordField extends StatelessWidget {
   /// the plain underlined field of a dialog.
   final bool boxed;
 
+  /// No line and no box: the field sits in a tinted block of its own,
+  /// as in the middle-of-the-screen panels.
+  final bool plain;
+
   @override
   Widget build(BuildContext context) {
     final submit = onSubmitted;
@@ -36,7 +41,13 @@ class PasswordField extends StatelessWidget {
       autocorrect: false,
       enableSuggestions: false,
       onSubmitted: submit == null ? null : (_) => submit(),
-      decoration: boxed
+      style: plain ? const TextStyle(fontSize: 18, letterSpacing: 2) : null,
+      decoration: plain
+          ? InputDecoration.collapsed(hintText: hint).copyWith(
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              isDense: true,
+            )
+          : boxed
           ? InputDecoration(
               hintText: hint,
               filled: true,

@@ -22,7 +22,8 @@ enum SettingsPart {
   reminders('通知與提醒'),
   security('安全'),
   appearance('外觀與操作'),
-  about('關於');
+  about('關於'),
+  trash('最近刪除');
 
   const SettingsPart(this.label);
 

@@ -362,7 +362,11 @@ class _OpenedLedgerState extends State<OpenedLedger>
     if (ledger == null) return;
     try {
       await ledger.settled;
-      if (Platform.isAndroid) await _keeper.keepCloudCopy();
+      // Turned off in 備份與還原, the copy is not kept: Android's own
+      // backup then takes nothing of the ledger.
+      if (Platform.isAndroid && widget.preferences.googleBackup) {
+        await _keeper.keepCloudCopy();
+      }
     } on Object catch (error) {
       Perf.instance.problem('Google 備份', error);
     }
@@ -426,9 +430,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
               ? showRecoveryCode(
                   context,
                   code,
-                  why:
-                      '帳本會每天自動備份到你的 Google 帳戶。換手機還原時要輸入這組救援碼，'
-                      '請抄下來放在安全的地方，它只會顯示這一次。',
+                  why: '帳本每天自動備份到 Google，換手機還原時要輸入它',
                 )
               : showRecoveryCode(context, code),
         );

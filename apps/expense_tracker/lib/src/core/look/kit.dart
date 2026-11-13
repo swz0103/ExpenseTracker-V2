@@ -549,10 +549,98 @@ class DotsMenu extends StatelessWidget {
   }
 }
 
-/// A setting's details in a panel in the middle of the screen, never a
-/// sheet from the bottom: its icon, name and a line on what it does at the
-/// top, a [TickSwitch] when [value] is given, then [body], then 完成.
-/// A tap on the dark around it closes it as well.
+/// The panel in the middle of the screen that every setting's details
+/// open in, never a sheet from the bottom: its icon, name and a line on
+/// what it does at the top, [trailing] on the right of that, then [body]
+/// and the [actions] along the bottom.
+class CenterPanel extends StatelessWidget {
+  const CenterPanel({
+    super.key,
+    required this.glyph,
+    required this.color,
+    required this.title,
+    this.detail,
+    this.trailing,
+    this.body,
+    this.actions = const [],
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String? detail;
+  final Widget? trailing;
+  final Widget? body;
+
+  /// Buttons side by side along the bottom, each as wide as the others.
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Hue.paper,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SquareIcon(glyph, color, size: 56),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (detail != null)
+                        Text(
+                          detail!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Hue.muted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
+            ),
+            if (body != null) ...[const SizedBox(height: 18), body!],
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  for (final (i, action) in actions.indexed) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    Expanded(child: action),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens a [CenterPanel] with 完成 along the bottom and, when [value] is
+/// given, a [TickSwitch] at the top. A tap on the dark around it closes
+/// it as well. [body] is built again after the switch is touched.
 Future<void> showCenterPanel(
   BuildContext context, {
   required Glyph glyph,
@@ -564,84 +652,51 @@ Future<void> showCenterPanel(
   WidgetBuilder? body,
   String done = '完成',
 }) {
-  return showDialog<void>(
-    context: context,
-    barrierColor: const Color(0x66222B30),
-    builder: (context) => StatefulBuilder(
+  return showPanel<void>(
+    context,
+    (context) => StatefulBuilder(
       builder: (context, setState) {
         final on = value?.call();
-        return Dialog(
-          backgroundColor: Hue.paper,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 24,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    SquareIcon(glyph, color, size: 60),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Semantics(
-                            header: true,
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (detail != null)
-                            Text(
-                              detail,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Hue.muted,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (on != null)
-                      TickSwitch(
-                        value: on,
-                        color: color,
-                        label: title,
-                        onChanged: onChanged == null
-                            ? null
-                            : (v) {
-                                onChanged(v);
-                                setState(() {});
-                              },
-                      ),
-                  ],
+        return CenterPanel(
+          glyph: glyph,
+          color: color,
+          title: title,
+          detail: detail,
+          trailing: on == null
+              ? null
+              : TickSwitch(
+                  value: on,
+                  color: color,
+                  label: title,
+                  onChanged: onChanged == null
+                      ? null
+                      : (v) {
+                          onChanged(v);
+                          setState(() {});
+                        },
                 ),
-                if (body != null) ...[
-                  const SizedBox(height: 18),
-                  Builder(builder: body),
-                ],
-                const SizedBox(height: 20),
-                PanelButton(done, onTap: () => Navigator.of(context).pop()),
-              ],
-            ),
-          ),
+          body: body == null ? null : Builder(builder: body),
+          actions: [
+            PanelButton(done, onTap: () => Navigator.of(context).pop()),
+          ],
         );
       },
     ),
   );
 }
+
+/// Opens [builder] over a dimmed page, as the middle-of-the-screen panels
+/// are; a tap on the dark closes it unless [dismissible] is off.
+Future<T?> showPanel<T>(
+  BuildContext context,
+  WidgetBuilder builder, {
+  bool dismissible = true,
+}) => showDialog<T>(
+  context: context,
+  barrierDismissible: dismissible,
+  barrierColor: const Color(0x66222B30),
+  builder: builder,
+);
 
 /// A wide button: grey by default, solid [color] when given.
 class PanelButton extends StatelessWidget {

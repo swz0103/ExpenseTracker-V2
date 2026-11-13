@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 /// Light or dark colours.
 enum Appearance {
-  system('跟隨系統'),
+  system('跟著手機'),
   light('淺色'),
   dark('深色');
 
@@ -47,6 +47,7 @@ final class Preferences extends ChangeNotifier {
       _started = json['started'] as bool? ?? false;
       _widgetShown = json['widgetShown'] as bool? ?? false;
       _driveLinked = json['driveLinked'] as bool? ?? false;
+      _googleBackup = json['googleBackup'] as bool? ?? true;
       _driveBackedUp = DateTime.tryParse(
         json['driveBackedUp'] as String? ?? '',
       );
@@ -205,6 +206,12 @@ final class Preferences extends ChangeNotifier {
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
 
+  /// Android takes the encrypted ledger to the person's Google account
+  /// each day. Off, the copy it takes is deleted and not written again,
+  /// so Android's own backup carries nothing of the ledger.
+  bool get googleBackup => _googleBackup;
+  var _googleBackup = true;
+
   /// Backups go up to Google Drive: by hand, and weekly by themselves.
   bool get driveLinked => _driveLinked;
   var _driveLinked = false;
@@ -237,6 +244,7 @@ final class Preferences extends ChangeNotifier {
     bool? started,
     bool? widgetShown,
     bool? driveLinked,
+    bool? googleBackup,
     WidgetFigures? widgetFigures,
     bool? updateChecks,
     bool? budgetAlerts,
@@ -252,6 +260,7 @@ final class Preferences extends ChangeNotifier {
     _started = started ?? _started;
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
+    _googleBackup = googleBackup ?? _googleBackup;
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
     _budgetAlerts = budgetAlerts ?? _budgetAlerts;
@@ -277,6 +286,7 @@ final class Preferences extends ChangeNotifier {
           'started': _started,
           'widgetShown': _widgetShown,
           'driveLinked': _driveLinked,
+          'googleBackup': _googleBackup,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,
           'nudgeMinute': _nudgeMinute,

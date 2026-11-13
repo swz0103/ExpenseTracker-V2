@@ -271,7 +271,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('匯入與匯出'));
     await tester.pumpAndSettle();
-    expect(find.text('匯出全部'), findsOneWidget);
+    expect(find.text('匯出 CSV'), findsOneWidget);
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.text('最近刪除'), findsOneWidget);
