@@ -3,7 +3,7 @@ import '../../../core/ledger/ledger.dart';
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
 final class RecurringForm {
-  RecurringForm(this.ledger, {this.old})
+  RecurringForm(this.ledger, {this.old, DateTime? on})
     : name = old?.name ?? '',
       income = old?.income ?? false,
       amount = old?.amount ?? 0,
@@ -14,7 +14,7 @@ final class RecurringForm {
       active = old?.active ?? true,
       auto = old?.auto ?? false {
     category = old?.category ?? _firstCategory(false);
-    start = _firstDay();
+    start = on ?? _firstDay();
   }
 
   final Ledger ledger;
@@ -96,7 +96,6 @@ final class RecurringForm {
 
   /// Why the item cannot be saved yet; null when it can.
   String? get problem {
-    if (name.trim().isEmpty) return '請輸入名稱';
     if (amount <= 0) return '請輸入金額';
     return null;
   }
@@ -104,7 +103,8 @@ final class RecurringForm {
   /// The item as the form now stands.
   Recurring build() => Recurring(
     id: old?.id ?? ledger.newId(),
-    name: name.trim(),
+    // Left without a name, it is called by its category.
+    name: name.trim().isEmpty ? category : name.trim(),
     amount: amount,
     day: start.day,
     account: account,
