@@ -62,7 +62,7 @@ class SettingsPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: part == null
-              ? [PageHeader('設定與資料', onBack: nav.back), _index(context)]
+              ? [PageHeader('設定', onBack: nav.back), _index(context)]
               : [PageHeader(part.label, onBack: nav.back), ..._page(part)],
         );
       },

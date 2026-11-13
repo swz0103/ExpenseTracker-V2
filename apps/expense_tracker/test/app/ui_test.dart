@@ -257,8 +257,8 @@ void main() {
       ('代墊與借貸', '別人欠你減掉你欠的貸款'),
       ('預算管理', '分類與標籤額度'),
       ('定期交易', '管理固定項目'),
-      ('分類管理', '支出分類'),
-      ('設定與資料', '匯入與匯出'),
+      ('分類', '支出分類'),
+      ('設定', '匯入與匯出'),
     ]) {
       await tester.tap(find.text(tool));
       await tester.pumpAndSettle();
@@ -267,7 +267,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     // A page of settings returns to the list of them.
-    await tester.tap(find.text('設定與資料'));
+    await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('匯入與匯出'));
     await tester.pumpAndSettle();

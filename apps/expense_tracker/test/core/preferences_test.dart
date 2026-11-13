@@ -67,7 +67,7 @@ void main() {
     const ink = Hue.ink;
     expect(ink.toARGB32(), 0xFF26323A);
     Shade.dark = true;
-    expect(ink.toARGB32(), 0xFFE3E8EA);
+    expect(ink.toARGB32(), 0xFFEEF2F3);
     expect(Hue.paper.computeLuminance(), lessThan(0.05));
     expect(Hue.onAccent.toARGB32(), 0xFF0F1A1F);
     Shade.dark = false;

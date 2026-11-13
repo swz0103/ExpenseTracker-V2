@@ -53,7 +53,7 @@ class CategoriesPage extends StatelessWidget {
       builder: (context, _) => ListView(
         padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
         children: [
-          PageHeader('分類管理', onBack: nav.back),
+          PageHeader('分類', onBack: nav.back),
           Padding(
             padding: const EdgeInsets.only(left: 8),
             child: Column(
