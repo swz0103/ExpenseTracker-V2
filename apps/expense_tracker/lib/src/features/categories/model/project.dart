@@ -63,3 +63,37 @@ Project? projectOf(Ledger ledger, String tag) {
     entries: entries,
   );
 }
+
+/// The tag of the latest entry that has one: 標籤與商家's cover.
+String? latestTag(Ledger ledger) {
+  Entry? latest;
+  for (final e in ledger.entries) {
+    if (e.tags.isEmpty) continue;
+    if (latest == null || e.date.isAfter(latest.date)) latest = e;
+  }
+  return latest?.tags.first;
+}
+
+/// Each tag in use under the year of its latest entry, latest years first
+/// and, in a year, latest tags first.
+List<(int, List<String>)> tagsByYear(Ledger ledger) {
+  final last = <String, DateTime>{};
+  for (final e in ledger.entries) {
+    for (final tag in e.tags) {
+      final seen = last[tag];
+      if (seen == null || e.date.isAfter(seen)) last[tag] = e.date;
+    }
+  }
+  final tags = last.keys.toList()..sort((a, b) => last[b]!.compareTo(last[a]!));
+  final years = <int, List<String>>{};
+  for (final tag in tags) {
+    (years[last[tag]!.year] ??= []).add(tag);
+  }
+  return [for (final MapEntry(:key, :value) in years.entries) (key, value)];
+}
+
+/// A merchant's visits, newest first; empty when none.
+List<Entry> visitsTo(Ledger ledger, String merchant) => [
+  for (final e in ledger.entries)
+    if (e.merchant == merchant) e,
+]..sort((a, b) => b.date.compareTo(a.date));

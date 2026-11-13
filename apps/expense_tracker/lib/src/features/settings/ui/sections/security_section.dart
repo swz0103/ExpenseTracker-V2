@@ -8,9 +8,10 @@ import '../../../../core/look/widgets.dart';
 import '../../../../core/problems.dart';
 import '../../../../core/screen_privacy.dart';
 import '../../../lock/ui/recovery_code.dart';
+import '../settings_hue.dart';
 
-/// 安全: the ledger's password and recovery code, hiding the screens,
-/// and locking the ledger again.
+/// 安全: four cards: the password, the recovery code, hiding the screens,
+/// and locking the ledger now.
 class SecuritySection extends StatefulWidget {
   const SecuritySection({super.key, this.keeper, this.privacy});
 
@@ -24,9 +25,9 @@ class SecuritySection extends StatefulWidget {
 class _SecuritySectionState extends State<SecuritySection> {
   Future<void> _changePassword(Keeper keeper) async {
     final first = !keeper.hasPassword;
-    final passwords = await showDialog<(String, String)>(
-      context: context,
-      builder: (_) => _PasswordDialog(first: first),
+    final passwords = await showPanel<(String, String)>(
+      context,
+      (_) => _PasswordPanel(first: first),
     );
     if (passwords == null) return;
     final (current, next) = passwords;
@@ -36,11 +37,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         // A ledger started without a password has had no code to show yet.
         final code = await keeper.newRecoveryCode();
         if (mounted) {
-          await showRecoveryCode(
-            context,
-            code,
-            why: '密碼設好了。忘記密碼時，只有這組救援碼能打開帳本。請抄下來放在安全的地方，它只會顯示這一次。',
-          );
+          await showRecoveryCode(context, code, why: '密碼設好了。忘記密碼時，只有它能打開帳本');
         }
       } else {
         await keeper.changePassword(current, next);
@@ -63,7 +60,7 @@ class _SecuritySectionState extends State<SecuritySection> {
   }
 
   Future<void> _newRecovery(Keeper keeper) async {
-    final ok = await confirm(context, '換一組新的救援碼？舊的會立刻失效。', '更換');
+    final ok = await confirm(context, '換一組新的？舊的會立刻失效', '更換');
     if (!ok) return;
     try {
       final code = await keeper.newRecoveryCode();
@@ -87,60 +84,58 @@ class _SecuritySectionState extends State<SecuritySection> {
   Widget build(BuildContext context) {
     final keeper = widget.keeper;
     final privacy = widget.privacy;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MenuPanel([
-          if (keeper != null) ...[
-            MenuRow(
-              glyph: Glyph.shield,
-              title: keeper.hasPassword ? '變更密碼' : '設定密碼',
-              detail: keeper.hasPassword ? '已設定' : '目前不用密碼',
-              onTap: () => _changePassword(keeper),
-            ),
-            MenuRow(
-              glyph: Glyph.ticket,
-              title: keeper.hasPassword ? '更換救援碼' : '取得救援碼',
-              detail: '換手機還原用',
-              onTap: () => _newRecovery(keeper),
-            ),
-          ],
-          if (privacy != null)
-            MenuRow(
-              glyph: Glyph.eyeOff,
-              title: '不讓截圖',
-              detail: '最近使用的 App 也看不到',
-              trailing: Switch(
-                value: privacy.on,
-                onChanged: (on) => _hideScreen(privacy, on),
-              ),
-            ),
-          if (keeper != null && keeper.hasPassword)
-            MenuRow(
-              glyph: Glyph.close,
-              title: '鎖定帳本',
-              detail: '回到解鎖畫面',
-              onTap: keeper.lock,
-            ),
-        ]),
+    return CardGrid([
+      if (keeper != null) ...[
+        SettingCard(
+          glyph: Glyph.key,
+          color: SettingsHue.password,
+          title: '密碼',
+          detail: keeper.hasPassword ? '已設定 · 點了變更' : '還沒設定 · 點了設定',
+          onTap: () => _changePassword(keeper),
+        ),
+        SettingCard(
+          glyph: Glyph.lifebuoy,
+          color: SettingsHue.recovery,
+          title: '救援碼',
+          detail: '忘記密碼、換手機用',
+          onTap: () => _newRecovery(keeper),
+        ),
       ],
-    );
+      if (privacy != null)
+        SettingCard(
+          glyph: Glyph.eyeOff,
+          color: SettingsHue.appearance,
+          title: '不讓截圖',
+          detail: '最近使用的 App 也看不到',
+          value: privacy.on,
+          onChanged: (on) => _hideScreen(privacy, on),
+          onTap: () => _hideScreen(privacy, !privacy.on),
+        ),
+      if (keeper != null && keeper.hasPassword)
+        SettingCard(
+          glyph: Glyph.lock,
+          color: SettingsHue.about,
+          title: '現在鎖上',
+          detail: '回到解鎖畫面',
+          onTap: keeper.lock,
+        ),
+    ]);
   }
 }
 
 /// Asks for the current password and a new one twice; returns the
 /// current and the new one.
-class _PasswordDialog extends StatefulWidget {
-  const _PasswordDialog({required this.first});
+class _PasswordPanel extends StatefulWidget {
+  const _PasswordPanel({required this.first});
 
   /// Setting a password on a ledger that has none: nothing to confirm.
   final bool first;
 
   @override
-  State<_PasswordDialog> createState() => _PasswordDialogState();
+  State<_PasswordPanel> createState() => _PasswordPanelState();
 }
 
-class _PasswordDialogState extends State<_PasswordDialog> {
+class _PasswordPanelState extends State<_PasswordPanel> {
   final _current = TextEditingController();
   final _next = TextEditingController();
   final _again = TextEditingController();
@@ -164,29 +159,50 @@ class _PasswordDialogState extends State<_PasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    Widget field(TextEditingController controller, String hint) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: PasswordField(controller: controller, hint: hint),
+    const color = SettingsHue.password;
+    Widget field(TextEditingController controller, String label) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        decoration: BoxDecoration(
+          color: tintOf(color, 0.14),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: deepOf(color),
+              ),
+            ),
+            PasswordField(controller: controller, hint: '', plain: true),
+          ],
+        ),
+      ),
     );
     final first = widget.first;
-    return AlertDialog(
-      title: Text(first ? '設定密碼' : '變更密碼'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+    return CenterPanel(
+      glyph: Glyph.key,
+      color: color,
+      title: first ? '設定密碼' : '變更密碼',
+      detail: '至少 6 個字',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!first) field(_current, '目前的密碼'),
           field(_next, '新密碼'),
-          field(_again, '再輸入一次新密碼'),
+          field(_again, '再輸入一次'),
           if (_problem case final problem?)
             Text(problem, style: const TextStyle(color: Hue.danger)),
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(onPressed: _submit, child: Text(first ? '設定' : '變更')),
+        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton(first ? '設定' : '變更', color: color, onTap: _submit),
       ],
     );
   }

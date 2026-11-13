@@ -83,6 +83,7 @@ Map<String, Object?> categoryToJson(Category c) => {
   if (c.income) 'income': true,
   'parent': ?c.parent,
   if (c.archived) 'archived': true,
+  'place': ?c.place,
 };
 
 Category categoryFromJson(Map<String, Object?> json) => _read(
@@ -93,6 +94,7 @@ Category categoryFromJson(Map<String, Object?> json) => _read(
     income: json['income'] == true,
     parent: json['parent'] as String?,
     archived: json['archived'] == true,
+    place: _maybe(json['place']),
   ),
 );
 

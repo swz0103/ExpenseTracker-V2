@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/compose/composer.dart';
+import '../core/look/figures.dart';
 import '../core/look/glyphs.dart';
 import '../core/look/haptics.dart';
 import '../core/look/theme.dart';
@@ -157,6 +158,10 @@ class _AppShellState extends State<AppShell> {
     Entry? refundOf,
   }) async {
     final ledger = widget.ledger;
+    // What each holding had realized, so a sale can say what it made.
+    final realizedBefore = {
+      for (final h in ledger.holdings) h.code: h.realized,
+    };
     final result = await openComposer(
       context,
       ledger,
@@ -195,9 +200,16 @@ class _AppShellState extends State<AppShell> {
         entry == null &&
         (saved.type == EntryType.expense || saved.type == EntryType.income) &&
         !saved.isRefund;
+    final sold = saved.type == EntryType.sell ? saved.holding : null;
+    final made = sold == null
+        ? null
+        : (ledger.holdings.where((h) => h.code == sold).firstOrNull?.realized ??
+                  0) -
+              (realizedBefore[sold] ?? 0);
     showNote(
       context,
-      entry == null ? '已記下' : '已更新',
+      '${entry == null ? '已記下' : '已更新'}'
+      '${made == null || made == 0 ? '' : ' · 已實現 ${ledger.orDots(signed(made))}'}',
       action: again ? '再記一筆' : '查看',
       onAction: again
           ? () => _compose(type: saved.type, draft: _again(saved))
@@ -264,6 +276,13 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
+        LabelPlace(:final name, :final merchant) => LabelPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          name: name,
+          merchant: merchant,
+        ),
         SettingsPlace(:final part) => SettingsPage(
           key: ValueKey(page),
           ledger: ledger,

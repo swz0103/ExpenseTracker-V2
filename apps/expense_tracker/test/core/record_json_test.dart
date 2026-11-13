@@ -62,10 +62,12 @@ void main() {
       Color(0xFF123456),
       parent: '居家生活',
       archived: true,
+      place: 3,
     );
     final category = categoryFromJson(categoryToJson(pet));
     expect(category.color, pet.color);
     expect((category.parent, category.archived), ('居家生活', true));
+    expect(category.place, 3);
 
     final budget = Budget(
       '#旅遊',

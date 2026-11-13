@@ -24,6 +24,9 @@ final class _Keeper implements Keeper {
   DateTime? get cloudCopyAt => null;
 
   @override
+  Future<void> dropCloudCopy() async {}
+
+  @override
   bool get hasPassword => password.isNotEmpty;
 
   @override
@@ -60,9 +63,9 @@ void main() {
   testWidgets('new passwords that differ are refused', (tester) async {
     final keeper = _Keeper();
     await show(tester, keeper);
-    expect(find.text('目前不用密碼'), findsOneWidget);
-    expect(find.text('鎖定帳本'), findsNothing);
-    await tester.tap(find.text('設定密碼'));
+    expect(find.text('還沒設定 · 點了設定'), findsOneWidget);
+    expect(find.text('現在鎖上'), findsNothing);
+    await tester.tap(find.text('密碼'));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     expect(fields, findsNWidgets(2));
@@ -79,8 +82,8 @@ void main() {
   ) async {
     final keeper = _Keeper()..password = 'secret1';
     await show(tester, keeper);
-    expect(find.text('鎖定帳本'), findsOneWidget);
-    await tester.tap(find.text('變更密碼'));
+    expect(find.text('現在鎖上'), findsOneWidget);
+    await tester.tap(find.text('密碼'));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'wrong');
@@ -91,7 +94,7 @@ void main() {
     expect(find.text('目前的密碼不正確'), findsOneWidget);
     expect(keeper.password, 'secret1');
 
-    await tester.tap(find.text('鎖定帳本'));
+    await tester.tap(find.text('現在鎖上'));
     await tester.pump();
     expect(keeper.locked, isTrue);
   });

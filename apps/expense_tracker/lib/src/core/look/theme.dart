@@ -93,20 +93,22 @@ final class Shade extends Color {
 /// white cards, slate blue for the interface, teal green for income and
 /// gains, brick red for spending and losses.
 abstract final class Hue {
-  static const paper = Shade(0xFFF3F4F1, 0xFF121619);
+  static const paper = Shade(0xFFF3F4F1, 0xFF2A3237);
 
-  /// White cards and fills on the paper; a dark slate on the dark theme.
-  static const white = Shade(0xFFFFFFFF, 0xFF1C2226);
+  /// White cards and fills on the paper; a mid grey on the dark theme,
+  /// lighter than the paper (2026-11-13: dark is a clear dark grey, not
+  /// near-black).
+  static const white = Shade(0xFFFFFFFF, 0xFF343F45);
 
   /// Dialogs, sheets and the tab bar: the same colour as [white], under
   /// its own name for where it is used.
   static const panel = white;
-  static const surface = Shade(0xFFE9ECEA, 0xFF262D31);
-  static const selected = Shade(0xFFDCE8EC, 0xFF1E3742);
-  static const ink = Shade(0xFF26323A, 0xFFE3E8EA);
-  static const muted = Shade(0xFF525D63, 0xFFA6B1B6);
-  static const faint = Shade(0xFFA7B0B3, 0xFF5E6A70);
-  static const line = Shade(0xFFE1E4E0, 0xFF2C3438);
+  static const surface = Shade(0xFFE9ECEA, 0xFF3E4A50);
+  static const selected = Shade(0xFFDCE8EC, 0xFF35525E);
+  static const ink = Shade(0xFF26323A, 0xFFEEF2F3);
+  static const muted = Shade(0xFF525D63, 0xFFC0CACE);
+  static const faint = Shade(0xFFA7B0B3, 0xFF7E8A90);
+  static const line = Shade(0xFFE1E4E0, 0xFF46535A);
 
   /// Text and icons on a coloured fill: white on the light theme's deep
   /// colours, near-black on the dark theme's light ones (4.5:1 or more).
@@ -114,10 +116,10 @@ abstract final class Hue {
 
   /// Words that wait to be filled in, such as 未填: quieter than [muted],
   /// still 4.5:1 on every surface.
-  static const hint = Shade(0xFF586369, 0xFF98A3A9);
+  static const hint = Shade(0xFF586369, 0xFFBAC4C8);
 
   /// Gold as words, darker than [cash], which is for marks and fills.
-  static const goldText = Shade(0xFF7A5E18, 0xFFDDBC66);
+  static const goldText = Shade(0xFF7A5E18, 0xFFDEBE6B);
 
   /// Cards: [white] on the paper, lifted by [cardShadow]. The same
   /// object as [white], so [SoftPanel] lifts either.
@@ -125,22 +127,22 @@ abstract final class Hue {
 
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
-  static const hero = Shade(0xFFD8E1E2, 0xFF1F2E35);
-  static const tile = Shade(0xFFE0E6E5, 0xFF20282C);
+  static const hero = Shade(0xFFD8E1E2, 0xFF32464F);
+  static const tile = Shade(0xFFE0E6E5, 0xFF313C42);
 
   /// Empty track behind bars.
-  static const track = Shade(0xFFE9ECEA, 0xFF2C3438);
+  static const track = Shade(0xFFE9ECEA, 0xFF46535A);
 
   /// The interface colour: tabs, buttons, links, the chosen day.
-  static const accent = Shade(0xFF35657A, 0xFF72A8BC);
+  static const accent = Shade(0xFF35657A, 0xFFA5C7D4);
 
   /// Income, gains and refunds.
-  static const positive = Shade(0xFF276B58, 0xFF66BD9E);
+  static const positive = Shade(0xFF276B58, 0xFF8CCEB6);
 
   /// Spending and losses.
-  static const negative = Shade(0xFF9F4535, 0xFFEA8A74);
-  static const transfer = Shade(0xFF356672, 0xFF7DB4C2);
-  static const investment = Shade(0xFF4A5D99, 0xFF97A7DE);
+  static const negative = Shade(0xFF9F4535, 0xFFF1B2A3);
+  static const transfer = Shade(0xFF356672, 0xFF9FC8D2);
+  static const investment = Shade(0xFF4A5D99, 0xFFB4C0E7);
 
   /// Deleting and what went wrong: the spending colour, [negative], under
   /// its own name for where it is used.
@@ -152,7 +154,7 @@ abstract final class Hue {
   static const wallet = Shade(0xFF5B8DB0, 0xFF78A6C8);
   static const card = Shade(0xFFB5523E, 0xFFE07A64);
   static const holdings = Shade(0xFFD08B5B, 0xFFE0A073);
-  static const receivable = Shade(0xFF625199, 0xFFB2A4DD);
+  static const receivable = Shade(0xFF625199, 0xFFC5BBE6);
 
   /// Thin rules and empty tracks on the tinted blocks, in the interface
   /// colour: the rule over a hero tile's figures, the ring behind a

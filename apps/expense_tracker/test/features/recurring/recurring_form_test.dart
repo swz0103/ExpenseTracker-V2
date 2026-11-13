@@ -31,18 +31,25 @@ void main() {
     journal: _Nowhere(),
   );
 
-  test('a new item needs a name and an amount', () {
-    final ledger = book();
-    final form = RecurringForm(ledger);
-    expect(form.problem, '請輸入名稱');
-    form.name = '房租';
-    expect(form.problem, '請輸入金額');
-    form.amount = 15000;
-    expect(form.save(), isTrue);
-    final item = ledger.recurring.single;
-    expect((item.name, item.amount, item.category), ('房租', 15000, '居家'));
-    expect(item.day, 4);
-  });
+  test(
+    'a new item needs an amount; without a name it takes the category\'s',
+    () {
+      final unnamed = book();
+      final quiet = RecurringForm(unnamed)..amount = 500;
+      expect(quiet.save(), isTrue);
+      expect(unnamed.recurring.single.name, '居家');
+
+      final ledger = book();
+      final form = RecurringForm(ledger);
+      expect(form.problem, '請輸入金額');
+      form.name = '房租';
+      form.amount = 15000;
+      expect(form.save(), isTrue);
+      final item = ledger.recurring.single;
+      expect((item.name, item.amount, item.category), ('房租', 15000, '居家'));
+      expect(item.day, 4);
+    },
+  );
 
   test(
     'income takes an income category; another currency clears the amount',

@@ -23,8 +23,8 @@ final class Import {
   final List<Account> accounts;
   final List<Category> categories;
 
-  /// Why lines were left out, such as 「第 3 行：日期看不懂」; the first
-  /// few only.
+  /// Why each line was left out, such as 「第 3 行：日期看不懂」, as
+  /// 略過 N 行 lists them.
   final List<String> problems;
 
   /// This import with only the entries at [kept] (their places in
@@ -316,7 +316,7 @@ final class _Reader {
 
   void skip(int line, String why) {
     _skipped++;
-    if (_problems.length < 5) _problems.add('第 $line 行：$why');
+    _problems.add('第 $line 行：$why');
   }
 
   Account _account(String id) {
@@ -699,9 +699,7 @@ Import importInvoices(Ledger ledger, String text, {required String account}) {
       kept.add(entry);
     } else {
       skipped++;
-      if (problems.length < 3 && !problems.contains(problem)) {
-        problems.add(problem);
-      }
+      problems.add('${entry.merchant}：$problem');
     }
   }
   return Import(kept, skipped, problems: problems);
@@ -720,6 +718,7 @@ Import _invoiceLines(Ledger ledger, String text, {required String account}) {
     }
   }
   final entries = <Entry>[];
+  final problems = <String>[];
   var skipped = 0;
   for (final cells in heads) {
     final day = readDay(cells[3]);
@@ -731,14 +730,24 @@ Import _invoiceLines(Ledger ledger, String text, {required String account}) {
         number.isNotEmpty &&
         (entries.any((e) => e.note.contains(number)) ||
             _hasInvoice(ledger, day, number, shop: shop, amount: value));
-    if (day == null || value == null || value <= 0 || voided || seen) {
+    final why = day == null
+        ? '日期看不懂'
+        : value == null || value <= 0
+        ? '金額看不懂'
+        : voided
+        ? '已作廢'
+        : seen
+        ? '已經記過'
+        : null;
+    if (why != null) {
       skipped++;
+      problems.add('${number.isEmpty ? shop : number}：$why');
       continue;
     }
     final bought = items[number] ?? const [];
-    entries.add(_invoice(ledger, account, day, shop, number, bought, value));
+    entries.add(_invoice(ledger, account, day!, shop, number, bought, value!));
   }
-  return Import(entries, skipped);
+  return Import(entries, skipped, problems: problems);
 }
 
 /// The ministry's 消費明細 CSV, one row per item, added up per invoice by
@@ -748,9 +757,10 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
   try {
     invoices = parseEInvoices(text);
   } on FormatException {
-    return const Import([], 1);
+    return const Import([], 1, problems: ['檔案格式看不懂']);
   }
   final entries = <Entry>[];
+  final problems = <String>[];
   var skipped = 0;
   for (final invoice in invoices) {
     final BusinessDate(:year, :month, :day) = invoice.date;
@@ -767,6 +777,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
           amount: value,
         )) {
       skipped++;
+      problems.add('$number：${value <= 0 ? '金額看不懂' : '已經記過'}');
       continue;
     }
     entries.add(
@@ -781,7 +792,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
       ),
     );
   }
-  return Import(entries, skipped);
+  return Import(entries, skipped, problems: problems);
 }
 
 /// The open NT$ account [shop] was last paid from, if any.

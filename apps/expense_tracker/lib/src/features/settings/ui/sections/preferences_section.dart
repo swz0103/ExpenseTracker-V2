@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/glyphs.dart';
@@ -7,98 +5,223 @@ import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../overview/ui/overview_editor.dart';
 import '../../../overview/ui/widget_face.dart';
-import '../../../reminders/model/notifications.dart';
 import '../../../../core/preferences.dart';
+import '../settings_hue.dart';
 
-/// 外觀與操作: light or dark, and the small vibrations.
+/// 外觀與操作: four cards: light or dark, the small vibrations, what the
+/// home-screen widget shows, and the overview's blocks.
 class AppearanceSection extends StatelessWidget {
   const AppearanceSection({super.key, required this.preferences});
 
   final Preferences preferences;
 
-  /// Light, dark, or as the phone is.
-  Future<void> _pickAppearance(BuildContext context) async {
-    final picked = await showDialog<Appearance>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        backgroundColor: Hue.panel,
-        title: const Text('外觀'),
-        children: [
-          for (final a in Appearance.values)
-            SimpleDialogOption(
-              onPressed: () => Navigator.of(context).pop(a),
-              child: Text(
-                a.label,
-                style: a == preferences.appearance
-                    ? const TextStyle(
-                        color: Hue.accent,
-                        fontWeight: FontWeight.w700,
-                      )
-                    : null,
+  /// Light, dark, or as the phone is, each as a small picture of a page.
+  void _pickAppearance(BuildContext context) {
+    showCenterPanel(
+      context,
+      glyph: Glyph.moon,
+      color: SettingsHue.appearance,
+      title: '外觀',
+      body: (context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => Row(
+          children: [
+            for (final (i, a) in const [
+              Appearance.light,
+              Appearance.dark,
+              Appearance.system,
+            ].indexed) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _LookChoice(
+                  look: a,
+                  chosen: a == preferences.appearance,
+                  onTap: () => preferences.update(appearance: a),
+                ),
               ),
-            ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
-    if (picked != null) preferences.update(appearance: picked);
   }
 
   /// What the home-screen widget 本月概況 shows, each choice as it looks.
-  Future<void> _pickWidget(BuildContext context) async {
-    final picked = await showSheet<WidgetFigures>(
+  void _pickWidget(BuildContext context) {
+    showCenterPanel(
       context,
-      (context) => _WidgetSheet(current: preferences.widgetFigures),
+      glyph: Glyph.overview,
+      color: SettingsHue.widget,
+      title: '桌面小工具',
+      detail: '桌面上任何人都看得到',
+      body: (context) => ListenableBuilder(
+        listenable: preferences,
+        builder: (context, _) => _WidgetChoices(
+          current: preferences.widgetFigures,
+          onPick: (f) => preferences.update(widgetFigures: f),
+        ),
+      ),
     );
-    if (picked != null) preferences.update(widgetFigures: picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MenuPanel([
-          MenuRow(
-            glyph: Glyph.moon,
-            title: '外觀',
-            detail: preferences.appearance.label,
-            onTap: () => _pickAppearance(context),
-          ),
-          MenuRow(
-            glyph: Glyph.vibrate,
-            title: '震動',
-            trailing: Switch(
-              value: preferences.haptics,
-              onChanged: (on) => preferences.update(haptics: on),
+    return CardGrid([
+      SettingCard(
+        glyph: Glyph.moon,
+        color: SettingsHue.appearance,
+        title: '外觀',
+        detail: preferences.appearance.label,
+        onTap: () => _pickAppearance(context),
+      ),
+      SettingCard(
+        glyph: Glyph.vibrate,
+        color: SettingsHue.haptics,
+        title: '震動',
+        detail: '按下去會輕震',
+        value: preferences.haptics,
+        onChanged: (on) => preferences.update(haptics: on),
+        onTap: () => preferences.update(haptics: !preferences.haptics),
+      ),
+      SettingCard(
+        glyph: Glyph.overview,
+        color: SettingsHue.widget,
+        title: '桌面小工具',
+        detail: preferences.widgetFigures.label,
+        onTap: () => _pickWidget(context),
+      ),
+      SettingCard(
+        glyph: Glyph.list,
+        color: SettingsHue.sections,
+        title: '總覽區塊',
+        detail: '排序、隱藏',
+        onTap: () => editOverview(context, preferences),
+      ),
+    ]);
+  }
+}
+
+/// One of 淺色, 深色, 跟著手機 as a small page drawn in its colours, the
+/// chosen one framed and ticked.
+class _LookChoice extends StatelessWidget {
+  const _LookChoice({
+    required this.look,
+    required this.chosen,
+    required this.onTap,
+  });
+
+  final Appearance look;
+  final bool chosen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const light = (Color(0xFFF3F4F1), Color(0xFFDDE3E2), Color(0xFFC9D0CE));
+    const dark = (Color(0xFF2A3237), Color(0xFF3E4A50), Color(0xFF55636A));
+    Widget page((Color, Color, Color) c) => Container(
+      color: c.$1,
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 14,
+            decoration: BoxDecoration(
+              color: c.$2,
+              borderRadius: BorderRadius.circular(5),
             ),
           ),
-          MenuRow(
-            glyph: Glyph.budget,
-            title: '桌面小工具',
-            detail: preferences.widgetFigures.label,
-            onTap: () => _pickWidget(context),
+          const SizedBox(height: 8),
+          FractionallySizedBox(
+            widthFactor: 0.55,
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: c.$3,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
           ),
-          MenuRow(
-            glyph: Glyph.overview,
-            title: '總覽區塊',
-            detail: '排序、隱藏',
-            onTap: () => editOverview(context, preferences),
-          ),
-        ]),
-      ],
+        ],
+      ),
+    );
+    final picture = switch (look) {
+      Appearance.light => page(light),
+      Appearance.dark => page(dark),
+      Appearance.system => Row(
+        children: [
+          Expanded(child: page(light)),
+          Expanded(child: page(dark)),
+        ],
+      ),
+    };
+    const color = SettingsHue.appearance;
+    return Semantics(
+      button: true,
+      selected: chosen,
+      label: look.label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 0.9,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: chosen ? color : Hue.line,
+                    width: chosen ? 3 : 1.5,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    picture,
+                    if (chosen)
+                      const Positioned(
+                        right: 6,
+                        bottom: 6,
+                        child: IgnorePointer(
+                          child: TickSwitch(
+                            value: true,
+                            color: color,
+                            label: '',
+                            onChanged: null,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              look.label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: chosen ? deepOf(color) : Hue.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 /// The three choices for 本月概況, each drawn one row high with made-up
-/// figures, the chosen one outlined.
-class _WidgetSheet extends StatelessWidget {
-  const _WidgetSheet({required this.current});
+/// figures, the chosen one framed and ticked.
+class _WidgetChoices extends StatelessWidget {
+  const _WidgetChoices({required this.current, required this.onPick});
 
   final WidgetFigures current;
+  final ValueChanged<WidgetFigures> onPick;
 
   static const _samples = <WidgetFigures, Map<String, Object?>?>{
-    WidgetFigures.off: null,
     WidgetFigures.amounts: {
       'shortLabel': '10 月預算剩',
       'shortFigure': '7,660',
@@ -111,34 +234,24 @@ class _WidgetSheet extends StatelessWidget {
       'progress': 62,
       'pace': 77,
     },
+    WidgetFigures.off: null,
   };
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            '桌面小工具',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final f in _samples.keys) ...[
+          _WidgetChoice(
+            label: f.label,
+            chosen: f == current,
+            onTap: () => onPick(f),
+            child: WidgetRow(snapshot: _samples[f]),
           ),
-          const SizedBox(height: 4),
-          const Text('桌面上任何人都看得到', style: mutedSmall),
-          const SizedBox(height: 14),
-          for (final f in WidgetFigures.values) ...[
-            _WidgetChoice(
-              label: f.label,
-              chosen: f == current,
-              onTap: () => Navigator.of(context).pop(f),
-              child: WidgetRow(snapshot: _samples[f]),
-            ),
-            const SizedBox(height: 10),
-          ],
+          const SizedBox(height: 10),
         ],
-      ),
+      ],
     );
   }
 }
@@ -158,17 +271,18 @@ class _WidgetChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const color = SettingsHue.widget;
     return Semantics(
       button: true,
       selected: chosen,
       label: label,
       excludeSemantics: true,
       child: Material(
-        color: Hue.surface,
+        color: tintOf(color, chosen ? 0.2 : 0.1),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           side: BorderSide(
-            color: chosen ? Hue.accent : Colors.transparent,
+            color: chosen ? color : Colors.transparent,
             width: 2,
           ),
         ),
@@ -176,235 +290,39 @@ class _WidgetChoice extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 12),
+            child: Row(
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: chosen ? Hue.accent : Hue.ink,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      IgnorePointer(child: child),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                IgnorePointer(child: child),
+                const SizedBox(width: 10),
+                IgnorePointer(
+                  child: TickSwitch(
+                    value: chosen,
+                    color: color,
+                    label: label,
+                    onChanged: null,
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 通知: due dates and the daily nudge, when it comes, on the minute or
-/// not, a test, and what the phone allows.
-class NotificationsSection extends StatefulWidget {
-  const NotificationsSection({super.key, required this.notifier});
-
-  final Notifier notifier;
-
-  @override
-  State<NotificationsSection> createState() => _NotificationsSectionState();
-}
-
-class _NotificationsSectionState extends State<NotificationsSection>
-    with WidgetsBindingObserver {
-  Notifier get _notifier => widget.notifier;
-
-  /// What the phone allows, read again when back from its settings.
-  ReminderStatus? _status;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _readStatus();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _readStatus();
-  }
-
-  Future<void> _readStatus() async {
-    try {
-      final status = await _notifier.port.status();
-      if (mounted) setState(() => _status = status);
-    } on Object {
-      // A phone that cannot say shows no status.
-    }
-  }
-
-  /// Turns a kind of notification on, once the phone allows them.
-  Future<void> _notify({bool? due, bool? nudge, bool? budget}) async {
-    final turningOn = (due ?? false) || (nudge ?? false) || (budget ?? false);
-    if (turningOn) {
-      bool allowed;
-      try {
-        allowed = await _notifier.port.access();
-      } on Object {
-        allowed = false;
-      }
-      if (!allowed) {
-        if (mounted) showNote(context, '沒有取得通知權限，可以到系統設定開啟');
-        return;
-      }
-    }
-    _notifier.preferences.update(
-      dueAlerts: due,
-      dailyNudge: nudge,
-      budgetAlerts: budget,
-    );
-    unawaited(_readStatus());
-  }
-
-  /// Asks again to post notifications; turned off in the system
-  /// settings, only the person can turn them back on there.
-  Future<void> _askAccess() async {
-    bool allowed;
-    try {
-      allowed = await _notifier.port.access();
-    } on Object {
-      allowed = false;
-    }
-    if (!allowed && mounted) showNote(context, '請到系統設定開啟記帳本的通知');
-    await _readStatus();
-  }
-
-  Future<void> _pickNudgeTime() async {
-    final preferences = _notifier.preferences;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: preferences.nudgeHour,
-        minute: preferences.nudgeMinute,
-      ),
-      helpText: '每天幾點提醒',
-    );
-    if (picked != null) {
-      preferences.update(nudgeHour: picked.hour, nudgeMinute: picked.minute);
-    }
-  }
-
-  /// Reminders on the minute need the phone's permission for alarms,
-  /// given in its settings.
-  Future<void> _exact(bool on) async {
-    _notifier.preferences.update(exactReminders: on);
-    if (on && _status?.exact == false) {
-      showNote(context, '請在接下來的畫面允許「鬧鐘與提醒」');
-      await _notifier.port.openExactSettings();
-    }
-  }
-
-  Future<void> _test() async {
-    try {
-      await _notifier.port.test(exact: _notifier.preferences.exactReminders);
-      if (mounted) showNote(context, '一分鐘後會跳出一則測試通知');
-    } on Object catch (error) {
-      if (mounted) showNote(context, '無法傳送測試通知：$error');
-    }
-  }
-
-  static String _two(int n) => n.toString().padLeft(2, '0');
-
-  @override
-  Widget build(BuildContext context) {
-    final preferences = _notifier.preferences;
-    final status = _status;
-    final asked = preferences.dueAlerts || preferences.dailyNudge;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionHead('通知'),
-        MenuPanel([
-          MenuRow(
-            glyph: Glyph.bell,
-            title: '到期提醒',
-            detail: '定期扣款、卡費',
-            trailing: Switch(
-              value: preferences.dueAlerts,
-              onChanged: (on) => _notify(due: on),
-            ),
-          ),
-          MenuRow(
-            glyph: Glyph.budget,
-            title: '預算提醒',
-            detail: '用到警示比例、超支時',
-            trailing: Switch(
-              value: preferences.budgetAlerts,
-              onChanged: (on) => _notify(budget: on),
-            ),
-          ),
-          MenuRow(
-            glyph: Glyph.records,
-            title: '每日記帳提醒',
-            detail: '當天沒記帳才提醒',
-            trailing: Switch(
-              value: preferences.dailyNudge,
-              onChanged: (on) => _notify(nudge: on),
-            ),
-          ),
-          if (preferences.dailyNudge)
-            MenuRow(
-              glyph: Glyph.calendar,
-              title: '提醒時間',
-              detail:
-                  '每天 ${preferences.nudgeHour}:${_two(preferences.nudgeMinute)}',
-              onTap: _pickNudgeTime,
-            ),
-          if (asked)
-            MenuRow(
-              glyph: Glyph.bolt,
-              title: '準時提醒',
-              detail: '不讓手機延後，需要允許鬧鐘',
-              trailing: Switch(
-                value: preferences.exactReminders,
-                onChanged: _exact,
-              ),
-            ),
-          if (asked)
-            MenuRow(
-              glyph: Glyph.chat,
-              title: '傳送測試通知',
-              detail: '一分鐘後跳出',
-              onTap: _test,
-            ),
-        ]),
-        if (asked && status != null) ...[
-          const SectionHead('手機設定'),
-          MenuPanel([
-            MenuRow(
-              glyph: Glyph.bell,
-              title: '通知權限',
-              detail: status.notifications ? '已允許' : '未允許，點一下開啟',
-              color: status.notifications ? Hue.ink : Hue.danger,
-              onTap: status.notifications ? null : _askAccess,
-            ),
-            if (preferences.exactReminders)
-              MenuRow(
-                glyph: Glyph.bolt,
-                title: '鬧鐘與提醒',
-                detail: status.exact ? '已允許' : '未允許，點一下開啟',
-                color: status.exact ? Hue.ink : Hue.danger,
-                onTap: status.exact ? null : _notifier.port.openExactSettings,
-              ),
-            MenuRow(
-              glyph: Glyph.shield,
-              title: '電池最佳化',
-              detail: status.battery ? '不限制' : '可能延後提醒，點一下調整',
-              onTap: status.battery ? null : _notifier.port.openBatterySettings,
-            ),
-          ]),
-        ],
-      ],
     );
   }
 }

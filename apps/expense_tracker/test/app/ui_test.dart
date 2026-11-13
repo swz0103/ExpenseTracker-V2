@@ -253,12 +253,12 @@ void main() {
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
       ('財務報表', '收支與淨資產'),
-      ('投資與股息', 'ETF'),
-      ('代墊與借貸', '別人欠你減掉你欠的貸款'),
+      ('投資與股息', '市值'),
+      ('代墊與借貸', '別人欠你'),
       ('預算管理', '分類與標籤額度'),
-      ('定期交易', '管理固定項目'),
-      ('分類管理', '支出分類'),
-      ('設定與資料', '匯入與匯出'),
+      ('定期交易', '本月還沒扣'),
+      ('分類', '新增'),
+      ('設定', '匯入與匯出'),
     ]) {
       await tester.tap(find.text(tool));
       await tester.pumpAndSettle();
@@ -267,11 +267,11 @@ void main() {
       await tester.pumpAndSettle();
     }
     // A page of settings returns to the list of them.
-    await tester.tap(find.text('設定與資料'));
+    await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('匯入與匯出'));
     await tester.pumpAndSettle();
-    expect(find.text('匯出全部'), findsOneWidget);
+    expect(find.text('匯出 CSV'), findsOneWidget);
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.text('最近刪除'), findsOneWidget);

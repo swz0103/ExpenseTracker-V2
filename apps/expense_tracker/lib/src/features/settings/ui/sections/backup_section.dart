@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../backup/model/drive_backup.dart';
@@ -10,8 +8,10 @@ import '../../../../core/look/dialogs.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
+import '../../../../core/preferences.dart';
 import '../../../../core/problems.dart';
 import '../../../lock/ui/recovery_code.dart';
+import '../settings_hue.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
@@ -27,23 +27,25 @@ Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
   }
 }
 
-/// 備份與還原: at the top, when the ledger was last backed up and where it
-/// goes, on 總覽's tint, with a ring of two parts that light up for the
-/// ways that are on; under it two rows that open in place. Google 備份 is
-/// always on (Android takes the ledger to the person's Google account
-/// each day) and holds the switch for the photos on Google Drive and
-/// restoring from there; 檔案備份 holds saving to a folder on the phone,
-/// a file to keep now, and restoring from a file. In each, the settings
-/// come first and restoring is a button of its own below them.
+/// 備份與還原: the main card says only when the ledger was last backed up
+/// (gold when no automatic backup is on); then two tinted cards, each
+/// with its tick: Google 備份 (Android takes the encrypted ledger to the
+/// person's Google account each day; on, the receipt photos can go to
+/// Google Drive as well) and 存到資料夾 (on, how often and which folder);
+/// and 手動: 匯出一份 and 還原.
 class BackupSection extends StatefulWidget {
   const BackupSection({
     super.key,
     required this.keeper,
     this.drive,
     this.phone,
+    this.preferences,
   });
 
   final Keeper keeper;
+
+  /// Holds whether Google 備份 is on; without it, it is always on.
+  final Preferences? preferences;
 
   /// Backups on Google Drive, on Android.
   final DriveSync? drive;
@@ -55,14 +57,7 @@ class BackupSection extends StatefulWidget {
   State<BackupSection> createState() => _BackupSectionState();
 }
 
-enum _Open { none, google, files }
-
 class _BackupSectionState extends State<BackupSection> {
-  var _open = _Open.none;
-
-  void _toggle(_Open part) =>
-      setState(() => _open = _open == part ? _Open.none : part);
-
   /// Saves a backup outside the app. Without a password, only a recovery
   /// code opens it on another phone, so a new one is made and shown.
   Future<void> _export(Keeper keeper) async {
@@ -75,9 +70,7 @@ class _BackupSectionState extends State<BackupSection> {
         await showRecoveryCode(
           context,
           code,
-          why: saved
-              ? '在新手機還原這份備份時，要輸入這組救援碼。請抄下來放在安全的地方，它只會顯示這一次。'
-              : '救援碼已更新，之前的不再適用。請抄下來放在安全的地方，它只會顯示這一次。',
+          why: saved ? '在新手機還原這份備份時要輸入它' : '之前的救援碼不再適用',
         );
       } else if (saved) {
         showNote(
@@ -113,11 +106,7 @@ class _BackupSectionState extends State<BackupSection> {
     }
     // The code changed even when the backup did not go up: shown anyway.
     if (code != null && mounted) {
-      await showRecoveryCode(
-        context,
-        code,
-        why: '在新手機還原雲端硬碟上的備份時，要輸入這組救援碼。請抄下來放在安全的地方，它只會顯示這一次。',
-      );
+      await showRecoveryCode(context, code, why: '在新手機還原雲端硬碟上的備份時要輸入它');
     }
     if (mounted) showNote(context, note);
   }
@@ -175,503 +164,419 @@ class _BackupSectionState extends State<BackupSection> {
     return latest;
   }
 
+  /// Turns Google 備份 on, writing the copy now, or off, deleting it and
+  /// stopping the photos on Drive.
+  Future<void> _google(bool on, Preferences preferences) async {
+    final drive = widget.drive;
+    if (!on) {
+      final ok = await confirm(
+        context,
+        '關掉 Google 備份？換手機或重裝時就拿不回帳本'
+            '${drive?.linked ?? false ? '，收據照片也不再存到雲端硬碟' : ''}。',
+        '關掉',
+        danger: true,
+      );
+      if (!ok) return;
+      preferences.update(googleBackup: false);
+      try {
+        await widget.keeper.dropCloudCopy();
+        if (drive != null && drive.linked) await drive.unlink();
+      } on Object catch (error) {
+        if (mounted) showNote(context, describeProblem(error));
+      }
+      if (mounted) setState(() {});
+      return;
+    }
+    preferences.update(googleBackup: true);
+    if (mounted) showNote(context, '離開 App 時會更新 Google 備份');
+  }
+
   @override
   Widget build(BuildContext context) {
     final drive = widget.drive;
     final phone = widget.phone;
+    final preferences = widget.preferences;
     return ListenableBuilder(
-      listenable: Listenable.merge([?drive, ?phone]),
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _status(drive, phone),
-          const SizedBox(height: 16),
-          SoftPanel(
-            color: Hue.white,
-            padding: EdgeInsets.zero,
-            child: Column(
+      listenable: Listenable.merge([?drive, ?phone, ?preferences]),
+      builder: (context, _) {
+        final google = preferences?.googleBackup ?? true;
+        final folder = phone?.on ?? false;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _status(google: google, folder: folder),
+            const SizedBox(height: 12),
+            _googleCard(google, drive, preferences),
+            if (phone != null) ...[
+              const SizedBox(height: 12),
+              _folderCard(phone),
+            ],
+            const RuleHead('手動'),
+            Row(
               children: [
-                _google(drive),
-                const Divider(height: 1, indent: 70, endIndent: 16),
-                _files(phone),
+                Expanded(
+                  child: _Manual(
+                    glyph: Glyph.upload,
+                    label: '匯出一份',
+                    color: SettingsHue.csv,
+                    onTap: () => _export(widget.keeper),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Manual(
+                    glyph: Glyph.download,
+                    label: '還原',
+                    color: SettingsHue.invoice,
+                    onTap: () => restoreFromBackup(context, widget.keeper),
+                  ),
+                ),
               ],
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 14, 12, 0),
-            child: Text(
-              '帳本每天自動備份到你的 Google 帳戶，重裝或換手機時可以拿回來。',
-              style: TextStyle(fontSize: 12.5, height: 1.6, color: Hue.muted),
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
-  /// When the ledger was last backed up, and a line for each way.
-  Widget _status(DriveSync? drive, PhoneBackup? phone) {
-    final photos = drive?.linked ?? false;
-    final folder = phone?.on ?? false;
-    final daily = phone?.daily ?? true;
+  Widget _status({required bool google, required bool folder}) {
+    final drive = widget.drive;
+    final phone = widget.phone;
     final latest = _latest([
-      widget.keeper.cloudCopyAt,
-      if (photos) drive?.backedUp,
+      if (google) widget.keeper.cloudCopyAt,
+      if (google && (drive?.linked ?? false)) drive?.backedUp,
       if (folder) phone?.backedUp,
     ]);
-    return Semantics(
-      container: true,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Hue.tile, Hue.hero],
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox.square(
-              dimension: 84,
-              child: CustomPaint(
-                painter: _Ring(google: true, files: folder, dark: Shade.dark),
-                child: const Center(
-                  child: GlyphIcon(Glyph.safe, size: 28, color: Hue.accent),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '上次備份',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Hue.accent,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    latest == null ? '還沒有備份' : _when(latest),
-                    style: const TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _key(
-                    on: true,
-                    color: Hue.accent,
-                    words: photos ? 'Google 每天，照片每週' : 'Google 每天',
-                  ),
-                  const SizedBox(height: 4),
-                  _key(
-                    on: folder,
-                    color: Hue.cash,
-                    words: folder
-                        ? '檔案 ${daily ? '每天' : '每週'}存到資料夾'
-                        : '檔案 沒有自動存',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return BackupHero(
+      at: latest,
+      on: google || folder,
+      label: google || folder ? null : '沒有自動備份',
     );
   }
 
-  static Widget _key({
-    required bool on,
-    required Color color,
-    required String words,
-  }) => Row(
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: on ? color : null,
-          border: on ? null : Border.all(color: Hue.faint, width: 1.5),
-        ),
-      ),
-      const SizedBox(width: 7),
-      Flexible(
-        child: Text(
-          words,
-          style: TextStyle(fontSize: 12.5, color: on ? Hue.ink : Hue.muted),
-        ),
-      ),
-    ],
-  );
-
-  Widget _google(DriveSync? drive) {
-    final at = widget.keeper.cloudCopyAt;
-    return _Group(
-      glyph: Glyph.download,
+  Widget _googleCard(bool on, DriveSync? drive, Preferences? preferences) {
+    const color = SettingsHue.backup;
+    return _BackupCard(
+      glyph: Glyph.safe,
+      color: color,
       title: 'Google 備份',
-      detail: at == null ? '每天自動' : '每天自動 · 上次 ${_when(at)}',
-      open: _open == _Open.google,
-      onTap: () => _toggle(_Open.google),
-      children: [
-        if (drive != null)
-          _Setting(
-            title: '連同收據照片',
+      value: on,
+      onChanged: preferences == null ? null : (v) => _google(v, preferences),
+      rows: [
+        if (on && drive != null)
+          _CardRow(
+            color: color,
+            title: '收據照片',
             detail: drive.busy
                 ? '備份中…'
                 : drive.linked && drive.backedUp != null
-                ? '存到雲端硬碟 · 上次 ${_when(drive.backedUp!)}'
-                : '照片存到雲端硬碟，每週一次',
-            trailing: Switch(
+                ? '雲端硬碟 · 上次 ${_when(drive.backedUp!)}'
+                : null,
+            trailing: TickSwitch(
               value: drive.linked,
+              color: color,
+              label: '收據照片',
               onChanged: drive.busy
                   ? null
-                  : (on) => on
+                  : (v) => v
                         ? _linkDrive(widget.keeper, drive)
                         : _unlinkDrive(drive),
             ),
           ),
-        _Restore(
-          glyph: Glyph.reset,
-          label: '從雲端硬碟還原',
-          onTap: () => restoreFromBackup(context, widget.keeper),
-        ),
       ],
     );
   }
 
-  Widget _files(PhoneBackup? phone) {
-    final on = phone?.on ?? false;
-    final daily = phone?.daily ?? true;
-    final at = phone?.backedUp;
-    return _Group(
+  Widget _folderCard(PhoneBackup phone) {
+    const color = SettingsHue.folder;
+    final on = phone.on;
+    return _BackupCard(
       glyph: Glyph.records,
-      title: '檔案備份',
-      detail: on
-          ? '${daily ? '每天' : '每週'}存到資料夾'
-                '${at == null ? '' : ' · 上次 ${_when(at)}'}'
-          : '匯出一份，或從檔案還原',
-      open: _open == _Open.files,
-      onTap: () => _toggle(_Open.files),
-      children: [
-        if (phone != null) ...[
-          _Setting(
-            title: '自動存到資料夾',
-            detail: phone.busy
-                ? '備份中…'
-                : phone.problem != null
-                ? '上次沒有成功，關掉再打開可以重選資料夾'
-                : '含照片 · 只留最新 5 份',
-            trailing: Switch(
-              value: on,
-              onChanged: phone.busy
-                  ? null
-                  : (next) => next ? _choosePhone(phone) : _stopPhone(phone),
-            ),
+      color: color,
+      title: '存到資料夾',
+      value: on,
+      onChanged: phone.busy
+          ? null
+          : (next) => next ? _choosePhone(phone) : _stopPhone(phone),
+      rows: [
+        if (on) ...[
+          _CardRow(
+            color: color,
+            title: '多久一次',
+            detail: phone.problem != null ? '上次沒有成功' : null,
+            value: phone.daily ? '每天' : '每週',
+            onTap: () => phone.setDaily(!phone.daily),
           ),
-          if (on) ...[
-            _Setting(
-              title: '多久一次',
-              detail: '有變更才備份',
-              value: phone.daily ? '每天' : '每週',
-              onTap: () => phone.setDaily(!phone.daily),
-            ),
-            _Setting(
-              title: '資料夾',
-              value: phone.folderName,
-              onTap: phone.busy ? null : () => _choosePhone(phone),
-            ),
-          ],
+          _CardRow(
+            color: color,
+            title: '資料夾',
+            value: phone.folderName,
+            onTap: phone.busy ? null : () => _choosePhone(phone),
+          ),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: _Restore(
-                glyph: Glyph.download,
-                label: '現在匯出一份',
-                onTap: () => _export(widget.keeper),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _Restore(
-                glyph: Glyph.reset,
-                label: '從檔案還原',
-                onTap: () => restoreFromBackup(context, widget.keeper),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
 }
 
-/// One way of backing up: a row with its state that opens in place onto
-/// [children], on a tinted inset.
-class _Group extends StatelessWidget {
-  const _Group({
-    required this.glyph,
-    required this.title,
-    required this.detail,
-    required this.open,
-    required this.onTap,
-    required this.children,
+/// 上次備份 and when, on a card in the interface colour; gold with
+/// [label] when no automatic backup is on.
+class BackupHero extends StatelessWidget {
+  const BackupHero({
+    super.key,
+    required this.at,
+    required this.on,
+    this.label,
+    this.trailing,
+    this.onTap,
+    this.stale = false,
   });
 
-  final Glyph glyph;
-  final String title;
-  final String detail;
-  final bool open;
-  final VoidCallback onTap;
-  final List<Widget> children;
+  final DateTime? at;
+
+  /// Whether any automatic backup is on.
+  final bool on;
+
+  /// Said in place of the time, such as 沒有自動備份.
+  final String? label;
+
+  /// Under the time, such as the two ways that are on.
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  /// No backup for more than three days: gold.
+  final bool stale;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Semantics(
-          expanded: open,
-          child: InkWell(
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 68),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
+    final warn = !on || stale;
+    final color = warn ? SettingsHue.warning : SettingsHue.backup;
+    final at = this.at;
+    final days = at == null
+        ? null
+        : DateTime.now().difference(at.toLocal()).inDays;
+    final small = !on
+        ? (at == null ? '還沒有備份' : '上次 ${_BackupSectionState._when(at)}')
+        : stale && days != null
+        ? '上次 ${_BackupSectionState._when(at!)}'
+        : '上次備份';
+    final big =
+        label ??
+        (at == null
+            ? '還沒有備份'
+            : stale && days != null
+            ? '已經 $days 天沒備份'
+            : _BackupSectionState._when(at));
+    return ColorCard(
+      color: color,
+      amount: 0.22,
+      onTap: onTap,
+      label: '$small，$big',
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SquareIcon(Glyph.safe, color, size: 56),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Hue.tile,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: GlyphIcon(glyph, size: 20, color: Hue.accent),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: const TextStyle(fontSize: 16)),
-                          const SizedBox(height: 2),
-                          Text(
-                            detail,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Hue.muted,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      small,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: deepOf(color),
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: open ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: GlyphIcon(
-                        Glyph.next,
-                        size: 18,
-                        color: open ? Hue.accent : Hue.faint,
+                    Text(
+                      big,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+              if (onTap != null)
+                const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
+            ],
           ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: open
-              ? Container(
-                  margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-                  decoration: BoxDecoration(
-                    color: Hue.paper,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (i, child) in children.indexed) ...[
-                        if (i > 0 && child is _Setting)
-                          const Divider(height: 1),
-                        if (child is! _Setting) const SizedBox(height: 10),
-                        child,
-                      ],
-                    ],
-                  ),
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-      ],
+          if (trailing != null) ...[const SizedBox(height: 12), trailing!],
+        ],
+      ),
     );
   }
 }
 
-/// A setting inside a [_Group]: its name and a line under it, and a
-/// switch, or a value that a tap changes.
-class _Setting extends StatelessWidget {
-  const _Setting({
+/// A way of backing up as a tinted card: its icon, name and tick, then
+/// its settings below thin rules, each with its value on the right.
+class _BackupCard extends StatelessWidget {
+  const _BackupCard({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    required this.rows,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = onChanged;
+    return ColorCard(
+      color: color,
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SquareIcon(glyph, color, size: 40),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(color),
+                  ),
+                ),
+              ),
+              TickSwitch(
+                value: value,
+                color: color,
+                label: title,
+                onChanged: change,
+              ),
+            ],
+          ),
+          for (final row in rows) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Divider(height: 12, color: tintOf(color, 0.4)),
+            ),
+            row,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A setting on a [_BackupCard]: its name, and on the right its value
+/// with › or a control.
+class _CardRow extends StatelessWidget {
+  const _CardRow({
+    required this.color,
     required this.title,
     this.detail,
-    this.trailing,
     this.value,
+    this.trailing,
     this.onTap,
   });
 
+  final Color color;
   final String title;
   final String? detail;
-  final Widget? trailing;
   final String? value;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final detail = this.detail;
-    final value = this.value;
+    final ink = deepOf(color);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 56),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 14.5)),
-                    if (detail != null)
-                      Text(
-                        detail,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Hue.muted,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (value != null) ...[
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Hue.accent,
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
                     ),
                   ),
+                  if (detail != null)
+                    Text(detail!, style: TextStyle(fontSize: 12.5, color: ink)),
+                ],
+              ),
+            ),
+            if (value != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text(
+                  '${value!} ›',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: ink),
                 ),
-                const SizedBox(width: 2),
-                const GlyphIcon(Glyph.next, size: 16, color: Hue.accent),
-              ],
-              ?trailing,
-            ],
-          ),
+              ),
+            ?trailing,
+          ],
         ),
       ),
     );
   }
 }
 
-/// An action below a [_Group]'s settings, such as restoring: a white
-/// pill, so it is not taken for a setting.
-class _Restore extends StatelessWidget {
-  const _Restore({
+/// 匯出一份 or 還原: a tinted button with an icon.
+class _Manual extends StatelessWidget {
+  const _Manual({
     required this.glyph,
     required this.label,
+    required this.color,
     required this.onTap,
   });
 
   final Glyph glyph;
   final String label;
+  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: Hue.white,
-        foregroundColor: Hue.accent,
-        side: const BorderSide(color: Hue.accentRule, width: 1.5),
-        shape: const StadiumBorder(),
-        minimumSize: const Size.fromHeight(48),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
-      ),
+    final ink = deepOf(color);
+    return ColorCard(
+      color: color,
+      radius: 18,
+      amount: 0.18,
+      label: label,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          GlyphIcon(glyph, size: 17, color: Hue.accent),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          GlyphIcon(glyph, size: 20, color: ink, tinted: false),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
           ),
         ],
       ),
     );
   }
-}
-
-/// The ring of the status tile: one half for Google, one for files, each
-/// coloured when that way is on.
-class _Ring extends CustomPainter {
-  const _Ring({required this.google, required this.files, required this.dark});
-
-  final bool google;
-  final bool files;
-
-  /// Painted again when the theme changes.
-  final bool dark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = 7.0;
-    final rect = (Offset.zero & size).deflate(stroke / 2);
-    // A gap between the halves, at the top and the bottom.
-    const gap = 0.32;
-    for (final (i, on, color) in [
-      (0, google, Hue.accent),
-      (1, files, Hue.cash),
-    ]) {
-      canvas.drawArc(
-        rect,
-        -math.pi / 2 + i * math.pi + gap / 2,
-        math.pi - gap,
-        false,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = stroke
-          ..strokeCap = StrokeCap.round
-          ..color = on ? color : Hue.line,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_Ring old) =>
-      old.google != google || old.files != files || old.dark != dark;
 }

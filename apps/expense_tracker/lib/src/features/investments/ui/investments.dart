@@ -1,15 +1,11 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
-import '../../../core/charts/bar_scale.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../model/returns.dart';
 
 /// 投資與股息: unrealised and realised profit, dividends by month, and
@@ -25,161 +21,10 @@ class InvestmentsPage extends StatefulWidget {
 }
 
 class _InvestmentsPageState extends State<InvestmentsPage> {
+  /// 持股 or 股息.
+  var _tab = 0;
+
   late final _month = (widget.ledger.today.year, widget.ledger.today.month);
-
-  /// A group of holdings two to a row in a white card, as 帳戶 shows
-  /// accounts; each opens its own page. Its [title] only when there are
-  /// other groups, as its value would repeat the one above.
-  List<Widget> _group(
-    String? title,
-    List<Holding> holdings,
-    int largest,
-    double axis,
-  ) {
-    if (holdings.isEmpty) return const [];
-    final value = holdings.fold(0, (sum, h) => sum + h.value);
-    final rows = <Widget>[];
-    for (var i = 0; i < holdings.length; i += 2) {
-      rows.add(
-        Row(
-          children: [
-            Expanded(child: _cell(holdings[i], largest, axis)),
-            Expanded(
-              child: i + 1 < holdings.length
-                  ? _cell(holdings[i + 1], largest, axis)
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      );
-    }
-    return [
-      if (title != null)
-        SectionHead(
-          title,
-          trailing: Text(widget.ledger.money(value), style: mutedSmall),
-        )
-      else
-        const SizedBox(height: 12),
-      SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(children: rows),
-      ),
-    ];
-  }
-
-  /// The only holding, across the page: with nothing to compare it to,
-  /// no bar, and its shares and today's move written out.
-  Widget _solo(Holding h) {
-    final ledger = widget.ledger;
-    final tone = h.gain < 0 ? Hue.negative : Hue.positive;
-    final quoted = ledger.hasQuote(h.code) && ledger.quotedOn != null;
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: SoftPanel(
-        color: Hue.white,
-        onTap: () => widget.nav.open(Pages.holding(h.code)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    holdingLabel(h),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${ledger.orDots(groupDigits(h.shares))} 股',
-                  style: mutedSmall,
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              ledger.money(h.value),
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            if (!ledger.hasQuote(h.code))
-              const Text('尚無收盤價，以成本估算', style: mutedSmall)
-            else if (ledger.olderQuote(h.code) case final day?)
-              Text('以 ${day.month}/${day.day} 收盤計', style: mutedSmall),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(
-                  '損益 ${ledger.moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
-                  style: TextStyle(fontSize: 13, color: tone),
-                ),
-                const Spacer(),
-                Text(
-                  quoted ? '今日 ${ledger.moneySigned(h.change)}' : '今日 —',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: !quoted
-                        ? Hue.muted
-                        : h.change < 0
-                        ? Hue.negative
-                        : Hue.positive,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cell(Holding h, int largest, double axis) {
-    final tone = h.gain < 0 ? Hue.negative : Hue.positive;
-    return InkWell(
-      onTap: () => widget.nav.open(Pages.holding(h.code)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              h.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: mutedSmall,
-            ),
-            Text(
-              widget.ledger.money(h.value),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            // Without a close the value is the buying price: said so.
-            if (!widget.ledger.hasQuote(h.code))
-              const Text('尚無收盤價，以成本估算', style: mutedSmall)
-            else if (widget.ledger.olderQuote(h.code) case final day?)
-              Text('以 ${day.month}/${day.day} 收盤計', style: mutedSmall),
-            const SizedBox(height: 4),
-            AxisBar(
-              value: h.gain,
-              largest: largest,
-              axis: axis,
-              height: 6,
-              minimum: 0.1,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${widget.ledger.moneySigned(h.gain)}　${percentOf(h.gain, h.cost)}',
-              style: TextStyle(fontSize: 12.5, color: tone),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,93 +36,161 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
         ?market,
       ]),
       builder: (context, _) {
-        final value = ledger.investValue;
-        final cost = ledger.investCost;
-        final gain = value - cost;
         final (year, month) = _month;
         final holdings = ledger.holdings;
-        final largest = holdings.fold(0, (m, h) => max(m, h.gain.abs()));
-        final tone = gain < 0 ? Hue.negative : Hue.positive;
-        final axis = holdings.any((h) => h.gain < 0) ? 0.3 : 0.0;
-        final today = ledger.today;
-        final groups = [
-          for (final (title, etf) in const [('ETF', true), ('個股', false)])
-            (
-              title,
-              [
-                for (final h in holdings)
-                  if (h.code.startsWith('00') == etf) h,
-              ],
-            ),
-        ].where((g) => g.$2.isNotEmpty).toList();
         final list = ListView(
           // Pulled down to fetch the closes again, even when empty.
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
             PageHeader('投資與股息', onBack: widget.nav.back),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            _InvestHero(ledger: ledger),
+            const SizedBox(height: 12),
+            Row(
               children: [
-                Tile(
-                  hero: true,
-                  icon: Glyph.investment,
-                  label: '未實現損益',
-                  value: ledger.moneySigned(gain),
-                  valueColor: tone,
-                  trailing: Pill(percentOf(gain, cost), color: tone),
-                  child: TileStats([
-                    (Glyph.briefcase, '市值', ledger.money(value), Hue.ink),
-                    (Glyph.coins, '成本', ledger.money(cost), Hue.ink),
-                    (
-                      Glyph.reports,
-                      '已實現',
-                      ledger.moneySigned(ledger.realized),
-                      ledger.realized < 0 ? Hue.negative : Hue.ink,
+                for (final (i, (glyph, label, color)) in const [
+                  (Glyph.pie, '持股', Shade(0xFF4A5D99, 0xFF9FAEE0)),
+                  (Glyph.dividend, '股息', Shade(0xFFC9A34A, 0xFFDDBE73)),
+                ].indexed) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: Semantics(
+                      selected: _tab == i,
+                      button: true,
+                      label: label,
+                      excludeSemantics: true,
+                      child: Material(
+                        color: _tab == i ? color : tintOf(color, 0.22),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => setState(() => _tab = i),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 52),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                GlyphIcon(
+                                  glyph,
+                                  size: 20,
+                                  color: _tab == i
+                                      ? const Color(0xFFFFFFFF)
+                                      : deepOf(color),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: _tab == i
+                                        ? const Color(0xFFFFFFFF)
+                                        : deepOf(color),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ]),
-                ),
-                TileRow([
-                  Tile(
-                    icon: Glyph.dividend,
-                    label: '${today.month} 月股息',
-                    value: ledger.money(ledger.dividends(year, month)),
-                    sub: '累計 ${ledger.money(ledger.totalDividends)}',
-                    onTap: () => widget.nav.compose(type: EntryType.dividend),
                   ),
-                  Tile(
-                    icon: Glyph.reports,
-                    label: switch (ledger.quotedOn) {
-                      final d? => '${d.month}/${d.day} 漲跌',
-                      null => '漲跌',
-                    },
-                    value: ledger.quotedOn == null
-                        ? '—'
-                        : ledger.moneySigned(ledger.dayChange),
-                    valueColor: ledger.dayChange < 0
-                        ? Hue.negative
-                        : Hue.positive,
-                    sub: switch ((market?.problem, ledger.quotedOn)) {
+                ],
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_tab == 0) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                child: Row(
+                  children: [
+                    const Text(
+                      '持股',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(switch ((market?.problem, ledger.quotedOn)) {
                       (final problem?, _) => problem,
                       (_, null) => '連上網路後更新收盤價',
                       _ when market?.busy ?? false => '更新收盤價中…',
-                      _ => '${holdings.length} 檔 · 下拉可更新',
-                    },
-                  ),
-                ]),
-                _Returns(ledger: ledger),
-                if (holdings.length == 1)
-                  _solo(holdings.single)
-                else
-                  for (final (title, group) in groups)
-                    ..._group(
-                      groups.length > 1 ? title : null,
-                      group,
-                      largest,
-                      axis,
+                      (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
+                    }, style: mutedSmall),
+                  ],
+                ),
+              ),
+              if (holdings.isEmpty)
+                EmptyState(
+                  glyph: Glyph.pie,
+                  color: const Shade(0xFF4A5D99, 0xFF9FAEE0),
+                  message: '還沒有持股',
+                  action: '記一筆買進',
+                  onAction: () => widget.nav.compose(type: EntryType.buy),
+                )
+              else
+                QuoteBoard([
+                  for (final h in [
+                    ...holdings,
+                  ]..sort((a, b) => b.value.compareTo(a.value)))
+                    _HoldingRow(
+                      ledger: ledger,
+                      held: h,
+                      onTap: () => widget.nav.open(Pages.holding(h.code)),
                     ),
-              ],
-            ),
+                ]),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+                decoration: BoxDecoration(
+                  color: Hue.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: Hue.cardShadow,
+                ),
+                child: Row(
+                  children: [
+                    const SquareIcon(
+                      Glyph.dividend,
+                      Shade(0xFFC9A34A, 0xFFDDBE73),
+                      size: 44,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('$month 月領到', style: mutedSmall),
+                          Text(
+                            ledger.orDots(
+                              groupDigits(ledger.dividends(year, month)),
+                            ),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text('累計', style: mutedSmall),
+                        Text(
+                          ledger.orDots(groupDigits(ledger.totalDividends)),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              _Returns(ledger: ledger),
+            ],
           ],
         );
         if (market == null) return list;
@@ -404,6 +317,202 @@ class _Returns extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// 市值 big with today's move on a solid block, and under a rule what is
+/// unrealized, realized, and the yearly return.
+class _InvestHero extends StatelessWidget {
+  const _InvestHero({required this.ledger});
+
+  final Ledger ledger;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = ledger.investValue;
+    final cost = ledger.investCost;
+    final gain = value - cost;
+    final day = ledger.dayChange;
+    final before = value - day;
+    final rate = returnOf(ledger);
+    Widget column(String label, String figure, Color color, String sub) =>
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: mutedSmall),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  figure,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ),
+              Text(
+                sub,
+                style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+              ),
+            ],
+          ),
+        );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Hue.hero, Hue.tile],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '市值',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Hue.accent,
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    ledger.orDots(groupDigits(value)),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              if (ledger.quotedOn != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: day < 0 ? Hue.negative : Hue.positive,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '今日 ${ledger.orDots(signed(day))}'
+                    '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.onAccent,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const Divider(height: 22, color: Hue.accentRule),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              column(
+                '未實現',
+                ledger.orDots(signed(gain)),
+                gain < 0 ? Hue.negative : Hue.positive,
+                '${percentOf(gain, cost)} · 成本 ${ledger.orDots(groupDigits(cost))}',
+              ),
+              column(
+                '已實現',
+                ledger.orDots(signed(ledger.realized)),
+                ledger.realized < 0 ? Hue.negative : Hue.positive,
+                '已賣出',
+              ),
+              column(
+                '年化報酬',
+                rate == null ? '—' : yearlyRate(rate),
+                rate == null || rate >= 0 ? Hue.positive : Hue.negative,
+                rate == null ? '有期初持股' : '含股息',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A holding on the quote board: name, code and kind, shares and gain;
+/// the close big and today's move on a solid block.
+class _HoldingRow extends StatelessWidget {
+  const _HoldingRow({
+    required this.ledger,
+    required this.held,
+    required this.onTap,
+  });
+
+  final Ledger ledger;
+  final Holding held;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final quoted = ledger.hasQuote(held.code);
+    final before = held.value - held.change;
+    final up = held.change >= 0;
+    final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
+    return QuoteRow(
+      onTap: onTap,
+      title:
+          '${held.name}  ${held.code} · ${held.code.startsWith('00') ? 'ETF' : '個股'}',
+      detail:
+          '${ledger.orDots(groupDigits(held.shares))} 股 · 損益 '
+          '${ledger.orDots(signed(held.gain))}',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RowFigure(held.price.toStringAsFixed(held.price < 100 ? 2 : 0)),
+          const SizedBox(width: 10),
+          Container(
+            width: 72,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: !quoted
+                  ? Hue.surface
+                  : up
+                  ? Hue.positive
+                  : Hue.negative,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  !quoted || before == 0 ? '—' : percentOf(held.change, before),
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: quoted ? Hue.onAccent : Hue.muted,
+                  ),
+                ),
+                if (quoted)
+                  Text(
+                    '${up ? '▲' : '▼'}${perShare.abs().toStringAsFixed(2)}',
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(fontSize: 11.5, color: Hue.onAccent),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
