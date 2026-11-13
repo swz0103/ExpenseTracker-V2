@@ -17,9 +17,12 @@ Shapes:
   ("arc", cx, cy, r, from_deg, sweep_deg)      angles clockwise from +x
   ("path", [("M", x, y), ("L", x, y), ("Q", cx, cy, x, y),
             ("A", cx, cy, r, from_deg, sweep_deg), ("Z",)])
+  ("svg", "M5 4h3.5v15H5z ...")                SVG path data: M L H V C S A Z,
+                                               absolute or relative
 """
 
 import math
+import re
 import sys
 
 T, L, S = "tint", "line", "solid"
@@ -43,6 +46,10 @@ def arc(cx, cy, r, start, sweep):
 
 def path(*cmds):
     return ("path", list(cmds))
+
+
+def svg(d):
+    return ("svg", d)
 
 
 TRAY_TINT = box(4, 14.5, 20, 19.5, 0)
@@ -696,6 +703,308 @@ ICONS = {
             poly(3.5, 16.5, 9, 11.5, 13, 15, 15.5, 12.5, 20.5, 17)],
         S: [ring(15.5, 9, 1.4)],
     },
+    # Marks an account may take; none of them is a category's (0.8.0).
+    "passbook": {
+        T: [svg("M5 4.5h3.5v15H5z")],
+        L: [
+            svg(
+                "M6.5 4H17a1.5 1.5 0 0 1 1.5 1.5v13A1.5 1.5 0 0 1 17 20H6.5A1.5 1.5 0 0 1 5 18.5v-13A1.5 1.5 0 0 1 6.5 4Z "
+                "M8.5 4v16 "
+                "M11.5 8.5h4 "
+                "M11.5 11.5h4"
+            ),
+        ],
+    },
+    "vault": {
+        T: [svg("M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7Z")],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7Z "
+                "M12 3.5V8.5 "
+                "M12 15.5v5 "
+                "M3.5 12H8.5 "
+                "M15.5 12h5"
+            ),
+        ],
+    },
+    "hourglass": {
+        T: [svg("M9 18.5c.5-2 3-3 3-4.5 0 1.5 2.5 2.5 3 4.5Z")],
+        L: [
+            svg(
+                "M7 3.5h10 "
+                "M7 20.5h10 "
+                "M8 3.5c0 4 4 5 4 8.5s-4 4.5-4 8.5 "
+                "M16 3.5c0 4-4 5-4 8.5s4 4.5 4 8.5"
+            ),
+        ],
+    },
+    "piggy": {
+        T: [
+            svg("M12 6.5c3.9 0 7 2.5 7 5.5 0 1.7-1 3.2-2.5 4.2V19h-2.5v-1.6a9 9 0 0 1-4 0V19H7.5v-2.8C6 15.2 5 13.7 5 12c0-3 3.1-5.5 7-5.5Z"),
+        ],
+        L: [
+            svg(
+                "M12 6.5c3.9 0 7 2.5 7 5.5 0 1.7-1 3.2-2.5 4.2V19h-2.5v-1.6a9 9 0 0 1-4 0V19H7.5v-2.8C6 15.2 5 13.7 5 12c0-3 3.1-5.5 7-5.5Z "
+                "M19 10.5h1.5v3H19 "
+                "M10.5 9h3 "
+                "M8.5 11.5h.01"
+            ),
+        ],
+    },
+    "jar": {
+        T: [svg("M6 13h12v5.5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2Z")],
+        L: [
+            svg(
+                "M8 4.5h8 "
+                "M8.5 4.5v2.2C6.4 7.8 5.5 9.6 5.5 12v6A2.5 2.5 0 0 0 8 20.5h8a2.5 2.5 0 0 0 2.5-2.5v-6c0-2.4-.9-4.2-3-5.3V4.5 "
+                "M10.5 15.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0"
+            ),
+        ],
+    },
+    "envelope": {
+        T: [svg("M4.5 7l7.5 5.5L19.5 7Z")],
+        L: [
+            svg(
+                "M5.5 6h13A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9A1.5 1.5 0 0 1 5.5 6Z "
+                "M4.5 7l7.5 5.5L19.5 7"
+            ),
+        ],
+    },
+    "goldBar": {
+        T: [svg("M8.5 12.5h7L14 8h-4Z")],
+        L: [
+            svg(
+                "M4 18.5h7l-1.5-4.5h-4Z "
+                "M13 18.5h7l-1.5-4.5h-4Z "
+                "M8.5 12.5h7L14 8h-4Z"
+            ),
+        ],
+    },
+    "bills": {
+        T: [svg("M10.3 13.5a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0Z")],
+        L: [
+            svg(
+                "M5.5 9h13A1.5 1.5 0 0 1 20 10.5v6a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-6A1.5 1.5 0 0 1 5.5 9Z "
+                "M6 6.5h12 "
+                "M7.5 4h9 "
+                "M10.3 13.5a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0Z"
+            ),
+        ],
+    },
+    "phonePay": {
+        T: [svg("M6.5 5.5h6.5v10H6.5z")],
+        L: [
+            svg(
+                "M6.5 3h6.5a1.5 1.5 0 0 1 1.5 1.5v15a1.5 1.5 0 0 1-1.5 1.5H6.5A1.5 1.5 0 0 1 5 19.5v-15A1.5 1.5 0 0 1 6.5 3Z "
+                "M8.5 18h2.5 "
+                "M17.5 9a4 4 0 0 1 0 6 "
+                "M20 7a7 7 0 0 1 0 10"
+            ),
+        ],
+    },
+    "contactless": {
+        T: [svg("M6.5 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4Z")],
+        L: [
+            svg(
+                "M5.5 5.5h13A2.5 2.5 0 0 1 21 8v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16V8a2.5 2.5 0 0 1 2.5-2.5Z "
+                "M10 9.5a3.5 3.5 0 0 1 0 5 "
+                "M13 8a5.5 5.5 0 0 1 0 8 "
+                "M16 7a7 7 0 0 1 0 10"
+            ),
+        ],
+    },
+    "watch": {
+        T: [svg("M8.5 8.5h7v7h-7z")],
+        L: [
+            svg(
+                "M8.5 7h7a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 15.5v-7A1.5 1.5 0 0 1 8.5 7Z "
+                "M9 7l.8-3.5h4.4L15 7 "
+                "M9 17l.8 3.5h4.4L15 17 "
+                "M12 9.8V12l1.5 1"
+            ),
+        ],
+    },
+    "topUp": {
+        T: [svg("M3 5.5h18v3.5H3z")],
+        L: [
+            svg(
+                "M5.5 5.5h13A2.5 2.5 0 0 1 21 8v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16V8a2.5 2.5 0 0 1 2.5-2.5Z "
+                "M3 9h18 "
+                "M13.5 14h4 "
+                "M15.5 12v4"
+            ),
+        ],
+    },
+    "chipCard": {
+        T: [svg("M6.5 9.5h3.5v3H6.5z")],
+        L: [
+            svg(
+                "M5.5 5.5h13A2.5 2.5 0 0 1 21 8v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16V8a2.5 2.5 0 0 1 2.5-2.5Z "
+                "M6.5 9.5h3.5v3H6.5z "
+                "M6.5 15.5h6 "
+                "M15.5 15.5h2"
+            ),
+        ],
+    },
+    "twoCards": {
+        T: [svg("M5.5 7.5h15v3.5h-15z")],
+        L: [
+            svg(
+                "M7.5 7.5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z "
+                "M3.5 14.5V7a2 2 0 0 1 2-2H16 "
+                "M5.5 11h15"
+            ),
+        ],
+    },
+    "globe": {
+        T: [
+            svg("M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5Z"),
+        ],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M3.5 12h17 "
+                "M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5Z"
+            ),
+        ],
+    },
+    "dollar": {
+        T: [svg("M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z")],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M14.5 9.2c-.4-.9-1.3-1.4-2.5-1.4-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2.1 2.5.9 2.5 2.1-1 2-2.5 2-2.2-.5-2.6-1.4 "
+                "M12 6.3v1.5M12 16v1.6"
+            ),
+        ],
+    },
+    "yen": {
+        T: [svg("M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z")],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M9 7.5l3 4.5 3-4.5 "
+                "M12 12v5 "
+                "M9.5 12.5h5 "
+                "M9.5 15h5"
+            ),
+        ],
+    },
+    "exchange": {
+        T: [svg("M14.5 6l3 3-3 3Z M9.5 12l-3 3 3 3Z")],
+        L: [svg("M5 9h12.5 M14.5 6l3 3-3 3 M19 15H6.5 M9.5 12l-3 3 3 3")],
+    },
+    "key": {
+        T: [svg("M8.5 11.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7Z")],
+        L: [
+            svg(
+                "M8.5 11.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7Z "
+                "M11 12.5 19 4.5 "
+                "M15.5 8l2.2 2.2 "
+                "M13.5 10l1.5 1.5"
+            ),
+        ],
+    },
+    "chest": {
+        T: [svg("M4.5 10.5V9a4 4 0 0 1 4-4h7a4 4 0 0 1 4 4v1.5Z")],
+        L: [
+            svg(
+                "M4.5 10.5h15V18a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18Z "
+                "M4.5 10.5V9a4 4 0 0 1 4-4h7a4 4 0 0 1 4 4v1.5 "
+                "M10.5 10.5v3h3v-3"
+            ),
+        ],
+    },
+    "diamond": {
+        T: [svg("M7 5h10l3.5 4.5h-17Z")],
+        L: [
+            svg(
+                "M7 5h10l3.5 4.5L12 20 3.5 9.5Z "
+                "M3.5 9.5h17 "
+                "M9.5 5 8 9.5l4 10.5 4-10.5L14.5 5"
+            ),
+        ],
+    },
+    "crown": {
+        T: [svg("M4 8l4 4 4-6 4 6 4-4-1.5 10h-13Z")],
+        L: [svg("M4 8l4 4 4-6 4 6 4-4-1.5 10h-13Z M5.5 20.5h13")],
+    },
+    "flag": {
+        T: [svg("M6 4.5h11l-2.5 4 2.5 4H6Z")],
+        L: [svg("M6 21V4 M6 4.5h11l-2.5 4 2.5 4H6")],
+    },
+    "target": {
+        T: [svg("M12 7a5 5 0 1 1 0 10a5 5 0 1 1 0-10Z")],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M12 7a5 5 0 1 1 0 10a5 5 0 1 1 0-10Z "
+                "M12 10.5a1.5 1.5 0 1 1 0 3a1.5 1.5 0 1 1 0-3Z"
+            ),
+        ],
+    },
+    "anchor": {
+        T: [svg("M12 3.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4Z")],
+        L: [
+            svg(
+                "M12 3.5a2 2 0 1 1 0 4a2 2 0 1 1 0-4Z "
+                "M12 7.5V20.5 "
+                "M8.5 11h7 "
+                "M4.5 13.5c0 4 3.5 7 7.5 7s7.5-3 7.5-7 "
+                "M4.5 13.5l-1.2 1.6 "
+                "M4.5 13.5l1.8.5 "
+                "M19.5 13.5l1.2 1.6 "
+                "M19.5 13.5l-1.8.5"
+            ),
+        ],
+    },
+    "lifebuoy": {
+        T: [svg("M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z")],
+        L: [
+            svg(
+                "M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17Z "
+                "M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7Z "
+                "M6 6l3.5 3.5 "
+                "M14.5 14.5 18 18 "
+                "M18 6l-3.5 3.5 "
+                "M9.5 14.5 6 18"
+            ),
+        ],
+    },
+    "star": {
+        T: [
+            svg("M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8Z"),
+        ],
+        L: [
+            svg("M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8Z"),
+        ],
+    },
+    "sprout": {
+        T: [svg("M7 13.5h10l-1.3 6a1 1 0 0 1-1 .8H9.3a1 1 0 0 1-1-.8Z")],
+        L: [
+            svg(
+                "M7 13.5h10l-1.3 6a1 1 0 0 1-1 .8H9.3a1 1 0 0 1-1-.8Z "
+                "M12 13.5V9 "
+                "M12 9c0-2.5-2-4.5-5-4.5 0 2.8 2.2 4.5 5 4.5Z "
+                "M12 10.5c0-2.2 1.8-4 4.5-4 0 2.4-2 4-4.5 4Z"
+            ),
+        ],
+    },
+    "loan": {
+        T: [
+            svg("M7.5 3.5H14l4.5 4.5v11a1.5 1.5 0 0 1-1.5 1.5H7.5A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1.5-1.5Z"),
+        ],
+        L: [
+            svg(
+                "M7.5 3.5H14l4.5 4.5v11a1.5 1.5 0 0 1-1.5 1.5H7.5A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1.5-1.5Z "
+                "M14 3.5V8h4.5 "
+                "M9.5 17l5-5 "
+                "M10 12.5h.01 "
+                "M14 16.5h.01"
+            ),
+        ],
+    },
     # 0.9.0: controls and the tools on 更多.
     "check": {L: [poly(5.5, 12.5, 10, 17, 18.5, 7.5)]},
     "more": {S: [ring(6, 12, 1.5), ring(12, 12, 1.5), ring(18, 12, 1.5)]},
@@ -787,6 +1096,12 @@ ICONS = {
     },
 }
 
+# Comment lines written into the enum just above the named glyph.
+ENUM_NOTES = {
+    "passbook": "Marks an account may take; none of them is a category's.",
+    "check": "0.9.0: controls and the tools on 更多.",
+}
+
 
 # Dart output.
 
@@ -823,6 +1138,9 @@ def dart_shape(var, shape):
             elif op == "Z":
                 out.append(f"{var}.close();")
         return out
+    if kind == "svg":
+        assert "'" not in shape[1] and "\\" not in shape[1]
+        return f"_svg({var}, '{shape[1]}');"
     raise ValueError(kind)
 
 
@@ -832,6 +1150,10 @@ def wrap_call(line, indent):
         return [indent + line]
     head, rest = line.split("(", 1)
     args = rest[:-2]  # drop ");"
+    if head == "_svg":
+        var, d = args.split(", ", 1)
+        return [f"{indent}{head}(", f"{indent}  {var},", f"{indent}  {d},",
+                f"{indent});"]
     if args.endswith("]") or "[" in args:
         var, lst = args.split(", [", 1)
         lst, tail = lst.rsplit("]", 1)
@@ -855,11 +1177,13 @@ def dart():
                 stmts = dart_shape(var, shape)
                 for st in stmts if isinstance(stmts, list) else [stmts]:
                     cases.extend(wrap_call(st, "      "))
-    enum = "\n".join(f"  {n}," for n in names)
+    enum = "\n".join(
+        (f"  // {ENUM_NOTES[n]}\n" if n in ENUM_NOTES else "") + f"  {n},"
+        for n in names)
     return DART.replace("%ENUM%", enum).replace("%CASES%", "\n".join(cases))
 
 
-DART = '''// Generated by tool/glyphs.py; edit the icons there and run it again.
+DART = r'''// Generated by tool/glyphs.py; edit the icons there and run it again.
 
 import 'dart:math';
 
@@ -998,6 +1322,93 @@ void _arcTo(Path p, double x, double y, double r, double from, double sweep) {
   );
 }
 
+final _svgToken = RegExp(r'[MmLlHhVvCcSsAaZz]|-?(?:\d*\.\d+|\d+\.?\d*)');
+
+bool _svgCommand(String token) =>
+    token.length == 1 && RegExp(r'[A-Za-z]').hasMatch(token);
+
+/// Adds the outline of SVG path data [d] to [p]: the commands M L H V C S
+/// A Z, each in absolute or relative form, on the 24-unit grid.
+void _svg(Path p, String d) {
+  final t = [for (final m in _svgToken.allMatches(d)) m[0]!];
+  var i = 0;
+  var command = 'M';
+  var x = 0.0, y = 0.0, startX = 0.0, startY = 0.0;
+  // The second control point of the last curve, for S to mirror.
+  double? controlX, controlY;
+  double next() => double.parse(t[i++]);
+  while (i < t.length) {
+    if (_svgCommand(t[i])) command = t[i++];
+    final relative = command == command.toLowerCase();
+    final dx = relative ? x : 0.0;
+    final dy = relative ? y : 0.0;
+    var curve = false;
+    switch (command.toUpperCase()) {
+      case 'Z':
+        p.close();
+        x = startX;
+        y = startY;
+        if (i < t.length && !_svgCommand(t[i])) {
+          throw FormatException('Numbers after Z', d);
+        }
+      case 'M':
+        x = next() + dx;
+        y = next() + dy;
+        p.moveTo(x, y);
+        startX = x;
+        startY = y;
+        // Pairs after the first are lines.
+        command = relative ? 'l' : 'L';
+      case 'L':
+        x = next() + dx;
+        y = next() + dy;
+        p.lineTo(x, y);
+      case 'H':
+        x = next() + dx;
+        p.lineTo(x, y);
+      case 'V':
+        y = next() + dy;
+        p.lineTo(x, y);
+      case 'C':
+        final x1 = next() + dx, y1 = next() + dy;
+        final x2 = next() + dx, y2 = next() + dy;
+        x = next() + dx;
+        y = next() + dy;
+        p.cubicTo(x1, y1, x2, y2, x, y);
+        controlX = x2;
+        controlY = y2;
+        curve = true;
+      case 'S':
+        final x1 = 2 * x - (controlX ?? x), y1 = 2 * y - (controlY ?? y);
+        final x2 = next() + dx, y2 = next() + dy;
+        x = next() + dx;
+        y = next() + dy;
+        p.cubicTo(x1, y1, x2, y2, x, y);
+        controlX = x2;
+        controlY = y2;
+        curve = true;
+      case 'A':
+        final rx = next(), ry = next(), rotation = next();
+        final large = next() != 0, sweep = next() != 0;
+        x = next() + dx;
+        y = next() + dy;
+        p.arcToPoint(
+          Offset(x, y),
+          radius: Radius.elliptical(rx, ry),
+          rotation: rotation,
+          largeArc: large,
+          clockwise: sweep,
+        );
+      default:
+        throw FormatException('Unknown command $command', d);
+    }
+    if (!curve) {
+      controlX = null;
+      controlY = null;
+    }
+  }
+}
+
 void _draw(Glyph glyph, Path t, Path p, Path f) {
   switch (glyph) {
 %CASES%
@@ -1065,7 +1476,124 @@ def flatten(shape):
         if cur:
             out.append((cur, False))
         return out
+    if kind == "svg":
+        return flatten_svg(shape[1])
     raise ValueError(kind)
+
+
+SVG_TOKEN = re.compile(r"[MmLlHhVvCcSsAaZz]|-?(?:\d*\.\d+|\d+\.?\d*)")
+
+
+def flatten_svg(d):
+    """Polylines for SVG path data, read the way _svg in the Dart reads it."""
+    tok = SVG_TOKEN.findall(d)
+    i, cmd = 0, "M"
+    x = y = sx = sy = 0.0
+    ctrl = None
+    out, cur = [], []
+
+    def nxt():
+        nonlocal i
+        i += 1
+        return float(tok[i - 1])
+
+    def cubic(x0, y0, x1, y1, x2, y2, x3, y3):
+        for k in range(1, 13):
+            s = k / 12
+            r = 1 - s
+            cur.append((r ** 3 * x0 + 3 * r * r * s * x1 + 3 * r * s * s * x2
+                        + s ** 3 * x3,
+                        r ** 3 * y0 + 3 * r * r * s * y1 + 3 * r * s * s * y2
+                        + s ** 3 * y3))
+
+    while i < len(tok):
+        if tok[i].isalpha():
+            cmd = tok[i]
+            i += 1
+        rel = cmd.islower()
+        dx, dy = (x, y) if rel else (0.0, 0.0)
+        c = cmd.upper()
+        curve = False
+        if c == "Z":
+            out.append((cur, True))
+            cur = []
+            x, y = sx, sy
+        elif c == "M":
+            if len(cur) > 1:
+                out.append((cur, False))
+            x, y = nxt() + dx, nxt() + dy
+            sx, sy = x, y
+            cur = [(x, y)]
+            cmd = "l" if rel else "L"
+        elif c in "LHV":
+            if c != "V":
+                x = nxt() + dx
+            if c != "H":
+                y = nxt() + dy
+            if not cur:
+                cur = [(sx, sy)]
+            cur.append((x, y))
+        elif c in "CS":
+            if c == "C":
+                x1, y1 = nxt() + dx, nxt() + dy
+            else:
+                x1, y1 = (2 * x - ctrl[0], 2 * y - ctrl[1]) if ctrl else (x, y)
+            x2, y2 = nxt() + dx, nxt() + dy
+            x3, y3 = nxt() + dx, nxt() + dy
+            if not cur:
+                cur = [(x, y)]
+            cubic(x, y, x1, y1, x2, y2, x3, y3)
+            x, y, ctrl, curve = x3, y3, (x2, y2), True
+        elif c == "A":
+            rx, ry, rot = nxt(), nxt(), nxt()
+            large, sweep = nxt() != 0, nxt() != 0
+            x1, y1 = nxt() + dx, nxt() + dy
+            if not cur:
+                cur = [(x, y)]
+            cur.extend(arc_points(x, y, rx, ry, rot, large, sweep, x1, y1))
+            x, y = x1, y1
+        else:
+            raise ValueError(cmd)
+        if not curve:
+            ctrl = None
+    if len(cur) > 1:
+        out.append((cur, False))
+    return out
+
+
+def arc_points(x0, y0, rx, ry, rot, large, sweep, x1, y1):
+    """Points along an SVG endpoint arc (SVG 1.1, appendix F.6)."""
+    if rx == 0 or ry == 0 or (x0, y0) == (x1, y1):
+        return [(x1, y1)]
+    phi = math.radians(rot)
+    cp, sp = math.cos(phi), math.sin(phi)
+    hx, hy = (x0 - x1) / 2, (y0 - y1) / 2
+    xp, yp = cp * hx + sp * hy, -sp * hx + cp * hy
+    rx, ry = abs(rx), abs(ry)
+    lam = xp * xp / (rx * rx) + yp * yp / (ry * ry)
+    if lam > 1:
+        rx, ry = rx * math.sqrt(lam), ry * math.sqrt(lam)
+    num_ = rx * rx * ry * ry - rx * rx * yp * yp - ry * ry * xp * xp
+    den = rx * rx * yp * yp + ry * ry * xp * xp
+    co = math.sqrt(max(0.0, num_ / den))
+    if large == sweep:
+        co = -co
+    cxp, cyp = co * rx * yp / ry, -co * ry * xp / rx
+    cx = cp * cxp - sp * cyp + (x0 + x1) / 2
+    cy = sp * cxp + cp * cyp + (y0 + y1) / 2
+    t0 = math.atan2((yp - cyp) / ry, (xp - cxp) / rx)
+    t1 = math.atan2((-yp - cyp) / ry, (-xp - cxp) / rx)
+    dt = t1 - t0
+    if sweep and dt < 0:
+        dt += 2 * math.pi
+    elif not sweep and dt > 0:
+        dt -= 2 * math.pi
+    pts = []
+    for k in range(1, 25):
+        t = t0 + dt * k / 24
+        ex, ey = rx * math.cos(t), ry * math.sin(t)
+        pts.append((cp * ex - sp * ey + cx, sp * ex + cp * ey + cy))
+    return pts
 
 
 def render(name, px, color, weight=1.6, tinted=True, bg=None):
