@@ -10,28 +10,6 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/project.dart';
 
-/// A tag's or merchant's colour, picked from its name so it stays the
-/// same each time: tags have no colour of their own.
-Color labelColor(String name) {
-  var sum = 0;
-  for (final unit in name.codeUnits) {
-    sum = (sum * 31 + unit) & 0x7fffffff;
-  }
-  return labelColors[sum % labelColors.length];
-}
-
-/// The colours tags and merchants are given, light and dark.
-const labelColors = [
-  Shade(0xFFD08B5B, 0xFFE3AA82),
-  Shade(0xFFB07A8C, 0xFFD3A2B3),
-  Shade(0xFF5C9A83, 0xFF8CC3AE),
-  Shade(0xFFC9A34A, 0xFFDDBE73),
-  Shade(0xFF7686B8, 0xFFA5B1D8),
-  Shade(0xFF4E8A9A, 0xFF86B5C1),
-  Shade(0xFF8E7CC0, 0xFFB5A8DD),
-  Shade(0xFF5B8DB0, 0xFF8DB5D1),
-];
-
 /// The colours of the two halves of 標籤與商家.
 const _tagHue = Shade(0xFFC9A34A, 0xFFDDBE73);
 const _merchantHue = Shade(0xFFD08B5B, 0xFFE3AA82);
@@ -134,7 +112,7 @@ class _LabelsPageState extends State<LabelsPage> {
         CardGrid(columns: 3, gap: 10, [
           for (final name in names)
             ColorCard(
-              color: labelColor(name),
+              color: nameColor(name),
               radius: 16,
               label: '#$name',
               onTap: () => widget.nav.open(Pages.tag(name)),
@@ -147,7 +125,7 @@ class _LabelsPageState extends State<LabelsPage> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: deepOf(labelColor(name)),
+                  color: deepOf(nameColor(name)),
                 ),
               ),
             ),
@@ -189,7 +167,7 @@ class _LabelsPageState extends State<LabelsPage> {
                   count: count,
                   // The first stands tallest; the others by their visits.
                   height: 70 + 90 * count / most,
-                  color: labelColor(name),
+                  color: nameColor(name),
                   first: rank == 0,
                   onTap: () => widget.nav.open(Pages.merchant(name)),
                 ),
@@ -206,7 +184,7 @@ class _LabelsPageState extends State<LabelsPage> {
           children: [
             for (final (name, count, _) in rest)
               ColorCard(
-                color: labelColor(name),
+                color: nameColor(name),
                 radius: 14,
                 label: '$name，$count 次',
                 onTap: () => widget.nav.open(Pages.merchant(name)),
@@ -229,7 +207,7 @@ class _LabelsPageState extends State<LabelsPage> {
                   ),
                   style: TextStyle(
                     fontSize: 15,
-                    color: deepOf(labelColor(name)),
+                    color: deepOf(nameColor(name)),
                   ),
                 ),
               ),
@@ -409,7 +387,7 @@ class ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = labelColor(project.tag);
+    final color = nameColor(project.tag);
     final ink = deepOf(color);
     String day(DateTime d) => '${d.month}/${d.day}';
     final days = project.from == project.to
@@ -649,7 +627,7 @@ class LabelPage extends StatelessWidget {
                 child: CardGrid(columns: 3, gap: 10, [
                   for (final other in _others())
                     ColorCard(
-                      color: labelColor(other),
+                      color: nameColor(other),
                       radius: 16,
                       label: merchant ? other : '#$other',
                       onTap: () => Navigator.of(context).pop(other),
@@ -665,7 +643,7 @@ class LabelPage extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: deepOf(labelColor(other)),
+                          color: deepOf(nameColor(other)),
                         ),
                       ),
                     ),
@@ -785,7 +763,7 @@ class _VisitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = labelColor(name);
+    final color = nameColor(name);
     final ink = deepOf(color);
     final last = visits.first.date;
     final first = visits.last.date;
@@ -882,7 +860,7 @@ class _RenameSheetState extends State<_RenameSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final color = labelColor(widget.name);
+    final color = nameColor(widget.name);
     final ink = deepOf(color);
     return Padding(
       padding: EdgeInsets.fromLTRB(

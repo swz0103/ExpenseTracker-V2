@@ -22,6 +22,28 @@ Color deepOf(Color color) => Shade.dark
     ? Color.lerp(color, const Color(0xFFFFFFFF), 0.35)!
     : Color.lerp(color, const Color(0xFF1A2228), 0.3)!;
 
+/// A colour picked from [name], the same each time: for what has no
+/// colour of its own, such as a tag, a merchant, a person or a loan.
+Color nameColor(String name) {
+  var sum = 0;
+  for (final unit in name.codeUnits) {
+    sum = (sum * 31 + unit) & 0x7fffffff;
+  }
+  return nameColors[sum % nameColors.length];
+}
+
+/// The colours [nameColor] picks from, light and dark.
+const nameColors = [
+  Shade(0xFFD08B5B, 0xFFE3AA82),
+  Shade(0xFFB07A8C, 0xFFD3A2B3),
+  Shade(0xFF5C9A83, 0xFF8CC3AE),
+  Shade(0xFFC9A34A, 0xFFDDBE73),
+  Shade(0xFF7686B8, 0xFFA5B1D8),
+  Shade(0xFF4E8A9A, 0xFF86B5C1),
+  Shade(0xFF8E7CC0, 0xFFB5A8DD),
+  Shade(0xFF5B8DB0, 0xFF8DB5D1),
+];
+
 /// An icon in white on a rounded square of solid [color]: the mark of a
 /// category, a setting or a tool.
 class SquareIcon extends StatelessWidget {

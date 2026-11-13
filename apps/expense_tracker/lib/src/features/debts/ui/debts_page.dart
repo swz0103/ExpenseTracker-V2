@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../../../core/ui/entry_tile.dart';
+import '../../../core/look/dialogs.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../accounts/ui/reconcile_sheet.dart';
 
@@ -44,10 +43,10 @@ double? paidShare(Ledger ledger, Account loan) {
   return share < 0 ? 0.0 : (share > 1 ? 1.0 : share);
 }
 
-/// Days since [day], as a page says them.
-String _since(Ledger ledger, DateTime day) {
+/// Whole days since [day].
+int _days(Ledger ledger, DateTime day) {
   final days = ledger.today.difference(day).inDays;
-  return days <= 0 ? '今天' : '$days 天前';
+  return days < 0 ? 0 : days;
 }
 
 /// The first letter of a name, for its circle.
@@ -57,8 +56,9 @@ String _initial(String name) {
 }
 
 /// 代墊與借貸: money paid for people and loans, kept apart from 我的帳戶
-/// as investments are. What is owed both ways on top, then a card for
-/// each person to slide through, and one for each loan.
+/// as investments are. On top, both ways apart (別人欠你 | 你還欠: a small
+/// sum lent and a mortgage do not add up to anything); then a square for
+/// each person, and a card for each loan with how much is paid as a ring.
 class DebtsPage extends StatelessWidget {
   const DebtsPage({super.key, required this.ledger, required this.nav});
 
@@ -78,65 +78,53 @@ class DebtsPage extends StatelessWidget {
           (sum, a) => sum + owedOn(ledger, a),
         );
         return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
-            PageHeader(
+            CenterHeader(
               '代墊與借貸',
               onBack: nav.back,
-              trailing: TextButton.icon(
-                onPressed: () => editLoan(context, ledger),
-                icon: const GlyphIcon(Glyph.add, size: 16),
-                label: const Text('貸款'),
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-              ),
-            ),
-            Tile(
-              hero: true,
-              icon: Glyph.transfer,
-              label: '往來淨額',
-              value: ledger.moneySigned(lent - borrowed),
-              sub: '別人欠你減掉你欠的貸款',
-              child: TileStats([
-                (Glyph.income, '別人欠你', ledger.money(lent), Hue.ink),
-                (Glyph.payout, '貸款尚欠', ledger.money(borrowed), Hue.ink),
-              ]),
-            ),
-            SectionHead(
-              '代墊',
-              trailing: Text('${people.length} 人', style: mutedSmall),
-            ),
-            if (people.isEmpty)
-              const Text('還沒有代墊。記一筆時選「代墊」，就會出現在這裡。', style: mutedSmall)
-            else
-              SizedBox(
-                // Taller with larger text, so the words still fit.
-                height:
-                    140 +
-                    50 *
-                        (MediaQuery.textScalerOf(context).scale(16) / 16 - 1)
-                            .clamp(0.0, 2.0)
-                            .toDouble(),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  clipBehavior: Clip.none,
-                  itemCount: people.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) => _PersonCard(
-                    ledger: ledger,
-                    person: people[i],
-                    onTap: () => nav.open(Pages.debt(people[i].id)),
-                  ),
+              actions: [
+                HeaderButton(
+                  glyph: Glyph.add,
+                  label: '新增貸款',
+                  onTap: () => editLoan(context, ledger),
                 ),
-              ),
-            SectionHead(
-              '貸款',
-              trailing: Text('${loans.length} 筆', style: mutedSmall),
+              ],
             ),
+            _BothWays(
+              ledger: ledger,
+              lent: lent,
+              people: people.where((p) => owedFrom(ledger, p) > 0).length,
+              borrowed: borrowed,
+              loans: loans.length,
+            ),
+            const RuleHead('代墊'),
+            if (people.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Text(
+                  '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」。',
+                  style: mutedSmall,
+                ),
+              )
+            else
+              CardGrid(columns: 3, gap: 10, [
+                for (final person in people)
+                  _PersonSquare(
+                    ledger: ledger,
+                    person: person,
+                    onTap: () => nav.open(Pages.debt(person.id)),
+                  ),
+              ]),
+            const RuleHead('貸款'),
             if (loans.isEmpty)
-              const Text('還沒有貸款。按右上的「貸款」新增。', style: mutedSmall),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Text('房貸、信貸或車貸，按右上的＋新增。', style: mutedSmall),
+              ),
             for (final loan in loans)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: _LoanCard(
                   ledger: ledger,
                   loan: loan,
@@ -150,10 +138,116 @@ class DebtsPage extends StatelessWidget {
   }
 }
 
+/// 別人欠你 | 你還欠 on the page's main card, a thin rule between.
+class _BothWays extends StatelessWidget {
+  const _BothWays({
+    required this.ledger,
+    required this.lent,
+    required this.people,
+    required this.borrowed,
+    required this.loans,
+  });
+
+  final Ledger ledger;
+  final int lent;
+  final int people;
+  final int borrowed;
+  final int loans;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget half(String label, String value, String sub, Color color) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Hue.muted,
+          ),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ),
+        Text(sub, style: mutedSmall),
+      ],
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Hue.hero, Hue.tile],
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Expanded(
+              child: half(
+                '別人欠你',
+                ledger.orDots(groupDigits(lent)),
+                '$people 人',
+                lent > 0 ? Hue.positive : Hue.ink,
+              ),
+            ),
+            const VerticalDivider(width: 32, color: Hue.accentRule),
+            Expanded(
+              child: half(
+                '你還欠',
+                ledger.orDots(shortAmount(borrowed)),
+                '$loans 筆貸款',
+                Hue.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The first letter of a name in a solid circle of its colour.
+class _Initial extends StatelessWidget {
+  const _Initial(this.name, {this.size = 46});
+
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: nameColor(name), shape: BoxShape.circle),
+    alignment: Alignment.center,
+    child: Text(
+      _initial(name),
+      textScaler: TextScaler.noScaling,
+      style: TextStyle(
+        fontSize: size * 0.42,
+        fontWeight: FontWeight.w800,
+        color: const Color(0xFFFFFFFF),
+      ),
+    ),
+  );
+}
+
 /// A person paid for: their initial, name, what they owe and how long
-/// the oldest of it has waited.
-class _PersonCard extends StatelessWidget {
-  const _PersonCard({
+/// the oldest of it has waited, on their colour's tint.
+class _PersonSquare extends StatelessWidget {
+  const _PersonSquare({
     required this.ledger,
     required this.person,
     required this.onTap,
@@ -167,48 +261,84 @@ class _PersonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final owed = ledger.owedBy(person.id);
     final oldest = owed.isEmpty ? null : owed.last.$1.date;
-    return SizedBox(
-      width: 120,
-      child: SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.all(12),
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            IconBadge.letter(_initial(person.name), Hue.receivable, size: 36),
-            const Spacer(),
-            Text(
-              person.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+    final color = nameColor(person.name);
+    final ink = deepOf(color);
+    return ColorCard(
+      color: color,
+      radius: 20,
+      onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      child: Column(
+        children: [
+          _Initial(person.name),
+          const SizedBox(height: 8),
+          Text(
+            person.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: ink,
             ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                ledger.money(owedFrom(ledger, person)),
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              ledger.orDots(groupDigits(owedFrom(ledger, person))),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
-            Text(
-              oldest == null ? '沒有欠款' : '最久 ${_since(ledger, oldest)}',
-              maxLines: 1,
-              style: const TextStyle(fontSize: 11.5, color: Hue.muted),
-            ),
-          ],
-        ),
+          ),
+          Text(
+            oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天',
+            maxLines: 1,
+            style: TextStyle(fontSize: 12, color: ink),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// How much of a loan is paid, as a ring with the share in the middle.
+class _PaidRing extends StatelessWidget {
+  const _PaidRing({required this.share, required this.color, this.size = 64});
+
+  final double share;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        CircularProgressIndicator(
+          value: share,
+          strokeWidth: size / 9,
+          strokeCap: StrokeCap.round,
+          color: color,
+          backgroundColor: tintOf(color, 0.3),
+        ),
+        Center(
+          child: Text(
+            '${(share * 100).round()}%',
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              fontSize: size / 4,
+              fontWeight: FontWeight.w800,
+              color: deepOf(color),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 /// A loan: how much is paid as a ring, its name and amount taken out,
-/// and what is left.
+/// and what is left, on its colour's tint.
 class _LoanCard extends StatelessWidget {
   const _LoanCard({
     required this.ledger,
@@ -224,19 +354,19 @@ class _LoanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final share = paidShare(ledger, loan);
     final principal = loan.principal;
-    return SoftPanel(
-      color: Hue.white,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+    final color = nameColor(loan.name);
+    final ink = deepOf(color);
+    return ColorCard(
+      color: color,
       onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
       child: Row(
         children: [
-          if (share != null) ...[
-            RingGauge(share: share, size: 56),
-            const SizedBox(width: 14),
-          ] else ...[
-            IconBadge(Glyph.loan, Hue.investment, size: 40),
-            const SizedBox(width: 12),
-          ],
+          if (share != null)
+            _PaidRing(share: share, color: color)
+          else
+            SquareIcon(Glyph.loan, color, size: 52),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,28 +375,29 @@ class _LoanCard extends StatelessWidget {
                   loan.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
                   ),
                 ),
                 if (principal != null)
-                  Text('原借 ${ledger.money(principal)}', style: mutedSmall),
+                  Text(
+                    '原借 ${ledger.orDots(groupDigits(principal))}',
+                    style: TextStyle(fontSize: 13, color: ink),
+                  ),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                '尚欠',
-                style: TextStyle(fontSize: 12, color: Hue.muted),
-              ),
+              Text('尚欠', style: TextStyle(fontSize: 12, color: ink)),
               Text(
-                ledger.money(owedOn(ledger, loan)),
+                ledger.orDots(groupDigits(owedOn(ledger, loan))),
                 style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -277,8 +408,152 @@ class _LoanCard extends StatelessWidget {
   }
 }
 
-/// The page of one person paid for: what they owe, each sum still owed
-/// and how long it has waited, and everything with them.
+/// A big card in [color]: [lead] on the left, then a small label, the
+/// figure and a line, with the ⋯ menu in the corner.
+class _DebtHero extends StatelessWidget {
+  const _DebtHero({
+    required this.color,
+    required this.lead,
+    required this.label,
+    required this.value,
+    required this.lines,
+    required this.menu,
+  });
+
+  final Color color;
+  final Widget lead;
+  final String label;
+  final String value;
+  final List<String> lines;
+  final Widget menu;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = deepOf(color);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [tintOf(color, 0.4), tintOf(color, 0.2)],
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          lead,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                for (final line in lines)
+                  Text(
+                    line,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          menu,
+        ],
+      ),
+    );
+  }
+}
+
+/// A wide button with an icon: tinted, or solid in [color] when [solid].
+class _Action extends StatelessWidget {
+  const _Action({
+    required this.glyph,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.solid = false,
+  });
+
+  final Glyph glyph;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool solid;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = solid ? const Color(0xFFFFFFFF) : deepOf(color);
+    return Material(
+      color: solid ? color : tintOf(color, 0.2),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 54),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GlyphIcon(glyph, size: 18, color: ink, tinted: false),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small heading over a white board, or a line when it is empty.
+List<Widget> _board(
+  String title,
+  List<Widget> rows, {
+  String empty = '還沒有紀錄',
+}) => [
+  RuleHead(title),
+  if (rows.isEmpty)
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(empty, style: mutedSmall),
+    )
+  else
+    QuoteBoard(rows),
+];
+
+/// The page of one person paid for: what they owe and for how long, 幫忙付
+/// and 收回 (all that is owed, which can be changed), each sum still owed
+/// with its days, and everything with them.
 class PersonPage extends StatelessWidget {
   const PersonPage({
     super.key,
@@ -321,6 +596,30 @@ class PersonPage extends StatelessWidget {
     return '代墊';
   }
 
+  Future<void> _rename(BuildContext context, Account person) async {
+    final name = await askText(context, '改名', initial: person.name);
+    if (name == null || name == person.name) return;
+    ledger.updateAccount(person.copyWith(name: name));
+  }
+
+  Future<void> _delete(BuildContext context, Account person) async {
+    final used = ledger.isUsed(person.id);
+    final ok = await confirm(
+      context,
+      '刪除「${person.name}」？',
+      '刪除',
+      danger: true,
+      body: used ? '已記的紀錄會保留，這個人收起來不再出現。' : null,
+    );
+    if (!ok) return;
+    if (used) {
+      ledger.updateAccount(person.copyWith(archived: true));
+    } else {
+      ledger.removeAccount(person.id);
+    }
+    nav.back();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -337,182 +636,140 @@ class PersonPage extends StatelessWidget {
           for (final e in ledger.entries)
             if (e.account == person.id || e.to == person.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
+        final color = nameColor(person.name);
+        final oldest = owed.isEmpty ? null : owed.last.$1.date;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
-            PageHeader(
-              person.name,
-              onBack: nav.back,
-              trailing: TextButton(
-                onPressed: () async {
-                  final gone = await editAccount(
-                    context,
-                    ledger,
-                    account: person,
-                  );
-                  if (gone) nav.back();
-                },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                child: const Text('編輯'),
-              ),
+            CenterHeader(person.name, onBack: nav.back),
+            _DebtHero(
+              color: color,
+              lead: _Initial(person.name, size: 60),
+              label: balance < 0 ? '你欠${person.name}' : '還欠你',
+              value: ledger.orDots(groupDigits(balance.abs())),
+              lines: [
+                if (oldest == null)
+                  '沒有待收回的'
+                else
+                  '${owed.length} 筆還沒收回 · 最久 ${_days(ledger, oldest)} 天',
+              ],
+              menu: DotsMenu([
+                DotsItem(Glyph.edit, '改名', () => _rename(context, person)),
+                DotsItem(
+                  Glyph.trash,
+                  '刪除',
+                  () => _delete(context, person),
+                  danger: true,
+                ),
+              ]),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Tile(
-                    hero: true,
-                    icon: kindIcon(AccountKind.receivable),
-                    label: balance < 0 ? '你欠${person.name}' : '還欠你',
-                    value: ledger.money(balance.abs()),
-                    sub: owed.isEmpty ? '沒有待收回的' : '${owed.length} 筆還沒收回',
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _Action(
+                    glyph: Glyph.add,
+                    label: '幫忙付',
+                    color: color,
+                    onTap: () => _move(person, lend: true),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Row(
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Action(
+                    glyph: Glyph.check,
+                    label: '收回',
+                    color: color,
+                    solid: true,
+                    onTap: balance > 0
+                        ? () => _move(person, lend: false)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            if (owed.isNotEmpty)
+              ..._board('還沒收回', [
+                for (final (e, left) in owed)
+                  QuoteRow(
+                    onTap: () => nav.showEntry(ledger.groupLead(e)),
+                    title: _what(e),
+                    detail:
+                        '${e.date.month}/${e.date.day}'
+                        '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _move(person, lend: true),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Hue.accent,
-                              minimumSize: const Size.fromHeight(46),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('幫忙付'),
-                          ),
-                        ),
+                        _DaysTag(_days(ledger, e.date)),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: balance > 0
-                                ? () => _move(person, lend: false)
-                                : null,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Hue.accent,
-                              minimumSize: const Size.fromHeight(46),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(balance > 0 ? '收回全部' : '收回'),
-                          ),
-                        ),
+                        RowFigure(ledger.orDots(groupDigits(left))),
                       ],
                     ),
                   ),
-                  if (owed.isNotEmpty) ...[
-                    SectionHead(
-                      '還沒收回',
-                      trailing: Text(
-                        ledger.money(owed.fold<int>(0, (sum, o) => sum + o.$2)),
-                        style: mutedSmall,
-                      ),
-                    ),
-                    SoftPanel(
-                      color: Hue.white,
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (final (i, (e, left)) in owed.indexed)
-                            InkWell(
-                              onTap: () => nav.showEntry(ledger.groupLead(e)),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: i == owed.length - 1
-                                      ? null
-                                      : const Border(
-                                          bottom: BorderSide(color: Hue.line),
-                                        ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _what(e),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${e.date.month}/${e.date.day} · '
-                                            '${_since(ledger, e.date)}',
-                                            style: mutedSmall,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          ledger.money(left),
-                                          style: const TextStyle(
-                                            fontSize: 15.5,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (left < e.amount)
-                                          Text(
-                                            '共 ${ledger.money(e.amount)}',
-                                            style: mutedSmall,
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SectionHead('紀錄'),
-                  if (entries.isEmpty)
-                    const Text('還沒有紀錄', style: TextStyle(color: Hue.muted))
-                  else
-                    SoftPanel(
-                      color: Hue.white,
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (final e in entries)
-                            EntryRow(
-                              ledger: ledger,
-                              entry: e,
-                              onOpen: nav.showEntry,
-                              divider: !identical(e, entries.last),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+              ]),
+            ..._board('往來紀錄', [
+              for (final e in entries) _move2(e, person.id, color),
+            ]),
           ],
         );
       },
     );
   }
+
+  /// One movement with the person: paid back in green with a minus, paid
+  /// for with a ＋.
+  Widget _move2(Entry e, String person, Color color) {
+    final back = e.account == person;
+    return QuoteRow(
+      onTap: () => nav.showEntry(ledger.groupLead(e)),
+      lead: SquareIcon(
+        back ? Glyph.check : Glyph.add,
+        back ? Hue.positive : color,
+        size: 40,
+      ),
+      title: back ? '收回' : _what(e),
+      detail: '${e.date.month}/${e.date.day}',
+      trailing: RowFigure(
+        back
+            ? '−${ledger.orDots(groupDigits(e.amount))}'
+            : ledger.orDots(groupDigits(e.amount)),
+        color: back ? Hue.positive : Hue.ink,
+      ),
+    );
+  }
 }
 
-/// The page of one loan: what is left, how much is paid, a payment to
-/// record, and every payment.
+/// How many days a sum has waited: gold after two weeks.
+class _DaysTag extends StatelessWidget {
+  const _DaysTag(this.days);
+
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    final long = days > 14;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: long ? const Shade(0xFFC9A34A, 0xFFDDBE73) : Hue.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$days 天',
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: long ? Hue.onAccent : Hue.muted,
+        ),
+      ),
+    );
+  }
+}
+
+/// The page of one loan: how much is paid as a big ring, what is left,
+/// what was taken out and paid; ⋯ with 編輯 and 對帳; 記一筆還款; and
+/// every payment with the account it came from.
 class LoanPage extends StatelessWidget {
   const LoanPage({
     super.key,
@@ -538,111 +795,77 @@ class LoanPage extends StatelessWidget {
         final owed = owedOn(ledger, loan);
         final share = paidShare(ledger, loan);
         final principal = loan.principal;
+        final color = nameColor(loan.name);
         final entries = [
           for (final e in ledger.entries)
             if (e.account == loan.id || e.to == loan.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
-            PageHeader(
-              loan.name,
-              onBack: nav.back,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () => reconcileAccount(context, ledger, loan),
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                    child: const Text('對帳'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final gone = await editLoan(context, ledger, loan: loan);
-                      if (gone) nav.back();
-                    },
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                    child: const Text('編輯'),
-                  ),
+            CenterHeader(loan.name, onBack: nav.back),
+            _DebtHero(
+              color: color,
+              lead: share == null
+                  ? SquareIcon(Glyph.loan, color, size: 60)
+                  : _PaidRing(share: share, color: color, size: 96),
+              label: '尚欠',
+              value: ledger.orDots(groupDigits(owed)),
+              lines: [
+                if (principal != null) ...[
+                  '原借 ${ledger.orDots(groupDigits(principal))}',
+                  '已還 ${ledger.orDots(groupDigits(principal - owed < 0 ? 0 : principal - owed))}',
                 ],
+              ],
+              menu: DotsMenu([
+                DotsItem(Glyph.edit, '編輯', () async {
+                  final gone = await editLoan(context, ledger, loan: loan);
+                  if (gone) nav.back();
+                }),
+                DotsItem(
+                  Glyph.check,
+                  '對帳',
+                  () => reconcileAccount(context, ledger, loan),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            _Action(
+              glyph: Glyph.add,
+              label: '記一筆還款',
+              color: color,
+              solid: true,
+              onTap: () => nav.compose(
+                type: EntryType.transfer,
+                draft: Entry(
+                  id: '',
+                  date: ledger.today,
+                  type: EntryType.transfer,
+                  amount: 0,
+                  account: ledger.mainAccount,
+                  category: transferCategory,
+                  to: loan.id,
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Tile(
-                    hero: true,
-                    icon: Glyph.loan,
-                    label: '尚欠',
-                    value: ledger.money(owed),
-                    sub: principal == null || share == null
-                        ? null
-                        : '原借 ${ledger.money(principal)} · '
-                              '已還 ${(share * 100).round()}%',
-                    child: share == null
-                        ? null
-                        : Padding(
-                            padding: const EdgeInsets.only(top: 10),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: share,
-                                minHeight: 6,
-                                color: Hue.accent,
-                                backgroundColor: Hue.accentTrack,
-                              ),
-                            ),
-                          ),
+            ..._board('還款紀錄', [
+              for (final e in entries)
+                QuoteRow(
+                  onTap: () => nav.showEntry(e),
+                  lead: SquareIcon(
+                    e.to == loan.id ? Glyph.check : Glyph.loan,
+                    color,
+                    size: 40,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: FilledButton(
-                      onPressed: () => nav.compose(
-                        type: EntryType.transfer,
-                        draft: Entry(
-                          id: '',
-                          date: ledger.today,
-                          type: EntryType.transfer,
-                          amount: 0,
-                          account: ledger.mainAccount,
-                          category: transferCategory,
-                          to: loan.id,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Hue.accent,
-                        minimumSize: const Size.fromHeight(46),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('記一筆還款'),
-                    ),
-                  ),
-                  const SectionHead('還款紀錄'),
-                  if (entries.isEmpty)
-                    const Text('還沒有紀錄', style: TextStyle(color: Hue.muted))
-                  else
-                    SoftPanel(
-                      color: Hue.white,
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          for (final e in entries)
-                            EntryRow(
-                              ledger: ledger,
-                              entry: e,
-                              onOpen: nav.showEntry,
-                              divider: !identical(e, entries.last),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                  title: e.to == loan.id
+                      ? '還款 ${e.date.month}/${e.date.day}'
+                      : '${e.title} ${e.date.month}/${e.date.day}',
+                  detail: e.to == loan.id
+                      ? '從 ${ledger.account(e.account).name}'
+                      : null,
+                  trailing: RowFigure(ledger.orDots(groupDigits(e.amount))),
+                ),
+            ]),
           ],
         );
       },
