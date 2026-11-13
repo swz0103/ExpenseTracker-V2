@@ -269,7 +269,9 @@ class _Pair extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
             children: [
               Text(
                 name,
@@ -278,14 +280,19 @@ class _Pair extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const Spacer(),
-              Text(
-                ledger.orDots(groupDigits(now)),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                ' ／$thenLabel ${ledger.orDots(groupDigits(then))}',
-                style: mutedSmall,
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: ledger.orDots(groupDigits(now)),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(
+                      text: ' ／$thenLabel ${ledger.orDots(groupDigits(then))}',
+                      style: mutedSmall,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

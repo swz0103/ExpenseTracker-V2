@@ -836,3 +836,72 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
+
+/// The blocks of a page with one gap between each, so a page keeps one
+/// rhythm: no block runs into the next, and none sits far off. A block is
+/// a title with what it heads, or one card; empty ones are left out.
+class Sections extends StatelessWidget {
+  const Sections(this.children, {super.key, this.gap = 16});
+
+  final List<Widget?> children;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = [for (final c in children) ?c];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, child) in shown.indexed) ...[
+          if (i > 0) SizedBox(height: gap),
+          child,
+        ],
+      ],
+    );
+  }
+}
+
+/// A block of [Sections]: its title over what it heads, or null when it
+/// heads nothing, so the block is left out.
+Widget? section(String? title, List<Widget> body, {Widget? trailing}) {
+  if (body.isEmpty) return null;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (title != null) TitleRow(title, trailing: trailing),
+      ...body,
+    ],
+  );
+}
+
+/// A block's title in 17 px with something small on the right; the same
+/// space under it everywhere.
+class TitleRow extends StatelessWidget {
+  const TitleRow(this.title, {super.key, this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}

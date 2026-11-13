@@ -277,12 +277,14 @@ class Tile extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 if (side != null)
-                  Row(
-                    children: [
-                      side,
-                      const SizedBox(width: 12),
-                      Expanded(child: text),
-                    ],
+                  // Beside the figure when there is room for both, over it
+                  // on a narrow phone or with large text, rather than the
+                  // figure shrinking to fit.
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [side, text],
                   )
                 else
                   text,

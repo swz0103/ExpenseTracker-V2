@@ -1,6 +1,7 @@
 # 文件導覽
 
 - [STATUS.md](STATUS.md)：功能、品質、已知限制與待辦。
+- [plan-2026-11-13.md](plan-2026-11-13.md)：0.9 之後的審查回應、復盤與工作規劃。
 - [ADR-0001](adr/0001-target-architecture.md)：模組、依賴方向、儲存、金鑰、備份的架構決策。
 - 數值與資料來源：[精確匯率](architecture/exact-fx-values.md)、[行情與匯率來源（ADR-06）](architecture/provider-feasibility.md)。
 - 設定：[Android 建置與簽章](delivery/android.md)。
