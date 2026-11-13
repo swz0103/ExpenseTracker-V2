@@ -35,6 +35,16 @@ class _ReportsPageState extends State<ReportsPage> {
   late var _period = ReportPeriod.of(ReportSpan.year, widget.ledger.today);
   int? _stretch;
 
+  /// The tab shown: 收支, 分類, 比較 or 習慣.
+  var _tab = 0;
+
+  static const _tabs = [
+    (Glyph.reports, '收支', Shade(0xFF5B8DB0, 0xFF8DB5D1)),
+    (Glyph.grid, '分類', Shade(0xFFB07A8C, 0xFFD3A2B3)),
+    (Glyph.swap, '比較', Shade(0xFF4A5D99, 0xFF9FAEE0)),
+    (Glyph.calendar, '習慣', Shade(0xFFD08B5B, 0xFFE3AA82)),
+  ];
+
   /// The sums for a period, kept until the ledger's data changes (its
   /// [Ledger.revision] moves on) or the day turns: picking a stretch or a
   /// category, or hiding the amounts, does not add everything up anew.
@@ -171,115 +181,228 @@ class _ReportsPageState extends State<ReportsPage> {
               onLabelTap: _pickRange,
               labelHint: '選擇期間',
             ),
-            // What 存成圖片 saves: the period's sums and its chart, on the
-            // page's own background.
+            // What 存成圖片 saves: the period's sums, on the page's own
+            // background.
             RepaintBoundary(
               key: _picture,
               child: ColoredBox(
                 color: Hue.paper,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    BalanceHero(
-                      ledger: ledger,
-                      icon: Glyph.reports,
-                      label: to.isAfter(today)
-                          ? '結餘 · 至 ${today.month}/${today.day}'
-                          : '結餘',
-                      income: income,
-                      expense: expense,
-                      third: (
-                        Glyph.dividend,
-                        '其中股息',
-                        ledger.money(report.dividends),
-                        Hue.investment,
-                      ),
-                    ),
-                    TileRow([
-                      Tile(
-                        icon: Glyph.payout,
-                        label: byMonth ? '平均每月支出' : '平均每週支出',
-                        value: ledger.money(report.perStretch),
-                        sub: _versus(expense, report.lastExpense),
-                      ),
-                      Tile(
-                        icon: Glyph.calendar,
-                        label: '支出最高',
-                        value: peak == null ? '—' : _stretchName(buckets[peak]),
-                        sub: peak == null
-                            ? null
-                            : ledger.money(buckets[peak].expense),
-                      ),
-                    ]),
-                    TileRow([
-                      Tile(
-                        icon: Glyph.wallet,
-                        label: '淨資產變化',
-                        value: ledger.moneySigned(
-                          report.worthNow - report.worthBefore,
-                        ),
-                        valueColor: report.worthNow < report.worthBefore
-                            ? Hue.negative
-                            : Hue.positive,
-                        sub: '期末 ${ledger.money(report.worthNow)}',
-                      ),
-                      Tile(
-                        icon: Glyph.categories,
-                        label: '最大分類',
-                        value: biggest ?? '—',
-                        sub: biggest == null || expense == 0
-                            ? null
-                            : '占支出 ${report.spending[biggest]! * 100 ~/ expense}%',
-                      ),
-                    ]),
-                    SectionHead(
-                      '收支與淨資產',
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const LegendKey(Hue.positive, '收入'),
-                          const SizedBox(width: 10),
-                          const LegendKey(Hue.negative, '支出'),
-                          const SizedBox(width: 10),
-                          const LegendKey(Hue.investment, '淨資產', line: true),
-                        ],
-                      ),
-                    ),
-                    PeriodBars(
-                      buckets: buckets,
-                      worth: report.worth,
-                      selected: selected,
-                      onSelect: (i) => setState(() => _stretch = i),
-                    ),
-                    if (ledger.holdings.isNotEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          '過去的股票市值以今日股價估算',
-                          style: TextStyle(fontSize: 12.5, color: Hue.muted),
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    _Readout(
-                      ledger: ledger,
-                      label: readout == null ? '整段期間' : _stretchName(readout),
-                      income: readout?.income ?? income,
-                      expense: readout?.expense ?? expense,
-                    ),
-                  ],
+                child: _Hero(
+                  ledger: ledger,
+                  income: income,
+                  expense: expense,
+                  dividends: report.dividends,
+                  lastExpense: report.lastExpense,
+                  until: to.isAfter(today) ? today : null,
                 ),
               ),
             ),
-            CompareSection(ledger: ledger, period: period),
-            if (period.span == ReportSpan.year) ..._summary(report),
-            ..._mix(report),
-            ..._weekdays(report),
-            ..._merchants(report),
-            ..._tags(report),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (final (i, (glyph, label, color)) in _tabs.indexed) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _TabButton(
+                      glyph: glyph,
+                      label: label,
+                      color: color,
+                      chosen: _tab == i,
+                      onTap: () => setState(() => _tab = i),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...switch (_tab) {
+              0 => _flow(report, buckets, peak, byMonth, readout, selected),
+              1 => [
+                if (biggest != null && expense > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                    child: Row(
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: '最大分類 '),
+                              TextSpan(
+                                text:
+                                    '$biggest ${report.spending[biggest]! * 100 ~/ expense}%',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const Spacer(),
+                        const Text('點分類看紀錄', style: mutedSmall),
+                      ],
+                    ),
+                  ),
+                ..._mix(report),
+                if (biggest == null)
+                  const EmptyState(
+                    glyph: Glyph.grid,
+                    color: Hue.faint,
+                    message: '這段時間沒有紀錄',
+                  ),
+              ],
+              2 => [CompareSection(ledger: ledger, period: period)],
+              _ => [
+                if (period.span == ReportSpan.year) ..._summary(report),
+                ..._highlights(report),
+                ..._weekdays(report),
+                ..._merchants(report),
+                ..._tags(report),
+                if (report.count == 0)
+                  const EmptyState(
+                    glyph: Glyph.calendar,
+                    color: Hue.faint,
+                    message: '這段時間沒有紀錄',
+                  ),
+              ],
+            },
           ],
         );
       },
     );
+  }
+
+  /// 收支: the average a week or month against last year, the dearest
+  /// stretch, and the chart of spending, income and net worth with what
+  /// the period's net worth did.
+  List<Widget> _flow(
+    _Report report,
+    List<PeriodBucket> buckets,
+    int? peak,
+    bool byMonth,
+    PeriodBucket? readout,
+    int? selected,
+  ) {
+    final ledger = widget.ledger;
+    final change = report.worthNow - report.worthBefore;
+    return [
+      CardGrid(gap: 10, [
+        _Block(
+          glyph: Glyph.calendar,
+          color: _tabs[0].$3,
+          label: byMonth ? '平均每月支出' : '平均每週支出',
+          value: ledger.orDots(groupDigits(report.perStretch)),
+          sub: _versus(report.expense, report.lastExpense),
+        ),
+        _Block(
+          glyph: Glyph.payout,
+          color: _tabs[3].$3,
+          label: '支出最高',
+          value: peak == null ? '—' : _stretchName(buckets[peak]),
+          sub: peak == null
+              ? ''
+              : ledger.orDots(groupDigits(buckets[peak].expense)),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        decoration: BoxDecoration(
+          color: Hue.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: Hue.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '收支與淨資產',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                LegendKey(Hue.negative, '支出'),
+                SizedBox(width: 8),
+                LegendKey(Hue.positive, '收入'),
+                SizedBox(width: 8),
+                LegendKey(Hue.investment, '淨資產', line: true),
+              ],
+            ),
+            const SizedBox(height: 10),
+            PeriodBars(
+              buckets: buckets,
+              worth: report.worth,
+              selected: selected,
+              onSelect: (i) => setState(() => _stretch = i),
+            ),
+            const SizedBox(height: 8),
+            _Readout(
+              ledger: ledger,
+              label: readout == null ? '整段期間' : _stretchName(readout),
+              income: readout?.income ?? report.income,
+              expense: readout?.expense ?? report.expense,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '淨資產 期初 ${ledger.orDots(groupDigits(report.worthBefore))}'
+                    ' → 期末 ${ledger.orDots(groupDigits(report.worthNow))}',
+                    style: mutedSmall,
+                  ),
+                ),
+                Text(
+                  ledger.orDots(signed(change)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: change < 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+              ],
+            ),
+            if (ledger.holdings.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// 習慣's two highlights: the day of the week spent most on, and the
+  /// merchant gone to most.
+  List<Widget> _highlights(_Report report) {
+    final ledger = widget.ledger;
+    final days = report.weekdays;
+    final most = days.fold(0, max);
+    final merchant = report.merchants.isEmpty ? null : report.merchants.first;
+    if (most <= 0 && merchant == null) return const [];
+    return [
+      CardGrid(gap: 10, [
+        _Block(
+          glyph: Glyph.calendar,
+          color: Hue.negative,
+          label: '花最多的一天',
+          value: most <= 0 ? '—' : '週${weekdayNames[days.indexOf(most)]}',
+          sub: most <= 0 ? '' : '這段時間共 ${ledger.orDots(groupDigits(most))}',
+        ),
+        _Block(
+          glyph: Glyph.store,
+          color: Hue.positive,
+          label: '最常去',
+          value: merchant?.$1 ?? '—',
+          sub: merchant == null
+              ? ''
+              : '${merchant.$2} 次 · 每次約 '
+                    '${ledger.orDots(groupDigits(merchant.$3 ~/ merchant.$2))}',
+        ),
+      ]),
+    ];
   }
 
   String _stretchName(PeriodBucket b) =>
@@ -361,7 +484,7 @@ class _ReportsPageState extends State<ReportsPage> {
     final top = names.take(5).toList();
     final rest = names.skip(5).fold(0, (sum, n) => sum + (spending[n] ?? 0));
     return [
-      const SectionHead('分類', trailing: Text('點分類看紀錄', style: mutedSmall)),
+      const SizedBox(height: 10),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1103,6 +1226,287 @@ class _BarLine extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The main card: 結餘 big on the left, 收入 with what of it was
+/// dividends on the right, a bar of spending against what was kept, and
+/// 支出 against last year beside how much of the income was kept.
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.ledger,
+    required this.income,
+    required this.expense,
+    required this.dividends,
+    required this.lastExpense,
+    this.until,
+  });
+
+  final Ledger ledger;
+  final int income;
+  final int expense;
+  final int dividends;
+  final int lastExpense;
+
+  /// The period runs past today: its sums are up to this day.
+  final DateTime? until;
+
+  @override
+  Widget build(BuildContext context) {
+    final kept = income - expense;
+    final keptShare = income <= 0 ? 0 : (kept * 100 / income).round();
+    final spentShare = income <= 0
+        ? (expense > 0 ? 1.0 : 0.0)
+        : (expense / income).clamp(0.0, 1.0);
+    final change = lastExpense == 0
+        ? null
+        : (expense - lastExpense) * 100 ~/ lastExpense;
+    final until = this.until;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Hue.hero, Hue.tile],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      until == null
+                          ? '結餘'
+                          : '結餘 · 至 ${until.month}/${until.day}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Hue.accent,
+                      ),
+                    ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        ledger.orDots(groupDigits(kept)),
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          color: kept < 0 ? Hue.negative : Hue.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('收入', style: mutedSmall),
+                  Text(
+                    ledger.orDots(groupDigits(income)),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.positive,
+                    ),
+                  ),
+                  if (dividends > 0)
+                    Text(
+                      '含股息 ${ledger.orDots(groupDigits(dividends))}',
+                      style: mutedSmall,
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  if (spentShare > 0)
+                    Expanded(
+                      flex: (spentShare * 1000).round().clamp(1, 1000),
+                      child: const ColoredBox(
+                        color: Hue.negative,
+                        child: SizedBox.expand(),
+                      ),
+                    ),
+                  if (spentShare > 0 && spentShare < 1)
+                    const SizedBox(width: 3),
+                  if (spentShare < 1)
+                    Expanded(
+                      flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
+                      child: const ColoredBox(
+                        color: Hue.positive,
+                        child: SizedBox.expand(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const LegendKey(Hue.negative, '支出'),
+              const SizedBox(width: 6),
+              Text(
+                ledger.orDots(groupDigits(expense)),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              if (change != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: change >= 0 ? Hue.negative : Hue.positive,
+                  ),
+                ),
+              ],
+              const Spacer(),
+              const LegendKey(Hue.positive, '存下'),
+              const SizedBox(width: 6),
+              Text(
+                '$keptShare%',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One of the four tabs: a big icon over its name, solid with white
+/// words when chosen.
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.glyph,
+    required this.label,
+    required this.color,
+    required this.chosen,
+    required this.onTap,
+  });
+
+  final Glyph glyph;
+  final String label;
+  final Color color;
+  final bool chosen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = chosen ? const Color(0xFFFFFFFF) : deepOf(color);
+    return Semantics(
+      selected: chosen,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: chosen ? Hue.tileShadow : null,
+        ),
+        child: Material(
+          color: chosen ? color : tintOf(color, 0.2),
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  GlyphIcon(glyph, size: 24, color: ink),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tinted block: a solid icon and a label over a figure and a line.
+class _Block extends StatelessWidget {
+  const _Block({
+    required this.glyph,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.sub,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String label;
+  final String value;
+  final String sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = deepOf(color);
+    return ColorCard(
+      color: color,
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SquareIcon(glyph, color, size: 32),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+          ),
+          if (sub.isNotEmpty)
+            Text(sub, style: TextStyle(fontSize: 12.5, color: ink)),
         ],
       ),
     );
