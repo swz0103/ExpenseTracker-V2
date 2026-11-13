@@ -130,101 +130,140 @@ class _CompareSectionState extends State<CompareSection> {
       for (final row in rows.skip(3))
         if (row.$2 != row.$3) row,
     ].take(5).toList();
-    final widest = moved.fold(1, (m, r) => max(m, (r.$2 - r.$3).abs()));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionHead('比較'),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final against in _Against.values)
-              ChoicePill(
-                label: against == _Against.custom && _custom != null
-                    ? _span(second)
-                    : against.label,
-                selected: against == _against,
-                onTap: () => _choose(against),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SoftPanel(
-          color: Hue.white,
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 14,
-                children: [
-                  LegendKey(Hue.accent, '本期 ${_span(first)}'),
-                  LegendKey(Hue.faint, '${_against.label} ${_span(second)}'),
-                ],
-              ),
-              for (final (name, now, then) in rows.take(3))
-                _Measure(
-                  ledger: ledger,
-                  name: name,
-                  now: now,
-                  then: then,
-                  largest: largest,
-                  // More income or more left is better; more spending is not.
-                  better: name != '支出',
-                ),
-              if (moved.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                const Text('變化最多的分類', style: mutedSmall),
-                const SizedBox(height: 4),
-                for (final (name, now, then) in moved)
-                  _Moved(
-                    ledger: ledger,
-                    category: ledger.category(name),
-                    change: now - then,
-                    widest: widest,
+    String then(String label) =>
+        _against == _Against.custom ? '自訂' : label.replaceAll('同期', '');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: Hue.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: Hue.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Hue.surface,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                for (final against in _Against.values)
+                  Expanded(
+                    child: Semantics(
+                      selected: against == _against,
+                      button: true,
+                      child: Material(
+                        color: against == _against
+                            ? Hue.white
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(11),
+                          onTap: () => _choose(against),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44),
+                            child: Center(
+                              child: Text(
+                                against == _Against.custom && _custom != null
+                                    ? _span(second)
+                                    : against.label,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: against == _against
+                                      ? Hue.ink
+                                      : Hue.muted,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          for (final (name, now, before) in rows.take(3))
+            _Pair(
+              ledger: ledger,
+              name: name,
+              now: now,
+              then: before,
+              thenLabel: then(_against.label),
+              largest: largest,
+              color: switch (name) {
+                '收入' => Hue.positive,
+                '支出' => Hue.negative,
+                _ => Hue.accent,
+              },
+            ),
+          if (moved.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              '變化最多的分類',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (name, now, before) in moved)
+                  _MovedChip(
+                    ledger: ledger,
+                    category: ledger.category(name),
+                    change: now - before,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
 
-/// 收入, 支出 or 結餘: the period's amount over its bar, the other's under.
-class _Measure extends StatelessWidget {
-  const _Measure({
+/// 收入, 支出 or 結餘: its name and both amounts on a line, then the
+/// period's bar in its colour over the other's, paler.
+class _Pair extends StatelessWidget {
+  const _Pair({
     required this.ledger,
     required this.name,
     required this.now,
     required this.then,
+    required this.thenLabel,
     required this.largest,
-    required this.better,
+    required this.color,
   });
 
   final Ledger ledger;
   final String name;
   final int now;
   final int then;
+  final String thenLabel;
   final int largest;
-
-  /// Whether more is better.
-  final bool better;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final change = now - then;
-    final tone = change == 0
-        ? Hue.muted
-        : (change > 0) == better
-        ? Hue.positive
-        : Hue.negative;
-    final color = switch (name) {
-      '收入' => Hue.positive,
-      '支出' => Hue.negative,
-      _ => Hue.accent,
-    };
+    Widget bar(int value, Color tone) => ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: SizedBox(
+        height: 9,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: (value.abs() / largest).clamp(0.02, 1.0),
+            child: ColoredBox(color: tone, child: const SizedBox.expand()),
+          ),
+        ),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
@@ -232,144 +271,75 @@ class _Measure extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const Spacer(),
               Text(
-                ledger.money(now),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: now < 0 ? Hue.negative : Hue.ink,
-                ),
+                ledger.orDots(groupDigits(now)),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                ' ／$thenLabel ${ledger.orDots(groupDigits(then))}',
+                style: mutedSmall,
               ),
             ],
           ),
           const SizedBox(height: 6),
-          PairBars(
-            now: now.abs() / largest,
-            then: then.abs() / largest,
-            color: color,
-          ),
+          bar(now, color),
           const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                ledger.money(then),
-                style: const TextStyle(fontSize: 12.5, color: Hue.muted),
-              ),
-              const Spacer(),
-              Text(
-                then == 0
-                    ? (now == 0 ? '持平' : '—')
-                    : percentOf(change, then.abs()),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: tone,
-                ),
-              ),
-            ],
-          ),
+          bar(then, tintOf(color, 0.4)),
         ],
       ),
     );
   }
 }
 
-/// A category that moved: its mark and name, a bar from the middle line,
-/// right for more spent and left for less, and the difference.
-class _Moved extends StatelessWidget {
-  const _Moved({
+/// A category that moved most, as a chip in its colour: its icon, name
+/// and the change, red for more spent and green for less.
+class _MovedChip extends StatelessWidget {
+  const _MovedChip({
     required this.ledger,
     required this.category,
     required this.change,
-    required this.widest,
   });
 
   final Ledger ledger;
   final Category category;
   final int change;
-  final int widest;
 
   @override
   Widget build(BuildContext context) {
-    final more = change > 0;
-    final tone = more ? Hue.negative : Hue.positive;
-    final share = (change.abs() / widest).clamp(0.04, 1.0);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+    final color = category.color;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+      decoration: BoxDecoration(
+        color: tintOf(color, 0.22),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(iconFor(category.icon), category.color, size: 26),
+          SquareIcon(iconFor(category.icon), color, size: 28),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 64,
-            child: Text(
-              category.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13.5),
-            ),
-          ),
-          Expanded(
-            child: SizedBox(
-              height: 10,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: more
-                          ? null
-                          : FractionallySizedBox(
-                              widthFactor: share,
-                              child: _bar(tone, left: true),
-                            ),
-                    ),
-                  ),
-                  Container(width: 1.5, height: 14, color: Hue.line),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: more
-                          ? FractionallySizedBox(
-                              widthFactor: share,
-                              child: _bar(tone, left: false),
-                            )
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          Text(
+            category.name,
+            style: TextStyle(fontWeight: FontWeight.w800, color: deepOf(color)),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 76,
-            child: Text(
-              ledger.moneySigned(change),
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: tone,
-              ),
+          Text(
+            ledger.orDots(signed(change)),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: change > 0 ? Hue.negative : Hue.positive,
             ),
           ),
         ],
       ),
     );
   }
-
-  static Widget _bar(Color color, {required bool left}) => Container(
-    height: 10,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.horizontal(
-        left: left ? const Radius.circular(5) : Radius.zero,
-        right: left ? Radius.zero : const Radius.circular(5),
-      ),
-    ),
-  );
 }

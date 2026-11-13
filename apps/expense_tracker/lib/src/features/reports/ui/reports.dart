@@ -2,9 +2,12 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 
 import '../../../core/charts/donut.dart';
+import '../../../core/charts/treemap.dart';
+
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+
 import '../../../core/charts/period_charts.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
@@ -480,83 +483,54 @@ class _ReportsPageState extends State<ReportsPage> {
     final spending = report.spending;
     final lastSpending = report.lastSpending;
     final expense = report.expense;
-    // The five largest in their colours, the rest together in grey.
-    final top = names.take(5).toList();
-    final rest = names.skip(5).fold(0, (sum, n) => sum + (spending[n] ?? 0));
+    // The seven largest as their own blocks, the rest together.
+    final top = names.take(7).toList();
+    final rest = names.skip(7).fold(0, (sum, n) => sum + (spending[n] ?? 0));
+    final blocks = [
+      for (final n in top) (n, spending[n] ?? 0, lastSpending[n]),
+      if (rest > 0) ('其他', rest, null),
+    ];
     return [
       const SizedBox(height: 10),
-      SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-              child: Row(
-                children: [
-                  Donut(
-                    size: 124,
-                    thickness: 16,
-                    slices: [
-                      for (final n in top)
-                        (spending[n] ?? 0, ledger.category(n).color),
-                      if (rest > 0) (rest, Hue.faint),
-                    ],
-                    center: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('支出', style: mutedSmall),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            ledger.money(expense),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+      LayoutBuilder(
+        builder: (context, box) {
+          final width = box.maxWidth;
+          final height = width * 0.82;
+          final rects = treemapLayout([
+            for (final b in blocks) b.$2,
+          ], Rect.fromLTWH(0, 0, width, height));
+          return SizedBox(
+            height: height,
+            child: Stack(
+              children: [
+                for (final (i, (name, amount, last)) in blocks.indexed)
+                  if (i < rects.length)
+                    Positioned.fromRect(
+                      rect: rects[i].deflate(4),
+                      child: _CategoryBlock(
+                        ledger: ledger,
+                        category: name == '其他' && !spending.containsKey('其他')
+                            ? Category('其他', 'other', Hue.faint)
+                            : ledger.category(name),
+                        amount: amount,
+                        share: expense == 0 ? 0 : amount * 100 ~/ expense,
+                        change: last == null || last == 0
+                            ? null
+                            : (amount - last) * 100 ~/ last,
+                        large: i == 0,
+                        onTap: name == '其他' && !spending.containsKey('其他')
+                            ? null
+                            : () => _showCategory(name),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final n in top)
-                          _Share(
-                            color: ledger.category(n).color,
-                            name: n,
-                            share: expense == 0
-                                ? 0
-                                : (spending[n] ?? 0) / expense,
-                          ),
-                        if (rest > 0)
-                          _Share(
-                            color: Hue.faint,
-                            name: '其他',
-                            share: expense == 0 ? 0 : rest / expense,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-            for (final name in names)
-              _CategoryRow(
-                ledger: ledger,
-                category: ledger.category(name),
-                amount: spending[name] ?? 0,
-                last: lastSpending[name] ?? 0,
-                share: expense == 0 ? 0 : (spending[name] ?? 0) / expense,
-                largest: report.largest,
-                alone: names.length == 1,
-                onTap: () => _showCategory(name),
-              ),
-          ],
-        ),
+          );
+        },
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 6, left: 4),
+        child: Text('▲▼ 是跟去年同期比', style: mutedSmall),
       ),
     ];
   }
@@ -623,26 +597,109 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   List<Widget> _merchants(_Report report) {
-    final rows = report.merchants;
+    final rows = report.merchants.take(4).toList();
     if (rows.isEmpty) return const [];
     final ledger = widget.ledger;
-    final most = rows.fold(1, (m, r) => max(m, r.$3));
+    final total = rows.fold(0, (sum, r) => sum + r.$3);
     return [
-      const SectionHead('常去商家'),
-      SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Column(
+      const Padding(
+        padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+        child: Row(
           children: [
-            for (final (name, count, amount) in rows)
-              _BarLine(
-                lead: const IconBadge(Glyph.store, Hue.accent, size: 30),
-                name: name,
-                note: '$count 次',
-                amount: ledger.money(amount),
-                share: amount / most,
-                color: Hue.accent,
+            Text(
+              '常去商家',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            Spacer(),
+            Text('依金額', style: mutedSmall),
+          ],
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: Hue.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: Hue.cardShadow,
+        ),
+        child: Row(
+          children: [
+            Donut(
+              size: 120,
+              thickness: 22,
+              slices: [
+                for (final (i, r) in rows.indexed)
+                  (r.$3, Hue.shades[(i + 2) % Hue.shades.length]),
+              ],
+              center: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('這 ${rows.length} 家', style: mutedSmall),
+                  Text(
+                    ledger.orDots(groupDigits(total)),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                children: [
+                  for (final (i, (name, count, amount)) in rows.indexed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Hue.shades[(i + 2) % Hue.shades.length],
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  '$count 次 · 每次約 '
+                                  '${ledger.orDots(groupDigits(amount ~/ count))}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Hue.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            ledger.orDots(groupDigits(amount)),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -657,10 +714,7 @@ class _ReportsPageState extends State<ReportsPage> {
     if (most <= 0) return const [];
     final heaviest = days.indexOf(most);
     return [
-      SectionHead(
-        '星期',
-        trailing: Text('週${weekdayNames[heaviest]}花最多', style: mutedSmall),
-      ),
+      SectionHead('星期', trailing: const Text('虛線是每天平均', style: mutedSmall)),
       SoftPanel(
         color: Hue.white,
         padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
@@ -668,28 +722,45 @@ class _ReportsPageState extends State<ReportsPage> {
           children: [
             SizedBox(
               height: 96,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Stack(
                 children: [
-                  for (final (i, spent) in days.indexed)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: FractionallySizedBox(
-                          heightFactor: spent <= 0
-                              ? 0.03
-                              : max(spent / most, 0.06),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: i == heaviest
-                                  ? Hue.negative
-                                  : softOf(Hue.negative),
-                              borderRadius: BorderRadius.circular(6),
+                  Positioned.fill(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final (i, spent) in days.indexed)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              child: FractionallySizedBox(
+                                heightFactor: spent <= 0
+                                    ? 0.03
+                                    : max(spent / most, 0.06),
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: i == heaviest
+                                        ? Hue.negative
+                                        : softOf(Hue.negative),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 96 * (days.fold(0, (s, d) => s + d) / 7 / most),
+                    child: CustomPaint(
+                      size: const Size(double.infinity, 1),
+                      painter: _Dashes(Hue.muted),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -722,24 +793,53 @@ class _ReportsPageState extends State<ReportsPage> {
     final rows = report.tags;
     if (rows.isEmpty) return const [];
     final ledger = widget.ledger;
-    final most = rows.fold(1, (m, r) => max(m, r.$2));
+    final counts = {for (final (tag, n, _) in ledger.tagStats) tag: n};
     return [
-      const SectionHead('標籤'),
-      SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Column(
-          children: [
-            for (final (tag, amount) in rows)
-              _BarLine(
-                name: '#$tag',
-                amount: ledger.money(amount),
-                share: amount / most,
-                color: Hue.investment,
-              ),
-          ],
+      const Padding(
+        padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+        child: Text(
+          '標籤',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
         ),
       ),
+      CardGrid(columns: 3, gap: 8, [
+        for (final (tag, amount) in rows.take(9))
+          ColorCard(
+            color: nameColor(tag),
+            radius: 16,
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '#$tag',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(nameColor(tag)),
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    ledger.orDots(groupDigits(amount)),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (counts[tag] case final n?)
+                  Text(
+                    '$n 筆',
+                    style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  ),
+              ],
+            ),
+          ),
+      ]),
     ];
   }
 }
@@ -937,117 +1037,6 @@ final class _Report {
   }
 }
 
-/// A category of 分類: its mark, name and share, the amount and how it
-/// moved against a year before, and two bars, this period over last
-/// year's.
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({
-    required this.ledger,
-    required this.category,
-    required this.amount,
-    required this.last,
-    required this.share,
-    required this.largest,
-    required this.alone,
-    required this.onTap,
-  });
-
-  final Ledger ledger;
-  final Category category;
-  final int amount;
-  final int last;
-  final double share;
-  final int largest;
-
-  /// Whether this is the only category: its share is then all of it, and
-  /// a bar is drawn only to set it against last year.
-  final bool alone;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final change = last == 0 ? null : amount - last;
-    final tone = change == null || change == 0
-        ? Hue.muted
-        : change > 0
-        ? Hue.negative
-        : Hue.positive;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          children: [
-            IconBadge(iconFor(category.icon), category.color, size: 34),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        category.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (!alone) ...[
-                        const SizedBox(width: 6),
-                        Text('${(share * 100).round()}%', style: mutedSmall),
-                      ],
-                      const Spacer(),
-                      Text(
-                        ledger.money(amount),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (!alone || last > 0) ...[
-                    const SizedBox(height: 6),
-                    PairBars(
-                      now: amount / largest,
-                      then: last / largest,
-                      color: category.color,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '去年同期 ${ledger.money(last)}',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Hue.muted,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        change == null ? '新的支出' : percentOf(change, last),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: tone,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The chosen stretch, or the whole period, in one line.
 class _Readout extends StatelessWidget {
   const _Readout({
@@ -1114,122 +1103,6 @@ class _Readout extends StatelessWidget {
     ),
     style: const TextStyle(fontSize: 13),
   );
-}
-
-/// A slice of the ring of 分類: its colour, name and share.
-class _Share extends StatelessWidget {
-  const _Share({required this.color, required this.name, required this.share});
-
-  final Color color;
-  final String name;
-  final double share;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13),
-          ),
-        ),
-        Text('${(share * 100).round()}%', style: mutedSmall),
-      ],
-    ),
-  );
-}
-
-/// A line of a ranked list: a name over a bar as long as its share of
-/// the largest, and the amount.
-class _BarLine extends StatelessWidget {
-  const _BarLine({
-    required this.name,
-    required this.amount,
-    required this.share,
-    required this.color,
-    this.lead,
-    this.note,
-  });
-
-  final Widget? lead;
-  final String name;
-  final String? note;
-  final String amount;
-  final double share;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final side = lead;
-    final extra = note;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          if (side != null) ...[side, const SizedBox(width: 10)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    if (extra != null) ...[
-                      const SizedBox(width: 6),
-                      Text(extra, style: mutedSmall),
-                    ],
-                    const Spacer(),
-                    Text(
-                      amount,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: SizedBox(
-                    height: 6,
-                    child: ColoredBox(
-                      color: Hue.track,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: share.clamp(0.02, 1.0),
-                          heightFactor: 1,
-                          child: ColoredBox(color: color),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// The main card: 結餘 big on the left, 收入 with what of it was
@@ -1511,4 +1384,123 @@ class _Block extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A category as a block of the mosaic: its icon, name and share, what
+/// it came to, and against last year's same stretch.
+class _CategoryBlock extends StatelessWidget {
+  const _CategoryBlock({
+    required this.ledger,
+    required this.category,
+    required this.amount,
+    required this.share,
+    required this.change,
+    required this.large,
+    required this.onTap,
+  });
+
+  final Ledger ledger;
+  final Category category;
+  final int amount;
+  final int share;
+  final int? change;
+  final bool large;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = category.color;
+    final ink = deepOf(color);
+    final change = this.change;
+    return ColorCard(
+      color: color,
+      amount: 0.24,
+      radius: 18,
+      onTap: onTap,
+      label: '${category.name} $share%',
+      padding: const EdgeInsets.all(8),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final roomy = box.maxHeight > 70 && box.maxWidth > 70;
+          return Stack(
+            children: [
+              if (roomy)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  child: SquareIcon(
+                    iconFor(category.icon),
+                    color,
+                    size: large ? 40 : 28,
+                  ),
+                ),
+              if (change != null && box.maxWidth > 60)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Text(
+                    '${change >= 0 ? '▲' : '▼'} ${change.abs()}%',
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: change >= 0 ? Hue.negative : Hue.positive,
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${category.name} · $share%',
+                        style: TextStyle(
+                          fontSize: large ? 15 : 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: ink,
+                        ),
+                      ),
+                      Text(
+                        ledger.orDots(groupDigits(amount)),
+                        style: TextStyle(
+                          fontSize: large ? 26 : 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A dashed rule across, for an average.
+class _Dashes extends CustomPainter {
+  _Dashes(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 7) {
+      canvas.drawLine(Offset(x, 0), Offset(x + 4, 0), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Dashes old) => old.color != color;
 }
