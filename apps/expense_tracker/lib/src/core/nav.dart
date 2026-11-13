@@ -99,6 +99,24 @@ final class DebtPlace extends Place {
   int get hashCode => Object.hash(DebtPlace, id);
 }
 
+/// A tag's page, or a merchant's, which returns to 標籤與商家.
+final class LabelPlace extends Place {
+  const LabelPlace(this.name, {this.merchant = false});
+
+  final String name;
+  final bool merchant;
+
+  @override
+  Place get parent => Pages.labels;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LabelPlace && other.name == name && other.merchant == merchant;
+
+  @override
+  int get hashCode => Object.hash(LabelPlace, name, merchant);
+}
+
 /// A page of 設定與資料, which returns to it.
 final class SettingsPlace extends Place {
   const SettingsPlace(this.part);
@@ -130,6 +148,8 @@ abstract final class Pages {
   static Place account(String id) => AccountPlace(id);
   static Place holding(String code) => HoldingPlace(code);
   static Place debt(String id) => DebtPlace(id);
+  static Place tag(String name) => LabelPlace(name);
+  static Place merchant(String name) => LabelPlace(name, merchant: true);
   static Place settingsPart(SettingsPart part) => SettingsPlace(part);
 }
 

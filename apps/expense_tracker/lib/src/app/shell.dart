@@ -264,6 +264,13 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
+        LabelPlace(:final name, :final merchant) => LabelPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          name: name,
+          merchant: merchant,
+        ),
         SettingsPlace(:final part) => SettingsPage(
           key: ValueKey(page),
           ledger: ledger,
