@@ -253,7 +253,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
       ('財務報表', '收支與淨資產'),
-      ('投資與股息', 'ETF'),
+      ('投資與股息', '市值'),
       ('代墊與借貸', '別人欠你'),
       ('預算管理', '分類與標籤額度'),
       ('定期交易', '本月還沒扣'),
