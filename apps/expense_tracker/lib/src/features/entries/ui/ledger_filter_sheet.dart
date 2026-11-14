@@ -148,13 +148,13 @@ final class LedgerFilter {
   };
 }
 
-/// Opens 篩選 over [current]; returns the filter applied, or null when
-/// the sheet is closed without 套用.
+/// Opens 篩選 over [current] in the middle of the screen; returns the
+/// filter applied, or null when closed without 套用.
 Future<LedgerFilter?> showLedgerFilter(
   BuildContext context,
   Ledger ledger,
   LedgerFilter current,
-) => showSheet<LedgerFilter>(
+) => showPanel<LedgerFilter>(
   context,
   (_) => _FilterSheet(ledger: ledger, initial: current),
 );
@@ -310,89 +310,82 @@ class _FilterSheetState extends State<_FilterSheet> {
     final span = _span;
     final account = _account;
     final category = _category;
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '篩選',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _clear,
-                  style: TextButton.styleFrom(foregroundColor: Hue.muted),
-                  child: const Text('清除'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final (i, kind) in KindFilter.values.indexed) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(
-                    child: _KindTile(
-                      kind: kind,
-                      selected: kind == _kind,
-                      onTap: () => setState(() => _kind = kind),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const _Heading('日期'),
-            Segments(
-              labels: [
-                for (final s in _Span.values)
-                  s == _Span.custom && span == _Span.custom && range != null
-                      ? LedgerFilter.rangeLabel(range)
-                      : s.label,
-              ],
-              selected: span.index,
-              onChanged: _pickSpan,
-            ),
-            const _Heading('金額'),
-            Row(
-              children: [
-                Expanded(child: _AmountField(_least, '最少')),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: Text('–', style: TextStyle(color: Hue.muted)),
-                ),
-                Expanded(child: _AmountField(_most, '最多')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _ChoiceRow(
-              label: '帳戶',
-              value: account == null ? '全部' : ledger.account(account).name,
-              onTap: _pickAccount,
-              onClear: account == null
-                  ? null
-                  : () => setState(() => _account = null),
-            ),
-            const SizedBox(height: 8),
-            _ChoiceRow(
-              label: '分類',
-              value: category ?? '全部',
-              onTap: _pickCategory,
-              onClear: category == null
-                  ? null
-                  : () => setState(() => _category = null),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: _apply, child: const Text('套用')),
-          ],
-        ),
+    return CenterPanel(
+      glyph: Glyph.sliders,
+      color: Hue.accent,
+      title: '篩選',
+      trailing: TextButton(
+        onPressed: _clear,
+        style: TextButton.styleFrom(foregroundColor: Hue.muted),
+        child: const Text('清除'),
       ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              for (final (i, kind) in KindFilter.values.indexed) ...[
+                if (i > 0) const SizedBox(width: 6),
+                Expanded(
+                  child: _KindTile(
+                    kind: kind,
+                    selected: kind == _kind,
+                    onTap: () => setState(() => _kind = kind),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const _Heading('日期'),
+          Segments(
+            labels: [
+              for (final s in _Span.values)
+                s == _Span.custom && span == _Span.custom && range != null
+                    ? LedgerFilter.rangeLabel(range)
+                    : s.label,
+            ],
+            selected: span.index,
+            onChanged: _pickSpan,
+          ),
+          const _Heading('金額'),
+          Row(
+            children: [
+              Expanded(child: _AmountField(_least, '最少')),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('–', style: TextStyle(color: Hue.muted)),
+              ),
+              Expanded(child: _AmountField(_most, '最多')),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _ChoiceRow(
+            glyph: Glyph.wallet,
+            color: Palette.teal,
+            label: '帳戶',
+            value: account == null ? '全部' : ledger.account(account).name,
+            onTap: _pickAccount,
+            onClear: account == null
+                ? null
+                : () => setState(() => _account = null),
+          ),
+          const SizedBox(height: 8),
+          _ChoiceRow(
+            glyph: Glyph.categories,
+            color: Palette.orange,
+            label: '分類',
+            value: category ?? '全部',
+            onTap: _pickCategory,
+            onClear: category == null
+                ? null
+                : () => setState(() => _category = null),
+          ),
+        ],
+      ),
+      actions: [
+        PanelButton('取消', onTap: () => Navigator.of(context).pop()),
+        PanelButton('套用', color: Hue.accent, onTap: _apply),
+      ],
     );
   }
 }
@@ -439,14 +432,8 @@ class _KindTile extends StatelessWidget {
       label: kind.label,
       excludeSemantics: true,
       child: Material(
-        color: selected ? softOf(color) : Hue.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: selected ? color : Colors.transparent,
-            width: 1.5,
-          ),
-        ),
+        color: selected ? color : tintOf(color, 0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -454,15 +441,19 @@ class _KindTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Column(
               children: [
-                GlyphIcon(glyph, size: 20, color: selected ? color : Hue.muted),
+                GlyphIcon(
+                  glyph,
+                  size: 20,
+                  color: selected ? wordsOn(color) : deepOf(color),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   kind.label,
                   maxLines: 1,
                   style: TextStyle(
                     fontSize: 12.5,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? color : Hue.ink,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? wordsOn(color) : deepOf(color),
                   ),
                 ),
               ],
@@ -477,12 +468,16 @@ class _KindTile extends StatelessWidget {
 /// 帳戶 or 分類: what is chosen, opening the choices; × goes back to all.
 class _ChoiceRow extends StatelessWidget {
   const _ChoiceRow({
+    required this.glyph,
+    required this.color,
     required this.label,
     required this.value,
     required this.onTap,
     required this.onClear,
   });
 
+  final Glyph glyph;
+  final Color color;
   final String label;
   final String value;
   final VoidCallback onTap;
@@ -499,10 +494,12 @@ class _ChoiceRow extends StatelessWidget {
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.only(left: 14, right: 4),
+          padding: const EdgeInsets.only(left: 10, right: 4),
           child: Row(
             children: [
-              Text(label, style: const TextStyle(color: Hue.muted)),
+              SquareIcon(glyph, color, size: 32),
+              const SizedBox(width: 10),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
