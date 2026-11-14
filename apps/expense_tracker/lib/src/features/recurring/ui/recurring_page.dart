@@ -123,7 +123,7 @@ class _RecurringPageState extends State<RecurringPage> {
         var toCome = 0;
         for (final list in plan.values) {
           for (final d in list) {
-            if (d.booked == null && !d.item.income) {
+            if (!d.settled && !d.item.income) {
               toCome += ledger.recurringWorth(d.item);
             }
           }
@@ -305,8 +305,8 @@ class _Calendar extends StatelessWidget {
     final isToday = day == todayDay;
     final past = day.isBefore(todayDay);
     final items = plan[d] ?? const <Due>[];
-    final allBooked = items.isNotEmpty && items.every((x) => x.booked != null);
-    final due = items.any((x) => x.booked == null) && !day.isAfter(todayDay);
+    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
+    final due = items.any((x) => !x.settled) && !day.isAfter(todayDay);
     final single = items.length == 1 && !allBooked;
     final (glyph, color) = single
         ? _mark(ledger, items.first.item)
@@ -372,7 +372,7 @@ class _Calendar extends StatelessWidget {
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               decoration: BoxDecoration(
-                color: x.booked == null ? _mark(ledger, x.item).$2 : Hue.faint,
+                color: !x.settled ? _mark(ledger, x.item).$2 : Hue.faint,
                 shape: BoxShape.circle,
               ),
             ),
@@ -481,8 +481,8 @@ class _DayItemsState extends State<_DayItems> {
     final day = widget.day;
     final items = widget.items;
     final away = day.difference(todayDay).inDays;
-    final allBooked = items.isNotEmpty && items.every((x) => x.booked != null);
-    final overdue = items.any((x) => x.booked == null) && away < 0;
+    final allBooked = items.isNotEmpty && items.every((x) => x.settled);
+    final overdue = items.any((x) => !x.settled) && away < 0;
     final total = items.fold(
       0,
       (sum, x) => sum + ledger.recurringWorth(x.item),
@@ -600,11 +600,14 @@ class _DayItemsState extends State<_DayItems> {
     final item = x.item;
     final booked = x.booked;
     final (glyph, markColor) = _mark(ledger, item);
-    final color = booked == null ? markColor : Hue.faint;
-    final due = booked == null && !x.day.isAfter(todayDay);
+    final skipped = x.skipped;
+    final color = x.settled ? Hue.faint : markColor;
+    final due = !x.settled && !x.day.isAfter(todayDay);
     final away = x.day.difference(todayDay).inDays;
     final account = ledger.account(item.account).name;
-    final line = booked != null
+    final line = skipped
+        ? '已跳過 · 不會再記'
+        : booked != null
         ? '已入帳 · ${booked.date.month}/${booked.date.day}'
         : due
         ? '$account · 到期'
@@ -616,7 +619,7 @@ class _DayItemsState extends State<_DayItems> {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Row(
         children: [
-          booked == null
+          !x.settled
               ? SquareIcon(glyph, color, size: 58)
               : Container(
                   width: 58,
@@ -682,6 +685,22 @@ class _DayItemsState extends State<_DayItems> {
               ),
               child: const Text(
                 '入帳',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            )
+          else if (skipped)
+            FilledButton(
+              onPressed: () => ledger.unskip(item, x.day),
+              style: FilledButton.styleFrom(
+                backgroundColor: Hue.white,
+                foregroundColor: Hue.accent,
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                '恢復',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             )

@@ -117,6 +117,7 @@ final class RecurringForm {
     income: income,
     merchant: old?.merchant ?? '',
     auto: auto,
+    skipped: old?.skipped ?? const {},
   );
 
   /// How often it comes, such as 每月 5 日.

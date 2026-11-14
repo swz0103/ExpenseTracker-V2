@@ -215,8 +215,12 @@ final class VaultKeeper implements Keeper {
         // Unreadable: written again.
       }
     }
-    final file = await _write(target.parent, withPhotos: false);
-    // Renamed over the last one: Android never takes half a file.
+    // Written in exports/, not in cloud/: Android's backup takes all of
+    // cloud/, so a write cut short there would go to the person's Google
+    // account. Renamed over the last one in the same storage: Android
+    // never takes half a file.
+    final file = await _write(_exports, withPhotos: false);
+    await target.parent.create(recursive: true);
     await file.rename(target.path);
     return true;
   }
@@ -270,17 +274,30 @@ final class VaultKeeper implements Keeper {
   }
 
   /// Keeps the ledger as it was before a restore from settings, with its
-  /// photos, apart from the weekly backups. The newest two stay; the lock
-  /// screen offers them to restore.
+  /// photos, apart from the weekly backups. The two written last stay, by
+  /// when they were written (their names do not sort by time: a copy
+  /// Android brought back is named `brought-back-…`), and that copy is
+  /// never one of those let go; the lock screen offers them to restore.
   @override
   Future<String> restoreAnother() async {
     await _beforeLock?.call();
     final folder = _startup.beforeRestore;
     final kept = await _write(folder, withPhotos: true);
+    DateTime written(File file) {
+      try {
+        return file.lastModifiedSync();
+      } on FileSystemException {
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      }
+    }
+
     final older = [
       for (final entity in folder.listSync())
-        if (entity is File && entity.path.endsWith('.etbk')) entity,
-    ]..sort((a, b) => b.path.compareTo(a.path));
+        if (entity is File &&
+            entity.path.endsWith('.etbk') &&
+            !entity.uri.pathSegments.last.startsWith('brought-back'))
+          entity,
+    ]..sort((a, b) => written(b).compareTo(written(a)));
     for (final old in older.skip(2)) {
       await old.delete();
     }

@@ -199,6 +199,8 @@ Map<String, Object?> recurringToJson(Recurring r) => {
   if (r.income) 'income': true,
   if (r.merchant.isNotEmpty) 'merchant': r.merchant,
   if (r.auto) 'auto': true,
+  if (r.skipped.isNotEmpty)
+    'skipped': [for (final d in r.skipped.toList()..sort()) _day(d)],
 };
 
 Recurring recurringFromJson(Map<String, Object?> json) => _read(
@@ -223,6 +225,10 @@ Recurring recurringFromJson(Map<String, Object?> json) => _read(
     income: json['income'] == true,
     merchant: json['merchant'] as String? ?? '',
     auto: json['auto'] == true,
+    skipped: {
+      for (final day in json['skipped'] as List? ?? const [])
+        _date(day as String),
+    },
   ),
 );
 

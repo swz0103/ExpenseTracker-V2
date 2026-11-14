@@ -550,6 +550,8 @@ final class Ledger extends ChangeNotifier {
       categories: changed(before.categories, _categories, categoryKey),
       budgets: changed(before.budgets, _budgets, budgetKey),
       recurring: changed(before.recurring, _recurring, recurringKey),
+      // Entries in the trash follow a rename or a merge too.
+      trash: changed(before.trash, _trash, (t) => t.entry.id),
       dropped: [
         ...gone(Shelf.entry, before.entries, _entries, entryKey),
         ...gone(Shelf.category, before.categories, _categories, categoryKey),
@@ -564,6 +566,7 @@ final class Ledger extends ChangeNotifier {
     categories: List.of(_categories),
     budgets: List.of(_budgets),
     recurring: List.of(_recurring),
+    trash: List.of(_trash),
   );
 
   /// Adds [entry], with its receipt photo [receipt] when one is given; a
@@ -698,12 +701,84 @@ final class Ledger extends ChangeNotifier {
     );
   }
 
+  /// The day of its recurring item [e] booked: its place among that
+  /// month's bookings, in order, against the days the item falls due.
+  DateTime? dueDayOf(Entry e) {
+    final id = e.recurring;
+    if (id == null) return null;
+    final index = _recurring.indexWhere((r) => r.id == id);
+    if (index < 0) return null;
+    final item = _recurring[index];
+    final booked = confirmationsIn(item, e.date.year, e.date.month);
+    final at = booked.indexWhere((b) => b.id == e.id);
+    final days = item.dueIn(e.date.year, e.date.month);
+    return at < 0 || at >= days.length ? null : days[at];
+  }
+
+  /// The recurring items [removed] booked, each with the day it lets go:
+  /// a booking deleted is a period skipped, not one to book again.
+  List<Recurring> _skipping(List<Entry> removed) {
+    final changed = <String, Recurring>{};
+    for (final e in removed) {
+      final day = dueDayOf(e);
+      if (day == null) continue;
+      final item =
+          changed[e.recurring] ??
+          _recurring.firstWhere((r) => r.id == e.recurring);
+      changed[item.id] = item.copyWith(skipped: {...item.skipped, day});
+    }
+    return changed.values.toList();
+  }
+
+  /// The recurring items [back] booked with the day each had let go
+  /// taken out again: the one nearest the entry in its month.
+  List<Recurring> _unskipping(List<Entry> back) {
+    final changed = <String, Recurring>{};
+    for (final e in back) {
+      final id = e.recurring;
+      if (id == null) continue;
+      final index = _recurring.indexWhere((r) => r.id == id);
+      if (index < 0) continue;
+      final item = changed[id] ?? _recurring[index];
+      final days =
+          [
+            for (final d in item.skipped)
+              if (d.year == e.date.year && d.month == e.date.month) d,
+          ]..sort(
+            (a, b) => (a.difference(e.date).abs()).compareTo(
+              b.difference(e.date).abs(),
+            ),
+          );
+      if (days.isEmpty) continue;
+      changed[id] = item.copyWith(
+        skipped: {...item.skipped}..remove(days.first),
+      );
+    }
+    return changed.values.toList();
+  }
+
+  void _putRecurring(List<Recurring> items) {
+    for (final item in items) {
+      final index = _recurring.indexWhere((r) => r.id == item.id);
+      if (index >= 0) _recurring[index] = item;
+    }
+  }
+
+  /// Takes [day] out of [item]'s skipped days, so it is booked again: 恢復
+  /// on the calendar.
+  void unskip(Recurring item, DateTime day) {
+    if (!item.skipped.contains(day)) return;
+    saveRecurring(item.copyWith(skipped: {...item.skipped}..remove(day)));
+  }
+
   /// Removes the entry with [id] and returns it with its place, for undo.
   /// Null when there is none, or when taking it away would leave a later
   /// sale short of shares: that is told through [problem].
   (int, Entry)? remove(String id) {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
+    // Its period, worked out while it still counts.
+    final skipping = _skipping([_entries[index]]);
     final removed = _entries.removeAt(index);
     if (!_tryReplay(
       () => _entries.insert(index, removed),
@@ -711,9 +786,17 @@ final class Ledger extends ChangeNotifier {
     )) {
       return null;
     }
+    _putRecurring(skipping);
     final trashed = Trashed(removed, today);
     _trash.insert(0, trashed);
-    _keep(Batch(trash: [trashed], dropped: [(Shelf.entry, removed.id)]));
+    _keep(
+      Batch(
+        trash: [trashed],
+        recurring: skipping,
+        dropped: [(Shelf.entry, removed.id)],
+      ),
+    );
+    if (skipping.isNotEmpty) _changed(const {Area.recurring});
     return (index, removed);
   }
 
@@ -727,6 +810,7 @@ final class Ledger extends ChangeNotifier {
         if (wanted.contains(e.id)) (i, e),
     ];
     if (removed.isEmpty) return const [];
+    final skipping = _skipping([for (final (_, e) in removed) e]);
     _entries.removeWhere((e) => wanted.contains(e.id));
     if (!_tryReplay(() {
       for (final (i, e) in removed) {
@@ -735,14 +819,17 @@ final class Ledger extends ChangeNotifier {
     }, trades: removed.any((r) => r.$2.isInvestment))) {
       return const [];
     }
+    _putRecurring(skipping);
     final trashed = [for (final (_, e) in removed) Trashed(e, today)];
     _trash.insertAll(0, trashed.reversed);
     _keep(
       Batch(
         trash: trashed,
+        recurring: skipping,
         dropped: [for (final (_, e) in removed) (Shelf.entry, e.id)],
       ),
     );
+    if (skipping.isNotEmpty) _changed(const {Area.recurring});
     return removed;
   }
 
@@ -761,12 +848,16 @@ final class Ledger extends ChangeNotifier {
       return false;
     }
     _trash.removeWhere((t) => ids.contains(t.entry.id));
+    final back = _unskipping([for (final (_, e) in removed) e]);
+    _putRecurring(back);
     _keep(
       Batch(
         entries: [for (final (_, e) in removed) e],
+        recurring: back,
         dropped: [for (final id in ids) (Shelf.trash, id)],
       ),
     );
+    if (back.isNotEmpty) _changed(const {Area.recurring});
     return true;
   }
 
@@ -780,7 +871,16 @@ final class Ledger extends ChangeNotifier {
       return false;
     }
     _trash.removeWhere((t) => t.entry.id == entry.id);
-    _keep(Batch(entries: [entry], dropped: [(Shelf.trash, entry.id)]));
+    final back = _unskipping([entry]);
+    _putRecurring(back);
+    _keep(
+      Batch(
+        entries: [entry],
+        recurring: back,
+        dropped: [(Shelf.trash, entry.id)],
+      ),
+    );
+    if (back.isNotEmpty) _changed(const {Area.recurring});
     return true;
   }
 
@@ -817,12 +917,16 @@ final class Ledger extends ChangeNotifier {
     }, trades: back.any((t) => t.entry.isInvestment))) {
       return false;
     }
+    final unskipped = _unskipping([for (final t in back) t.entry]);
+    _putRecurring(unskipped);
     _keep(
       Batch(
         entries: [for (final t in back) t.entry],
+        recurring: unskipped,
         dropped: [for (final t in back) (Shelf.trash, t.entry.id)],
       ),
     );
+    if (unskipped.isNotEmpty) _changed(const {Area.recurring});
     return true;
   }
 
@@ -988,7 +1092,13 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Whether [id] has any entries; an account without can be removed.
-  bool isUsed(String id) => _entries.any((e) => e.account == id || e.to == id);
+  /// Whether anything still names account [id]: an entry, one in the
+  /// trash that may come back, or a recurring item. One in use is
+  /// archived rather than deleted, so nothing is left pointing nowhere.
+  bool isUsed(String id) =>
+      _entries.any((e) => e.account == id || e.to == id) ||
+      _trash.any((t) => t.entry.account == id || t.entry.to == id) ||
+      _recurring.any((r) => r.account == id);
 
   void removeAccount(String id) {
     if (isUsed(id)) return;
@@ -1049,12 +1159,27 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Puts the entries and recurring items of category [from] in [to].
+  /// Changes the entries in the trash as [change] says, keeping when
+  /// each was deleted: what comes back from 最近刪除 fits the book as it
+  /// is now, not as it was.
+  void _changeTrash(Entry? Function(Entry) change) {
+    for (final (i, t) in _trash.indexed) {
+      final next = change(t.entry);
+      if (next != null) _trash[i] = Trashed(next, t.on);
+    }
+  }
+
   void _moveUses(String from, String to) {
     for (final (i, e) in _entries.indexed) {
       if (e.category == from || e.parts.any((p) => p.$1 == from)) {
         _entries[i] = e.withCategory(to, from: from);
       }
     }
+    _changeTrash(
+      (e) => e.category == from || e.parts.any((p) => p.$1 == from)
+          ? e.withCategory(to, from: from)
+          : null,
+    );
     for (final (i, r) in _recurring.indexed) {
       if (r.category == from) _recurring[i] = r.copyWith(category: to);
     }
@@ -1193,6 +1318,17 @@ final class Ledger extends ChangeNotifier {
       }.toList();
       _entries[i] = e.withLabels(tags: tags);
     }
+    _changeTrash(
+      (e) => e.tags.contains(from)
+          ? e.withLabels(
+              tags: {
+                for (final t in e.tags)
+                  if (t != from) t,
+                if (to.isNotEmpty) to,
+              }.toList(),
+            )
+          : null,
+    );
     notifyListeners();
     _keep(_since(before));
   }
@@ -1204,6 +1340,7 @@ final class Ledger extends ChangeNotifier {
     for (final (i, e) in _entries.indexed) {
       if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
     }
+    _changeTrash((e) => e.merchant == from ? e.withLabels(merchant: to) : null);
     notifyListeners();
     _keep(_since(before));
   }
@@ -1378,6 +1515,7 @@ typedef _Before = ({
   List<Category> categories,
   List<Budget> budgets,
   List<Recurring> recurring,
+  List<Trashed> trash,
 });
 
 /// A change was refused because it would leave a later sale or reduction

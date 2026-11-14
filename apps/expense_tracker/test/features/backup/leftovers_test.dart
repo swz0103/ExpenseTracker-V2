@@ -35,8 +35,12 @@ void main() {
       at: now.subtract(const Duration(hours: 1)),
     );
     final ledger = make(files, 'ledger.db');
+    // Android's backup takes all of cloud/: only its one copy stays.
+    final copy = make(files, 'cloud/記帳本.etbk');
+    final half = make(files, 'cloud/記帳本-20261027-120000000.etbk');
     await clearLeftovers(files, cache: cache, now: now);
-    for (final gone in [export, ready, restore, camera]) {
+    expect(copy.existsSync(), isTrue);
+    for (final gone in [export, ready, restore, camera, half]) {
       expect(gone.existsSync(), isFalse, reason: gone.path);
     }
     expect(ledger.existsSync(), isTrue);

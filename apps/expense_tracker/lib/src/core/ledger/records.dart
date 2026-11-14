@@ -561,11 +561,17 @@ final class Recurring {
     this.income = false,
     this.merchant = '',
     this.auto = false,
+    this.skipped = const {},
   });
 
   final String id;
   final String name;
   final int amount;
+
+  /// Days it fell due that were let go: its entry deleted, so that day
+  /// is not booked again. Restoring the entry, or 恢復 on the calendar,
+  /// takes the day out again.
+  final Set<DateTime> skipped;
 
   /// Booked by itself on its day, when the ledger is next opened, rather
   /// than confirmed each time.
@@ -615,6 +621,7 @@ final class Recurring {
     String? category,
     bool? active,
     bool? auto,
+    Set<DateTime>? skipped,
   }) => Recurring(
     id: id,
     name: name ?? this.name,
@@ -630,9 +637,16 @@ final class Recurring {
     income: income,
     merchant: merchant,
     auto: auto ?? this.auto,
+    skipped: skipped ?? this.skipped,
   );
 
   /// The days in [year]/[month] it falls due.
+  /// The days of [year]/[month] it falls due and was not let go.
+  List<DateTime> dueIn(int year, int month) => [
+    for (final d in datesIn(year, month))
+      if (!skipped.contains(d)) d,
+  ];
+
   List<DateTime> datesIn(int year, int month) {
     final last = DateTime.utc(year, month + 1, 0);
     final first = start ?? DateTime.utc(2025, 1, day);
