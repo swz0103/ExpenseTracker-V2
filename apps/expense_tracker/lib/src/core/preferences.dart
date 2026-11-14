@@ -207,9 +207,9 @@ final class Preferences extends ChangeNotifier {
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
 
-  /// Android takes the encrypted ledger to the person's Google account
-  /// each day. Off, the copy it takes is deleted and not written again,
-  /// so Android's own backup carries nothing of the ledger.
+  /// Was the switch for Android's own backup of the ledger, gone in
+  /// 0.13.0, when the copy it takes became always kept; read and written
+  /// still, so an older version given this file back finds it.
   bool get googleBackup => _googleBackup;
   var _googleBackup = true;
 

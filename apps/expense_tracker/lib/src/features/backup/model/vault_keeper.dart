@@ -233,12 +233,6 @@ final class VaultKeeper implements Keeper {
   }
 
   @override
-  Future<void> dropCloudCopy() async {
-    final copy = _startup.cloudCopy;
-    if (copy.existsSync()) await copy.delete();
-  }
-
-  @override
   DateTime? get cloudCopyAt {
     final copy = _startup.cloudCopy;
     return copy.existsSync() ? copy.lastModifiedSync() : null;

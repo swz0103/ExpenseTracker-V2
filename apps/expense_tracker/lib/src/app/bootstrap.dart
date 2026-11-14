@@ -374,9 +374,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
     if (ledger == null) return;
     try {
       await ledger.settled;
-      // Turned off in 備份與還原, the copy is not kept: Android's own
-      // backup then takes nothing of the ledger.
-      if (Platform.isAndroid && widget.preferences.googleBackup) {
+      // Android's own backup takes this copy, so a new phone can restore
+      // the ledger from the welcome page. No longer a choice on 備份與還原
+      // (0.13.0): one turned off before is kept again.
+      if (Platform.isAndroid) {
         await _keeper.keepCloudCopy();
       }
     } on Object catch (error) {

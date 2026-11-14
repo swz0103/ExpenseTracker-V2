@@ -114,13 +114,14 @@ class _RemindersSectionState extends State<RemindersSection>
 
   Future<void> _pickNudgeTime(Notifier notifier) async {
     final preferences = notifier.preferences;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
+    final picked = await pickTime(
+      context,
+      initial: TimeOfDay(
         hour: preferences.nudgeHour,
         minute: preferences.nudgeMinute,
       ),
-      helpText: '每天幾點提醒',
+      title: '每天幾點提醒',
+      color: SettingsHue.daily,
     );
     if (picked != null) {
       preferences.update(nudgeHour: picked.hour, nudgeMinute: picked.minute);

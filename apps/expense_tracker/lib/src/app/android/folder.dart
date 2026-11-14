@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import '../../features/backup/model/phone_backup.dart';
 import 'channel.dart';
 
@@ -10,9 +12,15 @@ final class AndroidFolder implements FolderPort {
 
   @override
   Future<({String uri, String name})?> pick() async {
-    final picked = await platformChannel.invokeMapMethod<String, Object?>(
-      'pickFolder',
-    );
+    final Map<String, Object?>? picked;
+    try {
+      picked = await platformChannel.invokeMapMethod<String, Object?>(
+        'pickFolder',
+      );
+    } on PlatformException catch (error) {
+      if (error.code == 'rejected') throw const FolderRejected();
+      rethrow;
+    }
     if (picked == null) return null;
     return (
       uri: picked['uri']! as String,

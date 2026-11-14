@@ -72,18 +72,17 @@ class SettingsPage extends StatelessWidget {
 
   List<Widget> _index(BuildContext context) {
     final keeper = services.keeper;
-    final google = services.preferences?.googleBackup ?? true;
     final folder = services.phone?.on ?? false;
     final drive = services.drive;
+    final linked = drive?.linked ?? false;
     DateTime? latest;
     for (final at in [
-      if (google) keeper?.googleTakenAt,
-      if (google && (drive?.linked ?? false)) drive?.backedUp,
+      if (linked) drive?.backedUp,
       if (folder) services.phone?.backedUp,
     ]) {
       if (at != null && (latest == null || at.isAfter(latest))) latest = at;
     }
-    final on = google || folder;
+    final on = linked || folder;
     final stale =
         latest != null && DateTime.now().difference(latest).inDays > 3;
     Widget way(String name, bool on) => Container(
@@ -113,7 +112,10 @@ class SettingsPage extends StatelessWidget {
           trailing: Wrap(
             spacing: 8,
             runSpacing: 6,
-            children: [way('Google 備份', google), way('檔案備份', folder)],
+            children: [
+              if (drive != null) way('雲端硬碟', linked),
+              way('資料夾', folder),
+            ],
           ),
         ),
         const SizedBox(height: 12),

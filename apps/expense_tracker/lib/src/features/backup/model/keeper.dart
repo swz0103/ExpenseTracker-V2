@@ -19,10 +19,6 @@ abstract interface class Keeper {
   /// with backup turned on in the phone's settings.
   DateTime? get googleTakenAt;
 
-  /// Deletes the copy Android's own backup takes, when Google 備份 is
-  /// turned off: Android then backs up nothing of the ledger.
-  Future<void> dropCloudCopy();
-
   /// Saves [bytes] as a file named [name] outside the app, as
   /// [exportFile] does. False when the person cancels.
   Future<bool> exportBytes(String name, List<int> bytes);

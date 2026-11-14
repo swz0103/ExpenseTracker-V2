@@ -34,9 +34,18 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
                 )
                 result.success(mapOf("uri" to uri.toString(), "name" to nameOf(uri)))
             } catch (e: Exception) {
-                result.error("folder", e.message, null)
+                // Android keeps no permission for some places, such as the
+                // storage's top or Download since Android 11.
+                result.error("rejected", e.message, null)
             }
         }
+
+    /** Where the chooser opens: Documents on the phone's own storage. */
+    private val documents: Uri =
+        DocumentsContract.buildDocumentUri(
+            "com.android.externalstorage.documents",
+            "primary:Documents",
+        )
 
     /** The folder's name as the chooser showed it. */
     private fun nameOf(tree: Uri): String {
@@ -74,7 +83,7 @@ class FolderPart(private val activity: FragmentActivity) : ChannelPart {
                     result.error("busy", "A folder is being chosen.", null)
                 } else {
                     pendingFolder = result
-                    launchOr(result, { pendingFolder = null }) { openTree.launch(null) }
+                    launchOr(result, { pendingFolder = null }) { openTree.launch(documents) }
                 }
             }
             "folderAllowed" ->

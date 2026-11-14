@@ -87,14 +87,14 @@ class _CompareSectionState extends State<CompareSection> {
     final today = _today;
     final first = ledger.firstDay.isAfter(today) ? today : ledger.firstDay;
     final (from, to) = _second;
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: first,
-      lastDate: today,
-      initialDateRange: from.isBefore(first) || to.isAfter(today)
+    final picked = await pickDateRange(
+      context,
+      first: first,
+      last: today,
+      initial: from.isBefore(first) || to.isAfter(today)
           ? null
           : DateTimeRange(start: from, end: to),
-      helpText: '選擇要比較的期間',
+      title: '要比較的期間',
     );
     if (picked == null || !mounted) return;
     setState(() {

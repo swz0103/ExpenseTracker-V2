@@ -242,13 +242,12 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 
   Future<void> _pickRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: _today,
-      initialDateRange: _range,
-      helpText: '選擇日期區間',
-      saveText: '確定',
+    final picked = await pickDateRange(
+      context,
+      first: DateTime(2000),
+      last: _today,
+      initial: _range,
+      title: '日期區間',
     );
     if (picked != null && mounted) setState(() => _range = picked);
   }
