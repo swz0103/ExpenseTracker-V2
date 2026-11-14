@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
+import '../../../core/look/paint.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -207,118 +210,348 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
 String yearlyRate(double rate) =>
     '${rate > 0 ? '+' : ''}${(rate * 100).toStringAsFixed(1)}%';
 
-/// What the money invested earned a year, and the dividends to expect
-/// over the next twelve months, month by month.
-class _Returns extends StatelessWidget {
+/// 預計配息: the next twelve months as bars, each stacked by holding, the
+/// monthly average dashed across; a tap on a month lists what it holds.
+/// Guessed from the past year's dividends and the shares held now.
+class _Returns extends StatefulWidget {
   const _Returns({required this.ledger});
 
   final Ledger ledger;
 
   @override
+  State<_Returns> createState() => _ReturnsState();
+}
+
+class _ReturnsState extends State<_Returns> {
+  int? _picked;
+
+  /// Holdings' colours in the stacks, by how much each pays.
+  static const _colors = [
+    Shade(0xFF4A5D99, 0xFF9FAEE0),
+    Shade(0xFF5C9A83, 0xFF8CC3AE),
+    Shade(0xFFD08B5B, 0xFFE3AA82),
+    Shade(0xFF5B8DB0, 0xFF8DB5D1),
+    Shade(0xFFB07A8C, 0xFFD3A2B3),
+    Shade(0xFF9AA35E, 0xFFC2C98E),
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final rate = returnOf(ledger);
-    final opening = ledger.holdings.any(
-      (h) => ledger.lotsOf(h.code).any((l) => l.isOpening),
-    );
-    final since = investedSince(ledger);
+    final ledger = widget.ledger;
     final guesses = expectedDividends(ledger);
-    final total = guesses.fold(0, (sum, g) => sum + g.amount);
-    final young = since != null && ledger.today.difference(since).inDays < 365;
-    final months = <DateTime, List<DividendGuess>>{};
-    for (final g in guesses) {
-      (months[g.month] ??= []).add(g);
+    if (guesses.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 18),
+        child: EmptyState(
+          glyph: Glyph.dividend,
+          color: Shade(0xFFC9A34A, 0xFFDDBE73),
+          message: '記下領到的股息後，這裡會推估接下來 12 個月的配息',
+        ),
+      );
     }
+    final today = ledger.today;
+    final months = [
+      for (var k = 1; k <= 12; k++) DateTime.utc(today.year, today.month + k),
+    ];
+    // By month, then by holding.
+    final byMonth = [
+      for (final m in months)
+        <String, int>{
+          for (final g in guesses)
+            if (g.month.year == m.year && g.month.month == m.month)
+              g.code: g.amount,
+        },
+    ];
+    // Several from one holding in a month add up.
+    for (final g in guesses) {
+      final k = months.indexWhere(
+        (m) => m.year == g.month.year && m.month == g.month.month,
+      );
+      if (k < 0) continue;
+      byMonth[k][g.code] = guesses
+          .where((x) => x.code == g.code && x.month == g.month)
+          .fold(0, (sum, x) => sum + x.amount);
+    }
+    final names = {for (final g in guesses) g.code: g.name};
+    final totals = <String, int>{};
+    for (final month in byMonth) {
+      for (final MapEntry(:key, :value) in month.entries) {
+        totals[key] = (totals[key] ?? 0) + value;
+      }
+    }
+    final order = totals.keys.toList()
+      ..sort((a, b) => totals[b]!.compareTo(totals[a]!));
+    final colour = {
+      for (final (i, code) in order.indexed) code: _colors[i % _colors.length],
+    };
+    final sums = [for (final m in byMonth) m.values.fold(0, (a, b) => a + b)];
+    final total = sums.fold(0, (a, b) => a + b);
+    final first = sums.indexWhere((s) => s > 0);
+    final picked = _picked ?? first;
+    final average = total / 12;
+    final last = months.last;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TileRow([
-          Tile(
-            icon: Glyph.reports,
-            label: '年化報酬',
-            value: rate == null ? '—' : yearlyRate(rate),
-            valueColor: rate == null
-                ? Hue.muted
-                : rate < 0
-                ? Hue.negative
-                : Hue.positive,
-            sub: rate == null
-                ? opening
-                      ? '有期初持股，買進日不明，無法計算'
-                      : since == null
-                      ? '還沒有交易'
-                      : '交易還不夠計算'
-                : young
-                ? '投資未滿一年，僅供參考'
-                : '含股息、已賣出（XIRR）',
-          ),
-          Tile(
-            icon: Glyph.dividend,
-            label: '未來 12 個月股息',
-            value: total == 0 ? '—' : '約 ${ledger.money(total)}',
-            sub: total == 0 ? '記下領到的股息後才能推估' : '依過去一年配息與目前股數推估',
-          ),
-        ]),
-        if (months.isNotEmpty) ...[
-          const SectionHead('預計配息'),
-          SoftPanel(
-            color: Hue.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            child: Column(
-              children: [
-                for (final (i, MapEntry(key: month, value: list))
-                    in months.entries.indexed)
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: i == 0 ? null : ruleAbove,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 56,
-                          child: Text(
-                            '${month.month} 月',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final g in list)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        g.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      '約 ${ledger.money(g.amount)}',
-                                      style: const TextStyle(
-                                        color: Hue.positive,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+        const SizedBox(height: 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '預計配息',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
+                  Text(
+                    '${months.first.month} 月 – '
+                    '${last.year == today.year ? '' : '明年 '}${last.month} 月',
+                    style: mutedSmall,
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text('合計約', style: mutedSmall),
+                Text(
+                  ledger.orDots(groupDigits(total)),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(const Shade(0xFFC9A34A, 0xFFDDBE73)),
+                  ),
+                ),
               ],
             ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Semantics(
+          label: '預計配息長條圖，點一個月份看那個月',
+          child: LayoutBuilder(
+            builder: (context, box) => GestureDetector(
+              onTapDown: (d) => setState(
+                () => _picked = (d.localPosition.dx / box.maxWidth * 12)
+                    .floor()
+                    .clamp(0, 11),
+              ),
+              child: CustomPaint(
+                size: Size(box.maxWidth, 170),
+                painter: _StackPainter(
+                  stacks: [
+                    for (final m in byMonth)
+                      [
+                        for (final code in order)
+                          if (m[code] case final v?) (v, colour[code]!),
+                      ],
+                  ],
+                  sums: sums,
+                  average: average,
+                  picked: picked,
+                  hidden: ledger.hidden,
+                  words: Hue.muted,
+                  rule: Hue.line,
+                  band: tintOf(const Shade(0xFFC9A34A, 0xFFDDBE73), 0.18),
+                ),
+              ),
+            ),
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 6, left: 4),
-            child: Text('依去年同月的配息推估，實際以公司公告為準', style: mutedSmall),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            for (final (k, m) in months.indexed)
+              Expanded(
+                child: Text(
+                  '${m.month}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: k == picked ? FontWeight.w800 : null,
+                    color: k == picked ? Hue.ink : Hue.muted,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 14,
+          children: [
+            Text(
+              '- - - 每月平均 ${ledger.orDots(groupDigits(average.round()))}',
+              style: mutedSmall,
+            ),
+            if (first >= 0)
+              Text('${months[first].month} 月是下一次', style: mutedSmall),
+          ],
+        ),
+        if (picked >= 0 && sums[picked] > 0) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Chip(
+                '${months[picked].month} 月 · 約 '
+                '${ledger.orDots(groupDigits(sums[picked]))}',
+                bold: true,
+              ),
+              for (final code in order)
+                if (byMonth[picked][code] case final v?)
+                  _Chip(
+                    '${names[code]}  ${ledger.orDots(groupDigits(v))}',
+                    color: colour[code],
+                  ),
+            ],
           ),
         ],
+        const Padding(
+          padding: EdgeInsets.only(top: 12, left: 2),
+          child: Text('依去年同月的配息推估，實際以公司公告為準', style: mutedSmall),
+        ),
       ],
     );
   }
+}
+
+/// A grey pill with words, and a square of [color] before them.
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, {this.color, this.bold = false});
+
+  final String label;
+  final Color? color;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Hue.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (mark != null) ...[
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: mark,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Twelve stacked bars with their sums above, a dot for an empty month,
+/// the picked month on a band, and the average dashed across.
+class _StackPainter extends CustomPainter {
+  _StackPainter({
+    required this.stacks,
+    required this.sums,
+    required this.average,
+    required this.picked,
+    required this.hidden,
+    required this.words,
+    required this.rule,
+    required this.band,
+  });
+
+  final List<List<(int, Color)>> stacks;
+  final List<int> sums;
+  final double average;
+  final int picked;
+  final bool hidden;
+  final Color words;
+  final Color rule;
+  final Color band;
+
+  static String _short(int v) =>
+      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : '$v';
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final column = size.width / stacks.length;
+    final bar = min(column * 0.62, 26.0);
+    final top = 18.0;
+    final high = sums.fold(1, max);
+    double h(int v) => v / high * (size.height - top);
+    if (picked >= 0) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(picked * column + 2, 0, column - 4, size.height),
+          const Radius.circular(10),
+        ),
+        Paint()..color = band,
+      );
+    }
+    for (final (k, stack) in stacks.indexed) {
+      final cx = k * column + column / 2;
+      if (stack.isEmpty) {
+        canvas.drawCircle(
+          Offset(cx, size.height - 3),
+          2.5,
+          Paint()..color = rule,
+        );
+        continue;
+      }
+      var y = size.height;
+      for (final (i, (value, color)) in stack.indexed) {
+        final height = max(h(value), 3.0);
+        final rect = Rect.fromLTWH(cx - bar / 2, y - height, bar, height);
+        final last = i == stack.length - 1;
+        canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            rect,
+            topLeft: last ? const Radius.circular(6) : Radius.zero,
+            topRight: last ? const Radius.circular(6) : Radius.zero,
+            bottomLeft: i == 0 ? const Radius.circular(6) : Radius.zero,
+            bottomRight: i == 0 ? const Radius.circular(6) : Radius.zero,
+          ),
+          Paint()..color = color,
+        );
+        y -= height + 1.5;
+      }
+      if (!hidden) {
+        final text = layoutText(
+          _short(sums[k]),
+          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: words),
+        );
+        text.paint(canvas, Offset(cx - text.width / 2, y - text.height - 2));
+      }
+    }
+    final ay = size.height - h(average.round());
+    final dash = Paint()
+      ..color = words
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 8) {
+      canvas.drawLine(Offset(x, ay), Offset(min(x + 4, size.width), ay), dash);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StackPainter old) =>
+      old.picked != picked || old.sums != sums || old.hidden != hidden;
 }
 
 /// 市值 big with today's move on a solid block, and under a rule what is
