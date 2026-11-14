@@ -205,6 +205,14 @@ void main() {
     expect(keeper.cloudCopyAt, isNull);
     expect(await keeper.keepCloudCopy(), isTrue);
     expect(keeper.cloudCopyAt, isNotNull);
+    // Written, not yet taken: Android's agent writes down when it takes it.
+    expect(keeper.googleTakenAt, isNull);
+    File('${startup.directory.path}/google-backup-taken')
+        .writeAsStringSync('1763000000000');
+    expect(
+      keeper.googleTakenAt,
+      DateTime.fromMillisecondsSinceEpoch(1763000000000),
+    );
     expect(await keeper.keepCloudCopy(), isFalse, reason: 'nothing changed');
     final receipts = Directory('${startup.directory.path}/receipts')
       ..createSync();

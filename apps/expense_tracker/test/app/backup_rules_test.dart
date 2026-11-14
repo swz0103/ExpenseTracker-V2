@@ -37,6 +37,10 @@ void main() {
     final manifest = File('$android/AndroidManifest.xml').readAsStringSync();
     expect(manifest, contains('android:allowBackup="true"'));
     expect(manifest, contains('android:fullBackupContent="@xml/backup_rules"'));
+    // The agent only writes down when the backup was taken; the rules
+    // above still decide what goes.
+    expect(manifest, contains('android:backupAgent=".LedgerBackupAgent"'));
+    expect(manifest, contains('android:fullBackupOnly="true"'));
     expect(
       manifest,
       contains('android:dataExtractionRules="@xml/data_extraction_rules"'),

@@ -836,7 +836,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                         : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: _viewing ? Hue.accent : _color,
-                      textStyle: const TextStyle(
+                      textStyle: appFont.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),

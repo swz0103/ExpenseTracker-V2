@@ -243,7 +243,7 @@ class _BackupSectionState extends State<BackupSection> {
     final drive = widget.drive;
     final phone = widget.phone;
     final latest = _latest([
-      if (google) widget.keeper.cloudCopyAt,
+      if (google) widget.keeper.googleTakenAt,
       if (google && (drive?.linked ?? false)) drive?.backedUp,
       if (folder) phone?.backedUp,
     ]);
@@ -251,6 +251,27 @@ class _BackupSectionState extends State<BackupSection> {
       at: latest,
       on: google || folder,
       label: google || folder ? null : '沒有自動備份',
+    );
+  }
+
+  /// When and where Android's own backup goes: the person cannot see it
+  /// as a file, nor make it happen.
+  void _explainGoogle() {
+    final taken = widget.keeper.googleTakenAt;
+    showCenterPanel(
+      context,
+      glyph: Glyph.safe,
+      color: SettingsHue.backup,
+      title: 'Google 備份',
+      detail: [
+        taken == null
+            ? 'Android 還沒把帳本送到 Google。'
+            : 'Android 上次送出：${_when(taken)}。',
+        '手機大約一天一次，在充電、連著 Wi-Fi 又沒在用時送出，App 沒辦法要它馬上送。',
+        '要先在手機的「設定 › Google › 備份」打開備份。',
+        '它存在 Google 帳戶的備份裡（Google 雲端硬碟 › 備份），不是一般檔案；換手機或重裝時，歡迎頁會問要不要還原。',
+        '收據照片打開後，另外每週存到雲端硬碟的「記帳本備份」資料夾。',
+      ].join('\n\n'),
     );
   }
 
@@ -263,6 +284,16 @@ class _BackupSectionState extends State<BackupSection> {
       value: on,
       onChanged: preferences == null ? null : (v) => _google(v, preferences),
       rows: [
+        if (on)
+          _CardRow(
+            color: color,
+            title: '帳本',
+            value: switch (widget.keeper.googleTakenAt) {
+              final at? => _when(at),
+              null => '還沒送出',
+            },
+            onTap: _explainGoogle,
+          ),
         if (on && drive != null)
           _CardRow(
             color: color,

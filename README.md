@@ -1,32 +1,39 @@
-# 記帳本（ExpenseTracker V2）
+# 記帳本
 
-Android 優先、Flutter、資料只存在手機（local-first）的個人記帳 App。
+一個只為自己做的 Android 記帳 App：記帳、信用卡、台股與股息、預算、定期扣款都在同一本帳裡。資料只存在你的手機上，整本加密，不需要註冊帳號。
 
-## 現況
+![記帳本的畫面：總覽、記一筆、財務報表、投資與股息、預算管理、定期交易](docs/images/screens.png)
 
-帳本、信用卡、投資、預算、定期交易、加密儲存與備份都已完成，介面可日常使用；剩下真機驗收。進度見 [docs/STATUS.md](docs/STATUS.md)，架構見 [ADR-0001](docs/adr/0001-target-architecture.md)。
+## 能做什麼
 
-## 結構
+- **記一筆很快**：支出、收入、轉帳、投資四個分頁；常用的組合一點帶入；可以拆成好幾個分類、代墊給朋友、拍收據、掃紙本發票的 QR Code。
+- **看得懂錢去哪**：總覽一眼看本月結餘、預算與即將扣款；財務報表有收支、分類、比較、習慣四種看法。
+- **信用卡照帳單算**：結帳日、繳款日、分期、回饋與額度使用率，跟銀行帳單對得起來。
+- **台股與股息**：買賣、配股、減資、二代健保，收盤價每天從證交所、櫃買中心更新；每一檔有走勢圖，股息會推估未來 12 個月。
+- **預算與定期扣款**：每月預算與月底預估；訂閱、房租、保險到期自動入帳，好幾天沒開 App 也會一期一期補記。
+- **提醒與小工具**：到期提醒、每日記帳提醒、Google 日曆，桌面小工具看本月花費。
+- **匯入匯出**：CSV、財政部電子發票，下載的紀錄可以完整匯回。
 
-依賴只能往下：App → 執行層 → 規則 → 基礎。
+## 資料與隱私
 
-| 位置 | 內容 |
-| --- | --- |
-| `apps/expense_tracker/` | App（Flutter）：畫面、帳本模型（唯一的一份）、把每筆資料存進加密檔的 `TableJournal`。 |
-| `infrastructure/vault/` | 金鑰、打開帳本、加密備份。 |
-| `infrastructure/storage/` | SQLCipher 加密檔：每筆資料一列 JSON。 |
-| `infrastructure/market/` | 證交所、櫃買中心收盤價與臺灣銀行牌告匯率。 |
-| `packages/domain/` | 計算規則：持股成本、配股減資、台股費用、信用卡帳單週期與分期、CSV、電子發票。 |
-| `packages/core/` | 金額、日期、匯率等值物件與時鐘。 |
-| `tooling/` | `architecture_checks`（CI 的輕量檢查：core／domain 不碰平台、測試寫明預期的失敗、lockfile 版本一致、工作流程涵蓋每個模組）與本機檢查腳本 `run-host-checks.ps1`。 |
-| `docs/` | 狀態、架構決策、設定說明。 |
+- 帳本以 SQLCipher 加密，只存在手機上；可以設密碼、指紋，也可以不設。
+- 備份有三種，都是加密檔：Android 自己的 Google 備份（換手機或重裝時可還原）、Google 雲端硬碟（含收據照片，每週）、手機上的資料夾（每天或每週）。
+- App 只連這幾個地方：證交所與櫃買中心（收盤價）、臺灣銀行（匯率）、GitHub（檢查新版），以及你開啟的 Google 雲端硬碟備份。帳本內容不會送給任何人。
 
-## 檢查
+## 安裝與更新
+
+1. 在手機上打開 [下載頁](https://github.com/swz0103/ExpenseTracker-V2/releases/tag/android-latest)，下載 `ExpenseTracker.apk` 並安裝（第一次要允許從瀏覽器安裝）。
+2. 之後的新版在 App 裡更新：「設定 › 關於」，或打開 App 時的提示。
+3. 想先試試看：下載頁的 `test-ledger.etbk` 是半年份的範例帳本，在歡迎頁選「還原備份」，密碼 `test1234`。
+
+需要 Android 7.0 以上、64 位元（arm64）的手機。
+
+## 開發
+
+Flutter 寫成，依功能分成 App、基礎設施（加密、儲存、行情）與規則套件。現況與待辦見 [docs/STATUS.md](docs/STATUS.md)，文件導覽見 [docs/README.md](docs/README.md)，架構見 [ADR-0001](docs/adr/0001-target-architecture.md)。
 
 ```powershell
-./tooling/run-host-checks.ps1 -Package all   # 或 -Package packages/domain
+./tooling/run-host-checks.ps1 -Package all
 ```
 
-每個模組會依序執行 `pub get --enforce-lockfile`、`dart format` 檢查、`analyze`、測試。CI 另外建 Android APK、網頁預覽，並在模擬器量測載入與存檔時間。
-
-沒有 Flutter SDK 時，把分支推到 `tools/<名稱>`：`Flutter tools` 工作流程會更新改過的 `pubspec.lock` 並排版，結果放在 `tools/<名稱>-done`，合併回來即可。
+每個模組會依序跑 `pub get --enforce-lockfile`、格式檢查、`analyze` 與測試；CI 另外建 APK、網頁預覽、每頁截圖，並在模擬器量測速度。沒有 Flutter SDK 時，把分支推到 `tools/<名稱>`，`Flutter tools` 工作流程會更新 `pubspec.lock` 並排版到 `tools/<名稱>-done`。

@@ -24,6 +24,9 @@ final class _Keeper implements Keeper {
   DateTime? get cloudCopyAt => null;
 
   @override
+  DateTime? get googleTakenAt => null;
+
+  @override
   Future<void> dropCloudCopy() async {}
 
   @override

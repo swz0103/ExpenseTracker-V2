@@ -171,13 +171,18 @@ final class AppUpdate extends ChangeNotifier {
     }
   }
 
-  /// Looks once a day at most, when allowed.
+  /// Looks by itself, on opening and coming back to the app: once every
+  /// three hours at most, when allowed. One small file from GitHub.
   Future<UpdateInfo?> checkIfDue() async {
     if (!possible || !_preferences.updateChecks) return null;
+    return checkIfOlder(const Duration(hours: 3));
+  }
+
+  /// Looks unless it did within [age], as on opening 設定 › 關於, where the
+  /// version shown should be the one there is now.
+  Future<UpdateInfo?> checkIfOlder(Duration age) async {
     final last = _preferences.updateCheckedAt;
-    if (last != null && _clock().difference(last) < const Duration(days: 1)) {
-      return null;
-    }
+    if (last != null && _clock().difference(last) < age) return _newer;
     return check();
   }
 

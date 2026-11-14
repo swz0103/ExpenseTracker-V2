@@ -372,7 +372,7 @@ class _UnlockViewState extends State<UnlockView>
         onPressed: widget.busy ? null : widget.onRecovery,
         style: TextButton.styleFrom(
           foregroundColor: Hue.muted,
-          textStyle: const TextStyle(fontSize: 13),
+          textStyle: appFont.copyWith(fontSize: 13),
         ),
         child: const Text('忘記密碼？'),
       ),

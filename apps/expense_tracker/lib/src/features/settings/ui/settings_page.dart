@@ -76,7 +76,7 @@ class SettingsPage extends StatelessWidget {
     final drive = services.drive;
     DateTime? latest;
     for (final at in [
-      if (google) keeper?.cloudCopyAt,
+      if (google) keeper?.googleTakenAt,
       if (google && (drive?.linked ?? false)) drive?.backedUp,
       if (folder) services.phone?.backedUp,
     ]) {
@@ -481,10 +481,28 @@ class _Row2 extends StatelessWidget {
 
 /// The version and how it stands: 已是最新; 有新版 0.9.1 with 更新 in
 /// green; or 下載中 62% with a bar.
-class _VersionCard extends StatelessWidget {
+class _VersionCard extends StatefulWidget {
   const _VersionCard({this.update});
 
   final AppUpdate? update;
+
+  @override
+  State<_VersionCard> createState() => _VersionCardState();
+}
+
+class _VersionCardState extends State<_VersionCard> {
+  @override
+  void initState() {
+    super.initState();
+    // Opening 關於 shows the version there is now.
+    final update = widget.update;
+    if (update == null || !update.possible) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !update.busy) {
+        update.checkIfOlder(const Duration(minutes: 10)).ignore();
+      }
+    });
+  }
 
   String _state(AppUpdate? update) {
     if (update == null || !update.possible) return '自行建置的版本';
@@ -531,7 +549,7 @@ class _VersionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final update = this.update;
+    final update = widget.update;
     final newer = update?.newer != null;
     final progress = update?.progress;
     final color = newer ? Hue.positive : SettingsHue.main;

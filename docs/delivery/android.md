@@ -103,11 +103,17 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 
 ## 分支保護
 
-main 只能經由通過檢查的 PR 改變，正式簽章的 APK 才只會從驗證過的程式建出來。在 GitHub 的 Settings › Branches（或 Rules › Rulesets）為 `main` 加一條規則：
+main 只能經由通過檢查的 PR 改變，正式簽章的 APK 才只會從驗證過的程式建出來。在 GitHub 的 Settings › Rules › Rulesets › New branch ruleset：
 
-1. 合併前必須開 PR（Require a pull request before merging）；個人專案不必要求審核人數。
-2. 合併前檢查必須通過（Require status checks to pass），勾選 `dart`、`flutter-host`（V2 integration validation）與 `build`（Android APK）。
-3. 不允許強制推送與刪除分支（預設即是）。
+1. **Ruleset Name** 隨意（例如 `main`），**Enforcement status** 選 Active。
+2. **Bypass list**：Add bypass › Repository admin，模式改成 **For pull requests only**。CI 只在改到程式（`apps/`、`packages/`、`infrastructure/`、`tooling/`、`.github/workflows/`）時才跑，只改文件的 PR 沒有檢查，要靠這個例外在 PR 頁勾「略過規則」合併；直接推到 main 仍然被擋。
+3. **Target branches**：Add target › Include default branch。
+4. **Rules** 勾選：
+   - Restrict deletions、Block force pushes（預設已勾）。
+   - Require a pull request before merging：Required approvals 設 0（只有一個人時，作者不能核准自己的 PR），其餘子選項不勾。
+   - Require status checks to pass：不勾「Require branches to be up to date」；Add checks 加入 `dart`、`flutter-host`、`build`（名字要 CI 跑過才搜得到；`build` 有 App 與網頁預覽兩個，都要過）。
+5. 不要勾 Restrict creations／updates（會擋到 CI 與工作分支）、Require linear history（合併 commit 會被擋）、Require signed commits、Require deployments、code scanning 與 Copilot 審查。
+6. 按 Create。之後 PR 頁會列出這三項必過的檢查，沒全綠前合併按鈕不能按。
 
 ## 本機建置
 
