@@ -436,6 +436,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final color = accountHue(_preview);
     final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
     return SingleChildScrollView(
+      physics: const FitScrollPhysics(16),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
