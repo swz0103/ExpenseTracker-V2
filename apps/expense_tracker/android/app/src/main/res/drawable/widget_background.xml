@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The widget's card: white, like the app's own cards. -->
+<!-- The widget's card: white, or the dark card when the phone is dark. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#FFFFFF" />
+    <solid android:color="@color/widget_card" />
     <corners android:radius="26dp" />
 </shape>

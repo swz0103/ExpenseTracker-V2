@@ -10,10 +10,10 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 
 /// The colour of 預算管理, as on 更多.
-const _budgetHue = Shade(0xFF5C9A83, 0xFF8CC3AE);
+const _budgetHue = Palette.green;
 
 /// Gold for a budget nearly used up.
-const _nearHue = Shade(0xFFC9A34A, 0xFFDDBE73);
+const _nearHue = Palette.gold;
 
 /// 預算管理: the month in big words (tapped to pick another), the main
 /// card with what is left, what is used of the total and a bar of the
@@ -111,7 +111,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
-            PageHeader('預算管理', onBack: widget.nav.back),
+            CenterHeader('預算管理', onBack: widget.nav.back),
             _MonthRow(
               month: month,
               current: current,
@@ -340,16 +340,8 @@ class _Main extends StatelessWidget {
     final over = left < 0;
     final ink = Hue.accent;
     final next = month == 12 ? 1 : month + 1;
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Hue.hero, Hue.tile],
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -506,16 +498,8 @@ class _NoBudget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Hue.hero, Hue.tile],
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

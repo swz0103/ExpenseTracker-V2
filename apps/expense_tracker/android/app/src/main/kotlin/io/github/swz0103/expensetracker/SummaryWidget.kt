@@ -62,11 +62,12 @@ class SummaryWidget : AppWidgetProvider() {
         private val todays = intArrayOf(R.id.today0, R.id.today1, R.id.today2, R.id.today3, R.id.today4, R.id.today5, R.id.today6)
         private val dots = intArrayOf(R.id.dot0, R.id.dot1, R.id.dot2, R.id.dot3, R.id.dot4, R.id.dot5, R.id.dot6)
         private val labels = intArrayOf(R.id.label0, R.id.label1, R.id.label2, R.id.label3, R.id.label4, R.id.label5, R.id.label6)
-        private const val ACCENT = 0xFF35657A.toInt()
-        private const val DAY = 0xFF9AA4A9.toInt()
 
         private fun full(context: Context, shown: WidgetView.Shown): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.summary_widget)
+            // Light or dark as the phone is now (values-night).
+            val accent = context.getColor(R.color.widget_accent)
+            val day = context.getColor(R.color.widget_day)
             views.setTextViewText(R.id.summary_title, shown.title)
             views.setTextViewText(R.id.summary_figure, shown.figure)
             views.setTextViewText(R.id.summary_budget, shown.budget)
@@ -88,7 +89,7 @@ class SummaryWidget : AppWidgetProvider() {
                     // A day with nothing spent still shows a sliver.
                     val height = if (share <= 0) 0 else share.coerceIn(6, 100)
                     views.setProgressBar(if (today) todays[i] else bars[i], 100, height, false)
-                    views.setTextColor(labels[i], if (today) ACCENT else DAY)
+                    views.setTextColor(labels[i], if (today) accent else day)
                 }
             }
             views.setOnClickPendingIntent(R.id.summary_body, MainActivity.opening(context, "", 6))

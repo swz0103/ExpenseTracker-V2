@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../compose/category_editor.dart';
 import '../../../core/look/glyphs.dart';
@@ -72,6 +73,19 @@ class _CategoriesPageState extends State<CategoriesPage> {
     ]);
   }
 
+  /// Moves [name] one place earlier or later without dragging, for a
+  /// screen reader's 往前移 and 往後移; kept at once.
+  void _shift(List<String> order, String name, int by) {
+    final from = order.indexOf(name);
+    final to = from + by;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    final next = [...order]
+      ..removeAt(from)
+      ..insert(to, name);
+    _place(next);
+    Haptics.selection();
+  }
+
   void _moveOver(String dragged, String target) {
     final order = _dragging;
     if (order == null || dragged == target) return;
@@ -109,6 +123,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
             if (byName[name] case final c?)
               _Draggable(
                 name: name,
+                onEarlier: order.first == name
+                    ? null
+                    : () => _shift(order, name, -1),
+                onLater: order.last == name
+                    ? null
+                    : () => _shift(order, name, 1),
                 onStart: () =>
                     setState(() => _dragging = [for (final c in tops) c.name]),
                 onOver: _moveOver,
@@ -278,7 +298,7 @@ class _Kind extends StatelessWidget {
 }
 
 /// A category picked up by a long press and dropped over another to take
-/// its place.
+/// its place; a screen reader moves it with 往前移 and 往後移 instead.
 class _Draggable extends StatelessWidget {
   const _Draggable({
     required this.name,
@@ -286,9 +306,13 @@ class _Draggable extends StatelessWidget {
     required this.onOver,
     required this.onEnd,
     required this.child,
+    this.onEarlier,
+    this.onLater,
   });
 
   final String name;
+  final VoidCallback? onEarlier;
+  final VoidCallback? onLater;
   final VoidCallback onStart;
   final void Function(String dragged, String target) onOver;
   final VoidCallback onEnd;
@@ -296,6 +320,20 @@ class _Draggable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final earlier = onEarlier;
+    final later = onLater;
+    // Its own node: the moves belong to this tile, not the grid.
+    return Semantics(
+      container: true,
+      customSemanticsActions: {
+        const CustomSemanticsAction(label: '往前移'): ?earlier,
+        const CustomSemanticsAction(label: '往後移'): ?later,
+      },
+      child: _target(context),
+    );
+  }
+
+  Widget _target(BuildContext context) {
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) {
         onOver(details.data, name);

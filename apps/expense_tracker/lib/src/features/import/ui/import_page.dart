@@ -12,8 +12,8 @@ import '../model/exchange.dart';
 import '../../../core/ledger/ledger.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
-const _csvHue = Shade(0xFF7686B8, 0xFFA5B1D8);
-const _invoiceHue = Shade(0xFFC9A34A, 0xFFDDBE73);
+const _csvHue = Palette.periwinkle;
+const _invoiceHue = Palette.gold;
 
 /// Opens the import page: CSV lines, or the e-invoice export when
 /// [invoices] is set, pasted in or read from a file, and added to

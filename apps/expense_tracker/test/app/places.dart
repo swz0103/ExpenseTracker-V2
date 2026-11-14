@@ -1,11 +1,10 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/app/demo/preview_services.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/preferences.dart';
-import 'package:expense_tracker/src/core/screen_privacy.dart';
-import 'package:expense_tracker/src/features/reminders/model/notifications.dart';
 import 'package:expense_tracker/src/features/settings/model/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +32,7 @@ Future<void> loadFonts() async {
 const places = <(String, List<String>)>[
   ('總覽', []),
   ('紀錄', ['紀錄']),
+  ('篩選', ['紀錄', '~篩選']),
   ('帳戶', ['帳戶']),
   ('更多', ['更多']),
   ('報表 收支', ['更多', '財務報表']),
@@ -41,7 +41,7 @@ const places = <(String, List<String>)>[
   ('報表 習慣', ['更多', '財務報表', '習慣']),
   ('投資 持股', ['更多', '投資與股息']),
   ('投資 股息', ['更多', '投資與股息', '股息']),
-  ('一檔持股', ['更多', '投資與股息', '長榮']),
+  ('一檔持股', ['更多', '投資與股息', '台積電']),
   ('代墊與借貸', ['更多', '代墊與借貸']),
   ('貸款', ['更多', '代墊與借貸', '車貸']),
   ('預算管理', ['更多', '預算管理']),
@@ -87,8 +87,8 @@ Future<void> show(
   Key? key,
 }) async {
   final preferences = Preferences();
-  final hidden = Directory.systemTemp.createTempSync('layout-');
-  addTearDown(() => hidden.deleteSync(recursive: true));
+  final ledger = demoLedger();
+  final stand = previewServices(preferences, ledger: () => ledger);
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -105,14 +105,15 @@ Future<void> show(
               .copyWith(textScaler: TextScaler.linear(text)),
           child: child!,
         ),
-        // The settings the preview leaves out, so their pages and
-        // panels are checked too.
+        // As in the web preview, with its stand-ins for notifications
+        // and screen hiding, so those pages and panels are checked too.
         home: AppShell(
-          ledger: demoLedger(),
+          ledger: ledger,
           services: Services(
             preferences: preferences,
-            notifier: Notifier(_Port(), preferences),
-            privacy: ScreenPrivacy(hidden, (_) async {}),
+            notifier: stand.notifier,
+            privacy: stand.privacy,
+            market: stand.market,
           ),
         ),
       ),
@@ -133,33 +134,4 @@ Future<void> go(WidgetTester tester, List<String> taps) async {
     await tester.tap(finder.first, warnIfMissed: false);
     await tester.pumpAndSettle();
   }
-}
-
-/// Notifications that go nowhere, with the phone's settings all right.
-final class _Port implements NotifyPort {
-  @override
-  Future<bool> access() async => true;
-
-  @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
-
-  @override
-  Future<void> test({bool exact = false}) async {}
-
-  @override
-  Future<void> post(Alert alert, int id) async {}
-
-  @override
-  Future<ReminderStatus> status() async =>
-      (notifications: true, exact: true, battery: true);
-
-  @override
-  Future<void> openExactSettings() async {}
-
-  @override
-  Future<void> openBatterySettings() async {}
 }

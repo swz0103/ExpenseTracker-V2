@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="10 月預算剩"
-            android:textColor="#7A858B"
+            android:textColor="@color/widget_muted"
             android:textSize="10.5sp"
             android:textStyle="bold" />
 
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="7,660"
-            android:textColor="#26323A"
+            android:textColor="@color/widget_ink"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -62,7 +62,7 @@
         android:contentDescription="記支出"
         android:gravity="center"
         android:text="−"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/widget_on_button"
         android:textSize="20sp"
         android:textStyle="bold" />
     <TextView
@@ -74,7 +74,7 @@
         android:contentDescription="記收入"
         android:gravity="center"
         android:text="＋"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/widget_on_button"
         android:textSize="20sp"
         android:textStyle="bold" />
     </LinearLayout>

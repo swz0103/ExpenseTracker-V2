@@ -182,16 +182,8 @@ class _BothWays extends StatelessWidget {
         Text(sub, style: mutedSmall),
       ],
     );
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Hue.hero, Hue.tile],
-        ),
-      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -751,7 +743,7 @@ class _DaysTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: long ? const Shade(0xFFC9A34A, 0xFFDDBE73) : Hue.surface,
+        color: long ? Palette.gold : Hue.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

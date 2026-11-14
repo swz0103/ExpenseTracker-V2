@@ -43,14 +43,14 @@ void main() {
 
     test('balances and investments', () {
       expect(ledger.balance('cash'), 11990);
-      expect(ledger.balance('bank'), 256871);
+      expect(ledger.balance('bank'), 177641);
       expect(ledger.balance('card'), -10829);
       expect(ledger.cardDebt, 10829);
-      expect(ledger.investValue, 681528);
-      expect(ledger.investValue - ledger.investCost, 75678);
+      expect(ledger.investValue, 786528);
+      expect(ledger.investValue - ledger.investCost, 82598);
       expect(ledger.dayChange, 2717);
-      expect(ledger.assets, 1250589);
-      expect(ledger.totalDividends, 32120);
+      expect(ledger.assets, 1276359);
+      expect(ledger.totalDividends, 50970);
     });
 
     test('budgets and recurring items', () {
@@ -84,7 +84,7 @@ void main() {
       ),
     );
     expect(ledger.holding('0050')!.shares, 3100);
-    expect(ledger.balance('bank'), 256871 - 5820);
+    expect(ledger.balance('bank'), 177641 - 5820);
     expect(
       () => ledger.add(
         Entry(

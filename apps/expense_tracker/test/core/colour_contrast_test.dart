@@ -11,6 +11,7 @@ void main() {
   final colours = <String, Color>{
     for (final (i, c) in Hue.categoryColors.indexed) 'category $i': c,
     for (final (i, c) in nameColors.indexed) 'name $i': c,
+    for (final MapEntry(:key, :value) in Palette.all.entries) key: value,
     'backup': SettingsHue.backup,
     'folder': SettingsHue.folder,
     'reminders': SettingsHue.reminders,

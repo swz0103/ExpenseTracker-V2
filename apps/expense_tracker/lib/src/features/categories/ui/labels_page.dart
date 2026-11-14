@@ -11,8 +11,8 @@ import '../../../core/nav.dart';
 import '../model/project.dart';
 
 /// The colours of the two halves of 標籤與商家.
-const _tagHue = Shade(0xFFC9A34A, 0xFFDDBE73);
-const _merchantHue = Shade(0xFFD08B5B, 0xFFE3AA82);
+const _tagHue = Palette.gold;
+const _merchantHue = Palette.orange;
 
 /// 標籤與商家: 標籤 and 商家 on two big segments. Tags: a cover for the
 /// tag of the latest entry (its days, total, a day's spending and its

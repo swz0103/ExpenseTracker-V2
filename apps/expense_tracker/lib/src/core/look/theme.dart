@@ -257,6 +257,63 @@ const ruleAbove = BoxDecoration(border: Border(top: rowRule));
 /// A row's [rowRule] below it, as each row before a list's last has.
 const ruleBelow = BoxDecoration(border: Border(bottom: rowRule));
 
+/// The colours the pages give their cards, icons and charts, each with
+/// its lighter self for the dark theme: one list, so the same blue is
+/// the same blue everywhere. Words on their tints use deepOf (kit.dart).
+abstract final class Palette {
+  /// 金：股息、預算快用完、救援碼
+  static const gold = Shade(0xFFC9A34A, 0xFFDDBE73);
+
+  /// 橘：飲食、提醒
+  static const orange = Shade(0xFFD08B5B, 0xFFE3AA82);
+
+  /// 綠：居家、預算、安全
+  static const green = Shade(0xFF5C9A83, 0xFF8CC3AE);
+
+  /// 靛：持股、買進、密碼
+  static const indigo = Shade(0xFF4A5D99, 0xFF9FAEE0);
+
+  /// 玫瑰
+  static const rose = Shade(0xFFB07A8C, 0xFFD3A2B3);
+
+  /// 紫：外觀、每日記帳
+  static const violet = Shade(0xFF8E7CC0, 0xFFB5A8DD);
+
+  /// 藍紫：資料夾、匯入
+  static const periwinkle = Shade(0xFF7686B8, 0xFFA5B1D8);
+
+  /// 藍：交通
+  static const blue = Shade(0xFF5B8DB0, 0xFF8DB5D1);
+
+  /// 青：備份、日曆
+  static const teal = Shade(0xFF4E8A9A, 0xFF86B5C1);
+
+  /// 磚紅：賣出
+  static const brick = Shade(0xFF9F4535, 0xFFF1B2A3);
+
+  /// 灰藍：關於
+  static const slate = Shade(0xFF6B767C, 0xFFA3AEB3);
+
+  /// 橄欖
+  static const olive = Shade(0xFF9AA35E, 0xFFC2C98E);
+
+  /// Every one of them, by name, as the contrast check reads them.
+  static const all = {
+    'gold': gold,
+    'orange': orange,
+    'green': green,
+    'indigo': indigo,
+    'rose': rose,
+    'violet': violet,
+    'periwinkle': periwinkle,
+    'blue': blue,
+    'teal': teal,
+    'brick': brick,
+    'slate': slate,
+    'olive': olive,
+  };
+}
+
 /// The app's own fonts, for a style that replaces the theme's own, as a
 /// button's `textStyle` does: without them the phone draws its own font.
 const appFont = TextStyle(

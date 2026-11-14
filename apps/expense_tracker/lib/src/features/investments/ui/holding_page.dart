@@ -3,12 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../core/look/figures.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/paint.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
-import '../../../core/connector.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
 
@@ -38,19 +38,20 @@ class HoldingPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             children: [
-              PageHeader(code, onBack: nav.back),
-              const Text('已不再持有', style: TextStyle(color: Hue.muted)),
-              ..._history(trades),
+              CenterHeader(code, onBack: nav.back),
+              _SoldOut(ledger: ledger, trades: trades),
+              _TradeBoard(
+                ledger: ledger,
+                nav: nav,
+                trades: trades,
+                lots: const [],
+              ),
             ],
           );
         }
         final tone = held.gain < 0 ? Hue.negative : Hue.positive;
         final quoted = ledger.hasQuote(code);
         final lots = ledger.lotsOf(code);
-        var largest = 1;
-        for (final l in lots) {
-          largest = max(largest, max(l.cost, (l.shares * held.price).round()));
-        }
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -101,16 +102,12 @@ class HoldingPage extends StatelessWidget {
                       ),
                     ]),
                     const SizedBox(height: 10),
-                    _Bento(
-                      color: const Shade(0xFFC9A34A, 0xFFDDBE73),
-                      label: '股息',
-                      value: ledger.orDots(groupDigits(held.dividends)),
-                      lines: [
-                        if (next != null)
-                          '下次 ${next.month.month} 月 約 ${ledger.orDots(groupDigits(next.amount))}',
-                        if (held.realized != 0)
-                          '已實現 ${ledger.orDots(signed(held.realized))}',
-                      ],
+                    _DividendCard(
+                      ledger: ledger,
+                      total: held.dividends,
+                      next: next,
+                      months: payingMonths(ledger, code),
+                      realized: held.realized,
                     ),
                   ],
                 );
@@ -120,9 +117,9 @@ class HoldingPage extends StatelessWidget {
             Row(
               children: [
                 for (final (i, (type, label, color)) in const [
-                  (EntryType.buy, '＋ 買進', Shade(0xFF4A5D99, 0xFF9FAEE0)),
-                  (EntryType.sell, '賣出', Shade(0xFF9F4535, 0xFFF1B2A3)),
-                  (EntryType.dividend, '記股息', Shade(0xFFC9A34A, 0xFFDDBE73)),
+                  (EntryType.buy, '＋ 買進', _buyHue),
+                  (EntryType.sell, '賣出', _sellHue),
+                  (EntryType.dividend, '記股息', _dividendHue),
                 ].indexed) ...[
                   if (i > 0) const SizedBox(width: 8),
                   Expanded(
@@ -141,129 +138,354 @@ class HoldingPage extends StatelessWidget {
                         ),
                       ),
                       color: color,
+                      tinted: true,
                     ),
                   ),
                 ],
               ],
             ),
-            const SectionHead('持有批次'),
-            SoftPanel(
-              color: Hue.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              child: Column(
-                children: [
-                  for (final (i, lot) in lots.indexed)
-                    _LotRow(
-                      ledger: ledger,
-                      lot: lot,
-                      worth: (lot.shares * held.price).round(),
-                      largest: largest,
-                      first: i == 0,
-                      // One lot has nothing to be set against.
-                      bars: lots.length > 1,
-                    ),
-                ],
-              ),
-            ),
-            ..._history(trades),
+            _TradeBoard(ledger: ledger, nav: nav, trades: trades, lots: lots),
           ],
         );
       },
     );
   }
-
-  /// Every trade and dividend of the stock, also once it is all sold.
-  List<Widget> _history(List<Entry> trades) => [
-    if (trades.isNotEmpty) ...[
-      const SectionHead('交易紀錄'),
-      SoftPanel(
-        color: Hue.white,
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Column(
-          children: [
-            for (final e in trades)
-              EntryRow(
-                ledger: ledger,
-                entry: e,
-                onOpen: nav.showEntry,
-                divider: !identical(e, trades.last),
-              ),
-          ],
-        ),
-      ),
-    ],
-  ];
 }
 
-/// A lot: when it was bought, how many shares, and its cost against what
-/// it is worth now as two bars.
-class _LotRow extends StatelessWidget {
-  const _LotRow({
+const _buyHue = Palette.indigo;
+const _sellHue = Palette.brick;
+const _dividendHue = Palette.gold;
+
+/// 股息 on its gold tint: the total, when the next one is due and about
+/// how much, and the twelve months with those it pays in filled.
+class _DividendCard extends StatelessWidget {
+  const _DividendCard({
     required this.ledger,
-    required this.lot,
-    required this.worth,
-    required this.largest,
-    required this.first,
-    required this.bars,
+    required this.total,
+    required this.next,
+    required this.months,
+    required this.realized,
   });
 
   final Ledger ledger;
-  final Lot lot;
-  final int worth;
-  final int largest;
-  final bool first;
-
-  /// Whether to draw cost and worth as bars.
-  final bool bars;
+  final int total;
+  final DividendGuess? next;
+  final List<int> months;
+  final int realized;
 
   @override
   Widget build(BuildContext context) {
-    final opening = lot.isOpening;
-    final gain = worth - lot.cost;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: first ? null : ruleAbove,
+    final ink = deepOf(_dividendHue);
+    final coming = next;
+    return ColorCard(
+      color: _dividendHue,
+      amount: 0.22,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '股息',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                      ),
+                    ),
+                    Text(
+                      ledger.orDots(groupDigits(total)),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (coming != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '下次 ${coming.month.month} 月',
+                      style: TextStyle(fontSize: 12.5, color: ink),
+                    ),
+                    Text(
+                      '約 ${ledger.orDots(groupDigits(coming.amount))}',
+                      style: TextStyle(fontSize: 12.5, color: ink),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          if (realized != 0)
+            Text(
+              '已實現 ${ledger.orDots(signed(realized))}',
+              style: TextStyle(fontSize: 12.5, color: ink),
+            ),
+          if (months.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Semantics(
+              label: '配息月份 ${months.join('、')} 月',
+              child: ExcludeSemantics(
+                child: Row(
+                  children: [
+                    for (var m = 1; m <= 12; m++) ...[
+                      if (m > 1) const SizedBox(width: 4),
+                      Expanded(
+                        child: Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: months.contains(m)
+                                ? _dividendHue
+                                : Hue.white.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 交易紀錄 on a white board: each buy, sale and dividend with its date,
+/// shares and price, and what was held from the start, newest first.
+class _TradeBoard extends StatelessWidget {
+  const _TradeBoard({
+    required this.ledger,
+    required this.nav,
+    required this.trades,
+    required this.lots,
+  });
+
+  final Ledger ledger;
+  final Nav nav;
+  final List<Entry> trades;
+  final List<Lot> lots;
+
+  @override
+  Widget build(BuildContext context) {
+    final opening = [
+      for (final l in lots)
+        if (l.isOpening) l,
+    ];
+    final shown = [...trades]..sort((a, b) => b.date.compareTo(a.date));
+    final count = shown.length + opening.length;
+    if (count == 0) return const SizedBox.shrink();
+    String day(DateTime d) => '${d.year}/${d.month}/${d.day}';
+    final rows = <Widget>[
+      for (final e in shown)
+        _TradeRow(
+          glyph: switch (e.type) {
+            EntryType.sell => Glyph.payout,
+            EntryType.dividend => Glyph.dividend,
+            _ => Glyph.add,
+          },
+          color: switch (e.type) {
+            EntryType.sell => _sellHue,
+            EntryType.dividend => _dividendHue,
+            _ => _buyHue,
+          },
+          title: switch (e.type) {
+            EntryType.buy => '買進',
+            EntryType.sell => '賣出',
+            _ when e.isReduction => '減資',
+            _ when e.shares > 0 => '配股',
+            _ => '股息',
+          },
+          when: e.type == EntryType.dividend
+              ? '${e.date.month}/${e.date.day}'
+              : day(e.date),
+          detail: e.shares != 0 && e.type != EntryType.dividend
+              ? '${groupDigits(e.shares)} 股 × '
+                    '${_price(e.amount / e.shares.abs())}'
+              : e.shares != 0
+              ? '${groupDigits(e.shares.abs())} 股'
+              : null,
+          amount: switch (e.type) {
+            EntryType.buy => ledger.orDots(signed(-(e.amount + e.fee))),
+            EntryType.sell => ledger.orDots(signed(e.amount - e.fee)),
+            _ => ledger.orDots(signed(e.dividendNet)),
+          },
+          amountColor: e.type == EntryType.buy ? Hue.ink : Hue.positive,
+          onTap: () => nav.showEntry(e),
+        ),
+      for (final l in opening)
+        _TradeRow(
+          glyph: Glyph.add,
+          color: _buyHue,
+          title: '期初持有',
+          when: '',
+          detail: '${ledger.orDots(groupDigits(l.shares))} 股',
+          amount: '成本 ${ledger.orDots(groupDigits(l.cost))}',
+          amountColor: Hue.ink,
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        TitleRow('交易紀錄', trailing: Text('共 $count 筆', style: mutedSmall)),
+        QuoteBoard([
+          for (final (i, row) in rows.indexed)
+            Container(decoration: i == 0 ? null : ruleAbove, child: row),
+        ]),
+      ],
+    );
+  }
+
+  static String _price(double p) =>
+      p == p.roundToDouble() ? groupDigits(p.round()) : p.toStringAsFixed(2);
+}
+
+class _TradeRow extends StatelessWidget {
+  const _TradeRow({
+    required this.glyph,
+    required this.color,
+    required this.title,
+    required this.when,
+    required this.detail,
+    required this.amount,
+    required this.amountColor,
+    this.onTap,
+  });
+
+  final Glyph glyph;
+  final Color color;
+  final String title;
+  final String when;
+  final String? detail;
+  final String amount;
+  final Color amountColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final line = detail;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: tintOf(color, 0.22),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: GlyphIcon(glyph, size: 20, color: deepOf(color)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      text: title,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      children: [
+                        if (when.isNotEmpty)
+                          TextSpan(
+                            text: '  $when',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w400,
+                              color: Hue.muted,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (line != null) Text(line, style: mutedSmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              amount,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: amountColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A stock no longer held: 已賣光, what the sales brought in all and the
+/// dividends it paid.
+class _SoldOut extends StatelessWidget {
+  const _SoldOut({required this.ledger, required this.trades});
+
+  final Ledger ledger;
+  final List<Entry> trades;
+
+  @override
+  Widget build(BuildContext context) {
+    var sold = 0;
+    var paid = 0;
+    var dividends = 0;
+    for (final e in trades) {
+      switch (e.type) {
+        case EntryType.sell:
+          sold += e.amount - e.fee;
+        case EntryType.buy:
+          paid += e.amount + e.fee;
+        case EntryType.dividend:
+          dividends += e.dividendNet;
+        default:
+          break;
+      }
+    }
+    final made = sold + dividends - paid;
+    return HeroCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                opening ? '期初持有' : '${lot.date.month}/${lot.date.day} 買進',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${ledger.orDots(groupDigits(lot.shares))} 股',
-                style: mutedSmall,
-              ),
-              const Spacer(),
-              Text(
-                ledger.moneySigned(gain),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: gain < 0 ? Hue.negative : Hue.positive,
-                ),
-              ),
-            ],
-          ),
-          if (bars) ...[
-            const SizedBox(height: 6),
-            PairBars(
-              now: worth / largest,
-              then: lot.cost / largest,
-              color: Hue.investment,
-              thenOpacity: 0.7,
+          const Text(
+            '已賣光',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Hue.accent,
             ),
-          ],
-          const SizedBox(height: 4),
+          ),
           Text(
-            '市值 ${ledger.money(worth)} · 成本 ${ledger.money(lot.cost)}',
-            style: const TextStyle(fontSize: 12.5, color: Hue.muted),
+            ledger.orDots(signed(made)),
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: made < 0 ? Hue.negative : Hue.positive,
+            ),
+          ),
+          Text(
+            '賣出 ${ledger.orDots(groupDigits(sold))} · '
+            '買進 ${ledger.orDots(groupDigits(paid))}'
+            '${dividends == 0 ? '' : ' · 股息 ${ledger.orDots(groupDigits(dividends))}'}',
+            style: mutedSmall,
           ),
         ],
       ),
@@ -288,12 +510,8 @@ class _PriceCard extends StatelessWidget {
     final up = held.change >= 0;
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(colors: [Hue.hero, Hue.tile]),
-      ),
       child: Row(
         children: [
           Expanded(
@@ -393,9 +611,11 @@ class _Bento extends StatelessWidget {
   }
 }
 
-/// The holding's daily closes as a line over 1月, 3月, 1年 or 全部: the
-/// average cost as a dashed line, the buys as dots; a finger on the
-/// chart reads the day and close under it. The closes come from the
+/// The holding's daily closes as a line over 1月, 3月, 1年 or 全部, on
+/// the page itself: the average cost as a dashed line, the buys as dots,
+/// today's close and the average named on the right. A finger on the line
+/// reads the day and close under it; on a buy, that buy: when, how many
+/// at what price, and how it stands now. The closes come from the
 /// exchanges through [Nav.market], kept on the phone once read.
 class _PriceChart extends StatefulWidget {
   const _PriceChart({
@@ -420,9 +640,12 @@ class _PriceChartState extends State<_PriceChart> {
   var _range = 3;
   List<(DateTime, double)>? _closes;
   int? _touched;
+  Entry? _buy;
   var _loading = false;
 
   static const _ranges = ['1月', '3月', '1年', '全部'];
+  static const _gutter = 46.0;
+  static const _height = 190.0;
 
   DateTime get _from {
     final today = widget.ledger.today;
@@ -446,9 +669,8 @@ class _PriceChartState extends State<_PriceChart> {
   }
 
   Future<void> _load() async {
-    final market = widget.nav.market;
-    if (market is! PriceHistory) return;
-    final feed = market as PriceHistory;
+    final feed = widget.nav.prices;
+    if (feed == null) return;
     setState(() => _loading = true);
     final from = _from;
     final all = await feed.history(widget.code, from);
@@ -460,166 +682,226 @@ class _PriceChartState extends State<_PriceChart> {
           if (!c.$1.isBefore(from)) c,
       ];
       _touched = null;
+      _buy = null;
     });
   }
+
+  static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
+
+  String _price(double p) => p.toStringAsFixed(p < 100 ? 2 : 0);
 
   @override
   Widget build(BuildContext context) {
     final closes = _closes;
     final touched = _touched;
+    final buy = _buy;
     final shown = closes == null || touched == null || touched >= closes.length
         ? null
         : closes[touched];
     final first = closes == null || closes.isEmpty ? null : closes.first.$2;
     final last = closes == null || closes.isEmpty ? null : closes.last.$2;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: Hue.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: Hue.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              for (final (i, label) in _ranges.indexed)
-                Expanded(
-                  child: TextButton(
-                    onPressed: () {
-                      setState(() => _range = i);
-                      _load();
-                    },
-                    style: TextButton.styleFrom(
-                      backgroundColor: i == _range ? Hue.surface : null,
-                      foregroundColor: i == _range ? Hue.ink : Hue.muted,
-                      minimumSize: const Size(0, 40),
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  shown == null
-                      ? (_range == 3 ? '從第一次買到現在' : '這段期間')
-                      : '${shown.$1.year}/${shown.$1.month}/${shown.$1.day} '
-                            '收盤 ${shown.$2}',
-                  style: mutedSmall,
+    final price = widget.ledger.holding(widget.code)?.price ?? last ?? 0;
+    final buyPrice = buy == null || buy.shares == 0
+        ? null
+        : buy.amount / buy.shares;
+    Widget change(double from, double to, String prefix) {
+      final up = to >= from;
+      return Text(
+        '$prefix${up ? '+' : ''}${((to - from) * 100 / from).toStringAsFixed(1)}%',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: up ? Hue.positive : Hue.negative,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Segments(
+          labels: _ranges,
+          selected: _range,
+          onChanged: (i) {
+            setState(() => _range = i);
+            _load();
+          },
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            if (buy != null) ...[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Hue.investment,
+                  shape: BoxShape.circle,
                 ),
               ),
-              if (first != null && last != null && first > 0)
-                Text(
-                  '${last >= first ? '+' : ''}'
-                  '${((last - first) * 100 / first).toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: last >= first ? Hue.positive : Hue.negative,
-                  ),
-                ),
+              const SizedBox(width: 6),
             ],
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 170,
-            child: closes == null || closes.length < 2
-                ? Center(
-                    child: Text(
-                      _loading
-                          ? '讀取收盤價…'
-                          : widget.nav.market is PriceHistory
-                          ? '這段期間沒有收盤價'
-                          : '連上證交所、櫃買中心後才有走勢',
+            Expanded(
+              child: buy != null
+                  ? Text.rich(
+                      TextSpan(
+                        text:
+                            '${buy.date.year}/${buy.date.month}/${buy.date.day} '
+                            '買 ${groupDigits(buy.shares)} 股',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        children: [
+                          if (buyPrice != null)
+                            TextSpan(
+                              text: '  @ ${_price(buyPrice)}',
+                              style: mutedSmall,
+                            ),
+                        ],
+                      ),
+                    )
+                  : Text(
+                      shown == null
+                          ? (_range == 3 ? '從第一次買到現在' : '這段期間')
+                          : '${shown.$1.year}/${shown.$1.month}/${shown.$1.day} '
+                                '收盤 ${_price(shown.$2)}',
                       style: mutedSmall,
                     ),
-                  )
-                : LayoutBuilder(
-                    builder: (context, box) {
-                      void touch(Offset at) {
-                        final i = (at.dx / box.maxWidth * (closes.length - 1))
-                            .round()
-                            .clamp(0, closes.length - 1);
-                        setState(() => _touched = i);
+            ),
+            if (buyPrice != null && buyPrice > 0)
+              change(buyPrice, price, '這批 ')
+            else if (first != null && last != null && first > 0)
+              change(first, last, ''),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: _height,
+          child: closes == null || closes.length < 2
+              ? Center(
+                  child: Text(
+                    _loading
+                        ? '讀取收盤價…'
+                        : widget.nav.prices != null
+                        ? '這段期間沒有收盤價'
+                        : '連上證交所、櫃買中心後才有走勢',
+                    style: mutedSmall,
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, box) {
+                    final plot = box.maxWidth - _gutter;
+                    final scale = _Scale.of(closes, widget.average, _height);
+                    final buys = {for (final e in widget.buys) _day(e.date): e};
+                    void touch(Offset at) {
+                      final i = (at.dx / plot * (closes.length - 1))
+                          .round()
+                          .clamp(0, closes.length - 1);
+                      // A buy within a finger's reach is read as that buy.
+                      Entry? near;
+                      var nearest = 24.0;
+                      for (final (j, (day, close)) in closes.indexed) {
+                        final hit = buys[day];
+                        if (hit == null) continue;
+                        final d =
+                            (Offset(
+                                      j * plot / (closes.length - 1),
+                                      scale.y(close),
+                                    ) -
+                                    at)
+                                .distance;
+                        if (d < nearest) {
+                          nearest = d;
+                          near = hit;
+                        }
                       }
+                      setState(() {
+                        _buy = near;
+                        _touched = near == null ? i : null;
+                      });
+                    }
 
-                      return Semantics(
-                        label: '走勢圖',
-                        child: GestureDetector(
-                          onTapDown: (d) => touch(d.localPosition),
-                          onHorizontalDragUpdate: (d) => touch(d.localPosition),
-                          child: CustomPaint(
-                            size: Size(box.maxWidth, 170),
-                            painter: _LinePainter(
-                              closes: closes,
-                              average: widget.average,
-                              buys: {
-                                for (final e in widget.buys)
-                                  DateTime.utc(
-                                    e.date.year,
-                                    e.date.month,
-                                    e.date.day,
-                                  ),
-                              },
-                              touched: touched,
-                              line: Hue.positive,
-                              fill: tintOf(Hue.positive, 0.25),
-                              dash: Hue.investment,
-                              dot: Hue.investment,
-                              rule: Hue.line,
-                            ),
+                    return Semantics(
+                      label: '走勢圖',
+                      child: GestureDetector(
+                        onTapDown: (d) => touch(d.localPosition),
+                        onHorizontalDragUpdate: (d) => touch(d.localPosition),
+                        child: CustomPaint(
+                          size: Size(box.maxWidth, _height),
+                          painter: _LinePainter(
+                            closes: closes,
+                            scale: scale,
+                            gutter: _gutter,
+                            average: widget.average,
+                            price: price,
+                            buys: buys.keys.toSet(),
+                            chosen: buy == null ? null : _day(buy.date),
+                            touched: touched,
+                            line: Hue.positive,
+                            fill: tintOf(Hue.positive, 0.25),
+                            dash: Hue.investment,
+                            rule: Hue.line,
+                            words: Hue.muted,
+                            onTag: Hue.onAccent,
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        if (closes != null && closes.length >= 2) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: _gutter),
+            child: Row(
+              children: [
+                for (final (i, label) in _ticks(closes).indexed) ...[
+                  if (i > 0) const Spacer(),
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 11.5, color: Hue.muted),
                   ),
-          ),
-          const SizedBox(height: 6),
-          const Row(
-            children: [
-              LegendKey(Hue.investment, '買進的時候'),
-              SizedBox(width: 12),
-              LegendKey(Hue.investment, '均價', line: true),
-            ],
+                ],
+              ],
+            ),
           ),
         ],
-      ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 14,
+          runSpacing: 4,
+          children: [
+            LegendKey(
+              Hue.investment,
+              widget.buys.isEmpty ? '我買的時候' : '我買的時候（點一下看那批）',
+            ),
+            const LegendKey(Hue.investment, '均價', line: true),
+          ],
+        ),
+      ],
     );
+  }
+
+  /// Three dates under the line: its start, middle and 現在; years for a
+  /// long span, month and day for a short one.
+  List<String> _ticks(List<(DateTime, double)> closes) {
+    final start = closes.first.$1;
+    final middle = closes[closes.length ~/ 2].$1;
+    final long = closes.last.$1.difference(start).inDays > 400;
+    String at(DateTime d) =>
+        long ? '${d.year}/${d.month}' : '${d.month}/${d.day}';
+    return [at(start), at(middle), '現在'];
   }
 }
 
-class _LinePainter extends CustomPainter {
-  _LinePainter({
-    required this.closes,
-    required this.average,
-    required this.buys,
-    required this.touched,
-    required this.line,
-    required this.fill,
-    required this.dash,
-    required this.dot,
-    required this.rule,
-  });
+/// Where a price sits on the chart: the closes and the average, with a
+/// little room above and below.
+final class _Scale {
+  const _Scale(this.low, this.high, this.height);
 
-  final List<(DateTime, double)> closes;
-  final double average;
-  final Set<DateTime> buys;
-  final int? touched;
-  final Color line;
-  final Color fill;
-  final Color dash;
-  final Color dot;
-  final Color rule;
-
-  @override
-  void paint(Canvas canvas, Size size) {
+  factory _Scale.of(
+    List<(DateTime, double)> closes,
+    double average,
+    double height,
+  ) {
     var low = closes.map((c) => c.$2).reduce(min);
     var high = closes.map((c) => c.$2).reduce(max);
     if (average > 0) {
@@ -628,16 +910,80 @@ class _LinePainter extends CustomPainter {
     }
     if (high == low) high = low + 1;
     final pad = (high - low) * 0.08;
-    low -= pad;
-    high += pad;
-    double x(int i) => i * size.width / (closes.length - 1);
-    double y(double v) => size.height * (1 - (v - low) / (high - low));
+    return _Scale(low - pad, high + pad, height);
+  }
+
+  final double low;
+  final double high;
+  final double height;
+
+  double y(double v) => height * (1 - (v - low) / (high - low));
+}
+
+class _LinePainter extends CustomPainter {
+  _LinePainter({
+    required this.closes,
+    required this.scale,
+    required this.gutter,
+    required this.average,
+    required this.price,
+    required this.buys,
+    required this.chosen,
+    required this.touched,
+    required this.line,
+    required this.fill,
+    required this.dash,
+    required this.rule,
+    required this.words,
+    required this.onTag,
+  });
+
+  final List<(DateTime, double)> closes;
+  final _Scale scale;
+  final double gutter;
+  final double average;
+  final double price;
+  final Set<DateTime> buys;
+  final DateTime? chosen;
+  final int? touched;
+  final Color line;
+  final Color fill;
+  final Color dash;
+  final Color rule;
+  final Color words;
+  final Color onTag;
+
+  String _label(double v) => v.toStringAsFixed(v < 100 ? 1 : 0);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width - gutter;
+    double x(int i) => i * width / (closes.length - 1);
+    final y = scale.y;
+    // Three faint levels with their prices on the right.
+    final tagged = [if (average > 0) y(average), if (price > 0) y(price)];
+    for (var k = 0; k < 3; k++) {
+      final v = scale.low + (scale.high - scale.low) * (0.15 + k * 0.35);
+      final at = y(v);
+      // A level under a price's tag keeps its line, not its words.
+      final hidden = tagged.any((t) => (t - at).abs() < 18);
+      canvas.drawLine(
+        Offset(0, at),
+        Offset(width, at),
+        Paint()
+          ..color = rule
+          ..strokeWidth = 1,
+      );
+      if (hidden) continue;
+      final text = layoutText(_label(v), TextStyle(fontSize: 11, color: words));
+      text.paint(canvas, Offset(width + 6, at - text.height / 2));
+    }
     final path = Path()..moveTo(0, y(closes.first.$2));
     for (var i = 1; i < closes.length; i++) {
       path.lineTo(x(i), y(closes[i].$2));
     }
     final area = Path.from(path)
-      ..lineTo(size.width, size.height)
+      ..lineTo(width, size.height)
       ..lineTo(0, size.height)
       ..close();
     canvas.drawPath(area, Paint()..color = fill);
@@ -649,22 +995,54 @@ class _LinePainter extends CustomPainter {
         ..strokeWidth = 2.2
         ..strokeJoin = StrokeJoin.round,
     );
+    void tag(double v, Color color) {
+      final text = layoutText(
+        _label(v),
+        TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: onTag),
+      );
+      final at = y(v);
+      final box = RRect.fromRectAndRadius(
+        Rect.fromLTWH(width + 2, at - 10, gutter - 2, 20),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(box, Paint()..color = color);
+      text.paint(
+        canvas,
+        Offset(width + 2 + (gutter - 2 - text.width) / 2, at - text.height / 2),
+      );
+    }
+
     if (average > 0) {
       final ay = y(average);
       final paint = Paint()
         ..color = dash
         ..strokeWidth = 1.4;
-      for (var dx = 0.0; dx < size.width; dx += 10) {
-        canvas.drawLine(
-          Offset(dx, ay),
-          Offset(min(dx + 5, size.width), ay),
-          paint,
-        );
+      for (var dx = 0.0; dx < width; dx += 10) {
+        canvas.drawLine(Offset(dx, ay), Offset(min(dx + 5, width), ay), paint);
       }
+      tag(average, dash);
     }
-    for (final (i, (day, price)) in closes.indexed) {
+    if (price > 0) tag(price, line);
+    for (final (i, (day, close)) in closes.indexed) {
       if (!buys.contains(day)) continue;
-      canvas.drawCircle(Offset(x(i), y(price)), 5, Paint()..color = dot);
+      final at = Offset(x(i), y(close));
+      if (day == chosen) {
+        canvas.drawLine(
+          Offset(at.dx, 0),
+          Offset(at.dx, size.height),
+          Paint()
+            ..color = rule
+            ..strokeWidth = 1.5,
+        );
+        canvas.drawCircle(
+          at,
+          10,
+          Paint()..color = dash.withValues(alpha: 0.25),
+        );
+        canvas.drawCircle(at, 6.5, Paint()..color = dash);
+      } else {
+        canvas.drawCircle(at, 5, Paint()..color = dash);
+      }
     }
     final t = touched;
     if (t != null && t < closes.length) {
@@ -682,5 +1060,9 @@ class _LinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LinePainter old) =>
-      old.closes != closes || old.touched != touched || old.average != average;
+      old.closes != closes ||
+      old.touched != touched ||
+      old.chosen != chosen ||
+      old.average != average ||
+      old.price != price;
 }

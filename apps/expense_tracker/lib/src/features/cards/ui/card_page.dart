@@ -139,34 +139,39 @@ class CardPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
-            PageHeader(
+            CenterHeader(
               card.name,
               onBack: nav.back,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 對帳 needs NT$: another currency would need a rate.
-                  if (!card.foreign && card.kind != AccountKind.receivable)
+              actions: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 對帳 needs NT$: another currency would need a rate.
+                    if (!card.foreign && card.kind != AccountKind.receivable)
+                      TextButton(
+                        onPressed: () =>
+                            reconcileAccount(context, ledger, card),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Hue.accent,
+                        ),
+                        child: const Text('對帳'),
+                      ),
                     TextButton(
-                      onPressed: () => reconcileAccount(context, ledger, card),
+                      onPressed: () async {
+                        final gone = await editAccount(
+                          context,
+                          ledger,
+                          account: card,
+                        );
+                        // Deleted or archived: back to the accounts.
+                        if (gone) nav.back();
+                      },
                       style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                      child: const Text('對帳'),
+                      child: const Text('編輯'),
                     ),
-                  TextButton(
-                    onPressed: () async {
-                      final gone = await editAccount(
-                        context,
-                        ledger,
-                        account: card,
-                      );
-                      // Deleted or archived: back to the accounts.
-                      if (gone) nav.back();
-                    },
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                    child: const Text('編輯'),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
             Tile(
               hero: true,

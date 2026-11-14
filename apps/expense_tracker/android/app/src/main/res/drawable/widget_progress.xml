@@ -6,14 +6,14 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape>
-            <solid android:color="#EEF1EF" />
+            <solid android:color="@color/widget_track" />
             <corners android:radius="4dp" />
         </shape>
     </item>
     <item android:id="@android:id/progress">
         <scale android:scaleGravity="left" android:scaleWidth="100%">
             <shape>
-                <solid android:color="#35657A" />
+                <solid android:color="@color/widget_accent" />
                 <corners android:radius="4dp" />
             </shape>
         </scale>
@@ -23,7 +23,7 @@
             <layer-list>
                 <item android:gravity="right" android:width="2dp">
                     <shape>
-                        <solid android:color="#C9A34A" />
+                        <solid android:color="@color/widget_pace" />
                     </shape>
                 </item>
             </layer-list>
