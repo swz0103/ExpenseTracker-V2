@@ -63,7 +63,7 @@ List<Option<String>> accountOptions(
   for (final a in among ?? ledger.openAccounts)
     if ((currency == null || a.currency == currency) &&
         (where == null || where(a)))
-      Option(a.id, a.name, accountIcon(a), accountColor(a.kind)),
+      Option(a.id, a.name, accountIcon(a), accountHue(a)),
 ];
 
 /// The open categories of income, or of spending, as choices; only those

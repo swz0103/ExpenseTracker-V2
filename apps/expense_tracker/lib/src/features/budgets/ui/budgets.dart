@@ -174,37 +174,39 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 ],
               ),
             ),
-            CardGrid(gap: 10, [
-              for (final (budget, used, allowed) in rows)
-                _Limit(
-                  ledger: ledger,
-                  budget: budget,
-                  used: used,
-                  limit: allowed,
-                  onTap: () => _edit(budget.category),
-                ),
-              ColorCard(
-                color: Hue.faint,
-                amount: 0.22,
-                onTap: _addLimit,
-                label: '為分類或標籤設定額度',
-                padding: const EdgeInsets.symmetric(vertical: 34),
-                child: const Column(
-                  children: [
-                    GlyphIcon(Glyph.add, size: 24, color: Hue.accent),
-                    SizedBox(height: 8),
-                    Text(
-                      '分類或標籤',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Hue.accent,
-                      ),
-                    ),
-                  ],
-                ),
+            for (final (budget, used, allowed) in rows) ...[
+              _Limit(
+                ledger: ledger,
+                budget: budget,
+                used: used,
+                limit: allowed,
+                onTap: () => _edit(budget.category),
               ),
-            ]),
+              const SizedBox(height: 8),
+            ],
+            ColorCard(
+              color: Hue.faint,
+              amount: 0.22,
+              radius: 18,
+              onTap: _addLimit,
+              label: '為分類或標籤設定額度',
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GlyphIcon(Glyph.add, size: 20, color: Hue.accent),
+                  SizedBox(width: 8),
+                  Text(
+                    '分類或標籤',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
       },
@@ -660,9 +662,9 @@ class _Figure extends StatelessWidget {
   }
 }
 
-/// A category's or tag's allowance as a square: a small ring of the share
-/// used around its icon, 超支 or 快用完, its name, what is left or over,
-/// and used against the allowance.
+/// A category's or tag's allowance in two lines: its icon, name and used
+/// against the allowance; a bar of the share used and what is left or
+/// over, 超支 or 快用完 in the bar's colour.
 class _Limit extends StatelessWidget {
   const _Limit({
     required this.ledger,
@@ -682,92 +684,77 @@ class _Limit extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
-    final color = category?.color ?? Hue.accent;
+    final color = shownColor(category?.color ?? Hue.accent);
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;
     final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
     final tone = over ? Hue.negative : (near ? _nearHue : color);
     final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
-    final ink = deepOf(color);
+    String money(int v) => ledger.orDots(groupDigits(v));
     return ColorCard(
-      color: over ? Hue.negative : (near ? _nearHue : color),
-      amount: 0.18,
+      color: tone,
+      amount: 0.16,
+      radius: 18,
       onTap: onTap,
-      label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      label:
+          '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}，'
+          '已用 $used / $limit',
+      padding: const EdgeInsets.fromLTRB(12, 10, 14, 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox.square(
-                dimension: 52,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: share,
-                      strokeWidth: 5,
-                      strokeCap: StrokeCap.round,
-                      color: tone,
-                      backgroundColor: tintOf(tone, 0.3),
-                    ),
-                    Center(child: GlyphIcon(glyph, size: 20, color: tone)),
-                  ],
+              SquareIcon(glyph, color, size: 32),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  budget.category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(over ? Hue.negative : color),
+                  ),
                 ),
               ),
-              const Spacer(),
-              if (over || near)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tone,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    over ? '超支' : '快用完',
-                    textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFFFFFFF),
-                    ),
-                  ),
-                ),
+              const SizedBox(width: 8),
+              Text(
+                '${money(used)} / ${money(limit)}',
+                style: const TextStyle(fontSize: 13, color: Hue.muted),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            budget.category,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: over ? deepOf(Hue.negative) : ink,
-            ),
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: over ? Hue.negative : Hue.ink,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: share,
+                    minHeight: 8,
+                    color: tone,
+                    backgroundColor: tintOf(tone, 0.3),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Text(
-            '${ledger.orDots(groupDigits(used))} / '
-            '${ledger.orDots(groupDigits(limit))}',
-            style: mutedSmall,
+              const SizedBox(width: 12),
+              Text(
+                over
+                    ? '超支 ${money(-left)}'
+                    : near
+                    ? '快用完 · 剩 ${money(left)}'
+                    : '剩 ${money(left)}',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: over ? Hue.negative : Hue.ink,
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import '../../../core/ledger/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../debts/model/loan_plan.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -15,7 +16,12 @@ final class AccountForm {
       due = old?.dueDay ?? 15,
       counted = old?.inNetWorth ?? true,
       currency = old?.currency ?? homeCode,
-      principal = '${old?.principal ?? ''}';
+      principal = '${old?.principal ?? ''}',
+      color = old?.color,
+      rate = rateText(old?.rate),
+      months = '${old?.months ?? ''}',
+      repay = old?.repay ?? LoanRepay.even,
+      payFrom = old?.payFrom;
 
   final Ledger ledger;
 
@@ -43,6 +49,31 @@ final class AccountForm {
   /// A loan's amount when taken out, as typed.
   String principal;
 
+  /// The colour picked; null keeps the kind's.
+  int? color;
+
+  /// A loan's yearly rate in percent and its months as typed, how it is
+  /// paid back and the account it is paid from.
+  String rate;
+  String months;
+  LoanRepay repay;
+  String? payFrom;
+
+  int? get typedRate => loan ? rateOf(rate) : null;
+
+  int? get typedMonths {
+    final n = int.tryParse(months.trim());
+    return loan && n != null && n > 0 ? n : null;
+  }
+
+  /// What the loan as typed costs; null while something is missing.
+  LoanPlan? get plan => loanPlan(
+    amount: typedPrincipal ?? (typedBalance == null ? null : -typedBalance!),
+    rate: typedRate,
+    months: typedMonths,
+    repay: repay,
+  );
+
   /// The account a new loan's money went into; null when only the debt
   /// is kept.
   String? fundInto;
@@ -68,7 +99,9 @@ final class AccountForm {
   /// The balance typed, in the ledger's sign; null when left empty, which
   /// keeps the balance of an account being changed.
   int? get typedBalance {
-    final typed = minorOf(balance, foreignAllowed ? currency : homeCode);
+    final typed =
+        minorOf(balance, foreignAllowed ? currency : homeCode) ??
+        (loan && old == null ? typedPrincipal : null);
     if (typed == null) return null;
     return kind.isDebt ? -typed : typed;
   }
@@ -97,7 +130,7 @@ final class AccountForm {
     final before = old;
     final terms = (
       closingDay: card ? closing : null,
-      dueDay: card ? due : null,
+      dueDay: card || loan ? due : null,
       limit: card ? int.tryParse(limit.trim()) : null,
     );
     if (before == null) {
@@ -113,6 +146,11 @@ final class AccountForm {
         inNetWorth: counted,
         currency: foreignAllowed ? currency : homeCode,
         principal: typedPrincipal,
+        color: color,
+        rate: typedRate,
+        months: typedMonths,
+        repay: loan ? repay : null,
+        payFrom: loan ? payFrom : null,
         place: kind == AccountKind.loan || kind == AccountKind.receivable
             ? null
             : _nextPlace,
@@ -133,6 +171,11 @@ final class AccountForm {
       closes: before.closes,
       history: before.history,
       principal: typedPrincipal,
+      color: color,
+      rate: typedRate,
+      months: typedMonths,
+      repay: loan ? repay : null,
+      payFrom: loan ? payFrom : null,
       place: before.place,
     );
   }

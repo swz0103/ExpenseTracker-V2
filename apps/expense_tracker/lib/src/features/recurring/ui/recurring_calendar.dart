@@ -241,14 +241,6 @@ class _DayItems extends StatefulWidget {
 }
 
 class _DayItemsState extends State<_DayItems> {
-  var _page = 0;
-
-  @override
-  void didUpdateWidget(_DayItems old) {
-    super.didUpdateWidget(old);
-    if (old.day != widget.day) _page = 0;
-  }
-
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
@@ -325,48 +317,11 @@ class _DayItemsState extends State<_DayItems> {
               ),
             ],
           )
-        else if (items.length == 1)
-          _itemCard(items.first, todayDay)
-        else ...[
-          SizedBox(
-            height:
-                120 *
-                (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(1, 1.6),
-            child: PageView(
-              controller: PageController(viewportFraction: 0.86),
-              padEnds: false,
-              onPageChanged: (p) => setState(() => _page = p),
-              children: [
-                for (final (i, x) in items.indexed)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: i == _page ? 1 : 0.55,
-                      child: _itemCard(x, todayDay),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (final (i, x) in items.indexed)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: i == _page ? 18 : 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: i == _page ? _mark(ledger, x.item).$2 : Hue.line,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-            ],
-          ),
-        ],
+        else
+          for (final (i, x) in items.indexed) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _itemCard(x, todayDay),
+          ],
       ],
     );
   }
@@ -388,26 +343,37 @@ class _DayItemsState extends State<_DayItems> {
         : due
         ? '$account · 到期'
         : '$account · ${away == 0 ? '今天' : '$away 天後'}';
+    final amount = Text(
+      '${item.income ? '+' : ''}'
+      '${ledger.orDots(recurringAmount(ledger, item))}',
+      style: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+        color: item.income && booked == null ? Hue.positive : Hue.ink,
+      ),
+    );
     return ColorCard(
       color: color,
+      amount: 0.16,
+      radius: 18,
       onTap: () => booked == null ? widget.onEdit(item) : widget.onOpen(booked),
       label: '${item.name}，${line.replaceAll(' · ', '，')}',
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Row(
         children: [
           !x.settled
-              ? SquareIcon(glyph, color, size: 58)
+              ? SquareIcon(glyph, color, size: 40)
               : Container(
-                  width: 58,
-                  height: 58,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: Hue.white,
-                    borderRadius: BorderRadius.circular(17),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 28, color: Hue.muted),
+                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
                 ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,66 +388,61 @@ class _DayItemsState extends State<_DayItems> {
                     color: deepOf(color),
                   ),
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${item.income ? '+' : ''}'
-                    '${ledger.orDots(recurringAmount(ledger, item))}',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: item.income && booked == null
-                          ? Hue.positive
-                          : Hue.ink,
-                    ),
-                  ),
-                ),
                 Text(
                   line,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: due ? Hue.negative : deepOf(color),
+                    fontSize: 12,
+                    color: due ? Hue.negative : Hue.muted,
                     fontWeight: due ? FontWeight.w800 : FontWeight.w400,
                   ),
                 ),
               ],
             ),
           ),
-          if (due)
+          const SizedBox(width: 8),
+          amount,
+          if (due) ...[
+            const SizedBox(width: 10),
             FilledButton(
               onPressed: () => widget.onBook(item),
               style: FilledButton.styleFrom(
                 backgroundColor: markColor,
-                foregroundColor: const Color(0xFFFFFFFF),
-                minimumSize: const Size(0, 48),
+                foregroundColor: wordsOn(markColor),
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
                 '入帳',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
-            )
-          else if (skipped)
+            ),
+          ] else if (skipped) ...[
+            const SizedBox(width: 10),
             FilledButton(
               onPressed: () => ledger.unskip(item, x.day),
               style: FilledButton.styleFrom(
                 backgroundColor: Hue.white,
                 foregroundColor: Hue.accent,
-                minimumSize: const Size(0, 48),
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
                 '恢復',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
-            )
-          else if (booked != null)
-            const GlyphIcon(Glyph.check, size: 22, color: Hue.muted),
+            ),
+          ] else if (booked != null) ...[
+            const SizedBox(width: 8),
+            const GlyphIcon(Glyph.check, size: 20, color: Hue.muted),
+          ],
         ],
       ),
     );
@@ -523,10 +484,36 @@ class _Cell extends StatelessWidget {
   }
 }
 
-/// An item as a square card in its colour: mark, name, amount and how
-/// often and from where.
-class _ItemSquare extends StatelessWidget {
-  const _ItemSquare({
+/// A small rounded tag in [color]'s tint: the next date.
+class _Tag extends StatelessWidget {
+  const _Tag(this.text, {required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: tintOf(color, 0.22),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        color: deepOf(color),
+      ),
+    ),
+  );
+}
+
+/// An item as one row in its colour: mark, name over how often and from
+/// where, the amount over a small tag with the next date (or [lines] in
+/// place of the second line, and [trailing] after it all).
+class _ItemRow extends StatelessWidget {
+  const _ItemRow({
     required this.ledger,
     required this.item,
     required this.onTap,
@@ -546,62 +533,75 @@ class _ItemSquare extends StatelessWidget {
   Widget build(BuildContext context) {
     final (glyph, mark) = _mark(ledger, item);
     final color = grey ? Hue.faint : mark;
+    final next = grey || lines != null ? '' : ledger.nextLabel(item);
+    final sub =
+        lines?.join(' · ') ??
+        '${item.rhythm} · ${ledger.account(item.account).name}';
     return ColorCard(
       color: color,
+      amount: 0.16,
+      radius: 18,
       onTap: onTap,
-      label: item.name,
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      label: '${item.name}，$sub${next.isEmpty ? '' : '，下次 $next'}',
+      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          grey
+              ? Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Hue.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
+                )
+              : SquareIcon(glyph, color, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: deepOf(color),
+                  ),
+                ),
+                Text(
+                  sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              grey
-                  ? Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: Hue.white,
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      alignment: Alignment.center,
-                      child: GlyphIcon(glyph, size: 20, color: Hue.muted),
-                    )
-                  : SquareIcon(glyph, color, size: 42),
-              const Spacer(),
-              trailing ??
-                  const GlyphIcon(Glyph.next, size: 14, color: Hue.muted),
+              Text(
+                '${item.income ? '+' : ''}'
+                '${ledger.orDots(recurringAmount(ledger, item))}',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: item.income && !grey ? Hue.positive : Hue.ink,
+                ),
+              ),
+              if (next.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                _Tag('下次 $next', color: color),
+              ],
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: deepOf(color),
-            ),
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${item.income ? '+' : ''}'
-              '${ledger.orDots(recurringAmount(ledger, item))}',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: item.income && !grey ? Hue.positive : Hue.ink,
-              ),
-            ),
-          ),
-          for (final line
-              in lines ??
-                  ['${item.rhythm} · ${ledger.account(item.account).name}'])
-            Text(line, style: TextStyle(fontSize: 12, color: deepOf(color))),
+          if (trailing case final t?) ...[const SizedBox(width: 10), t],
         ],
       ),
     );
