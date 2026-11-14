@@ -10,14 +10,14 @@ import '../../debts/ui/debts_page.dart';
 
 /// The colour of each tool, on its tile here and on its own page.
 abstract final class ToolHue {
-  static const reports = Shade(0xFF5B8DB0, 0xFF8DB5D1);
-  static const investments = Shade(0xFF4A5D99, 0xFF9FAEE0);
-  static const budgets = Shade(0xFF5C9A83, 0xFF8CC3AE);
-  static const recurring = Shade(0xFFD08B5B, 0xFFE3AA82);
-  static const debts = Shade(0xFF8E7CC0, 0xFFB5A8DD);
-  static const categories = Shade(0xFFB07A8C, 0xFFD3A2B3);
-  static const labels = Shade(0xFFC9A34A, 0xFFDDBE73);
-  static const settings = Shade(0xFF6B767C, 0xFFA3AEB3);
+  static const reports = Palette.blue;
+  static const investments = Palette.indigo;
+  static const budgets = Palette.green;
+  static const recurring = Palette.orange;
+  static const debts = Palette.violet;
+  static const categories = Palette.rose;
+  static const labels = Palette.gold;
+  static const settings = Palette.slate;
 }
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,

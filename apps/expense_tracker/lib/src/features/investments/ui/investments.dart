@@ -49,57 +49,13 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
             CenterHeader('投資與股息', onBack: widget.nav.back),
             _InvestHero(ledger: ledger),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                for (final (i, (glyph, label, color)) in const [
-                  (Glyph.pie, '持股', Shade(0xFF4A5D99, 0xFF9FAEE0)),
-                  (Glyph.dividend, '股息', Shade(0xFFC9A34A, 0xFFDDBE73)),
-                ].indexed) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: Semantics(
-                      selected: _tab == i,
-                      button: true,
-                      label: label,
-                      excludeSemantics: true,
-                      child: Material(
-                        color: _tab == i ? color : tintOf(color, 0.22),
-                        borderRadius: BorderRadius.circular(16),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => setState(() => _tab = i),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 52),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                GlyphIcon(
-                                  glyph,
-                                  size: 20,
-                                  color: _tab == i
-                                      ? const Color(0xFFFFFFFF)
-                                      : deepOf(color),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    color: _tab == i
-                                        ? const Color(0xFFFFFFFF)
-                                        : deepOf(color),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            BigSegments(
+              items: const [
+                (Glyph.pie, '持股', Palette.indigo),
+                (Glyph.dividend, '股息', Palette.gold),
               ],
+              selected: _tab,
+              onChanged: (i) => setState(() => _tab = i),
             ),
             const SizedBox(height: 14),
             if (_tab == 0) ...[
@@ -127,7 +83,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               if (holdings.isEmpty)
                 EmptyState(
                   glyph: Glyph.pie,
-                  color: const Shade(0xFF4A5D99, 0xFF9FAEE0),
+                  color: Palette.indigo,
                   message: '還沒有持股',
                   action: '記一筆買進',
                   onAction: () => widget.nav.compose(type: EntryType.buy),
@@ -153,11 +109,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                 ),
                 child: Row(
                   children: [
-                    const SquareIcon(
-                      Glyph.dividend,
-                      Shade(0xFFC9A34A, 0xFFDDBE73),
-                      size: 44,
-                    ),
+                    const SquareIcon(Glyph.dividend, Palette.gold, size: 44),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -227,12 +179,12 @@ class _ReturnsState extends State<_Returns> {
 
   /// Holdings' colours in the stacks, by how much each pays.
   static const _colors = [
-    Shade(0xFF4A5D99, 0xFF9FAEE0),
-    Shade(0xFF5C9A83, 0xFF8CC3AE),
-    Shade(0xFFD08B5B, 0xFFE3AA82),
-    Shade(0xFF5B8DB0, 0xFF8DB5D1),
-    Shade(0xFFB07A8C, 0xFFD3A2B3),
-    Shade(0xFF9AA35E, 0xFFC2C98E),
+    Palette.indigo,
+    Palette.green,
+    Palette.orange,
+    Palette.blue,
+    Palette.rose,
+    Palette.olive,
   ];
 
   @override
@@ -244,7 +196,7 @@ class _ReturnsState extends State<_Returns> {
         padding: EdgeInsets.only(top: 18),
         child: EmptyState(
           glyph: Glyph.dividend,
-          color: Shade(0xFFC9A34A, 0xFFDDBE73),
+          color: Palette.gold,
           message: '記下領到的股息後，這裡會推估接下來 12 個月的配息',
         ),
       );
@@ -322,7 +274,7 @@ class _ReturnsState extends State<_Returns> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: deepOf(const Shade(0xFFC9A34A, 0xFFDDBE73)),
+                    color: deepOf(Palette.gold),
                   ),
                 ),
               ],
@@ -355,7 +307,7 @@ class _ReturnsState extends State<_Returns> {
                   hidden: ledger.hidden,
                   words: Hue.muted,
                   rule: Hue.line,
-                  band: tintOf(const Shade(0xFFC9A34A, 0xFFDDBE73), 0.18),
+                  band: tintOf(Palette.gold, 0.18),
                 ),
               ),
             ),
@@ -594,16 +546,8 @@ class _InvestHero extends StatelessWidget {
             ],
           ),
         );
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Hue.hero, Hue.tile],
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

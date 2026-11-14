@@ -182,6 +182,12 @@ final class Nav {
   /// in the preview.
   final Connector? market;
 
+  /// Each stock's past daily closes, when [market] keeps them.
+  PriceHistory? get prices => switch (market) {
+    final PriceHistory history => history,
+    _ => null,
+  };
+
   /// Hands a file made on the page, such as a report as a picture, to the
   /// person to keep outside the app; false when they cancel. None in the
   /// preview.

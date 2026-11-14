@@ -6,7 +6,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
-const recoveryHue = Shade(0xFFC9A34A, 0xFFDDBE73);
+const recoveryHue = Palette.gold;
 
 /// Shows a new recovery code once, in large groups of four with 複製
 /// beside 存好了; it is the only way in without the password.

@@ -9,7 +9,6 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../../../core/connector.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
 
@@ -153,9 +152,9 @@ class HoldingPage extends StatelessWidget {
   }
 }
 
-const _buyHue = Shade(0xFF4A5D99, 0xFF9FAEE0);
-const _sellHue = Shade(0xFF9F4535, 0xFFF1B2A3);
-const _dividendHue = Shade(0xFFC9A34A, 0xFFDDBE73);
+const _buyHue = Palette.indigo;
+const _sellHue = Palette.brick;
+const _dividendHue = Palette.gold;
 
 /// 股息 on its gold tint: the total, when the next one is due and about
 /// how much, and the twelve months with those it pays in filled.
@@ -460,13 +459,9 @@ class _SoldOut extends StatelessWidget {
       }
     }
     final made = sold + dividends - paid;
-    return Container(
+    return HeroCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(colors: [Hue.hero, Hue.tile]),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -515,12 +510,8 @@ class _PriceCard extends StatelessWidget {
     final up = held.change >= 0;
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
-    return Container(
+    return HeroCard(
       padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(colors: [Hue.hero, Hue.tile]),
-      ),
       child: Row(
         children: [
           Expanded(
@@ -678,9 +669,8 @@ class _PriceChartState extends State<_PriceChart> {
   }
 
   Future<void> _load() async {
-    final market = widget.nav.market;
-    if (market is! PriceHistory) return;
-    final feed = market as PriceHistory;
+    final feed = widget.nav.prices;
+    if (feed == null) return;
     setState(() => _loading = true);
     final from = _from;
     final all = await feed.history(widget.code, from);
@@ -789,7 +779,7 @@ class _PriceChartState extends State<_PriceChart> {
                   child: Text(
                     _loading
                         ? '讀取收盤價…'
-                        : widget.nav.market is PriceHistory
+                        : widget.nav.prices != null
                         ? '這段期間沒有收盤價'
                         : '連上證交所、櫃買中心後才有走勢',
                     style: mutedSmall,
