@@ -254,7 +254,7 @@ class _HeadedListState extends State<HeadedList> {
               return false;
             },
             child: ListView(
-              physics: widget.physics,
+              physics: widget.physics ?? _FitPhysics(padding.bottom),
               padding: padding.copyWith(top: 0),
               children: widget.children,
             ),
@@ -263,4 +263,21 @@ class _HeadedListState extends State<HeadedList> {
       ],
     );
   }
+}
+
+/// A list that only moves when there is more than its bottom margin to
+/// see: one whose words all fit, but for the empty room at its foot, stays
+/// still under the finger.
+class _FitPhysics extends ClampingScrollPhysics {
+  const _FitPhysics(this.slack, {super.parent});
+
+  final double slack;
+
+  @override
+  _FitPhysics applyTo(ScrollPhysics? ancestor) =>
+      _FitPhysics(slack, parent: buildParent(ancestor));
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) =>
+      position.maxScrollExtent > slack + 1;
 }

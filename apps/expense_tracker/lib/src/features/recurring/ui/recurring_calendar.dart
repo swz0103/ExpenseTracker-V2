@@ -65,6 +65,7 @@ class _Calendar extends StatelessWidget {
           for (var r = 0; r < cells.length; r += 7)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
+              // A day due is taller by its 到期: the others sit at the top.
               children: [
                 for (final cell in cells.sublist(r, r + 7))
                   Expanded(child: cell),
@@ -214,20 +215,20 @@ class _Calendar extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                height: 13,
-                child: due
-                    ? const Text(
-                        '到期',
-                        textScaler: TextScaler.noScaling,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Hue.negative,
-                        ),
-                      )
-                    : null,
-              ),
+              // 到期 under a day due; a week with none takes no room for it.
+              if (due)
+                const SizedBox(
+                  height: 13,
+                  child: Text(
+                    '到期',
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.negative,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
