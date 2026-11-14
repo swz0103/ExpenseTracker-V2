@@ -149,6 +149,58 @@ Ledger demoLedger() {
     add(10, 4, spend, amount, 'cash', '飲食日常', note);
   }
 
+  // Two buys of 台積電 on top of what was held at the start, and the past
+  // year's cash dividends: the holding's chart has points to tap and
+  // 預計配息 has months to show.
+  Entry trade(
+    DateTime date,
+    EntryType type,
+    String code,
+    int amount, {
+    int shares = 0,
+    int fee = 0,
+  }) => Entry(
+    id: 'seed-${++serial}',
+    date: date,
+    type: type,
+    amount: amount,
+    account: 'bank',
+    category: type == EntryType.dividend ? '股息收入' : '',
+    holding: code,
+    shares: shares,
+    fee: fee,
+  );
+  entries.addAll([
+    trade(
+      DateTime.utc(2025, 3, 12),
+      EntryType.buy,
+      '2330',
+      57720,
+      shares: 60,
+      fee: 20,
+    ),
+    trade(
+      DateTime.utc(2025, 8, 5),
+      EntryType.buy,
+      '2330',
+      40320,
+      shares: 40,
+      fee: 20,
+    ),
+    for (final (date, code, amount) in [
+      (DateTime.utc(2025, 11, 18), '00878', 2000),
+      (DateTime.utc(2026, 1, 8), '2330', 800),
+      (DateTime.utc(2026, 1, 20), '0050', 4800),
+      (DateTime.utc(2026, 2, 18), '00878', 2250),
+      (DateTime.utc(2026, 4, 9), '2330', 1000),
+      (DateTime.utc(2026, 5, 19), '00878', 2000),
+      (DateTime.utc(2026, 7, 9), '2330', 1000),
+      (DateTime.utc(2026, 7, 18), '0050', 3000),
+      (DateTime.utc(2026, 8, 18), '00878', 2000),
+    ])
+      trade(date, EntryType.dividend, code, amount),
+  ]);
+
   return Ledger(
     today: DateTime.utc(2026, 10, 4),
     // Closing prices of the Friday before.

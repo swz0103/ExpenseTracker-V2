@@ -794,18 +794,32 @@ Future<T?> showPanel<T>(
 
 /// A wide button: grey by default, solid [color] when given.
 class PanelButton extends StatelessWidget {
-  const PanelButton(this.label, {super.key, required this.onTap, this.color});
+  const PanelButton(
+    this.label, {
+    super.key,
+    required this.onTap,
+    this.color,
+    this.tinted = false,
+  });
 
   final String label;
   final VoidCallback? onTap;
   final Color? color;
+
+  /// On [color]'s tint with its deeper words, not solid: one of a row of
+  /// plain actions, such as 買進, 賣出 and 記股息.
+  final bool tinted;
 
   @override
   Widget build(BuildContext context) {
     final solid = color;
     return Pressable(
       child: Material(
-        color: solid ?? Hue.surface,
+        color: solid == null
+            ? Hue.surface
+            : tinted
+            ? tintOf(solid, 0.22)
+            : solid,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -824,7 +838,11 @@ class PanelButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: solid == null ? Hue.ink : Hue.onAccent,
+                    color: solid == null
+                        ? Hue.ink
+                        : tinted
+                        ? deepOf(solid)
+                        : Hue.onAccent,
                   ),
                 ),
               ),

@@ -40,7 +40,7 @@ const places = <(String, List<String>)>[
   ('報表 習慣', ['更多', '財務報表', '習慣']),
   ('投資 持股', ['更多', '投資與股息']),
   ('投資 股息', ['更多', '投資與股息', '股息']),
-  ('一檔持股', ['更多', '投資與股息', '長榮']),
+  ('一檔持股', ['更多', '投資與股息', '台積電']),
   ('代墊與借貸', ['更多', '代墊與借貸']),
   ('貸款', ['更多', '代墊與借貸', '車貸']),
   ('預算管理', ['更多', '預算管理']),
@@ -86,7 +86,8 @@ Future<void> show(
   Key? key,
 }) async {
   final preferences = Preferences();
-  final stand = previewServices(preferences);
+  final ledger = demoLedger();
+  final stand = previewServices(preferences, ledger: () => ledger);
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -106,11 +107,12 @@ Future<void> show(
         // As in the web preview, with its stand-ins for notifications
         // and screen hiding, so those pages and panels are checked too.
         home: AppShell(
-          ledger: demoLedger(),
+          ledger: ledger,
           services: Services(
             preferences: preferences,
             notifier: stand.notifier,
             privacy: stand.privacy,
+            market: stand.market,
           ),
         ),
       ),

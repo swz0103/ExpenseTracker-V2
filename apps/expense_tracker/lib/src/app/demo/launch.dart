@@ -45,7 +45,10 @@ enum _Stage { home, splash, lock, app }
 
 class _PreviewLaunchState extends State<PreviewLaunch> {
   /// What the phone would do, in memory (preview_services.dart).
-  late final _stand = previewServices(widget.preferences);
+  late final _stand = previewServices(
+    widget.preferences,
+    ledger: () => _ledger,
+  );
 
   var _stage = _Stage.home;
   var _start = PreviewStart.plain;
@@ -119,6 +122,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
           preferences: widget.preferences,
           notifier: _stand.notifier,
           privacy: _stand.privacy,
+          market: _stand.market,
           sample: demoLedger,
           quick: _quick,
         ),

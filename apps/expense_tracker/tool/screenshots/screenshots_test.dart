@@ -15,7 +15,8 @@ import '../../test/app/places.dart';
 ///
 ///     flutter test tool/screenshots
 ///
-/// `SHOTS_ONLY` takes the names of the pages to draw, comma-separated.
+/// `SHOTS_ONLY` takes the names of the pages to draw, comma-separated;
+/// `SHOTS_HEIGHT` a taller page, to see all of it.
 void main() {
   setUpAll(loadFonts);
   final out = Directory(
@@ -30,7 +31,10 @@ void main() {
         Shade.dark = dark;
         addTearDown(() => Shade.dark = false);
         final key = GlobalKey();
-        await show(tester, 360, 1, height: 800, key: key);
+        final height = double.tryParse(
+          Platform.environment['SHOTS_HEIGHT'] ?? '',
+        );
+        await show(tester, 360, 1, height: height ?? 800, key: key);
         await go(tester, taps);
         await tester.runAsync(() async {
           final box =
