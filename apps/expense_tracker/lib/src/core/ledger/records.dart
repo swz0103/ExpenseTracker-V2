@@ -1,8 +1,11 @@
 import 'dart:math';
 
+import 'package:domain/loans.dart' show LoanRepay;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:domain/investments.dart' show unitsPerShare;
 import 'package:flutter/painting.dart' show Color;
+
+export 'package:domain/loans.dart' show LoanRepay;
 
 /// The code of the currency the books are kept in: NT$.
 const homeCode = 'TWD';
@@ -149,10 +152,6 @@ final class Account {
     payFrom: payFrom,
   );
 }
-
-/// How a loan is paid back: the same each month (本息平均攤還), the same
-/// share of the loan each month (本金平均攤還), or only the interest.
-enum LoanRepay { even, principal, interest }
 
 final class Category {
   const Category(

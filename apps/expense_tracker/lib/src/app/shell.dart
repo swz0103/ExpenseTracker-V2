@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../features/entries/compose/composer.dart';
-import '../core/look/figures.dart';
+import '../core/text/figures.dart';
 import '../core/look/glyphs.dart';
 import '../core/look/haptics.dart';
 import '../core/look/theme.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
-import '../core/problems.dart';
-import '../core/quick_action.dart';
+import '../core/platform/problems.dart';
+import '../core/platform/quick_action.dart';
 import '../core/ui/tour.dart';
 import '../features/settings/model/services.dart';
 import '../features/accounts/ui/account_page.dart';
@@ -21,12 +21,13 @@ import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
 import '../features/categories/ui/labels_page.dart';
 import '../features/entries/ui/ledger_page.dart';
-import '../features/more/ui/more.dart';
+import 'more_page.dart';
 import '../core/nav.dart';
 import '../features/overview/ui/overview.dart';
 import '../features/recurring/ui/recurring_page.dart';
 import '../features/reports/ui/reports.dart';
-import '../features/settings/ui/settings_page.dart';
+import 'settings_page.dart';
+import '../core/ui/shown_amounts.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -301,6 +302,12 @@ class _AppShellState extends State<AppShell> {
           ledger: ledger,
           nav: _nav,
           code: code,
+        ),
+        RecurringPlace(:final view) => RecurringViewPage(
+          key: ValueKey(page),
+          ledger: ledger,
+          nav: _nav,
+          view: view,
         ),
         MerchantsPlace() => LabelsPage(
           ledger: ledger,

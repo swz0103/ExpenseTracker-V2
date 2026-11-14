@@ -3,13 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/bar_scale.dart';
-import '../../../../core/look/figures.dart';
+import '../../../../core/text/figures.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/entry_tile.dart' show holdingLabel;
+import '../../../../core/ui/shown_amounts.dart';
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.

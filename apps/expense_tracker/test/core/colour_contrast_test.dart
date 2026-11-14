@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/core/look/kit.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
-import 'package:expense_tracker/src/features/settings/ui/settings_hue.dart';
+import 'package:expense_tracker/src/core/look/settings_hue.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 

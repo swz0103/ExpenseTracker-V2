@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';

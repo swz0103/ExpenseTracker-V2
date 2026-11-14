@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:core/foundation_values.dart';
 import 'package:vault/backup_security.dart';
 
-import '../../features/lock/model/startup.dart';
+import '../../core/platform/startup.dart';
 import 'channel.dart';
 
 /// This install's device unlock, when the phone can confirm a fingerprint

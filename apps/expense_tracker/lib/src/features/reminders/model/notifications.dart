@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
-import '../../../core/perf.dart';
-import '../../../core/preferences.dart';
-import '../../../core/quick_action.dart';
+import '../../../core/platform/perf.dart';
+import '../../../core/platform/preferences.dart';
+import '../../../core/platform/quick_action.dart';
 
 /// One notification to show at [at].
 final class Alert {

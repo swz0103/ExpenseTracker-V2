@@ -4,7 +4,7 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
-import '../../../core/preferences.dart';
+import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
 
 /// Lets the person put 總覽's blocks in another order and hide some;

@@ -1,4 +1,4 @@
-import '../../../core/look/theme.dart';
+import 'theme.dart';
 
 /// The colour of each card on the settings pages; each card, and the
 /// panel it opens, is tinted with its own.

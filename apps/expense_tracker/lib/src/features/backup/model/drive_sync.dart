@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../core/preferences.dart';
+import '../../../core/platform/preferences.dart';
 import 'drive_backup.dart';
 
 /// Backups on the person's Google Drive: linked once with Google's

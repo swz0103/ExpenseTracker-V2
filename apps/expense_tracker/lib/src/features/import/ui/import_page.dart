@@ -4,12 +4,13 @@ import 'package:flutter/services.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/ui/pickers.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../model/exchange.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
 const _csvHue = Palette.periwinkle;
@@ -26,11 +27,9 @@ Future<void> importInto(
   Future<String?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
-    ),
+  await openFlow<void>(
+    context,
+    (_) => _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
   );
 }
 

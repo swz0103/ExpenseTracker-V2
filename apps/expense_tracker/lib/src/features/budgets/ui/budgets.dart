@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ui/calculator.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The colour of 預算管理, as on 更多.
 const _budgetHue = Palette.green;

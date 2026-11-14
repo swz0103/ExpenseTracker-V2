@@ -4,7 +4,7 @@ import 'package:flutter/semantics.dart';
 import '../compose/category_editor.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';

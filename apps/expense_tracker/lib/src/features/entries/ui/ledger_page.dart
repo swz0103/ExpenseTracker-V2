@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/ui/pickers.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
 import '../../../core/look/theme.dart';
@@ -13,6 +13,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import 'ledger_filter_sheet.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/balance_hero.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.

@@ -2,8 +2,8 @@ import 'package:core/foundation_values.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'ledger/journal.dart';
-import 'ledger/ledger.dart' show NameTaken, SharesShort;
+import '../ledger/journal.dart';
+import '../ledger/ledger.dart' show NameTaken, SharesShort;
 
 /// Shows why a command was refused, in words a person can act on.
 void showProblem(BuildContext context, Object error) {

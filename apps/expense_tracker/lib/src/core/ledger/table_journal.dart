@@ -11,7 +11,7 @@ import 'package:storage/storage.dart';
 import 'journal.dart';
 import 'ledger.dart';
 import 'record_json.dart';
-import '../perf.dart';
+import '../platform/perf.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [

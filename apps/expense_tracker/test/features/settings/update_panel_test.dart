@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
 import 'package:expense_tracker/src/features/settings/ui/update_panel.dart';
 import 'package:flutter/material.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
+import 'glyphs.dart';
+import 'theme.dart';
+import 'widgets.dart';
 
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
 const recoveryHue = Palette.gold;

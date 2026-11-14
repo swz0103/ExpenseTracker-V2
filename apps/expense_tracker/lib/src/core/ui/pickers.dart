@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
+import '../text/figures.dart';
 import '../look/glyphs.dart';
-import '../look/icons.dart';
+import 'icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../ledger/ledger.dart';
+import 'shown_amounts.dart';
 
 /// A bottom sheet with a title over [builder]'s content. The sheet's own
 /// drag handle closes it (down to the page below, when opened from one);

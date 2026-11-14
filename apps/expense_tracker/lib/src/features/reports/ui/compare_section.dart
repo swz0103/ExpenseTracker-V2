@@ -2,13 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/text/figures.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../model/comparison.dart';
 import 'report_period.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// What the period is set against.
 enum _Against {

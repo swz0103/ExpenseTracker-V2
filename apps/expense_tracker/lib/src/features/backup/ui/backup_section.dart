@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../backup/model/drive_backup.dart';
-import '../../../backup/model/drive_sync.dart';
-import '../../../backup/model/keeper.dart';
-import '../../../backup/model/phone_backup.dart';
-import '../../../../core/look/dialogs.dart';
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
-import '../../../../core/preferences.dart';
-import '../../../../core/problems.dart';
-import '../../../lock/ui/recovery_code.dart';
-import '../settings_hue.dart';
+import '../model/drive_backup.dart';
+import '../model/drive_sync.dart';
+import '../model/keeper.dart';
+import '../model/phone_backup.dart';
+import '../../../core/look/dialogs.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/platform/preferences.dart';
+import '../../../core/platform/problems.dart';
+import '../../../core/look/recovery_code.dart';
+import '../../../core/look/settings_hue.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.

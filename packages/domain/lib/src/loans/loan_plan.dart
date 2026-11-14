@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
-import '../../../core/ledger/records.dart';
+/// How a loan is paid back: the same each month (本息平均攤還), the same
+/// share of the loan each month (本金平均攤還), or only the interest.
+enum LoanRepay { even, principal, interest }
 
 /// What a loan costs as set: the first and last month's payment and the
 /// interest over its whole term, in whole NT$.
@@ -42,13 +44,6 @@ LoanPlan? loanPlan({
       );
   }
 }
-
-/// [LoanRepay] as the form names it.
-String repayName(LoanRepay repay) => switch (repay) {
-  LoanRepay.even => '本息平均',
-  LoanRepay.principal => '本金平均',
-  LoanRepay.interest => '只繳息',
-};
 
 /// A rate as typed, such as 「2.15」, in hundredths of a percent; null
 /// when it is not a number from 0 to 100.

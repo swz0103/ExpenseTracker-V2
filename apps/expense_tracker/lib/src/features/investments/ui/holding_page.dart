@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/paint.dart';
 import '../../../core/look/theme.dart';
@@ -11,6 +11,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
+import '../../../core/ui/shown_amounts.dart';
 
 /// One holding: its market value and profit, today's move and the
 /// dividends it paid, the lots still held against what they are worth

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import '../../../core/preferences.dart';
+import '../../../core/platform/preferences.dart';
 import 'phone_backup.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app

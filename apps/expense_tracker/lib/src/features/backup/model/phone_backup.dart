@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../core/preferences.dart';
+import '../../../core/platform/preferences.dart';
 
 /// The folder chosen cannot be kept: Android gave no lasting permission
 /// for it, as for the storage's top or 下載 since Android 11.

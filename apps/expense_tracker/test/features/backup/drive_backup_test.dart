@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/features/backup/model/drive_backup.dart';
 import 'package:expense_tracker/src/features/backup/model/drive_sync.dart';
-import 'package:expense_tracker/src/core/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 typedef _Sent = ({String method, Uri url, Map<String, String> headers});

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../accounts/compose/account_editor.dart';
-import '../../accounts/ui/reconcile_sheet.dart';
+import '../../accounts/compose/reconcile_sheet.dart';
 import '../../../core/ui/pickers.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// A credit card: the last statement and when it is due, with 繳卡款;
 /// what has been spent since, the credit left, purchases paid in

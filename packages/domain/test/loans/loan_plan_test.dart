@@ -1,6 +1,5 @@
-import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/debts/model/loan_plan.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:domain/loans.dart';
+import 'package:test/test.dart';
 
 void main() {
   test('the same each month: a million at 2% over 20 years', () {

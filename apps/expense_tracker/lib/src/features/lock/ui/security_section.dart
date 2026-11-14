@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../backup/model/keeper.dart';
-import '../../../../core/look/dialogs.dart';
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
-import '../../../../core/problems.dart';
-import '../../../../core/screen_privacy.dart';
-import '../../../lock/ui/recovery_code.dart';
-import '../settings_hue.dart';
+import '../../backup/model/keeper.dart';
+import '../../../core/look/dialogs.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/platform/problems.dart';
+import '../../../core/platform/screen_privacy.dart';
+import '../../../core/look/recovery_code.dart';
+import '../../../core/look/settings_hue.dart';
 
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/look/dialogs.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';

@@ -2,18 +2,21 @@ import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
 import '../../../core/look/dialogs.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
-import '../../debts/model/loan_plan.dart';
+
+import 'package:domain/loans.dart';
+
 import '../model/account_form.dart';
 import '../ui/account_card.dart' show cardKindLabel;
 import '../ui/accounts.dart' show walletKinds;
+import '../../../core/ui/shown_amounts.dart';
 
 part 'loan_fields.dart';
 

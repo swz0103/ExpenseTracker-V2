@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
+import '../text/figures.dart';
 import '../look/glyphs.dart';
 import '../look/haptics.dart';
-import '../look/icons.dart';
+import 'icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
+import 'shown_amounts.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {

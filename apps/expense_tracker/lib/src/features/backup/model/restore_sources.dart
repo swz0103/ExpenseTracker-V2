@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../../backup/model/drive_backup.dart';
+import 'drive_backup.dart';
 
 /// Where the lock screen can find a backup to restore, from the phone:
 /// the system's file picker and Google Drive. Each is absent where the

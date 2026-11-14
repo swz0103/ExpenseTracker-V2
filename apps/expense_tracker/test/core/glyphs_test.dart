@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/look/glyphs.dart';
-import 'package:expense_tracker/src/core/look/icons.dart';
+import 'package:expense_tracker/src/core/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

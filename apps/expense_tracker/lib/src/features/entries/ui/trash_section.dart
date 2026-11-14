@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/ledger/ledger.dart';
-import '../../../../core/look/figures.dart';
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
-import '../../../../core/problems.dart';
-import '../../../../core/ui/entry_tile.dart';
-import '../settings_hue.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/text/figures.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/platform/problems.dart';
+import '../../../core/ui/entry_tile.dart';
+import '../../../core/look/settings_hue.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;

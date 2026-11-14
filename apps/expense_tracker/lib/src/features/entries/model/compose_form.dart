@@ -1,4 +1,4 @@
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../import/model/exchange.dart' show guessCategory;

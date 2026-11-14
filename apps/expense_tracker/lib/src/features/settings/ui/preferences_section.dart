@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
-import '../../../overview/ui/overview_editor.dart';
-import '../../../overview/ui/widget_face.dart';
-import '../../../../core/preferences.dart';
-import '../settings_hue.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../overview/compose/overview_editor.dart';
+import '../../overview/compose/widget_face.dart';
+import '../../../core/platform/preferences.dart';
+import '../../../core/look/settings_hue.dart';
 
 /// 外觀與操作: four cards: light or dark, the small vibrations, what the
 /// home-screen widget shows, and the overview's blocks.

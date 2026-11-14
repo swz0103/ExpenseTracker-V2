@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../../core/look/dialogs.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -23,6 +23,7 @@ import '../model/compose_form.dart';
 import '../model/receipt_photos.dart';
 import '../../import/model/exchange.dart' show invoiceRecorded;
 import '../../import/model/invoice_qr.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 

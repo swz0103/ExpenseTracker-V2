@@ -24,12 +24,14 @@ Map<String, List<String>> appImports() {
   return found;
 }
 
-/// The app's layers (docs/adr/0002-feature-folders.md):
+/// The app's layers, as docs/architecture.md sets them out:
 ///
-/// - `core/`: the ledger, the look, shared widgets; it knows no feature
-///   and not how the app is put together.
-/// - `features/<name>/`: one feature each; may use `core/` and other
-///   features, never `app/`.
+/// - `core/`: what every feature shares, in six parts that each may use
+///   only those listed for it below; it knows no feature and not how the
+///   app is put together.
+/// - `features/<name>/`: one feature each, in `model/`, `compose/` and
+///   `ui/`; may use `core/`, and another feature's `model/` and
+///   `compose/` but never its `ui/`; no two features need each other.
 /// - `app/`: puts the app together; may use everything.
 void main() {
   final imports = appImports();
@@ -87,7 +89,8 @@ void main() {
       for (final uri in uris) {
         final inside =
             uri.startsWith('lib/src/core/ledger/') ||
-            uri == 'lib/src/core/perf.dart';
+            uri == 'lib/src/core/platform/perf.dart' ||
+            uri.startsWith('lib/src/core/text/');
         expect(inside, isTrue, reason: '$file: $uri');
         if (file != store) expect(uri, isNot(store), reason: file);
       }
@@ -113,6 +116,88 @@ void main() {
       for (final uri in uris) {
         expect(uri.contains('/demo/'), isFalse, reason: '$file: $uri');
       }
+    }
+  });
+
+  test('core is in its parts, each using only those below it', () {
+    // What each part of core may import from core, besides itself.
+    const allowed = {
+      'text': <String>[],
+      'look': ['text'],
+      'charts': ['look', 'text'],
+      'ledger': ['text', 'platform/perf.dart'],
+      'platform': ['ledger', 'text'],
+      'ui': ['look', 'text', 'ledger', 'charts', 'platform', 'nav.dart'],
+    };
+    for (final MapEntry(key: file, value: uris) in imports.entries) {
+      if (!file.startsWith('lib/src/core/')) continue;
+      final inside = file.substring('lib/src/core/'.length);
+      if (inside == 'nav.dart') continue;
+      final part = inside.split('/').first;
+      expect(allowed.containsKey(part), isTrue, reason: file);
+      for (final uri in uris) {
+        if (!uri.startsWith('lib/src/core/')) continue;
+        final target = uri.substring('lib/src/core/'.length);
+        final ok =
+            target.startsWith('$part/') ||
+            allowed[part]!.any(
+              (other) => target == other || target.startsWith('$other/'),
+            );
+        expect(ok, isTrue, reason: '$file imports $uri');
+      }
+    }
+  });
+
+  test("a feature borrows another's model and forms, never its pages", () {
+    for (final MapEntry(key: file, value: uris) in imports.entries) {
+      final from = feature(file);
+      if (from.isEmpty) continue;
+      for (final uri in uris) {
+        final to = feature(uri);
+        if (to.isEmpty || to == from) continue;
+        expect(
+          uri.contains('/features/$to/ui/'),
+          isFalse,
+          reason: '$file imports $uri',
+        );
+      }
+    }
+  });
+
+  test('no two features need each other, even through others', () {
+    final needs = <String, Set<String>>{};
+    for (final MapEntry(key: file, value: uris) in imports.entries) {
+      final from = feature(file);
+      if (from.isEmpty) continue;
+      for (final uri in uris) {
+        final to = feature(uri);
+        if (to.isNotEmpty && to != from) {
+          (needs[from] ??= {}).add(to);
+        }
+      }
+    }
+    // A feature reaching itself through those it needs is a cycle.
+    for (final start in needs.keys) {
+      final seen = <String>{};
+      final todo = [...?needs[start]];
+      while (todo.isNotEmpty) {
+        final next = todo.removeLast();
+        expect(next, isNot(start), reason: '$start needs itself: $needs');
+        if (seen.add(next)) todo.addAll(needs[next] ?? const {});
+      }
+    }
+  });
+
+  test('pages open through Nav; a route is pushed in one place only', () {
+    const flow = 'lib/src/core/look/feedback.dart';
+    for (final file in imports.keys) {
+      if (file == flow) continue;
+      final text = File(file).readAsStringSync();
+      expect(
+        RegExp(r'Navigator(\.of\([^)]*\))?\s*\.\s*push').hasMatch(text),
+        isFalse,
+        reason: '$file pushes a route: use Nav, or openFlow for a task',
+      );
     }
   });
 }

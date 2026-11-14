@@ -9,9 +9,9 @@ import '../../../core/charts/treemap.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 
 import '../../../core/charts/period_charts.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -19,6 +19,7 @@ import '../../../core/nav.dart';
 import '../../../core/ui/entry_tile.dart';
 import 'compare_section.dart';
 import 'report_period.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 part 'report_figures.dart';
 part 'report_blocks.dart';

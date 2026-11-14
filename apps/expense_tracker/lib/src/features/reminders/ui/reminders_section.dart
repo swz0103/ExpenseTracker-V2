@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/ledger/ledger.dart';
-import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
-import '../../../../core/look/widgets.dart';
-import '../../../../core/problems.dart';
-import '../../../reminders/model/calendar_sync.dart';
-import '../../../reminders/model/notifications.dart';
-import '../../../reminders/model/reminders.dart';
-import '../settings_hue.dart';
+import '../../../core/ledger/ledger.dart';
+import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
+import '../../../core/look/widgets.dart';
+import '../../../core/platform/problems.dart';
+import '../model/calendar_sync.dart';
+import '../model/notifications.dart';
+import '../model/reminders.dart';
+import '../../../core/look/settings_hue.dart';
 
 /// 通知與提醒: four cards (到期提醒, 預算提醒, 每日記帳, Google 日曆), the
 /// tick on each turning it on or off and a tap opening its details in the

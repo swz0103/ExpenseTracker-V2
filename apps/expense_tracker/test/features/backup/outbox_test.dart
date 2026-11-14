@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/backup/model/outbox.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -6,8 +6,8 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 
 import '../../backup/model/drive_backup.dart';
-import '../model/restore_sources.dart';
-import '../model/startup.dart';
+import '../../backup/model/restore_sources.dart';
+import '../../../core/platform/startup.dart';
 import 'views/lock_parts.dart';
 import 'views/recovery_view.dart';
 import 'views/restore_view.dart';

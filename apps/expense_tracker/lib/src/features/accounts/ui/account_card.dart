@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.

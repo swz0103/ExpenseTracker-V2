@@ -6,22 +6,20 @@ part of 'recurring_page.dart';
 class _SubPage extends StatelessWidget {
   const _SubPage({
     required this.title,
+    required this.nav,
     required this.children,
     this.actions = const [],
   });
 
   final String title;
+  final Nav nav;
   final List<Widget> children;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) => HeadedList(
     padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-    header: CenterHeader(
-      title,
-      onBack: () => Navigator.of(context).pop(),
-      actions: actions,
-    ),
+    header: CenterHeader(title, onBack: nav.back, actions: actions),
     children: [...children],
   );
 }
@@ -29,9 +27,14 @@ class _SubPage extends StatelessWidget {
 /// 管理固定項目: every active item as a square, 支出 then 收入, each
 /// side with how many and what they come to a month.
 class _Manage extends StatelessWidget {
-  const _Manage({required this.ledger, required this.onEdit});
+  const _Manage({
+    required this.ledger,
+    required this.nav,
+    required this.onEdit,
+  });
 
   final Ledger ledger;
+  final Nav nav;
   final Future<void> Function({Recurring? item, DateTime? on}) onEdit;
 
   @override
@@ -84,6 +87,7 @@ class _Manage extends StatelessWidget {
         }
 
         return _SubPage(
+          nav: nav,
           title: '管理固定項目',
           actions: [HeaderButton(glyph: Glyph.add, label: '新增', onTap: onEdit)],
           children: [...side(false), ...side(true)],
@@ -97,15 +101,17 @@ class _Manage extends StatelessWidget {
 /// a bar of each item's share, and each item's year, month and share,
 /// the dearest first.
 class _Subscriptions extends StatelessWidget {
-  const _Subscriptions({required this.ledger});
+  const _Subscriptions({required this.ledger, required this.nav});
 
   final Ledger ledger;
+  final Nav nav;
 
   @override
   Widget build(BuildContext context) {
     final rows = yearlyCosts(ledger);
     final total = rows.fold(0, (sum, row) => sum + row.$2);
     return _SubPage(
+      nav: nav,
       title: '訂閱與固定支出',
       children: [
         if (rows.isEmpty)
@@ -182,9 +188,14 @@ class _Subscriptions extends StatelessWidget {
 
 /// 已暫停: what pausing means, then each paused item in grey with 恢復.
 class _Paused extends StatelessWidget {
-  const _Paused({required this.ledger, required this.onEdit});
+  const _Paused({
+    required this.ledger,
+    required this.nav,
+    required this.onEdit,
+  });
 
   final Ledger ledger;
+  final Nav nav;
   final Future<void> Function({Recurring? item, DateTime? on}) onEdit;
 
   @override
@@ -197,6 +208,7 @@ class _Paused extends StatelessWidget {
             if (!r.active) r,
         ];
         return _SubPage(
+          nav: nav,
           title: '已暫停',
           children: [
             const Padding(

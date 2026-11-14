@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
@@ -8,8 +8,12 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/look/dialogs.dart';
 import '../../accounts/compose/account_editor.dart';
-import '../../accounts/ui/reconcile_sheet.dart';
-import '../model/loan_plan.dart';
+import '../../accounts/compose/reconcile_sheet.dart';
+
+import 'package:domain/loans.dart';
+
+import '../../../core/ui/icons.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The people paid for, most owed first, open ones only.
 List<Account> peopleOwing(Ledger ledger) => [

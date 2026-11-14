@@ -1,9 +1,8 @@
 import 'package:core/foundation_values.dart' show Currency;
 
-import '../ledger/amounts.dart';
-import '../ledger/ledger.dart' show Ledger;
+import 'amounts.dart';
 
-export '../ledger/amounts.dart';
+export 'amounts.dart';
 
 /// `1200` → `+1,200`, `-80` → `−80` (a true minus sign), `0` → `0`.
 String signed(int value) => value > 0
@@ -48,22 +47,4 @@ String amountIn(int minor, String currency) {
   final cents = (minor.abs() % 100).toString().padLeft(2, '0');
   final whole = groupDigits(minor.abs() ~/ 100);
   return '$currency ${minor < 0 ? '-' : ''}$whole.$cents';
-}
-
-/// Amounts as a ledger shows them: dots in place of every figure while
-/// its 隱藏金額 switch is on. Each screen asks its own ledger, so two books
-/// open at once (as in tests) never share the switch.
-extension ShownAmounts on Ledger {
-  /// [text], or dots while amounts are hidden.
-  String orDots(String text) => hidden ? '••••' : text;
-
-  /// [groupDigits], or dots while amounts are hidden.
-  String money(int value) => orDots(groupDigits(value));
-
-  /// [signed], or dots while amounts are hidden.
-  String moneySigned(int value) => orDots(signed(value));
-
-  /// [amountIn], or dots while amounts are hidden.
-  String moneyIn(int minor, String currency) =>
-      orDots(amountIn(minor, currency));
 }

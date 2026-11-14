@@ -4,7 +4,7 @@ import 'package:expense_tracker/src/app/demo/preview_services.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
-import 'package:expense_tracker/src/core/preferences.dart';
+import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/settings/model/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

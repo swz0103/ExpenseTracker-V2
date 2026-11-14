@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
+import '../text/figures.dart';
 import '../look/glyphs.dart';
 import '../look/haptics.dart';
 import '../look/theme.dart';

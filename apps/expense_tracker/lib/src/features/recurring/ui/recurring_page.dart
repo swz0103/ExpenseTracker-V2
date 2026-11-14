@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../accounts/compose/account_editor.dart';
 import '../compose/recurring_editor.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -12,6 +12,7 @@ import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 import '../model/calendar.dart';
 import '../model/subscriptions.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
@@ -26,6 +27,43 @@ const _busyDay = Shade(0xFFEAEEEC, 0xFF3E4A50);
 (Glyph, Color) _mark(Ledger ledger, Recurring item) {
   final c = ledger.category(item.category);
   return (iconFor(c.icon), shownColor(c.color));
+}
+
+/// Adds an item, or changes [item], after making sure there is an account
+/// to book it to.
+Future<void> _editItem(
+  BuildContext context,
+  Ledger ledger, {
+  Recurring? item,
+  DateTime? on,
+}) async {
+  if (!await ensureAccount(context, ledger) || !context.mounted) return;
+  await editRecurring(context, ledger, item: item, on: on);
+}
+
+/// A page under 定期交易: 管理固定項目, 訂閱與固定支出 or 已暫停.
+class RecurringViewPage extends StatelessWidget {
+  const RecurringViewPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    required this.view,
+  });
+
+  final Ledger ledger;
+  final Nav nav;
+  final RecurringView view;
+
+  @override
+  Widget build(BuildContext context) {
+    Future<void> edit({Recurring? item, DateTime? on}) =>
+        _editItem(context, ledger, item: item, on: on);
+    return switch (view) {
+      RecurringView.manage => _Manage(ledger: ledger, nav: nav, onEdit: edit),
+      RecurringView.subscriptions => _Subscriptions(ledger: ledger, nav: nav),
+      RecurringView.paused => _Paused(ledger: ledger, nav: nav, onEdit: edit),
+    };
+  }
 }
 
 /// 定期交易: the month in big words, a calendar of what falls due on
@@ -62,19 +100,8 @@ class _RecurringPageState extends State<RecurringPage> {
 
   void _book(Recurring item) => widget.nav.compose(draft: ledger.booking(item));
 
-  Future<void> _edit({Recurring? item, DateTime? on}) async {
-    if (!await ensureAccount(context, ledger) || !mounted) return;
-    await editRecurring(context, ledger, item: item, on: on);
-  }
-
-  void _push(Widget Function(BuildContext) page) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (context) => Scaffold(
-        backgroundColor: Hue.paper,
-        body: SafeArea(child: page(context)),
-      ),
-    ),
-  );
+  Future<void> _edit({Recurring? item, DateTime? on}) =>
+      _editItem(context, ledger, item: item, on: on);
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +126,7 @@ class _RecurringPageState extends State<RecurringPage> {
               glyph: Glyph.list,
               label: '管理',
               onTap: () =>
-                  _push((context) => _Manage(ledger: ledger, onEdit: _edit)),
+                  widget.nav.open(Pages.recurringView(RecurringView.manage)),
             ),
             HeaderButton(glyph: Glyph.add, label: '新增', onTap: _edit),
           ],
@@ -213,13 +240,15 @@ class _RecurringPageState extends State<RecurringPage> {
               _Cell(
                 label: '固定支出/年 ›',
                 value: ledger.orDots(groupDigits(yearly)),
-                onTap: () => _push((context) => _Subscriptions(ledger: ledger)),
+                onTap: () => widget.nav.open(
+                  Pages.recurringView(RecurringView.subscriptions),
+                ),
               ),
               _Cell(
                 label: '已暫停 ›',
                 value: '${paused.length} 項',
                 onTap: () =>
-                    _push((context) => _Paused(ledger: ledger, onEdit: _edit)),
+                    widget.nav.open(Pages.recurringView(RecurringView.paused)),
               ),
             ]),
           ],

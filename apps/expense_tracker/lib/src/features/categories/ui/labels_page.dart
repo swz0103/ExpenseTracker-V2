@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/look/dialogs.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/project.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The colours of the two halves of 標籤與商家.
 const _tagHue = Palette.gold;

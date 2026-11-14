@@ -3,11 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/treemap.dart';
-import '../../../../core/look/figures.dart';
-import '../../../../core/look/icons.dart';
+import '../../../../core/text/figures.dart';
+import '../../../../core/ui/icons.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
+import '../../../../core/ui/shown_amounts.dart';
 
 /// 財務分布: where the assets are as a map of tiles, largest first. A tap
 /// picks a tile; a second opens a group of accounts or the holdings.

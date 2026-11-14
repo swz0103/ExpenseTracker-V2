@@ -3,15 +3,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../compose/account_editor.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/haptics.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import 'account_card.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The kinds 我的帳戶 holds, in the order 依類型重新排 puts them. Money
 /// paid for someone and loans have a page of their own.
@@ -62,12 +63,8 @@ class _AccountsPageState extends State<AccountsPage> {
   /// The account in front, kept while the app runs; null for the last.
   static String? _shown;
 
-  Future<void> _sort(BuildContext context) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      fullscreenDialog: true,
-      builder: (_) => SortAccountsPage(ledger: ledger),
-    ),
-  );
+  Future<void> _sort(BuildContext context) =>
+      openFlow<void>(context, (_) => SortAccountsPage(ledger: ledger));
 
   @override
   Widget build(BuildContext context) {

@@ -8,7 +8,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
-import '../../../core/perf.dart';
+import 'perf.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.

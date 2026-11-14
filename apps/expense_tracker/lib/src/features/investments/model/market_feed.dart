@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:market/market_data.dart';
 
-import '../../../core/connector.dart';
+import '../../../core/platform/connector.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ledger/table_journal.dart';
 

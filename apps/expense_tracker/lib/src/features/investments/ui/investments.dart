@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/paint.dart';
 import '../../../core/look/theme.dart';
@@ -10,6 +10,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/returns.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// 投資與股息: unrealised and realised profit, dividends by month, and
 /// each holding's profit as a bar on a shared scale.

@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import '../../core/connector.dart';
+import '../../core/platform/connector.dart';
 import '../../core/ledger/ledger.dart';
-import '../../core/preferences.dart';
-import '../../core/screen_privacy.dart';
+import '../../core/platform/preferences.dart';
+import '../../core/platform/screen_privacy.dart';
 import '../../features/reminders/model/notifications.dart';
 
 /// The web preview's stand-ins for the phone: notifications that go

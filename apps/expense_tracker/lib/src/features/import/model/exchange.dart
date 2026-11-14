@@ -2,7 +2,7 @@ import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:domain/data_exchange.dart';
 import 'package:flutter/painting.dart' show Color;
 
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 

@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/look/dialogs.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
-import '../../../core/perf.dart';
-import '../../../core/problems.dart';
-import '../model/app_update.dart';
-import 'update_panel.dart';
-import '../model/services.dart';
-import 'sections/backup_section.dart';
-import 'sections/exchange_section.dart';
-import 'sections/preferences_section.dart';
-import 'sections/reminders_section.dart';
-import 'sections/trash_section.dart';
-import 'settings_hue.dart';
-import '../../../core/look/app_mark.dart';
-import 'sections/security_section.dart';
+import '../core/look/dialogs.dart';
+import '../core/look/glyphs.dart';
+import '../core/look/theme.dart';
+import '../core/look/widgets.dart';
+import '../core/ledger/ledger.dart';
+import '../core/nav.dart';
+import '../core/platform/perf.dart';
+import '../core/platform/problems.dart';
+import '../features/settings/model/app_update.dart';
+import '../features/settings/ui/update_panel.dart';
+import '../features/settings/model/services.dart';
+import '../features/backup/ui/backup_section.dart';
+import '../features/import/ui/exchange_section.dart';
+import '../features/settings/ui/preferences_section.dart';
+import '../features/reminders/ui/reminders_section.dart';
+import '../features/entries/ui/trash_section.dart';
+import '../core/look/settings_hue.dart';
+import '../core/look/app_mark.dart';
+import '../features/lock/ui/security_section.dart';
 
 /// 設定與資料: the main card says when the ledger was last backed up and
 /// which ways are on (gold after three days without one), then six cards

@@ -1,4 +1,4 @@
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring

@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
+import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 

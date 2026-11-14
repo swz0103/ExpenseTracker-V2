@@ -1,8 +1,8 @@
 import 'package:flutter/painting.dart';
 
 import '../ledger/ledger.dart';
-import 'glyphs.dart';
-import 'theme.dart';
+import '../look/glyphs.dart';
+import '../look/theme.dart';
 
 /// Icon groups a category may take its mark from, by what it is for.
 const categoryIconGroups = [
@@ -209,4 +209,11 @@ Color entryColor(EntryType type) => switch (type) {
   EntryType.income || EntryType.dividend || EntryType.sell => Hue.positive,
   EntryType.transfer => Hue.transfer,
   EntryType.buy => Hue.investment,
+};
+
+/// [LoanRepay] as the form names it.
+String repayName(LoanRepay repay) => switch (repay) {
+  LoanRepay.even => '本息平均',
+  LoanRepay.principal => '本金平均',
+  LoanRepay.interest => '只繳息',
 };

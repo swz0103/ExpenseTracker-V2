@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
 import 'package:flutter/painting.dart' show Color;
 
-import 'amounts.dart';
+import '../text/amounts.dart';
 import 'card_cycle.dart';
 import 'journal.dart';
 import 'portfolio.dart';

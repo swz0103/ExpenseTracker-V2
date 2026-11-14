@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../core/charts/waterfall.dart';
 import '../compose/account_editor.dart';
-import 'reconcile_sheet.dart';
-import '../../../core/look/figures.dart';
+import '../compose/reconcile_sheet.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// One account: its balance and this month's flow over [AccountBody].
 class AccountPage extends StatefulWidget {

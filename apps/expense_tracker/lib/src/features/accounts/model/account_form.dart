@@ -1,6 +1,7 @@
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../debts/model/loan_plan.dart';
+
+import 'package:domain/loans.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with

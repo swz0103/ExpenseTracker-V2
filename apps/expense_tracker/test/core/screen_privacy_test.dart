@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/screen_privacy.dart';
+import 'package:expense_tracker/src/core/platform/screen_privacy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

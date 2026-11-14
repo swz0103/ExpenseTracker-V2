@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/figures.dart';
-import '../../../core/look/glyphs.dart';
-import '../../../core/look/theme.dart';
-import '../../../core/look/widgets.dart';
-import '../../../core/ledger/ledger.dart';
-import '../../../core/nav.dart';
-import '../../debts/ui/debts_page.dart';
+import '../core/text/figures.dart';
+import '../core/look/glyphs.dart';
+import '../core/look/theme.dart';
+import '../core/look/widgets.dart';
+import '../core/ledger/ledger.dart';
+import '../core/nav.dart';
+import '../features/debts/ui/debts_page.dart';
 
 /// The colour of each tool, on its tile here and on its own page.
 abstract final class ToolHue {
