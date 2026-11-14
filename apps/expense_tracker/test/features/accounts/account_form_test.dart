@@ -118,4 +118,40 @@ void main() {
       expect(ledger.balance('bank'), 305000);
     },
   );
+
+  test('a loan keeps its terms, and owes its amount when nothing else is '
+      'typed', () {
+    final ledger = book();
+    final form = AccountForm(ledger)
+      ..kind = AccountKind.loan
+      ..name = '房貸'
+      ..principal = '1,000,000'
+      ..rate = '2'
+      ..months = '240'
+      ..repay = LoanRepay.even
+      ..due = 10
+      ..payFrom = 'bank';
+    expect(form.plan?.first, 5059);
+    expect(form.save(), isTrue);
+    final loan = ledger.accounts.last;
+    expect(ledger.balance(loan.id), -1000000);
+    expect(
+      (loan.rate, loan.months, loan.repay, loan.dueDay, loan.payFrom),
+      (200, 240, LoanRepay.even, 10, 'bank'),
+    );
+    final again = AccountForm(ledger, old: loan);
+    expect((again.rate, again.months), ('2', '240'));
+  });
+
+  test('a picked colour is kept, and none keeps the kind\'s', () {
+    final ledger = book();
+    final form = AccountForm(ledger)
+      ..name = '旅費'
+      ..color = 0xFF8E7CC0;
+    expect(form.save(), isTrue);
+    expect(ledger.accounts.last.color, 0xFF8E7CC0);
+    final edit = AccountForm(ledger, old: ledger.accounts.last)..color = null;
+    expect(edit.save(), isTrue);
+    expect(ledger.accounts.last.color, isNull);
+  });
 }

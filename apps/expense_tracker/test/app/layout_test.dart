@@ -42,10 +42,46 @@ void main() {
         for (final words in withoutAppFont(tester)) {
           faults.add('$name: 「$words」 not in the app\'s fonts');
         }
+        if (text < 1.5) {
+          for (final words in wrapped(tester)) {
+            faults.add('$name: 「$words」 wraps onto a second line');
+          }
+        }
       }
       expect(faults, isEmpty, reason: faults.join('\n'));
     });
   }
+}
+
+/// Short words, such as a label or a figure, laid out on two lines or
+/// more: a word broken in the middle reads badly and makes its block
+/// taller than the ones beside it. Text meant to run on, a sentence of
+/// more than [short] characters, may wrap.
+List<String> wrapped(WidgetTester tester, {int short = 12}) {
+  final found = <String>[];
+  for (final element in find.byType(RichText).evaluate()) {
+    final route = ModalRoute.of(element);
+    if (route != null && !route.isCurrent) continue;
+    final box = element.renderObject;
+    if (box is! RenderParagraph || !box.hasSize || !box.attached) continue;
+    final words = box.text.toPlainText().trim();
+    if (words.isEmpty || words.contains('\n') || words.length > short) {
+      continue;
+    }
+    final boxes = box.getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: box.text.toPlainText().length),
+    )..sort((a, b) => a.top.compareTo(b.top));
+    // Runs in two fonts sit at slightly different heights on one line;
+    // a run wholly below the lines before it starts another.
+    var lines = 0;
+    var floor = double.negativeInfinity;
+    for (final b in boxes) {
+      if (b.top >= floor - 1) lines++;
+      if (b.bottom > floor) floor = b.bottom;
+    }
+    if (lines > 1) found.add(words);
+  }
+  return found;
 }
 
 /// Words drawn in a font the app does not bring, such as a button whose

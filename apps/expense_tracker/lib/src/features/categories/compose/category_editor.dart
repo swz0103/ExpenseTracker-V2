@@ -214,7 +214,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             name,
             name,
             iconFor(ledger.category(name).icon),
-            ledger.category(name).color,
+            shownColor(ledger.category(name).color),
           ),
       ],
     );

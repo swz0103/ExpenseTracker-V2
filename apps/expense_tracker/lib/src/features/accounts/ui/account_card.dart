@@ -41,7 +41,7 @@ int spentThisMonth(Ledger ledger, Account account) {
   return out;
 }
 
-/// The face of an account's card: one tint, its kind's, with the name,
+/// The face of an account's card: one tint, its own or its kind's, with the name,
 /// one large figure and one line under it. Behind the front card only
 /// the top strip shows, with the balance at its end.
 class AccountCard extends StatelessWidget {
@@ -69,7 +69,7 @@ class AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accountColor(account.kind);
+    final color = accountHue(account);
     final radius = BorderRadius.circular(20);
     final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');

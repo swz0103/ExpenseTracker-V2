@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -149,12 +151,12 @@ abstract final class Hue {
   static const danger = negative;
 
   /// Account groups.
-  static const cash = Shade(0xFFC9A34A, 0xFFD9B65E);
-  static const bank = Shade(0xFF5C9A83, 0xFF74B39A);
-  static const wallet = Shade(0xFF5B8DB0, 0xFF78A6C8);
-  static const card = Shade(0xFFB5523E, 0xFFE07A64);
-  static const holdings = Shade(0xFFD08B5B, 0xFFE0A073);
-  static const receivable = Shade(0xFF625199, 0xFFC5BBE6);
+  static const cash = Shade(0xFFC9A34A, 0xFFD2BA7E);
+  static const bank = Shade(0xFF5C9A83, 0xFF8BB6A5);
+  static const wallet = Shade(0xFF5B8DB0, 0xFF92B1C8);
+  static const card = Shade(0xFFB5523E, 0xFFD89485);
+  static const holdings = Shade(0xFFD08B5B, 0xFFDAB092);
+  static const receivable = Shade(0xFF625199, 0xFFC2BADE);
 
   /// Thin rules and empty tracks on the tinted blocks, in the interface
   /// colour: the rule over a hero tile's figures, the ring behind a
@@ -172,18 +174,18 @@ abstract final class Hue {
   /// Colours for parts of a whole in the charts, in order: the second
   /// level of 財務分布. Lighter on the dark theme.
   static const shades = [
-    Shade(0xFF5B8DB0, 0xFF79A2BE),
-    Shade(0xFFD08B5B, 0xFFD8A079),
-    Shade(0xFF5C9A83, 0xFF79AC99),
-    Shade(0xFF8E7CC0, 0xFFA294CB),
-    Shade(0xFFC9A34A, 0xFFD3B46B),
-    Shade(0xFFB07A8C, 0xFFBE92A1),
-    Shade(0xFF4E8A9A, 0xFF6E9FAC),
-    Shade(0xFFA0866A, 0xFFB19C85),
-    Shade(0xFF7686B8, 0xFF8F9CC5),
-    Shade(0xFF9AA35E, 0xFFACB47B),
-    Shade(0xFF6E9C93, 0xFF88AEA6),
-    Shade(0xFFB08AA6, 0xFFBE9FB6),
+    Shade(0xFF5B8DB0, 0xFF91ADC0),
+    Shade(0xFFD08B5B, 0xFFD5B096),
+    Shade(0xFF5C9A83, 0xFF8EB1A4),
+    Shade(0xFF8E7CC0, 0xFFB3AACE),
+    Shade(0xFFC9A34A, 0xFFCFBA89),
+    Shade(0xFFB07A8C, 0xFFC3A6B0),
+    Shade(0xFF4E8A9A, 0xFF84A6AF),
+    Shade(0xFFA0866A, 0xFFB7A899),
+    Shade(0xFF7686B8, 0xFFA5ADC9),
+    Shade(0xFF9AA35E, 0xFFB2B891),
+    Shade(0xFF6E9C93, 0xFF9BB5AF),
+    Shade(0xFFB08AA6, 0xFFC5B1C0),
   ];
 
   /// The colours a category may be given, in the order new ones take
@@ -312,6 +314,24 @@ abstract final class Palette {
     'slate': slate,
     'olive': olive,
   };
+}
+
+/// A colour kept with a record, such as a category's, as the screen
+/// shows it: itself on the light theme, a little lighter and quieter on
+/// the dark one (as the [Hue] colours are), so a dark page is not louder
+/// than the rest. What is saved stays [color] itself.
+Color shownColor(Color color) {
+  if (color is Shade) return color;
+  final argb = color.toARGB32();
+  return Shade(argb, _quieter(argb));
+}
+
+int _quieter(int argb) {
+  final hsl = HSLColor.fromColor(Color(argb));
+  final quiet = hsl
+      .withSaturation(hsl.saturation * 0.78)
+      .withLightness(math.min(0.8, hsl.lightness + 0.12));
+  return quiet.toColor().toARGB32();
 }
 
 /// The app's own fonts, for a style that replaces the theme's own, as a

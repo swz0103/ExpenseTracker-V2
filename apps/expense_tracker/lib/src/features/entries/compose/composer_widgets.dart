@@ -19,7 +19,11 @@ class _OriginalTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconBadge(iconFor(category.icon), category.color, size: 36),
+          IconBadge(
+            iconFor(category.icon),
+            shownColor(category.color),
+            size: 36,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -626,7 +630,7 @@ class _AllocationBar extends StatelessWidget {
               Expanded(
                 flex: amount <= 0 ? 1 : amount,
                 child: Material(
-                  color: category.color,
+                  color: shownColor(category.color),
                   borderRadius: BorderRadius.circular(12),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -650,7 +654,7 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(category.color),
+                                color: wordsOn(shownColor(category.color)),
                               ),
                             ),
                             Text(
@@ -661,7 +665,7 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(category.color),
+                                color: wordsOn(shownColor(category.color)),
                               ),
                             ),
                           ],

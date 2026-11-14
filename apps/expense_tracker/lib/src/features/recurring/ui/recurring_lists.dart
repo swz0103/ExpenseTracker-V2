@@ -74,14 +74,14 @@ class _Manage extends StatelessWidget {
                 ],
               ),
             ),
-            CardGrid(gap: 10, [
-              for (final r in items)
-                _ItemSquare(
-                  ledger: ledger,
-                  item: r,
-                  onTap: () => onEdit(item: r),
-                ),
-            ]),
+            for (final r in items) ...[
+              _ItemRow(
+                ledger: ledger,
+                item: r,
+                onTap: () => onEdit(item: r),
+              ),
+              const SizedBox(height: 8),
+            ],
           ];
         }
 
@@ -163,20 +163,19 @@ class _Subscriptions extends StatelessWidget {
               ],
             ),
           ),
-          CardGrid(gap: 10, [
-            for (final (item, yearly) in rows)
-              _ItemSquare(
-                ledger: ledger,
-                item: item,
-                onTap: () {},
-                trailing: const SizedBox(),
-                lines: [
-                  '一年 ${ledger.orDots(groupDigits(yearly))}',
-                  '每月 ${ledger.orDots(groupDigits(yearly ~/ 12))} · '
-                      '佔 ${yearly * 100 ~/ total}%',
-                ],
-              ),
-          ]),
+          for (final (item, yearly) in rows) ...[
+            _ItemRow(
+              ledger: ledger,
+              item: item,
+              onTap: () {},
+              lines: [
+                '一年 ${ledger.orDots(groupDigits(yearly))}',
+                '每月 ${ledger.orDots(groupDigits(yearly ~/ 12))} · '
+                    '佔 ${yearly * 100 ~/ total}%',
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
         ],
       ],
     );
@@ -213,32 +212,32 @@ class _Paused extends StatelessWidget {
                 message: '沒有暫停的項目',
               )
             else
-              CardGrid(gap: 10, [
-                for (final r in paused)
-                  _ItemSquare(
-                    ledger: ledger,
-                    item: r,
-                    grey: true,
-                    onTap: () => onEdit(item: r),
-                    trailing: FilledButton(
-                      onPressed: () =>
-                          ledger.saveRecurring(r.copyWith(active: true)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Hue.white,
-                        foregroundColor: Hue.accent,
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        '恢復',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+              for (final r in paused) ...[
+                _ItemRow(
+                  ledger: ledger,
+                  item: r,
+                  grey: true,
+                  onTap: () => onEdit(item: r),
+                  trailing: FilledButton(
+                    onPressed: () =>
+                        ledger.saveRecurring(r.copyWith(active: true)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Hue.white,
+                      foregroundColor: Hue.accent,
+                      minimumSize: const Size(0, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
+                    child: const Text(
+                      '恢復',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-              ]),
+                ),
+                const SizedBox(height: 8),
+              ],
           ],
         );
       },

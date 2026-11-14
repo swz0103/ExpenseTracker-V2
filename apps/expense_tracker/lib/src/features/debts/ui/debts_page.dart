@@ -9,6 +9,7 @@ import '../../../core/nav.dart';
 import '../../../core/look/dialogs.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../accounts/ui/reconcile_sheet.dart';
+import '../model/loan_plan.dart';
 
 /// The people paid for, most owed first, open ones only.
 List<Account> peopleOwing(Ledger ledger) => [
@@ -374,7 +375,7 @@ class _LoanCard extends StatelessWidget {
                   ),
                 ),
                 if (principal != null)
-                  Text(
+                  OneLine(
                     '原借 ${ledger.orDots(groupDigits(principal))}',
                     style: TextStyle(fontSize: 13, color: ink),
                   ),
@@ -432,48 +433,67 @@ class _DebtHero extends StatelessWidget {
           colors: [tintOf(color, 0.4), tintOf(color, 0.2)],
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          lead,
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final words = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
+                ),
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              for (final line in lines)
+                OneLine(
+                  line,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+            ],
+          );
+          // Large text on a narrow phone: the words go under the mark,
+          // where the figure has the whole width.
+          final grow = MediaQuery.textScalerOf(context).scale(16) / 16;
+          if (box.maxWidth / grow < 230) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [lead, const Spacer(), menu],
                 ),
-                for (final line in lines)
-                  Text(
-                    line,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: ink,
-                    ),
-                  ),
+                const SizedBox(height: 10),
+                words,
               ],
-            ),
-          ),
-          menu,
-        ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              lead,
+              const SizedBox(width: 16),
+              Expanded(child: words),
+              menu,
+            ],
+          );
+        },
       ),
     );
   }
@@ -497,10 +517,13 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = solid ? const Color(0xFFFFFFFF) : deepOf(color);
+    final ink = solid ? chosenInk(color) : deepOf(color);
     return Material(
-      color: solid ? color : tintOf(color, 0.2),
-      borderRadius: BorderRadius.circular(18),
+      color: solid ? chosenFill(color) : tintOf(color, 0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: solid ? chosenEdge(color) : BorderSide.none,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
@@ -808,6 +831,15 @@ class LoanPage extends StatelessWidget {
                   '原借 ${ledger.orDots(groupDigits(principal))}',
                   '已還 ${ledger.orDots(groupDigits(principal - owed < 0 ? 0 : principal - owed))}',
                 ],
+                if (loanPlan(
+                      amount: principal,
+                      rate: loan.rate,
+                      months: loan.months,
+                      repay: loan.repay ?? LoanRepay.even,
+                    )
+                    case final plan?)
+                  '${repayName(loan.repay ?? LoanRepay.even)} · 每月約 '
+                      '${ledger.orDots(groupDigits(plan.first))}',
               ],
               menu: DotsMenu([
                 DotsItem(Glyph.edit, '編輯', () async {

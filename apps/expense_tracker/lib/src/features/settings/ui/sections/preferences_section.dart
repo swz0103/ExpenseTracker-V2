@@ -198,8 +198,9 @@ class _LookChoice extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            OneLine(
               look.label,
+              alignment: Alignment.center,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

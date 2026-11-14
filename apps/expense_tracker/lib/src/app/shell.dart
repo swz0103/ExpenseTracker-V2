@@ -194,7 +194,12 @@ class _AppShellState extends State<AppShell> {
       );
       return;
     }
-    Haptics.light();
+    // A firmer knock when this put a budget over its allowance.
+    if (_overBudget(saved)) {
+      Haptics.medium();
+    } else {
+      Haptics.light();
+    }
     // A new expense or income offers 再記一筆: the same again, on today,
     // to change what differs; anything else, to look at what was saved.
     final again =
@@ -329,6 +334,29 @@ class _AppShellState extends State<AppShell> {
       _Tab.accounts => AccountsPage(ledger: ledger, nav: _nav),
       _Tab.more => MorePage(ledger: ledger, nav: _nav),
     };
+  }
+
+  /// Whether [saved] left a budget it counts against over its allowance
+  /// for that month.
+  bool _overBudget(Entry saved) {
+    if (saved.type != EntryType.expense) return false;
+    final ledger = widget.ledger;
+    final (year, month) = (saved.date.year, saved.date.month);
+    for (final budget in ledger.budgets) {
+      final allowed = ledger.allowance(budget, year, month);
+      if (allowed > 0 && ledger.spentAgainst(budget, year, month) > allowed) {
+        final names = {
+          saved.category,
+          ...saved.spendingParts.map((p) => p.$1),
+          ...saved.tags,
+        };
+        if (budget.category == Ledger.allSpending ||
+            names.contains(budget.category)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @override

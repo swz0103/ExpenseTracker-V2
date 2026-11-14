@@ -11,3 +11,4 @@ export 'kit/colours.dart';
 export 'kit/headers.dart';
 export 'kit/marks.dart';
 export 'kit/panels.dart';
+export 'kit/words.dart';

@@ -25,7 +25,7 @@ const _busyDay = Shade(0xFFEAEEEC, 0xFF3E4A50);
 /// An item's colour and mark: its category's.
 (Glyph, Color) _mark(Ledger ledger, Recurring item) {
   final c = ledger.category(item.category);
-  return (iconFor(c.icon), c.color);
+  return (iconFor(c.icon), shownColor(c.color));
 }
 
 /// 定期交易: the month in big words, a calendar of what falls due on
@@ -207,12 +207,12 @@ class _RecurringPageState extends State<RecurringPage> {
             const SizedBox(height: 16),
             CardGrid(columns: 3, gap: 8, [
               _Cell(
-                label: current ? '本月還沒扣' : '$month 月要扣',
+                label: current ? '還沒扣' : '$month 月要扣',
                 value: ledger.orDots(groupDigits(toCome)),
               ),
               _Cell(
-                label: '訂閱與固定支出 ›',
-                value: '一年 ${ledger.orDots(groupDigits(yearly))}',
+                label: '固定支出/年 ›',
+                value: ledger.orDots(groupDigits(yearly)),
                 onTap: () => _push((context) => _Subscriptions(ledger: ledger)),
               ),
               _Cell(

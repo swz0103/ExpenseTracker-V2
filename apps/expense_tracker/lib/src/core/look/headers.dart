@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'glyphs.dart';
+import 'kit/words.dart';
 import 'theme.dart';
 
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
@@ -24,10 +25,8 @@ class PageHeader extends StatelessWidget {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(
+              child: OneLine(
                 title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'glyphs.dart';
 import 'haptics.dart';
+import 'kit/words.dart';
 import 'theme.dart';
 
 /// A row of choices in a tinted track, the chosen one on white.
@@ -51,8 +52,9 @@ class Segments extends StatelessWidget {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
+                    child: OneLine(
                       label,
+                      alignment: Alignment.center,
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: i == selected
@@ -191,8 +193,9 @@ class ChoicePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final words = Text(
+    final words = OneLine(
       label,
+      alignment: Alignment.center,
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,

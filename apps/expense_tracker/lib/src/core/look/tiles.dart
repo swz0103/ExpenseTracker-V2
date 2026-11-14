@@ -5,6 +5,7 @@ import 'controls.dart';
 import 'figures.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
+import 'kit/words.dart';
 import 'theme.dart';
 
 /// An icon on a soft square of its own colour.
@@ -208,13 +209,7 @@ class Tile extends StatelessWidget {
               ),
             ),
           ),
-        if (note != null)
-          Text(
-            note,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: mutedSmall,
-          ),
+        if (note != null) OneLine(note, style: mutedSmall),
       ],
     );
     final tap = onTap;
@@ -352,7 +347,7 @@ class TileStats extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        OneLine(
                           label,
                           style: const TextStyle(
                             fontSize: 12,
@@ -426,7 +421,12 @@ class Pill extends StatelessWidget {
         color: const Shade(0xB3FFFFFF, 0x1FFFFFFF),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(text, style: TextStyle(fontSize: 12.5, color: color)),
+      child: Text(
+        text,
+        maxLines: 1,
+        softWrap: false,
+        style: TextStyle(fontSize: 12.5, color: color),
+      ),
     );
   }
 }

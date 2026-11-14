@@ -22,6 +22,11 @@ Map<String, Object?> accountToJson(Account a) => {
   if (!a.inNetWorth) 'inNetWorth': false,
   'principal': ?a.principal,
   'place': ?a.place,
+  'color': ?a.color,
+  'rate': ?a.rate,
+  'months': ?a.months,
+  'repay': ?a.repay?.name,
+  'payFrom': ?a.payFrom,
   if (a.closes.isNotEmpty)
     'closes': {
       for (final MapEntry(:key, :value) in a.closes.entries)
@@ -53,6 +58,14 @@ Account accountFromJson(Map<String, Object?> json) => _read(
     inNetWorth: json['inNetWorth'] != false,
     principal: _maybe(json['principal']),
     place: _maybe(json['place']),
+    color: _maybe(json['color']),
+    rate: _maybe(json['rate']),
+    months: _maybe(json['months']),
+    repay: switch (json['repay']) {
+      final String name => LoanRepay.values.byName(name),
+      _ => null,
+    },
+    payFrom: json['payFrom'] as String?,
     closes: {
       for (final MapEntry(:key, :value)
           in (json['closes'] as Map<String, Object?>? ?? const {}).entries)

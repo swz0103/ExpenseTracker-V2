@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../../backup/model/keeper.dart';
 import '../../../../core/look/figures.dart';
 import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ui/pickers.dart';
 import '../../../import/model/exchange.dart';
@@ -55,7 +54,7 @@ class ExchangeSection extends StatelessWidget {
                         color: deepOf(SettingsHue.csv),
                       ),
                     ),
-                    Text(
+                    OneLine(
                       '一個月或全部，選好再匯出',
                       style: TextStyle(
                         fontSize: 13,
@@ -317,12 +316,15 @@ class _SpanChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? Hue.onAccent : deepOf(color);
+    final ink = chosen ? chosenInk(color) : deepOf(color);
     return Semantics(
       selected: chosen,
       child: Material(
-        color: chosen ? color : tintOf(color, 0.16),
-        borderRadius: BorderRadius.circular(16),
+        color: chosen ? chosenFill(color) : tintOf(color, 0.16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: chosen ? chosenEdge(color) : BorderSide.none,
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,

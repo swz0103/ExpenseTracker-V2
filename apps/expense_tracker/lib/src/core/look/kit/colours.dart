@@ -57,3 +57,15 @@ const nameColors = [
   Palette.violet,
   Palette.blue,
 ];
+
+/// A chosen button's fill, among others of its kind: solid on the light
+/// theme; on the dark one a quiet tint of it, outlined ([chosenEdge]) and
+/// with words in its own hue ([chosenInk]), not a bright block.
+Color chosenFill(Color color) => Shade.dark ? tintOf(color, 0.3) : color;
+
+/// Words and marks on a chosen button.
+Color chosenInk(Color color) => Shade.dark ? deepOf(color) : wordsOn(color);
+
+/// The outline of a chosen button: only on the dark theme.
+BorderSide chosenEdge(Color color) =>
+    Shade.dark ? BorderSide(color: color, width: 1.5) : BorderSide.none;

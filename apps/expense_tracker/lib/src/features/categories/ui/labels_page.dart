@@ -246,7 +246,7 @@ class _Half extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? const Color(0xFFFFFFFF) : deepOf(color);
+    final ink = chosen ? chosenInk(color) : deepOf(color);
     return Semantics(
       selected: chosen,
       button: true,
@@ -258,8 +258,11 @@ class _Half extends StatelessWidget {
           boxShadow: chosen ? Hue.tileShadow : null,
         ),
         child: Material(
-          color: chosen ? color : tintOf(color, 0.2),
-          borderRadius: BorderRadius.circular(16),
+          color: chosen ? chosenFill(color) : tintOf(color, 0.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: chosen ? chosenEdge(color) : BorderSide.none,
+          ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: onTap,
@@ -496,7 +499,7 @@ class ProjectCard extends StatelessWidget {
                       Expanded(
                         flex: (amount * 1000 ~/ spent).clamp(1, 1000),
                         child: ColoredBox(
-                          color: ledger.category(name).color,
+                          color: shownColor(ledger.category(name).color),
                           child: const SizedBox.expand(),
                         ),
                       ),
@@ -518,7 +521,7 @@ class ProjectCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: ledger.category(name).color,
+                          color: shownColor(ledger.category(name).color),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -740,7 +743,7 @@ class LabelPage extends StatelessWidget {
                   QuoteRow(
                     lead: SquareIcon(
                       iconFor(ledger.category(e.category).icon),
-                      ledger.category(e.category).color,
+                      shownColor(ledger.category(e.category).color),
                       size: 42,
                     ),
                     title: e.title,

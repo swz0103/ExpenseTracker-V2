@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controls.dart';
 import '../glyphs.dart';
+import '../haptics.dart';
 import '../theme.dart';
 import '../kit.dart';
 
@@ -61,7 +62,12 @@ class TickSwitch extends StatelessWidget {
       toggled: value,
       label: label,
       child: TapArea(
-        onTap: change == null ? null : () => change(!value),
+        onTap: change == null
+            ? null
+            : () {
+                Haptics.selection();
+                change(!value);
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           width: 28,
@@ -118,7 +124,12 @@ class ToggleRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: change == null ? null : () => change(!value),
+          onTap: change == null
+              ? null
+              : () {
+                  Haptics.selection();
+                  change(!value);
+                },
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
             child: child,

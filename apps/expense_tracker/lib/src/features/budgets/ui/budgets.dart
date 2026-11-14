@@ -147,7 +147,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     ),
             ),
             if (total > 0) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _Pace(
                 ledger: ledger,
                 year: year,
@@ -162,7 +162,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
               child: Row(
                 children: [
                   const Expanded(
-                    child: Text(
+                    child: OneLine(
                       '分類與標籤額度',
                       style: TextStyle(
                         fontSize: 18,
@@ -188,7 +188,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 amount: 0.22,
                 onTap: _addLimit,
                 label: '為分類或標籤設定額度',
-                padding: const EdgeInsets.symmetric(vertical: 34),
+                padding: const EdgeInsets.symmetric(vertical: 22),
                 child: const Column(
                   children: [
                     GlyphIcon(Glyph.add, size: 24, color: Hue.accent),
@@ -341,7 +341,7 @@ class _Main extends StatelessWidget {
     final ink = Hue.accent;
     final next = month == 12 ? 1 : month + 1;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -366,7 +366,7 @@ class _Main extends StatelessWidget {
                       child: Text(
                         ledger.orDots(groupDigits(left.abs())),
                         style: TextStyle(
-                          fontSize: 44,
+                          fontSize: 34,
                           fontWeight: FontWeight.w800,
                           color: over ? Hue.negative : Hue.ink,
                         ),
@@ -408,7 +408,7 @@ class _Main extends StatelessWidget {
             ),
             style: const TextStyle(fontSize: 14, color: Hue.muted),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _DayBar(passed: current ? passed : days, days: days, today: current),
           const SizedBox(height: 6),
           if (current)
@@ -455,7 +455,7 @@ class _DayBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: SizedBox(
-        height: 22,
+        height: 14,
         child: Row(
           children: [
             for (var d = 1; d <= days; d++) ...[
@@ -616,21 +616,21 @@ class _Figure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+      padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
       decoration: BoxDecoration(
         color: Hue.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: Hue.cardShadow,
       ),
       child: Row(
         children: [
-          SquareIcon(glyph, color, size: 44),
-          const SizedBox(width: 12),
+          SquareIcon(glyph, color, size: 36),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                OneLine(
                   label,
                   style: const TextStyle(
                     fontSize: 13,
@@ -644,13 +644,13 @@ class _Figure extends StatelessWidget {
                   child: Text(
                     value,
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: valueColor ?? color,
                     ),
                   ),
                 ),
-                Text(sub, style: mutedSmall),
+                OneLine(sub, style: mutedSmall),
               ],
             ),
           ),
@@ -682,7 +682,7 @@ class _Limit extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
-    final color = category?.color ?? Hue.accent;
+    final color = shownColor(category?.color ?? Hue.accent);
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;
@@ -695,7 +695,7 @@ class _Limit extends StatelessWidget {
       amount: 0.18,
       onTap: onTap,
       label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -703,18 +703,18 @@ class _Limit extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox.square(
-                dimension: 52,
+                dimension: 38,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
                       value: share,
-                      strokeWidth: 5,
+                      strokeWidth: 4,
                       strokeCap: StrokeCap.round,
                       color: tone,
                       backgroundColor: tintOf(tone, 0.3),
                     ),
-                    Center(child: GlyphIcon(glyph, size: 20, color: tone)),
+                    Center(child: GlyphIcon(glyph, size: 16, color: tone)),
                   ],
                 ),
               ),
@@ -735,13 +735,13 @@ class _Limit extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFFFFFFF),
+                      color: Hue.onAccent,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             budget.category,
             maxLines: 1,
@@ -758,7 +758,7 @@ class _Limit extends StatelessWidget {
             child: Text(
               '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: over ? Hue.negative : Hue.ink,
               ),
@@ -947,7 +947,7 @@ class _AddLimit extends StatelessWidget {
             CardGrid(columns: 4, gap: 8, [
               for (final c in categories)
                 ColorCard(
-                  color: c.color,
+                  color: shownColor(c.color),
                   radius: 16,
                   label: c.name,
                   onTap: () => Navigator.of(context).pop(c.name),
@@ -957,7 +957,11 @@ class _AddLimit extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      GlyphIcon(iconFor(c.icon), size: 26, color: c.color),
+                      GlyphIcon(
+                        iconFor(c.icon),
+                        size: 26,
+                        color: shownColor(c.color),
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         c.name,
@@ -966,7 +970,7 @@ class _AddLimit extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: deepOf(c.color),
+                          color: deepOf(shownColor(c.color)),
                         ),
                       ),
                     ],

@@ -411,7 +411,7 @@ extension _Fields on _ComposerState {
         _StripItem(
           label: category.name,
           icon: iconFor(category.icon),
-          color: splitting ? category.color : _color,
+          color: splitting ? shownColor(category.color) : _color,
           picked: splitting
               ? inParts.contains(category.name)
               : !lending && category.name == _f.category,

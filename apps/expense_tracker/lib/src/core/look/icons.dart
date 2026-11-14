@@ -179,6 +179,12 @@ Glyph kindIcon(AccountKind kind) => switch (kind) {
   AccountKind.receivable => Glyph.heart,
 };
 
+/// [account]'s colour: the one picked for it, else its kind's.
+Color accountHue(Account account) => switch (account.color) {
+  final argb? => shownColor(Color(argb)),
+  null => accountColor(account.kind),
+};
+
 Color accountColor(AccountKind kind) => switch (kind) {
   AccountKind.cash => Hue.cash,
   AccountKind.bank => Hue.bank,

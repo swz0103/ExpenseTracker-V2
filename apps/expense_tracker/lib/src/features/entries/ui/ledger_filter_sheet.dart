@@ -432,8 +432,11 @@ class _KindTile extends StatelessWidget {
       label: kind.label,
       excludeSemantics: true,
       child: Material(
-        color: selected ? color : tintOf(color, 0.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        color: selected ? chosenFill(color) : tintOf(color, 0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: selected ? chosenEdge(color) : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -444,7 +447,7 @@ class _KindTile extends StatelessWidget {
                 GlyphIcon(
                   glyph,
                   size: 20,
-                  color: selected ? wordsOn(color) : deepOf(color),
+                  color: selected ? chosenInk(color) : deepOf(color),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -453,7 +456,7 @@ class _KindTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: selected ? wordsOn(color) : deepOf(color),
+                    color: selected ? chosenInk(color) : deepOf(color),
                   ),
                 ),
               ],

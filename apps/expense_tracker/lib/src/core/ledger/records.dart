@@ -46,9 +46,25 @@ final class Account {
     this.history = const [],
     this.principal,
     this.place,
+    this.color,
+    this.rate,
+    this.months,
+    this.repay,
+    this.payFrom,
   });
 
   final String id;
+
+  /// The colour picked for the account, as ARGB; null takes its [kind]'s.
+  final int? color;
+
+  /// A loan's yearly interest in hundredths of a percent (215 is 2.15%),
+  /// how many months it runs, how it is paid back and the account it is
+  /// paid from; null when not given.
+  final int? rate;
+  final int? months;
+  final LoanRepay? repay;
+  final String? payFrom;
   final String name;
   final AccountKind kind;
 
@@ -109,6 +125,7 @@ final class Account {
     List<CardScheduleChange>? history,
     int? principal,
     int? place,
+    int? color,
   }) => Account(
     id,
     name ?? this.name,
@@ -125,8 +142,17 @@ final class Account {
     history: history ?? this.history,
     principal: principal ?? this.principal,
     place: place ?? this.place,
+    color: color ?? this.color,
+    rate: rate,
+    months: months,
+    repay: repay,
+    payFrom: payFrom,
   );
 }
+
+/// How a loan is paid back: the same each month (本息平均攤還), the same
+/// share of the loan each month (本金平均攤還), or only the interest.
+enum LoanRepay { even, principal, interest }
 
 final class Category {
   const Category(

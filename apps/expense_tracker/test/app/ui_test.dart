@@ -244,6 +244,10 @@ void main() {
     await tester.tap(find.text('帳戶'));
     await tester.pumpAndSettle();
     expect(find.text('我的帳戶'), findsOneWidget);
+    // A card behind slides to the front first; a tap on it then opens it.
+    await tester.tap(find.text('日常銀行'));
+    await tester.pumpAndSettle();
+    expect(find.text('近四週'), findsNothing);
     await tester.tap(find.text('日常銀行'));
     await tester.pumpAndSettle();
     expect(find.text('近四週'), findsOneWidget);
@@ -256,7 +260,7 @@ void main() {
       ('投資與股息', '市值'),
       ('代墊與借貸', '別人欠你'),
       ('預算管理', '分類與標籤額度'),
-      ('定期交易', '本月還沒扣'),
+      ('定期交易', '還沒扣'),
       ('分類', '新增'),
       ('設定', '匯入與匯出'),
     ]) {

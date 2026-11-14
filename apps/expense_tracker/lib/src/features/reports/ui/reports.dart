@@ -306,7 +306,7 @@ class _ReportsPageState extends State<ReportsPage> {
             const Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: OneLine(
                     '收支與淨資產',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
@@ -445,11 +445,14 @@ class _ReportsPageState extends State<ReportsPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(width: 96, child: Text(label, style: mutedSmall)),
+                    SizedBox(
+                      width: 96,
+                      child: OneLine(label, style: mutedSmall),
+                    ),
                     Expanded(
-                      child: Text(
+                      child: OneLine(
                         value,
-                        textAlign: TextAlign.end,
+                        alignment: AlignmentDirectional.centerEnd,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
