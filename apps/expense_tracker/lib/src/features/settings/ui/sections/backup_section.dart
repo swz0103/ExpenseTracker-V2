@@ -28,11 +28,10 @@ Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
 }
 
 /// 備份與還原: the main card says only when the ledger was last backed up
-/// (gold when no automatic backup is on); then two tinted cards, each
-/// with its tick: Google 備份 (Android takes the encrypted ledger to the
-/// person's Google account each day; on, the receipt photos can go to
-/// Google Drive as well) and 存到資料夾 (on, how often and which folder);
-/// and 手動: 匯出一份 and 還原.
+/// (gold when neither the Drive nor a folder is on); then two tinted
+/// cards, each with its tick: Google 雲端硬碟 (linked, when it last went
+/// up and whether the receipt photos go too) and 存到資料夾 (on, how often
+/// and which folder); and 手動: 匯出一份 and 還原.
 class BackupSection extends StatefulWidget {
   const BackupSection({
     super.key,
@@ -44,7 +43,7 @@ class BackupSection extends StatefulWidget {
 
   final Keeper keeper;
 
-  /// Holds whether Google 備份 is on; without it, it is always on.
+  /// Redraws the page when a setting changes.
   final Preferences? preferences;
 
   /// Backups on Google Drive, on Android.
@@ -131,17 +130,57 @@ class _BackupSectionState extends State<BackupSection> {
     if (mounted) showNote(context, '已停止雲端硬碟備份');
   }
 
-  /// Chooses the folder and writes the first backup into it.
+  /// Says which folders Android lets the app keep, then opens the
+  /// chooser at Documents and writes the first backup into the folder
+  /// picked. A place Android will not keep is said plainly and the
+  /// chooser opens again.
   Future<void> _choosePhone(PhoneBackup phone) async {
-    String? note;
-    try {
-      if (await phone.choose()) {
-        note = '已備份到「${phone.folderName}」，之後${phone.daily ? '每天' : '每週'}自動備份';
+    var go = await _folderRules(
+      '選一個已經有的資料夾，例如「文件（Documents）」或裡面的資料夾。'
+          'Android 不讓 App 直接用「下載」或儲存空間最外層。備份檔會直接放在你選的資料夾裡。',
+      '選資料夾',
+    );
+    while (go && mounted) {
+      String? note;
+      try {
+        if (await phone.choose()) {
+          note = '已備份到「${phone.folderName}」，之後${phone.daily ? '每天' : '每週'}自動備份';
+        }
+        go = false;
+      } on FolderRejected {
+        go = await _folderRules(
+          'Android 不讓 App 存到這個位置（「下載」或儲存空間最外層都不行）。'
+              '請進到「文件（Documents）」或其他資料夾裡，再按「使用這個資料夾」。',
+          '重新選',
+        );
+      } on Object catch (error) {
+        note = '沒有備份到手機資料夾：${describeProblem(error)}';
+        go = false;
       }
-    } on Object catch (error) {
-      note = '沒有備份到手機資料夾：${describeProblem(error)}';
+      if (mounted && note != null) showNote(context, note);
     }
-    if (mounted && note != null) showNote(context, note);
+  }
+
+  /// The panel before the folder chooser: [rules], 取消 and [action].
+  Future<bool> _folderRules(String rules, String action) async {
+    final go = await showPanel<bool>(
+      context,
+      (context) => CenterPanel(
+        glyph: Glyph.records,
+        color: SettingsHue.folder,
+        title: '存到資料夾',
+        body: Text(rules, style: const TextStyle(fontSize: 15, height: 1.5)),
+        actions: [
+          PanelButton('取消', onTap: () => Navigator.of(context).pop(false)),
+          PanelButton(
+            action,
+            color: SettingsHue.folder,
+            onTap: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+    return go ?? false;
   }
 
   Future<void> _stopPhone(PhoneBackup phone) async {
@@ -173,33 +212,6 @@ class _BackupSectionState extends State<BackupSection> {
     return latest;
   }
 
-  /// Turns Google 備份 on, writing the copy now, or off, deleting it and
-  /// stopping the photos on Drive.
-  Future<void> _google(bool on, Preferences preferences) async {
-    final drive = widget.drive;
-    if (!on) {
-      final ok = await confirm(
-        context,
-        '關掉 Google 備份？換手機或重裝時就拿不回帳本'
-            '${drive?.linked ?? false ? '，雲端硬碟也不再備份' : ''}。',
-        '關掉',
-        danger: true,
-      );
-      if (!ok) return;
-      preferences.update(googleBackup: false);
-      try {
-        await widget.keeper.dropCloudCopy();
-        if (drive != null && drive.linked) await drive.unlink();
-      } on Object catch (error) {
-        if (mounted) showNote(context, describeProblem(error));
-      }
-      if (mounted) setState(() {});
-      return;
-    }
-    preferences.update(googleBackup: true);
-    if (mounted) showNote(context, '離開 App 時會更新 Google 備份');
-  }
-
   @override
   Widget build(BuildContext context) {
     final drive = widget.drive;
@@ -208,14 +220,15 @@ class _BackupSectionState extends State<BackupSection> {
     return ListenableBuilder(
       listenable: Listenable.merge([?drive, ?phone, ?preferences]),
       builder: (context, _) {
-        final google = preferences?.googleBackup ?? true;
         final folder = phone?.on ?? false;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _status(google: google, folder: folder),
-            const SizedBox(height: 12),
-            _googleCard(google, drive, preferences),
+            _status(folder: folder),
+            if (drive != null) ...[
+              const SizedBox(height: 12),
+              _driveCard(drive),
+            ],
             if (phone != null) ...[
               const SizedBox(height: 12),
               _folderCard(phone),
@@ -248,101 +261,61 @@ class _BackupSectionState extends State<BackupSection> {
     );
   }
 
-  Widget _status({required bool google, required bool folder}) {
+  /// The latest backup to the Drive or the folder, whichever is on.
+  /// Android's own backup of the ledger, for a new phone, goes on as it
+  /// did but is not shown: no one can see it or make it happen.
+  Widget _status({required bool folder}) {
     final drive = widget.drive;
     final phone = widget.phone;
+    final linked = drive?.linked ?? false;
     final latest = _latest([
-      if (google) widget.keeper.googleTakenAt,
-      if (google && (drive?.linked ?? false)) drive?.backedUp,
+      if (linked) drive?.backedUp,
       if (folder) phone?.backedUp,
     ]);
     return BackupHero(
       at: latest,
-      on: google || folder,
-      label: google || folder ? null : '沒有自動備份',
+      on: linked || folder,
+      label: linked || folder ? null : '沒有自動備份',
     );
   }
 
-  /// When and where Android's own backup goes: the person cannot see it
-  /// as a file, nor make it happen.
-  void _explainGoogle() {
-    final taken = widget.keeper.googleTakenAt;
-    showCenterPanel(
-      context,
-      glyph: Glyph.safe,
-      color: SettingsHue.backup,
-      title: 'Google 備份',
-      detail: [
-        taken == null
-            ? 'Android 還沒把帳本送到 Google。'
-            : 'Android 上次送出：${_when(taken)}。',
-        '手機大約一天一次，在充電、連著 Wi-Fi 又沒在用時送出，App 沒辦法要它馬上送。',
-        '要先在手機的「設定 › Google › 備份」打開備份。',
-        '它存在 Google 帳戶的備份裡（Google 雲端硬碟 › 備份），不是一般檔案；換手機或重裝時，歡迎頁會問要不要還原。',
-        '想在雲端硬碟看到檔案，打開下面的「雲端硬碟」：帳本有變動就每天存一份到「記帳本備份」資料夾，收據照片可另外選要不要一起帶。',
-      ].join('\n\n'),
-    );
-  }
-
-  Widget _googleCard(bool on, DriveSync? drive, Preferences? preferences) {
+  /// Google Drive: its tick links or unlinks it; linked, when it last
+  /// went up and whether the receipt photos go too.
+  Widget _driveCard(DriveSync drive) {
     const color = SettingsHue.backup;
+    final linked = drive.linked;
     return _BackupCard(
-      glyph: Glyph.safe,
+      glyph: Glyph.upload,
       color: color,
-      title: 'Google 備份',
-      value: on,
-      onChanged: preferences == null ? null : (v) => _google(v, preferences),
+      title: 'Google 雲端硬碟',
+      value: linked,
+      onChanged: drive.busy
+          ? null
+          : (v) => v ? _linkDrive(widget.keeper, drive) : _unlinkDrive(drive),
       rows: [
-        if (on)
+        if (linked) ...[
           _CardRow(
             color: color,
-            title: '帳本',
-            value: switch (widget.keeper.googleTakenAt) {
-              final at? => _when(at),
-              null => '還沒送出',
-            },
-            onTap: _explainGoogle,
-          ),
-        if (on && drive != null) ...[
-          _CardRow(
-            color: color,
-            title: '雲端硬碟',
-            detail: drive.busy
+            title: '上次備份',
+            value: drive.busy
                 ? '備份中…'
-                : drive.linked && drive.backedUp != null
-                ? '上次 ${_when(drive.backedUp!)}'
-                : null,
-            trailing: TickSwitch(
-              value: drive.linked,
-              color: color,
-              label: '雲端硬碟',
-              onChanged: drive.busy
-                  ? null
-                  : (v) => v
-                        ? _linkDrive(widget.keeper, drive)
-                        : _unlinkDrive(drive),
-            ),
-            onTap: drive.busy
-                ? null
-                : () => drive.linked
-                      ? _unlinkDrive(drive)
-                      : _linkDrive(widget.keeper, drive),
+                : switch (drive.backedUp) {
+                    final at? => _when(at),
+                    null => '還沒有',
+                  },
           ),
-          if (drive.linked)
-            _CardRow(
+          _CardRow(
+            color: color,
+            title: '收據照片',
+            detail: drive.photos ? '連 Wi-Fi 時一起備份' : null,
+            trailing: TickSwitch(
+              value: drive.photos,
               color: color,
-              title: '收據照片',
-              detail: drive.photos ? '連 Wi-Fi 時一起備份' : null,
-              trailing: TickSwitch(
-                value: drive.photos,
-                color: color,
-                label: '收據照片',
-                onChanged: drive.busy ? null : (v) => _drivePhotos(drive, v),
-              ),
-              onTap: drive.busy
-                  ? null
-                  : () => _drivePhotos(drive, !drive.photos),
+              label: '收據照片',
+              onChanged: drive.busy ? null : (v) => _drivePhotos(drive, v),
             ),
+            onTap: drive.busy ? null : () => _drivePhotos(drive, !drive.photos),
+          ),
         ],
       ],
     );

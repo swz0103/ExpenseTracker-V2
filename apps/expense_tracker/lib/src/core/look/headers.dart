@@ -120,7 +120,12 @@ class StepSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tap = onLabelTap;
-    Widget words = Text(label, textAlign: TextAlign.center, style: style);
+    Widget words = OneLine(
+      label,
+      alignment: Alignment.center,
+      textAlign: TextAlign.center,
+      style: style,
+    );
     if (tap != null) {
       // A button to a screen reader, saying what it opens.
       words = Semantics(

@@ -9,10 +9,13 @@ final class _Folder implements FolderPort {
   final files = <String, String>{};
   var allowedNow = true;
   var picks = true;
+  var rejects = false;
 
   @override
-  Future<({String uri, String name})?> pick() async =>
-      picks ? (uri: 'content://tree/backups', name: '備份') : null;
+  Future<({String uri, String name})?> pick() async {
+    if (rejects) throw const FolderRejected();
+    return picks ? (uri: 'content://tree/backups', name: '備份') : null;
+  }
 
   @override
   Future<bool> allowed(String uri) async => allowedNow;
@@ -81,6 +84,17 @@ void main() {
     expect(phone.on, isFalse);
     expect(folder.files, isEmpty);
   });
+
+  test(
+    'a folder Android will not keep is said so and nothing is set',
+    () async {
+      folder.rejects = true;
+      final phone = backup();
+      await expectLater(phone.choose(), throwsA(isA<FolderRejected>()));
+      expect(phone.on, isFalse);
+      expect(folder.files, isEmpty);
+    },
+  );
 
   test('a backup comes weekly, or daily, and only after a change', () async {
     final phone = backup();

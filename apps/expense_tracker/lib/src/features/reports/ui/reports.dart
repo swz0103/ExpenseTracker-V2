@@ -115,14 +115,14 @@ class _ReportsPageState extends State<ReportsPage> {
     final to = _period.to;
     final start = from.isBefore(first) ? first : from;
     final end = to.isAfter(_today) ? _today : to;
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: first.isAfter(_today) ? _today : first,
-      lastDate: _today,
-      initialDateRange: start.isAfter(end)
+    final picked = await pickDateRange(
+      context,
+      first: first.isAfter(_today) ? _today : first,
+      last: _today,
+      initial: start.isAfter(end)
           ? null
           : DateTimeRange(start: start, end: end),
-      helpText: '選擇期間（以月為單位）',
+      title: '報表期間',
     );
     if (picked == null || !mounted) return;
     _show(ReportPeriod.range(picked.start, picked.end));

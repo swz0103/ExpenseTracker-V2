@@ -210,21 +210,25 @@ class ChoicePill extends StatelessWidget {
         height: 36,
         constraints: const BoxConstraints(minWidth: 48),
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? Hue.accent : background,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: removable
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  words,
-                  const SizedBox(width: 4),
-                  const GlyphIcon(Glyph.close, size: 14, color: Hue.onAccent),
-                ],
-              )
-            : words,
+        // As wide as its words in a wrap of pills, centred when a row
+        // makes it wider.
+        child: Center(
+          widthFactor: 1,
+          child: removable
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    words,
+                    const SizedBox(width: 4),
+                    const GlyphIcon(Glyph.close, size: 14, color: Hue.onAccent),
+                  ],
+                )
+              : words,
+        ),
       ),
     );
   }

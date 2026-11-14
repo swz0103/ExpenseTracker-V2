@@ -27,9 +27,6 @@ final class _Keeper implements Keeper {
   DateTime? get googleTakenAt => null;
 
   @override
-  Future<void> dropCloudCopy() async {}
-
-  @override
   bool get hasPassword => password.isNotEmpty;
 
   @override

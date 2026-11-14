@@ -4,14 +4,24 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/preferences.dart';
 
+/// The folder chosen cannot be kept: Android gave no lasting permission
+/// for it, as for the storage's top or 下載 since Android 11.
+final class FolderRejected implements Exception {
+  const FolderRejected();
+
+  @override
+  String toString() => '這個位置不能存備份';
+}
+
 /// A file in the chosen folder.
 typedef FolderFile = ({String id, String name, DateTime modified});
 
 /// A folder on the phone chosen once, which the app keeps writing into:
 /// Android's folder chooser and its documents API; a fake in tests.
 abstract interface class FolderPort {
-  /// Opens the folder chooser; the folder's address and name, or null
-  /// when the person cancels.
+  /// Opens the folder chooser at Documents; the folder's address and
+  /// name, or null when the person cancels. Throws [FolderRejected] when
+  /// the folder picked cannot be kept.
   Future<({String uri, String name})?> pick();
 
   /// Whether the app may still write into [uri]: the person can take the
