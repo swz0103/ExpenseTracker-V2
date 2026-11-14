@@ -1,7 +1,7 @@
 name: expense_tracker
 description: "記帳本：個人記帳 Android App。"
 publish_to: 'none'
-version: 0.9.3+1
+version: 0.9.4+1
 
 environment:
   sdk: ^3.13.4
@@ -25,6 +25,7 @@ dependencies:
     path: ../../infrastructure/vault
 
 dev_dependencies:
+  flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
 

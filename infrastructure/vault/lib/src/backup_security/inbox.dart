@@ -17,8 +17,9 @@ import 'keyring.dart';
 /// Each item is sealed for the inbox key: a new X25519 key pair for the
 /// item, the shared secret through HKDF-SHA256 (salted with both public
 /// keys) to an AES-256-GCM key. On disk, one JSON file per item:
-/// `{"v":1,"e":<the item's public key>,"n":<nonce>,"c":<ciphertext and
-/// tag>}`, all base64. The Android side (InboxWriter.kt) writes the same.
+/// `{"v":1,"e":…,"n":…,"c":…}`: the item's public key, the nonce, and the
+/// ciphertext with its tag, all base64. The Android side (InboxWriter.kt)
+/// writes the same.
 final class InboxSeal {
   InboxSeal._();
 

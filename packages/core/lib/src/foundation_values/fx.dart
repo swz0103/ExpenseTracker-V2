@@ -87,8 +87,9 @@ final class FxRate {
   }
 
   Money convert(Money input) {
-    if (input.currency != base)
+    if (input.currency != base) {
       throw const FxException(FxError.currencyMismatch);
+    }
     return Money.quantizeRatio(
       quote,
       input.minorUnits * numerator,

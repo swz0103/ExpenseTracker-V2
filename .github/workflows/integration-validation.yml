@@ -42,15 +42,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Nothing here pushes: no token is left in .git/config.
           persist-credentials: false
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
         with:
           sdk: '3.13.4'
-      # v4.3.0
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      # v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-dart-3.13.4-${{ hashFiles('**/pubspec.lock') }}
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 22
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Nothing here pushes: no token is left in .git/config.
           persist-credentials: false
@@ -89,3 +89,16 @@ jobs:
         run: |
           flutter config --no-analytics
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
+      - name: Screenshots
+        # Every page, light and dark, at 360 dp (tool/screenshots), kept
+        # with the run to look at a page without a phone.
+        working-directory: apps/expense_tracker
+        run: flutter test tool/screenshots
+      - name: Keep the screenshots
+        # v7.0.2.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: screenshots
+          path: apps/expense_tracker/build/screenshots
+          if-no-files-found: error
+          retention-days: 14

@@ -63,11 +63,6 @@ Future<double?> showPriceCalculator(
 bool takesCents(String unit) =>
     Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;
 
-/// [minor] units of [unit] as typed on the keys: `120`, or `3.50` for
-/// US$3.50.
-String plainAmount(int minor, String unit) =>
-    takesCents(unit) ? _plain(minor / 100) : '$minor';
-
 String _plain(double value) => value == value.roundToDouble()
     ? '${value.round()}'
     : value.toStringAsFixed(2);

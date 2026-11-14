@@ -8,17 +8,17 @@
 - 每次備份是一個獨立、不覆寫的加密檔；保留政策由 App 自己管理（日、週、月分代）。
 - 上傳可續傳；完成後核對大小與 SHA-256 才算成功。下載分段並核對，還原時仍以備份本身的加密驗證為準。
 - token 不存在 App 裡，撤銷登入只會停掉雲端工作，本機記帳照常。
-- 這是當初的評估。Drive 直傳的實作從未接進 App，已於 2026-10 移除（實作與 Google Cloud 設定說明見 git 歷史）；目前靠 Android 自動備份與手動匯出備份檔。
+- 已實作：App 內（`drive_backup.dart`）與背景工作（`DriveUploader.kt`）都用可續傳上傳；只整理同一本帳本的備份，留最新 5 份。Google Cloud 設定見 [Android 建置](../delivery/android.md)。另外還有 Android 自動備份（只帶 `files/cloud/` 的加密帳本）、手機資料夾備份與手動匯出。
 
 ## 台股：TWSE 與 TPEx 每日收盤
 
 - 上市：`openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`；上櫃：`www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes`。都是政府資料開放授權第 1 版，畫面上要標示來源。
 - 只收一般股票與 ETF 的代號；民國日期嚴格驗證；「--」是沒有成交，不是 0；價格保留十進位文字。
-- 只有最新收盤，不提供歷史或盤中價。存股、市值估算看收盤價就夠。
+- 市值只用最新收盤，不做盤中價。每一檔的走勢圖（0.9.0）另外讀月報：上市是證交所「個股月成交資訊」`www.twse.com.tw/exchangeReport/STOCK_DAY`，上櫃是櫃買中心 `www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock`；讀過的月份存在手機的 `prices/`，本月每次重抓。
 - **2026-10-27 修訂（使用者決定）**：沒有收盤價時不再只寫「查不到」。
   - 之前抓到的收盤價會留著，當天抓不到就沿用，畫面標示「以 M/D 收盤計」（每檔各自記下收盤日）。
   - 從沒抓到過的上市股票（例如當天沒有成交、或不在當天的總表裡），改查證交所自己的「個股月成交資訊」`www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMM01&stockNo=代號`，取本月（沒有就上個月）最後一個有收盤價的交易日。同樣是證交所公開資料。
-  - 上櫃股票的個股歷史介面格式還沒驗證（開發環境連不到），暫不接；上櫃股只靠沿用之前的收盤價。
+  - 上櫃股票的最新收盤只靠沿用之前的價格；上櫃的月報（見上）只用在走勢圖。
   - 仍抓不到的才以成本估算並標示。
 
 **不做盤中行情**：證交所的即時資訊要簽約付費；免帳號的來源（證交所網頁內部 API、Yahoo）都是非正式介面，隨時可能變動。Fugle、Twelve Data 要申請 API key，對個人記帳沒有必要。

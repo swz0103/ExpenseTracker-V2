@@ -198,9 +198,6 @@ final class CardCycle {
   final BusinessDate scheduledStartsAfter;
   final BusinessDate scheduledClose;
 
-  bool includes(BusinessDate postedOn) =>
-      postedOn.compareTo(startsAfter) > 0 && postedOn.compareTo(closesOn) <= 0;
-
   /// Whether an installment scheduled to close on [close] is billed here.
   bool bills(BusinessDate close) =>
       close.compareTo(scheduledStartsAfter) > 0 &&

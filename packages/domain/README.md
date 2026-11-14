@@ -16,5 +16,5 @@
 
 ## data_exchange
 
-- `readCsv`／`writeCsv`：RFC 4180 CSV。
+- `readCsv`／`writeCsv`：RFC 4180 CSV。以 `= + - @`、tab 開頭的文字匯出時前面加 `'`，用試算表打開不會被當成公式；讀回時拿掉，數字不動。
 - `parseEInvoices`：財政部電子發票「消費明細」CSV。

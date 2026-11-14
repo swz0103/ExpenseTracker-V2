@@ -19,7 +19,7 @@
 - 每個密文的 AAD 綁定 keyring id 與用途，搬移或交換 slot 會解密失敗。
 - Argon2id 參數只由程式決定，檔案內的 policy id 必須完全相符；`PasswordKdf.insecureForTests` 寫出的 keyring 正式版不會接受。
 - 解析時嚴格檢查欄位、長度與 canonical base64，任何偏差都是 `invalidFormat`。
-- `DeviceKeyWrapper` 已由 Android 端實作：App 的 `KeystoreDeviceKey`（`lib/src/app/platform.dart`）透過平台通道交給 `MainActivity.kt`，用需要指紋或臉部確認的 Keystore AES-GCM 金鑰包裝與解開。
+- `DeviceKeyWrapper` 已由 Android 端實作：App 的 `KeystoreDeviceKey`（`lib/src/app/android/keystore.dart`）透過平台通道交給 `MainActivity.kt`，用需要指紋或臉部確認的 Keystore AES-GCM 金鑰包裝與解開。
 
 ## ledger_vault
 
@@ -28,7 +28,7 @@
 - 第一次設定時建立 keyring；救援碼只回傳一次，不寫入任何檔案。
 - 可用密碼、救援碼或裝置金鑰（Android Keystore）解鎖。裝置金鑰遺失時，密碼仍能打開。
 - keyring 一律先寫成 `.new` 再改名覆蓋，當機時留下的不是舊的就是新的。第一次設定時寫到一半的檔案不算帳本，可以重新設定。
-- `restore`：還原備份時先寫到暫存資料庫，通過 SQLite 完整性檢查後才改名就位，最後才寫 keyring；任何一步失敗或當機都不會留下半套帳本，可以重來。
+- `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，接著寫好新的 `keyring.json.new`，再換上資料庫，最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存，只剩暫存就換上，新 keyring 完整就採用；任何一步之間當機都開得回一本完整的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
 
 ## ledger_backup

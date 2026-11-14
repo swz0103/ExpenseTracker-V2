@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:storage/storage.dart';
 
-/// Usage: crash_worker <database> <hex key> <count>
+/// Usage: `crash_worker <database> <hex key> <count>`
 ///
 /// Makes [count] writes, each keeping two records together, and prints
 /// `committed <n>` after every commit so a parent can kill it mid-stream.

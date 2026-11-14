@@ -258,7 +258,11 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _page?.close();
+    // Answers a choice still open with none, without building again: the
+    // sheet is going away (still mounted until super.dispose).
+    final page = _page;
+    _page = null;
+    page?.close();
     _note.dispose();
     super.dispose();
   }

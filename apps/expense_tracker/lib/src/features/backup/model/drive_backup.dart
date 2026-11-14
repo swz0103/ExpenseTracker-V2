@@ -140,12 +140,7 @@ final class DriveException implements Exception {
 /// through the Drive REST API with the `drive.file` scope: the app sees
 /// only the files it made.
 final class DriveBackup {
-  DriveBackup(
-    this._http, {
-    required Future<String?> Function({required bool interactive}) token,
-    required Future<void> Function(String token) forget,
-  }) : _token = token,
-       _forget = forget;
+  DriveBackup(this._http, {required this._token, required this._forget});
 
   final DriveHttp _http;
   final Future<String?> Function({required bool interactive}) _token;

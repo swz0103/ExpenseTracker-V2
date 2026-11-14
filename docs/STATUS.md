@@ -1,10 +1,10 @@
 # 狀態
 
-最後更新：2026-11-13
+最後更新：2026-11-14
 
 ## 現況
 
-功能完成，介面可日常使用；剩下真機驗收。固定簽章與 Google Cloud 設定都已完成（OAuth 同意畫面為正式版）。架構見 [ADR-0001](adr/0001-target-architecture.md) 與 [ADR-0002](adr/0002-feature-folders.md)（依功能分資料夾），每輪的細節在 git 歷史與 PR #74–#115（PR #106 起依 `claude/plan-2026-10-27.md` 施工，PR-1～PR-6 已合併）。
+功能完成，介面可日常使用；剩下真機驗收。固定簽章與 Google Cloud 設定都已完成（OAuth 同意畫面為正式版）。架構見 [ADR-0001](adr/0001-target-architecture.md) 與 [ADR-0002](adr/0002-feature-folders.md)（依功能分資料夾）；目前的工作規劃在 [plan-2026-11-13.md](plan-2026-11-13.md)，每個版本的細節在 git 歷史與 PR。
 
 ## 已有功能
 
@@ -38,12 +38,13 @@
 
 ## 品質
 
-- 版面：每一頁與分頁在 320／360／412 dp、字級 100／130／150% 下不溢位、文字不重疊、不被縮到六成以下（`test/app/layout_test.dart`）。
-- 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/app/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1（`test/core/preferences_test.dart`）。
+- 版面：每一頁與分頁、設定的中間浮窗、記一筆的每一頁（收入、轉帳、投資、選帳戶、選日期、全部分類、代墊、計算機）在 320／360／412 dp、字級 100／130／150% 下，以及深色 360 dp，都不溢位、文字不重疊、不被縮到六成以下（`test/app/layout_test.dart`，頁面清單在 `test/app/places.dart`）。
+- 截圖：每次驗證都把同一份清單的每一頁拍成淺色、深色 360 dp 的圖，放在 GitHub Actions 該次執行的 `screenshots`（`tool/screenshots`，保留 14 天）。
+- 無障礙：每頁的點擊範圍至少 48 dp 且有名稱（`test/app/accessibility_test.dart` 用 Android 的準則檢查）、文字放大 150% 不破版；配色在淺色與深色都至少 4.5:1：底色上的字（`test/core/preferences_test.dart`），以及分類、標籤、設定色卡上的深色字與實色底上的字（`test/core/colour_contrast_test.dart`）。
 - 系統元件（日期、時間選擇器、複製貼上）為繁體中文；字型涵蓋程式用到的每個中文字（`test/app/font_coverage_test.dart`）。
 
-- 5 個模組加 App，同一份嚴格 lint；架構邊界、lockfile 一致性在 CI 檢查。
-- 發布安裝檔：main 的驗證通過後才建置；建置工作只能讀取 repo，只有另一個發布工作能寫 release，且它不會被之後的驗證或建置取消（見 [Android 建置](delivery/android.md#下載安裝檔)）。
+- 5 個模組加 App，同一份嚴格 lint，加上 Dart／Flutter 官方建議的規則（`lints`、`flutter_lints`）；架構邊界、lockfile 一致性在 CI 檢查。
+- 發布安裝檔：main 的驗證通過後才建置；建置工作只能讀取 repo、看不到簽章金鑰（產出 debug 簽章的 APK），另一個不取出程式碼的簽章工作用 `apksigner` 換上正式簽章，只有最後的發布工作能寫 release，且它不會被之後的驗證或建置取消（見 [Android 建置](delivery/android.md#下載安裝檔)）。
 - 每種資料存回讀回、強制結束不留半筆寫入、備份竄改與截斷被拒、1 萬筆規模測試。
 - 模擬器（每次合併 main 自動跑，2026-10-27）：3,600 筆載入 28 ms、寫入 111 ms；1 萬筆載入 102 ms、寫入 259 ms；總覽換月一次約 116 ms、打開報表約 117 ms（兩種筆數相同）；捲動總覽、紀錄、報表都沒有掉格。
 - 1 萬筆在 CI 主機上（`test/core/scale_test.dart`，每個 PR 都跑）：打開 14 ms、各帳戶餘額 43 ms、往回切 36 個月 14 ms、一年報表與淨資產 38 ms、信用卡 8 ms、搜尋 26 ms、記一筆後重新顯示 14 ms。
@@ -67,8 +68,10 @@
 - [ ] 真機驗收：解鎖與指紋、背景鎖定、備份還原、Android 自動備份換機、日曆提醒、收盤價。
 - [ ] 0.9.0 真機驗收：Google 備份開關（關掉後 Android 備份不帶帳本、重開又會寫）、背景每天檢查新版的通知、每一檔走勢圖抓資料（上市與上櫃）、通知浮窗、深色、字放大 150%。
 - [ ] 真機效能數據。
-- [ ] Google Cloud 設定（專案、啟用 Drive API、OAuth 同意畫面發布、Android 用戶端：套件名稱 + 簽章 SHA-1），完成後真機驗收雲端硬碟備份與還原。
-- [ ] main 分支保護與 required checks（GitHub 設定）。
+- [x] Google Cloud 設定（專案、啟用 Drive API、OAuth 同意畫面發布、Android 用戶端：套件名稱 + 簽章 SHA-1）。
+- [ ] 真機驗收雲端硬碟備份與還原。
+- [ ] 0.9.3 真機驗收：好幾天沒開 App 後定期交易每期都補記、刪掉一期不再補（月曆可恢復）、匯出的 CSV 用試算表打開不執行公式。
+- [ ] main 分支保護與 required checks（GitHub 設定，見 [Android 建置](delivery/android.md#分支保護)）。
 
 ## 簽章 Secrets
 

@@ -40,14 +40,13 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> rates = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
-    DateTime? quotedOn,
+    this._quotedOn,
     Map<String, DateTime> quoteDays = const {},
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
        _drafts = {...drafts},
        _day = today,
-       _quotedOn = quotedOn,
        _quoteDays = {...quoteDays},
        _receipts = {...receipts},
        _rates = {...rates},
@@ -110,8 +109,7 @@ final class Ledger extends ChangeNotifier {
   Set<String> get receiptFiles => {
     ..._receipts.values,
     // A form put aside keeps the photo chosen for it.
-    for (final draft in _drafts.values)
-      if (_draftReceipt(draft) case final file?) file,
+    for (final draft in _drafts.values) ?_draftReceipt(draft),
   };
 
   static String? _draftReceipt(String draft) {
@@ -575,12 +573,7 @@ final class Ledger extends ChangeNotifier {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast(), trades: entry.isInvestment);
     if (receipt != null) _receipts[entry.id] = receipt;
-    _keep(
-      Batch(
-        entries: [entry],
-        receipts: {if (receipt != null) entry.id: receipt},
-      ),
-    );
+    _keep(Batch(entries: [entry], receipts: {entry.id: ?receipt}));
   }
 
   /// Adds every one of [entries] at once, with the [accounts] and

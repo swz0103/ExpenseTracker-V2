@@ -103,12 +103,10 @@ final class AppUpdate extends ChangeNotifier {
   AppUpdate(
     this._port,
     this._preferences, {
-    required Directory cache,
-    int build = currentBuild,
+    required this._cache,
+    this._build = currentBuild,
     DateTime Function()? clock,
-  }) : _cache = cache,
-       _build = build,
-       _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? DateTime.now;
 
   final UpdatePort _port;
   final Preferences _preferences;

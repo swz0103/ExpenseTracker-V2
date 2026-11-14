@@ -12,12 +12,10 @@ final class VaultKeeper implements Keeper {
   VaultKeeper(
     this._startup,
     this._vault, {
-    Future<void> Function()? beforeLock,
+    this._beforeLock,
     Future<bool> Function(String path, String name)? export,
-    Future<String?> Function()? pick,
-  }) : _beforeLock = beforeLock,
-       _export = export ?? _toDownloads,
-       _pick = pick;
+    this._pick,
+  }) : _export = export ?? _toDownloads;
 
   final Startup _startup;
   final OpenVault _vault;

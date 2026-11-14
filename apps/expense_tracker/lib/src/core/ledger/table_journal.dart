@@ -75,10 +75,9 @@ const _decodeApart = 2000;
 final class TableJournal implements Journal {
   TableJournal(
     this._store, {
-    Clock clock = const SystemClock(),
+    this._clock = const SystemClock(),
     MarketDataGateway? market,
-  }) : _clock = clock,
-       _gateway = market;
+  }) : _gateway = market;
 
   final RowStore _store;
   final Clock _clock;
