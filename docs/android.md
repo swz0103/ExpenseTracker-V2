@@ -1,4 +1,6 @@
-# Android 建置
+# Android
+
+> Android 端的設定與實作：建置與發布、權限、雲端硬碟、資料夾與背景備份、更新、小工具、指紋、日曆、簽章、分支保護。
 
 `apps/expense_tracker/android/` 由 Flutter 3.47.5 的範本產生，再加上下面幾項。
 
@@ -19,7 +21,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
   - `USE_BIOMETRIC`：指紋或臉部解鎖。
   - `READ_CALENDAR`、`WRITE_CALENDAR`：把到期提醒寫進使用者選的日曆；只在設定裡連結日曆時才詢問。
   - `POST_NOTIFICATIONS`：到期提醒與每日記帳提醒（Android 13 以上第一次開提醒時詢問）。
-  - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，每週的雲端硬碟備份（含照片）只在 Wi-Fi 上傳（`NetworkPart.kt`）。
+  - `ACCESS_NETWORK_STATE`：判斷是否連上 Wi-Fi，雲端硬碟的收據照片只在 Wi-Fi 上傳（`NetworkPart.kt`）。
   - `SCHEDULE_EXACT_ALARM`：只在打開「準時提醒」時使用；Android 12 起要使用者在系統設定允許「鬧鐘與提醒」（App 會帶過去），沒允許時退回一般鬧鐘。不申請 `USE_EXACT_ALARM`（Play 只給鬧鐘、行事曆類 App）。
   - `RECEIVE_BOOT_COMPLETED`：重開機後重新排定提醒。`RestartReceiver` 也在 App 更新、改時間（`TIME_SET`）與改時區（`TIMEZONE_CHANGED`）時重排，這兩個不需要權限。
 - 收件匣（`InboxWriter.kt`）：到期通知的「確認入帳」由 `ConfirmReceiver` 收下，用 `filesDir/inbox.pub` 的公鑰加密後寫進 `filesDir/inbox/`，帳本仍鎖著；下次打開帳本時才讀出入帳。加密用 Tink（`tink-android`）的 X25519 與 HKDF 加上系統的 AES-GCM；`InboxWriterTest.kt` 在 CI 以 `testDebugUnitTest` 驗證與 Dart 端相同的範例。
@@ -89,7 +91,16 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
    keytool -genkey -v -keystore ~/expense-tracker.jks -keyalg RSA -keysize 2048 -validity 10000 -alias expense-tracker
    ```
 
-2. 在 GitHub 的 Settings › Secrets and variables › Actions 新增 [STATUS](../STATUS.md#簽章-secrets) 表中的 4 個 Secrets（`.jks` 先 `base64 -w0` 轉成文字）。CI 的建置（`android.yml` 的 `build`）看不到這些 Secrets，產出的是 debug 簽章的 APK；只有 main 驗證通過後，另一個不取出程式碼的 `sign` job 用 `apksigner` 換上正式簽章、確認不是 debug 金鑰，再交給 `publish` 發布。
+2. 在 GitHub 的 Settings › Secrets and variables › Actions 新增下表的 4 個 Secrets（`.jks` 先 `base64 -w0` 轉成文字）。
+
+   | 名稱 | 內容 |
+   | --- | --- |
+   | `ANDROID_PREVIEW_KEYSTORE_BASE64` | `.jks` 的 base64 |
+   | `ANDROID_PREVIEW_STORE_PASSWORD` | keystore 密碼 |
+   | `ANDROID_PREVIEW_KEY_ALIAS` | 金鑰別名 |
+   | `ANDROID_PREVIEW_KEY_PASSWORD` | 金鑰密碼 |
+
+  CI 的建置（`android.yml` 的 `build`）看不到這些 Secrets，產出的是 debug 簽章的 APK；只有 main 驗證通過後，另一個不取出程式碼的 `sign` job 用 `apksigner` 換上正式簽章、確認不是 debug 金鑰，再交給 `publish` 發布。
 3. 本機建置時改建立 `apps/expense_tracker/android/key.properties`（已在 `.gitignore`）：
 
    ```properties

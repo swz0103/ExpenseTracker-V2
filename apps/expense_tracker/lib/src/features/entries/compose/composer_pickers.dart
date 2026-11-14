@@ -16,7 +16,7 @@ extension _Pickers on _ComposerState {
   Future<void> _calculate() async {
     final value = await _ask('輸入金額', _f.amount, unit: _f.currency);
     if (value == null) return;
-    setState(() {
+    _set(() {
       _f.setAmount(value);
     });
   }
@@ -36,7 +36,7 @@ extension _Pickers on _ComposerState {
         onPick: done,
       ),
     );
-    if (day != null) setState(() => _f.date = day);
+    if (day != null) _set(() => _f.date = day);
   }
 
   /// An open account; for a refund, one in the purchase's currency.
@@ -97,7 +97,7 @@ extension _Pickers on _ComposerState {
     if (typed == null) return;
     final code = tidyCode(typed);
     if (code.isEmpty) return;
-    setState(() => _f.holding = code);
+    _set(() => _f.holding = code);
     if (!quotable(code) && mounted) {
       showNote(context, '證交所與櫃買中心沒有「$code」這個代號，市值會以成本估算');
     }
@@ -113,7 +113,7 @@ extension _Pickers on _ComposerState {
       ),
     );
     if (picked == null) return;
-    setState(() => _f.pickMerchant(picked));
+    _set(() => _f.pickMerchant(picked));
   }
 
   Future<void> _pickTags() async {
@@ -121,7 +121,7 @@ extension _Pickers on _ComposerState {
       '標籤',
       (done) => _TagPicker(known: _ledger.tags, initial: _f.tags, onDone: done),
     );
-    if (picked != null) setState(() => _f.tags = picked);
+    if (picked != null) _set(() => _f.tags = picked);
   }
 
   Future<void> _pickInstallments() async {
@@ -138,6 +138,6 @@ extension _Pickers on _ComposerState {
         ],
       ),
     );
-    if (picked != null) setState(() => _f.installments = picked);
+    if (picked != null) _set(() => _f.installments = picked);
   }
 }

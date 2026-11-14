@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/kit/colours.dart';
 import '../../../../core/look/theme.dart';
 import 'lock_parts.dart';
 import '../../../../core/look/kit/buttons.dart';

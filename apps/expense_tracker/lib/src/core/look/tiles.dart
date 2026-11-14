@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'controls.dart';
-import '../text/figures.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
 import 'kit/words.dart';

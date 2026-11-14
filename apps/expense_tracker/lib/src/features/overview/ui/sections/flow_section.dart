@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/flow_chart.dart';
-import '../../../../core/text/figures.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';

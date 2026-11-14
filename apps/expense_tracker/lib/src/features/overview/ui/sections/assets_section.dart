@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/treemap.dart';
-import '../../../../core/text/figures.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';

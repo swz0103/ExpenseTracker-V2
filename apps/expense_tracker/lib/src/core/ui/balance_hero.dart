@@ -5,7 +5,6 @@ import '../look/glyphs.dart';
 import '../look/haptics.dart';
 import '../look/theme.dart';
 import '../look/tiles.dart';
-import '../text/figures.dart';
 import 'shown_amounts.dart';
 
 /// The page's main tile for a stretch of time: what is left of [income]

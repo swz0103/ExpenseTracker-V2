@@ -30,7 +30,7 @@
 
 ## 開發
 
-Flutter 寫成，依功能分成 App、基礎設施（加密、儲存、行情）與規則套件。現況與待辦見 [docs/STATUS.md](docs/STATUS.md)，文件導覽見 [docs/README.md](docs/README.md)，架構見 [ADR-0001](docs/adr/0001-target-architecture.md)。
+Flutter 寫成，分成 App、基礎設施（加密、儲存、行情）與規則套件。從 [docs/README.md](docs/README.md) 開始：架構、設計系統、撰寫規範、版本紀錄與待辦都在那裡。
 
 ```powershell
 ./tooling/run-host-checks.ps1 -Package all
