@@ -198,3 +198,69 @@ class SectionHead extends StatelessWidget {
     );
   }
 }
+
+/// A page's list under its [header], which stays put while the rest
+/// scrolls; once scrolled, a thin line shows where the list goes under
+/// it. [padding] is the list's, its sides the header's too.
+class HeadedList extends StatefulWidget {
+  const HeadedList({
+    super.key,
+    required this.header,
+    required this.children,
+    this.padding = EdgeInsets.zero,
+    this.physics,
+  });
+
+  final Widget header;
+  final List<Widget> children;
+  final EdgeInsets padding;
+  final ScrollPhysics? physics;
+
+  @override
+  State<HeadedList> createState() => _HeadedListState();
+}
+
+class _HeadedListState extends State<HeadedList> {
+  var _scrolled = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = widget.padding;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            left: padding.left,
+            right: padding.right,
+            top: padding.top,
+          ),
+          child: widget.header,
+        ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 1,
+          color: _scrolled ? Hue.line : const Color(0x00000000),
+        ),
+        Expanded(
+          child: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (n) {
+              if (n.depth == 0) {
+                final scrolled = n.metrics.pixels > 0.5;
+                if (scrolled != _scrolled) {
+                  setState(() => _scrolled = scrolled);
+                }
+              }
+              return false;
+            },
+            child: ListView(
+              physics: widget.physics,
+              padding: padding.copyWith(top: 0),
+              children: widget.children,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -49,10 +49,10 @@ class _LabelsPageState extends State<LabelsPage> {
       builder: (context, _) {
         final tags = ledger.tagStats;
         final merchants = ledger.merchantStats;
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader('標籤與商家', onBack: widget.nav.back),
           children: [
-            CenterHeader('標籤與商家', onBack: widget.nav.back),
             Row(
               children: [
                 Expanded(
@@ -708,10 +708,10 @@ class LabelPage extends StatelessWidget {
             danger: true,
           ),
         ]);
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader(_shown, onBack: nav.back),
           children: [
-            CenterHeader(_shown, onBack: nav.back),
             if (entries.isEmpty)
               EmptyState(
                 glyph: merchant ? Glyph.store : Glyph.ticket,

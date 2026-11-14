@@ -149,23 +149,23 @@ class _ReportsPageState extends State<ReportsPage> {
         final readout = selected == null || selected >= buckets.length
             ? null
             : buckets[selected];
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          header: CenterHeader(
+            '財務報表',
+            onBack: widget.nav.back,
+            actions: [
+              ?switch (widget.nav.saveFile) {
+                final save? => IconButton(
+                  tooltip: '存成圖片',
+                  onPressed: () => _savePicture(save, period),
+                  icon: const GlyphIcon(Glyph.download, size: 20),
+                ),
+                null => null,
+              },
+            ],
+          ),
           children: [
-            CenterHeader(
-              '財務報表',
-              onBack: widget.nav.back,
-              actions: [
-                ?switch (widget.nav.saveFile) {
-                  final save? => IconButton(
-                    tooltip: '存成圖片',
-                    onPressed: () => _savePicture(save, period),
-                    icon: const GlyphIcon(Glyph.download, size: 20),
-                  ),
-                  null => null,
-                },
-              ],
-            ),
             Segments(
               labels: const ['月', '季', '年', '自訂'],
               selected: period.span.index,

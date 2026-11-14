@@ -207,12 +207,24 @@ class _LedgerPageState extends State<LedgerPage> {
           }
           group.add(e);
         }
-        final head = _head(shown);
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          itemCount: head.length + items.length,
-          itemBuilder: (context, i) =>
-              i < head.length ? head[i] : _line(items[i - head.length]),
+        // The title and month stay on top; the rest scrolls under them.
+        final [title, ...head] = _head(shown);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: title,
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                itemCount: head.length + items.length,
+                itemBuilder: (context, i) =>
+                    i < head.length ? head[i] : _line(items[i - head.length]),
+              ),
+            ),
+          ],
         );
       },
     );

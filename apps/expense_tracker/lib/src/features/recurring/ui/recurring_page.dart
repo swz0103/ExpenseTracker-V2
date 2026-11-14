@@ -132,10 +132,10 @@ class _RecurringPageState extends State<RecurringPage> {
           }
         }
         final yearly = yearlyCosts(ledger).fold(0, (sum, r) => sum + r.$2);
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: header,
           children: [
-            header,
             Row(
               children: [
                 Text(

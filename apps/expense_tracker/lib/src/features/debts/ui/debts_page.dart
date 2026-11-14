@@ -78,20 +78,20 @@ class DebtsPage extends StatelessWidget {
           0,
           (sum, a) => sum + owedOn(ledger, a),
         );
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader(
+            '代墊與借貸',
+            onBack: nav.back,
+            actions: [
+              HeaderButton(
+                glyph: Glyph.add,
+                label: '新增貸款',
+                onTap: () => editLoan(context, ledger),
+              ),
+            ],
+          ),
           children: [
-            CenterHeader(
-              '代墊與借貸',
-              onBack: nav.back,
-              actions: [
-                HeaderButton(
-                  glyph: Glyph.add,
-                  label: '新增貸款',
-                  onTap: () => editLoan(context, ledger),
-                ),
-              ],
-            ),
             _BothWays(
               ledger: ledger,
               lent: lent,
@@ -653,10 +653,10 @@ class PersonPage extends StatelessWidget {
         ]..sort((a, b) => b.date.compareTo(a.date));
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader(person.name, onBack: nav.back),
           children: [
-            CenterHeader(person.name, onBack: nav.back),
             _DebtHero(
               color: color,
               lead: _Initial(person.name, size: 60),
@@ -815,10 +815,10 @@ class LoanPage extends StatelessWidget {
           for (final e in ledger.entries)
             if (e.account == loan.id || e.to == loan.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader(loan.name, onBack: nav.back),
           children: [
-            CenterHeader(loan.name, onBack: nav.back),
             _DebtHero(
               color: color,
               lead: share == null

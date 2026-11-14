@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/glyphs.dart';
+import '../../../../core/look/kit/colours.dart';
 import '../../../../core/look/theme.dart';
 import 'lock_parts.dart';
 
@@ -202,8 +203,9 @@ class _WelcomeViewState extends State<WelcomeView>
             FilledButton(
               onPressed: busy ? null : widget.onStart,
               style: FilledButton.styleFrom(
-                backgroundColor: Hue.accent,
-                foregroundColor: Hue.onAccent,
+                backgroundColor: chosenFill(Hue.accent),
+                side: chosenEdge(Hue.accent),
+                foregroundColor: chosenInk(Hue.accent),
                 disabledBackgroundColor: Hue.accent,
                 minimumSize: const Size.fromHeight(52),
                 shape: RoundedRectangleBorder(

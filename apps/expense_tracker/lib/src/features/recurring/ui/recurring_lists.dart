@@ -15,16 +15,14 @@ class _SubPage extends StatelessWidget {
   final List<Widget> actions;
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => HeadedList(
     padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-    children: [
-      CenterHeader(
-        title,
-        onBack: () => Navigator.of(context).pop(),
-        actions: actions,
-      ),
-      ...children,
-    ],
+    header: CenterHeader(
+      title,
+      onBack: () => Navigator.of(context).pop(),
+      actions: actions,
+    ),
+    children: [...children],
   );
 }
 

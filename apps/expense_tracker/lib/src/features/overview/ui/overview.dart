@@ -104,20 +104,20 @@ class _OverviewPageState extends State<OverviewPage> {
   Widget _page() {
     final ledger = widget.ledger;
     final preferences = widget.preferences;
-    return ListView(
+    return HeadedList(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      children: [
-        ListenableBuilder(
-          listenable: ledger,
-          builder: (context, _) => PageHeader(
-            '總覽',
-            trailing: MonthSwitch(
-              month: _month,
-              latest: (ledger.today.year, ledger.today.month),
-              onChanged: _showMonth,
-            ),
+      header: ListenableBuilder(
+        listenable: ledger,
+        builder: (context, _) => PageHeader(
+          '總覽',
+          trailing: MonthSwitch(
+            month: _month,
+            latest: (ledger.today.year, ledger.today.month),
+            onChanged: _showMonth,
           ),
         ),
+      ),
+      children: [
         KeyedSubtree(
           key: widget.summaryKey,
           child: SummarySection(ledger: ledger, month: _month),

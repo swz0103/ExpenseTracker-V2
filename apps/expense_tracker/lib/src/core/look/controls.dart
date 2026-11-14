@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'glyphs.dart';
 import 'haptics.dart';
+import 'kit/colours.dart';
 import 'kit/words.dart';
 import 'theme.dart';
 
@@ -199,20 +200,32 @@ class ChoicePill extends StatelessWidget {
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: selected ? Hue.onAccent : Hue.accent,
+        color: selected ? chosenInk(Hue.accent) : Hue.accent,
       ),
     );
+    // Given a set width, as in a row of Expanded, it fills it; in a wrap
+    // of pills it is as wide as its words.
+    return LayoutBuilder(
+      builder: (context, box) => _pill(words, box.hasTightWidth),
+    );
+  }
+
+  Widget _pill(Widget words, bool fill) {
     return TapArea(
       selected: removable ? null : selected,
       label: removable ? '移除篩選' : null,
       onTap: onTap,
       child: Container(
         height: 36,
+        width: fill ? double.infinity : null,
         constraints: const BoxConstraints(minWidth: 48),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: selected ? Hue.accent : background,
+          color: selected ? chosenFill(Hue.accent) : background,
           borderRadius: BorderRadius.circular(18),
+          border: selected && Shade.dark
+              ? Border.all(color: Hue.accent, width: 1.5)
+              : null,
         ),
         // As wide as its words in a wrap of pills, centred when a row
         // makes it wider.

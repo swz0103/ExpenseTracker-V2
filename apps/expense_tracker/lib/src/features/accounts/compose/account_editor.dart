@@ -391,7 +391,9 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: FilledButton(
                 onPressed: _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Hue.accent,
+                  backgroundColor: chosenFill(Hue.accent),
+                  side: chosenEdge(Hue.accent),
+                  foregroundColor: chosenInk(Hue.accent),
                   minimumSize: const Size.fromHeight(46),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

@@ -5,31 +5,41 @@ import '../../app/places.dart';
 void main() {
   setUpAll(loadFonts);
 
-  testWidgets('splitting and closing it again leaves no room under the '
-      'form, there or the next time it opens', (tester) async {
+  testWidgets('opening and closing a split or the fold leaves no room '
+      'under the form, there or the next times it opens', (tester) async {
     await show(tester, 360, 1, height: 900);
-    await go(tester, ['~記一筆']);
-    // From the top of the sheet, at the amount, to the button at its
-    // foot.
+    Future<void> settle() async {
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+    }
+
+    Finder split() =>
+        find.text('拆分').evaluate().isEmpty ? find.text('拆分中') : find.text('拆分');
+    // From the category strip down to the button at the sheet's foot.
     double foot() =>
         tester.getTopLeft(find.text('記下支出').last).dy -
-        tester
-            .getTopLeft(
-              find.text('拆分').evaluate().isEmpty
-                  ? find.text('拆分中')
-                  : find.text('拆分'),
-            )
-            .dy;
-    final before = foot();
-    await tester.tap(find.text('拆分'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('拆分中'));
-    await tester.pumpAndSettle();
-    expect(foot(), closeTo(before, 1));
-    // Closed and opened again.
-    await tester.tapAt(const Offset(180, 20));
-    await tester.pumpAndSettle();
+        tester.getTopLeft(split()).dy;
+
     await go(tester, ['~記一筆']);
-    expect(foot(), closeTo(before, 1));
+    await settle();
+    final before = foot();
+    for (var round = 0; round < 3; round++) {
+      await tester.tap(split());
+      await settle();
+      await tester.tap(split());
+      await settle();
+      await tester.tap(find.text('商家、標籤、備註'));
+      await settle();
+      await tester.tap(find.text('商家、標籤、備註'));
+      await settle();
+      expect(foot(), closeTo(before, 1), reason: 'round $round');
+      // Closed and opened again.
+      await tester.tapAt(const Offset(180, 20));
+      await settle();
+      await go(tester, ['~記一筆']);
+      await settle();
+      expect(foot(), closeTo(before, 1), reason: 'reopened $round');
+    }
   });
 }

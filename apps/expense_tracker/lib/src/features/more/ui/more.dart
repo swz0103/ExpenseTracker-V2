@@ -48,10 +48,10 @@ class MorePage extends StatelessWidget {
         final lent = peopleOwing(ledger)
             .fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
         final left = limit - expense;
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          header: const PageHeader('更多'),
           children: [
-            const PageHeader('更多'),
             const RuleHead('報表與投資'),
             _ToolRow([
               ToolButton(

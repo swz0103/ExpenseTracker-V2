@@ -225,7 +225,9 @@ class _TagPickerState extends State<_TagPicker> {
         FilledButton(
           onPressed: () => widget.onDone(_picked),
           style: FilledButton.styleFrom(
-            backgroundColor: Hue.accent,
+            backgroundColor: chosenFill(Hue.accent),
+            side: chosenEdge(Hue.accent),
+            foregroundColor: chosenInk(Hue.accent),
             minimumSize: const Size.fromHeight(44),
           ),
           child: const Text('完成'),
