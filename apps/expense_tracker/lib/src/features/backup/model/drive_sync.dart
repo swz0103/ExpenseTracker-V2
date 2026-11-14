@@ -6,9 +6,9 @@ import '../../../core/preferences.dart';
 import 'drive_backup.dart';
 
 /// Backups on the person's Google Drive: linked once with Google's
-/// sign-in, then sent by hand from the settings and weekly by themselves
-/// when the ledger changed. Each carries the receipt photos; the newest
-/// five are kept.
+/// sign-in, then sent by hand from the settings and daily by themselves
+/// when the ledger changed. Each carries the ledger, and the receipt
+/// photos only when asked ([photos]); the newest five are kept.
 final class DriveSync extends ChangeNotifier {
   DriveSync(
     this._drive,
@@ -22,20 +22,35 @@ final class DriveSync extends ChangeNotifier {
 
   final DriveBackup _drive;
   final Preferences _preferences;
-  final Future<void> Function(Future<void> Function(File file) use) _withBackup;
+  final Future<void> Function(
+    Future<void> Function(File file) use, {
+    bool withPhotos,
+  })
+  _withBackup;
   final int Function() _revision;
 
   /// The ledger's own id, marking its backups on Drive apart from those of
   /// another ledger kept in the same folder.
   final String _ledger;
 
-  /// Whether the phone is on Wi-Fi: a weekly backup carries every photo,
-  /// so it waits for one rather than spend mobile data.
+  /// Whether the phone is on Wi-Fi: a backup with the photos carries
+  /// every one, so it waits for one rather than spend mobile data.
   final Future<bool> Function()? _unmetered;
   final DateTime Function() _clock;
 
   bool get linked => _preferences.driveLinked;
   DateTime? get backedUp => _preferences.driveBackedUp;
+
+  /// The backups carry the receipt photos too.
+  bool get photos => _preferences.drivePhotos;
+
+  /// Adds the photos to the backups, sending one with them now, or
+  /// leaves them out from the next one.
+  Future<void> setPhotos(bool on) async {
+    _preferences.update(drivePhotos: on);
+    notifyListeners();
+    if (on && linked) await backUpNow();
+  }
 
   /// A backup is going up. Shared by every [DriveSync] of this run, so a
   /// ledger locked and opened again while one goes up does not send a
@@ -62,10 +77,10 @@ final class DriveSync extends ChangeNotifier {
   /// Sends a backup now, asking Google's screens when needed.
   Future<void> backUpNow() => _send(interactive: true);
 
-  /// Sends a backup when linked, the last one is older than [every], the
-  /// ledger changed since and the phone is on Wi-Fi; never shows Google's
-  /// screens. True when one was sent.
-  Future<bool> backUpIfDue({Duration every = const Duration(days: 7)}) async {
+  /// Sends a backup when linked, the last one is older than [every] and
+  /// the ledger changed since, on Wi-Fi when it carries the photos; never
+  /// shows Google's screens. True when one was sent.
+  Future<bool> backUpIfDue({Duration every = const Duration(days: 1)}) async {
     if (!linked || _busy) return false;
     final last = backedUp;
     if (last != null &&
@@ -74,7 +89,7 @@ final class DriveSync extends ChangeNotifier {
       return false;
     }
     final unmetered = _unmetered;
-    if (unmetered != null && !await unmetered()) return false;
+    if (photos && unmetered != null && !await unmetered()) return false;
     await _send(interactive: false);
     return true;
   }
@@ -88,6 +103,7 @@ final class DriveSync extends ChangeNotifier {
       await _withBackup(
         (file) =>
             _drive.upload(file, ledger: _ledger, interactive: interactive),
+        withPhotos: photos,
       );
       _preferences.driveBackup(_clock(), revision);
     } finally {

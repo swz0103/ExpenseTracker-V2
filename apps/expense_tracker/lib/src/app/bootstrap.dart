@@ -39,6 +39,7 @@ import 'platform.dart';
 import '../core/preferences.dart';
 import '../core/screen_privacy.dart';
 import '../features/settings/model/app_update.dart';
+import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/services.dart';
 import '../features/lock/model/startup.dart';
 
@@ -349,13 +350,20 @@ class _OpenedLedgerState extends State<OpenedLedger>
 
   var _phoneWarned = false;
 
-  /// Looks for a newer version once a day at most, and says so when one
-  /// is found; installing waits for the person, in 設定 › 關於.
+  /// Looks for a newer version on opening and coming back to the app,
+  /// and offers it at once, with what it changes; offered once a run,
+  /// after which it waits in 設定 › 關於.
   Future<void> _checkUpdate() async {
-    final newer = await _update?.checkIfDue();
-    if (newer == null || !mounted) return;
-    showNote(context, '有新版本（${newer.label}），可以到「設定 › 關於」更新');
+    final update = _update;
+    final newer = await update?.checkIfDue();
+    if (update == null || newer == null || !mounted) return;
+    if (_offered == newer.build) return;
+    _offered = newer.build;
+    await showUpdatePanel(context, update);
   }
+
+  /// The build last offered this run.
+  int? _offered;
 
   /// When the app is left with changes not in a backup yet, keeps the
   /// copy Android takes to the person's Google account by itself, and

@@ -19,6 +19,7 @@ final class UpdateInfo {
     required this.commit,
     required this.sha256,
     required this.size,
+    this.notes = const [],
   });
 
   final int build;
@@ -30,6 +31,12 @@ final class UpdateInfo {
 
   /// The APK's size in bytes.
   final int size;
+
+  /// What this version changes, a few short lines (whats_new.txt).
+  final List<String> notes;
+
+  /// 0.9.6, or 第 312 版 for a build without a version name.
+  String get name => version.isEmpty ? '第 $build 版' : version;
 
   /// Reads `update.json`; null for anything else.
   static UpdateInfo? parse(String text) {
@@ -51,6 +58,11 @@ final class UpdateInfo {
         commit: json['commit'] as String? ?? '',
         sha256: sha256,
         size: size,
+        notes: [
+          if (json['notes'] case final List<Object?> lines)
+            for (final line in lines)
+              if (line is String && line.trim().isNotEmpty) line.trim(),
+        ],
       );
     } on FormatException {
       return null;
@@ -171,11 +183,11 @@ final class AppUpdate extends ChangeNotifier {
     }
   }
 
-  /// Looks by itself, on opening and coming back to the app: once every
-  /// three hours at most, when allowed. One small file from GitHub.
+  /// Looks by itself each time the app is opened or come back to (not
+  /// again within ten minutes), when allowed. One small file from GitHub.
   Future<UpdateInfo?> checkIfDue() async {
     if (!possible || !_preferences.updateChecks) return null;
-    return checkIfOlder(const Duration(hours: 3));
+    return checkIfOlder(const Duration(minutes: 10));
   }
 
   /// Looks unless it did within [age], as on opening 設定 › 關於, where the

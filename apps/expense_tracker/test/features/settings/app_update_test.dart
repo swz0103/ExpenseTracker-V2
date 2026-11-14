@@ -70,7 +70,14 @@ void main() {
     final found = await update().check();
     expect(found?.build, 190);
     expect(found?.label, '第 190 版（2.0.0 · 8af812b）');
-    final same = update(build: 190);
+    expect(found?.name, '2.0.0');
+    expect(found?.notes, isEmpty);
+    port.info =
+        '{"build":191,"version":"2.0.1","sha256":"$_sha","size":3,'
+        '"notes":["雲端硬碟可以只備份帳本"," ",3]}';
+    final noted = await update().check();
+    expect(noted?.notes, ['雲端硬碟可以只備份帳本']);
+    final same = update(build: 191);
     expect(await same.check(), isNull);
     expect(same.upToDate, isTrue);
   });
@@ -82,30 +89,28 @@ void main() {
     expect(port.fetched, 0);
   });
 
-  test(
-    'by itself it looks every three hours at most, and only when allowed',
-    () async {
-      final app = update();
-      expect(await app.checkIfDue(), isNotNull);
-      now = now.add(const Duration(hours: 2));
-      expect(await app.checkIfDue(), isNotNull, reason: 'the one found');
-      expect(port.fetched, 1);
-      now = now.add(const Duration(hours: 2));
-      expect(await app.checkIfDue(), isNotNull);
-      expect(port.fetched, 2);
-      // 關於 looks again after ten minutes, even with the checks off.
-      preferences.update(updateChecks: false);
-      now = now.add(const Duration(minutes: 5));
-      await app.checkIfOlder(const Duration(minutes: 10));
-      expect(port.fetched, 2);
-      now = now.add(const Duration(minutes: 6));
-      await app.checkIfOlder(const Duration(minutes: 10));
-      expect(port.fetched, 3);
-      now = now.add(const Duration(days: 2));
-      expect(await app.checkIfDue(), isNull);
-      expect(port.fetched, 3);
-    },
-  );
+  test('by itself it looks on each opening, not again within ten minutes, '
+      'and only when allowed', () async {
+    final app = update();
+    expect(await app.checkIfDue(), isNotNull);
+    now = now.add(const Duration(minutes: 5));
+    expect(await app.checkIfDue(), isNotNull, reason: 'the one found');
+    expect(port.fetched, 1);
+    now = now.add(const Duration(minutes: 6));
+    expect(await app.checkIfDue(), isNotNull);
+    expect(port.fetched, 2);
+    // 關於 looks again after ten minutes, even with the checks off.
+    preferences.update(updateChecks: false);
+    now = now.add(const Duration(minutes: 5));
+    await app.checkIfOlder(const Duration(minutes: 10));
+    expect(port.fetched, 2);
+    now = now.add(const Duration(minutes: 6));
+    await app.checkIfOlder(const Duration(minutes: 10));
+    expect(port.fetched, 3);
+    now = now.add(const Duration(days: 2));
+    expect(await app.checkIfDue(), isNull);
+    expect(port.fetched, 3);
+  });
 
   test('anything but update.json, or no network, finds nothing', () async {
     port.info = '<html>not found</html>';

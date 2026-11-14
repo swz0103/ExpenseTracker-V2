@@ -81,7 +81,7 @@ class UpdateWorker(context: Context, params: WorkerParameters) : Worker(context,
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("記帳本有新版本")
-            .setContentText("第 $build 版，打開 App 到 設定 › 關於 更新")
+            .setContentText("第 $build 版，打開 App 就能更新")
             .setContentIntent(MainActivity.opening(context, "", 900))
             .setAutoCancel(true)
             .build()

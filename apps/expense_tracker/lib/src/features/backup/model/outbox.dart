@@ -31,8 +31,9 @@ final class Outbox {
   final Directory directory;
   final Preferences _preferences;
 
-  /// Writes an encrypted backup, with the receipt photos, into the folder.
-  final Future<File> Function(Directory folder) _write;
+  /// Writes an encrypted backup into the folder, with the receipt photos
+  /// unless told not to.
+  final Future<File> Function(Directory folder, {bool withPhotos}) _write;
   final int Function() _revision;
   final String _ledger;
 
@@ -76,10 +77,20 @@ final class Outbox {
     if (phoneHas && driveHas) return false;
     _busy = true;
     try {
-      final file = await _write(_folder);
+      // The phone's folder always takes the photos; Drive only when asked,
+      // and then it gets its own copy without them.
+      final phone = _preferences.phoneFolder != null;
+      final drive = _preferences.driveLinked;
+      final photos = _preferences.drivePhotos;
+      final file = await _write(_folder, withPhotos: phone || photos);
+      final driveFile = phone && drive && !photos
+          ? await _write(_folder, withPhotos: false)
+          : null;
       await _save(_ready, {
         'v': 1,
         'file': file.uri.pathSegments.last,
+        'driveFile': ?driveFile?.uri.pathSegments.last,
+        'drivePhotos': photos,
         'revision': revision,
         'ledger': _ledger,
         'mark': PhoneBackup.markOf(_ledger),
@@ -89,7 +100,8 @@ final class Outbox {
       for (final old in _folder.listSync()) {
         if (old is File &&
             old.path.endsWith('.etbk') &&
-            old.path != file.path) {
+            old.path != file.path &&
+            old.path != driveFile?.path) {
           await old.delete();
         }
       }

@@ -47,7 +47,7 @@ APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform
 
 ## App 內更新
 
-每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdatePart.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
+每次發布時，`android.yml` 在 APK 旁邊放 `update.json`（`build` 為 workflow 的 run number，與 App 的 `APP_BUILD` 相同；另有 `version`、`commit`、`sha256`、`size`，以及 `notes`：`apps/expense_tracker/whats_new.txt` 的每一行，App 更新前在浮窗裡列出），APK 換好名字後才上傳它，所以它說的版本一定下載得到。App（`lib/src/features/settings/model/app_update.dart`）從 `github.com/swz0103/ExpenseTracker-V2/releases/download/android-latest/` 取這兩個檔（repo 是公開的，不需登入），下載到快取 `updates/`（啟動時清掉），`UpdatePart.kt` 核對 SHA-256 後以 `FileProvider` 交給系統安裝程式（`REQUEST_INSTALL_PACKAGES`；Android 8 以上第一次會開「安裝不明應用程式」設定）。Android 只在簽章相同時才覆蓋安裝，資料保留；側載的 App 不能在背景自動更新，每次都要使用者確認。
 
 ## 桌面小工具
 
