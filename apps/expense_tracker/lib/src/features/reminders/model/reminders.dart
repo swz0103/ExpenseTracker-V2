@@ -11,8 +11,8 @@ final class Reminder {
     this.note = '',
     this.daysAhead = 0,
     this.recurring,
-    String? bare,
-  }) : _bare = bare;
+    this._bare,
+  });
 
   /// Stable across syncs, so the same reminder is not written twice.
   final String key;

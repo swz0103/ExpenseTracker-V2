@@ -1,5 +1,7 @@
 # Stricter than the SDK default, as for every package since the new
-# architecture (ADR-0001, health check G9-16).
+# architecture (ADR-0001, health check G9-16), on top of Dart's recommended lints.
+include: package:lints/recommended.yaml
+
 analyzer:
   language:
     strict-casts: true

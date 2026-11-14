@@ -20,16 +20,12 @@ final class Outbox {
   Outbox(
     this.directory,
     this._preferences, {
-    required Future<File> Function(Directory folder) write,
-    required int Function() revision,
-    required String ledger,
-    Future<void> Function({required bool on})? schedule,
+    required this._write,
+    required this._revision,
+    required this._ledger,
+    this._schedule,
     DateTime Function()? clock,
-  }) : _write = write,
-       _revision = revision,
-       _ledger = ledger,
-       _schedule = schedule,
-       _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? DateTime.now;
 
   /// The ledger's directory.
   final Directory directory;

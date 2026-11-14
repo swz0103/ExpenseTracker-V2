@@ -121,14 +121,13 @@ final class Listing {
 /// stale.
 final class MarketDataGateway {
   MarketDataGateway({
-    required MarketTransport transport,
+    required this._transport,
     DateTime Function()? clock,
     this.cacheTtl = const Duration(minutes: 20),
     this.retryAfter = const Duration(minutes: 1),
     this.maximumObservationAge = const Duration(days: 4),
     Future<Object?> Function(String body)? decodeJson,
-  }) : _transport = transport,
-       _clock = clock ?? DateTime.now,
+  }) : _clock = clock ?? DateTime.now,
        _decode = decodeJson ?? _decodeHere {
     if (cacheTtl <= Duration.zero ||
         retryAfter < Duration.zero ||

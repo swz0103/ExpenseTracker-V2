@@ -53,8 +53,9 @@ final class UtcInstant implements Comparable<UtcInstant> {
     final match = RegExp(
       r'^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,6})?Z$',
     ).firstMatch(text);
-    if (match == null)
+    if (match == null) {
       throw const FormatException('Expected an ISO UTC instant.');
+    }
     BusinessDate.parse(match[1]!);
     if (int.parse(match[2]!) > 23 ||
         int.parse(match[3]!) > 59 ||

@@ -3,9 +3,8 @@
 /// phone's time back does not keep the ledger open. A clock that went
 /// backwards counts as away long enough.
 final class AwayClock {
-  AwayClock({DateTime Function()? now, Duration Function()? running})
-    : _now = now ?? DateTime.now,
-      _running = running;
+  AwayClock({DateTime Function()? now, this._running})
+    : _now = now ?? DateTime.now;
 
   final DateTime Function() _now;
 

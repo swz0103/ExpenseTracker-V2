@@ -89,7 +89,7 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
    keytool -genkey -v -keystore ~/expense-tracker.jks -keyalg RSA -keysize 2048 -validity 10000 -alias expense-tracker
    ```
 
-2. 在 GitHub 的 Settings › Secrets and variables › Actions 新增 [STATUS](../STATUS.md#簽章-secrets) 表中的 4 個 Secrets（`.jks` 先 `base64 -w0` 轉成文字）。
+2. 在 GitHub 的 Settings › Secrets and variables › Actions 新增 [STATUS](../STATUS.md#簽章-secrets) 表中的 4 個 Secrets（`.jks` 先 `base64 -w0` 轉成文字）。CI 的建置（`android.yml` 的 `build`）看不到這些 Secrets，產出的是 debug 簽章的 APK；只有 main 驗證通過後，另一個不取出程式碼的 `sign` job 用 `apksigner` 換上正式簽章、確認不是 debug 金鑰，再交給 `publish` 發布。
 3. 本機建置時改建立 `apps/expense_tracker/android/key.properties`（已在 `.gitignore`）：
 
    ```properties

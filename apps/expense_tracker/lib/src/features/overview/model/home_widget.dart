@@ -109,10 +109,9 @@ final class HomeWidget {
   HomeWidget(
     this._file,
     this._preferences, {
-    required Future<void> Function() refresh,
-    Duration wait = const Duration(seconds: 1),
-  }) : _refresh = refresh,
-       _wait = wait;
+    required this._refresh,
+    this._wait = const Duration(seconds: 1),
+  });
 
   final File _file;
   final Preferences _preferences;

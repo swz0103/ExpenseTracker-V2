@@ -162,10 +162,7 @@ class _BarsPainter extends CustomPainter {
   /// Net worth as a line through the stretch centres, filling the upper
   /// part of the plot between its lowest and highest values.
   void _worthLine(Canvas canvas, double plot, double slot) {
-    final known = [
-      for (final v in worth)
-        if (v != null) v,
-    ];
+    final known = [for (final v in worth) ?v];
     if (known.length < 2) return;
     final low = known.reduce(min);
     final span = max(1, known.reduce(max) - low);

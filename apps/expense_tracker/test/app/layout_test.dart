@@ -3,15 +3,20 @@ import 'dart:io';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
+import 'package:expense_tracker/src/core/preferences.dart';
+import 'package:expense_tracker/src/core/screen_privacy.dart';
+import 'package:expense_tracker/src/features/reminders/model/notifications.dart';
+import 'package:expense_tracker/src/features/settings/model/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Every page and tab, on a small phone (320 dp), a common one (360 dp)
-/// and a large one (412 dp), with the text at 100%, 130% and 150%:
-/// nothing overflows, no words are drawn over other words, and none are
-/// shrunk to fit below six tenths of their size. Words
+/// Every page and tab, the panels in the middle of the screen and each
+/// page of 記一筆, on a small phone (320 dp), a common one (360 dp) and a
+/// large one (412 dp), with the text at 100%, 130% and 150%, and in dark
+/// at 360 dp: nothing overflows, no words are drawn over other words, and
+/// none are shrunk to fit below six tenths of their size. Words
 /// running into each other, or a block too small for what it holds, is
 /// how a page breaks on a real phone though it looked right at one size.
 void main() {
@@ -55,10 +60,32 @@ void main() {
     ('設定', ['更多', '設定']),
     ('匯入與匯出', ['更多', '設定', '匯入與匯出']),
     ('關於', ['更多', '設定', '關於']),
+    ('通知與提醒', ['更多', '設定', '通知與提醒']),
+    ('到期提醒', ['更多', '設定', '通知與提醒', '到期提醒']),
+    ('預算提醒', ['更多', '設定', '通知與提醒', '預算提醒']),
+    ('每日記帳', ['更多', '設定', '通知與提醒', '每日記帳']),
+    ('安全', ['更多', '設定', '安全']),
+    ('外觀與操作', ['更多', '設定', '外觀與操作']),
+    ('外觀', ['更多', '設定', '外觀與操作', '外觀']),
+    ('桌面小工具', ['更多', '設定', '外觀與操作', '桌面小工具']),
+    ('總覽區塊', ['更多', '設定', '外觀與操作', '總覽區塊']),
+    ('最近刪除', ['更多', '設定', '最近刪除']),
     ('記一筆', ['~記一筆']),
+    ('記一筆 收入', ['~記一筆', '收入']),
+    ('記一筆 轉帳', ['~記一筆', '轉帳']),
+    ('記一筆 投資', ['~記一筆', '投資']),
+    ('記一筆 展開', ['~記一筆', '商家、標籤、備註']),
+    ('記一筆 代墊', ['~記一筆', '代墊']),
+    ('記一筆 選帳戶', ['~記一筆', '日常銀行']),
+    ('記一筆 選日期', ['~記一筆', '今天']),
+    ('記一筆 全部分類', ['~記一筆', '全部']),
+    ('記一筆 計算機', ['~記一筆', '~金額']),
   ];
 
   Future<void> show(WidgetTester tester, double width, double text) async {
+    final preferences = Preferences();
+    final hidden = Directory.systemTemp.createTempSync('layout-');
+    addTearDown(() => hidden.deleteSync(recursive: true));
     tester.view.physicalSize = Size(width, 2800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -72,7 +99,16 @@ void main() {
               .copyWith(textScaler: TextScaler.linear(text)),
           child: child!,
         ),
-        home: AppShell(ledger: demoLedger()),
+        // The settings the preview leaves out, so their pages and
+        // panels are checked too.
+        home: AppShell(
+          ledger: demoLedger(),
+          services: Services(
+            preferences: preferences,
+            notifier: Notifier(_Port(), preferences),
+            privacy: ScreenPrivacy(hidden, (_) async {}),
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -90,10 +126,18 @@ void main() {
     }
   }
 
-  for (final width in const [320.0, 360.0, 412.0]) {
-    for (final text in const [1.0, 1.3, 1.5]) {
-      testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%: '
+  for (final (width, text, dark) in [
+    for (final width in const [320.0, 360.0, 412.0])
+      for (final text in const [1.0, 1.3, 1.5]) (width, text, false),
+    (360.0, 1.0, true),
+    (360.0, 1.5, true),
+  ]) {
+    {
+      testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%'
+          '${dark ? ', dark' : ''}: '
           'nothing overflows and no words overlap', (tester) async {
+        Shade.dark = dark;
+        addTearDown(() => Shade.dark = false);
         final faults = <String>[];
         for (final (name, taps) in places) {
           await show(tester, width, text);
@@ -112,6 +156,35 @@ void main() {
       });
     }
   }
+}
+
+/// Notifications that go nowhere, with the phone's settings all right.
+final class _Port implements NotifyPort {
+  @override
+  Future<bool> access() async => true;
+
+  @override
+  Future<void> schedule(
+    List<Alert> alerts, {
+    bool exact = false,
+    Set<String>? wanted,
+  }) async {}
+
+  @override
+  Future<void> test({bool exact = false}) async {}
+
+  @override
+  Future<void> post(Alert alert, int id) async {}
+
+  @override
+  Future<ReminderStatus> status() async =>
+      (notifications: true, exact: true, battery: true);
+
+  @override
+  Future<void> openExactSettings() async {}
+
+  @override
+  Future<void> openBatterySettings() async {}
 }
 
 /// Pairs of words drawn over each other on screen: each run of words is

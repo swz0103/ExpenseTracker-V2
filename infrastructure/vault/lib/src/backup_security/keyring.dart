@@ -84,16 +84,12 @@ final class Keyring {
   const Keyring._({
     required this.id,
     required this.kdf,
-    required _PasswordSlot password,
-    required _Box recovery,
-    required List<_DeviceSlot> devices,
-    required _Box database,
-    required List<_Box> backupKeys,
-  }) : _password = password,
-       _recovery = recovery,
-       _devices = devices,
-       _database = database,
-       _backupKeys = backupKeys;
+    required this._password,
+    required this._recovery,
+    required this._devices,
+    required this._database,
+    required this._backupKeys,
+  });
 
   /// Parses and validates a stored keyring. Any deviation from the exact
   /// layout is [KeyringError.invalidFormat].

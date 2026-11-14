@@ -31,7 +31,7 @@ enum WidgetFigures {
 /// beside the ledger in a file of its own, so it holds from the lock
 /// screen on; the preview keeps it in memory.
 final class Preferences extends ChangeNotifier {
-  Preferences({File? file}) : _file = file {
+  Preferences({this._file}) {
     final file = _file;
     if (file == null || !file.existsSync()) return;
     try {

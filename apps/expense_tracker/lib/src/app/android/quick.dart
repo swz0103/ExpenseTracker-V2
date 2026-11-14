@@ -15,8 +15,9 @@ final quickAction = ValueNotifier<QuickAction?>(null);
 /// first, so none sent after the take is missed.
 Future<void> listenForQuickActions() async {
   platformChannel.setMethodCallHandler((call) async {
-    if (call.method == 'quickAction')
+    if (call.method == 'quickAction') {
       quickAction.value = QuickAction.named(call.arguments as String?);
+    }
   });
   final first = await platformChannel.invokeMethod<String>('takeQuickAction');
   if (QuickAction.named(first) case final action?) {

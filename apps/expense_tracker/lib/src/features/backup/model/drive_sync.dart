@@ -13,17 +13,12 @@ final class DriveSync extends ChangeNotifier {
   DriveSync(
     this._drive,
     this._preferences, {
-    required Future<void> Function(Future<void> Function(File file) use)
-    withBackup,
-    required int Function() revision,
-    required String ledger,
-    Future<bool> Function()? unmetered,
+    required this._withBackup,
+    required this._revision,
+    required this._ledger,
+    this._unmetered,
     DateTime Function()? clock,
-  }) : _withBackup = withBackup,
-       _unmetered = unmetered,
-       _revision = revision,
-       _ledger = ledger,
-       _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? DateTime.now;
 
   final DriveBackup _drive;
   final Preferences _preferences;

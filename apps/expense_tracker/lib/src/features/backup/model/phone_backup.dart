@@ -33,14 +33,11 @@ final class PhoneBackup extends ChangeNotifier {
   PhoneBackup(
     this._folder,
     this._preferences, {
-    required Future<void> Function(Future<void> Function(File file) use)
-    withBackup,
-    required int Function() revision,
+    required this._withBackup,
+    required this._revision,
     required String ledger,
     DateTime Function()? clock,
-  }) : _withBackup = withBackup,
-       _revision = revision,
-       _mark = markOf(ledger),
+  }) : _mark = markOf(ledger),
        _clock = clock ?? DateTime.now;
 
   final FolderPort _folder;
