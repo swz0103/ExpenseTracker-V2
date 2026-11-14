@@ -271,11 +271,13 @@ Ledger demoLedger() {
         -286000,
         icon: 'car',
         principal: 400000,
-        rate: 250,
-        months: 60,
-        repay: LoanRepay.even,
+        loan: LoanTerms(
+          rate: 250,
+          months: 60,
+          repay: LoanRepay.even,
+          payFrom: 'bank',
+        ),
         dueDay: 25,
-        payFrom: 'bank',
       ),
       const Account(
         'lent',

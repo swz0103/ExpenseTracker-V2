@@ -843,12 +843,12 @@ class LoanPage extends StatelessWidget {
                 ],
                 if (loanPlan(
                       amount: principal,
-                      rate: loan.rate,
-                      months: loan.months,
-                      repay: loan.repay ?? LoanRepay.even,
+                      rate: loan.loan?.rate,
+                      months: loan.loan?.months,
+                      repay: loan.loan?.repay ?? LoanRepay.even,
                     )
                     case final plan?)
-                  '${repayName(loan.repay ?? LoanRepay.even)} · 每月約 '
+                  '${repayName(loan.loan?.repay ?? LoanRepay.even)} · 每月約 '
                       '${ledger.orDots(groupDigits(plan.first))}',
               ],
               menu: DotsMenu([

@@ -23,10 +23,10 @@ Map<String, Object?> accountToJson(Account a) => {
   'principal': ?a.principal,
   'place': ?a.place,
   'color': ?a.color,
-  'rate': ?a.rate,
-  'months': ?a.months,
-  'repay': ?a.repay?.name,
-  'payFrom': ?a.payFrom,
+  'rate': ?a.loan?.rate,
+  'months': ?a.loan?.months,
+  'repay': ?a.loan?.repay?.name,
+  'payFrom': ?a.loan?.payFrom,
   if (a.closes.isNotEmpty)
     'closes': {
       for (final MapEntry(:key, :value) in a.closes.entries)
@@ -42,6 +42,21 @@ Map<String, Object?> accountToJson(Account a) => {
         },
     ],
 };
+
+/// A loan's terms, kept flat beside the account's other fields; null when
+/// none is there.
+LoanTerms? _loanTerms(Map<String, Object?> json) {
+  final terms = LoanTerms(
+    rate: _maybe(json['rate']),
+    months: _maybe(json['months']),
+    repay: switch (json['repay']) {
+      final String name => LoanRepay.values.byName(name),
+      _ => null,
+    },
+    payFrom: json['payFrom'] as String?,
+  );
+  return terms.isEmpty ? null : terms;
+}
 
 Account accountFromJson(Map<String, Object?> json) => _read(
   () => Account(
@@ -59,13 +74,7 @@ Account accountFromJson(Map<String, Object?> json) => _read(
     principal: _maybe(json['principal']),
     place: _maybe(json['place']),
     color: _maybe(json['color']),
-    rate: _maybe(json['rate']),
-    months: _maybe(json['months']),
-    repay: switch (json['repay']) {
-      final String name => LoanRepay.values.byName(name),
-      _ => null,
-    },
-    payFrom: json['payFrom'] as String?,
+    loan: _loanTerms(json),
     closes: {
       for (final MapEntry(:key, :value)
           in (json['closes'] as Map<String, Object?>? ?? const {}).entries)

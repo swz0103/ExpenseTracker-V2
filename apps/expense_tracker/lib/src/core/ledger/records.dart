@@ -50,10 +50,7 @@ final class Account {
     this.principal,
     this.place,
     this.color,
-    this.rate,
-    this.months,
-    this.repay,
-    this.payFrom,
+    this.loan,
   });
 
   final String id;
@@ -61,13 +58,8 @@ final class Account {
   /// The colour picked for the account, as ARGB; null takes its [kind]'s.
   final int? color;
 
-  /// A loan's yearly interest in hundredths of a percent (215 is 2.15%),
-  /// how many months it runs, how it is paid back and the account it is
-  /// paid from; null when not given.
-  final int? rate;
-  final int? months;
-  final LoanRepay? repay;
-  final String? payFrom;
+  /// A loan's terms; null for any other account, or a loan without them.
+  final LoanTerms? loan;
   final String name;
   final AccountKind kind;
 
@@ -146,11 +138,25 @@ final class Account {
     principal: principal ?? this.principal,
     place: place ?? this.place,
     color: color ?? this.color,
-    rate: rate,
-    months: months,
-    repay: repay,
-    payFrom: payFrom,
+    loan: loan,
   );
+}
+
+/// What a loan costs and how it is paid: its yearly interest in
+/// hundredths of a percent (215 is 2.15%), how many months it runs, how
+/// it is paid back and the account it is paid from; each null when not
+/// given.
+final class LoanTerms {
+  const LoanTerms({this.rate, this.months, this.repay, this.payFrom});
+
+  final int? rate;
+  final int? months;
+  final LoanRepay? repay;
+  final String? payFrom;
+
+  /// Whether nothing is given, so the account keeps no terms.
+  bool get isEmpty =>
+      rate == null && months == null && repay == null && payFrom == null;
 }
 
 final class Category {
