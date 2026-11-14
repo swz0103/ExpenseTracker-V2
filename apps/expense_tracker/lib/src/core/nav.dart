@@ -99,7 +99,13 @@ final class DebtPlace extends Place {
   int get hashCode => Object.hash(DebtPlace, id);
 }
 
-/// A tag's page, or a merchant's, which returns to 標籤與商家.
+/// 標籤與商家 on its 商家 half: where a merchant's page goes back to.
+final class MerchantsPlace extends Place {
+  const MerchantsPlace();
+}
+
+/// A tag's page, or a merchant's, which returns to 標籤與商家 on the
+/// half it came from.
 final class LabelPlace extends Place {
   const LabelPlace(this.name, {this.merchant = false});
 
@@ -107,7 +113,7 @@ final class LabelPlace extends Place {
   final bool merchant;
 
   @override
-  Place get parent => Pages.labels;
+  Place get parent => merchant ? const MerchantsPlace() : Pages.labels;
 
   @override
   bool operator ==(Object other) =>

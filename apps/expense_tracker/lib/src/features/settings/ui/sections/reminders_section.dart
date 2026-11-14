@@ -722,13 +722,20 @@ class _ToggleRow extends StatelessWidget {
         ],
       ),
     );
-    if (flat) return row;
+    final whole = ToggleRow(
+      value: value,
+      onChanged: onChanged,
+      label: title,
+      radius: flat ? 0 : 18,
+      child: row,
+    );
+    if (flat) return whole;
     return Container(
       decoration: BoxDecoration(
         color: tintOf(color, 0.16),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: row,
+      child: whole,
     );
   }
 }

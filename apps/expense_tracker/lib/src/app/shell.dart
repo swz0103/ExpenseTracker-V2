@@ -297,6 +297,11 @@ class _AppShellState extends State<AppShell> {
           nav: _nav,
           code: code,
         ),
+        MerchantsPlace() => LabelsPage(
+          ledger: ledger,
+          nav: _nav,
+          merchants: true,
+        ),
         SectionPlace(:final section) => switch (section) {
           Section.reports => ReportsPage(ledger: ledger, nav: _nav),
           Section.investments => InvestmentsPage(ledger: ledger, nav: _nav),

@@ -187,7 +187,10 @@ class _NetWorth extends StatelessWidget {
                 children: [
                   SizedBox(
                     height: 8,
+                    // Stretched: an empty box in a row is otherwise drawn
+                    // no taller than nothing.
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final (i, (_, value, color)) in shown.indexed) ...[
                           if (i > 0) const SizedBox(width: 3),

@@ -20,17 +20,25 @@ const _merchantHue = Palette.orange;
 /// a row. Merchants: a podium of the three most visited, then the others
 /// as chips with their visits. A tap opens that tag's or merchant's page.
 class LabelsPage extends StatefulWidget {
-  const LabelsPage({super.key, required this.ledger, required this.nav});
+  const LabelsPage({
+    super.key,
+    required this.ledger,
+    required this.nav,
+    this.merchants = false,
+  });
 
   final Ledger ledger;
   final Nav nav;
+
+  /// Opens on 商家, as on coming back from a merchant's page.
+  final bool merchants;
 
   @override
   State<LabelsPage> createState() => _LabelsPageState();
 }
 
 class _LabelsPageState extends State<LabelsPage> {
-  var _merchants = false;
+  late var _merchants = widget.merchants;
 
   Ledger get ledger => widget.ledger;
 
@@ -867,7 +875,8 @@ class _RenameSheetState extends State<_RenameSheet> {
         20,
         0,
         20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
+        // showSheet already lifts the sheet over the keyboard.
+        20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

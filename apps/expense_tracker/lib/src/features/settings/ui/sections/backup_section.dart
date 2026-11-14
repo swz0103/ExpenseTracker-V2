@@ -322,6 +322,11 @@ class _BackupSectionState extends State<BackupSection> {
                         ? _linkDrive(widget.keeper, drive)
                         : _unlinkDrive(drive),
             ),
+            onTap: drive.busy
+                ? null
+                : () => drive.linked
+                      ? _unlinkDrive(drive)
+                      : _linkDrive(widget.keeper, drive),
           ),
           if (drive.linked)
             _CardRow(
@@ -334,6 +339,9 @@ class _BackupSectionState extends State<BackupSection> {
                 label: '收據照片',
                 onChanged: drive.busy ? null : (v) => _drivePhotos(drive, v),
               ),
+              onTap: drive.busy
+                  ? null
+                  : () => _drivePhotos(drive, !drive.photos),
             ),
         ],
       ],
@@ -493,27 +501,32 @@ class _BackupCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
       child: Column(
         children: [
-          Row(
-            children: [
-              SquareIcon(glyph, color, size: 40),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(color),
+          ToggleRow(
+            value: value,
+            onChanged: change,
+            label: title,
+            child: Row(
+              children: [
+                SquareIcon(glyph, color, size: 40),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: deepOf(color),
+                    ),
                   ),
                 ),
-              ),
-              TickSwitch(
-                value: value,
-                color: color,
-                label: title,
-                onChanged: change,
-              ),
-            ],
+                TickSwitch(
+                  value: value,
+                  color: color,
+                  label: title,
+                  onChanged: change,
+                ),
+              ],
+            ),
           ),
           for (final row in rows) ...[
             Padding(

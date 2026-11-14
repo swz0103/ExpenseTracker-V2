@@ -501,19 +501,25 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: _Field(controller: _limit, hint: '額度', number: true),
             ),
           FormBlock(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _loanForm ? '算進負債與淨資產' : '計入資產與淨資產',
-                    style: const TextStyle(fontSize: 14),
+            child: ToggleRow(
+              value: _f.counted,
+              onChanged: (on) => setState(() => _f.counted = on),
+              label: _loanForm ? '算進負債與淨資產' : '計入資產與淨資產',
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _loanForm ? '算進負債與淨資產' : '計入資產與淨資產',
+                      style: const TextStyle(fontSize: 14),
+                    ),
                   ),
-                ),
-                Switch(
-                  value: _f.counted,
-                  onChanged: (on) => setState(() => _f.counted = on),
-                ),
-              ],
+                  TickSwitch(
+                    value: _f.counted,
+                    label: _loanForm ? '算進負債與淨資產' : '計入資產與淨資產',
+                    onChanged: (on) => setState(() => _f.counted = on),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 14),

@@ -403,7 +403,8 @@ class _DayGrid extends StatelessWidget {
     }
     return SoftPanel(
       color: Hue.white,
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      // None: a row's 編輯 and 刪除 reach the card's edges.
+      padding: EdgeInsets.zero,
       child: Column(children: rows),
     );
   }
