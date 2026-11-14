@@ -236,6 +236,14 @@ final class VaultKeeper implements Keeper {
   }
 
   @override
+  DateTime? get googleTakenAt {
+    final file = File('${_startup.directory.path}/google-backup-taken');
+    if (!file.existsSync()) return null;
+    final ms = int.tryParse(file.readAsStringSync().trim());
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  @override
   bool get hasPassword => !_startup.passwordless;
 
   @override

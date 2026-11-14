@@ -485,6 +485,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           _bookDue(ledger);
         }).ignore();
         _market?.refresh().ignore();
+        unawaited(_checkUpdate());
         if (_loaded != null) {
           _collectOutbox();
           unawaited(_phoneBackup());

@@ -39,10 +39,36 @@ void main() {
         for (final words in shrunk) {
           faults.add('$name: 「$words」 shrunk too small to read');
         }
+        for (final words in withoutAppFont(tester)) {
+          faults.add('$name: 「$words」 not in the app\'s fonts');
+        }
       }
       expect(faults, isEmpty, reason: faults.join('\n'));
     });
   }
+}
+
+/// Words drawn in a font the app does not bring, such as a button whose
+/// style left the family out: the phone then draws them in its own font.
+List<String> withoutAppFont(WidgetTester tester) {
+  const ours = {'Nunito', 'NotoSansTC', 'MaterialIcons'};
+  final found = <String>[];
+  for (final element in find.byType(RichText).evaluate()) {
+    final route = ModalRoute.of(element);
+    if (route != null && !route.isCurrent) continue;
+    final box = element.renderObject;
+    if (box is! RenderParagraph) continue;
+    var plain = true;
+    box.text.visitChildren((span) {
+      if (span is TextSpan && (span.text ?? '').trim().isNotEmpty) {
+        final family = span.style?.fontFamily ?? box.text.style?.fontFamily;
+        if (family == null || !ours.contains(family)) plain = false;
+      }
+      return plain;
+    });
+    if (!plain) found.add(box.text.toPlainText().trim());
+  }
+  return found;
 }
 
 /// Pairs of words drawn over each other on screen: each run of words is

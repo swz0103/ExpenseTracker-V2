@@ -257,6 +257,13 @@ const ruleAbove = BoxDecoration(border: Border(top: rowRule));
 /// A row's [rowRule] below it, as each row before a list's last has.
 const ruleBelow = BoxDecoration(border: Border(bottom: rowRule));
 
+/// The app's own fonts, for a style that replaces the theme's own, as a
+/// button's `textStyle` does: without them the phone draws its own font.
+const appFont = TextStyle(
+  fontFamily: 'Nunito',
+  fontFamilyFallback: ['NotoSansTC'],
+);
+
 /// The Material theme over [Hue], light or dark as [Shade.dark] says.
 ThemeData appTheme() {
   final dark = Shade.dark;

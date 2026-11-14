@@ -13,6 +13,12 @@ abstract interface class Keeper {
   /// account was last written; null before the first.
   DateTime? get cloudCopyAt;
 
+  /// When Android last took that copy to the person's Google account
+  /// (LedgerBackupAgent.kt writes it down); null before the first. Android
+  /// does it about once a day, while the phone charges on Wi-Fi, and only
+  /// with backup turned on in the phone's settings.
+  DateTime? get googleTakenAt;
+
   /// Deletes the copy Android's own backup takes, when Google 備份 is
   /// turned off: Android then backs up nothing of the ledger.
   Future<void> dropCloudCopy();

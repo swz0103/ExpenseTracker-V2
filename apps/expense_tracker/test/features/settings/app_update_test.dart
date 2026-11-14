@@ -83,19 +83,27 @@ void main() {
   });
 
   test(
-    'by itself it looks once a day at most, and only when allowed',
+    'by itself it looks every three hours at most, and only when allowed',
     () async {
       final app = update();
       expect(await app.checkIfDue(), isNotNull);
-      now = now.add(const Duration(hours: 23));
-      expect(await app.checkIfDue(), isNull);
+      now = now.add(const Duration(hours: 2));
+      expect(await app.checkIfDue(), isNotNull, reason: 'the one found');
+      expect(port.fetched, 1);
       now = now.add(const Duration(hours: 2));
       expect(await app.checkIfDue(), isNotNull);
       expect(port.fetched, 2);
+      // 關於 looks again after ten minutes, even with the checks off.
       preferences.update(updateChecks: false);
+      now = now.add(const Duration(minutes: 5));
+      await app.checkIfOlder(const Duration(minutes: 10));
+      expect(port.fetched, 2);
+      now = now.add(const Duration(minutes: 6));
+      await app.checkIfOlder(const Duration(minutes: 10));
+      expect(port.fetched, 3);
       now = now.add(const Duration(days: 2));
       expect(await app.checkIfDue(), isNull);
-      expect(port.fetched, 2);
+      expect(port.fetched, 3);
     },
   );
 

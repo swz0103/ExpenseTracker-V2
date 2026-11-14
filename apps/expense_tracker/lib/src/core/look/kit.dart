@@ -843,7 +843,7 @@ class EmptyState extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                textStyle: const TextStyle(
+                textStyle: appFont.copyWith(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
