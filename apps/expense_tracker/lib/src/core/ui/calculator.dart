@@ -59,6 +59,61 @@ Future<double?> showPriceCalculator(
   return value?.toDouble();
 }
 
+/// An amount to change with the calculator: all of it opens it, the
+/// figure in [child] and the calculator mark beside it, which only says
+/// so. At least 48 dp high, read out as [label].
+class AmountTap extends StatelessWidget {
+  const AmountTap({
+    super.key,
+    required this.label,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: onTap != null,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(fit: BoxFit.scaleDown, child: child),
+                  ),
+                ),
+                if (onTap != null)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: GlyphIcon(
+                      Glyph.calculator,
+                      size: 20,
+                      color: Hue.muted,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Whether amounts in [unit] are typed with two decimals, such as US$.
 bool takesCents(String unit) =>
     Currency.supported.contains(unit) && Currency.scaleOf(unit) > 0;

@@ -85,3 +85,46 @@ class TickSwitch extends StatelessWidget {
     );
   }
 }
+
+/// A row with a [TickSwitch] in it, all of which turns the switch: a tap
+/// anywhere on it, at least 48 dp high, read out once as [label] and
+/// whether it is on.
+class ToggleRow extends StatelessWidget {
+  const ToggleRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.label,
+    required this.child,
+    this.radius = 14,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final String label;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = onChanged;
+    return Semantics(
+      toggled: value,
+      label: label,
+      button: true,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: change == null ? null : () => change(!value),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}

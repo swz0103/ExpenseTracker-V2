@@ -18,6 +18,7 @@
 ## 文件
 
 - [STATUS.md](STATUS.md)：功能、品質、已知限制與待辦。
+- [acceptance.md](acceptance.md)：每個版本的實機驗收清單。
 - [plan-2026-11-13.md](plan-2026-11-13.md)：0.9 之後的審查回應、復盤與工作規劃。
 - [ADR-0001](adr/0001-target-architecture.md)：模組、依賴方向、儲存、金鑰、備份的架構決策。
 - [ADR-0002](adr/0002-feature-folders.md)：App 依功能分資料夾。

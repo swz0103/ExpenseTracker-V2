@@ -67,6 +67,26 @@ extension _Fields on _ComposerState {
 
   Widget _noteField({int lines = 1, String hint = '寫點備註…'}) {
     if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
+    // Looked at, the note is words on the page, once; a box to type in
+    // only while editing.
+    if (_viewing) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(_note.text, style: const TextStyle(fontSize: 15)),
+            ),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: TextField(
@@ -170,21 +190,24 @@ extension _Fields on _ComposerState {
           _hero(under: _usualTransfers()),
           _ends(),
           if (_f.crossing) _receivedTile(),
-          _pair(
-            _f.takesFee
-                ? _Pick(
-                    icon: Glyph.coins,
-                    label: '手續費',
-                    value: '手續費 ${groupDigits(_f.fee)}',
-                    valueColor: _f.fee > 0 ? Hue.negative : Hue.ink,
-                    onTap: () async {
-                      final value = await _ask('手續費', _f.fee);
-                      if (value != null) _set(() => _f.fee = value);
-                    },
-                  )
-                : const SizedBox.shrink(),
-            _datePick(),
-          ),
+          if (!_f.takesFee)
+            Padding(padding: const EdgeInsets.only(top: 12), child: _datePick())
+          else
+            _pair(
+              _f.takesFee
+                  ? _Pick(
+                      icon: Glyph.coins,
+                      label: '手續費',
+                      value: '手續費 ${groupDigits(_f.fee)}',
+                      valueColor: _f.fee > 0 ? Hue.negative : Hue.ink,
+                      onTap: () async {
+                        final value = await _ask('手續費', _f.fee);
+                        if (value != null) _set(() => _f.fee = value);
+                      },
+                    )
+                  : const SizedBox.shrink(),
+              _datePick(),
+            ),
           _noteRow(),
         ];
       case ComposeMode.lend:
@@ -536,6 +559,17 @@ extension _Fields on _ComposerState {
     required bool open,
     required List<Widget> body,
   }) {
+    // Looked at, there is nothing to open or close: what is filled in
+    // shows, with no heading repeating it.
+    if (_viewing) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: body,
+        ),
+      );
+    }
     final heading = InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),

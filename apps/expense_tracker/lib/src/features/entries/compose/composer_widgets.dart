@@ -589,10 +589,11 @@ class _Strip extends StatelessWidget {
             ),
           ),
           if (still != null) ...[
+            // Centred on the 50 dp squares beside it, not on their words.
             Container(
               width: 1,
-              height: 44,
-              margin: const EdgeInsets.only(top: 6, left: 4, right: 4),
+              height: 34,
+              margin: const EdgeInsets.only(top: 8, left: 4, right: 4),
               color: Hue.line,
             ),
             still,

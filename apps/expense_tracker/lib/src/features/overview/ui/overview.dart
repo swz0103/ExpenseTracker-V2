@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/preferences.dart';
 import '../model/overview_blocks.dart';
-import 'overview_editor.dart';
 import '../../../core/nav.dart';
 import 'sections/assets_section.dart';
 import 'sections/daily_section.dart';
@@ -126,14 +124,6 @@ class _OverviewPageState extends State<OverviewPage> {
         ),
         for (final (:block, :shown) in blocksFrom(preferences?.overview))
           if (shown) _block(block),
-        if (preferences != null)
-          Center(
-            child: TextButton(
-              onPressed: () => editOverview(context, preferences),
-              style: TextButton.styleFrom(foregroundColor: Hue.muted),
-              child: const Text('調整總覽'),
-            ),
-          ),
       ],
     );
   }

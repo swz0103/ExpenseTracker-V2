@@ -72,12 +72,15 @@ class _OverviewEditorState extends State<_OverviewEditor> {
                   color: Colors.transparent,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
+                    // The whole row shows or hides the block.
+                    onTap: () => _show(i, !shown),
                     title: Text(
                       block.label,
                       style: TextStyle(color: shown ? Hue.ink : Hue.muted),
                     ),
-                    leading: Switch(
+                    leading: TickSwitch(
                       value: shown,
+                      label: block.label,
                       onChanged: (on) => _show(i, on),
                     ),
                     trailing: ReorderableDragStartListener(
