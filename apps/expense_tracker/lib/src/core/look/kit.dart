@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'controls.dart';
 import 'glyphs.dart';
@@ -355,45 +356,96 @@ class CenterHeader extends StatelessWidget {
     return Container(
       constraints: const BoxConstraints(minHeight: 60),
       margin: const EdgeInsets.only(top: 6),
-      child: Row(
+      child: _HeaderRow(
         children: [
-          SizedBox(
-            width: 96,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                tooltip: '返回',
-                onPressed: onBack,
-                icon: const GlyphIcon(Glyph.back, size: 24),
-              ),
+          IconButton(
+            tooltip: '返回',
+            onPressed: onBack,
+            icon: const GlyphIcon(Glyph.back, size: 24),
+          ),
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
           ),
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 96,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: actions,
-            ),
-          ),
+          Row(mainAxisSize: MainAxisSize.min, children: actions),
         ],
       ),
     );
   }
+}
+
+/// Back, title, buttons: the title in the middle of the page between
+/// equal sides, as wide as the wider of back and the buttons, so it stays
+/// centred and never runs under a button; as tall as the tallest.
+class _HeaderRow extends MultiChildRenderObjectWidget {
+  const _HeaderRow({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderHeaderRow();
+}
+
+class _HeaderParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderHeaderRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _HeaderParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _HeaderParentData) {
+      child.parentData = _HeaderParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final back = firstChild!;
+    final title = childAfter(back)!;
+    final actions = childAfter(title)!;
+    final loose = BoxConstraints(maxWidth: width * 0.4);
+    back.layout(loose, parentUsesSize: true);
+    actions.layout(loose, parentUsesSize: true);
+    final side = [
+      back.size.width,
+      actions.size.width,
+      48.0,
+    ].reduce((a, b) => a > b ? a : b);
+    title.layout(
+      BoxConstraints(maxWidth: (width - side * 2).clamp(0, width)),
+      parentUsesSize: true,
+    );
+    final height = constraints.constrainHeight(
+      [
+        back.size.height,
+        title.size.height,
+        actions.size.height,
+      ].reduce((a, b) => a > b ? a : b),
+    );
+    size = Size(width, height);
+    void place(RenderBox child, double x) =>
+        (child.parentData! as _HeaderParentData).offset = Offset(
+          x,
+          (height - child.size.height) / 2,
+        );
+    place(back, 0);
+    place(title, (width - title.size.width) / 2);
+    place(actions, width - actions.size.width);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// A round icon button for a header's right side, such as ＋ or ⋯.

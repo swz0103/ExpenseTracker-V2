@@ -3,18 +3,17 @@ import 'package:flutter/material.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 
-/// A page's title row: an optional back arrow, the title in 22 px and
-/// whatever sits on the right.
+/// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
+/// in 22 px and whatever sits on the right. A page opened from another
+/// has [CenterHeader] instead: back, the title in the middle.
 class PageHeader extends StatelessWidget {
-  const PageHeader(this.title, {super.key, this.onBack, this.trailing});
+  const PageHeader(this.title, {super.key, this.trailing});
 
   final String title;
-  final VoidCallback? onBack;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final back = onBack;
     // Clear room under the status bar before the title; taller when the
     // phone's text is larger.
     return Container(
@@ -22,12 +21,6 @@ class PageHeader extends StatelessWidget {
       margin: const EdgeInsets.only(top: 6),
       child: Row(
         children: [
-          if (back != null)
-            IconButton(
-              tooltip: '返回',
-              onPressed: back,
-              icon: const GlyphIcon(Glyph.back, size: 24),
-            ),
           Expanded(
             child: Semantics(
               header: true,

@@ -149,17 +149,19 @@ class _ReportsPageState extends State<ReportsPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
-            PageHeader(
+            CenterHeader(
               '財務報表',
               onBack: widget.nav.back,
-              trailing: switch (widget.nav.saveFile) {
-                final save? => IconButton(
-                  tooltip: '存成圖片',
-                  onPressed: () => _savePicture(save, period),
-                  icon: const GlyphIcon(Glyph.download, size: 20),
-                ),
-                null => null,
-              },
+              actions: [
+                ?switch (widget.nav.saveFile) {
+                  final save? => IconButton(
+                    tooltip: '存成圖片',
+                    onPressed: () => _savePicture(save, period),
+                    icon: const GlyphIcon(Glyph.download, size: 20),
+                  ),
+                  null => null,
+                },
+              ],
             ),
             Segments(
               labels: const ['月', '季', '年', '自訂'],

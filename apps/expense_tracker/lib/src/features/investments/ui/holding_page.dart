@@ -38,7 +38,7 @@ class HoldingPage extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             children: [
-              PageHeader(code, onBack: nav.back),
+              CenterHeader(code, onBack: nav.back),
               const Text('已不再持有', style: TextStyle(color: Hue.muted)),
               ..._history(trades),
             ],

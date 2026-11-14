@@ -43,7 +43,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
-            PageHeader('投資與股息', onBack: widget.nav.back),
+            CenterHeader('投資與股息', onBack: widget.nav.back),
             _InvestHero(ledger: ledger),
             const SizedBox(height: 12),
             Row(

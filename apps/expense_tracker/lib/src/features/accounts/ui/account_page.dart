@@ -115,22 +115,24 @@ class _AccountPageState extends State<AccountPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
           children: [
-            PageHeader(
+            CenterHeader(
               account.name,
               onBack: widget.nav.back,
-              trailing: TextButton(
-                onPressed: () async {
-                  final gone = await editAccount(
-                    context,
-                    ledger,
-                    account: account,
-                  );
-                  // Deleted or archived: back to the accounts.
-                  if (gone) widget.nav.back();
-                },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                child: const Text('編輯'),
-              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    final gone = await editAccount(
+                      context,
+                      ledger,
+                      account: account,
+                    );
+                    // Deleted or archived: back to the accounts.
+                    if (gone) widget.nav.back();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                  child: const Text('編輯'),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.only(left: 8),

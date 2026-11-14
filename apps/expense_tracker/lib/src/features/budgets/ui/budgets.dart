@@ -111,7 +111,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           children: [
-            PageHeader('預算管理', onBack: widget.nav.back),
+            CenterHeader('預算管理', onBack: widget.nav.back),
             _MonthRow(
               month: month,
               current: current,
