@@ -8,6 +8,7 @@ import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/account_form.dart';
 import '../ui/account_card.dart';
@@ -363,6 +364,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                     controller: _principal,
                     hint: '原借金額（可不填）',
                     number: true,
+                    calculator: true,
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -374,6 +376,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                       ? '目前欠款'
                       : '目前餘額',
                   number: true,
+                  calculator: _loanForm,
                 ),
               ],
             ),
@@ -644,16 +647,33 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.number = false,
+    this.calculator = false,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool number;
 
+  /// A whole NT$ amount: the field opens the calculator, all of it, and
+  /// the mark at its end only says so.
+  final bool calculator;
+
+  Future<void> _calculate(BuildContext context) async {
+    final value = await showCalculator(
+      context,
+      title: hint,
+      initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
+      color: Hue.accent,
+    );
+    if (value != null) controller.text = '$value';
+  }
+
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      readOnly: calculator,
+      onTap: calculator ? () => _calculate(context) : null,
       keyboardType: number
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
@@ -662,6 +682,12 @@ class _Field extends StatelessWidget {
         isDense: true,
         filled: true,
         fillColor: Hue.white,
+        suffixIcon: calculator
+            ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: GlyphIcon(Glyph.calculator, size: 20, color: Hue.muted),
+              )
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

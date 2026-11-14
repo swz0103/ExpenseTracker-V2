@@ -1127,53 +1127,29 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                     color: ink,
                   ),
                 ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Semantics(
-                        button: true,
-                        label: '每月額度 $_limit',
-                        excludeSemantics: true,
-                        child: GestureDetector(
-                          onTap: _calculate,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
-                                  const TextSpan(
-                                    text: 'NT\$ ',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: groupDigits(_limit),
-                                    style: const TextStyle(
-                                      fontSize: 44,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                AmountTap(
+                  label: '每月額度 $_limit',
+                  onTap: _calculate,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: 'NT\$ ',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
+                        TextSpan(
+                          text: groupDigits(_limit),
+                          style: const TextStyle(
+                            fontSize: 44,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
-                    Material(
-                      color: Hue.white,
-                      borderRadius: BorderRadius.circular(14),
-                      child: IconButton(
-                        tooltip: '計算機',
-                        onPressed: _calculate,
-                        icon: const GlyphIcon(Glyph.calculator, size: 20),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 LayoutBuilder(

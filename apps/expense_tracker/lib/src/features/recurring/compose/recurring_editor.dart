@@ -277,55 +277,31 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Semantics(
-                        button: true,
-                        label: '金額 ${_f.amount}',
-                        excludeSemantics: true,
-                        child: GestureDetector(
-                          onTap: _amount,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text:
-                                        '${_f.currency == homeCode ? 'NT\$' : _f.currency} ',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: amountIn(_f.amount, _f.currency),
-                                    style: const TextStyle(
-                                      fontSize: 44,
-                                      fontWeight: FontWeight.w800,
-                                      color: Hue.ink,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                AmountTap(
+                  label: '金額 ${_f.amount}',
+                  onTap: _amount,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text:
+                              '${_f.currency == homeCode ? 'NT\$' : _f.currency} ',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
+                        TextSpan(
+                          text: amountIn(_f.amount, _f.currency),
+                          style: const TextStyle(
+                            fontSize: 44,
+                            fontWeight: FontWeight.w800,
+                            color: Hue.ink,
+                          ),
+                        ),
+                      ],
                     ),
-                    Material(
-                      color: Hue.white,
-                      borderRadius: BorderRadius.circular(14),
-                      child: IconButton(
-                        tooltip: '計算機',
-                        onPressed: _amount,
-                        icon: const GlyphIcon(Glyph.calculator, size: 20),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 IntrinsicHeight(

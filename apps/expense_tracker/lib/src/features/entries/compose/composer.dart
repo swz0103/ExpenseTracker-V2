@@ -202,6 +202,9 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// An entry opened from a list is shown first; 編輯 unlocks it.
   late var _viewing = widget.entry != null;
 
+  /// The fields have scrolled under the amount: the line between shows.
+  var _scrolled = false;
+
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
@@ -675,7 +678,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       unit: unit ?? (_f.currency == homeCode ? r'NT$' : _f.currency),
       value: '${_f.sign}${amountIn(_f.amount, _f.currency)}',
       color: _color,
-      onTap: _calculate,
+      // Only while editing: an entry looked at shows no calculator.
+      onTap: _viewing ? null : _calculate,
       sub: refunded == null
           ? null
           : '最多可退 ${_ledger.moneyIn(most, _f.currency)}',
@@ -766,33 +770,63 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         ],
       ),
     );
+    // The amount stays under the top with it; the fields under it scroll,
+    // cut off at the amount's foot, where a thin line shows once they
+    // have moved.
+    final all = _fields();
+    final hero = all.isNotEmpty && all.first is _AmountHero
+        ? all.first as _AmountHero
+        : null;
+    final below = [
+      if (hero?.under case final under?) ...[const SizedBox(height: 4), under],
+      ...hero == null ? all : all.skip(1),
+      if (problem != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Text(
+            problem,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Hue.danger),
+          ),
+        ),
+    ];
+    final pinned = hero == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: IgnorePointer(
+              ignoring: _viewing,
+              child: _AmountHero(
+                label: hero.label,
+                unit: hero.unit,
+                value: hero.value,
+                color: hero.color,
+                onTap: hero.onTap,
+                sub: hero.sub,
+              ),
+            ),
+          );
     // The sheet is as tall as the tallest tab's fields, which scroll
     // inside it past three quarters of the screen.
-    final fields = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-      child: IgnorePointer(
-        ignoring: _viewing,
-        child: Builder(
-          builder: (context) {
-            final children = [
-              ..._fields(),
-              if (problem != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    problem,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Hue.danger),
-                  ),
-                ),
-            ];
-            return _Fill(
-              minHeight: _tallest,
-              grow: children.indexWhere((w) => w is _AmountHero),
-              onHeight: _measured,
-              children: children,
-            );
-          },
+    final fields = NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        final moved = n.metrics.pixels > 0.5;
+        if (moved != _scrolled) setState(() => _scrolled = moved);
+        return false;
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: IgnorePointer(
+          ignoring: _viewing,
+          child: _Fill(
+            // A new entry keeps the tallest tab's height, so switching
+            // tabs does not jump; one looked at or edited takes only
+            // the room it needs.
+            minHeight: widget.entry == null ? _tallest : 0,
+            grow: -1,
+            onHeight: _measured,
+            children: below,
+          ),
         ),
       ),
     );
@@ -803,7 +837,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         top,
-        Flexible(child: fields),
+        ?pinned,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 1,
+          margin: const EdgeInsets.only(top: 8),
+          color: _scrolled ? Hue.line : Hue.line.withValues(alpha: 0),
+        ),
+        Flexible(child: ClipRect(child: fields)),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
           child: Row(
