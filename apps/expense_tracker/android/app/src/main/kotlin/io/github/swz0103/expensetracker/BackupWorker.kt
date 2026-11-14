@@ -24,8 +24,10 @@ import java.util.concurrent.TimeUnit
  * `outbox/delivered.json`, which the app reads when next opened.
  *
  * WorkManager runs it about every six hours while the battery is not low,
- * and again after a restart. Drive is only sent to on Wi-Fi or another
- * network that costs nothing per byte, as the app does.
+ * and again after a restart. Drive gets a backup a day when the ledger
+ * changed: the ledger alone on any network, or, with the receipt photos,
+ * only on Wi-Fi or another network that costs nothing per byte, as the
+ * app does.
  */
 class BackupWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
@@ -50,6 +52,10 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         val ready = read(File(outbox, "ready.json")) ?: return
         val backup = File(outbox, ready.optString("file"))
         if (ready.optString("file").isEmpty() || !backup.exists()) return
+        // Drive's own copy without the photos, when the folder takes them.
+        val driveBackup = ready.optString("driveFile").ifEmpty { null }
+            ?.let { File(outbox, it) }?.takeIf { it.exists() } ?: backup
+        val photos = ready.optBoolean("drivePhotos", true)
         val revision = ready.getInt("revision")
         val ledger = ready.getString("ledger")
         val mark = ready.optString("mark")
@@ -100,13 +106,13 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         var driveHas = true
         if (preferences.optBoolean("driveLinked")) {
             val (at, made) = last("drive", "driveBackedUp", "driveRevision", null)
-            if (!BackupPlan.due(now, at, made, revision, 7 * BackupPlan.DAY)) {
+            if (!BackupPlan.due(now, at, made, revision, BackupPlan.DAY)) {
                 driveHas = made == revision
-            } else if (!unmetered()) {
+            } else if (photos && !unmetered()) {
                 driveHas = false
             } else {
                 try {
-                    DriveUploader(applicationContext).upload(backup, ledger)
+                    DriveUploader(applicationContext).upload(driveBackup, ledger)
                     delivered.put("drive", entry(now, revision, ledger))
                     problems.remove("drive")
                 } catch (e: Exception) {
@@ -119,7 +125,10 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         delivered.put("problems", problems)
         save(File(outbox, "delivered.json"), delivered.toString())
         // Every place holds it: the copy here is no longer needed.
-        if (phoneHas && driveHas) backup.delete()
+        if (phoneHas && driveHas) {
+            backup.delete()
+            driveBackup.delete()
+        }
     }
 
     private fun entry(at: Long, revision: Int, ledger: String) =

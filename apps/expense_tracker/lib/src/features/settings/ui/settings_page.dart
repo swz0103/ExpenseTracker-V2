@@ -10,6 +10,7 @@ import '../../../core/nav.dart';
 import '../../../core/perf.dart';
 import '../../../core/problems.dart';
 import '../model/app_update.dart';
+import 'update_panel.dart';
 import '../model/services.dart';
 import 'sections/backup_section.dart';
 import 'sections/exchange_section.dart';
@@ -511,7 +512,7 @@ class _VersionCardState extends State<_VersionCard> {
     if (update.checking) return '檢查中…';
     final newer = update.newer;
     if (newer != null) {
-      return '有新版 ${newer.version.isEmpty ? newer.label : newer.version}';
+      return '有新版 ${newer.name}';
     }
     final problem = update.problem;
     if (problem != null) return problem;
@@ -526,25 +527,7 @@ class _VersionCardState extends State<_VersionCard> {
       await update.check();
       return;
     }
-    final mb = (newer.size / 1024 / 1024).toStringAsFixed(1);
-    final ok = await confirm(
-      context,
-      '下載${newer.label}（$mb MB）並安裝？下載後 Android 會請你確認，帳本資料會保留。',
-      '下載並安裝',
-    );
-    if (!ok) return;
-    final outcome = await update.install();
-    if (!context.mounted) return;
-    switch (outcome) {
-      case UpdateInstall.needsPermission:
-        showNote(context, '請允許「記帳本」安裝應用程式，回來後再按一次');
-      case UpdateInstall.damaged:
-      case null:
-        final problem = update.problem;
-        if (problem != null) showNote(context, problem);
-      case UpdateInstall.started:
-        break;
-    }
+    await showUpdatePanel(context, update);
   }
 
   @override

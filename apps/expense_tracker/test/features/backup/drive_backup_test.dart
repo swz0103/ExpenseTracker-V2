@@ -259,9 +259,11 @@ void main() {
     expect(http.sent, isEmpty);
   });
 
-  test('a weekly backup goes up only when due and changed', () async {
+  test('a daily backup goes up only when due and changed, '
+      'with the photos only when asked', () async {
     var now = DateTime.utc(2026, 10, 1);
     var revision = 1;
+    final sentPhotos = <bool>[];
     final preferences = Preferences(
       file: File('${directory.path}/preferences.json'),
     );
@@ -269,7 +271,8 @@ void main() {
     final sync = DriveSync(
       drive(),
       preferences,
-      withBackup: (use) async {
+      withBackup: (use, {withPhotos = true}) async {
+        sentPhotos.add(withPhotos);
         final file = backup('記帳本-${written++}.etbk', 'x');
         try {
           await use(file);
@@ -289,7 +292,7 @@ void main() {
     expect(http.files, hasLength(1));
     expect(sync.backedUp, now);
 
-    now = now.add(const Duration(days: 8));
+    now = now.add(const Duration(days: 1));
     // Nothing changed since.
     expect(await sync.backUpIfDue(), isFalse);
     revision = 2;
@@ -297,12 +300,18 @@ void main() {
     expect(http.files, hasLength(2));
     // Too soon after.
     revision = 3;
+    now = now.add(const Duration(hours: 12));
     expect(await sync.backUpIfDue(), isFalse);
+    // The ledger alone until the photos are asked for, then sent at once.
+    expect(sentPhotos, [false, false]);
+    await sync.setPhotos(true);
+    expect(sentPhotos, [false, false, true]);
 
     // Kept for the next start.
     final again = Preferences(file: File('${directory.path}/preferences.json'));
     expect(again.driveLinked, isTrue);
-    expect(again.driveRevision, 2);
+    expect(again.drivePhotos, isTrue);
+    expect(again.driveRevision, 3);
 
     await sync.unlink();
     expect(preferences.driveLinked, isFalse);
@@ -329,7 +338,7 @@ void main() {
       DriveSync make() => DriveSync(
         drive(),
         preferences,
-        withBackup: (use) async {
+        withBackup: (use, {withPhotos = true}) async {
           await hold.future;
           final file = backup('記帳本.etbk', 'x');
           try {
@@ -356,7 +365,8 @@ void main() {
     },
   );
 
-  test('a weekly backup waits for Wi-Fi', () async {
+  test('a backup with the photos waits for Wi-Fi; the ledger alone does '
+      'not', () async {
     final preferences = Preferences(
       file: File('${directory.path}/preferences.json'),
     );
@@ -364,7 +374,7 @@ void main() {
     final sync = DriveSync(
       drive(),
       preferences,
-      withBackup: (use) async {
+      withBackup: (use, {withPhotos = true}) async {
         final file = backup('記帳本.etbk', 'x');
         try {
           await use(file);
@@ -377,11 +387,19 @@ void main() {
       unmetered: () async => wifi,
     );
     addTearDown(sync.dispose);
-    preferences.update(driveLinked: true);
+    preferences.update(driveLinked: true, drivePhotos: true);
     expect(await sync.backUpIfDue(), isFalse);
     expect(http.kept, isEmpty);
     wifi = true;
     expect(await sync.backUpIfDue(), isTrue);
     expect(http.kept, hasLength(1));
+    // Without the photos, a day later and changed, on mobile data.
+    wifi = false;
+    preferences.update(drivePhotos: false);
+    preferences.driveBackup(
+      DateTime.now().subtract(const Duration(days: 2)),
+      0,
+    );
+    expect(await sync.backUpIfDue(), isTrue);
   });
 }

@@ -90,14 +90,14 @@ class _BackupSectionState extends State<BackupSection> {
       ? null
       : await keeper.newRecoveryCode();
 
-  /// Signs in with Google and sends the first backup with the photos.
+  /// Signs in with Google and sends the first backup of the ledger.
   Future<void> _linkDrive(Keeper keeper, DriveSync drive) async {
     String? code;
     String note;
     try {
       code = await _codeFor(keeper);
       note = await drive.link()
-          ? '已把帳本連同照片備份到 Google 雲端硬碟，之後每週一次'
+          ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
       note = error.message;
@@ -111,12 +111,21 @@ class _BackupSectionState extends State<BackupSection> {
     if (mounted) showNote(context, note);
   }
 
+  /// Adds the receipt photos to the backups on Drive, sending one with
+  /// them now, or leaves them out from the next.
+  Future<void> _drivePhotos(DriveSync drive, bool on) async {
+    try {
+      await drive.setPhotos(on);
+      if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
+    } on DriveException catch (error) {
+      if (mounted) showNote(context, error.message);
+    } on Object catch (error) {
+      if (mounted) showNote(context, '備份失敗：${describeProblem(error)}');
+    }
+  }
+
   Future<void> _unlinkDrive(DriveSync drive) async {
-    final ok = await confirm(
-      context,
-      '不再把照片備份到 Google 雲端硬碟？已經在雲端的備份會留著。',
-      '停止',
-    );
+    final ok = await confirm(context, '不再備份到 Google 雲端硬碟？已經在雲端的備份會留著。', '停止');
     if (!ok) return;
     await drive.unlink();
     if (mounted) showNote(context, '已停止雲端硬碟備份');
@@ -172,7 +181,7 @@ class _BackupSectionState extends State<BackupSection> {
       final ok = await confirm(
         context,
         '關掉 Google 備份？換手機或重裝時就拿不回帳本'
-            '${drive?.linked ?? false ? '，收據照片也不再存到雲端硬碟' : ''}。',
+            '${drive?.linked ?? false ? '，雲端硬碟也不再備份' : ''}。',
         '關掉',
         danger: true,
       );
@@ -270,7 +279,7 @@ class _BackupSectionState extends State<BackupSection> {
         '手機大約一天一次，在充電、連著 Wi-Fi 又沒在用時送出，App 沒辦法要它馬上送。',
         '要先在手機的「設定 › Google › 備份」打開備份。',
         '它存在 Google 帳戶的備份裡（Google 雲端硬碟 › 備份），不是一般檔案；換手機或重裝時，歡迎頁會問要不要還原。',
-        '收據照片打開後，另外每週存到雲端硬碟的「記帳本備份」資料夾。',
+        '想在雲端硬碟看到檔案，打開下面的「雲端硬碟」：帳本有變動就每天存一份到「記帳本備份」資料夾，收據照片可另外選要不要一起帶。',
       ].join('\n\n'),
     );
   }
@@ -294,19 +303,19 @@ class _BackupSectionState extends State<BackupSection> {
             },
             onTap: _explainGoogle,
           ),
-        if (on && drive != null)
+        if (on && drive != null) ...[
           _CardRow(
             color: color,
-            title: '收據照片',
+            title: '雲端硬碟',
             detail: drive.busy
                 ? '備份中…'
                 : drive.linked && drive.backedUp != null
-                ? '雲端硬碟 · 上次 ${_when(drive.backedUp!)}'
+                ? '上次 ${_when(drive.backedUp!)}'
                 : null,
             trailing: TickSwitch(
               value: drive.linked,
               color: color,
-              label: '收據照片',
+              label: '雲端硬碟',
               onChanged: drive.busy
                   ? null
                   : (v) => v
@@ -314,6 +323,19 @@ class _BackupSectionState extends State<BackupSection> {
                         : _unlinkDrive(drive),
             ),
           ),
+          if (drive.linked)
+            _CardRow(
+              color: color,
+              title: '收據照片',
+              detail: drive.photos ? '連 Wi-Fi 時一起備份' : null,
+              trailing: TickSwitch(
+                value: drive.photos,
+                color: color,
+                label: '收據照片',
+                onChanged: drive.busy ? null : (v) => _drivePhotos(drive, v),
+              ),
+            ),
+        ],
       ],
     );
   }

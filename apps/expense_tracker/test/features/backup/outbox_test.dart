@@ -24,11 +24,12 @@ void main() {
   Outbox outbox({String ledger = 'ledger-one'}) => Outbox(
     directory,
     preferences,
-    write: (folder) async {
+    write: (folder, {withPhotos = true}) async {
       folder.createSync(recursive: true);
       written++;
-      return File('${folder.path}/記帳本-$written.etbk')
-        ..writeAsStringSync('backup $revision');
+      return File('${folder.path}/記帳本-$written.etbk')..writeAsStringSync(
+        'backup $revision${withPhotos ? ' with photos' : ''}',
+      );
     },
     revision: () => revision,
     ledger: ledger,
@@ -62,6 +63,7 @@ void main() {
     expect(ready(), {
       'v': 1,
       'file': '記帳本-1.etbk',
+      'drivePhotos': false,
       'revision': 1,
       'ledger': 'ledger-one',
       'mark': 'ledger',
@@ -149,5 +151,38 @@ void main() {
       },
     });
     expect(box.collect(), ['雲端硬碟：offline']);
+  });
+
+  test('Drive gets its own copy without the photos when the folder takes '
+      'them; with the photos asked for, one copy serves both', () async {
+    preferences.phoneFolderSet('content://tree/backups', name: '備份');
+    preferences.update(driveLinked: true);
+    expect(await outbox().prepare(), isTrue);
+    var json = ready();
+    final drive = File('${folder().path}/${json['driveFile']}');
+    final phone = File('${folder().path}/${json['file']}');
+    expect(drive.readAsStringSync(), 'backup 1');
+    expect(phone.readAsStringSync(), 'backup 1 with photos');
+    expect(json['drivePhotos'], isFalse);
+    expect(backups(), hasLength(2));
+
+    revision = 2;
+    preferences.update(drivePhotos: true);
+    expect(await outbox().prepare(), isTrue);
+    json = ready();
+    expect(json.containsKey('driveFile'), isFalse);
+    expect(json['drivePhotos'], isTrue);
+    expect(backups(), hasLength(1), reason: 'the copies before are gone');
+  });
+
+  test('Drive alone takes the ledger without the photos', () async {
+    preferences.update(driveLinked: true);
+    expect(await outbox().prepare(), isTrue);
+    final json = ready();
+    expect(json.containsKey('driveFile'), isFalse);
+    expect(
+      File('${folder().path}/${json['file']}').readAsStringSync(),
+      'backup 1',
+    );
   });
 }

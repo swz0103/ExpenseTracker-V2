@@ -47,6 +47,7 @@ final class Preferences extends ChangeNotifier {
       _started = json['started'] as bool? ?? false;
       _widgetShown = json['widgetShown'] as bool? ?? false;
       _driveLinked = json['driveLinked'] as bool? ?? false;
+      _drivePhotos = json['drivePhotos'] as bool? ?? false;
       _googleBackup = json['googleBackup'] as bool? ?? true;
       _driveBackedUp = DateTime.tryParse(
         json['driveBackedUp'] as String? ?? '',
@@ -216,6 +217,11 @@ final class Preferences extends ChangeNotifier {
   bool get driveLinked => _driveLinked;
   var _driveLinked = false;
 
+  /// The backups on Google Drive carry the receipt photos too, and so wait
+  /// for Wi-Fi; without them only the ledger goes, on any network.
+  bool get drivePhotos => _drivePhotos;
+  var _drivePhotos = false;
+
   /// When the last backup reached Google Drive.
   DateTime? get driveBackedUp => _driveBackedUp;
   DateTime? _driveBackedUp;
@@ -244,6 +250,7 @@ final class Preferences extends ChangeNotifier {
     bool? started,
     bool? widgetShown,
     bool? driveLinked,
+    bool? drivePhotos,
     bool? googleBackup,
     WidgetFigures? widgetFigures,
     bool? updateChecks,
@@ -260,6 +267,7 @@ final class Preferences extends ChangeNotifier {
     _started = started ?? _started;
     _widgetShown = widgetShown ?? _widgetShown;
     _driveLinked = driveLinked ?? _driveLinked;
+    _drivePhotos = drivePhotos ?? _drivePhotos;
     _googleBackup = googleBackup ?? _googleBackup;
     _widgetFigures = widgetFigures ?? _widgetFigures;
     _updateChecks = updateChecks ?? _updateChecks;
@@ -286,6 +294,7 @@ final class Preferences extends ChangeNotifier {
           'started': _started,
           'widgetShown': _widgetShown,
           'driveLinked': _driveLinked,
+          'drivePhotos': _drivePhotos,
           'googleBackup': _googleBackup,
           'driveBackedUp': _driveBackedUp?.toUtc().toIso8601String(),
           'driveRevision': _driveRevision,

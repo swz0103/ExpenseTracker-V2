@@ -97,6 +97,8 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk \
             "$RUNNER_TEMP/ExpenseTracker.apk"
           echo "$version" > "$RUNNER_TEMP/version.txt"
+          # What this version changes, shown before updating (whats_new.txt).
+          cp whats_new.txt "$RUNNER_TEMP/whats_new.txt"
       - name: Make the test backup
         # The test ledger's backup (tool/test_ledger.py, password test1234),
         # published beside the APK for trying the app with real-looking data.
@@ -179,6 +181,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ExpenseTracker.apk
             ${{ runner.temp }}/version.txt
+            ${{ runner.temp }}/whats_new.txt
             ${{ runner.temp }}/test-ledger.etbk
           if-no-files-found: error
           retention-days: 3
@@ -233,11 +236,17 @@ jobs:
           fi
           "$tools/zipalign" -c -P 16 4 "$apk"
           # What the app reads to update itself (app_update.dart): this
-          # build's number, its SHA-256 and size, published beside the APK.
-          version=$(cat "$RUNNER_TEMP/apk/version.txt")
-          printf '{"build":%s,"version":"%s","commit":"%s","sha256":"%s","size":%s}\n' \
-            "${{ github.run_number }}" "$version" "${SOURCE_SHA:0:7}" \
-            "$(sha256sum "$apk" | cut -d' ' -f1)" "$(stat -c %s "$apk")" \
+          # build's number, its SHA-256 and size, and what it changes, a few
+          # lines shown before updating; published beside the APK.
+          jq -n \
+            --argjson build "${{ github.run_number }}" \
+            --arg version "$(cat "$RUNNER_TEMP/apk/version.txt")" \
+            --arg commit "${SOURCE_SHA:0:7}" \
+            --arg sha256 "$(sha256sum "$apk" | cut -d' ' -f1)" \
+            --argjson size "$(stat -c %s "$apk")" \
+            --rawfile notes "$RUNNER_TEMP/apk/whats_new.txt" \
+            '{build: $build, version: $version, commit: $commit, sha256: $sha256,
+              size: $size, notes: ($notes | split("\n") | map(select(length > 0)))}' \
             > "$RUNNER_TEMP/apk/update.json"
           cat "$RUNNER_TEMP/apk/update.json"
       - name: Hand the APK to the publish job

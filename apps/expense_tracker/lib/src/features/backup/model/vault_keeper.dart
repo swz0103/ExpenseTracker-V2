@@ -78,8 +78,11 @@ final class VaultKeeper implements Keeper {
 
   /// Writes a backup with the receipt photos where files wait to be handed
   /// over, gives it to [use], then deletes it.
-  Future<T> withBackup<T>(Future<T> Function(File file) use) async {
-    final file = await _write(_exports, withPhotos: true);
+  Future<T> withBackup<T>(
+    Future<T> Function(File file) use, {
+    bool withPhotos = true,
+  }) async {
+    final file = await _write(_exports, withPhotos: withPhotos);
     try {
       return await use(file);
     } finally {
@@ -87,9 +90,11 @@ final class VaultKeeper implements Keeper {
     }
   }
 
-  /// Writes a backup with the receipt photos into [folder] and leaves it
-  /// there, for the background job to deliver (outbox.dart).
-  Future<File> writeInto(Directory folder) => _write(folder, withPhotos: true);
+  /// Writes a backup, with the receipt photos unless told not to, into
+  /// [folder] and leaves it there, for the background job to deliver
+  /// (outbox.dart).
+  Future<File> writeInto(Directory folder, {bool withPhotos = true}) =>
+      _write(folder, withPhotos: withPhotos);
 
   @override
   Future<bool> exportFile(String name, String text) async {
@@ -151,7 +156,11 @@ final class VaultKeeper implements Keeper {
         '-${two(now.hour)}${two(now.minute)}${two(now.second)}'
         '${now.millisecond.toString().padLeft(3, '0')}';
     await folder.create(recursive: true);
-    final file = File('${folder.path}/記帳本-$stamp.etbk');
+    var file = File('${folder.path}/記帳本-$stamp.etbk');
+    // Two written in the same millisecond, as the outbox may.
+    for (var n = 2; file.existsSync(); n++) {
+      file = File('${folder.path}/記帳本-$stamp-$n.etbk');
+    }
     await LedgerBackup.write(
       store: _vault.store,
       keys: _vault.keys,
