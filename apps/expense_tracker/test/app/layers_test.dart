@@ -200,4 +200,22 @@ void main() {
       );
     }
   });
+
+  test('a file stays short enough to read in one go', () {
+    // The made-up glyph paths are drawn by tool/glyphs.py, and the
+    // ledger's own state is one class; every other file is split by
+    // subject (tool/split.py) before it grows past the limit.
+    const longer = {
+      'lib/src/core/look/glyphs.dart': 1600,
+      'lib/src/core/ledger/ledger.dart': 800,
+    };
+    for (final file in imports.keys) {
+      final lines = File(file).readAsLinesSync().length;
+      expect(
+        lines,
+        lessThanOrEqualTo(longer[file] ?? 600),
+        reason: '$file has $lines lines',
+      );
+    }
+  });
 }

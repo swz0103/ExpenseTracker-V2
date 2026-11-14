@@ -123,6 +123,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
           notifier: _stand.notifier,
           privacy: _stand.privacy,
           market: _stand.market,
+          keeper: _stand.keeper,
           sample: demoLedger,
           quick: _quick,
         ),

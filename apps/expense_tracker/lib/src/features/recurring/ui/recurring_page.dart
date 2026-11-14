@@ -16,6 +16,7 @@ import '../../../core/ui/shown_amounts.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
+part 'recurring_rows.dart';
 
 /// The colour of 定期交易, as on 更多.
 const _recurringHue = Palette.orange;

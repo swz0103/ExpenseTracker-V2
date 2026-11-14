@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Every page of the app and how to reach it, for the layout check
-/// (layout_test.dart) and the screenshots (tool/screenshots).
+/// (layout_*_test.dart) and the screenshots (tool/screenshots).
 
 /// The app's own fonts, so words take the room they take on a phone.
 Future<void> loadFonts() async {
@@ -71,6 +71,7 @@ const places = <(String, List<String>)>[
   ('桌面小工具', ['更多', '設定', '外觀與操作', '桌面小工具']),
   ('總覽區塊', ['更多', '設定', '外觀與操作', '總覽區塊']),
   ('最近刪除', ['更多', '設定', '最近刪除']),
+  ('備份與還原', ['更多', '設定', '沒有自動備份']),
   ('記一筆', ['~記一筆']),
   ('記一筆 收入', ['~記一筆', '收入']),
   ('記一筆 轉帳', ['~記一筆', '轉帳']),
@@ -120,6 +121,7 @@ Future<void> show(
             notifier: stand.notifier,
             privacy: stand.privacy,
             market: stand.market,
+            keeper: stand.keeper,
           ),
         ),
       ),

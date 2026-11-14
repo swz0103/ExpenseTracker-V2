@@ -12,14 +12,16 @@ import 'places.dart';
 /// none are shrunk to fit below six tenths of their size. Words
 /// running into each other, or a block too small for what it holds, is
 /// how a page breaks on a real phone though it looked right at one size.
-void main() {
+///
+/// Each width is a file of its own (layout_*_test.dart), so the three
+/// run side by side.
+void layoutTests(double width, {List<bool> dark = const [false]}) {
   setUpAll(loadFonts);
 
-  for (final (width, text, dark) in [
-    for (final width in const [320.0, 360.0, 412.0])
-      for (final text in const [1.0, 1.3, 1.5]) (width, text, false),
-    (360.0, 1.0, true),
-    (360.0, 1.5, true),
+  for (final (text, dark) in [
+    for (final dark in dark)
+      for (final text in const [1.0, 1.3, 1.5])
+        if (!dark || text != 1.3) (text, dark),
   ]) {
     testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%'
         '${dark ? ', dark' : ''}: '

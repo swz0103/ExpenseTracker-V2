@@ -13,6 +13,8 @@ import '../../../core/platform/problems.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
 
+part 'backup_section_manual.dart';
+
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
 Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
@@ -421,7 +423,7 @@ class BackupHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    OneLine(
                       small,
                       style: TextStyle(
                         fontSize: TextSize.small,
@@ -429,7 +431,7 @@ class BackupHero extends StatelessWidget {
                         color: deepOf(color),
                       ),
                     ),
-                    Text(
+                    OneLine(
                       big,
                       style: const TextStyle(
                         fontSize: TextSize.figure,
@@ -551,7 +553,7 @@ class _CardRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  OneLine(
                     title,
                     style: TextStyle(
                       fontSize: TextSize.body,
@@ -570,7 +572,7 @@ class _CardRow extends StatelessWidget {
             if (value != null)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: Text(
+                child: OneLine(
                   '${value!} ›',
                   style: TextStyle(fontWeight: FontWeight.w700, color: ink),
                 ),
@@ -578,49 +580,6 @@ class _CardRow extends StatelessWidget {
             ?trailing,
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 匯出一份 or 還原: a tinted button with an icon.
-class _Manual extends StatelessWidget {
-  const _Manual({
-    required this.glyph,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final Glyph glyph;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = deepOf(color);
-    return ColorCard(
-      color: color,
-      radius: 18,
-      amount: 0.18,
-      label: label,
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          GlyphIcon(glyph, size: 20, color: ink, tinted: false),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: TextSize.title,
-              fontWeight: FontWeight.w800,
-              color: ink,
-            ),
-          ),
-        ],
       ),
     );
   }
