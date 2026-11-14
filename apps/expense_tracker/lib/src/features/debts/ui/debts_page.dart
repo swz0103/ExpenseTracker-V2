@@ -497,10 +497,13 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = solid ? const Color(0xFFFFFFFF) : deepOf(color);
+    final ink = solid ? chosenInk(color) : deepOf(color);
     return Material(
-      color: solid ? color : tintOf(color, 0.2),
-      borderRadius: BorderRadius.circular(18),
+      color: solid ? chosenFill(color) : tintOf(color, 0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: solid ? chosenEdge(color) : BorderSide.none,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,

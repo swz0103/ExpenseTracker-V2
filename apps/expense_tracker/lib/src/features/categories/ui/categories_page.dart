@@ -139,7 +139,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 },
                 child: _Tile(
                   glyph: iconFor(c.icon),
-                  color: c.color,
+                  color: shownColor(c.color),
                   label: c.name,
                   count: children[c.name] ?? 0,
                   onTap: () => _edit(c),
@@ -250,7 +250,7 @@ class _Kind extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? Hue.onAccent : Hue.muted;
+    final ink = chosen ? chosenInk(color) : Hue.muted;
     return Semantics(
       selected: chosen,
       button: true,
@@ -262,8 +262,11 @@ class _Kind extends StatelessWidget {
           boxShadow: chosen ? Hue.tileShadow : null,
         ),
         child: Material(
-          color: chosen ? color : Hue.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: chosen ? chosenFill(color) : Hue.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: chosen ? chosenEdge(color) : BorderSide.none,
+          ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: onTap,

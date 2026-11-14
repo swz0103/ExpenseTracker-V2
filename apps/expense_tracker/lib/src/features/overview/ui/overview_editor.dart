@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/look/glyphs.dart';
+import '../../../core/look/haptics.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/preferences.dart';
@@ -29,6 +30,7 @@ class _OverviewEditorState extends State<_OverviewEditor> {
   }
 
   void _move(int from, int to) {
+    Haptics.selection();
     final next = [..._choices];
     // [to] already counts the block taken out.
     next.insert(to, next.removeAt(from));

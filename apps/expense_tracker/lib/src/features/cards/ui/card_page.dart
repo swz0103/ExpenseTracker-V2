@@ -372,7 +372,11 @@ class CardPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          IconBadge(iconFor(category.icon), category.color, size: 34),
+          IconBadge(
+            iconFor(category.icon),
+            shownColor(category.color),
+            size: 34,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -400,7 +404,7 @@ class CardPage extends StatelessWidget {
                   value: periods / e.installments,
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(3),
-                  color: category.color,
+                  color: shownColor(category.color),
                   backgroundColor: Hue.track,
                 ),
                 const SizedBox(height: 4),

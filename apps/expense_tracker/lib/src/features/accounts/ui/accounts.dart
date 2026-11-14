@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../compose/account_editor.dart';
 import '../../../core/look/figures.dart';
 import '../../../core/look/glyphs.dart';
+import '../../../core/look/haptics.dart';
 import '../../../core/look/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
@@ -344,8 +345,10 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
                   itemCount: _order.length,
                   // [to] already counts the card taken out.
-                  onReorderItem: (from, to) =>
-                      setState(() => _order.insert(to, _order.removeAt(from))),
+                  onReorderItem: (from, to) {
+                    Haptics.selection();
+                    setState(() => _order.insert(to, _order.removeAt(from)));
+                  },
                   footer: Padding(
                     padding: const EdgeInsets.only(top: 14),
                     child: SoftPanel(

@@ -15,7 +15,7 @@ import 'swipe_actions.dart';
   return switch (e.type) {
     EntryType.transfer => (iconFor('transfer'), Hue.transfer),
     EntryType.buy || EntryType.sell => (iconFor('investment'), Hue.investment),
-    _ => (iconFor(category.icon), category.color),
+    _ => (iconFor(category.icon), shownColor(category.color)),
   };
 }
 

@@ -128,7 +128,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
   @override
   Widget build(BuildContext context) {
     final category = _ledger.category(_f.category);
-    final color = category.color;
+    final color = shownColor(category.color);
     final ink = deepOf(color);
     final side = _f.income ? Hue.positive : Hue.negative;
     final editing = widget.item != null;
@@ -419,19 +419,19 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               clipBehavior: Clip.none,
               children: [
                 chosen
-                    ? SquareIcon(iconFor(c.icon), c.color, size: 48)
+                    ? SquareIcon(iconFor(c.icon), shownColor(c.color), size: 48)
                     : Container(
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: tintOf(c.color, 0.22),
+                          color: tintOf(shownColor(c.color), 0.22),
                           borderRadius: BorderRadius.circular(15),
                         ),
                         alignment: Alignment.center,
                         child: GlyphIcon(
                           iconFor(c.icon),
                           size: 22,
-                          color: c.color,
+                          color: shownColor(c.color),
                         ),
                       ),
                 if (chosen)
@@ -446,7 +446,11 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: GlyphIcon(Glyph.check, size: 11, color: c.color),
+                      child: GlyphIcon(
+                        Glyph.check,
+                        size: 11,
+                        color: shownColor(c.color),
+                      ),
                     ),
                   ),
               ],
@@ -459,7 +463,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: chosen ? FontWeight.w800 : FontWeight.w400,
-                color: chosen ? deepOf(c.color) : Hue.muted,
+                color: chosen ? deepOf(shownColor(c.color)) : Hue.muted,
               ),
             ),
           ],

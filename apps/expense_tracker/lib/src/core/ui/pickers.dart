@@ -75,7 +75,7 @@ List<Option<String>> categoryOptions(
 }) => [
   for (final c in ledger.categoriesFor(income: income))
     if (where == null || where(c))
-      Option(c.name, c.name, iconFor(c.icon), c.color),
+      Option(c.name, c.name, iconFor(c.icon), shownColor(c.color)),
 ];
 
 /// A grid of choices, [columns] to a row; the chosen one has a coloured

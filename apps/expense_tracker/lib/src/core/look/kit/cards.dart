@@ -225,7 +225,7 @@ class _BigSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = chosen ? wordsOn(color) : deepOf(color);
+    final ink = chosen ? chosenInk(color) : deepOf(color);
     final icon = GlyphIcon(glyph, size: stacked ? 24 : 20, color: ink);
     final word = Text(
       label,
@@ -246,8 +246,11 @@ class _BigSegment extends StatelessWidget {
           boxShadow: chosen ? Hue.tileShadow : null,
         ),
         child: Material(
-          color: chosen ? color : tintOf(color, 0.2),
-          borderRadius: BorderRadius.circular(18),
+          color: chosen ? chosenFill(color) : tintOf(color, 0.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: chosen ? chosenEdge(color) : BorderSide.none,
+          ),
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: onTap,

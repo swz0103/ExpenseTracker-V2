@@ -310,7 +310,7 @@ class _CategoryBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = category.color;
+    final color = shownColor(category.color);
     final ink = deepOf(color);
     final change = this.change;
     return ColorCard(

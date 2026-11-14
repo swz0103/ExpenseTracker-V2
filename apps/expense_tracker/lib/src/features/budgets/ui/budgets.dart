@@ -947,7 +947,7 @@ class _AddLimit extends StatelessWidget {
             CardGrid(columns: 4, gap: 8, [
               for (final c in categories)
                 ColorCard(
-                  color: c.color,
+                  color: shownColor(c.color),
                   radius: 16,
                   label: c.name,
                   onTap: () => Navigator.of(context).pop(c.name),
@@ -957,7 +957,11 @@ class _AddLimit extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      GlyphIcon(iconFor(c.icon), size: 26, color: c.color),
+                      GlyphIcon(
+                        iconFor(c.icon),
+                        size: 26,
+                        color: shownColor(c.color),
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         c.name,
@@ -966,7 +970,7 @@ class _AddLimit extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: deepOf(c.color),
+                          color: deepOf(shownColor(c.color)),
                         ),
                       ),
                     ],

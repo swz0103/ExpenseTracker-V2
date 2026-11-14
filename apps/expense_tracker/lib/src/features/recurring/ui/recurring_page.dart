@@ -25,7 +25,7 @@ const _busyDay = Shade(0xFFEAEEEC, 0xFF3E4A50);
 /// An item's colour and mark: its category's.
 (Glyph, Color) _mark(Ledger ledger, Recurring item) {
   final c = ledger.category(item.category);
-  return (iconFor(c.icon), c.color);
+  return (iconFor(c.icon), shownColor(c.color));
 }
 
 /// 定期交易: the month in big words, a calendar of what falls due on
