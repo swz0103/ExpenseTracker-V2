@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 本月概況 at full size (SummaryWidget.kt): the month's spending over its
-     budget bar, this week day by day, and 支出 and 收入 at the foot. The
+     budget bar, this week day by day, and 支出 and 收入 as two tinted
+     blocks at the foot. Light or dark as the phone is (values-night). The
      text and figures written here are what the widget picker shows. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -10,7 +11,7 @@
     android:paddingStart="14dp"
     android:paddingTop="14dp"
     android:paddingEnd="14dp"
-    android:paddingBottom="4dp">
+    android:paddingBottom="0dp">
 
     <LinearLayout
         android:id="@+id/summary_body"
@@ -32,7 +33,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:text="10 月支出"
-                android:textColor="#7A858B"
+                android:textColor="@color/widget_muted"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -42,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:text="12,340"
-                android:textColor="#26323A"
+                android:textColor="@color/widget_ink"
                 android:textSize="24sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -74,7 +75,7 @@
                 android:layout_weight="1"
                 android:maxLines="1"
                 android:text="預算 20,000"
-                android:textColor="#7A858B"
+                android:textColor="@color/widget_muted"
                 android:textSize="10.5sp"
                 android:textStyle="bold" />
 
@@ -84,7 +85,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:text="剩 7,660"
-                android:textColor="#7A858B"
+                android:textColor="@color/widget_muted"
                 android:textSize="10.5sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -107,7 +108,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="本週"
-                    android:textColor="#7A858B"
+                    android:textColor="@color/widget_muted"
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
@@ -116,7 +117,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="3,240"
-                    android:textColor="#26323A"
+                    android:textColor="@color/widget_ink"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -422,7 +423,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="一"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -432,7 +433,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="二"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -442,7 +443,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="三"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -452,7 +453,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="四"
-                android:textColor="#35657A"
+                android:textColor="@color/widget_accent"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -462,7 +463,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="五"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -472,7 +473,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="六"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView
@@ -482,23 +483,18 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="日"
-                android:textColor="#9AA4A9"
+                android:textColor="@color/widget_day"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="8dp"
-        android:background="#EEF1EF"
-        android:importantForAccessibility="no" />
-
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="44dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
         <LinearLayout
@@ -506,6 +502,8 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_block_expense"
             android:contentDescription="記支出"
             android:gravity="center"
             android:orientation="horizontal">
@@ -513,11 +511,10 @@
             <TextView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:background="@drawable/widget_button_expense"
                 android:gravity="center"
                 android:importantForAccessibility="no"
                 android:text="−"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/widget_expense"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -527,21 +524,18 @@
                 android:layout_marginStart="7dp"
                 android:importantForAccessibility="no"
                 android:text="支出"
-                android:textColor="#9F4535"
+                android:textColor="@color/widget_expense"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <ImageView
-            android:layout_width="1dp"
-            android:layout_height="22dp"
-            android:background="#E1E4E0"
-            android:importantForAccessibility="no" />
         <LinearLayout
             android:id="@+id/summary_income"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:layout_marginEnd="0dp"
+            android:background="@drawable/widget_block_income"
             android:contentDescription="記收入"
             android:gravity="center"
             android:orientation="horizontal">
@@ -549,11 +543,10 @@
             <TextView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:background="@drawable/widget_button_income"
                 android:gravity="center"
                 android:importantForAccessibility="no"
                 android:text="＋"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/widget_income"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -563,7 +556,7 @@
                 android:layout_marginStart="7dp"
                 android:importantForAccessibility="no"
                 android:text="收入"
-                android:textColor="#276B58"
+                android:textColor="@color/widget_income"
                 android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>

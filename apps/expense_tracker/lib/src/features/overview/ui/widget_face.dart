@@ -2,25 +2,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/look/theme.dart' show Shade;
+
 /// The home-screen widget 本月概況 as the phone draws it, for the web
 /// preview and for 設定 › 桌面小工具: [WidgetFace] at full size
 /// (summary_widget.xml) and [WidgetRow] one row high (quick_widget.xml),
 /// from the snapshot the app writes (home_widget.dart). Its colours are
-/// the widget's own, not the app's theme: the phone draws it on any
-/// wallpaper, light or dark.
+/// the widget's own (res/values*/colors.xml): light, or dark when the
+/// phone is, as the app's own themes.
 abstract final class WidgetLook {
-  static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF26323A);
-  static const muted = Color(0xFF7A858B);
-  static const day = Color(0xFF9AA4A9);
-  static const track = Color(0xFFEEF1EF);
-  static const accent = Color(0xFF35657A);
-  static const bar = Color(0xFFA9C0C8);
-  static const pace = Color(0xFFC9A34A);
-  static const dot = Color(0xFFD5DAD7);
-  static const expense = Color(0xFF9F4535);
-  static const income = Color(0xFF276B58);
-  static const rule = Color(0xFFE1E4E0);
+  static const card = Shade(0xFFFFFFFF, 0xFF343F45);
+  static const ink = Shade(0xFF26323A, 0xFFEEF2F3);
+  static const muted = Shade(0xFF7A858B, 0xFFA3AEB3);
+  static const day = Shade(0xFF9AA4A9, 0xFF8E9AA0);
+  static const track = Shade(0xFFEEF1EF, 0xFF46535A);
+  static const accent = Shade(0xFF35657A, 0xFFA5C7D4);
+  static const bar = Shade(0xFFA9C0C8, 0xFF5F7D89);
+  static const pace = Shade(0xFFC9A34A, 0xFFDDBE73);
+  static const dot = Shade(0xFFD5DAD7, 0xFF55626A);
+  static const expense = Shade(0xFF9F4535, 0xFFF1B2A3);
+  static const income = Shade(0xFF276B58, 0xFF8CCEB6);
+  static const rule = Shade(0xFFE1E4E0, 0xFF46535A);
+  static const onButton = Shade(0xFFFFFFFF, 0xFF0F1A1F);
+  static const expenseTint = Shade(0xFFF3E3DF, 0xFF4B3B39);
+  static const incomeTint = Shade(0xFFDCEBE5, 0xFF2E4741);
 }
 
 const _days = ['一', '二', '三', '四', '五', '六', '日'];
@@ -66,7 +71,7 @@ class WidgetFace extends StatelessWidget {
     final weekTotal = shown['weekTotal'] as String? ?? '';
     return _Card(
       radius: 26,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,10 +128,9 @@ class WidgetFace extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          const ColoredBox(color: WidgetLook.track, child: SizedBox(height: 1)),
+          const SizedBox(height: 10),
           SizedBox(
-            height: 40,
+            height: 44,
             child: Row(
               children: [
                 Expanded(
@@ -134,18 +138,17 @@ class WidgetFace extends StatelessWidget {
                     label: '支出',
                     mark: '−',
                     color: WidgetLook.expense,
+                    tint: WidgetLook.expenseTint,
                     onTap: onExpense,
                   ),
                 ),
-                const ColoredBox(
-                  color: WidgetLook.rule,
-                  child: SizedBox(width: 1, height: 22),
-                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: _Half(
                     label: '收入',
                     mark: '＋',
                     color: WidgetLook.income,
+                    tint: WidgetLook.incomeTint,
                     onTap: onIncome,
                   ),
                 ),
@@ -417,12 +420,14 @@ class _Half extends StatelessWidget {
     required this.label,
     required this.mark,
     required this.color,
+    required this.tint,
     this.onTap,
   });
 
   final String label;
   final String mark;
   final Color color;
+  final Color tint;
   final VoidCallback? onTap;
 
   @override
@@ -434,19 +439,19 @@ class _Half extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: Text(mark, style: _text(15, Colors.white)),
-            ),
-            const SizedBox(width: 7),
-            Text(label, style: _text(14, color)),
-          ],
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: tint,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(mark, style: _text(15, color)),
+              const SizedBox(width: 7),
+              Text(label, style: _text(14, color)),
+            ],
+          ),
         ),
       ),
     );
@@ -480,7 +485,7 @@ class _Round extends StatelessWidget {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          child: Text(mark, style: _text(20, Colors.white)),
+          child: Text(mark, style: _text(20, WidgetLook.onButton)),
         ),
       ),
     );

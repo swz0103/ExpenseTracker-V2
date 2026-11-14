@@ -7,7 +7,7 @@
     <item android:id="@android:id/progress">
         <scale android:scaleGravity="bottom" android:scaleHeight="100%">
             <shape>
-                <solid android:color="#35657A" />
+                <solid android:color="@color/widget_accent" />
                 <corners android:radius="6dp" />
             </shape>
         </scale>

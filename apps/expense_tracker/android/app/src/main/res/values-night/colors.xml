@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launch_background">#2A3237</color>
+    <!-- The home-screen widgets when the phone is dark, as the app's dark theme. -->
+    <color name="widget_card">#343F45</color>
+    <color name="widget_ink">#EEF2F3</color>
+    <color name="widget_muted">#A3AEB3</color>
+    <color name="widget_day">#8E9AA0</color>
+    <color name="widget_track">#46535A</color>
+    <color name="widget_accent">#A5C7D4</color>
+    <color name="widget_bar">#5F7D89</color>
+    <color name="widget_pace">#DDBE73</color>
+    <color name="widget_dot">#55626A</color>
+    <color name="widget_expense">#F1B2A3</color>
+    <color name="widget_income">#8CCEB6</color>
+    <color name="widget_rule">#46535A</color>
+    <color name="widget_on_button">#0F1A1F</color>
+    <color name="widget_expense_tint">#4B3B39</color>
+    <color name="widget_income_tint">#2E4741</color>
 </resources>

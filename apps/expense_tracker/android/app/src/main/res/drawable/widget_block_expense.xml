@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 記支出 at the widget's foot: a block on its colour's tint. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/widget_expense_tint" />
+    <corners android:radius="16dp" />
+</shape>

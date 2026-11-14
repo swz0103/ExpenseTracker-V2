@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="launch_background">#F3F4F1</color>
+    <!-- The home-screen widgets, as the app's light theme (widget_face.dart). -->
+    <color name="widget_card">#FFFFFF</color>
+    <color name="widget_ink">#26323A</color>
+    <color name="widget_muted">#7A858B</color>
+    <color name="widget_day">#9AA4A9</color>
+    <color name="widget_track">#EEF1EF</color>
+    <color name="widget_accent">#35657A</color>
+    <color name="widget_bar">#A9C0C8</color>
+    <color name="widget_pace">#C9A34A</color>
+    <color name="widget_dot">#D5DAD7</color>
+    <color name="widget_expense">#9F4535</color>
+    <color name="widget_income">#276B58</color>
+    <color name="widget_rule">#E1E4E0</color>
+    <color name="widget_on_button">#FFFFFF</color>
+    <color name="widget_expense_tint">#F3E3DF</color>
+    <color name="widget_income_tint">#DCEBE5</color>
 </resources>
