@@ -8,6 +8,8 @@
 
 ## 已有功能
 
+- **0.14.0**（實機回饋）：卡包按住浮起、上下移動轉換最前面那張（停在哪張，App 開著時都記得）；排序帳戶整張卡長按也能拖、拿起即浮起，拿掉上方說明；各頁標題固定（`HeadedList`，捲動後標題下出現細線）；定期交易月曆的選取改成同色外框、格子不縮小；預算未設定時主卡改成一行；深色下方形圖示、漲跌色塊、選中的按鈕改成深底淡色（`SquareIcon`、`ChoicePill`、`PanelButton`、`tintOf`）；記一筆的固定高度改成每次開啟重新量、等動畫結束才算（收起摺疊不再留白）。驗收見 [acceptance.md](acceptance.md)。
+
 - **0.13.0**（實機回饋 v2 第 4 批）：日期區間與時間改用自製的中間面板（`pickDateRange`、`pickTime`，`core/look/time_panels.dart`），取代 `showDateRangePicker` 與 `showTimePicker`；備份頁拿掉「Google 備份」卡與說明，雲端硬碟成為獨立的卡，「有自動備份」改看雲端硬碟或手機資料夾；Android 系統備份的帳本副本一律保留（`allowBackup` 與歡迎頁還原照舊）；選資料夾前先說明能選哪裡，選擇器從 Documents 開始，選到 Android 不給權限的位置時說明並重新開啟（`FolderRejected`）。驗收見 [acceptance.md](acceptance.md)。
 
 - **0.12.0**（實機回饋 v2 第 3 批）：定期交易改成兩行的列，預算主卡與額度方塊縮小；短標籤一律不換行（`OneLine`：先縮小到 75%，再不行以…結尾；版面測試擋住 12 字以內的文字換行）；新增帳戶的上方卡片就是表單（直接輸入名稱與餘額、點色點換色），帳戶可存自己的顏色（`Account.color`，`accountHue`）；帳戶頁維持卡包，點後面的卡滑到前面（`AnimatedPositioned`），前卡左右滑換卡；排序帳戶的把手整塊可拖、拿起時放大浮起，並有手動／餘額／最近使用；帳戶頁的內容抽成 `AccountBody`；貸款表單改成色卡與色塊，頂端即時試算月付與總利息（`loanPlan`），貸款多存利率、期數、還款方式與扣款帳戶；記一筆打開再關掉拆分不再留下空白。驗收見 [acceptance.md](acceptance.md)。

@@ -391,7 +391,9 @@ class _AccountEditorState extends State<_AccountEditor> {
               child: FilledButton(
                 onPressed: _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Hue.accent,
+                  backgroundColor: chosenFill(Hue.accent),
+                  side: chosenEdge(Hue.accent),
+                  foregroundColor: chosenInk(Hue.accent),
                   minimumSize: const Size.fromHeight(46),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -434,6 +436,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final color = accountHue(_preview);
     final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
     return SingleChildScrollView(
+      physics: const FitScrollPhysics(16),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,

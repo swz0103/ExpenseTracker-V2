@@ -65,6 +65,7 @@ class _Calendar extends StatelessWidget {
           for (var r = 0; r < cells.length; r += 7)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
+              // A day due is taller by its 到期: the others sit at the top.
               children: [
                 for (final cell in cells.sublist(r, r + 7))
                   Expanded(child: cell),
@@ -90,21 +91,33 @@ class _Calendar extends StatelessWidget {
     final isChosen = d == chosen;
     BoxDecoration? fill;
     if (single) {
-      fill = BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color.lerp(color, const Color(0xFFFFFFFF), 0.15)!, color],
-        ),
-      );
+      // Solid on the light theme; a deep tint of it on the dark one, as an
+      // account's card, not a pale block.
+      fill = Shade.dark
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              color: tintOf(color, 0.34),
+            )
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.lerp(color, const Color(0xFFFFFFFF), 0.15)!,
+                  color,
+                ],
+              ),
+            );
     } else if (items.isNotEmpty) {
       fill = BoxDecoration(
         color: _busyDay,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(11),
       );
     }
-    final onColor = single ? const Color(0xFFFFFFFF) : Hue.ink;
+    final onColor = single
+        ? (Shade.dark ? Hue.ink : const Color(0xFFFFFFFF))
+        : Hue.ink;
     final number = Container(
       width: 24,
       height: 24,
@@ -135,7 +148,7 @@ class _Calendar extends StatelessWidget {
       slot = GlyphIcon(
         glyph,
         size: 16,
-        color: const Color(0xFFFFFFFF),
+        color: Shade.dark ? color : const Color(0xFFFFFFFF),
         tinted: false,
       );
     } else if (items.isNotEmpty) {
@@ -168,45 +181,54 @@ class _Calendar extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onPick(d),
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(1),
           child: Column(
             children: [
-              Container(
-                height: 50,
-                decoration: (fill ?? const BoxDecoration()).copyWith(
-                  borderRadius: BorderRadius.circular(12),
-                  border: isChosen
-                      ? Border.all(color: Hue.accent, width: 2)
-                      : null,
+              // Every day keeps the room of the ring, so the chosen one is
+              // as large as the rest and the row stays even.
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: isChosen
+                        ? (single ? deepOf(color) : Hue.accent)
+                        : const Color(0x00000000),
+                    width: 2.5,
+                  ),
                 ),
-                foregroundDecoration: isChosen
-                    ? BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Hue.white, width: 2),
-                      )
-                    : null,
-                padding: const EdgeInsets.only(top: 3),
-                child: Column(
-                  children: [
-                    number,
-                    SizedBox(height: 18, child: Center(child: slot)),
-                  ],
+                child: Container(
+                  height: 46,
+                  decoration:
+                      fill ??
+                      BoxDecoration(
+                        color: isChosen ? Hue.selected : null,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Column(
+                    children: [
+                      number,
+                      SizedBox(height: 16, child: Center(child: slot)),
+                    ],
+                  ),
                 ),
               ),
-              SizedBox(
-                height: 14,
-                child: due
-                    ? const Text(
-                        '到期',
-                        textScaler: TextScaler.noScaling,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Hue.negative,
-                        ),
-                      )
-                    : null,
-              ),
+              // 到期 under a day due; a week with none takes no room for it.
+              if (due)
+                const SizedBox(
+                  height: 13,
+                  child: Text(
+                    '到期',
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Hue.negative,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

@@ -183,8 +183,11 @@ class PanelButton extends StatelessWidget {
             ? Hue.surface
             : tinted
             ? tintOf(solid, 0.22)
-            : solid,
-        borderRadius: BorderRadius.circular(18),
+            : chosenFill(solid),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: solid == null || tinted ? BorderSide.none : chosenEdge(solid),
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
@@ -206,7 +209,7 @@ class PanelButton extends StatelessWidget {
                         ? Hue.ink
                         : tinted
                         ? deepOf(solid)
-                        : Hue.onAccent,
+                        : chosenInk(solid),
                   ),
                 ),
               ),

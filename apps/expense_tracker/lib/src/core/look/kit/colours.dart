@@ -6,9 +6,10 @@ import '../theme.dart';
 // Tints, deeper words and colours picked from a name.
 
 /// [color] mixed into the paper: the flat tint of a card in that colour.
-/// The same mix on the dark paper gives the dark card.
+/// The same mix on the dark paper gives the dark card, as deep as an
+/// account's card (a little under a fifth of the colour).
 Color tintOf(Color color, [double amount = 0.2]) =>
-    Color.lerp(Hue.paper, color, Shade.dark ? amount + 0.08 : amount)!;
+    Color.lerp(Hue.paper, color, Shade.dark ? amount * 0.95 : amount)!;
 
 /// [color] a step deeper for words on its own tint, or a step lighter on
 /// the dark theme: as little as reads at 4.5:1 on a tint of up to 0.3.

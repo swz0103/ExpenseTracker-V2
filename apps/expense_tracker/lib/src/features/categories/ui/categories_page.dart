@@ -153,10 +153,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
             onTap: _add,
           ),
         ];
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader('分類', onBack: widget.nav.back),
           children: [
-            CenterHeader('分類', onBack: widget.nav.back),
             Row(
               children: [
                 for (final (i, income) in const [false, true].indexed) ...[

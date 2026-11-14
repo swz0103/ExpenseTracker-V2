@@ -41,12 +41,12 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final holdings = ledger.holdings;
-        final list = ListView(
+        final list = HeadedList(
           // Pulled down to fetch the closes again, even when empty.
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          header: CenterHeader('投資與股息', onBack: widget.nav.back),
           children: [
-            CenterHeader('投資與股息', onBack: widget.nav.back),
             _InvestHero(ledger: ledger),
             const SizedBox(height: 12),
             BigSegments(
@@ -580,16 +580,16 @@ class _InvestHero extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: day < 0 ? Hue.negative : Hue.positive,
+                    color: chosenFill(day < 0 ? Hue.negative : Hue.positive),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '今日 ${ledger.orDots(signed(day))}'
                     '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: Hue.onAccent,
+                      color: chosenInk(day < 0 ? Hue.negative : Hue.positive),
                     ),
                   ),
                 ),
@@ -662,9 +662,7 @@ class _HoldingRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: !quoted
                   ? Hue.surface
-                  : up
-                  ? Hue.positive
-                  : Hue.negative,
+                  : chosenFill(up ? Hue.positive : Hue.negative),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -675,14 +673,19 @@ class _HoldingRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: quoted ? Hue.onAccent : Hue.muted,
+                    color: quoted
+                        ? chosenInk(up ? Hue.positive : Hue.negative)
+                        : Hue.muted,
                   ),
                 ),
                 if (quoted)
                   Text(
                     '${up ? '▲' : '▼'}${perShare.abs().toStringAsFixed(2)}',
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(fontSize: 11.5, color: Hue.onAccent),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: chosenInk(up ? Hue.positive : Hue.negative),
+                    ),
                   ),
               ],
             ),

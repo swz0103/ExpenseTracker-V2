@@ -136,43 +136,40 @@ class CardPage extends StatelessWidget {
         final status = owed == 0
             ? '這期已繳清'
             : '繳款截止 ${_day(due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）';
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          children: [
-            CenterHeader(
-              card.name,
-              onBack: nav.back,
-              actions: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 對帳 needs NT$: another currency would need a rate.
-                    if (!card.foreign && card.kind != AccountKind.receivable)
-                      TextButton(
-                        onPressed: () =>
-                            reconcileAccount(context, ledger, card),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Hue.accent,
-                        ),
-                        child: const Text('對帳'),
-                      ),
+          header: CenterHeader(
+            card.name,
+            onBack: nav.back,
+            actions: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 對帳 needs NT$: another currency would need a rate.
+                  if (!card.foreign && card.kind != AccountKind.receivable)
                     TextButton(
-                      onPressed: () async {
-                        final gone = await editAccount(
-                          context,
-                          ledger,
-                          account: card,
-                        );
-                        // Deleted or archived: back to the accounts.
-                        if (gone) nav.back();
-                      },
+                      onPressed: () => reconcileAccount(context, ledger, card),
                       style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                      child: const Text('編輯'),
+                      child: const Text('對帳'),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  TextButton(
+                    onPressed: () async {
+                      final gone = await editAccount(
+                        context,
+                        ledger,
+                        account: card,
+                      );
+                      // Deleted or archived: back to the accounts.
+                      if (gone) nav.back();
+                    },
+                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    child: const Text('編輯'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          children: [
             Tile(
               hero: true,
               icon: Glyph.card,
@@ -200,7 +197,9 @@ class CardPage extends StatelessWidget {
                           ),
                         ),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Hue.accent,
+                          backgroundColor: chosenFill(Hue.accent),
+                          side: chosenEdge(Hue.accent),
+                          foregroundColor: chosenInk(Hue.accent),
                           minimumSize: const Size.fromHeight(44),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

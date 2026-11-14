@@ -9,7 +9,8 @@ import '../kit.dart';
 // A solid square icon and the tick-in-a-circle switch.
 
 /// An icon in white on a rounded square of solid [color]: the mark of a
-/// category, a setting or a tool.
+/// category, a setting or a tool. On the dark theme, the icon in [color]
+/// on a deep tint of it, as an account's card has it, not a pale block.
 class SquareIcon extends StatelessWidget {
   const SquareIcon(this.glyph, this.color, {super.key, this.size = 44});
 
@@ -23,14 +24,14 @@ class SquareIcon extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color,
+        color: Shade.dark ? tintOf(color, 0.34) : color,
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       alignment: Alignment.center,
       child: GlyphIcon(
         glyph,
         size: size * 0.5,
-        color: const Color(0xFFFFFFFF),
+        color: Shade.dark ? color : const Color(0xFFFFFFFF),
         tinted: false,
       ),
     );

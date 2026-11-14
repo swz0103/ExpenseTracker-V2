@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/app_mark.dart';
+import '../../../../core/look/kit/colours.dart';
 import '../../../../core/look/theme.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
@@ -72,7 +73,9 @@ class LockForm extends StatelessWidget {
         FilledButton(
           onPressed: busy ? null : onSubmit,
           style: FilledButton.styleFrom(
-            backgroundColor: Hue.accent,
+            backgroundColor: chosenFill(Hue.accent),
+            side: chosenEdge(Hue.accent),
+            foregroundColor: chosenInk(Hue.accent),
             minimumSize: const Size.fromHeight(48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),

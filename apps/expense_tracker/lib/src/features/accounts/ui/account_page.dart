@@ -46,28 +46,28 @@ class _AccountPageState extends State<AccountPage> {
         final account = ledger.account(widget.accountId);
         final balance = ledger.balance(account.id);
         final (into, out) = monthFlow(ledger, account);
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          header: CenterHeader(
+            account.name,
+            onBack: widget.nav.back,
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  final gone = await editAccount(
+                    context,
+                    ledger,
+                    account: account,
+                  );
+                  // Deleted or archived: back to the accounts.
+                  if (gone) widget.nav.back();
+                },
+                style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                child: const Text('編輯'),
+              ),
+            ],
+          ),
           children: [
-            CenterHeader(
-              account.name,
-              onBack: widget.nav.back,
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    final gone = await editAccount(
-                      context,
-                      ledger,
-                      account: account,
-                    );
-                    // Deleted or archived: back to the accounts.
-                    if (gone) widget.nav.back();
-                  },
-                  style: TextButton.styleFrom(foregroundColor: Hue.accent),
-                  child: const Text('編輯'),
-                ),
-              ],
-            ),
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Column(

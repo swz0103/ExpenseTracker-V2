@@ -220,10 +220,16 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// A choice open in place of the form, if any.
   _Page? _page;
 
-  /// The tallest the fields have stood while closed, this run: every tab
-  /// is made as tall, the amount taking the room to spare, so the sheet
-  /// keeps one size from tab to tab.
-  static var _tallest = 0.0;
+  /// The tallest the fields have stood while closed since the sheet
+  /// opened: every tab is made as tall, the amount taking the room to
+  /// spare, so the sheet keeps one size from tab to tab. Each opening
+  /// starts again, so nothing seen once leaves room behind.
+  var _tallest = 0.0;
+
+  /// Waits for the fields to settle before their height counts: a fold
+  /// or a split closing shrinks over a few frames, and the frames on the
+  /// way down must not count as the form's own height.
+  Timer? _settle;
 
   /// The sums someone paid back is made of, by entry, while 對方還錢.
   Set<String> _paying = {};
@@ -260,6 +266,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _settle?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     // Answers a choice still open with none, without building again: the
     // sheet is going away (still mounted until super.dispose).
@@ -691,9 +698,12 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// the form shows closed, so an opened fold, a split or a problem does
   /// not make every tab taller, and stay so after it is closed again.
   void _measured(double height) {
-    if (!mounted || _page != null || _f.more || _problem != null) return;
-    if (_f.parts != null) return;
-    if (height > _tallest + 0.5) setState(() => _tallest = height);
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted || _page != null || _f.more || _problem != null) return;
+      if (_f.parts != null) return;
+      if (height > _tallest + 0.5) setState(() => _tallest = height);
+    });
   }
 
   @override

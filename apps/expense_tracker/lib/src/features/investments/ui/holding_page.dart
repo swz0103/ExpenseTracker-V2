@@ -35,10 +35,10 @@ class HoldingPage extends StatelessWidget {
         final held = ledger.holding(code);
         final trades = ledger.tradesOf(code);
         if (held == null) {
-          return ListView(
+          return HeadedList(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            header: CenterHeader(code, onBack: nav.back),
             children: [
-              CenterHeader(code, onBack: nav.back),
               _SoldOut(ledger: ledger, trades: trades),
               _TradeBoard(
                 ledger: ledger,
@@ -53,10 +53,10 @@ class HoldingPage extends StatelessWidget {
         final quoted = ledger.hasQuote(code);
         final lots = ledger.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          header: CenterHeader('${held.name} $code', onBack: nav.back),
           children: [
-            CenterHeader('${held.name} $code', onBack: nav.back),
             _PriceCard(ledger: ledger, held: held, quoted: quoted),
             const SizedBox(height: 12),
             _PriceChart(

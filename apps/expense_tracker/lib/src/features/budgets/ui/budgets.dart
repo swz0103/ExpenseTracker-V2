@@ -108,10 +108,10 @@ class _BudgetsPageState extends State<BudgetsPage> {
           return share(b).compareTo(share(a));
         });
         final current = _month == _now;
-        return ListView(
+        return HeadedList(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          header: CenterHeader('預算管理', onBack: widget.nav.back),
           children: [
-            CenterHeader('預算管理', onBack: widget.nav.back),
             _MonthRow(
               month: month,
               current: current,
@@ -480,7 +480,7 @@ class _DayBar extends StatelessWidget {
   }
 }
 
-/// No total budget yet: what the month has cost, and 設定每月預算.
+/// No total budget yet: what the month has cost, and 設定預算.
 class _NoBudget extends StatelessWidget {
   const _NoBudget({
     required this.ledger,
@@ -499,24 +499,49 @@ class _NoBudget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+      child: Row(
         children: [
-          Text(
-            '${current ? '本月' : '$month 月'}花了',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: Hue.accent,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OneLine(
+                  '${current ? '本月' : '$month 月'}花了',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Hue.accent,
+                  ),
+                ),
+                OneLine(
+                  ledger.orDots(groupDigits(spent)),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            ledger.orDots(groupDigits(spent)),
-            style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: onSet,
+            style: FilledButton.styleFrom(
+              backgroundColor: chosenFill(_budgetHue),
+              foregroundColor: chosenInk(_budgetHue),
+              side: chosenEdge(_budgetHue),
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              '設定預算',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
-          const SizedBox(height: 12),
-          PanelButton('設定每月預算', color: _budgetHue, onTap: onSet),
         ],
       ),
     );
