@@ -17,9 +17,6 @@ extension LedgerReports on Ledger {
     return (income, expense);
   }
 
-  int dividendsBetween(DateTime from, DateTime to) =>
-      _between(from, to).fold(0, (sum, e) => sum + e.dividendNet);
-
   /// Spending by category name from [from] to [to].
   Map<String, int> spendingBetween(DateTime from, DateTime to) {
     final totals = <String, int>{};

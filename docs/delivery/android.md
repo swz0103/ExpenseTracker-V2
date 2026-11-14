@@ -6,9 +6,9 @@
 
 每次 main 有變更，`V2 integration validation` 跑完且全部通過後，`Android APK` 工作流程建置同一個 commit，放在 GitHub 的 release `android-latest`（`ExpenseTracker.apk`）；驗證每次 push 只跑一次（驗證進行中又有好幾次 push 時，GitHub 只留最新一次排隊，中間的 commit 不會各自驗證與發布）。PR 與手動執行只檢查能否建置。
 
-工作流程分成兩個工作：`build` 只有讀取權限，建置並存下 APK；`publish` 只在驗證過的 main 執行，是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。發布時 `android-latest` 這個 tag 會移到這次建置的 commit，說明附上 APK 的 SHA-256。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
+工作流程分成三個工作：`build` 只有讀取權限、看不到簽章 Secrets，建置 debug 簽章的 APK 並存下；`sign` 只在驗證過的 main 執行，不取出程式碼，用 `apksigner` 換上正式簽章、確認不是 debug 金鑰並寫出 `update.json`；`publish` 是唯一能寫 release 的工作。`publish` 有自己的 concurrency 群組且不取消進行中的執行，所以之後完成的驗證（即使失敗或略過）或建置都不會把它中途打斷；main 的建置也依序排隊，發布順序與 commit 順序一致。上傳時先以暫名（`ExpenseTracker-<執行編號>.apk`）放上新檔，成功後才刪掉舊的並改名，release 不會出現沒有安裝檔的狀態（只有改名前一瞬間固定網址會找不到檔案）。PR 的建置有新 push 時會取消舊的。發布時 `android-latest` 這個 tag 會移到這次建置的 commit，說明附上 APK 的 SHA-256。每次建置都檢查 16 KB 分頁對齊。版本名稱取自 `pubspec.yaml`，版本號（versionCode）用工作流程的執行次數，所以新版一定能蓋過舊版安裝；兩者與 commit 也以 `--dart-define`（`APP_VERSION`、`APP_BUILD`、`APP_COMMIT`）傳進 App，顯示在「設定 › 關於」。
 
-APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型 Huninn 已是常用字子集；再縮要另寫子集化工具，目前不做。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在驗證過的 main 建置時寫出（建置完即刪除）；PR 與手動執行一律用 debug 金鑰，碰不到正式金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
+APK 只含 arm64（現行手機都是），約 28 MB：CI 用 `--target-platform android-arm64` 建置，`build.gradle.kts` 的 release 也只收 `arm64-v8a`（debug 與 profile 不限，模擬器才能跑 x86_64）。除錯符號不放進安裝檔，每次建置另存成工作流程的 artifact `symbols-<commit>`（保留 90 天），用 `flutter symbolize` 還原當機堆疊。中文字型是 Noto Sans TC 的 Regular 與 Bold（見 App 的 README）。main 的安裝檔一定用正式金鑰簽章：缺 Secrets 時工作流程直接失敗，不會發出無法覆蓋安裝的版本。正式金鑰只在 `sign` 工作裡寫出（簽完即刪除），建置過程（Gradle 外掛與套件的程式）碰不到它；PR 與手動執行一律用 debug 金鑰。debug 簽章的安裝檔只供試用，不能覆蓋正式版。除錯符號的 artifact 以實際建置的 commit 命名：main 是驗證過的 commit，PR 是 GitHub 測試用的合併 commit。
 
 ## 專案設定
 
@@ -100,6 +100,14 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
    ```
 
 4. Google 雲端硬碟登入用的 Android OAuth 用戶端要填發佈簽章的 SHA-1：`keytool -list -v -keystore ~/expense-tracker.jks -alias expense-tracker`（設定步驟見上方「Google 雲端硬碟備份」）。
+
+## 分支保護
+
+main 只能經由通過檢查的 PR 改變，正式簽章的 APK 才只會從驗證過的程式建出來。在 GitHub 的 Settings › Branches（或 Rules › Rulesets）為 `main` 加一條規則：
+
+1. 合併前必須開 PR（Require a pull request before merging）；個人專案不必要求審核人數。
+2. 合併前檢查必須通過（Require status checks to pass），勾選 `dart`、`flutter-host`（V2 integration validation）與 `build`（Android APK）。
+3. 不允許強制推送與刪除分支（預設即是）。
 
 ## 本機建置
 
