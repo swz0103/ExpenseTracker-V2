@@ -398,6 +398,8 @@ class _TradeRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text.rich(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     TextSpan(
                       text: title,
                       style: const TextStyle(fontWeight: FontWeight.w800),
@@ -413,7 +415,7 @@ class _TradeRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (line != null) Text(line, style: mutedSmall),
+                  if (line != null) OneLine(line, style: mutedSmall),
                 ],
               ),
             ),

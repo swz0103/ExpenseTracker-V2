@@ -250,34 +250,22 @@ class _Row extends StatelessWidget {
       color: color,
       onTap: onTap,
       label: '$title，$detail',
-      padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
       radius: 20,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SquareIcon(glyph, color, size: 40),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(color),
-                  ),
-                ),
-                Text(
-                  detail,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: deepOf(color)),
-                ),
-              ],
+          const SizedBox(height: 10),
+          OneLine(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: deepOf(color),
             ),
           ),
+          OneLine(detail, style: TextStyle(fontSize: 13, color: deepOf(color))),
         ],
       ),
     );

@@ -55,7 +55,7 @@ class CenterPanel extends StatelessWidget {
                     children: [
                       Semantics(
                         header: true,
-                        child: Text(
+                        child: OneLine(
                           title,
                           style: const TextStyle(
                             fontSize: 20,
@@ -64,7 +64,7 @@ class CenterPanel extends StatelessWidget {
                         ),
                       ),
                       if (detail != null)
-                        Text(
+                        OneLine(
                           detail!,
                           style: const TextStyle(
                             fontSize: 14,
@@ -196,9 +196,9 @@ class PanelButton extends StatelessWidget {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                child: Text(
+                child: OneLine(
                   label,
-                  textAlign: TextAlign.center,
+                  alignment: Alignment.center,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,

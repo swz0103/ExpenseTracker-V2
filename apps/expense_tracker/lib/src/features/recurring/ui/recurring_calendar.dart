@@ -469,12 +469,12 @@ class _Cell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          OneLine(
             label,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
-          Text(
+          OneLine(
             value,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
           ),

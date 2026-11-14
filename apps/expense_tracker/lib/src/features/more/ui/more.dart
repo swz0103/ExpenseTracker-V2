@@ -194,20 +194,18 @@ class ToolButton extends StatelessWidget {
                   child: GlyphIcon(glyph, size: 30, color: color),
                 ),
                 const SizedBox(height: 10),
-                Text(
+                OneLine(
                   label,
-                  textAlign: TextAlign.center,
+                  alignment: Alignment.center,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
+                OneLine(
                   detail,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  alignment: Alignment.center,
                   style: const TextStyle(fontSize: 13, color: Hue.muted),
                 ),
               ],

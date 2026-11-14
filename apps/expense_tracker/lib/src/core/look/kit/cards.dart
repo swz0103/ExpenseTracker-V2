@@ -112,7 +112,7 @@ class SettingCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
+          OneLine(
             title,
             style: TextStyle(
               fontSize: 17,
@@ -121,12 +121,7 @@ class SettingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            detail,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, color: deepOf(color)),
-          ),
+          OneLine(detail, style: TextStyle(fontSize: 13, color: deepOf(color))),
         ],
       ),
     );

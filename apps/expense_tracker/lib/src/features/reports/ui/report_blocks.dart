@@ -261,7 +261,7 @@ class _Block extends StatelessWidget {
               SquareIcon(glyph, color, size: 32),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
+                child: OneLine(
                   label,
                   style: TextStyle(
                     fontSize: 13,
@@ -273,14 +273,12 @@ class _Block extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          OneLine(
             value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
           ),
           if (sub.isNotEmpty)
-            Text(sub, style: TextStyle(fontSize: 12.5, color: ink)),
+            OneLine(sub, style: TextStyle(fontSize: 12.5, color: ink)),
         ],
       ),
     );

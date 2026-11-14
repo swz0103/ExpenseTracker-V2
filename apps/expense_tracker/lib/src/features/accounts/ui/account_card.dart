@@ -41,8 +41,8 @@ int spentThisMonth(Ledger ledger, Account account) {
   return out;
 }
 
-/// The face of an account's card: one tint, its own or its kind's, with
-/// the name, one large figure and one line under it. Behind the front card only
+/// The face of an account's card: one tint, its own or its kind's, with the name,
+/// one large figure and one line under it. Behind the front card only
 /// the top strip shows, with the balance at its end.
 class AccountCard extends StatelessWidget {
   const AccountCard({
@@ -141,26 +141,36 @@ class AccountCard extends StatelessWidget {
                   head,
                   if (front) ...[
                     const Spacer(),
-                    Text(label, style: mutedSmall),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        figure,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          height: 1.15,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(label, style: mutedSmall),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  figure,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.15,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        if (note.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, bottom: 4),
+                            child: Text(note, style: mutedSmall),
+                          ),
+                      ],
                     ),
-                    if (note.isNotEmpty)
-                      Text(
-                        note,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: mutedSmall,
-                      ),
                   ],
                 ],
               ),

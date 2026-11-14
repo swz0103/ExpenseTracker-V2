@@ -12,7 +12,6 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import 'account_card.dart';
-import 'account_page.dart' show AccountBody;
 
 /// The kinds 我的帳戶 holds, in the order 依類型重新排 puts them. Money
 /// paid for someone and loans have a page of their own.
@@ -42,10 +41,10 @@ List<Account> walletAccounts(Ledger ledger) {
   });
 }
 
-/// 我的帳戶: the net worth and what it is made of, then the accounts as
-/// cards side by side, slid through one at a time; under them, what is
-/// done with the card in front and its entries. A tap on a card opens its
-/// page, a long press the order.
+/// 我的帳戶: the net worth and what it is made of, then every account as
+/// a card in one stack, one in front. A tap on a card behind slides it to
+/// the front; a tap on the front card opens its account, a sideways swipe
+/// brings the next one forward, and a long press opens the order.
 class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key, required this.ledger, required this.nav});
 
@@ -60,7 +59,7 @@ class _AccountsPageState extends State<AccountsPage> {
   Ledger get ledger => widget.ledger;
   Nav get nav => widget.nav;
 
-  /// The account in front; null for the first.
+  /// The account in front; null for the last.
   String? _shown;
 
   Future<void> _sort(BuildContext context) => Navigator.of(context).push(
@@ -81,7 +80,7 @@ class _AccountsPageState extends State<AccountsPage> {
             if (a.archived && walletKinds.contains(a.kind)) a,
         ];
         final at = accounts.indexWhere((a) => a.id == _shown);
-        final index = at < 0 ? 0 : at;
+        final index = at < 0 ? accounts.length - 1 : at;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           children: [
@@ -121,7 +120,7 @@ class _AccountsPageState extends State<AccountsPage> {
             ),
             if (accounts.isEmpty)
               const Text('還沒有帳戶，按右上的新增開始。', style: mutedSmall)
-            else ...[
+            else
               _Wallet(
                 ledger: ledger,
                 accounts: accounts,
@@ -130,13 +129,6 @@ class _AccountsPageState extends State<AccountsPage> {
                 onOpen: (a) => nav.open(Pages.account(a.id)),
                 onSort: () => _sort(context),
               ),
-              AccountBody(
-                key: ValueKey(accounts[index].id),
-                ledger: ledger,
-                nav: nav,
-                account: accounts[index],
-              ),
-            ],
             if (archived.isNotEmpty) ...[
               const SectionHead('已封存'),
               Wrap(
@@ -249,9 +241,10 @@ class _NetWorth extends StatelessWidget {
   }
 }
 
-/// The accounts as cards side by side, the next one peeking in; the
-/// one stopped on is shown below, with a dot for each under them.
-class _Wallet extends StatefulWidget {
+/// The accounts as one stack of cards: the top strip of each, and the
+/// one at [index] whole in front, at the bottom. Picking another slides
+/// it down to the front while the rest move up to close the gap.
+class _Wallet extends StatelessWidget {
   const _Wallet({
     required this.ledger,
     required this.accounts,
@@ -269,108 +262,65 @@ class _Wallet extends StatefulWidget {
   final VoidCallback onSort;
 
   @override
-  State<_Wallet> createState() => _WalletState();
-}
-
-class _WalletState extends State<_Wallet> {
-  late final _pages = PageController(
-    viewportFraction: 0.92,
-    initialPage: widget.index,
-  );
-
-  @override
-  void dispose() {
-    _pages.dispose();
-    super.dispose();
-  }
-
-  /// Slides to the [i]th card, or jumps when motion is turned down.
-  void _go(int i) {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _pages.jumpToPage(i);
-    } else {
-      _pages.animateToPage(
-        i,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-      );
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final accounts = widget.accounts;
-    final (_, front) = cardHeights(context);
+    final last = accounts.length - 1;
+    final (strip, front) = cardHeights(context);
+    // How far each card sits below the one behind it.
+    final step = strip - 12;
     final quiet = MediaQuery.disableAnimationsOf(context);
-    return Column(
-      children: [
-        SizedBox(
-          height: front,
-          child: PageView.builder(
-            controller: _pages,
-            padEnds: false,
-            itemCount: accounts.length,
-            onPageChanged: (i) {
-              Haptics.selection();
-              widget.onShow(accounts[i]);
-            },
-            // The card peeking in beside the one in front only slides
-            // to it; the dots below name every card for a screen reader.
-            itemBuilder: (context, i) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: i == widget.index
-                  ? AccountCard(
-                      ledger: widget.ledger,
-                      account: accounts[i],
-                      onTap: () => widget.onOpen(accounts[i]),
-                      onLongPress: widget.onSort,
-                    )
-                  : ExcludeSemantics(
+    final shown = accounts[index];
+    // The stack's order: the others as they are, the one shown last.
+    final order = [
+      for (final a in accounts)
+        if (a.id != shown.id) a,
+      shown,
+    ];
+    void slide(int by) {
+      final next = (index + by) % accounts.length;
+      Haptics.selection();
+      onShow(accounts[next < 0 ? next + accounts.length : next]);
+    }
+
+    return SizedBox(
+      height: step * last + front,
+      child: Stack(
+        children: [
+          for (final (i, a) in order.indexed)
+            AnimatedPositioned(
+              key: ValueKey(a.id),
+              duration: quiet
+                  ? Duration.zero
+                  : const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              top: step * i,
+              left: 0,
+              right: 0,
+              child: i == last
+                  ? GestureDetector(
+                      onHorizontalDragEnd: (d) {
+                        final v = d.primaryVelocity ?? 0;
+                        if (v.abs() > 200) slide(v < 0 ? 1 : -1);
+                      },
                       child: AccountCard(
-                        ledger: widget.ledger,
-                        account: accounts[i],
-                        onTap: () => _go(i),
+                        ledger: ledger,
+                        account: a,
+                        onTap: () => onOpen(a),
+                        onLongPress: onSort,
                       ),
+                    )
+                  : AccountCard(
+                      ledger: ledger,
+                      account: a,
+                      front: false,
+                      onTap: () {
+                        Haptics.selection();
+                        onShow(a);
+                      },
+                      onLongPress: onSort,
                     ),
             ),
-          ),
-        ),
-        if (accounts.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final (i, a) in accounts.indexed)
-                  Semantics(
-                    button: true,
-                    selected: i == widget.index,
-                    label: a.name,
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _go(i),
-                      child: AnimatedContainer(
-                        duration: quiet
-                            ? Duration.zero
-                            : const Duration(milliseconds: 200),
-                        width: i == widget.index ? 18 : 6,
-                        height: 6,
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 3,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: i == widget.index ? accountHue(a) : Hue.line,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -498,7 +448,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(8, 10, 8, 4),
-                child: Text('拖右邊的 ≡ 調整，第一張排在最前面。', style: mutedSmall),
+                child: Text('按住右邊的 ≡ 直接拖。最下面那張會展開在卡包最前面。', style: mutedSmall),
               ),
               Expanded(
                 child: ReorderableListView.builder(
@@ -507,6 +457,24 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   itemCount: _order.length,
                   // [to] already counts the card taken out.
                   onReorderStart: (_) => Haptics.medium(),
+                  // The card taken up grows a little and casts a shadow.
+                  proxyDecorator: (child, index, lift) => AnimatedBuilder(
+                    animation: lift,
+                    builder: (context, child) {
+                      final t = Curves.easeOut.transform(lift.value);
+                      return Transform.scale(
+                        scale: 1 + 0.04 * t,
+                        child: Material(
+                          color: Colors.transparent,
+                          elevation: 10 * t,
+                          shadowColor: const Color(0x55000000),
+                          borderRadius: BorderRadius.circular(18),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: child,
+                  ),
                   onReorderItem: (from, to) {
                     Haptics.selection();
                     setState(() {
@@ -583,14 +551,19 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                                 color: Hue.muted,
                               ),
                             ),
+                            // The whole square takes the finger, not only
+                            // the lines drawn in it.
                             ReorderableDragStartListener(
                               index: i,
                               child: Semantics(
                                 label: '拖曳${a.name}',
-                                child: const SizedBox(
-                                  width: 48,
-                                  height: 56,
-                                  child: Center(child: _Grip()),
+                                child: const ColoredBox(
+                                  color: Colors.transparent,
+                                  child: SizedBox(
+                                    width: 56,
+                                    height: 56,
+                                    child: Center(child: _Grip()),
+                                  ),
                                 ),
                               ),
                             ),
@@ -620,11 +593,11 @@ class _Grip extends StatelessWidget {
       children: [
         for (var i = 0; i < 3; i++)
           Container(
-            width: 16,
-            height: 2,
-            margin: const EdgeInsets.symmetric(vertical: 1.5),
+            width: 20,
+            height: 2.5,
+            margin: const EdgeInsets.symmetric(vertical: 2),
             decoration: BoxDecoration(
-              color: Hue.faint,
+              color: Hue.muted,
               borderRadius: BorderRadius.circular(1),
             ),
           ),

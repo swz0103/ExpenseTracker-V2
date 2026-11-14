@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import '../glyphs.dart';
 import '../theme.dart';
+import 'words.dart';
 
 // Title rows: a sub-page's centred one, small headings and section spacing.
 
@@ -67,11 +68,10 @@ class CenterHeader extends StatelessWidget {
           ),
           Semantics(
             header: true,
-            child: Text(
+            child: OneLine(
               title,
+              alignment: Alignment.center,
               textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
           ),

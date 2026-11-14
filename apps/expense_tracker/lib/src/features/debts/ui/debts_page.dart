@@ -375,7 +375,7 @@ class _LoanCard extends StatelessWidget {
                   ),
                 ),
                 if (principal != null)
-                  Text(
+                  OneLine(
                     '原借 ${ledger.orDots(groupDigits(principal))}',
                     style: TextStyle(fontSize: 13, color: ink),
                   ),
@@ -458,7 +458,7 @@ class _DebtHero extends StatelessWidget {
                 ),
               ),
               for (final line in lines)
-                Text(
+                OneLine(
                   line,
                   style: TextStyle(
                     fontSize: 13,

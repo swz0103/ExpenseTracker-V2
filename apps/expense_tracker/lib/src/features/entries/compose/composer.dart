@@ -688,10 +688,11 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   }
 
   /// The fields' own height, kept when it is the tallest yet; only while
-  /// the form shows closed, so an opened fold or a problem does not make
-  /// every tab taller.
+  /// the form shows closed, so an opened fold, a split or a problem does
+  /// not make every tab taller, and stay so after it is closed again.
   void _measured(double height) {
     if (!mounted || _page != null || _f.more || _problem != null) return;
+    if (_f.parts != null) return;
     if (height > _tallest + 0.5) setState(() => _tallest = height);
   }
 

@@ -60,16 +60,14 @@ class QuoteRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+        OneLine(
           title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         if (detail != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(detail!, style: mutedSmall),
+            child: OneLine(detail!, style: mutedSmall),
           ),
       ],
     );

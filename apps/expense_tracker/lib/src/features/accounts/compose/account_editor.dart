@@ -467,9 +467,11 @@ class _AccountEditorState extends State<_AccountEditor> {
                         if (i > 0) const SizedBox(width: 6),
                         Expanded(
                           child: ChoicePill(
-                            label: groupName(kind) == '銀行帳戶'
-                                ? '銀行'
-                                : groupName(kind),
+                            label: switch (kind) {
+                              AccountKind.bank => '銀行',
+                              AccountKind.wallet => '支付',
+                              _ => groupName(kind),
+                            },
                             selected: kind == _f.kind,
                             background: Hue.white,
                             onTap: () => setState(() => _f.kind = kind),
@@ -815,66 +817,24 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.number = false,
-    this.calculator = false,
-    this.suffix,
-    this.label,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool number;
 
-  /// Words at the field's end, such as % or 期.
-  final String? suffix;
-
-  /// What the field is, kept at its start once something is typed.
-  final String? label;
-
-  /// A whole NT$ amount: the field opens the calculator, all of it, and
-  /// the mark at its end only says so.
-  final bool calculator;
-
-  Future<void> _calculate(BuildContext context) async {
-    final value = await showCalculator(
-      context,
-      title: label ?? hint,
-      initial: int.tryParse(controller.text.replaceAll(',', '')) ?? 0,
-      color: Hue.accent,
-    );
-    if (value != null) controller.text = '$value';
-  }
-
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      readOnly: calculator,
-      onTap: calculator ? () => _calculate(context) : null,
       keyboardType: number
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
       decoration: InputDecoration(
         hintText: hint,
-        suffixText: suffix,
-        prefixIcon: label == null
-            ? null
-            : Padding(
-                padding: const EdgeInsets.only(left: 14, right: 10),
-                child: Text(
-                  label!,
-                  style: const TextStyle(fontSize: 14, color: Hue.muted),
-                ),
-              ),
-        prefixIconConstraints: const BoxConstraints(),
         isDense: true,
         filled: true,
         fillColor: Hue.white,
-        suffixIcon: calculator
-            ? const Padding(
-                padding: EdgeInsets.all(12),
-                child: GlyphIcon(Glyph.calculator, size: 20, color: Hue.muted),
-              )
-            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

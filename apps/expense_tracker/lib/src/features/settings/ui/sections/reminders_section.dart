@@ -574,7 +574,7 @@ class _PhoneStrip extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
+            child: OneLine(
               missing ?? '手機設定都好了',
               style: TextStyle(
                 fontSize: 15,
@@ -648,7 +648,7 @@ class _Chip extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        OneLine(
           top,
           style: TextStyle(
             fontSize: 13,
@@ -656,7 +656,7 @@ class _Chip extends StatelessWidget {
             color: deepOf(color),
           ),
         ),
-        Text(
+        OneLine(
           bottom,
           style: TextStyle(
             fontSize: 15,

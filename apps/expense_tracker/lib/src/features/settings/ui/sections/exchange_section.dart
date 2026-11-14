@@ -54,7 +54,7 @@ class ExchangeSection extends StatelessWidget {
                         color: deepOf(SettingsHue.csv),
                       ),
                     ),
-                    Text(
+                    OneLine(
                       '一個月或全部，選好再匯出',
                       style: TextStyle(
                         fontSize: 13,
