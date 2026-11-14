@@ -339,6 +339,9 @@ class _ReportsPageState extends State<ReportsPage> {
               label: readout == null ? '整段期間' : _stretchName(readout),
               income: readout?.income ?? report.income,
               expense: readout?.expense ?? report.expense,
+              worth: readout == null || selected == null
+                  ? report.worthNow
+                  : report.worth.elementAtOrNull(selected),
             ),
             const SizedBox(height: 8),
             Row(
@@ -1038,12 +1041,16 @@ class _Readout extends StatelessWidget {
     required this.label,
     required this.income,
     required this.expense,
+    this.worth,
   });
 
   final Ledger ledger;
   final String label;
   final int income;
   final int expense;
+
+  /// Net worth at the stretch's end; none for one still ahead.
+  final int? worth;
 
   @override
   Widget build(BuildContext context) {
@@ -1072,6 +1079,7 @@ class _Readout extends StatelessWidget {
                 _figure('收', income, Hue.positive),
                 _figure('支', expense, Hue.negative),
                 _figure('餘', left, left < 0 ? Hue.negative : Hue.ink),
+                if (worth case final w?) _figure('淨資產', w, Hue.investment),
               ],
             ),
           ),
