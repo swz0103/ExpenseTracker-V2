@@ -12,6 +12,7 @@ import '../../features/overview/model/home_widget.dart';
 import '../../features/overview/ui/widget_face.dart';
 import '../../features/settings/model/services.dart';
 import '../shell.dart';
+import 'preview_services.dart';
 import 'seed.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
@@ -43,6 +44,9 @@ class PreviewLaunch extends StatefulWidget {
 enum _Stage { home, splash, lock, app }
 
 class _PreviewLaunchState extends State<PreviewLaunch> {
+  /// What the phone would do, in memory (preview_services.dart).
+  late final _stand = previewServices(widget.preferences);
+
   var _stage = _Stage.home;
   var _start = PreviewStart.plain;
 
@@ -113,6 +117,8 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
         tour: _tour,
         services: Services(
           preferences: widget.preferences,
+          notifier: _stand.notifier,
+          privacy: _stand.privacy,
           sample: demoLedger,
           quick: _quick,
         ),

@@ -1,11 +1,10 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/app/demo/preview_services.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/preferences.dart';
-import 'package:expense_tracker/src/core/screen_privacy.dart';
-import 'package:expense_tracker/src/features/reminders/model/notifications.dart';
 import 'package:expense_tracker/src/features/settings/model/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,8 +86,7 @@ Future<void> show(
   Key? key,
 }) async {
   final preferences = Preferences();
-  final hidden = Directory.systemTemp.createTempSync('layout-');
-  addTearDown(() => hidden.deleteSync(recursive: true));
+  final stand = previewServices(preferences);
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -105,14 +103,14 @@ Future<void> show(
               .copyWith(textScaler: TextScaler.linear(text)),
           child: child!,
         ),
-        // The settings the preview leaves out, so their pages and
-        // panels are checked too.
+        // As in the web preview, with its stand-ins for notifications
+        // and screen hiding, so those pages and panels are checked too.
         home: AppShell(
           ledger: demoLedger(),
           services: Services(
             preferences: preferences,
-            notifier: Notifier(_Port(), preferences),
-            privacy: ScreenPrivacy(hidden, (_) async {}),
+            notifier: stand.notifier,
+            privacy: stand.privacy,
           ),
         ),
       ),
@@ -133,33 +131,4 @@ Future<void> go(WidgetTester tester, List<String> taps) async {
     await tester.tap(finder.first, warnIfMissed: false);
     await tester.pumpAndSettle();
   }
-}
-
-/// Notifications that go nowhere, with the phone's settings all right.
-final class _Port implements NotifyPort {
-  @override
-  Future<bool> access() async => true;
-
-  @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
-
-  @override
-  Future<void> test({bool exact = false}) async {}
-
-  @override
-  Future<void> post(Alert alert, int id) async {}
-
-  @override
-  Future<ReminderStatus> status() async =>
-      (notifications: true, exact: true, battery: true);
-
-  @override
-  Future<void> openExactSettings() async {}
-
-  @override
-  Future<void> openBatterySettings() async {}
 }
