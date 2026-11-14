@@ -88,14 +88,14 @@ class _AccountsPageState extends State<AccountsPage> {
                 if (accounts.length > 1)
                   TextButton(
                     onPressed: () => _sort(context),
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    style: wordButton(Hue.accent),
                     child: const Text('排序'),
                   ),
                 TextButton.icon(
                   onPressed: () => editAccount(context, ledger),
                   icon: const GlyphIcon(Glyph.add, size: 16),
                   label: const Text('新增'),
-                  style: TextButton.styleFrom(foregroundColor: Hue.ink),
+                  style: wordButton(Hue.ink),
                 ),
               ],
             ),
@@ -332,7 +332,7 @@ class _WalletState extends State<_Wallet> {
                             boxShadow: _lifted
                                 ? const [
                                     BoxShadow(
-                                      color: Color(0x40000000),
+                                      color: Hue.lift,
                                       blurRadius: 18,
                                       offset: Offset(0, 8),
                                     ),
@@ -443,7 +443,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(foregroundColor: Hue.muted),
+                    style: wordButton(Hue.muted),
                     child: const Text('取消'),
                   ),
                   const Expanded(
@@ -451,14 +451,14 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       '排序帳戶',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   TextButton(
                     onPressed: _done,
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    style: wordButton(Hue.accent),
                     child: const Text('完成'),
                   ),
                 ],
@@ -502,7 +502,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                         child: Material(
                           color: Colors.transparent,
                           elevation: 10 * t,
-                          shadowColor: const Color(0x55000000),
+                          shadowColor: Hue.lift,
                           borderRadius: BorderRadius.circular(18),
                           child: child,
                         ),
@@ -536,7 +536,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                           Text(
                             '依類型重新排',
                             style: TextStyle(
-                              fontSize: 14.5,
+                              fontSize: TextSize.body,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -572,7 +572,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: TextSize.body,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -585,7 +585,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                                         a.currency,
                                       ),
                                 style: const TextStyle(
-                                  fontSize: 14,
+                                  fontSize: TextSize.body,
                                   fontWeight: FontWeight.w700,
                                   color: Hue.muted,
                                 ),

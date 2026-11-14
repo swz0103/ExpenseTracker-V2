@@ -465,7 +465,7 @@ class _PickBar extends StatelessWidget {
     Widget action(String label, VoidCallback onTap, {Color? color}) =>
         TextButton(
           onPressed: onTap,
-          style: TextButton.styleFrom(foregroundColor: color ?? Hue.accent),
+          style: wordButton(color ?? Hue.accent),
           child: Text(label),
         );
     return SoftPanel(

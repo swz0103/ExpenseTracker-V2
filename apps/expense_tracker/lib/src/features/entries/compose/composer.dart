@@ -863,9 +863,9 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
             children: [
               TextButton(
                 onPressed: entry != null ? _delete : _putAside,
-                style: TextButton.styleFrom(
-                  foregroundColor: entry != null ? Hue.danger : Hue.muted,
-                  minimumSize: const Size(64, 48),
+                style: wordButton(
+                  entry != null ? Hue.danger : Hue.muted,
+                  minimumSize: Size(64, 48),
                 ),
                 child: Text(entry != null ? '刪除' : '暫存'),
               ),
@@ -873,10 +873,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                 TextButton(
                   onPressed: () =>
                       Navigator.of(context).pop((ComposeOutcome.refund, entry)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Hue.positive,
-                    minimumSize: const Size(64, 48),
-                  ),
+                  style: wordButton(Hue.positive, minimumSize: Size(64, 48)),
                   child: const Text('退款'),
                 ),
               const SizedBox(width: 8),
@@ -887,14 +884,12 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                     onPressed: _viewing
                         ? () => setState(() => _viewing = false)
                         : _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _viewing ? Hue.accent : _color,
-                      textStyle: appFont.copyWith(
-                        fontSize: 16,
+                    style: solidButton(
+                      _viewing ? Hue.accent : _color,
+                      radius: 18,
+                      words: appFont.copyWith(
+                        fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                     child: Text(_viewing ? '編輯' : _action),

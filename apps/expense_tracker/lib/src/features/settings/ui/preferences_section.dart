@@ -116,8 +116,17 @@ class _LookChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const light = (Color(0xFFF3F4F1), Color(0xFFDDE3E2), Color(0xFFC9D0CE));
-    const dark = (Color(0xFF2A3237), Color(0xFF3E4A50), Color(0xFF55636A));
+    // Each theme's own paper, surface and line, whichever is showing.
+    final light = (
+      Color(Hue.paper.light),
+      Color(Hue.surface.light),
+      Color(Hue.faint.light),
+    );
+    final dark = (
+      Color(Hue.paper.darkValue),
+      Color(Hue.surface.darkValue),
+      Color(Hue.line.darkValue),
+    );
     Widget page((Color, Color, Color) c) => Container(
       color: c.$1,
       padding: const EdgeInsets.all(8),
@@ -202,7 +211,7 @@ class _LookChoice extends StatelessWidget {
               look.label,
               alignment: Alignment.center,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: chosen ? deepOf(color) : Hue.ink,
               ),
@@ -301,7 +310,7 @@ class _WidgetChoice extends StatelessWidget {
                       Text(
                         label,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: TextSize.body,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

@@ -95,7 +95,7 @@ class _FlowPainter extends CustomPainter {
     final bottom = size.height - 22;
     final plot = size.width - left - right;
     final slot = plot / months.length;
-    const axis = TextStyle(fontSize: 11, color: Hue.muted);
+    const axis = TextStyle(fontSize: TextSize.tiny, color: Hue.muted);
 
     var high = 1;
     for (final m in months) {

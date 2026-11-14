@@ -52,7 +52,7 @@ class _Calendar extends StatelessWidget {
                     child: Text(
                       w,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: TextSize.caption,
                         color: Hue.muted,
                         fontWeight: FontWeight.w700,
                       ),
@@ -103,10 +103,7 @@ class _Calendar extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color.lerp(color, const Color(0xFFFFFFFF), 0.15)!,
-                  color,
-                ],
+                colors: [Color.lerp(color, Hue.onSolid, 0.15)!, color],
               ),
             );
     } else if (items.isNotEmpty) {
@@ -115,9 +112,7 @@ class _Calendar extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
       );
     }
-    final onColor = single
-        ? (Shade.dark ? Hue.ink : const Color(0xFFFFFFFF))
-        : Hue.ink;
+    final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
     final number = Container(
       width: 24,
       height: 24,
@@ -129,7 +124,7 @@ class _Calendar extends StatelessWidget {
         '$d',
         textScaler: TextScaler.noScaling,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: TextSize.small,
           fontWeight: FontWeight.w800,
           color: isToday
               ? Hue.onAccent
@@ -148,7 +143,7 @@ class _Calendar extends StatelessWidget {
       slot = GlyphIcon(
         glyph,
         size: 16,
-        color: Shade.dark ? color : const Color(0xFFFFFFFF),
+        color: Shade.dark ? color : Hue.onSolid,
         tinted: false,
       );
     } else if (items.isNotEmpty) {
@@ -194,7 +189,7 @@ class _Calendar extends StatelessWidget {
                   border: Border.all(
                     color: isChosen
                         ? (single ? deepOf(color) : Hue.accent)
-                        : const Color(0x00000000),
+                        : Hue.none,
                     width: 2.5,
                   ),
                 ),
@@ -223,7 +218,7 @@ class _Calendar extends StatelessWidget {
                     '到期',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w800,
                       color: Hue.negative,
                     ),
@@ -301,7 +296,7 @@ class _DayItemsState extends State<_DayItems> {
               Text(
                 '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
                 style: const TextStyle(
-                  fontSize: 17,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -309,7 +304,7 @@ class _DayItemsState extends State<_DayItems> {
               Text(
                 right,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
                   color: overdue ? Hue.negative : Hue.muted,
                 ),
@@ -328,10 +323,7 @@ class _DayItemsState extends State<_DayItems> {
               const Spacer(),
               TextButton(
                 onPressed: widget.onAdd,
-                style: TextButton.styleFrom(
-                  foregroundColor: Hue.accent,
-                  minimumSize: const Size(0, 48),
-                ),
+                style: wordButton(Hue.accent, minimumSize: Size(0, 48)),
                 child: const Text(
                   '＋ 新增',
                   style: TextStyle(fontWeight: FontWeight.w800),
@@ -369,7 +361,7 @@ class _DayItemsState extends State<_DayItems> {
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',
       style: TextStyle(
-        fontSize: 17,
+        fontSize: TextSize.title,
         fontWeight: FontWeight.w800,
         color: item.income && booked == null ? Hue.positive : Hue.ink,
       ),
@@ -405,7 +397,7 @@ class _DayItemsState extends State<_DayItems> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
@@ -415,7 +407,7 @@ class _DayItemsState extends State<_DayItems> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: TextSize.caption,
                     color: due ? Hue.negative : Hue.muted,
                     fontWeight: due ? FontWeight.w800 : FontWeight.w400,
                   ),
@@ -429,14 +421,11 @@ class _DayItemsState extends State<_DayItems> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: () => widget.onBook(item),
-              style: FilledButton.styleFrom(
-                backgroundColor: markColor,
-                foregroundColor: wordsOn(markColor),
-                minimumSize: const Size(0, 44),
+              style: solidButton(
+                markColor,
+                minimumSize: Size(0, 44),
+                radius: 12,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
               child: const Text(
                 '入帳',
@@ -447,14 +436,12 @@ class _DayItemsState extends State<_DayItems> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: () => ledger.unskip(item, x.day),
-              style: FilledButton.styleFrom(
-                backgroundColor: Hue.white,
-                foregroundColor: Hue.accent,
-                minimumSize: const Size(0, 44),
+              style: solidButton(
+                Hue.white,
+                ink: Hue.accent,
+                minimumSize: Size(0, 44),
+                radius: 12,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
               child: const Text(
                 '恢復',
@@ -493,12 +480,18 @@ class _Cell extends StatelessWidget {
         children: [
           OneLine(
             label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.caption,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           OneLine(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -523,7 +516,7 @@ class _Tag extends StatelessWidget {
     child: Text(
       text,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: TextSize.caption,
         fontWeight: FontWeight.w800,
         color: deepOf(color),
       ),
@@ -590,7 +583,7 @@ class _ItemRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
@@ -599,7 +592,10 @@ class _ItemRow extends StatelessWidget {
                   sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
+                  ),
                 ),
               ],
             ),
@@ -612,7 +608,7 @@ class _ItemRow extends StatelessWidget {
                 '${item.income ? '+' : ''}'
                 '${ledger.orDots(recurringAmount(ledger, item))}',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                   color: item.income && !grey ? Hue.positive : Hue.ink,
                 ),

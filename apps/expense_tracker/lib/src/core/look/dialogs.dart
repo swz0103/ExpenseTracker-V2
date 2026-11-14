@@ -44,7 +44,7 @@ Future<bool> confirm(
 }) async {
   final ok = await showDialog<bool>(
     context: context,
-    barrierColor: const Color(0x66222B30),
+    barrierColor: Hue.scrim,
     builder: (context) => Dialog(
       backgroundColor: Hue.paper,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -58,14 +58,20 @@ Future<bool> confirm(
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             if (body != null) ...[
               const SizedBox(height: 10),
               Text(
                 body,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Hue.muted),
+                style: const TextStyle(
+                  fontSize: TextSize.body,
+                  color: Hue.muted,
+                ),
               ),
             ],
             const SizedBox(height: 20),
@@ -124,7 +130,7 @@ class _Choice extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w800,
               color: ink,
             ),

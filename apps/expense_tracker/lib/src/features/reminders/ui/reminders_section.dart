@@ -296,10 +296,10 @@ class _RemindersSectionState extends State<RemindersSection>
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: TextButton.icon(
-                  style: TextButton.styleFrom(
+                  style: wordButton(
+                    deepOf(SettingsHue.budget),
+                    minimumSize: Size(0, 48),
                     alignment: Alignment.centerLeft,
-                    foregroundColor: deepOf(SettingsHue.budget),
-                    minimumSize: const Size(0, 48),
                   ),
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -346,7 +346,7 @@ class _RemindersSectionState extends State<RemindersSection>
                   '${_two(preferences.nudgeHour)} : '
                   '${_two(preferences.nudgeMinute)}',
                   style: TextStyle(
-                    fontSize: 40,
+                    fontSize: TextSize.hero,
                     fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
@@ -434,10 +434,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
             const SizedBox(height: 6),
             TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Hue.danger,
-                minimumSize: const Size(0, 48),
-              ),
+              style: wordButton(Hue.danger, minimumSize: Size(0, 48)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _forgetCalendar(calendar);
@@ -578,7 +575,7 @@ class _PhoneStrip extends StatelessWidget {
             child: OneLine(
               missing ?? '手機設定都好了',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: deepOf(color),
               ),
@@ -586,13 +583,11 @@ class _PhoneStrip extends StatelessWidget {
           ),
           FilledButton(
             onPressed: good ? onTest : fix,
-            style: FilledButton.styleFrom(
-              backgroundColor: deepOf(color),
-              foregroundColor: Hue.paper,
-              minimumSize: const Size(0, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+            style: solidButton(
+              deepOf(color),
+              ink: Hue.paper,
+              minimumSize: Size(0, 48),
+              radius: 14,
             ),
             child: Text(
               good ? '試一則' : '去開',
@@ -619,7 +614,7 @@ class _Labelled extends StatelessWidget {
       Text(
         label,
         style: const TextStyle(
-          fontSize: 14,
+          fontSize: TextSize.body,
           fontWeight: FontWeight.w700,
           color: Hue.muted,
         ),
@@ -652,7 +647,7 @@ class _Chip extends StatelessWidget {
         OneLine(
           top,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
             color: deepOf(color),
           ),
@@ -660,7 +655,7 @@ class _Chip extends StatelessWidget {
         OneLine(
           bottom,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: TextSize.body,
             fontWeight: FontWeight.w800,
             color: deepOf(color),
           ),
@@ -702,14 +697,17 @@ class _ToggleRow extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
                     color: deepOf(color),
                   ),
                 ),
                 Text(
                   detail,
-                  style: TextStyle(fontSize: 13, color: deepOf(color)),
+                  style: TextStyle(
+                    fontSize: TextSize.small,
+                    color: deepOf(color),
+                  ),
                 ),
               ],
             ),

@@ -63,7 +63,7 @@ class _AccountPageState extends State<AccountPage> {
                   // Deleted or archived: back to the accounts.
                   if (gone) widget.nav.back();
                 },
-                style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                style: wordButton(Hue.accent),
                 child: const Text('編輯'),
               ),
             ],
@@ -261,7 +261,7 @@ class _AccountBodyState extends State<AccountBody> {
                 Text(
                   longDay(day),
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -323,7 +323,10 @@ class _Action extends StatelessWidget {
           Text(
             label,
             maxLines: 1,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

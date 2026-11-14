@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/look/app_mark.dart';
 import '../../../../core/look/theme.dart';
+import '../../../../core/look/kit/buttons.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -110,7 +111,6 @@ class _UnlockViewState extends State<UnlockView>
   }
 
   /// A soft light behind the mark, on the tinted top of the page.
-  static const _halo = Shade(0xBFFFFFFF, 0x1A72A8BC);
 
   /// The group's fixed parts, top to bottom, so the mark's place is known
   /// before it is laid out (it moves there from the middle).
@@ -177,7 +177,7 @@ class _UnlockViewState extends State<UnlockView>
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
-                                colors: [_halo, Color(0x00FFFFFF)],
+                                colors: [Hue.halo, Hue.none],
                                 stops: [0, 0.68],
                               ),
                             ),
@@ -222,9 +222,7 @@ class _UnlockViewState extends State<UnlockView>
                             come,
                             TextButton(
                               onPressed: widget.busy ? null : back,
-                              style: TextButton.styleFrom(
-                                foregroundColor: Hue.muted,
-                              ),
+                              style: wordButton(Hue.muted),
                               child: const Text('返回'),
                             ),
                           ),
@@ -260,7 +258,7 @@ class _UnlockViewState extends State<UnlockView>
     child: Text(
       '記帳本',
       style: TextStyle(
-        fontSize: 22,
+        fontSize: TextSize.large,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.8,
       ),
@@ -322,7 +320,10 @@ class _UnlockViewState extends State<UnlockView>
             : Text(
                 text,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: Hue.danger),
+                style: const TextStyle(
+                  fontSize: TextSize.small,
+                  color: Hue.danger,
+                ),
               ),
       ),
     );
@@ -370,9 +371,9 @@ class _UnlockViewState extends State<UnlockView>
     child: Center(
       child: TextButton(
         onPressed: widget.busy ? null : widget.onRecovery,
-        style: TextButton.styleFrom(
-          foregroundColor: Hue.muted,
-          textStyle: appFont.copyWith(fontSize: 13),
+        style: wordButton(
+          Hue.muted,
+          words: appFont.copyWith(fontSize: TextSize.small),
         ),
         child: const Text('忘記密碼？'),
       ),

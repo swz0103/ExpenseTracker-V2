@@ -243,15 +243,13 @@ class _PeopleChoicesState extends State<_PeopleChoices> {
           height: 52,
           child: FilledButton(
             onPressed: () => widget.onDone(_picked),
-            style: FilledButton.styleFrom(
-              backgroundColor: widget.color,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
+            style: solidButton(widget.color, radius: 18),
             child: Text(
               _picked.isEmpty ? '不代墊' : '好了（${_picked.length} 人）',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),

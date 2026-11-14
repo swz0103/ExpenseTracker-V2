@@ -150,7 +150,7 @@ class CardPage extends StatelessWidget {
                   if (!card.foreign && card.kind != AccountKind.receivable)
                     TextButton(
                       onPressed: () => reconcileAccount(context, ledger, card),
-                      style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                      style: wordButton(Hue.accent),
                       child: const Text('對帳'),
                     ),
                   TextButton(
@@ -163,7 +163,7 @@ class CardPage extends StatelessWidget {
                       // Deleted or archived: back to the accounts.
                       if (gone) nav.back();
                     },
-                    style: TextButton.styleFrom(foregroundColor: Hue.accent),
+                    style: wordButton(Hue.accent),
                     child: const Text('編輯'),
                   ),
                 ],
@@ -197,14 +197,10 @@ class CardPage extends StatelessWidget {
                             to: card.id,
                           ),
                         ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: chosenFill(Hue.accent),
-                          side: chosenEdge(Hue.accent),
-                          foregroundColor: chosenInk(Hue.accent),
-                          minimumSize: const Size.fromHeight(44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        style: solidButton(
+                          Hue.accent,
+                          minimumSize: Size.fromHeight(44),
+                          radius: 12,
                         ),
                         child: const Text('繳卡款'),
                       ),
@@ -387,13 +383,13 @@ class CardPage extends StatelessWidget {
                     Expanded(
                       child: Text(
                         e.title,
-                        style: const TextStyle(fontSize: 15),
+                        style: const TextStyle(fontSize: TextSize.body),
                       ),
                     ),
                     Text(
                       '${ledger.money(each)} / 期',
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -426,11 +422,14 @@ class CardPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 14)),
+          Text(label, style: const TextStyle(fontSize: TextSize.body)),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

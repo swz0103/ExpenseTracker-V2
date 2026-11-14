@@ -81,7 +81,10 @@ extension _Fields on _ComposerState {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(_note.text, style: const TextStyle(fontSize: 15)),
+              child: Text(
+                _note.text,
+                style: const TextStyle(fontSize: TextSize.body),
+              ),
             ),
           ],
         ),
@@ -125,7 +128,7 @@ extension _Fields on _ComposerState {
                 child: Text(
                   '備註',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w600,
                     color: Hue.muted,
                   ),
@@ -279,7 +282,7 @@ extension _Fields on _ComposerState {
             style: IconButton.styleFrom(
               backgroundColor: Hue.white,
               elevation: 2,
-              shadowColor: const Color(0x33000000),
+              shadowColor: Hue.lift,
             ),
             icon: const GlyphIcon(Glyph.arrow, size: 18, color: Hue.transfer),
           ),
@@ -585,7 +588,7 @@ extension _Fields on _ComposerState {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: TextSize.body,
                   fontWeight: open ? FontWeight.w700 : FontWeight.w600,
                   color: open ? Hue.ink : Hue.muted,
                 ),
@@ -671,7 +674,7 @@ extension _Fields on _ComposerState {
               Text(
                 '收據',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: TextSize.caption,
                   fontWeight: FontWeight.w700,
                   color: Hue.muted,
                 ),

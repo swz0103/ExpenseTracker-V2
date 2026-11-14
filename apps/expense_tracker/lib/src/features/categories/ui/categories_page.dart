@@ -279,13 +279,13 @@ class _Kind extends StatelessWidget {
                       TextSpan(
                         text: label,
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: TextSize.title,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       TextSpan(
                         text: '  $count',
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: TextSize.small),
                       ),
                     ],
                   ),
@@ -430,7 +430,7 @@ class _Tile extends StatelessWidget {
                       '$count',
                       textScaler: TextScaler.noScaling,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: TextSize.caption,
                         fontWeight: FontWeight.w800,
                         color: deepOf(color),
                       ),
@@ -446,7 +446,7 @@ class _Tile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
               color: plain ? Hue.ink : deepOf(color),
             ),

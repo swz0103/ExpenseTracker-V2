@@ -145,7 +145,7 @@ class _MarketSectionState extends State<MarketSection> {
                 h.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: TextSize.small),
               ),
             ),
             // A single holding's bar would only ever be full.
@@ -166,7 +166,7 @@ class _MarketSectionState extends State<MarketSection> {
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
                 textAlign: TextAlign.end,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   fontWeight: FontWeight.w600,
                   color: !quoted
                       ? Hue.muted

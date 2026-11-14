@@ -63,7 +63,7 @@ class _Manage extends StatelessWidget {
                   Text(
                     income ? '收入' : '支出',
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -123,11 +123,17 @@ class _Subscriptions extends StatelessWidget {
         else ...[
           const Text(
             '一年下來',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           Text(
             ledger.orDots(groupDigits(total)),
-            style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.hero,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           Text(
             '平均每月 ${ledger.orDots(groupDigits(total ~/ 12))}',
@@ -160,7 +166,10 @@ class _Subscriptions extends StatelessWidget {
               children: [
                 Text(
                   '每一項一年多少',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: TextSize.title,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Spacer(),
                 Text('依金額', style: mutedSmall),
@@ -231,14 +240,12 @@ class _Paused extends StatelessWidget {
                   trailing: FilledButton(
                     onPressed: () =>
                         ledger.saveRecurring(r.copyWith(active: true)),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Hue.white,
-                      foregroundColor: Hue.accent,
-                      minimumSize: const Size(0, 40),
+                    style: solidButton(
+                      Hue.white,
+                      ink: Hue.accent,
+                      minimumSize: Size(0, 40),
+                      radius: 12,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     child: const Text(
                       '恢復',

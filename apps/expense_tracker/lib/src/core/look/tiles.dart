@@ -349,7 +349,7 @@ class TileStats extends StatelessWidget {
                         OneLine(
                           label,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: TextSize.caption,
                             color: Hue.muted,
                           ),
                         ),
@@ -359,7 +359,7 @@ class TileStats extends StatelessWidget {
                           child: Text(
                             value,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: TextSize.body,
                               fontWeight: FontWeight.w700,
                               color: color,
                             ),
@@ -417,14 +417,14 @@ class Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: const Shade(0xB3FFFFFF, 0x1FFFFFFF),
+        color: Hue.glass,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         text,
         maxLines: 1,
         softWrap: false,
-        style: TextStyle(fontSize: 12.5, color: color),
+        style: TextStyle(fontSize: TextSize.caption, color: color),
       ),
     );
   }

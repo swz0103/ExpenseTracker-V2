@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../backup/model/keeper.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
+import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/exchange.dart';
@@ -49,7 +50,7 @@ class ExchangeSection extends StatelessWidget {
                     Text(
                       '匯出 CSV',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
                         color: deepOf(SettingsHue.csv),
                       ),
@@ -57,7 +58,7 @@ class ExchangeSection extends StatelessWidget {
                     OneLine(
                       '一個月或全部，選好再匯出',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: TextSize.small,
                         color: deepOf(SettingsHue.csv),
                       ),
                     ),
@@ -220,7 +221,10 @@ class _ExportSheetState extends State<_ExportSheet> {
           const Center(
             child: Text(
               '匯出多少',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -271,7 +275,7 @@ class _ExportSheetState extends State<_ExportSheet> {
                     child: const GlyphIcon(
                       Glyph.arrow,
                       size: 18,
-                      color: Color(0xFFFFFFFF),
+                      color: Hue.onSolid,
                       tinted: false,
                     ),
                   ),
@@ -338,7 +342,7 @@ class _SpanChoice extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
@@ -346,7 +350,7 @@ class _SpanChoice extends StatelessWidget {
                   Text(
                     sub,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: ink),
+                    style: TextStyle(fontSize: TextSize.caption, color: ink),
                   ),
                 ],
               ),
@@ -382,18 +386,21 @@ class _DayEnd extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            Text(label, style: TextStyle(fontSize: 12, color: ink)),
+            Text(
+              label,
+              style: TextStyle(fontSize: TextSize.caption, color: ink),
+            ),
             Text(
               '${day.year}/${day.month}/${day.day}',
               style: TextStyle(
-                fontSize: 19,
+                fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
                 color: ink,
               ),
             ),
             Text(
               '週${weekdayNames[day.weekday - 1]}',
-              style: TextStyle(fontSize: 12, color: ink),
+              style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           ],
         ),

@@ -198,7 +198,7 @@ class ToolButton extends StatelessWidget {
                   label,
                   alignment: Alignment.center,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: TextSize.title,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -206,7 +206,10 @@ class ToolButton extends StatelessWidget {
                 OneLine(
                   detail,
                   alignment: Alignment.center,
-                  style: const TextStyle(fontSize: 13, color: Hue.muted),
+                  style: const TextStyle(
+                    fontSize: TextSize.small,
+                    color: Hue.muted,
+                  ),
                 ),
               ],
             ),

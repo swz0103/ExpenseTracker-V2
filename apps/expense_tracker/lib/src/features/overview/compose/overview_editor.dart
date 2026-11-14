@@ -54,7 +54,10 @@ class _OverviewEditorState extends State<_OverviewEditor> {
           const Text(
             '調整總覽',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: TextSize.heading,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(

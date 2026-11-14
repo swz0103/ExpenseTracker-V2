@@ -166,7 +166,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     child: OneLine(
                       '分類與標籤額度',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -197,7 +197,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     Text(
                       '分類或標籤',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
                         color: Hue.accent,
                       ),
@@ -268,7 +268,7 @@ class _MonthRow extends StatelessWidget {
                   Text(
                     '$month 月',
                     style: const TextStyle(
-                      fontSize: 32,
+                      fontSize: TextSize.big,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -290,13 +290,11 @@ class _MonthRow extends StatelessWidget {
         if (!current)
           TextButton(
             onPressed: onToday,
-            style: TextButton.styleFrom(
-              backgroundColor: Hue.selected,
-              foregroundColor: Hue.accent,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
+            style: wordButton(
+              Hue.accent,
+              fill: Hue.selected,
+              minimumSize: Size(0, 44),
+              radius: 22,
             ),
             child: const Text(
               '回到本月',
@@ -356,7 +354,7 @@ class _Main extends StatelessWidget {
                     Text(
                       '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
                         color: over ? Hue.negative : ink,
                       ),
@@ -367,7 +365,7 @@ class _Main extends StatelessWidget {
                       child: Text(
                         ledger.orDots(groupDigits(left.abs())),
                         style: TextStyle(
-                          fontSize: 34,
+                          fontSize: TextSize.big,
                           fontWeight: FontWeight.w800,
                           color: over ? Hue.negative : Hue.ink,
                         ),
@@ -407,7 +405,7 @@ class _Main extends StatelessWidget {
                 ),
               ],
             ),
-            style: const TextStyle(fontSize: 14, color: Hue.muted),
+            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
           const SizedBox(height: 10),
           _DayBar(passed: current ? passed : days, days: days, today: current),
@@ -420,7 +418,7 @@ class _Main extends StatelessWidget {
                 Text(
                   '今天 $month/$passed',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -510,7 +508,7 @@ class _NoBudget extends StatelessWidget {
                 OneLine(
                   '${current ? '本月' : '$month 月'}花了',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: Hue.accent,
                   ),
@@ -518,7 +516,7 @@ class _NoBudget extends StatelessWidget {
                 OneLine(
                   ledger.orDots(groupDigits(spent)),
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: TextSize.figure,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -528,15 +526,11 @@ class _NoBudget extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             onPressed: onSet,
-            style: FilledButton.styleFrom(
-              backgroundColor: chosenFill(_budgetHue),
-              foregroundColor: chosenInk(_budgetHue),
-              side: chosenEdge(_budgetHue),
-              minimumSize: const Size(0, 48),
+            style: solidButton(
+              _budgetHue,
+              minimumSize: Size(0, 48),
+              radius: 14,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
             ),
             child: const Text(
               '設定預算',
@@ -659,7 +653,7 @@ class _Figure extends StatelessWidget {
                 OneLine(
                   label,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
                     color: Hue.muted,
                   ),
@@ -670,7 +664,7 @@ class _Figure extends StatelessWidget {
                   child: Text(
                     value,
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: TextSize.heading,
                       fontWeight: FontWeight.w800,
                       color: valueColor ?? color,
                     ),
@@ -759,7 +753,7 @@ class _Limit extends StatelessWidget {
                     over ? '超支' : '快用完',
                     textScaler: TextScaler.noScaling,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: TextSize.caption,
                       fontWeight: FontWeight.w800,
                       color: Hue.onAccent,
                     ),
@@ -773,7 +767,7 @@ class _Limit extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
               color: over ? deepOf(Hue.negative) : ink,
             ),
@@ -784,7 +778,7 @@ class _Limit extends StatelessWidget {
             child: Text(
               '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
                 color: over ? Hue.negative : Hue.ink,
               ),
@@ -851,7 +845,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                   '$_year',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: TextSize.heading,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -903,7 +897,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                             Text(
                               '$m 月',
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: TextSize.title,
                                 fontWeight: FontWeight.w800,
                                 color: on ? Hue.ink : Hue.faint,
                               ),
@@ -915,7 +909,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                                   ? '超支'
                                   : '$share%',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: TextSize.small,
                                 fontWeight: FontWeight.w700,
                                 color: tone,
                               ),
@@ -965,7 +959,10 @@ class _AddLimit extends StatelessWidget {
           const Center(
             child: Text(
               '幫哪個設額度',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           if (categories.isNotEmpty) ...[
@@ -994,7 +991,7 @@ class _AddLimit extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: TextSize.small,
                           fontWeight: FontWeight.w700,
                           color: deepOf(shownColor(c.color)),
                         ),
@@ -1113,7 +1110,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                           Text(
                             total ? '總預算' : name,
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: TextSize.large,
                               fontWeight: FontWeight.w800,
                               color: ink,
                             ),
@@ -1124,7 +1121,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                                 : tag
                                 ? '標籤額度'
                                 : '分類額度',
-                            style: TextStyle(fontSize: 13, color: ink),
+                            style: TextStyle(
+                              fontSize: TextSize.small,
+                              color: ink,
+                            ),
                           ),
                         ],
                       ),
@@ -1152,7 +1152,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                 Text(
                   '每月額度',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
@@ -1166,14 +1166,14 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                         const TextSpan(
                           text: 'NT\$ ',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: TextSize.heading,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         TextSpan(
                           text: groupDigits(_limit),
                           style: const TextStyle(
-                            fontSize: 44,
+                            fontSize: TextSize.hero,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -1235,12 +1235,12 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                           ),
                         ],
                       ),
-                      style: TextStyle(fontSize: 13, color: ink),
+                      style: TextStyle(fontSize: TextSize.small, color: ink),
                     ),
                     const Spacer(),
                     Text(
                       '$_warning% 時提醒',
-                      style: TextStyle(fontSize: 13, color: ink),
+                      style: TextStyle(fontSize: TextSize.small, color: ink),
                     ),
                   ],
                 ),
@@ -1250,7 +1250,10 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           const SizedBox(height: 16),
           const Text(
             '用到幾成時提醒',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1270,7 +1273,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                           child: Text(
                             '$p%',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: TextSize.title,
                               fontWeight: FontWeight.w800,
                               color: p == _warning ? Hue.onAccent : Hue.ink,
                             ),
@@ -1299,7 +1302,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                       Text(
                         '沒用完的留到下個月',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: TextSize.body,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

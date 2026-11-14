@@ -71,7 +71,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
                       group,
                       style: TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 20,
+                        fontSize: TextSize.heading,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 2,
                         color: deepOf(color),

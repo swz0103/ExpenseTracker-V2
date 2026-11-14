@@ -112,7 +112,7 @@ class _LabelsPageState extends State<LabelsPage> {
           child: Text(
             '$year',
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
               color: Hue.muted,
             ),
@@ -132,7 +132,7 @@ class _LabelsPageState extends State<LabelsPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w800,
                   color: deepOf(nameColor(name)),
                 ),
@@ -210,12 +210,12 @@ class _LabelsPageState extends State<LabelsPage> {
                       ),
                       TextSpan(
                         text: '  $count 次',
-                        style: const TextStyle(fontSize: 12.5),
+                        style: const TextStyle(fontSize: TextSize.caption),
                       ),
                     ],
                   ),
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     color: deepOf(nameColor(name)),
                   ),
                 ),
@@ -277,13 +277,16 @@ class _Half extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text('$count', style: TextStyle(fontSize: 13, color: ink)),
+                  Text(
+                    '$count',
+                    style: TextStyle(fontSize: TextSize.small, color: ink),
+                  ),
                 ],
               ),
             ),
@@ -364,7 +367,10 @@ class _Step extends StatelessWidget {
                       color: ink,
                     ),
                   ),
-                  Text('次', style: TextStyle(fontSize: 12, color: ink)),
+                  Text(
+                    '次',
+                    style: TextStyle(fontSize: TextSize.caption, color: ink),
+                  ),
                 ],
               ),
             ),
@@ -441,16 +447,16 @@ class ProjectCard extends StatelessWidget {
                         child: const Text(
                           '最近',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: TextSize.caption,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFFFFFFFF),
+                            color: Hue.onSolid,
                           ),
                         ),
                       ),
                     Text(
                       days,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w700,
                         color: ink,
                       ),
@@ -461,7 +467,7 @@ class ProjectCard extends StatelessWidget {
                         child: Text(
                           '#${project.tag}',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: TextSize.large,
                             fontWeight: FontWeight.w800,
                             color: ink,
                           ),
@@ -476,13 +482,16 @@ class ProjectCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             ledger.orDots(groupDigits(spent)),
-            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.big,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           Text(
             '${project.days > 1 ? '每天約 ${ledger.orDots(groupDigits(project.perDay))} · ' : ''}'
             '${project.entries.length} 筆',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
               color: ink,
             ),
@@ -530,7 +539,7 @@ class ProjectCard extends StatelessWidget {
                       Text(
                         '$name ${amount * 100 ~/ spent}%',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: TextSize.small,
                           fontWeight: FontWeight.w700,
                           color: ink,
                         ),
@@ -630,7 +639,10 @@ class LabelPage extends StatelessWidget {
             const Center(
               child: Text(
                 '合併到',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: TextSize.heading,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -653,7 +665,7 @@ class LabelPage extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: TextSize.body,
                           fontWeight: FontWeight.w800,
                           color: deepOf(nameColor(other)),
                         ),
@@ -733,7 +745,7 @@ class LabelPage extends StatelessWidget {
                 child: Text(
                   merchant ? '紀錄' : '紀錄 · ${entries.length} 筆',
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
                     color: Hue.muted,
                   ),
@@ -799,7 +811,7 @@ class _VisitsCard extends StatelessWidget {
                 Text(
                   '去過',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
@@ -810,14 +822,14 @@ class _VisitsCard extends StatelessWidget {
                       TextSpan(
                         text: '${visits.length}',
                         style: const TextStyle(
-                          fontSize: 40,
+                          fontSize: TextSize.hero,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const TextSpan(
                         text: ' 次',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: TextSize.heading,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -829,7 +841,7 @@ class _VisitsCard extends StatelessWidget {
                   '最近 ${last.month}/${last.day} · '
                   '第一次 ${first.year}/${first.month}/${first.day}',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
@@ -889,7 +901,10 @@ class _RenameSheetState extends State<_RenameSheet> {
           const Center(
             child: Text(
               '改名',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -905,7 +920,7 @@ class _RenameSheetState extends State<_RenameSheet> {
                   Text(
                     '# ',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: TextSize.large,
                       fontWeight: FontWeight.w800,
                       color: color,
                     ),
@@ -917,7 +932,7 @@ class _RenameSheetState extends State<_RenameSheet> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _done(),
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: TextSize.large,
                       fontWeight: FontWeight.w800,
                       color: ink,
                     ),

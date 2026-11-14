@@ -4,6 +4,7 @@ import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/kit/colours.dart';
 import '../../../../core/look/theme.dart';
 import 'lock_parts.dart';
+import '../../../../core/look/kit/buttons.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -92,7 +93,6 @@ class _WelcomeViewState extends State<WelcomeView>
   }
 
   /// A soft light behind the mark, on the tinted top of the page.
-  static const _halo = Shade(0xBFFFFFFF, 0x1A72A8BC);
 
   Widget _layout(Size space) {
     final move = Curves.easeInOutCubic.transform(_settle.value);
@@ -132,7 +132,7 @@ class _WelcomeViewState extends State<WelcomeView>
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [_halo, Color(0x00FFFFFF)],
+                  colors: [Hue.halo, Hue.none],
                   stops: [0, 0.68],
                 ),
               ),
@@ -157,7 +157,7 @@ class _WelcomeViewState extends State<WelcomeView>
               '記帳本',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 30,
+                fontSize: TextSize.figure,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.8,
               ),
@@ -202,15 +202,10 @@ class _WelcomeViewState extends State<WelcomeView>
             const SizedBox(height: 12),
             FilledButton(
               onPressed: busy ? null : widget.onStart,
-              style: FilledButton.styleFrom(
-                backgroundColor: chosenFill(Hue.accent),
-                side: chosenEdge(Hue.accent),
-                foregroundColor: chosenInk(Hue.accent),
-                disabledBackgroundColor: Hue.accent,
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+              style: solidButton(
+                Hue.accent,
+                minimumSize: Size.fromHeight(52),
+                radius: 16,
               ),
               child: busy
                   ? const BusyMark()
@@ -227,7 +222,7 @@ class _WelcomeViewState extends State<WelcomeView>
                         Text(
                           '建立新帳本',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: TextSize.title,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -241,10 +236,10 @@ class _WelcomeViewState extends State<WelcomeView>
                 const Text('已經有帳本？', style: TextStyle(color: Hue.muted)),
                 TextButton(
                   onPressed: busy ? null : widget.onRestore,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Hue.accent,
+                  style: wordButton(
+                    Hue.accent,
+                    minimumSize: Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    minimumSize: const Size(48, 48),
                   ),
                   child: const Text(
                     '還原備份',
@@ -277,7 +272,7 @@ class _WelcomeViewState extends State<WelcomeView>
                 shape: StadiumBorder(),
                 shadows: [
                   BoxShadow(
-                    color: Color(0x1A1E2832),
+                    color: Hue.float,
                     blurRadius: 26,
                     offset: Offset(0, 10),
                   ),
@@ -316,14 +311,14 @@ class _WelcomeViewState extends State<WelcomeView>
                               Text(
                                 '還原 ${at.month} 月 ${at.day} 日的備份',
                                 style: const TextStyle(
-                                  fontSize: 15,
+                                  fontSize: TextSize.body,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               Text(
                                 '${_grouped(found.rows)} 筆紀錄',
                                 style: const TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: TextSize.caption,
                                   color: Hue.muted,
                                 ),
                               ),
@@ -360,10 +355,10 @@ class _WelcomeViewState extends State<WelcomeView>
                 const Text('或', style: TextStyle(color: Hue.muted)),
                 TextButton(
                   onPressed: busy ? null : widget.onStart,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Hue.accent,
+                  style: wordButton(
+                    Hue.accent,
+                    minimumSize: Size(48, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    minimumSize: const Size(48, 48),
                   ),
                   child: const Text(
                     '建立新帳本',

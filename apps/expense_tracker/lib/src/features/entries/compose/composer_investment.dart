@@ -128,7 +128,7 @@ extension _InvestmentFields on _ComposerState {
                   child: Text(
                     '成本算法',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: TextSize.caption,
                       fontWeight: FontWeight.w700,
                       color: Hue.muted,
                     ),
@@ -256,7 +256,7 @@ extension _InvestmentFields on _ComposerState {
     child: Text(
       sign,
       style: const TextStyle(
-        fontSize: 16,
+        fontSize: TextSize.title,
         fontWeight: FontWeight.w700,
         color: Hue.faint,
       ),
@@ -392,7 +392,7 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
                   Text(
                     '新增',
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,
                       color: Hue.muted,
                     ),
@@ -478,13 +478,16 @@ class _OutcomeCard extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   sub,
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
+                  ),
                 ),
               ],
             ),
@@ -493,7 +496,7 @@ class _OutcomeCard extends StatelessWidget {
             Text(
               figure,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: TextSize.large,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),

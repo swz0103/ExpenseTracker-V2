@@ -77,7 +77,7 @@ class RestoreView extends StatelessWidget {
           Text(
             about,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13),
+            style: const TextStyle(fontSize: TextSize.small),
           ),
         if (drive != null)
           OutlinedButton(

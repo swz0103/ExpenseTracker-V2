@@ -45,7 +45,7 @@ class _OriginalTile extends StatelessWidget {
           Text(
             '−${ledger.moneyIn(entry.amount, currency)}',
             style: const TextStyle(
-              fontSize: 17,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
               color: Hue.negative,
             ),
@@ -224,12 +224,7 @@ class _TagPickerState extends State<_TagPicker> {
         const SizedBox(height: 12),
         FilledButton(
           onPressed: () => widget.onDone(_picked),
-          style: FilledButton.styleFrom(
-            backgroundColor: chosenFill(Hue.accent),
-            side: chosenEdge(Hue.accent),
-            foregroundColor: chosenInk(Hue.accent),
-            minimumSize: const Size.fromHeight(44),
-          ),
+          style: solidButton(Hue.accent, minimumSize: Size.fromHeight(44)),
           child: const Text('完成'),
         ),
       ],
@@ -279,7 +274,7 @@ class _Tabs extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: TextSize.title,
                     fontWeight: FontWeight.w700,
                     color: i == selected ? Hue.ink : Hue.faint,
                   ),
@@ -330,7 +325,10 @@ class _PageHeader extends StatelessWidget {
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 48),
@@ -380,7 +378,7 @@ class _AmountHero extends StatelessWidget {
           child: Text(
             unit,
             style: const TextStyle(
-              fontSize: 17,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
               color: Hue.faint,
             ),
@@ -391,7 +389,7 @@ class _AmountHero extends StatelessWidget {
           value,
           maxLines: 1,
           style: TextStyle(
-            fontSize: 46,
+            fontSize: TextSize.hero,
             fontWeight: FontWeight.w700,
             height: 1.1,
             color: color,
@@ -465,7 +463,7 @@ class _Bubble extends StatelessWidget {
             label,
             maxLines: 1,
             style: TextStyle(
-              fontSize: 13.5,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w600,
               color: ink ?? Hue.muted,
             ),
@@ -560,7 +558,7 @@ class _StripItem extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: TextSize.caption,
                 fontWeight: lit ? FontWeight.w700 : FontWeight.w500,
                 color: lit ? color : Hue.muted,
               ),
@@ -654,7 +652,7 @@ class _AllocationBar extends StatelessWidget {
                               overflow: TextOverflow.clip,
                               softWrap: false,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: TextSize.caption,
                                 fontWeight: FontWeight.w700,
                                 color: wordsOn(shownColor(category.color)),
                               ),
@@ -665,7 +663,7 @@ class _AllocationBar extends StatelessWidget {
                               overflow: TextOverflow.clip,
                               softWrap: false,
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: TextSize.body,
                                 fontWeight: FontWeight.w700,
                                 color: wordsOn(shownColor(category.color)),
                               ),
@@ -737,7 +735,7 @@ class _Pick extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 16.5,
+                          fontSize: TextSize.title,
                           fontWeight: FontWeight.w700,
                           color: valueColor,
                         ),
@@ -819,7 +817,7 @@ class _TransferEnd extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: TextSize.body,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -828,7 +826,7 @@ class _TransferEnd extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: TextSize.caption,
                             color: Hue.muted,
                           ),
                         ),
@@ -897,7 +895,7 @@ class _Figure extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: TextSize.caption,
                         fontWeight: FontWeight.w700,
                         color: Hue.muted,
                       ),
@@ -910,7 +908,7 @@ class _Figure extends StatelessWidget {
                         child: Text(
                           value,
                           style: const TextStyle(
-                            fontSize: 22,
+                            fontSize: TextSize.large,
                             fontWeight: FontWeight.w700,
                             color: Hue.ink,
                           ),
@@ -968,7 +966,7 @@ class _EqBox extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w700,
                       color: Hue.muted,
                     ),
@@ -978,7 +976,7 @@ class _EqBox extends StatelessWidget {
                     child: Text(
                       tap == null ? value : '$value ✎',
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1028,7 +1026,7 @@ class _CodePill extends StatelessWidget {
             Text(
               code,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: TextSize.small,
                 fontWeight: FontWeight.w800,
                 color: picked ? Hue.investment : Hue.ink,
               ),
@@ -1038,7 +1036,7 @@ class _CodePill extends StatelessWidget {
               Text(
                 name,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   color: picked ? Hue.investment : Hue.muted,
                 ),
               ),
@@ -1129,7 +1127,7 @@ class _HoldingCard extends StatelessWidget {
                 code,
                 maxLines: 1,
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                   color: picked ? Hue.investment : Hue.ink,
                 ),
@@ -1139,7 +1137,7 @@ class _HoldingCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13.5,
+                  fontSize: TextSize.small,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1231,7 +1229,7 @@ class _UsualChip extends StatelessWidget {
               name,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: TextSize.small,
                 fontWeight: strong ? FontWeight.w700 : FontWeight.w400,
                 color: strong ? Hue.ink : Hue.muted,
               ),
@@ -1242,7 +1240,7 @@ class _UsualChip extends StatelessWidget {
                 figure,
                 maxLines: 1,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
                   color: Hue.ink,
                 ),
@@ -1300,7 +1298,7 @@ class _LentChip extends StatelessWidget {
               name,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: TextSize.small,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
@@ -1310,7 +1308,7 @@ class _LentChip extends StatelessWidget {
               amount,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
@@ -1413,7 +1411,7 @@ class _PersonPill extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: TextSize.small,
                           fontWeight: FontWeight.w700,
                           color: color,
                         ),
@@ -1426,7 +1424,7 @@ class _PersonPill extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: TextSize.caption,
                           color: Hue.muted,
                         ),
                       ),
@@ -1500,7 +1498,7 @@ class _OwedCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: TextSize.body,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1508,7 +1506,7 @@ class _OwedCard extends StatelessWidget {
                           when,
                           maxLines: 1,
                           style: const TextStyle(
-                            fontSize: 11.5,
+                            fontSize: TextSize.tiny,
                             color: Hue.muted,
                           ),
                         ),
@@ -1517,7 +1515,7 @@ class _OwedCard extends StatelessWidget {
                           amount,
                           maxLines: 1,
                           style: TextStyle(
-                            fontSize: 17,
+                            fontSize: TextSize.title,
                             fontWeight: FontWeight.w700,
                             color: picked ? color : Hue.ink,
                           ),
@@ -1537,7 +1535,7 @@ class _OwedCard extends StatelessWidget {
                         ? const Text(
                             '✓',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: TextSize.caption,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -1584,7 +1582,7 @@ class _WordChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13.5,
+            fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
             color: picked ? color : Hue.ink,
           ),
@@ -1629,7 +1627,7 @@ class _GroupLabel extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 12.5,
+          fontSize: TextSize.caption,
           fontWeight: FontWeight.w700,
           color: Hue.muted,
         ),

@@ -9,3 +9,4 @@ export 'menus.dart';
 export 'password_field.dart';
 export 'tiles.dart';
 export 'time_panels.dart';
+export 'type.dart';

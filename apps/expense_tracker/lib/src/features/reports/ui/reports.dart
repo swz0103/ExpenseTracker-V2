@@ -182,7 +182,10 @@ class _ReportsPageState extends State<ReportsPage> {
               label: period.title,
               previousLabel: '上一期',
               nextLabel: '下一期',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+              ),
               onPrevious: from.isAfter(ledger.firstDay)
                   ? () => _step(-1)
                   : null,
@@ -309,7 +312,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 Expanded(
                   child: OneLine(
                     '收支與淨資產',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: TextSize.title,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 LegendKey(Hue.negative, '支出'),
@@ -582,7 +588,10 @@ class _ReportsPageState extends State<ReportsPage> {
             Text(
               name,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             Text(
               '${period.title} · ${entries.length} 筆 · ${ledger.money(total)}',
@@ -683,7 +692,7 @@ class _ReportsPageState extends State<ReportsPage> {
                                   '$count 次 · 每次約 '
                                   '${ledger.orDots(groupDigits(amount ~/ count))}',
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: TextSize.caption,
                                     color: Hue.muted,
                                   ),
                                 ),
@@ -773,7 +782,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       name,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: TextSize.caption,
                         fontWeight: i == heaviest
                             ? FontWeight.w700
                             : FontWeight.w500,
@@ -820,7 +829,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   child: Text(
                     ledger.orDots(groupDigits(amount)),
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: TextSize.heading,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -828,7 +837,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 if (counts[tag] case final n?)
                   Text(
                     '$n 筆',
-                    style: const TextStyle(fontSize: 12, color: Hue.muted),
+                    style: const TextStyle(
+                      fontSize: TextSize.caption,
+                      color: Hue.muted,
+                    ),
                   ),
               ],
             ),

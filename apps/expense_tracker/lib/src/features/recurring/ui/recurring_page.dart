@@ -21,7 +21,7 @@ part 'recurring_lists.dart';
 const _recurringHue = Palette.orange;
 
 /// The grey of a day with several items, or with all of them booked.
-const _busyDay = Shade(0xFFEAEEEC, 0xFF3E4A50);
+const _busyDay = Hue.surface;
 
 /// An item's colour and mark: its category's.
 (Glyph, Color) _mark(Ledger ledger, Recurring item) {
@@ -168,7 +168,7 @@ class _RecurringPageState extends State<RecurringPage> {
                 Text(
                   '$month 月',
                   style: const TextStyle(
-                    fontSize: 32,
+                    fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -179,13 +179,11 @@ class _RecurringPageState extends State<RecurringPage> {
                       _month = _now;
                       _day = null;
                     }),
-                    style: TextButton.styleFrom(
-                      backgroundColor: Hue.selected,
-                      foregroundColor: Hue.accent,
-                      minimumSize: const Size(0, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                      ),
+                    style: wordButton(
+                      Hue.accent,
+                      fill: Hue.selected,
+                      minimumSize: Size(0, 44),
+                      radius: 22,
                     ),
                     child: const Text(
                       '回到今天',

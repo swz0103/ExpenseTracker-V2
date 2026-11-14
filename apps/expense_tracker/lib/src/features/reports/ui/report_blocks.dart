@@ -33,7 +33,10 @@ class _Readout extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.small,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(width: 12),
           // Wraps onto a second line rather than shrinking when the
@@ -69,7 +72,7 @@ class _Readout extends StatelessWidget {
         ),
       ],
     ),
-    style: const TextStyle(fontSize: 13),
+    style: const TextStyle(fontSize: TextSize.small),
   );
 }
 
@@ -114,7 +117,7 @@ class _Hero extends StatelessWidget {
           Text(
             until == null ? '結餘' : '結餘 · 至 ${until.month}/${until.day}',
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
               color: Hue.accent,
             ),
@@ -129,7 +132,7 @@ class _Hero extends StatelessWidget {
               Text(
                 ledger.orDots(groupDigits(kept)),
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: TextSize.big,
                   fontWeight: FontWeight.w800,
                   color: kept < 0 ? Hue.negative : Hue.ink,
                 ),
@@ -141,7 +144,7 @@ class _Hero extends StatelessWidget {
                   Text(
                     '收入 ${ledger.orDots(groupDigits(income))}',
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                       color: Hue.positive,
                     ),
@@ -204,7 +207,7 @@ class _Hero extends StatelessWidget {
                     Text(
                       '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: TextSize.caption,
                         fontWeight: FontWeight.w800,
                         color: change >= 0 ? Hue.negative : Hue.positive,
                       ),
@@ -264,7 +267,7 @@ class _Block extends StatelessWidget {
                 child: OneLine(
                   label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: ink,
                   ),
@@ -275,10 +278,16 @@ class _Block extends StatelessWidget {
           const SizedBox(height: 8),
           OneLine(
             value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.large,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           if (sub.isNotEmpty)
-            OneLine(sub, style: TextStyle(fontSize: 12.5, color: ink)),
+            OneLine(
+              sub,
+              style: TextStyle(fontSize: TextSize.caption, color: ink),
+            ),
         ],
       ),
     );
@@ -341,7 +350,7 @@ class _CategoryBlock extends StatelessWidget {
                     '${change >= 0 ? '▲' : '▼'} ${change.abs()}%',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: TextSize.caption,
                       fontWeight: FontWeight.w800,
                       color: change >= 0 ? Hue.negative : Hue.positive,
                     ),

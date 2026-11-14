@@ -65,14 +65,14 @@ class TrashSection extends StatelessWidget {
                   Text(
                     '${trash.length} 筆',
                     style: const TextStyle(
-                      fontSize: 28,
+                      fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
                     '保留 $_keptDays 天',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: TextSize.body,
                       color: deepOf(SettingsHue.trash),
                     ),
                   ),
@@ -87,7 +87,7 @@ class TrashSection extends StatelessWidget {
             child: Text(
               '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]} 記的',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: Hue.muted,
               ),
@@ -122,14 +122,12 @@ class TrashSection extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             onPressed: () => _restore(context, t),
-            style: FilledButton.styleFrom(
-              backgroundColor: Hue.selected,
-              foregroundColor: Hue.accent,
-              minimumSize: const Size(56, 44),
+            style: solidButton(
+              Hue.selected,
+              ink: Hue.accent,
+              minimumSize: Size(56, 44),
+              radius: 14,
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
             ),
             child: const Text(
               '放回',

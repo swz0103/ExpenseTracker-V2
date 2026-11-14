@@ -163,14 +163,17 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+                      style: const TextStyle(
+                        fontSize: TextSize.tiny,
+                        color: Hue.muted,
+                      ),
                     ),
                     Text(
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -210,7 +213,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                             child: Text(
                               income ? '收入' : '支出',
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: TextSize.title,
                                 fontWeight: FontWeight.w800,
                                 color: _f.income == income
                                     ? Hue.onAccent
@@ -245,14 +248,14 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                       child: TextField(
                         controller: _name,
                         style: TextStyle(
-                          fontSize: 21,
+                          fontSize: TextSize.heading,
                           fontWeight: FontWeight.w800,
                           color: ink,
                         ),
                         decoration: InputDecoration.collapsed(
                           hintText: '點這裡取個名字',
                           hintStyle: TextStyle(
-                            fontSize: 18,
+                            fontSize: TextSize.heading,
                             color: ink.withValues(alpha: 0.55),
                           ),
                         ),
@@ -287,14 +290,14 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                           text:
                               '${_f.currency == homeCode ? 'NT\$' : _f.currency} ',
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: TextSize.heading,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         TextSpan(
                           text: amountIn(_f.amount, _f.currency),
                           style: const TextStyle(
-                            fontSize: 44,
+                            fontSize: TextSize.hero,
                             fontWeight: FontWeight.w800,
                             color: Hue.ink,
                           ),
@@ -461,7 +464,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: TextSize.caption,
                 fontWeight: chosen ? FontWeight.w800 : FontWeight.w400,
                 color: chosen ? deepOf(shownColor(c.color)) : Hue.muted,
               ),
@@ -504,7 +507,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w800,
                 color: chosen ? Hue.onAccent : Hue.ink,
               ),
@@ -548,7 +551,10 @@ class _RepeatSheetState extends State<_RepeatSheet> {
           const Center(
             child: Text(
               '多久一次',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -613,7 +619,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Text('每', style: TextStyle(fontSize: 16)),
+              const Text('每', style: TextStyle(fontSize: TextSize.title)),
               IconButton(
                 tooltip: '少一',
                 onPressed: _f.every > 1
@@ -621,13 +627,16 @@ class _RepeatSheetState extends State<_RepeatSheet> {
                     : null,
                 icon: const Text(
                   '−',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: TextSize.large,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               Text(
                 '${_f.every}',
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: TextSize.heading,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -636,7 +645,10 @@ class _RepeatSheetState extends State<_RepeatSheet> {
                 onPressed: () => setState(() => _f.step(1)),
                 icon: const GlyphIcon(Glyph.add, size: 20),
               ),
-              Text(_f.unit.label, style: const TextStyle(fontSize: 16)),
+              Text(
+                _f.unit.label,
+                style: const TextStyle(fontSize: TextSize.title),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -701,7 +713,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: TextSize.heading,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -738,7 +750,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -768,7 +780,10 @@ class _OtherSheetState extends State<_OtherSheet> {
           const Center(
             child: Text(
               '其他設定',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 12),

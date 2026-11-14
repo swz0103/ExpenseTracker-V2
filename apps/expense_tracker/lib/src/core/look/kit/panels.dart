@@ -58,7 +58,7 @@ class CenterPanel extends StatelessWidget {
                         child: OneLine(
                           title,
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: TextSize.heading,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -67,7 +67,7 @@ class CenterPanel extends StatelessWidget {
                         OneLine(
                           detail!,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: TextSize.body,
                             color: Hue.muted,
                           ),
                         ),
@@ -152,7 +152,7 @@ Future<T?> showPanel<T>(
 }) => showDialog<T>(
   context: context,
   barrierDismissible: dismissible,
-  barrierColor: const Color(0x66222B30),
+  barrierColor: Hue.scrim,
   builder: builder,
 );
 
@@ -203,7 +203,7 @@ class PanelButton extends StatelessWidget {
                   label,
                   alignment: Alignment.center,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: TextSize.title,
                     fontWeight: FontWeight.w800,
                     color: solid == null
                         ? Hue.ink

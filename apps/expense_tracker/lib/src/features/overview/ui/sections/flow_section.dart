@@ -93,13 +93,16 @@ class _FlowSectionState extends State<FlowSection> {
           Expanded(
             child: Text(
               scope,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Text(
             '結餘 ${ledger.money(left)}',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
               color: left < 0 ? Hue.negative : Hue.ink,
             ),

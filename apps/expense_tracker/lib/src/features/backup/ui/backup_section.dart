@@ -169,7 +169,10 @@ class _BackupSectionState extends State<BackupSection> {
         glyph: Glyph.records,
         color: SettingsHue.folder,
         title: '存到資料夾',
-        body: Text(rules, style: const TextStyle(fontSize: 15, height: 1.5)),
+        body: Text(
+          rules,
+          style: const TextStyle(fontSize: TextSize.body, height: 1.5),
+        ),
         actions: [
           PanelButton('取消', onTap: () => Navigator.of(context).pop(false)),
           PanelButton(
@@ -421,7 +424,7 @@ class BackupHero extends StatelessWidget {
                     Text(
                       small,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: TextSize.small,
                         fontWeight: FontWeight.w700,
                         color: deepOf(color),
                       ),
@@ -429,7 +432,7 @@ class BackupHero extends StatelessWidget {
                     Text(
                       big,
                       style: const TextStyle(
-                        fontSize: 26,
+                        fontSize: TextSize.figure,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -486,7 +489,7 @@ class _BackupCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                       color: deepOf(color),
                     ),
@@ -551,13 +554,16 @@ class _CardRow extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: TextSize.body,
                       fontWeight: FontWeight.w700,
                       color: ink,
                     ),
                   ),
                   if (detail != null)
-                    Text(detail!, style: TextStyle(fontSize: 12.5, color: ink)),
+                    Text(
+                      detail!,
+                      style: TextStyle(fontSize: TextSize.caption, color: ink),
+                    ),
                 ],
               ),
             ),
@@ -609,7 +615,7 @@ class _Manual extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w800,
               color: ink,
             ),

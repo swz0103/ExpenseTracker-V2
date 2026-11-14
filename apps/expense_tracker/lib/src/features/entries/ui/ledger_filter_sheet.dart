@@ -315,7 +315,7 @@ class _FilterSheetState extends State<_FilterSheet> {
       title: '篩選',
       trailing: TextButton(
         onPressed: _clear,
-        style: TextButton.styleFrom(foregroundColor: Hue.muted),
+        style: wordButton(Hue.muted),
         child: const Text('清除'),
       ),
       body: Column(
@@ -453,7 +453,7 @@ class _KindTile extends StatelessWidget {
                   kind.label,
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: TextSize.caption,
                     fontWeight: FontWeight.w800,
                     color: selected ? chosenInk(color) : deepOf(color),
                   ),

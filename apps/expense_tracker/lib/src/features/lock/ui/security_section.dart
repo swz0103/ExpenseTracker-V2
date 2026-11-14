@@ -174,7 +174,7 @@ class _PasswordPanelState extends State<_PasswordPanel> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: TextSize.small,
                 fontWeight: FontWeight.w700,
                 color: deepOf(color),
               ),

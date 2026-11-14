@@ -167,7 +167,10 @@ class _AccountEditorState extends State<_AccountEditor> {
           children: [
             Text(
               closing ? '結帳日' : '繳款日',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 12),
             GridView.count(
@@ -293,7 +296,10 @@ class _AccountEditorState extends State<_AccountEditor> {
             const Text(
               '選圖示',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             for (final (group, marks) in accountIconGroups) ...[
               Padding(
@@ -324,7 +330,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                           Text(
                             name,
                             style: const TextStyle(
-                              fontSize: 11.5,
+                              fontSize: TextSize.tiny,
                               color: Hue.muted,
                             ),
                           ),
@@ -373,11 +379,9 @@ class _AccountEditorState extends State<_AccountEditor> {
             if (old != null)
               TextButton(
                 onPressed: removable ? _remove : _archive,
-                style: TextButton.styleFrom(
-                  foregroundColor: removable || !old.archived
-                      ? Hue.danger
-                      : Hue.accent,
-                  minimumSize: const Size(64, 46),
+                style: wordButton(
+                  removable || !old.archived ? Hue.danger : Hue.accent,
+                  minimumSize: Size(64, 46),
                 ),
                 child: Text(
                   removable
@@ -393,14 +397,10 @@ class _AccountEditorState extends State<_AccountEditor> {
             Expanded(
               child: FilledButton(
                 onPressed: _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: chosenFill(Hue.accent),
-                  side: chosenEdge(Hue.accent),
-                  foregroundColor: chosenInk(Hue.accent),
-                  minimumSize: const Size.fromHeight(46),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                style: solidButton(
+                  Hue.accent,
+                  minimumSize: Size.fromHeight(46),
+                  radius: 12,
                 ),
                 child: const Text('儲存'),
               ),
@@ -421,7 +421,12 @@ class _AccountEditorState extends State<_AccountEditor> {
         label: label,
         child: Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: TextSize.body),
+              ),
+            ),
             TickSwitch(
               value: _f.counted,
               label: label,
@@ -451,7 +456,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   old == null ? '新增帳戶' : '編輯帳戶',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: TextSize.heading,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -516,7 +521,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                             child: const Text(
                               '更多',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: TextSize.caption,
                                 fontWeight: FontWeight.w700,
                                 color: Hue.muted,
                               ),
@@ -638,7 +643,7 @@ class _EditCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: const BoxDecoration(
-                    color: Shade(0xC0FFFFFF, 0x1FFFFFFF),
+                    color: Hue.glass,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -649,7 +654,7 @@ class _EditCard extends StatelessWidget {
                   child: TextField(
                     controller: name,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: plain.copyWith(
@@ -696,7 +701,7 @@ class _EditCard extends StatelessWidget {
                       decimal: true,
                     ),
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: TextSize.large,
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: plain.copyWith(

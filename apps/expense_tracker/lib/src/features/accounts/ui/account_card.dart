@@ -80,7 +80,7 @@ class AccountCard extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: const BoxDecoration(
-            color: Shade(0xC0FFFFFF, 0x1FFFFFFF),
+            color: Hue.glass,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -93,7 +93,7 @@ class AccountCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
               color: account.name.isEmpty ? Hue.faint : Hue.ink,
             ),
@@ -105,7 +105,10 @@ class AccountCard extends StatelessWidget {
         else
           Text(
             _strip(),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.title,
+              fontWeight: FontWeight.w700,
+            ),
           ),
       ],
     );
@@ -113,16 +116,8 @@ class AccountCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: const [
-          BoxShadow(
-            color: Shade(0x141E2832, 0x00000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-          BoxShadow(
-            color: Shade(0x0F1E2832, 0x00000000),
-            blurRadius: 2,
-            offset: Offset(0, 1),
-          ),
+          BoxShadow(color: Hue.stackFar, blurRadius: 8, offset: Offset(0, -2)),
+          BoxShadow(color: Hue.stackNear, blurRadius: 2, offset: Offset(0, 1)),
         ],
       ),
       child: Material(
@@ -156,7 +151,7 @@ class AccountCard extends StatelessWidget {
                                 child: Text(
                                   figure,
                                   style: const TextStyle(
-                                    fontSize: 28,
+                                    fontSize: TextSize.figure,
                                     fontWeight: FontWeight.w700,
                                     height: 1.15,
                                   ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/look/app_mark.dart';
 import '../../../../core/look/kit/colours.dart';
 import '../../../../core/look/theme.dart';
+import '../../../../core/look/kit/buttons.dart';
 
 /// The page every lock screen form sits on: the mark, a [title], a
 /// [hint] under it, the [fields] on a tinted block, what went wrong, the
@@ -44,7 +45,10 @@ class LockForm extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontSize: TextSize.large,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -72,14 +76,10 @@ class LockForm extends StatelessWidget {
         const SizedBox(height: 16),
         FilledButton(
           onPressed: busy ? null : onSubmit,
-          style: FilledButton.styleFrom(
-            backgroundColor: chosenFill(Hue.accent),
-            side: chosenEdge(Hue.accent),
-            foregroundColor: chosenInk(Hue.accent),
-            minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+          style: solidButton(
+            Hue.accent,
+            minimumSize: Size.fromHeight(48),
+            radius: 14,
           ),
           child: busy ? const BusyMark() : Text(action),
         ),

@@ -94,7 +94,7 @@ class _StatusBar extends StatelessWidget {
             // Above the app, so no theme: name the font, no underline.
             style: TextStyle(
               fontFamily: 'Nunito',
-              fontSize: 14,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w700,
               color: Hue.ink,
               height: 1,

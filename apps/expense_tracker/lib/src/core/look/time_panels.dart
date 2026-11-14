@@ -269,7 +269,7 @@ class _RangePanelState extends State<_RangePanel> {
                 child: Text(
                   '${day.day}',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: edge ? FontWeight.w800 : FontWeight.w500,
                     color: out
                         ? Hue.faint
@@ -390,7 +390,7 @@ class _TimePanelState extends State<_TimePanel> {
                   child: Text(
                     _two(i),
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: TextSize.figure,
                       fontWeight: FontWeight.w800,
                       color: i == value ? Hue.ink : Hue.faint,
                     ),
@@ -460,7 +460,7 @@ class _TimePanelState extends State<_TimePanel> {
                     const Text(
                       ':',
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: TextSize.figure,
                         fontWeight: FontWeight.w800,
                       ),
                     ),

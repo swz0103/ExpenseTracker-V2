@@ -195,7 +195,7 @@ class _DividendCard extends StatelessWidget {
                     Text(
                       '股息',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: TextSize.small,
                         fontWeight: FontWeight.w800,
                         color: ink,
                       ),
@@ -203,7 +203,7 @@ class _DividendCard extends StatelessWidget {
                     Text(
                       ledger.orDots(groupDigits(total)),
                       style: const TextStyle(
-                        fontSize: 24,
+                        fontSize: TextSize.large,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -216,11 +216,11 @@ class _DividendCard extends StatelessWidget {
                   children: [
                     Text(
                       '下次 ${coming.month.month} 月',
-                      style: TextStyle(fontSize: 12.5, color: ink),
+                      style: TextStyle(fontSize: TextSize.caption, color: ink),
                     ),
                     Text(
                       '約 ${ledger.orDots(groupDigits(coming.amount))}',
-                      style: TextStyle(fontSize: 12.5, color: ink),
+                      style: TextStyle(fontSize: TextSize.caption, color: ink),
                     ),
                   ],
                 ),
@@ -229,7 +229,7 @@ class _DividendCard extends StatelessWidget {
           if (realized != 0)
             Text(
               '已實現 ${ledger.orDots(signed(realized))}',
-              style: TextStyle(fontSize: 12.5, color: ink),
+              style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           if (months.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -424,7 +424,7 @@ class _TradeRow extends StatelessWidget {
             Text(
               amount,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: TextSize.title,
                 fontWeight: FontWeight.w800,
                 color: amountColor,
               ),
@@ -471,7 +471,7 @@ class _SoldOut extends StatelessWidget {
           const Text(
             '已賣光',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
               color: Hue.accent,
             ),
@@ -479,7 +479,7 @@ class _SoldOut extends StatelessWidget {
           Text(
             ledger.orDots(signed(made)),
             style: TextStyle(
-              fontSize: 32,
+              fontSize: TextSize.big,
               fontWeight: FontWeight.w800,
               color: made < 0 ? Hue.negative : Hue.positive,
             ),
@@ -524,7 +524,7 @@ class _PriceCard extends StatelessWidget {
                 Text(
                   held.price.toStringAsFixed(held.price < 100 ? 2 : 0),
                   style: const TextStyle(
-                    fontSize: 36,
+                    fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -547,14 +547,17 @@ class _PriceCard extends StatelessWidget {
                   Text(
                     before == 0 ? '—' : percentOf(held.change, before),
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
                       color: Hue.onAccent,
                     ),
                   ),
                   Text(
                     '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 12.5, color: Hue.onAccent),
+                    style: const TextStyle(
+                      fontSize: TextSize.caption,
+                      color: Hue.onAccent,
+                    ),
                   ),
                 ],
               ),
@@ -593,7 +596,7 @@ class _Bento extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
               color: ink,
             ),
@@ -603,11 +606,17 @@ class _Bento extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.large,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           for (final line in lines)
-            Text(line, style: TextStyle(fontSize: 12.5, color: ink)),
+            Text(
+              line,
+              style: TextStyle(fontSize: TextSize.caption, color: ink),
+            ),
         ],
       ),
     );
@@ -860,7 +869,10 @@ class _PriceChartState extends State<_PriceChart> {
                   if (i > 0) const Spacer(),
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+                    style: const TextStyle(
+                      fontSize: TextSize.tiny,
+                      color: Hue.muted,
+                    ),
                   ),
                 ],
               ],
@@ -978,7 +990,10 @@ class _LinePainter extends CustomPainter {
           ..strokeWidth = 1,
       );
       if (hidden) continue;
-      final text = layoutText(_label(v), TextStyle(fontSize: 11, color: words));
+      final text = layoutText(
+        _label(v),
+        TextStyle(fontSize: TextSize.tiny, color: words),
+      );
       text.paint(canvas, Offset(width + 6, at - text.height / 2));
     }
     final path = Path()..moveTo(0, y(closes.first.$2));
@@ -1001,7 +1016,11 @@ class _LinePainter extends CustomPainter {
     void tag(double v, Color color) {
       final text = layoutText(
         _label(v),
-        TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: onTag),
+        TextStyle(
+          fontSize: TextSize.tiny,
+          fontWeight: FontWeight.w800,
+          color: onTag,
+        ),
       );
       final at = y(v);
       final box = RRect.fromRectAndRadius(

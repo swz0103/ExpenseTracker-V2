@@ -134,7 +134,10 @@ class _AssetsSectionState extends State<AssetsSection> {
         '財務分布',
         trailing: Text(
           ledger.money(shownAmount),
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontSize: TextSize.body,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       // One height whether or not the links show, so a tap on the map
@@ -151,7 +154,7 @@ class _AssetsSectionState extends State<AssetsSection> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   fontWeight: FontWeight.w600,
                 ),
               ),

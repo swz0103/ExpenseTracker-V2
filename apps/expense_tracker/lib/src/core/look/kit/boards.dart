@@ -62,7 +62,10 @@ class QuoteRow extends StatelessWidget {
       children: [
         OneLine(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontSize: TextSize.title,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         if (detail != null)
           Padding(
@@ -101,7 +104,7 @@ class RowFigure extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: TextStyle(
-      fontSize: 17,
+      fontSize: TextSize.title,
       fontWeight: FontWeight.w800,
       color: color,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -154,7 +157,7 @@ class DotsMenu extends StatelessWidget {
                 Text(
                   item.label,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: TextSize.title,
                     fontWeight: FontWeight.w700,
                     color: item.danger ? Hue.danger : Hue.ink,
                   ),
@@ -223,7 +226,7 @@ class EmptyState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, color: Hue.muted),
+            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
           if (action != null && act != null) ...[
             const SizedBox(height: 18),
@@ -238,7 +241,7 @@ class EmptyState extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 textStyle: appFont.copyWith(
-                  fontSize: 16,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                 ),
               ),

@@ -67,7 +67,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                     const Text(
                       '持股',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -122,7 +122,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                               groupDigits(ledger.dividends(year, month)),
                             ),
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: TextSize.large,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -136,7 +136,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         Text(
                           ledger.orDots(groupDigits(ledger.totalDividends)),
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: TextSize.heading,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -256,7 +256,10 @@ class _ReturnsState extends State<_Returns> {
                 children: [
                   const Text(
                     '預計配息',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontSize: TextSize.heading,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   Text(
                     '${months.first.month} 月 – '
@@ -273,7 +276,7 @@ class _ReturnsState extends State<_Returns> {
                 Text(
                   ledger.orDots(groupDigits(total)),
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: TextSize.large,
                     fontWeight: FontWeight.w800,
                     color: deepOf(Palette.gold),
                   ),
@@ -323,7 +326,7 @@ class _ReturnsState extends State<_Returns> {
                   '${m.month}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: TextSize.caption,
                     fontWeight: k == picked ? FontWeight.w800 : null,
                     color: k == picked ? Hue.ink : Hue.muted,
                   ),
@@ -406,7 +409,7 @@ class _Chip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: TextSize.body,
               fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
             ),
           ),
@@ -488,7 +491,11 @@ class _StackPainter extends CustomPainter {
       if (!hidden) {
         final text = layoutText(
           _short(sums[k]),
-          TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: words),
+          TextStyle(
+            fontSize: TextSize.tiny,
+            fontWeight: FontWeight.w700,
+            color: words,
+          ),
         );
         text.paint(canvas, Offset(cx - text.width / 2, y - text.height - 2));
       }
@@ -534,7 +541,7 @@ class _InvestHero extends StatelessWidget {
                 child: Text(
                   figure,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: TextSize.heading,
                     fontWeight: FontWeight.w800,
                     color: color,
                   ),
@@ -542,7 +549,10 @@ class _InvestHero extends StatelessWidget {
               ),
               Text(
                 sub,
-                style: const TextStyle(fontSize: 11.5, color: Hue.muted),
+                style: const TextStyle(
+                  fontSize: TextSize.tiny,
+                  color: Hue.muted,
+                ),
               ),
             ],
           ),
@@ -555,7 +565,7 @@ class _InvestHero extends StatelessWidget {
           const Text(
             '市值',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w800,
               color: Hue.accent,
             ),
@@ -570,7 +580,7 @@ class _InvestHero extends StatelessWidget {
               Text(
                 ledger.orDots(groupDigits(value)),
                 style: const TextStyle(
-                  fontSize: 34,
+                  fontSize: TextSize.big,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -588,7 +598,7 @@ class _InvestHero extends StatelessWidget {
                     '今日 ${ledger.orDots(signed(day))}'
                     '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: TextSize.small,
                       fontWeight: FontWeight.w800,
                       color: chosenInk(day < 0 ? Hue.negative : Hue.positive),
                     ),
@@ -672,7 +682,7 @@ class _HoldingRow extends StatelessWidget {
                   !quoted || before == 0 ? '—' : percentOf(held.change, before),
                   textScaler: TextScaler.noScaling,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: quoted
                         ? chosenInk(up ? Hue.positive : Hue.negative)
@@ -684,7 +694,7 @@ class _HoldingRow extends StatelessWidget {
                     '${up ? '▲' : '▼'}${perShare.abs().toStringAsFixed(2)}',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: TextSize.tiny,
                       color: chosenInk(up ? Hue.positive : Hue.negative),
                     ),
                   ),

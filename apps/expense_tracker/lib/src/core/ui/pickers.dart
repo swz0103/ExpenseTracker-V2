@@ -30,7 +30,10 @@ Future<T?> showChildPage<T>(
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.title,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           Flexible(child: builder(context)),
@@ -209,7 +212,7 @@ class _OptionCell<T> extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   fontWeight: picked ? FontWeight.w700 : FontWeight.w500,
                   color: picked ? (edge ?? Hue.ink) : Hue.ink,
                 ),
@@ -294,7 +297,7 @@ class AccountChoices extends StatelessWidget {
               child: Text(
                 name,
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: TextSize.caption,
                   fontWeight: FontWeight.w700,
                   color: Hue.muted,
                 ),
@@ -406,7 +409,7 @@ class _AccountChoice extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: TextSize.body,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -414,7 +417,10 @@ class _AccountChoice extends StatelessWidget {
                         balance,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: Hue.muted),
+                        style: const TextStyle(
+                          fontSize: TextSize.caption,
+                          color: Hue.muted,
+                        ),
                       ),
                     ],
                   ),
@@ -592,7 +598,7 @@ class _DayChoicesState extends State<DayChoices> {
                 Text(
                   '${day.day}',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     color: ink,
                     fontWeight: picked ? FontWeight.w800 : FontWeight.w500,
                   ),
@@ -653,14 +659,17 @@ class _QuickDay extends StatelessWidget {
                 Text(
                   name,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
                     color: picked ? color : Hue.ink,
                   ),
                 ),
                 Text(
                   '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
+                  ),
                 ),
               ],
             ),

@@ -167,7 +167,7 @@ class _BothWays extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: TextSize.small,
             fontWeight: FontWeight.w700,
             color: Hue.muted,
           ),
@@ -178,7 +178,7 @@ class _BothWays extends StatelessWidget {
           child: Text(
             value,
             style: TextStyle(
-              fontSize: 30,
+              fontSize: TextSize.figure,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -235,7 +235,7 @@ class _Initial extends StatelessWidget {
       style: TextStyle(
         fontSize: size * 0.42,
         fontWeight: FontWeight.w800,
-        color: const Color(0xFFFFFFFF),
+        color: Hue.onSolid,
       ),
     ),
   );
@@ -274,7 +274,7 @@ class _PersonSquare extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: TextSize.body,
               fontWeight: FontWeight.w800,
               color: ink,
             ),
@@ -283,13 +283,16 @@ class _PersonSquare extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               ledger.orDots(groupDigits(owedFrom(ledger, person))),
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           Text(
             oldest == null ? '沒有欠款' : '最久 ${_days(ledger, oldest)} 天',
             maxLines: 1,
-            style: TextStyle(fontSize: 12, color: ink),
+            style: TextStyle(fontSize: TextSize.caption, color: ink),
           ),
         ],
       ),
@@ -373,7 +376,7 @@ class _LoanCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: TextSize.title,
                     fontWeight: FontWeight.w800,
                     color: ink,
                   ),
@@ -381,7 +384,7 @@ class _LoanCard extends StatelessWidget {
                 if (principal != null)
                   OneLine(
                     '原借 ${ledger.orDots(groupDigits(principal))}',
-                    style: TextStyle(fontSize: 13, color: ink),
+                    style: TextStyle(fontSize: TextSize.small, color: ink),
                   ),
               ],
             ),
@@ -389,11 +392,14 @@ class _LoanCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('尚欠', style: TextStyle(fontSize: 12, color: ink)),
+              Text(
+                '尚欠',
+                style: TextStyle(fontSize: TextSize.caption, color: ink),
+              ),
               Text(
                 ledger.orDots(groupDigits(owedOn(ledger, loan))),
                 style: const TextStyle(
-                  fontSize: 21,
+                  fontSize: TextSize.heading,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -445,7 +451,7 @@ class _DebtHero extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   fontWeight: FontWeight.w700,
                   color: ink,
                 ),
@@ -456,7 +462,7 @@ class _DebtHero extends StatelessWidget {
                 child: Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 32,
+                    fontSize: TextSize.big,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -465,7 +471,7 @@ class _DebtHero extends StatelessWidget {
                 OneLine(
                   line,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,
                     color: ink,
                   ),
@@ -541,7 +547,7 @@ class _Action extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                   color: ink,
                 ),
@@ -777,7 +783,7 @@ class _DaysTag extends StatelessWidget {
         '$days 天',
         textScaler: TextScaler.noScaling,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: TextSize.caption,
           fontWeight: FontWeight.w800,
           color: long ? Hue.onAccent : Hue.muted,
         ),

@@ -157,7 +157,7 @@ class EntryTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -173,7 +173,7 @@ class EntryTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: TextSize.caption,
                           fontWeight: FontWeight.w600,
                           color: Hue.receivable,
                         ),
@@ -188,7 +188,7 @@ class EntryTile extends StatelessWidget {
                   Text(
                     shown,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: TextSize.title,
                       fontWeight: FontWeight.w500,
                       color: entryTone(entry),
                     ),

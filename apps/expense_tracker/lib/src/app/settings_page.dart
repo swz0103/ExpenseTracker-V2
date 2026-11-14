@@ -90,7 +90,7 @@ class SettingsPage extends StatelessWidget {
       child: Text(
         '${on ? '✓' : '!'} $name',
         style: TextStyle(
-          fontSize: 13,
+          fontSize: TextSize.small,
           fontWeight: FontWeight.w700,
           color: on ? deepOf(SettingsHue.backup) : Hue.goldText,
         ),
@@ -258,12 +258,15 @@ class _Row extends StatelessWidget {
           OneLine(
             title,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w800,
               color: deepOf(color),
             ),
           ),
-          OneLine(detail, style: TextStyle(fontSize: 13, color: deepOf(color))),
+          OneLine(
+            detail,
+            style: TextStyle(fontSize: TextSize.small, color: deepOf(color)),
+          ),
         ],
       ),
     );
@@ -337,14 +340,17 @@ class _About extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: TextSize.caption,
               fontWeight: FontWeight.w700,
               color: deepOf(color),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.heading,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -454,7 +460,7 @@ class _Row2 extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w800,
               color: deepOf(color),
             ),
@@ -543,14 +549,14 @@ class _VersionCardState extends State<_VersionCard> {
                 Text(
                   _version.isEmpty ? '開發版' : _version,
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: TextSize.figure,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
                   _state(update),
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,
                     color: deepOf(color),
                   ),
@@ -574,13 +580,10 @@ class _VersionCardState extends State<_VersionCard> {
           if (newer && progress == null)
             FilledButton(
               onPressed: () => _tap(context, update!),
-              style: FilledButton.styleFrom(
-                backgroundColor: Hue.positive,
-                foregroundColor: Hue.onAccent,
-                minimumSize: const Size(0, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              style: solidButton(
+                Hue.positive,
+                minimumSize: Size(0, 48),
+                radius: 14,
               ),
               child: const Text(
                 '更新',

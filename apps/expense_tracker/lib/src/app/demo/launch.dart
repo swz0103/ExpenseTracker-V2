@@ -286,11 +286,14 @@ class _HomeScreen extends StatelessWidget {
           children: [
             Text(
               '9:41',
-              style: white.copyWith(fontSize: 56, fontWeight: FontWeight.w300),
+              style: white.copyWith(
+                fontSize: TextSize.display,
+                fontWeight: FontWeight.w300,
+              ),
             ),
             Text(
               '${ledger.today.month} 月 ${ledger.today.day} 日',
-              style: white.copyWith(fontSize: 16),
+              style: white.copyWith(fontSize: TextSize.title),
             ),
             const SizedBox(height: 24),
             WidgetFace(
@@ -341,7 +344,7 @@ class _HomeScreen extends StatelessWidget {
               '預覽：選擇打開 App 的情境',
               textAlign: TextAlign.center,
               style: white.copyWith(
-                fontSize: 12,
+                fontSize: TextSize.caption,
                 color: const Color(0xCCFFFFFF),
               ),
             ),
@@ -377,7 +380,7 @@ class _AppIcon extends StatelessWidget {
               '記帳本',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: TextSize.caption,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -415,7 +418,7 @@ class _OtherApp extends StatelessWidget {
             name,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: TextSize.caption,
               decoration: TextDecoration.none,
             ),
           ),

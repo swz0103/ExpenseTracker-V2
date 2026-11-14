@@ -172,7 +172,7 @@ class _CompareSectionState extends State<CompareSection> {
                                     ? _span(second)
                                     : against.label,
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: TextSize.body,
                                   fontWeight: FontWeight.w800,
                                   color: against == _against
                                       ? Hue.ink
@@ -207,7 +207,10 @@ class _CompareSectionState extends State<CompareSection> {
             const SizedBox(height: 16),
             const Text(
               '變化最多的分類',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -277,7 +280,7 @@ class _Pair extends StatelessWidget {
               Text(
                 name,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w800,
                 ),
               ),
