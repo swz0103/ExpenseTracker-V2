@@ -1,16 +1,9 @@
-import 'dart:io';
-
-import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
-import 'package:expense_tracker/src/core/preferences.dart';
-import 'package:expense_tracker/src/core/screen_privacy.dart';
-import 'package:expense_tracker/src/features/reminders/model/notifications.dart';
-import 'package:expense_tracker/src/features/settings/model/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'places.dart';
 
 /// Every page and tab, the panels in the middle of the screen and each
 /// page of 記一筆, on a small phone (320 dp), a common one (360 dp) and a
@@ -20,111 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// running into each other, or a block too small for what it holds, is
 /// how a page breaks on a real phone though it looked right at one size.
 void main() {
-  setUpAll(() async {
-    for (final (family, files) in const [
-      ('Nunito', ['Nunito-Regular', 'Nunito-SemiBold', 'Nunito-Bold']),
-      ('NotoSansTC', ['NotoSansTC-Regular', 'NotoSansTC-Bold']),
-    ]) {
-      final loader = FontLoader(family);
-      for (final file in files) {
-        final bytes = File('fonts/$file.ttf').readAsBytesSync();
-        loader.addFont(Future.value(ByteData.sublistView(bytes)));
-      }
-      await loader.load();
-    }
-  });
-
-  /// The places and how to reach them; `~` taps a button by its tooltip.
-  const places = <(String, List<String>)>[
-    ('總覽', []),
-    ('紀錄', ['紀錄']),
-    ('帳戶', ['帳戶']),
-    ('更多', ['更多']),
-    ('報表 收支', ['更多', '財務報表']),
-    ('報表 分類', ['更多', '財務報表', '分類']),
-    ('報表 比較', ['更多', '財務報表', '比較']),
-    ('報表 習慣', ['更多', '財務報表', '習慣']),
-    ('投資 持股', ['更多', '投資與股息']),
-    ('投資 股息', ['更多', '投資與股息', '股息']),
-    ('一檔持股', ['更多', '投資與股息', '長榮']),
-    ('代墊與借貸', ['更多', '代墊與借貸']),
-    ('貸款', ['更多', '代墊與借貸', '車貸']),
-    ('預算管理', ['更多', '預算管理']),
-    ('定期交易', ['更多', '定期交易']),
-    ('管理固定項目', ['更多', '定期交易', '~管理']),
-    ('訂閱與固定支出', ['更多', '定期交易', '訂閱與固定支出 ›']),
-    ('分類', ['更多', '分類']),
-    ('標籤', ['更多', '標籤與商家']),
-    ('商家', ['更多', '標籤與商家', '商家']),
-    ('一個商家', ['更多', '標籤與商家', '商家', '星巴克']),
-    ('設定', ['更多', '設定']),
-    ('匯入與匯出', ['更多', '設定', '匯入與匯出']),
-    ('關於', ['更多', '設定', '關於']),
-    ('通知與提醒', ['更多', '設定', '通知與提醒']),
-    ('到期提醒', ['更多', '設定', '通知與提醒', '到期提醒']),
-    ('預算提醒', ['更多', '設定', '通知與提醒', '預算提醒']),
-    ('每日記帳', ['更多', '設定', '通知與提醒', '每日記帳']),
-    ('安全', ['更多', '設定', '安全']),
-    ('外觀與操作', ['更多', '設定', '外觀與操作']),
-    ('外觀', ['更多', '設定', '外觀與操作', '外觀']),
-    ('桌面小工具', ['更多', '設定', '外觀與操作', '桌面小工具']),
-    ('總覽區塊', ['更多', '設定', '外觀與操作', '總覽區塊']),
-    ('最近刪除', ['更多', '設定', '最近刪除']),
-    ('記一筆', ['~記一筆']),
-    ('記一筆 收入', ['~記一筆', '收入']),
-    ('記一筆 轉帳', ['~記一筆', '轉帳']),
-    ('記一筆 投資', ['~記一筆', '投資']),
-    ('記一筆 展開', ['~記一筆', '商家、標籤、備註']),
-    ('記一筆 代墊', ['~記一筆', '代墊']),
-    ('記一筆 選帳戶', ['~記一筆', '日常銀行']),
-    ('記一筆 選日期', ['~記一筆', '今天']),
-    ('記一筆 全部分類', ['~記一筆', '全部']),
-    ('記一筆 計算機', ['~記一筆', '~金額']),
-  ];
-
-  Future<void> show(WidgetTester tester, double width, double text) async {
-    final preferences = Preferences();
-    final hidden = Directory.systemTemp.createTempSync('layout-');
-    addTearDown(() => hidden.deleteSync(recursive: true));
-    tester.view.physicalSize = Size(width, 2800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        // A new app each time: nothing left open from the last place.
-        key: UniqueKey(),
-        theme: appTheme(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(text)),
-          child: child!,
-        ),
-        // The settings the preview leaves out, so their pages and
-        // panels are checked too.
-        home: AppShell(
-          ledger: demoLedger(),
-          services: Services(
-            preferences: preferences,
-            notifier: Notifier(_Port(), preferences),
-            privacy: ScreenPrivacy(hidden, (_) async {}),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
-  Future<void> go(WidgetTester tester, List<String> taps) async {
-    for (final step in taps) {
-      var finder = step.startsWith('~')
-          ? find.byTooltip(step.substring(1))
-          : find.text(step);
-      if (finder.evaluate().isEmpty) finder = find.textContaining(step);
-      expect(finder, findsWidgets, reason: 'no 「$step」 to tap');
-      await tester.tap(finder.first, warnIfMissed: false);
-      await tester.pumpAndSettle();
-    }
-  }
+  setUpAll(loadFonts);
 
   for (final (width, text, dark) in [
     for (final width in const [320.0, 360.0, 412.0])
@@ -132,59 +21,28 @@ void main() {
     (360.0, 1.0, true),
     (360.0, 1.5, true),
   ]) {
-    {
-      testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%'
-          '${dark ? ', dark' : ''}: '
-          'nothing overflows and no words overlap', (tester) async {
-        Shade.dark = dark;
-        addTearDown(() => Shade.dark = false);
-        final faults = <String>[];
-        for (final (name, taps) in places) {
-          await show(tester, width, text);
-          await go(tester, taps);
-          final error = tester.takeException();
-          if (error != null) faults.add('$name: $error');
-          final shrunk = <String>[];
-          for (final (a, b) in overlapping(tester, shrunk)) {
-            faults.add('$name: 「$a」 overlaps 「$b」');
-          }
-          for (final words in shrunk) {
-            faults.add('$name: 「$words」 shrunk too small to read');
-          }
+    testWidgets('${width.toInt()} dp, text ${(text * 100).round()}%'
+        '${dark ? ', dark' : ''}: '
+        'nothing overflows and no words overlap', (tester) async {
+      Shade.dark = dark;
+      addTearDown(() => Shade.dark = false);
+      final faults = <String>[];
+      for (final (name, taps) in places) {
+        await show(tester, width, text);
+        await go(tester, taps);
+        final error = tester.takeException();
+        if (error != null) faults.add('$name: $error');
+        final shrunk = <String>[];
+        for (final (a, b) in overlapping(tester, shrunk)) {
+          faults.add('$name: 「$a」 overlaps 「$b」');
         }
-        expect(faults, isEmpty, reason: faults.join('\n'));
-      });
-    }
+        for (final words in shrunk) {
+          faults.add('$name: 「$words」 shrunk too small to read');
+        }
+      }
+      expect(faults, isEmpty, reason: faults.join('\n'));
+    });
   }
-}
-
-/// Notifications that go nowhere, with the phone's settings all right.
-final class _Port implements NotifyPort {
-  @override
-  Future<bool> access() async => true;
-
-  @override
-  Future<void> schedule(
-    List<Alert> alerts, {
-    bool exact = false,
-    Set<String>? wanted,
-  }) async {}
-
-  @override
-  Future<void> test({bool exact = false}) async {}
-
-  @override
-  Future<void> post(Alert alert, int id) async {}
-
-  @override
-  Future<ReminderStatus> status() async =>
-      (notifications: true, exact: true, battery: true);
-
-  @override
-  Future<void> openExactSettings() async {}
-
-  @override
-  Future<void> openBatterySettings() async {}
 }
 
 /// Pairs of words drawn over each other on screen: each run of words is

@@ -89,3 +89,16 @@ jobs:
         run: |
           flutter config --no-analytics
           ./tooling/run-host-checks.ps1 -Package apps/expense_tracker
+      - name: Screenshots
+        # Every page, light and dark, at 360 dp (tool/screenshots), kept
+        # with the run to look at a page without a phone.
+        working-directory: apps/expense_tracker
+        run: flutter test tool/screenshots
+      - name: Keep the screenshots
+        # v7.0.2.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: screenshots
+          path: apps/expense_tracker/build/screenshots
+          if-no-files-found: error
+          retention-days: 14
