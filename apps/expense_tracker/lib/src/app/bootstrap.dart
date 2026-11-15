@@ -13,6 +13,7 @@ import 'android/backups.dart';
 import 'android/scan.dart';
 import 'android/update.dart';
 import 'android/widgets.dart';
+import 'android/market_cache.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
@@ -144,10 +145,19 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// How long the app was away, by a clock that cannot be set back.
   final _awayClock = AwayClock();
 
+  /// On Android, the day lists the background job keeps (`MarketWorker`),
+  /// read before the network.
+  late final _marketCache = Platform.isAndroid
+      ? CachedMarketTransport(
+          const IoMarketTransport(),
+          Directory('${widget.startup.directory.path}/market'),
+        )
+      : null;
+
   late final _journal = TableJournal(
     widget.vault.store,
     market: MarketDataGateway(
-      transport: const IoMarketTransport(),
+      transport: _marketCache ?? const IoMarketTransport(),
       // The exchanges' snapshots are a few MiB of JSON.
       decodeJson: (body) => Isolate.run(() => jsonDecode(body)),
     ),
@@ -255,6 +265,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       historyDir: Directory('${widget.startup.directory.path}/prices'),
     );
     unawaited(market.refresh());
+    unawaited(_marketCache?.writeList());
     unawaited(_weeklyBackup());
     if (Platform.isAndroid) {
       try {

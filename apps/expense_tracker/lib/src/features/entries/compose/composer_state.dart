@@ -31,17 +31,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// A choice open in place of the form, if any.
   _Page? _page;
 
-  /// The tallest the fields have stood while closed since the sheet
-  /// opened: every tab is made as tall, the amount taking the room to
-  /// spare, so the sheet keeps one size from tab to tab. Each opening
-  /// starts again, so nothing seen once leaves room behind.
-  var _tallest = 0.0;
-
-  /// Waits for the fields to settle before their height counts: a fold
-  /// or a split closing shrinks over a few frames, and the frames on the
-  /// way down must not count as the form's own height.
-  Timer? _settle;
-
   /// The sums someone paid back is made of, by entry, while 對方還錢.
   Set<String> _paying = {};
 
@@ -77,7 +66,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _settle?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     // Answers a choice still open with none, without building again: the
     // sheet is going away (still mounted until super.dispose).
@@ -337,18 +325,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     }
   }
 
-  /// The fields' own height, kept when it is the tallest yet; only while
-  /// the form shows closed, so an opened fold, a split or a problem does
-  /// not make every tab taller, and stay so after it is closed again.
-  void _measured(double height) {
-    _settle?.cancel();
-    _settle = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted || _page != null || _f.more || _problem != null) return;
-      if (_f.parts != null) return;
-      if (height > _tallest + 0.5) setState(() => _tallest = height);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final page = _page;
@@ -467,12 +443,11 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       child: IgnorePointer(
         ignoring: _viewing,
         child: _Fill(
-          // A new entry keeps the tallest tab's height, so switching
-          // tabs does not jump; one looked at or edited takes only
-          // the room it needs.
-          minHeight: widget.entry == null ? _tallest : 0,
+          // Each tab takes only the room its fields need: kept at the
+          // tallest one's height, a short tab after 投資 left a blank.
+          minHeight: 0,
           grow: -1,
-          onHeight: _measured,
+          onHeight: (_) {},
           children: below,
         ),
       ),
@@ -575,10 +550,9 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       if (!mounted) return;
       final scanned = invoice;
       _set(() => _f.fillInvoice(scanned));
-    } on Object {
-      // Most often Google's scanner is still being fetched, or Play
-      // services is off.
-      _say('掃描器還沒準備好，請稍等一下再掃一次');
+    } on Object catch (error) {
+      // The scanner says what went wrong in words (androidScanQr).
+      _say('$error');
     }
   }
 

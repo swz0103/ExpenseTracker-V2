@@ -331,3 +331,51 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(_RingPainter old) =>
       old.share != share || old.color != color;
 }
+
+/// One segment for each of [days], the month's days: the [passed] ones
+/// filled in [color], the last of them darker when it is [today], the
+/// rest pale. 預算's main card and its card on 總覽.
+class DayBar extends StatelessWidget {
+  const DayBar({
+    super.key,
+    required this.passed,
+    required this.days,
+    required this.today,
+    this.color = Hue.accent,
+    this.height = 14,
+  });
+
+  final int passed;
+  final int days;
+  final bool today;
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: height,
+        child: Row(
+          children: [
+            for (var d = 1; d <= days; d++) ...[
+              if (d > 1) const SizedBox(width: 2),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    color: d > passed
+                        ? Hue.white
+                        : today && d == passed
+                        ? Hue.ink
+                        : color,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

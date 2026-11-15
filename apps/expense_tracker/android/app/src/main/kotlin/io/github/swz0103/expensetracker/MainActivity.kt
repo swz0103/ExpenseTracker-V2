@@ -68,6 +68,8 @@ class MainActivity : FlutterFragmentActivity() {
         super.onCreate(savedInstanceState)
         // Looks for a newer version once a day while 自動更新 is on.
         UpdateWorker.schedule(applicationContext)
+        // Keeps the exchanges' closes on the phone before 投資 is opened.
+        MarketWorker.schedule(applicationContext)
         // Android 13 and later show no picture of the app in the recent
         // apps list, so the app needs no cover of its own (privacy_cover.dart)
         // and a screenshot or the notification shade leaves it as it is.

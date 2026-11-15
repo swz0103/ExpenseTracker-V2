@@ -218,17 +218,36 @@ class _LedgerPageState extends State<LedgerPage> {
               child: title,
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                itemCount: head.length + items.length,
-                itemBuilder: (context, i) =>
-                    i < head.length ? head[i] : _line(items[i - head.length]),
+              // A swipe across the page goes to the month before or after;
+              // a row's own slide, to 編輯 and 刪除, still wins on the row.
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  final speed = details.primaryVelocity ?? 0;
+                  if (speed.abs() < 300) return;
+                  _stepMonth(speed < 0 ? 1 : -1);
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  itemCount: head.length + items.length,
+                  itemBuilder: (context, i) =>
+                      i < head.length ? head[i] : _line(items[i - head.length]),
+                ),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// Moves [by] months, never past this one.
+  void _stepMonth(int by) {
+    final today = widget.ledger.today;
+    final date = DateTime.utc(_month.$1, _month.$2 + by);
+    if (date.year * 12 + date.month > today.year * 12 + today.month) return;
+    Haptics.selection();
+    setState(() => _month = (date.year, date.month));
   }
 
   /// What sits above the entries: the title and month, the month's sums
@@ -241,7 +260,6 @@ class _LedgerPageState extends State<LedgerPage> {
     final searching = words.isNotEmpty;
     final income = shown.fold(0, (sum, e) => sum + e.earning);
     final expense = shown.fold(0, (sum, e) => sum + e.spending);
-    final transfers = shown.where((e) => e.type == EntryType.transfer);
     final account = filter.account;
     final category = filter.category;
     return [
@@ -273,7 +291,6 @@ class _LedgerPageState extends State<LedgerPage> {
                 },
           income: income,
           expense: expense,
-          note: '${shown.length} 筆 · 轉帳 ${transfers.length}',
           rate: false,
           size: 28,
         ),

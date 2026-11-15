@@ -112,6 +112,16 @@ void main() {
     expect(port.fetched, 3);
   });
 
+  test(
+    'a restart within ten minutes looks again: the answer is not kept',
+    () async {
+      expect(await update().checkIfDue(), isNotNull);
+      now = now.add(const Duration(minutes: 2));
+      expect(await update().checkIfDue(), isNotNull, reason: 'a new run');
+      expect(port.fetched, 2);
+    },
+  );
+
   test('anything but update.json, or no network, finds nothing', () async {
     port.info = '<html>not found</html>';
     final app = update();
