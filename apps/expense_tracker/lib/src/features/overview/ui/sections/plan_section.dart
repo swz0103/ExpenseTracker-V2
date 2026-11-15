@@ -76,41 +76,39 @@ class PlanSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          // 已用 beside the figure, or under it when large text leaves no
-          // room, rather than either shrinking.
-          Wrap(
-            spacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.end,
-            children: [
-              Text(
-                ledger.money(limit == 0 ? spent : left),
-                style: TextStyle(
-                  fontSize: TextSize.large,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                  color: limit != 0 && left < 0 ? Hue.negative : Hue.ink,
-                ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              ledger.money(limit == 0 ? spent : left),
+              style: TextStyle(
+                fontSize: TextSize.large,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: limit != 0 && left < 0 ? Hue.negative : Hue.ink,
               ),
-              if (limit != 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('已用 $used%', style: muted),
-                ),
-            ],
+            ),
           ),
+          const SizedBox(height: 6),
           if (limit == 0)
             const OneLine('設定預算 ›', style: accentSmall)
-          else ...[
-            const Spacer(),
-            const SizedBox(height: 8),
-            // Ten segments for the month, as many filled as tenths gone.
-            DayBar(
-              passed: current ? (gone * 10 / days).ceil() : 10,
-              days: 10,
-              today: current,
-              height: 10,
+          else
+            // Ten segments for the month, as many filled as tenths gone,
+            // and the share of the budget spent at their end.
+            Row(
+              children: [
+                Expanded(
+                  child: DayBar(
+                    passed: current ? (gone * 10 / days).ceil() : 10,
+                    days: 10,
+                    today: current,
+                    height: 10,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('$used%', style: muted),
+              ],
             ),
-          ],
         ],
       ),
     );
@@ -176,7 +174,7 @@ class PlanSection extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 2),
           OneLine(
             next == null
                 ? '沒有待扣款項目'
