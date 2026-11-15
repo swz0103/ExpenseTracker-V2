@@ -89,26 +89,34 @@ class BalanceHero extends StatelessWidget {
             children: [
               SquareIcon(icon, Hue.accent, size: 30),
               const SizedBox(width: 8),
-              Flexible(child: OneLine(label, style: accentLabel)),
-              if (hides) _HideAmounts(ledger),
-              const Spacer(),
-              if (rate) Pill('結餘率 $kept%'),
+              Expanded(child: OneLine(label, style: accentLabel)),
               if (note case final words?) OneLine(words, style: mutedSmall),
+              // The eye that hides every amount, in the corner.
+              if (hides) _HideAmounts(ledger),
             ],
           ),
           const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              ledger.money(left),
-              style: TextStyle(
-                fontSize: size ?? TextSize.big,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-                color: left < 0 ? Hue.negative : Hue.ink,
+          // 結餘率 at the right, on the figure's line.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    ledger.money(left),
+                    style: TextStyle(
+                      fontSize: size ?? TextSize.big,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                      color: left < 0 ? Hue.negative : Hue.ink,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (rate) ...[const SizedBox(width: 8), Pill('結餘率 $kept%')],
+            ],
           ),
           const SizedBox(height: 12),
           SizedBox(

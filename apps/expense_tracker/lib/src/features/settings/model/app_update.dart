@@ -165,6 +165,7 @@ final class AppUpdate extends ChangeNotifier {
     try {
       final info = UpdateInfo.parse(await _port.fetch(infoUrl));
       _preferences.updateChecked(_clock());
+      _lookedThisRun = true;
       if (info == null) {
         _problem = '更新資訊看不懂';
         return null;
@@ -194,9 +195,15 @@ final class AppUpdate extends ChangeNotifier {
   /// version shown should be the one there is now.
   Future<UpdateInfo?> checkIfOlder(Duration age) async {
     final last = _preferences.updateCheckedAt;
-    if (last != null && _clock().difference(last) < age) return _newer;
+    // Only a look made this run counts: the answer of one before a restart
+    // is not kept, and a newer version would go unsaid until [age] passed.
+    if (_lookedThisRun && last != null && _clock().difference(last) < age) {
+      return _newer;
+    }
     return check();
   }
+
+  var _lookedThisRun = false;
 
   /// Whether [info] may be offered on its own, on opening the app: not
   /// while put off with 晚一點再說, nor when 略過這一版 passed it over.

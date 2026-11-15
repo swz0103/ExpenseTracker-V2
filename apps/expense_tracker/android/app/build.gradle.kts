@@ -96,6 +96,9 @@ dependencies {
     implementation("com.google.crypto.tink:tink-android:1.15.0")
     // Reading paper e-invoices' QR codes with Google's scanner (ScanPart.kt).
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    // Fetching that scanner on first use when the app was not installed
+    // from Play (ModuleInstall in ScanPart.kt).
+    implementation("com.google.android.gms:play-services-base:18.5.0")
     // Backups delivered while the app is closed (BackupWorker.kt).
     implementation("androidx.work:work-runtime:2.9.1")
     testImplementation("junit:junit:4.13.2")

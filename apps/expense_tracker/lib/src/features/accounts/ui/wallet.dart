@@ -43,10 +43,10 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
   var _passed = 0;
 
   /// How far a finger moves to turn the drum by one card.
-  static const _pace = 64.0;
+  static const _pace = 84.0;
 
   /// The angle between two cards on the drum, in degrees.
-  static const _step = 24.0;
+  static const _step = 30.0;
 
   int get _count => widget.accounts.length;
   int _wrap(int i) => ((i % _count) + _count) % _count;
@@ -91,8 +91,10 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
   /// Runs on with the finger's speed, then settles on the nearest card.
   void _letGo(double speed) {
     final quiet = MediaQuery.disableAnimationsOf(context);
-    final cards = (speed / _pace).clamp(-14.0, 14.0);
-    final target = (_spin.value + cards * 0.32).roundToDouble();
+    // A slow let-go stays on the nearest card; only a real flick runs on,
+    // and by no more than three cards, so it does not overshoot by one.
+    final flick = speed.abs() < 500 ? 0.0 : (speed / _pace * 0.14);
+    final target = (_spin.value + flick.clamp(-3.0, 3.0)).roundToDouble();
     if (quiet) {
       _spin.value = target;
       return;
@@ -123,7 +125,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     final (strip, front) = cardHeights(context);
     final rest = (strip - 12) * (_count - 1) + front;
     final quiet = MediaQuery.disableAnimationsOf(context);
-    final wheel = front * 2.7;
+    final wheel = front * 2.9;
     return GestureDetector(
       // A screen reader taps each card instead.
       excludeFromSemantics: true,
@@ -177,7 +179,7 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     // A drum smaller than the cards' own spacing would need, so the
     // cards beside the middle one tuck behind it and the whole wheel
     // stays a little over two cards tall.
-    final radius = front * 0.9;
+    final radius = front * 1.15;
     return AnimatedBuilder(
       animation: _spin,
       builder: (context, _) {
@@ -212,22 +214,19 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
 
   Widget _onDrum(int i, double offset, double radius) {
     final angle = offset * _step * pi / 180;
-    final facing = cos(angle);
     final a = widget.accounts[i];
-    return Opacity(
-      opacity: (facing * 1.2 - 0.2).clamp(0.0, 1.0),
-      child: Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.identity()
-          ..setEntry(3, 2, 0.0009)
-          ..translateByDouble(0, 0, -radius, 1)
-          ..rotateX(angle)
-          ..translateByDouble(0, 0, radius, 1),
-        child: AccountCard(
-          ledger: widget.ledger,
-          account: a,
-          onTap: offset.abs() < 0.5 ? _finish : () => _turnTo(i),
-        ),
+    // Every card as clear as the middle one: no fading at the sides.
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()
+        ..setEntry(3, 2, 0.0009)
+        ..translateByDouble(0, 0, -radius, 1)
+        ..rotateX(angle)
+        ..translateByDouble(0, 0, radius, 1),
+      child: AccountCard(
+        ledger: widget.ledger,
+        account: a,
+        onTap: offset.abs() < 0.5 ? _finish : () => _turnTo(i),
       ),
     );
   }
@@ -238,12 +237,12 @@ class _WalletState extends State<_Wallet> with SingleTickerProviderStateMixin {
     final last = accounts.length - 1;
     final step = strip - 12;
     final quiet = MediaQuery.disableAnimationsOf(context);
-    final shown = accounts[widget.index];
-    // The stack's order: the others as they are, the one shown last.
+    // In the drum's order from the front one: the next account just
+    // behind it, the one after behind that, round to the one before.
+    final at = widget.index;
     final order = [
-      for (final a in accounts)
-        if (a.id != shown.id) a,
-      shown,
+      for (var k = accounts.length - 1; k >= 0; k--)
+        accounts[(at + k) % accounts.length],
     ];
     return Stack(
       children: [
