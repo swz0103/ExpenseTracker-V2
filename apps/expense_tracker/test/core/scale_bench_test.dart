@@ -102,12 +102,11 @@ void main() {
             ),
           );
         });
-        final after = await time(() async {
-          ledger.entriesIn(2026, 10);
-          ledger.expense(2026, 10);
-          ledger.balance('a0');
-        });
-
+        final afterMonth = await time(() async => ledger.entriesIn(2026, 10));
+        final afterDay = await time(() async => ledger.entriesOn(today));
+        final afterSum = await time(() async => ledger.expense(2026, 10));
+        final afterBalance = await time(() async => ledger.balance('a0'));
+        final afterId = await time(() async => ledger.byId('one'));
         final edit = await time(() async {
           ledger.updateCategory(
             '飲食日常',
@@ -124,7 +123,8 @@ void main() {
           'month ${ms(firstMonth)}  year ${ms(spendYear)}  '
           'balance ${ms(balance)}  netWorth ${ms(netWorth)}  '
           'search ${ms(search1)}/${ms(search2)}  merchantStats ${ms(stats)}  '
-          'add ${ms(add)}  afterAdd ${ms(after)}  '
+          'add ${ms(add)}  then: month ${ms(afterMonth)} day ${ms(afterDay)} '
+          'sum ${ms(afterSum)} balance ${ms(afterBalance)} id ${ms(afterId)}  '
           'rename ${ms(edit)}  (ms) renamed=$renamed',
         );
       },

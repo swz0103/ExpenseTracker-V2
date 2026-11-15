@@ -84,7 +84,7 @@ core/ledger/
 | `UnitOfWork` 取代 `_before`／`_since` 與各指令手寫的還原 | 尚未 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
-| `EntryRepository` 索引改增量維護 | 尚未 |
+| `EntryRepository` 索引改增量維護（記一筆後的月份／單日查詢，10 萬筆時 84／36 ms 降到 0.0／0.1 ms） | 完成 |
 | Trash、Account、MarketData、Holding Repository | 尚未 |
 | `CategoryRepository` 與分類 id | 尚未 |
 | Budget、Recurring Repository、各 Service 與各 Commands | 尚未 |

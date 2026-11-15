@@ -32,7 +32,11 @@ abstract interface class EntryReader {
 
 /// Every entry of the book, in the order written, with what is asked of
 /// them again and again (by month, by day, by id, refunds) worked out
-/// once and thrown away by any change of the entries.
+/// once, on the first ask, and then kept up to date as entries are added,
+/// taken away or put in place of another: a change costs the entries of
+/// one month, not of the whole book. A change that cannot be followed
+/// cheaply (one in the middle of the list, many at once, an entry moved to
+/// another day) throws the indexes away to be worked out again.
 ///
 /// A list for the commands that write; the screens see an [EntryReader].
 final class EntryRepository extends ListBase<Entry> implements EntryReader {
@@ -40,20 +44,127 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
 
   final List<Entry> _items;
 
+  /// More entries added at once than this are not followed one by one.
+  static const _followed = 64;
+
+  /// Each month's entries in [inMonth] order, a list that is never changed
+  /// once handed out: a change puts a new one in its place.
   Map<int, List<Entry>>? _months;
-  Map<DateTime, List<Entry>>? _days;
+
+  /// Entries put in place of others on the same day, not yet in [_months]:
+  /// by month, each old entry and the one now standing for it. A run of
+  /// them (a category renamed on thousands of entries) costs one pass over
+  /// the month when it is next asked for, not one pass each.
+  final _swaps = <int, Map<Entry, Entry>>{};
+
+  /// For each entry in [_swaps], the one it stands for in [_months].
+  final _stands = Map<Entry, Entry>.identity();
+
   Map<String, Entry>? _ids;
   Map<String, int>? _refunds;
   DateTime? _first;
   var _firstKnown = false;
 
-  void _changed() {
+  void _discard() {
     _months = null;
-    _days = null;
+    _swaps.clear();
+    _stands.clear();
     _ids = null;
     _refunds = null;
     _first = null;
     _firstKnown = false;
+  }
+
+  static int _monthOf(Entry e) => e.date.year * 12 + e.date.month;
+
+  /// Puts the swaps of [month] into its entries.
+  void _settle(int month) {
+    final swaps = _swaps.remove(month);
+    if (swaps == null) return;
+    final months = _months;
+    final bucket = months?[month];
+    if (months != null && bucket != null) {
+      months[month] = List.unmodifiable([
+        for (final x in bucket) swaps[x] ?? x,
+      ]);
+    }
+    for (final now in swaps.values) {
+      _stands.remove(now);
+    }
+  }
+
+  /// Notes that [e], now last in the list, has been added.
+  void _noteAdded(Entry e) {
+    final months = _months;
+    if (months != null) {
+      final month = _monthOf(e);
+      _settle(month);
+      final old = months[month] ?? const <Entry>[];
+      // Sorted newest day first; the last written first within a day, and
+      // [e] is the last written of all.
+      var low = 0;
+      var high = old.length;
+      while (low < high) {
+        final middle = (low + high) >> 1;
+        if (old[middle].date.isAfter(e.date)) {
+          low = middle + 1;
+        } else {
+          high = middle;
+        }
+      }
+      months[month] = List.unmodifiable([
+        ...old.take(low),
+        e,
+        ...old.skip(low),
+      ]);
+    }
+    _ids?[e.id] = e;
+    if (e.refundOf case final of?) {
+      final refunds = _refunds;
+      if (refunds != null) refunds[of] = (refunds[of] ?? 0) + e.amount;
+    }
+    if (_firstKnown) {
+      final first = _first;
+      if (first == null || e.date.isBefore(first)) _first = e.date;
+    }
+  }
+
+  /// Notes that [e] has been taken out of the list, from wherever it was.
+  void _noteRemoved(Entry e) {
+    final months = _months;
+    if (months != null) {
+      final month = _monthOf(e);
+      _settle(month);
+      final old = months[month];
+      if (old != null) {
+        final kept = [
+          for (final x in old)
+            if (!identical(x, e)) x,
+        ];
+        if (kept.isEmpty) {
+          months.remove(month);
+        } else {
+          months[month] = List.unmodifiable(kept);
+        }
+      }
+    }
+    _ids?.remove(e.id);
+    if (e.refundOf case final of?) {
+      final refunds = _refunds;
+      if (refunds != null) {
+        final left = (refunds[of] ?? 0) - e.amount;
+        if (left == 0) {
+          refunds.remove(of);
+        } else {
+          refunds[of] = left;
+        }
+      }
+    }
+    // The first day may have gone with it.
+    if (_firstKnown && _first == e.date) {
+      _first = null;
+      _firstKnown = false;
+    }
   }
 
   // The list, with every change noticed.
@@ -63,7 +174,7 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
 
   @override
   set length(int newLength) {
-    _changed();
+    _discard();
     _items.length = newLength;
   }
 
@@ -72,61 +183,99 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
 
   @override
   void operator []=(int index, Entry entry) {
-    _changed();
+    final old = _items[index];
     _items[index] = entry;
+    if (old.date == entry.date) {
+      // Put in place of one on the same day: the same place in its month.
+      _replaceInMonth(old, entry);
+    } else {
+      // Moved to another day: where it stands among that day's entries
+      // depends on where each was written, which only the list knows.
+      _discard();
+    }
+  }
+
+  void _replaceInMonth(Entry old, Entry entry) {
+    if (_months != null) {
+      final swaps = _swaps.putIfAbsent(
+        _monthOf(old),
+        Map<Entry, Entry>.identity,
+      );
+      // [old] may itself have been put there by an earlier swap: then it is
+      // that swap's entry that stands in the month.
+      final key = _stands.remove(old) ?? old;
+      swaps[key] = entry;
+      _stands[entry] = key;
+    }
+    final ids = _ids;
+    if (ids != null) {
+      ids.remove(old.id);
+      ids[entry.id] = entry;
+    }
+    if (old.refundOf != null || entry.refundOf != null) _refunds = null;
   }
 
   @override
   void add(Entry element) {
-    _changed();
     _items.add(element);
+    _noteAdded(element);
   }
 
   @override
   void addAll(Iterable<Entry> iterable) {
-    _changed();
-    _items.addAll(iterable);
+    final added = iterable.toList();
+    _items.addAll(added);
+    if (added.length > _followed) {
+      _discard();
+    } else {
+      added.forEach(_noteAdded);
+    }
   }
 
   @override
   void insert(int index, Entry element) {
-    _changed();
+    if (index >= _items.length) return add(element);
+    _discard();
     _items.insert(index, element);
   }
 
   @override
   bool remove(Object? element) {
-    _changed();
-    return _items.remove(element);
+    final index = element is Entry ? _items.indexOf(element) : -1;
+    if (index < 0) return false;
+    removeAt(index);
+    return true;
   }
 
   @override
   Entry removeAt(int index) {
-    _changed();
-    return _items.removeAt(index);
+    final removed = _items.removeAt(index);
+    _noteRemoved(removed);
+    return removed;
   }
 
   @override
   Entry removeLast() {
-    _changed();
-    return _items.removeLast();
+    final removed = _items.removeLast();
+    _noteRemoved(removed);
+    return removed;
   }
 
   @override
   void removeRange(int start, int end) {
-    _changed();
+    _discard();
     _items.removeRange(start, end);
   }
 
   @override
   void removeWhere(bool Function(Entry) test) {
-    _changed();
+    _discard();
     _items.removeWhere(test);
   }
 
   @override
   void clear() {
-    _changed();
+    _discard();
     _items.clear();
   }
 
@@ -139,11 +288,32 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
   Entry? byId(String id) => (_ids ??= {for (final e in _items) e.id: e})[id];
 
   @override
-  List<Entry> inMonth(int year, int month) =>
-      (_months ??= _indexMonths())[year * 12 + month] ?? const <Entry>[];
+  List<Entry> inMonth(int year, int month) {
+    final months = _months ??= _indexMonths();
+    _settle(year * 12 + month);
+    return months[year * 12 + month] ?? const <Entry>[];
+  }
 
   @override
-  List<Entry> onDay(DateTime day) => (_days ??= _indexDays())[day] ?? const [];
+  List<Entry> onDay(DateTime day) {
+    final bucket = inMonth(day.year, day.month);
+    // The month is sorted newest day first: the day's entries are together.
+    var low = 0;
+    var high = bucket.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (bucket[middle].date.isAfter(day)) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    var end = low;
+    while (end < bucket.length && bucket[end].date == day) {
+      end++;
+    }
+    return end == low ? const [] : List.unmodifiable(bucket.sublist(low, end));
+  }
 
   @override
   DateTime? get firstDate {
@@ -168,11 +338,11 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
     return sums[id] ?? 0;
   }
 
-  /// Every month's entries in [inMonth] order, built once per change.
+  /// Every month's entries in [inMonth] order, worked out from the list.
   Map<int, List<Entry>> _indexMonths() {
     final groups = <int, List<(int, Entry)>>{};
     for (final (i, e) in _items.indexed) {
-      (groups[e.date.year * 12 + e.date.month] ??= []).add((i, e));
+      (groups[_monthOf(e)] ??= []).add((i, e));
     }
     final months = <int, List<Entry>>{};
     for (final MapEntry(key: month, value: found) in groups.entries) {
@@ -183,16 +353,5 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
       months[month] = List.unmodifiable([for (final (_, e) in found) e]);
     }
     return months;
-  }
-
-  /// Every day's entries in [inMonth] order, built once per change.
-  Map<DateTime, List<Entry>> _indexDays() {
-    final days = <DateTime, List<Entry>>{};
-    for (final month in (_months ??= _indexMonths()).values) {
-      for (final e in month) {
-        (days[e.date] ??= []).add(e);
-      }
-    }
-    return days;
   }
 }

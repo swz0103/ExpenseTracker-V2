@@ -131,7 +131,157 @@ void main() {
     );
   });
 
-  for (final seed in [1, 5, 9, 31, 77]) {
+  group('once worked out, the indexes follow each change', () {
+    // Ask first, so each index exists before it is changed.
+    EntryRepository asked(List<Entry> entries) {
+      final repository = EntryRepository(entries);
+      repository.inMonth(2026, 10);
+      repository.byId('a');
+      repository.refundedTotal('a');
+      repository.firstDate;
+      return repository;
+    }
+
+    test('an entry added later on an earlier day finds its place', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(10, 3)),
+      ]);
+      entries.add(_entry('c', _day(10, 4)));
+      entries.add(_entry('d', _day(10, 5)));
+      expect(_ids(entries.inMonth(2026, 10)), ['d', 'a', 'c', 'b']);
+      expect(_ids(entries.onDay(_day(10, 5))), ['d', 'a']);
+      expect(_ids(entries.onDay(_day(10, 4))), ['c']);
+      expect(entries.onDay(_day(10, 6)), isEmpty);
+    });
+
+    test('a first entry in a month opens it, the last one closes it', () {
+      final entries = asked([_entry('a', _day(10, 5))]);
+      entries.add(_entry('n', _day(11, 1)));
+      expect(_ids(entries.inMonth(2026, 11)), ['n']);
+      entries.removeLast();
+      expect(entries.inMonth(2026, 11), isEmpty);
+    });
+
+    test('a batch of more than sixty-four is taken as a whole', () {
+      final entries = asked([_entry('a', _day(10, 5))]);
+      final batch = [
+        for (var i = 0; i < 80; i++) _entry('b$i', _day(10, 1 + i % 28)),
+      ];
+      entries.addAll(batch);
+      expect(entries.inMonth(2026, 10), hasLength(81));
+      expect(entries.byId('b79'), isNotNull);
+      expect(entries.length, 81);
+    });
+
+    test('an entry put in place of one on the same day keeps its place', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(10, 5)),
+      ]);
+      entries[0] = _entry('a2', _day(10, 5));
+      expect(_ids(entries.inMonth(2026, 10)), ['b', 'a2']);
+      expect(entries.byId('a'), isNull);
+      expect(entries.byId('a2'), isNotNull);
+    });
+
+    test('an entry put on another day, or in another month, moves', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(10, 5)),
+      ]);
+      entries[1] = _entry('b2', _day(9, 1));
+      expect(_ids(entries.inMonth(2026, 10)), ['a']);
+      expect(_ids(entries.inMonth(2026, 9)), ['b2']);
+      entries[0] = _entry('a2', _day(10, 2));
+      expect(_ids(entries.onDay(_day(10, 2))), ['a2']);
+    });
+
+    test('taking away the earliest entry moves the first date on', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(8, 1)),
+        _entry('c', _day(9, 1)),
+      ]);
+      expect(entries.firstDate, _day(8, 1));
+      entries.remove(entries[1]);
+      expect(entries.firstDate, _day(9, 1));
+      entries.add(_entry('d', _day(7, 7)));
+      expect(entries.firstDate, _day(7, 7));
+    });
+
+    test('refunds follow what is added, taken away and put in place', () {
+      final entries = asked([
+        _entry('a', _day(10, 1), amount: 500),
+        _entry('r', _day(10, 2), amount: 100, refundOf: 'a'),
+      ]);
+      expect(entries.refundedTotal('a'), 100);
+      entries.add(_entry('r2', _day(10, 3), amount: 50, refundOf: 'a'));
+      expect(entries.refundedTotal('a'), 150);
+      entries[1] = _entry('r', _day(10, 2), amount: 70, refundOf: 'a');
+      expect(entries.refundedTotal('a'), 120);
+      entries.removeAt(2);
+      expect(entries.refundedTotal('a'), 70);
+      entries.removeAt(1);
+      expect(entries.refundedTotal('a'), 0);
+    });
+
+    test('a list handed out is a snapshot, not changed by what follows', () {
+      final entries = asked([_entry('a', _day(10, 5))]);
+      final before = entries.inMonth(2026, 10);
+      entries.add(_entry('b', _day(10, 6)));
+      expect(_ids(before), ['a']);
+      expect(_ids(entries.inMonth(2026, 10)), ['b', 'a']);
+    });
+
+    test('a run of same-day replacements shows at the next ask', () {
+      final entries = asked([
+        for (var i = 0; i < 200; i++) _entry('e$i', _day(10, 1 + i % 28)),
+      ]);
+      for (var i = 0; i < 200; i += 2) {
+        entries[i] = _entry('r$i', entries[i].date, amount: 7);
+      }
+      final month = entries.inMonth(2026, 10);
+      expect(month, hasLength(200));
+      expect(month.where((e) => e.id.startsWith('r')), hasLength(100));
+      expect(entries.byId('e0'), isNull);
+      expect(entries.byId('r0')!.amount, 7);
+      // Asking again changes nothing.
+      expect(_ids(entries.inMonth(2026, 10)), _ids(month));
+    });
+
+    test('an entry put in place twice stands once, as the last', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(10, 5)),
+      ]);
+      entries[0] = _entry('a2', _day(10, 5));
+      entries[0] = _entry('a3', _day(10, 5));
+      expect(_ids(entries.inMonth(2026, 10)), ['b', 'a3']);
+    });
+
+    test('an entry put in place and then taken away is gone', () {
+      final entries = asked([
+        _entry('a', _day(10, 5)),
+        _entry('b', _day(10, 5)),
+      ]);
+      entries[1] = _entry('b2', _day(10, 5));
+      entries.removeAt(1);
+      expect(_ids(entries.inMonth(2026, 10)), ['a']);
+      entries[0] = _entry('a2', _day(10, 5));
+      entries.add(_entry('c', _day(10, 6)));
+      expect(_ids(entries.inMonth(2026, 10)), ['c', 'a2']);
+    });
+
+    test('removing something that is not there changes nothing', () {
+      final entries = asked([_entry('a', _day(10, 5))]);
+      expect(entries.remove(_entry('x', _day(10, 5))), isFalse);
+      expect((entries as List<Object?>).remove('not an entry'), isFalse);
+      expect(entries.length, 1);
+    });
+  });
+
+  for (final seed in [1, 5, 9, 31, 77, 123, 456, 789]) {
     test('it answers like a list worked through the slow way ($seed)', () {
       final random = Random(seed);
       final entries = EntryRepository();
@@ -181,9 +331,9 @@ void main() {
         }
       }
 
-      for (var step = 0; step < 150; step++) {
+      for (var step = 0; step < 300; step++) {
         final label = 'seed $seed step $step';
-        switch (random.nextInt(10)) {
+        switch (random.nextInt(14)) {
           case 0 || 1 || 2:
             final e = make();
             entries.add(e);
@@ -212,6 +362,24 @@ void main() {
             final to = from + 1 + random.nextInt(plain.length - from - 1);
             entries.removeRange(from, to);
             plain.removeRange(from, to);
+          case 12 || 13 when plain.isNotEmpty:
+            final at = random.nextInt(plain.length);
+            final old = plain[at];
+            final e = _entry(
+              's${serial++}',
+              old.date,
+              amount: 5 + random.nextInt(9),
+            );
+            entries[at] = e;
+            plain[at] = e;
+          case 10:
+            final batch = [for (var i = 0; i < 70; i++) make()];
+            entries.addAll(batch);
+            plain.addAll(batch);
+          case 11 when plain.isNotEmpty:
+            final e = plain[random.nextInt(plain.length)];
+            expect(entries.remove(e), isTrue);
+            plain.remove(e);
           case 9:
             final month = 1 + random.nextInt(4);
             entries.removeWhere((e) => e.date.month == month);
