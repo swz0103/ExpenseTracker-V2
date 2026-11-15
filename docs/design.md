@@ -77,6 +77,8 @@
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/ui/`。
 
+白卡元件（`Tile`、`TileRow`、`TileStats`、`SoftPanel`、`FormBlock`、`SectionHead`、`IconChip`、`IconBadge`）正在退場，新頁面不要用；替代方式見 [ADR-0006](adr/0006-retire-white-cards.md)。
+
 ## 版面規則
 
 - 每一頁在 320／360／412 dp、字級 100／130／150%、淺深色下都要：不溢位、字不重疊、不縮到六成以下、12 字以內不換行（`test/app/layout_*_test.dart`）。

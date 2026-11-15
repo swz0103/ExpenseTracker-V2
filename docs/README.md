@@ -13,7 +13,7 @@
 | 每版改了什麼 | [CHANGELOG.md](CHANGELOG.md) |
 | 要在手機上確認的事 | [acceptance.md](acceptance.md) |
 | 還沒做的、限制、刻意不做 | [roadmap.md](roadmap.md) |
-| 為什麼這樣決定 | [adr/](adr/)：0001 目標架構、0002 依功能分資料夾、0003 分層規則、0004 設計系統、0005 備份取捨 |
+| 為什麼這樣決定 | [adr/](adr/)：0001 目標架構、0002 依功能分資料夾、0003 分層規則、0004 設計系統、0005 備份取捨、0006 白卡元件退場 |
 
 各模組自己的說明在它的 README：`apps/expense_tracker`、`packages/core`、`packages/domain`、`infrastructure/storage`、`infrastructure/vault`、`infrastructure/market`。
 
