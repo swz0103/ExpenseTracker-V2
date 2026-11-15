@@ -6,10 +6,11 @@ import 'package:flutter/widgets.dart';
 
 import 'src/features/backup/model/file_cleanup.dart';
 import 'src/app/bootstrap.dart';
-import 'src/core/platform/performance_monitor.dart';
+import 'src/core/diagnostics/performance_monitor.dart';
 import 'src/app/platform.dart';
 import 'src/core/platform/preferences.dart';
 import 'src/core/platform/screen_privacy.dart';
+import 'src/core/diagnostics/error_log.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`.
@@ -18,16 +19,16 @@ Future<void> main() async {
   PerformanceMonitor.instance.watchFrames();
   final directory = await applicationDirectory();
   // Faults are kept on the phone, so 設定 can export them after a crash.
-  PerformanceMonitor.instance.keepIn(File('${directory.path}/diagnostics.log'));
+  ErrorLog.instance.keepIn(File('${directory.path}/diagnostics.log'));
   FlutterError.onError = (details) {
     // A release build only keeps the cleaned record (perf.dart): the full
     // report would go to the phone's system log, possibly with the
     // person's own words in it.
     if (!kReleaseMode) FlutterError.presentError(details);
-    PerformanceMonitor.instance.problem('畫面錯誤', details.exception);
+    ErrorLog.instance.record('畫面錯誤', details.exception);
   };
   WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-    PerformanceMonitor.instance.problem('未預期的錯誤', error);
+    ErrorLog.instance.record('未預期的錯誤', error);
     return true;
   };
   final device = Platform.isAndroid
@@ -39,7 +40,7 @@ Future<void> main() async {
   try {
     await privacy?.apply();
   } on Object catch (error) {
-    PerformanceMonitor.instance.problem('螢幕隱私', error);
+    ErrorLog.instance.record('螢幕隱私', error);
   }
   final preferences = Preferences(
     file: File('${directory.path}/preferences.json'),
@@ -63,7 +64,7 @@ Future<void> _listenForQuickActions() async {
   try {
     await listenForQuickActions();
   } on Object catch (error) {
-    PerformanceMonitor.instance.problem('捷徑', error);
+    ErrorLog.instance.record('捷徑', error);
   }
 }
 
@@ -76,12 +77,12 @@ Future<void> _clearLeftovers(Directory directory) async {
     try {
       cache = await androidCacheDirectory();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('清除暫存檔', error);
+      ErrorLog.instance.record('清除暫存檔', error);
     }
   }
   try {
     await clearLeftovers(directory, cache: cache);
   } on Object catch (error) {
-    PerformanceMonitor.instance.problem('清除暫存檔', error);
+    ErrorLog.instance.record('清除暫存檔', error);
   }
 }

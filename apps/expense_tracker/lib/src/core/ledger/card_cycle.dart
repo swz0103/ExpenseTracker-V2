@@ -87,6 +87,7 @@ CardSchedule _scheduleOf(Account a) {
       );
       overrides.add(override);
     } on CreditCardException {
+      // A change the card's schedule refuses is left out.
       continue;
     }
   }

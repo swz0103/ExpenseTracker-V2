@@ -178,6 +178,7 @@ List<List<String>> parseCsv(String text) {
   try {
     return readCsv(text);
   } on FormatException {
+    // An unclosed quote is closed at the end of the text and read again.
     return readCsv('$text"');
   }
 }

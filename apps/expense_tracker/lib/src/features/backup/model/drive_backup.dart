@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../core/diagnostics/error_log.dart';
+
 /// One HTTP exchange with Google Drive: the status, the headers (lower
 /// case) and, unless it was saved to a file, the body.
 final class DriveResponse {
@@ -165,7 +167,8 @@ final class DriveBackup {
     String? token;
     try {
       token = _cached ?? await _token(interactive: false);
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('Google 授權', error);
       token = null;
     }
     _cached = null;
@@ -217,9 +220,9 @@ final class DriveBackup {
           saveTo: saveTo,
         );
       } on IOException catch (error) {
-        throw DriveException(DriveProblem.offline, '$error');
+        throw DriveException(DriveProblem.offline, ErrorLog.describe(error));
       } on TimeoutException catch (error) {
-        throw DriveException(DriveProblem.offline, '$error');
+        throw DriveException(DriveProblem.offline, ErrorLog.describe(error));
       }
       if (response.status == 401 && attempt == 0) {
         _cached = null;
@@ -240,9 +243,10 @@ final class DriveBackup {
   static String _reason(String body) {
     try {
       final json = jsonDecode(body) as Map<String, Object?>;
-      final error = json['error'] as Map<String, Object?>?;
-      return '${error?['message'] ?? ''}';
+      final detail = json['error'] as Map<String, Object?>?;
+      return '${detail?['message'] ?? ''}';
     } on Object {
+      // A body that is not JSON has no message.
       return '';
     }
   }

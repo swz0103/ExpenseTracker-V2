@@ -462,6 +462,7 @@ Import _invoiceCsv(Ledger ledger, String text, {required String account}) {
   try {
     invoices = parseEInvoices(text);
   } on FormatException {
+    // Said to the person as a problem of the file.
     return const Import([], 1, problems: ['檔案格式看不懂']);
   }
   final entries = <Entry>[];

@@ -21,8 +21,13 @@
 
 - 依賴只能往下：`app/` → `features/` → `core/` → 套件（`packages/`、`infrastructure/`）。
 - 功能可以用別的功能的 `model/` 與 `compose/`（例如開它的表單），不能用它的 `ui/`；功能之間不能互相需要。需要同一個東西的兩個功能，把它搬到 `core/`。
-- `core/` 分六部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的六個部分)）。
+- `core/` 分七部分，各自只能用表上允許的部分（[architecture.md](architecture.md#core-的七個部分)）。資料夾名稱集中在 `test/app/layout.dart`，改名只改那裡。
 - 搬檔案用 `python3 tool/move.py 舊路徑=新路徑`（在 `apps/expense_tracker` 下執行），它會改好所有 import。
+
+### 錯誤
+
+- 每個 `catch` 做三件事之一：用 `ErrorLog.instance.record('做什麼', error)` 記下、重新拋出，或在區塊第一行用註解說明為何什麼都不用做（`error_rules_test`）。
+- 不把例外原樣放進給人看的訊息；要附上原因時用 `ErrorLog.describe(error)`，它去掉路徑、引號內的字和數字。
 
 ### 檔案長度
 
@@ -30,6 +35,8 @@
 - 快超過時依主題拆：`python3 tool/split.py <檔案>` 把後段的宣告搬到同一個 library 的 `part` 檔，再把檔名改成看得懂的名字。單一類別太長時，把一組方法搬到同檔 library 的 `extension`（例：`composer_pickers.dart`）。
 
 ### 命名與註解
+
+- 名稱用業界通用詞，不自創；怎麼取、檔名後綴、舊名對照見 [naming.md](naming.md)。
 
 - 檔名小寫底線，名稱說明內容（`loan_blocks.dart`），不用 `_2`、`utils`、`helpers`。
 - 公開的類別、函式都有 `///` 文件註解，用英文寫「它是什麼、什麼時候用」；畫面上的中文字直接寫在註解裡對照（例：`/// 定期交易: …`）。

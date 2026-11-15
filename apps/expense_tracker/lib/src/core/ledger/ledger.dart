@@ -14,6 +14,7 @@ import 'card_cycle.dart';
 import 'journal.dart';
 import 'portfolio.dart';
 import 'records.dart';
+import '../diagnostics/error_log.dart';
 
 export 'card_cycle.dart';
 export 'records.dart';
@@ -386,6 +387,7 @@ final class Ledger extends ChangeNotifier {
       try {
         await journal.keep(batch);
       } on Object catch (error) {
+        ErrorLog.instance.record('寫入帳本', error);
         problem.value = error;
         _stale = true;
       }
@@ -397,6 +399,7 @@ final class Ledger extends ChangeNotifier {
         // load after it brings both.
         if (_waiting == 0) _adopt(fresh);
       } on Object catch (error) {
+        ErrorLog.instance.record('重新讀取帳本', error);
         problem.value = error;
         _stale = true;
       }

@@ -120,6 +120,7 @@ final class InvoiceQr {
     try {
       return utf8.decode(base64.decode(text), allowMalformed: true).trim();
     } on FormatException {
+      // Not encoded: the text is taken as it is.
       return text;
     }
   }

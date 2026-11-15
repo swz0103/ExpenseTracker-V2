@@ -13,11 +13,20 @@ abstract final class Layout {
   /// always import itself. [navigation] is a single file at the top.
   static const coreParts = <String, List<String>>{
     'text': [],
+    'diagnostics': [],
     'look': ['text'],
     'charts': ['look', 'text'],
-    'ledger': ['text', 'platform/performance_monitor.dart'],
-    'platform': ['ledger', 'text'],
-    'ui': ['look', 'text', 'ledger', 'charts', 'platform', 'nav.dart'],
+    'ledger': ['text', 'diagnostics'],
+    'platform': ['ledger', 'text', 'diagnostics'],
+    'ui': [
+      'look',
+      'text',
+      'ledger',
+      'charts',
+      'platform',
+      'diagnostics',
+      'nav.dart',
+    ],
   };
   static const navigation = 'nav.dart';
 
@@ -43,7 +52,7 @@ abstract final class Layout {
 
   /// What the ledger may import besides itself.
   static const ledgerMayImport = [
-    'lib/src/core/platform/performance_monitor.dart',
+    'lib/src/core/diagnostics/',
     'lib/src/core/text/',
   ];
 

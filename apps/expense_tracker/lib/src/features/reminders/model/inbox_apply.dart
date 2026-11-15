@@ -76,6 +76,7 @@ InboxOutcome applyInbox(Ledger ledger, List<InboxItem> items) {
       ),
     );
   } on Object {
+    // A line that is not a time is left out.
     return null;
   }
 }

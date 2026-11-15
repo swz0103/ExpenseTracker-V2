@@ -12,8 +12,10 @@ import '../../../core/platform/preferences.dart';
 import '../../../core/platform/problems.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 part 'backup_section_manual.dart';
+part 'backup_section_card_row.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
@@ -26,6 +28,7 @@ Future<void> restoreFromBackup(
   try {
     await backupManager.restoreAnother();
   } on Object catch (error) {
+    ErrorLog.instance.record('還原', error);
     if (context.mounted) {
       showNote(context, '沒有開始還原：${describeProblem(error)}');
     }
@@ -83,6 +86,7 @@ class _BackupSectionState extends State<BackupSection> {
         );
       }
     } on Object catch (error) {
+      ErrorLog.instance.record('匯出備份', error);
       if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
     }
   }
@@ -104,8 +108,10 @@ class _BackupSectionState extends State<BackupSection> {
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
+      // Its own message is said to the person.
       note = error.message;
     } on Object catch (error) {
+      ErrorLog.instance.record('備份', error);
       note = '備份失敗：${describeProblem(error)}';
     }
     // The code changed even when the backup did not go up: shown anyway.
@@ -122,8 +128,10 @@ class _BackupSectionState extends State<BackupSection> {
       await drive.setPhotos(on);
       if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
     } on DriveException catch (error) {
+      // Its own message is said to the person.
       if (mounted) showNote(context, error.message);
     } on Object catch (error) {
+      ErrorLog.instance.record('備份', error);
       if (mounted) showNote(context, '備份失敗：${describeProblem(error)}');
     }
   }
@@ -153,12 +161,14 @@ class _BackupSectionState extends State<BackupSection> {
         }
         go = false;
       } on FolderRejected {
+        // The phone refused this place: said to the person.
         go = await _folderRules(
           'Android 不讓 App 存到這個位置（「下載」或儲存空間最外層都不行）。'
               '請進到「文件（Documents）」或其他資料夾裡，再按「使用這個資料夾」。',
           '重新選',
         );
       } on Object catch (error) {
+        ErrorLog.instance.record('手機資料夾備份', error);
         note = '沒有備份到手機資料夾：${describeProblem(error)}';
         go = false;
       }
@@ -520,72 +530,6 @@ class _BackupCard extends StatelessWidget {
             row,
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// A setting on a [_BackupCard]: its name, and on the right its value
-/// with › or a control.
-class _CardRow extends StatelessWidget {
-  const _CardRow({
-    required this.color,
-    required this.title,
-    this.detail,
-    this.value,
-    this.trailing,
-    this.onTap,
-  });
-
-  final Color color;
-  final String title;
-  final String? detail;
-  final String? value;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = deepOf(color);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OneLine(
-                    title,
-                    style: TextStyle(
-                      fontSize: TextSize.body,
-                      fontWeight: FontWeight.w700,
-                      color: ink,
-                    ),
-                  ),
-                  if (detail != null)
-                    Text(
-                      detail!,
-                      style: TextStyle(fontSize: TextSize.caption, color: ink),
-                    ),
-                ],
-              ),
-            ),
-            if (value != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: OneLine(
-                  '${value!} ›',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                ),
-              ),
-            ?trailing,
-          ],
-        ),
       ),
     );
   }

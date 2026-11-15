@@ -10,7 +10,8 @@ import 'package:storage/storage.dart';
 import 'journal.dart';
 import 'ledger.dart';
 import 'record_json.dart';
-import '../platform/performance_monitor.dart';
+import '../diagnostics/performance_monitor.dart';
+import '../diagnostics/error_log.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -377,7 +378,8 @@ final class TableJournal implements Journal {
           if (fallback.value != null) result = fallback;
         }
         return result.value;
-      } on Object {
+      } on Object catch (error) {
+        ErrorLog.instance.record('收盤價', error);
         return null;
       }
     }

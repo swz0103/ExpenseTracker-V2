@@ -11,6 +11,7 @@ import '../../../core/look/widgets.dart';
 import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
 const _csvHue = Palette.periwinkle;
@@ -104,7 +105,8 @@ class _ImportPageState extends State<_ImportPage> {
     final String? text;
     try {
       text = await readFile();
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('讀取匯入檔', error);
       if (mounted) showNote(context, '讀不到這個檔案，請確認是 UTF-8 的文字檔');
       return;
     }

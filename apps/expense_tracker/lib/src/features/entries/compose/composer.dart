@@ -24,6 +24,7 @@ import '../model/receipt_photos.dart';
 import '../../import_export/model/import_export.dart' show invoiceRecorded;
 import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
@@ -96,6 +97,7 @@ final class _Draft {
               ],
       );
     } on Object {
+      // A form that cannot be read is left out.
       return null;
     }
   }

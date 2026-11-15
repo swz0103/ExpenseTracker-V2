@@ -20,6 +20,7 @@ Future<void> clearLeftovers(
     try {
       return at.difference(entity.statSync().modified) > than;
     } on FileSystemException {
+      // A file that cannot be read is treated as old enough.
       return true;
     }
   }

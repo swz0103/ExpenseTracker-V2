@@ -8,7 +8,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'performance_monitor.dart';
+import '../diagnostics/error_log.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.
@@ -126,7 +126,8 @@ final class Startup extends ChangeNotifier {
     if (_state is! NeedsSetup || !cloudCopy.existsSync()) return null;
     try {
       return await LedgerBackup.readHeader(cloudCopy);
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('讀取備份標頭', error);
       return null;
     }
   }
@@ -367,7 +368,7 @@ final class Startup extends ChangeNotifier {
       await open.updateKeys(keys);
       _reEnrol = false;
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('指紋登記', error);
+      ErrorLog.instance.record('指紋登記', error);
       // Only turning the prompt down stops it; a failure asks next time.
       if (error is PlatformException && error.code == 'declined') {
         await _noDevice.writeAsString('', flush: true);

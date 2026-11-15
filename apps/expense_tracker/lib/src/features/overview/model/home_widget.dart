@@ -5,8 +5,8 @@ import 'dart:math';
 
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/platform/performance_monitor.dart';
 import '../../../core/platform/preferences.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// What the home-screen widget 本月概況 shows for [figures], as the text it
 /// shows and nothing more; null when it shows no figures. With
@@ -176,7 +176,7 @@ final class HomeWidget {
       }
       await _refresh();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('桌面小工具', error);
+      ErrorLog.instance.record('桌面小工具', error);
     }
   }
 }

@@ -35,7 +35,6 @@ import '../features/lock/ui/lock_screen.dart';
 import '../core/look/recovery_code.dart';
 import 'shell.dart';
 import '../core/platform/away_clock.dart';
-import '../core/platform/performance_monitor.dart';
 import 'platform.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/screen_privacy.dart';
@@ -43,6 +42,7 @@ import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
+import '../core/diagnostics/error_log.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -250,7 +250,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       try {
         await sweepReceipts(widget.startup.directory, ledger.receiptFiles);
       } on Object catch (error) {
-        PerformanceMonitor.instance.problem('清除收據照片', error);
+        ErrorLog.instance.record('清除收據照片', error);
       }
       _receipts = AndroidReceipts(
         widget.startup.directory,
@@ -276,7 +276,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         );
         unawaited(_checkUpdate());
       } on Object catch (error) {
-        PerformanceMonitor.instance.problem('檢查更新', error);
+        ErrorLog.instance.record('檢查更新', error);
       }
     }
     _calendar?.follow(ledger);
@@ -303,7 +303,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await inbox.remove(item.name);
       }
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('收件匣', error);
+      ErrorLog.instance.record('收件匣', error);
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -337,7 +337,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       booked = ledger.bookDue();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('定期自動入帳', error);
+      ErrorLog.instance.record('定期自動入帳', error);
       return;
     }
     if (booked == 0) return;
@@ -355,7 +355,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final problem = phone.problem;
     if (problem == null || _phoneWarned) return;
     _phoneWarned = true;
-    PerformanceMonitor.instance.problem('手機資料夾備份', problem);
+    ErrorLog.instance.record('手機資料夾備份', problem);
     if (mounted) showNote(context, '沒有備份到手機資料夾，可以到「設定」重新選擇');
   }
 
@@ -392,14 +392,14 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await _backupManager.keepCloudCopy();
       }
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('Google 備份', error);
+      ErrorLog.instance.record('Google 備份', error);
     }
     final outbox = _outbox;
     if (outbox == null) return;
     try {
       await outbox.prepare();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('背景備份', error);
+      ErrorLog.instance.record('背景備份', error);
     }
   }
 
@@ -407,10 +407,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void _collectOutbox() {
     try {
       for (final problem in _outbox?.collect() ?? const <String>[]) {
-        PerformanceMonitor.instance.problem('背景備份', problem);
+        ErrorLog.instance.record('背景備份', problem);
       }
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('背景備份', error);
+      ErrorLog.instance.record('背景備份', error);
     }
   }
 
@@ -421,7 +421,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       await _backupManager.backUpIfDue();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('每週備份', error);
+      ErrorLog.instance.record('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
     }
     _collectOutbox();
@@ -431,12 +431,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       await drive.backUpIfDue();
     } on DriveException catch (error) {
-      PerformanceMonitor.instance.problem('雲端硬碟備份', error);
+      ErrorLog.instance.record('雲端硬碟備份', error);
       if (error.problem != DriveProblem.offline && mounted) {
         showNote(context, '沒有備份到 Google 雲端硬碟，可以到「設定」重新連結');
       }
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('雲端硬碟備份', error);
+      ErrorLog.instance.record('雲端硬碟備份', error);
     }
   }
 

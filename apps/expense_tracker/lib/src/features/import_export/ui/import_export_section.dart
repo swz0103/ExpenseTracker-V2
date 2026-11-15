@@ -12,6 +12,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/problems.dart';
 import 'import_page.dart';
 import '../../../core/look/settings_hue.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// 匯入與匯出: 匯出 CSV across the page, which asks how much (this month,
 /// this year, everything, or from one day to another); under 匯入, a CSV
@@ -175,6 +176,7 @@ class _ExportSheetState extends State<_ExportSheet> {
       final saved = await backupManager.exportFile(_name(_span), text);
       if (saved) note('已下載$what');
     } on Object catch (error) {
+      ErrorLog.instance.record('下載匯出檔', error);
       note('下載失敗：${describeProblem(error)}');
     }
   }

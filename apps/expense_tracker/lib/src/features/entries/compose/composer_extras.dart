@@ -181,7 +181,8 @@ extension _Extras on _ComposerState {
       try {
         final name = await photos.take(camera: camera);
         if (name != null) _set(() => _f.receipt = name);
-      } on Object {
+      } on Object catch (error) {
+        ErrorLog.instance.record('收據照片', error);
         _set(() => _problem = camera ? '無法開啟相機' : '無法讀取這張照片');
       }
     }

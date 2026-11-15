@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'performance_monitor.dart';
+import '../diagnostics/error_log.dart';
 
 /// Something the app fetches or sends outside the phone, such as closing
 /// prices or a backup on Google Drive: whether it is at work, when it last
@@ -55,7 +55,7 @@ abstract class SyncJob extends ChangeNotifier {
       _problem = await work();
       _lastSuccess = _clock();
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem(label, error);
+      ErrorLog.instance.record(label, error);
       _problem = failure;
     } finally {
       _busy = false;

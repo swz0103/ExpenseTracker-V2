@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/diagnostics/error_log.dart';
+import '../core/diagnostics/performance_monitor.dart';
 import '../core/look/dialogs.dart';
 import '../core/look/glyphs.dart';
 import '../core/look/theme.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/performance_monitor.dart';
 import '../core/platform/problems.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
@@ -25,21 +26,27 @@ class AboutSection extends StatelessWidget {
   final Ledger ledger;
   final PlatformServices services;
 
+  /// The figures, then each problem kept, as text to copy or download.
+  static String get _report => [
+    for (final (name, figure) in PerformanceMonitor.instance.report)
+      '$name：$figure',
+    '',
+    ErrorLog.instance.text,
+  ].join('\n');
+
   Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(
-      ClipboardData(text: PerformanceMonitor.instance.text),
-    );
+    await Clipboard.setData(ClipboardData(text: _report));
     if (context.mounted) showNote(context, '已複製診斷紀錄');
   }
 
   Future<void> _export(BuildContext context) async {
-    final text = PerformanceMonitor.instance.text;
     final backupManager = services.backupManager;
     if (backupManager == null) return _copy(context);
     try {
-      final saved = await backupManager.exportFile('記帳本-診斷紀錄.txt', text);
+      final saved = await backupManager.exportFile('記帳本-診斷紀錄.txt', _report);
       if (context.mounted && saved) showNote(context, '已下載診斷紀錄');
     } on Object catch (error) {
+      ErrorLog.instance.record('下載診斷紀錄', error);
       if (context.mounted) {
         showNote(context, '下載失敗：${describeProblem(error)}');
       }
@@ -95,13 +102,11 @@ class AboutSection extends StatelessWidget {
             CardGrid(columns: 3, gap: 8, [
               figure('載入', figures.load),
               figure('影格', figures.frame),
-              figure('錯誤', '${figures.errors}'),
+              figure('錯誤', '${ErrorLog.instance.count}'),
             ]),
             const SizedBox(height: 10),
             Text(buildLabel, style: mutedSmall),
-            for (final (at, what) in PerformanceMonitor.instance.problems.take(
-              3,
-            ))
+            for (final (at, what) in ErrorLog.instance.entries.take(3))
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('${at.month}/${at.day} $what', style: mutedSmall),

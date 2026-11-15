@@ -3,7 +3,7 @@ import 'dart:io';
 
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
-import '../../../core/platform/performance_monitor.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// A calendar on the phone, such as one synced with Google Calendar.
 final class CalendarChoice {
@@ -77,7 +77,7 @@ final class CalendarSync {
       try {
         await port.replace(before.$1, ledger.today, const []);
       } on Object catch (error) {
-        PerformanceMonitor.instance.problem('清除舊日曆的提醒', error);
+        ErrorLog.instance.record('清除舊日曆的提醒', error);
       }
     }
     await _write(calendar.id, calendar.name, amounts: amounts);
@@ -126,7 +126,7 @@ final class CalendarSync {
         for (final r in reminders) amounts ? r : r.withoutAmount,
       ]);
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('日曆同步', error);
+      ErrorLog.instance.record('日曆同步', error);
       return null;
     }
   }

@@ -9,6 +9,7 @@ import '../../../core/platform/problems.dart';
 import '../../../core/platform/screen_privacy.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.
@@ -45,6 +46,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       if (mounted) setState(() {});
       if (mounted) showNote(context, first ? '已設定密碼' : '密碼已變更');
     } on Object catch (error) {
+      // A wrong or weak password is said to the person, by its kind.
       if (!mounted) return;
       final wrong = '$error'.contains('wrongSecret');
       final weak = '$error'.contains('weakPassword');
@@ -54,7 +56,7 @@ class _SecuritySectionState extends State<SecuritySection> {
             ? '目前的密碼不正確'
             : weak
             ? '新密碼至少要 6 個字'
-            : '無法變更密碼（$error）',
+            : '無法變更密碼（${ErrorLog.describe(error)}）',
       );
     }
   }
@@ -66,6 +68,7 @@ class _SecuritySectionState extends State<SecuritySection> {
       final code = await backupManager.newRecoveryCode();
       if (mounted) await showRecoveryCode(context, code);
     } on Object catch (error) {
+      ErrorLog.instance.record('變更密碼', error);
       if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
     }
   }
@@ -74,7 +77,8 @@ class _SecuritySectionState extends State<SecuritySection> {
   Future<void> _hideScreen(ScreenPrivacy privacy, bool on) async {
     try {
       await privacy.turn(on: on);
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('截圖設定', error);
       if (mounted) showNote(context, '這支手機無法切換截圖設定');
     }
     if (mounted) setState(() {});

@@ -3,9 +3,9 @@ import 'dart:async';
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
-import '../../../core/platform/performance_monitor.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// One notification to show at [at].
 final class Alert {
@@ -237,7 +237,7 @@ final class Notifier {
       );
       await postBudgets(ledger);
     } on Object catch (error) {
-      PerformanceMonitor.instance.problem('通知', error);
+      ErrorLog.instance.record('通知', error);
     }
   }
 

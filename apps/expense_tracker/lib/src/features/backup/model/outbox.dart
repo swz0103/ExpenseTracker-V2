@@ -4,6 +4,7 @@ import 'dart:math';
 
 import '../../../core/platform/preferences.dart';
 import 'phone_backup.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// Backups that reach the phone's folder and Google Drive without the app
 /// being opened. The ledger's key is only in the open app, so the backup
@@ -173,7 +174,8 @@ final class Outbox {
     try {
       final json = jsonDecode(file.readAsStringSync());
       return json is Map<String, Object?> ? json : null;
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('備份佇列檔', error);
       return null;
     }
   }

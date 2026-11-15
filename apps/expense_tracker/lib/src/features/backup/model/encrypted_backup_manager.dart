@@ -296,6 +296,7 @@ final class EncryptedBackupManager implements BackupManager {
       try {
         return file.lastModifiedSync();
       } on FileSystemException {
+        // A file that cannot be read counts as the oldest.
         return DateTime.fromMillisecondsSinceEpoch(0);
       }
     }

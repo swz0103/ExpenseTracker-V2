@@ -13,6 +13,7 @@ import 'views/recovery_view.dart';
 import 'views/restore_view.dart';
 import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -147,12 +148,14 @@ class _LockScreenState extends State<LockScreen> {
     try {
       await widget.startup.unlockWithDevice();
     } on KeyringException catch (error) {
+      // Said to the person below, by its kind.
       _fail(
         error.error == KeyringError.unknownDevice
             ? '先用密碼打開一次，之後就能用指紋解鎖'
             : '指紋解鎖失敗，請改用密碼',
       );
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('指紋解鎖', error);
       _fail('指紋解鎖已取消，可以改用密碼');
     }
   }
@@ -171,7 +174,8 @@ class _LockScreenState extends State<LockScreen> {
     try {
       await widget.startup.openQuietly();
     } on Object catch (error) {
-      _fail('無法開啟帳本（$error）');
+      ErrorLog.instance.record('開啟帳本', error);
+      _fail('無法開啟帳本（${ErrorLog.describe(error)}）');
     }
   }
 
@@ -184,7 +188,8 @@ class _LockScreenState extends State<LockScreen> {
     try {
       await widget.startup.setUpWithoutPassword();
     } on Object catch (error) {
-      _fail('無法建立帳本（$error）');
+      ErrorLog.instance.record('建立帳本', error);
+      _fail('無法建立帳本（${ErrorLog.describe(error)}）');
     }
   }
 
@@ -232,16 +237,20 @@ class _LockScreenState extends State<LockScreen> {
           ? startup.unlockWithRecovery(secret.trim())
           : startup.unlockWithPassword(secret));
     } on BackupException catch (error) {
+      // Said to the person, by its kind.
       _fail('無法讀取這個備份（${error.problem.name}）');
     } on FileSystemException {
+      // Said to the person.
       _fail('找不到這個備份檔');
     } on KeyringException catch (error) {
+      // Said to the person, by its kind.
       _fail(switch (error.error) {
         KeyringError.wrongSecret => _recovery ? '救援碼不正確' : '密碼不正確',
         _ => '無法開啟帳本（${error.error.name}）',
       });
     } on Object catch (error) {
-      _fail('無法開啟帳本（$error）');
+      ErrorLog.instance.record('還原備份', error);
+      _fail('無法開啟帳本（${ErrorLog.describe(error)}）');
     }
   }
 
@@ -270,6 +279,7 @@ class _LockScreenState extends State<LockScreen> {
           '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)}'
           ' 的備份 · ${header.rows} 筆資料';
     } on Object {
+      // A file that is not a backup is said so.
       about = '這個檔案不是記帳本的備份';
     }
     if (mounted) setState(() => _about = about);
@@ -323,9 +333,11 @@ class _LockScreenState extends State<LockScreen> {
       });
       await _describe(into.path);
     } on DriveException catch (error) {
+      // Its own message is said to the person.
       _fail(error.message);
     } on Object catch (error) {
-      _fail('無法下載備份（$error）');
+      ErrorLog.instance.record('下載備份', error);
+      _fail('無法下載備份（${ErrorLog.describe(error)}）');
     }
   }
 
