@@ -1,37 +1,37 @@
-import 'ledger.dart';
+import '../ledger.dart';
 
 /// Where the book is kept between launches. The [Ledger] changes itself
 /// first, so the screens answer at once, then hands each change here as a
-/// [Batch]; when one cannot be kept it reads back what was.
-abstract interface class Journal {
+/// [WriteBatch]; when one cannot be kept it reads back what was.
+abstract interface class LedgerDataSource {
   /// Everything kept, as a ledger for the screens.
   Future<Ledger> load();
 
   /// Keeps every record of [batch] and forgets the dropped ones, all
   /// together or, when this throws, none of them.
-  Future<void> keep(Batch batch);
+  Future<void> keep(WriteBatch batch);
 }
 
-/// The [Journal] could not keep a change: its file is closed, locked or
+/// The [LedgerDataSource] could not keep a change: its file is closed, locked or
 /// cannot be written.
-final class JournalFailure implements Exception {
-  const JournalFailure(this.cause);
+final class DataSourceException implements Exception {
+  const DataSourceException(this.cause);
 
   final Object cause;
 
   @override
-  String toString() => 'JournalFailure($cause)';
+  String toString() => 'DataSourceException($cause)';
 }
 
-/// The kinds of record a [Batch] carries, each kept by its own key: an
+/// The kinds of record a [WriteBatch] carries, each kept by its own key: an
 /// account, entry or recurring item by id, a category by name, a budget
 /// by what it covers, a deleted entry and a receipt by the entry's id.
-enum Shelf { account, category, entry, budget, recurring, trash, receipt }
+enum Collection { account, category, entry, budget, recurring, trash, receipt }
 
 /// The records one change of the [Ledger] put in place, and those it
 /// took away.
-final class Batch {
-  Batch({
+final class WriteBatch {
+  WriteBatch({
     this.accounts = const [],
     this.categories = const [],
     this.entries = const [],
@@ -53,8 +53,8 @@ final class Batch {
   /// Each entry's receipt photo, by entry id; null takes it away.
   final Map<String, String?> receipts;
 
-  /// Records taken away, by shelf and key.
-  final List<(Shelf, String)> dropped;
+  /// Records taken away, by collection and key.
+  final List<(Collection, String)> dropped;
 
   /// Forms put aside in the composer, as JSON by tab; null clears one.
   /// Kept like the records, but not a change of the book.

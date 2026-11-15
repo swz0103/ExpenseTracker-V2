@@ -48,7 +48,8 @@ abstract final class Layout {
   static const routePusher = 'lib/src/core/look/feedback.dart';
 
   /// The one file of the ledger that touches storage.
-  static const storageFile = 'lib/src/core/ledger/table_journal.dart';
+  static const storageFile =
+      'lib/src/core/ledger/persistence/sql_ledger_data_source.dart';
 
   /// What the ledger may import besides itself.
   static const ledgerMayImport = [

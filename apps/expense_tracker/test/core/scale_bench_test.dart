@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
@@ -55,7 +55,7 @@ void main() {
         final clock = FixedClock(UtcInstant(DateTime.utc(2026, 10, 4, 4)));
 
         var store = RowStore.open(file, key);
-        var ledger = await TableJournal(store, clock: clock).load();
+        var ledger = await SqlLedgerDataSource(store, clock: clock).load();
         final entries = make(count);
         ledger.addAll(
           entries,
@@ -70,7 +70,7 @@ void main() {
         late Ledger loaded;
         final open = await time(() async {
           store = RowStore.open(file, key);
-          loaded = await TableJournal(store, clock: clock).load();
+          loaded = await SqlLedgerDataSource(store, clock: clock).load();
         });
         ledger = loaded;
 

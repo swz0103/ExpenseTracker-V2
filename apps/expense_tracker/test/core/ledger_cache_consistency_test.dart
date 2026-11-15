@@ -1,13 +1,13 @@
 import 'dart:math';
 
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing; the ledger under test only has to accept its batches.
-final class _Nowhere implements Journal {
+final class _Nowhere implements LedgerDataSource {
   @override
-  Future<void> keep(Batch batch) async {}
+  Future<void> keep(WriteBatch batch) async {}
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -119,7 +119,7 @@ void main() {
         holdings: const [],
         budgets: const [],
         recurring: const [],
-        journal: _Nowhere(),
+        dataSource: _Nowhere(),
       );
       var serial = 0;
       ask(live);

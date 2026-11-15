@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -35,7 +35,7 @@ void main() {
         directory,
         codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
       ),
-      check: TableJournal.check,
+      check: SqlLedgerDataSource.check,
     );
   }
 
@@ -49,8 +49,8 @@ void main() {
     await first.setUp(password);
     expect(first.takeRecoveryCode(), isNotNull);
     expect(first.takeRecoveryCode(), isNull);
-    final journal = TableJournal(vaultOf(first).store, clock: clock);
-    final ledger = await journal.load();
+    final dataSource = SqlLedgerDataSource(vaultOf(first).store, clock: clock);
+    final ledger = await dataSource.load();
     final cash = Account(
       ledger.newId(),
       '錢包',
@@ -99,7 +99,7 @@ void main() {
     expect(second.state, isA<NeedsSetup>());
     expect(File(path).existsSync(), isFalse);
     await second.restore(weekly!, password);
-    final restored = await TableJournal(
+    final restored = await SqlLedgerDataSource(
       vaultOf(second).store,
       clock: clock,
     ).load();
@@ -150,8 +150,8 @@ void main() {
     final startup = startupIn('pending');
     await startup.setUp(password);
     final vault = vaultOf(startup);
-    final journal = TableJournal(vault.store, clock: clock);
-    final ledger = await journal.load();
+    final dataSource = SqlLedgerDataSource(vault.store, clock: clock);
+    final ledger = await dataSource.load();
     final backupManager = EncryptedBackupManager(
       startup,
       vault,
@@ -175,7 +175,7 @@ void main() {
     expect(ledger.problem.value, isNull);
 
     await startup.unlockWithPassword(password);
-    final again = await TableJournal(
+    final again = await SqlLedgerDataSource(
       vaultOf(startup).store,
       clock: clock,
     ).load();
@@ -204,8 +204,8 @@ void main() {
     await startup.setUp(password);
     final vault = vaultOf(startup);
     final backupManager = EncryptedBackupManager(startup, vault);
-    final journal = TableJournal(vault.store, clock: clock);
-    final ledger = await journal.load();
+    final dataSource = SqlLedgerDataSource(vault.store, clock: clock);
+    final ledger = await dataSource.load();
     await ledger.settled;
     expect(backupManager.cloudCopyAt, isNull);
     expect(await backupManager.keepCloudCopy(), isTrue);

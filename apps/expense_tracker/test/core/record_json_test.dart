@@ -4,7 +4,7 @@ import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Every record the journal keeps reads back as it was written.
+/// Every record the data source keeps reads back as it was written.
 void main() {
   test('an account keeps its card terms and its looks', () {
     final card = Account(

@@ -18,7 +18,7 @@ extension LedgerHoldings on Ledger {
         rethrow;
       }
     }
-    _changed(const {Area.entries});
+    _changed(const {Topic.entries});
   }
 
   /// [_replayOrUndo], telling a refusal through [problem] rather than

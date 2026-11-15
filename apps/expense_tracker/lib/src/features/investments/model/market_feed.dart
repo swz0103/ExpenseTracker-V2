@@ -5,7 +5,7 @@ import 'package:market/market_data.dart';
 
 import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ledger/table_journal.dart';
+import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 
 /// Closing prices and exchange rates for [ledger], fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
@@ -17,7 +17,7 @@ final class MarketFeed extends SyncJob implements PriceHistory {
     _ledger.addListener(_changed);
   }
 
-  final TableJournal _journal;
+  final SqlLedgerDataSource _journal;
   final Ledger _ledger;
 
   /// Where finished months of daily closes are kept, so a holding's chart

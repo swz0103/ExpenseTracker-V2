@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
@@ -37,12 +37,12 @@ void main() {
         Directory('${work.path}/$name'),
         codec: KeyringCodec(minimumPassword: 6),
       ),
-      check: TableJournal.check,
+      check: SqlLedgerDataSource.check,
     );
     final startup = startupIn('made');
     await startup.setUp(password);
     final vault = (startup.state as Ready).vault;
-    final ledger = await TableJournal(vault.store).load();
+    final ledger = await SqlLedgerDataSource(vault.store).load();
     _setUp(ledger);
     final text = await csv.readAsString();
     final found = importCsv(ledger, text, fallback: '');
@@ -62,8 +62,9 @@ void main() {
     final phone = startupIn('restored');
     await phone.restore(backup, password);
     expect(phone.state, isA<Ready>());
-    final restored = await TableJournal((phone.state as Ready).vault.store)
-        .load();
+    final restored = await SqlLedgerDataSource(
+      (phone.state as Ready).vault.store,
+    ).load();
     expect(restored.entries, hasLength(ledger.entries.length));
     phone.lock();
 

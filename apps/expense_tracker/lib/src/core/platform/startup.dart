@@ -67,7 +67,7 @@ final class Startup extends ChangeNotifier {
 
   /// Throws for a record the app cannot read, so a backup holding one is
   /// refused rather than restored.
-  final void Function(String shelf, String id, String body)? check;
+  final void Function(String collection, String id, String body)? check;
   late StartupState _state;
   String? _recovery;
 

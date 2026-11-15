@@ -1,6 +1,6 @@
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/app/app.dart';
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/platform/problems.dart';
 import 'package:flutter/material.dart'
     show
@@ -19,7 +19,7 @@ void main() {
       '金額的小數位數太多。',
     );
     expect(
-      describeProblem(JournalFailure(StateError('closed'))),
+      describeProblem(DataSourceException(StateError('closed'))),
       '帳本無法寫入，請重新打開 App 再試。',
     );
     expect(describeProblem(StateError('x')), '發生未預期的錯誤。');

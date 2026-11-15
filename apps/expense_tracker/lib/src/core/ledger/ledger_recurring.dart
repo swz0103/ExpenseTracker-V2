@@ -125,7 +125,7 @@ extension LedgerRecurring on Ledger {
         final entry = booking(item).withId(newId());
         // Kept in the list so the next pending day counts it.
         _entries.add(entry);
-        _forget(const {Area.entries});
+        _forget(const {Topic.entries});
         booked.add(entry);
       }
     }
@@ -143,15 +143,15 @@ extension LedgerRecurring on Ledger {
     } else {
       _recurring[index] = item;
     }
-    _changed(const {Area.recurring});
-    _keep(Batch(recurring: [item]));
+    _changed(const {Topic.recurring});
+    _keep(WriteBatch(recurring: [item]));
   }
 
   void removeRecurring(String id) {
     final index = _recurring.indexWhere((r) => r.id == id);
     if (index < 0) return;
     final removed = _recurring.removeAt(index);
-    _changed(const {Area.recurring});
-    _keep(Batch(dropped: [(Shelf.recurring, removed.id)]));
+    _changed(const {Topic.recurring});
+    _keep(WriteBatch(dropped: [(Collection.recurring, removed.id)]));
   }
 }

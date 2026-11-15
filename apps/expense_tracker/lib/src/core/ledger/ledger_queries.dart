@@ -9,7 +9,7 @@ extension LedgerQueries on Ledger {
   List<Entry> search(String words) => _remember(
     ('search', words),
     () => _search(words),
-    on: const {Area.entries, Area.accounts, Area.categories},
+    on: const {Topic.entries, Topic.accounts, Topic.categories},
   );
 
   List<Entry> _search(String words) {
@@ -21,7 +21,7 @@ extension LedgerQueries on Ledger {
         for (final e in _entries)
           [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
       ],
-      on: const {Area.entries},
+      on: const {Topic.entries},
     );
     final found = [
       for (final (i, e) in _entries.indexed)

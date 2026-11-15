@@ -7,11 +7,11 @@ import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
-import 'journal.dart';
-import 'ledger.dart';
-import 'record_json.dart';
-import '../diagnostics/performance_monitor.dart';
-import '../diagnostics/error_log.dart';
+import 'ledger_data_source.dart';
+import '../ledger.dart';
+import '../record_json.dart';
+import '../../diagnostics/performance_monitor.dart';
+import '../../diagnostics/error_log.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -29,16 +29,16 @@ const _starters = [
 /// How long a deleted entry is kept to be restored.
 const _keptInTrash = Duration(days: 30);
 
-/// The shelf of the last closing prices and rate board, kept so holdings
+/// The collection of the last closing prices and rate board, kept so holdings
 /// and foreign accounts are valued offline.
 const _market = 'market';
 
-/// When each record was deleted, by `shelf/id`, so a deletion can be told
+/// When each record was deleted, by `collection/id`, so a deletion can be told
 /// from a record never kept (for a later sync); dropped when the id is
 /// kept again.
 const _gone = 'gone';
 
-/// Forms put aside in the composer, by tab ([Batch.drafts]).
+/// Forms put aside in the composer, by tab ([WriteBatch.drafts]).
 const _draft = 'draft';
 
 /// The version of the record rows this app writes; each row carries it as
@@ -46,21 +46,24 @@ const _draft = 'draft';
 /// A newer version's row is refused rather than misread.
 const recordVersion = 1;
 
-/// The shelves whose deletions are noted in [_gone].
+/// The collections whose deletions are noted in [_gone].
 const _noted = {
-  Shelf.account,
-  Shelf.category,
-  Shelf.entry,
-  Shelf.budget,
-  Shelf.recurring,
+  Collection.account,
+  Collection.category,
+  Collection.entry,
+  Collection.budget,
+  Collection.recurring,
 };
 
 /// Brings a stored row up to [recordVersion], one version at a time; a
 /// change of a record's shape adds a step here.
-Map<String, Object?> upgradeRecord(String shelf, Map<String, Object?> json) {
+Map<String, Object?> upgradeRecord(
+  String collection,
+  Map<String, Object?> json,
+) {
   final version = (json['_v'] as num?)?.toInt() ?? 1;
   if (version > recordVersion) {
-    throw FormatException('A newer app wrote this $shelf ($version).');
+    throw FormatException('A newer app wrote this $collection ($version).');
   }
   // No step yet: version 1 is the first.
   return json;
@@ -72,8 +75,8 @@ const _decodeApart = 2000;
 
 /// The book kept in the encrypted ledger: each of the screens' records a
 /// row of JSON, written as the [Ledger] hands over each change.
-final class TableJournal implements Journal {
-  TableJournal(
+final class SqlLedgerDataSource implements LedgerDataSource {
+  SqlLedgerDataSource(
     this._store, {
     this._clock = const SystemClock(),
     MarketDataGateway? market,
@@ -99,19 +102,19 @@ final class TableJournal implements Journal {
     try {
       return await _load();
     } on StateError catch (error) {
-      throw JournalFailure(error);
+      throw DataSourceException(error);
     }
   });
 
   Future<Ledger> _load() async {
     _start();
-    final shelves = <String, List<StoredRow>>{};
+    final collections = <String, List<StoredRow>>{};
     for (final row in _store.rows()) {
-      (shelves[row.shelf] ??= []).add(row);
+      (collections[row.shelf] ??= []).add(row);
     }
     final records = [
-      for (final shelf in Shelf.values)
-        if (shelf != Shelf.receipt) ...?shelves[shelf.name],
+      for (final collection in Collection.values)
+        if (collection != Collection.receipt) ...?collections[collection.name],
     ];
     final bodies = [for (final row in records) row.body];
     List<Object?> decodeAll() => [for (final b in bodies) jsonDecode(b)];
@@ -122,13 +125,16 @@ final class TableJournal implements Journal {
       for (final (i, row) in records.indexed)
         row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
     };
-    List<T> read<T>(Shelf shelf, T Function(Map<String, Object?>) from) => [
-      for (final row in shelves[shelf.name] ?? const <StoredRow>[])
+    List<T> read<T>(
+      Collection collection,
+      T Function(Map<String, Object?>) from,
+    ) => [
+      for (final row in collections[collection.name] ?? const <StoredRow>[])
         from(json[row]!),
     ];
-    final market = _marketFrom(shelves[_market] ?? const []);
+    final market = _marketFrom(collections[_market] ?? const []);
     final today = _today();
-    final trash = read(Shelf.trash, trashedFromJson);
+    final trash = read(Collection.trash, trashedFromJson);
     final from = today.subtract(_keptInTrash);
     final expired = [
       for (final t in trash)
@@ -138,20 +144,20 @@ final class TableJournal implements Journal {
       _store.write((w) {
         for (final id in expired) {
           w
-            ..drop(Shelf.trash.name, id)
-            ..drop(Shelf.receipt.name, id);
+            ..drop(Collection.trash.name, id)
+            ..drop(Collection.receipt.name, id);
         }
       });
     }
     return Ledger(
       today: today,
       clock: _today,
-      accounts: read(Shelf.account, accountFromJson),
-      categories: read(Shelf.category, categoryFromJson),
-      entries: read(Shelf.entry, entryFromJson),
+      accounts: read(Collection.account, accountFromJson),
+      categories: read(Collection.category, categoryFromJson),
+      entries: read(Collection.entry, entryFromJson),
       holdings: _holdingsOf(market),
-      budgets: read(Shelf.budget, budgetFromJson),
-      recurring: read(Shelf.recurring, recurringFromJson),
+      budgets: read(Collection.budget, budgetFromJson),
+      recurring: read(Collection.recurring, recurringFromJson),
       rates: market.rates,
       moves: market.moves,
       quotedOn: market.quotedOn,
@@ -161,25 +167,26 @@ final class TableJournal implements Journal {
           if (!t.on.isBefore(from)) t,
       ],
       receipts: {
-        for (final row in shelves[Shelf.receipt.name] ?? const <StoredRow>[])
+        for (final row
+            in collections[Collection.receipt.name] ?? const <StoredRow>[])
           row.id: row.body,
       },
       drafts: {
-        for (final row in shelves[_draft] ?? const <StoredRow>[])
+        for (final row in collections[_draft] ?? const <StoredRow>[])
           row.id: row.body,
       },
-      journal: this,
+      dataSource: this,
     );
   }
 
   /// Gives a ledger that has none its first categories, and a cash and a
   /// bank account, so the first entry can be written at once.
   void _start() {
-    final noCategories = _store.rows(shelf: Shelf.category.name).isEmpty;
-    final noAccounts = _store.rows(shelf: Shelf.account.name).isEmpty;
+    final noCategories = _store.rows(shelf: Collection.category.name).isEmpty;
+    final noAccounts = _store.rows(shelf: Collection.account.name).isEmpty;
     if (!noCategories && !noAccounts) return;
     _write(
-      Batch(
+      WriteBatch(
         categories: [
           if (noCategories)
             for (final (name, icon, color, income) in _starters)
@@ -196,53 +203,55 @@ final class TableJournal implements Journal {
   }
 
   @override
-  Future<void> keep(Batch batch) async {
+  Future<void> keep(WriteBatch batch) async {
     try {
       _write(batch);
     } on Object catch (error) {
-      throw JournalFailure(error);
+      throw DataSourceException(error);
     }
   }
 
-  void _write(Batch batch) {
+  void _write(WriteBatch batch) {
     final at = DateTime.now().millisecondsSinceEpoch;
     String text(Map<String, Object?> json) =>
         jsonEncode({...json, '_v': recordVersion, '_at': at});
     _store.write((w) {
-      void keep(Shelf shelf, String id, Map<String, Object?> json) {
-        w.put(shelf.name, id, text(json));
-        if (_noted.contains(shelf)) w.drop(_gone, '${shelf.name}/$id');
+      void keep(Collection collection, String id, Map<String, Object?> json) {
+        w.put(collection.name, id, text(json));
+        if (_noted.contains(collection)) {
+          w.drop(_gone, '${collection.name}/$id');
+        }
       }
 
       for (final a in batch.accounts) {
-        keep(Shelf.account, a.id, accountToJson(a));
+        keep(Collection.account, a.id, accountToJson(a));
       }
       for (final c in batch.categories) {
-        keep(Shelf.category, c.name, categoryToJson(c));
+        keep(Collection.category, c.name, categoryToJson(c));
       }
       for (final e in batch.entries) {
-        keep(Shelf.entry, e.id, entryToJson(e));
+        keep(Collection.entry, e.id, entryToJson(e));
       }
       for (final b in batch.budgets) {
-        keep(Shelf.budget, b.category, budgetToJson(b));
+        keep(Collection.budget, b.category, budgetToJson(b));
       }
       for (final r in batch.recurring) {
-        keep(Shelf.recurring, r.id, recurringToJson(r));
+        keep(Collection.recurring, r.id, recurringToJson(r));
       }
       for (final t in batch.trash) {
-        keep(Shelf.trash, t.entry.id, trashedToJson(t));
+        keep(Collection.trash, t.entry.id, trashedToJson(t));
       }
       for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
         if (file == null) {
-          w.drop(Shelf.receipt.name, id);
+          w.drop(Collection.receipt.name, id);
         } else {
-          w.put(Shelf.receipt.name, id, file);
+          w.put(Collection.receipt.name, id, file);
         }
       }
-      for (final (shelf, id) in batch.dropped) {
-        w.drop(shelf.name, id);
-        if (_noted.contains(shelf)) {
-          w.put(_gone, '${shelf.name}/$id', jsonEncode({'at': at}));
+      for (final (collection, id) in batch.dropped) {
+        w.drop(collection.name, id);
+        if (_noted.contains(collection)) {
+          w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
         }
       }
       for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
@@ -257,8 +266,8 @@ final class TableJournal implements Journal {
 
   /// Throws a [FormatException] for a record this app cannot read, so a
   /// backup with one is refused rather than restored.
-  static void check(String shelf, String id, String body) {
-    if (shelf == Shelf.receipt.name) {
+  static void check(String collection, String id, String body) {
+    if (collection == Collection.receipt.name) {
       if (!RegExp(r'^[\w.-]+$').hasMatch(body)) {
         throw const FormatException('receipt');
       }
@@ -268,33 +277,33 @@ final class TableJournal implements Journal {
     try {
       json = jsonDecode(body) as Map<String, Object?>;
     } on Object {
-      throw FormatException('Unreadable $shelf');
+      throw FormatException('Unreadable $collection');
     }
-    if (shelf == _draft) {
+    if (collection == _draft) {
       final entry = json['entry'];
       if (entry is! Map<String, Object?>) throw const FormatException('draft');
-      entryFromJson(upgradeRecord(shelf, entry));
+      entryFromJson(upgradeRecord(collection, entry));
       return;
     }
-    if (shelf == _gone) {
+    if (collection == _gone) {
       if (json['at'] is! num) throw const FormatException('gone');
       return;
     }
-    if (shelf == _market) {
+    if (collection == _market) {
       if (id != 'quotes' && id != 'rates') throw FormatException(id);
-      _marketFrom([StoredRow(0, shelf, id, body)]);
+      _marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
-    final reader = switch (Shelf.values.asNameMap()[shelf]) {
-      Shelf.account => accountFromJson,
-      Shelf.category => categoryFromJson,
-      Shelf.entry => entryFromJson,
-      Shelf.budget => budgetFromJson,
-      Shelf.recurring => recurringFromJson,
-      Shelf.trash => trashedFromJson,
-      _ => throw FormatException('Unknown shelf $shelf'),
+    final reader = switch (Collection.values.asNameMap()[collection]) {
+      Collection.account => accountFromJson,
+      Collection.category => categoryFromJson,
+      Collection.entry => entryFromJson,
+      Collection.budget => budgetFromJson,
+      Collection.recurring => recurringFromJson,
+      Collection.trash => trashedFromJson,
+      _ => throw FormatException('Unknown collection $collection'),
     };
-    reader(upgradeRecord(shelf, json));
+    reader(upgradeRecord(collection, json));
   }
 
   // Market data.
@@ -455,7 +464,7 @@ typedef _Market = ({
   Map<String, double> rates,
 });
 
-/// The closes and board last fetched, from the [_market] shelf.
+/// The closes and board last fetched, from the [_market] collection.
 _Market _marketFrom(List<StoredRow> rows) {
   final prices = <String, double>{};
   final moves = <String, double>{};

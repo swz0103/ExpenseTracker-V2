@@ -6,7 +6,7 @@ import '../look/kit/colours.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 
-/// Splits [bounds] into one rectangle per value, areas in proportion and
+/// Splits [bounds] into one rectangle per value, topics in proportion and
 /// as close to square as the values allow (the squarified layout of
 /// Bruls, Huizing and van Wijk). [values] should be largest first.
 List<Rect> treemapLayout(List<int> values, Rect bounds) {
@@ -15,21 +15,21 @@ List<Rect> treemapLayout(List<int> values, Rect bounds) {
     return List.filled(values.length, Rect.zero);
   }
   final scale = bounds.width * bounds.height / total;
-  final areas = [for (final v in values) max(0, v) * scale];
+  final topics = [for (final v in values) max(0, v) * scale];
   final rects = <Rect>[];
   var rest = bounds;
   var start = 0;
-  while (start < areas.length) {
+  while (start < topics.length) {
     final side = min(rest.width, rest.height);
     var end = start + 1;
-    var best = _worst(areas.sublist(start, end), side);
-    while (end < areas.length) {
-      final next = _worst(areas.sublist(start, end + 1), side);
+    var best = _worst(topics.sublist(start, end), side);
+    while (end < topics.length) {
+      final next = _worst(topics.sublist(start, end + 1), side);
       if (next > best) break;
       best = next;
       end++;
     }
-    final row = areas.sublist(start, end);
+    final row = topics.sublist(start, end);
     final rowArea = row.fold(0.0, (sum, a) => sum + a);
     if (rest.width >= rest.height) {
       final width = rest.height == 0 ? 0.0 : rowArea / rest.height;
@@ -65,11 +65,11 @@ List<Rect> treemapLayout(List<int> values, Rect bounds) {
   return rects;
 }
 
-double _worst(List<double> areas, double side) {
-  final sum = areas.fold(0.0, (s, a) => s + a);
-  final smallest = areas.reduce(min);
+double _worst(List<double> topics, double side) {
+  final sum = topics.fold(0.0, (s, a) => s + a);
+  final smallest = topics.reduce(min);
   if (sum <= 0 || side <= 0 || smallest <= 0) return double.infinity;
-  final largest = areas.reduce(max);
+  final largest = topics.reduce(max);
   final sideSquared = side * side;
   final sumSquared = sum * sum;
   return max(

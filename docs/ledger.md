@@ -69,6 +69,7 @@ core/ledger/
 | 快取一致性測試（隨機修改 × 二十多種查詢） | 完成 |
 | 規模量測（`scale_bench_test`） | 完成 |
 | 錯誤記錄獨立成 `core/diagnostics`，全部 catch 記錄或說明 | 完成 |
+| 儲存層改通用名稱並放進 `persistence/`（`LedgerDataSource`、`SqlLedgerDataSource`、`WriteBatch`、`Collection`、`DataSourceException`；`Area` 改 `Topic`） | 完成 |
 | `WriteQueue` 獨立 | 尚未 |
 | `QueryCache` 與自動依賴、`Topic` | 尚未 |
 | `UnitOfWork` 取代 `_before`／`_since` | 尚未 |

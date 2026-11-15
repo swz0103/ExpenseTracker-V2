@@ -108,10 +108,10 @@ class _RecurringPageState extends State<RecurringPage> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ledger.watch(const {
-        Area.entries,
-        Area.recurring,
-        Area.accounts,
-        Area.categories,
+        Topic.entries,
+        Topic.recurring,
+        Topic.accounts,
+        Topic.categories,
       }),
       builder: (context, _) {
         final (year, month) = _month;

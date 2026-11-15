@@ -21,7 +21,7 @@ import '../features/backup/model/file_cleanup.dart';
 import '../features/backup/model/outbox.dart';
 import '../features/overview/model/home_widget.dart';
 import '../features/backup/model/phone_backup.dart';
-import '../core/ledger/table_journal.dart';
+import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../features/investments/model/market_feed.dart';
 import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/reminders/model/calendar_sync.dart';
@@ -51,7 +51,7 @@ Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
     Startup(
       LedgerVault(directory, codec: KeyringCodec(minimumPassword: 6)),
       device: device,
-      check: TableJournal.check,
+      check: SqlLedgerDataSource.check,
     );
 
 /// Where this device keeps the ledger: the app's private folder on
@@ -154,7 +154,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         )
       : null;
 
-  late final _journal = TableJournal(
+  late final _journal = SqlLedgerDataSource(
     widget.vault.store,
     market: MarketDataGateway(
       transport: _marketCache ?? const IoMarketTransport(),

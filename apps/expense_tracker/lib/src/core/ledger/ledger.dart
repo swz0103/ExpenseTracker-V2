@@ -11,7 +11,7 @@ import '../text/amounts.dart';
 import 'amount_visibility.dart';
 import 'attachments.dart';
 import 'card_cycle.dart';
-import 'journal.dart';
+import 'persistence/ledger_data_source.dart';
 import 'portfolio.dart';
 import 'models/models.dart';
 import '../diagnostics/error_log.dart';
@@ -42,7 +42,7 @@ final class Ledger extends ChangeNotifier {
     required List<Holding> holdings,
     required List<Budget> budgets,
     required List<Recurring> recurring,
-    this.journal,
+    this.dataSource,
     Map<String, double> rates = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
@@ -96,9 +96,9 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Where changes are kept; none in the preview, which forgets them.
-  final Journal? journal;
+  final LedgerDataSource? dataSource;
 
-  /// The last change the [journal] refused, for the screens to report.
+  /// The last change the [data source] refused, for the screens to report.
   final problem = ValueNotifier<Object?>(null);
 
   final List<Account> _accounts;
@@ -133,7 +133,7 @@ final class Ledger extends ChangeNotifier {
   /// Keeps the form put aside on [tab], or clears it when [json] is null.
   void setDraft(String tab, String? json) {
     if (!_drafts.set(tab, json)) return;
-    _keep(Batch(drafts: {tab: json}));
+    _keep(WriteBatch(drafts: {tab: json}));
   }
 
   /// Gives the entry with [id] the receipt photo [file], or takes its
@@ -141,7 +141,7 @@ final class Ledger extends ChangeNotifier {
   void setReceipt(String id, String? file) {
     if (!_receipts.set(id, file)) return;
     _signal();
-    _keep(Batch(receipts: {id: file}));
+    _keep(WriteBatch(receipts: {id: file}));
   }
 
   /// The trading day of the newest closing price the holdings are
@@ -271,12 +271,12 @@ final class Ledger extends ChangeNotifier {
   final _memo = <Object, Object?>{};
 
   /// What each sum in [_memo] rests on.
-  final _memoOn = <Object, Set<Area>>{};
+  final _memoOn = <Object, Set<Topic>>{};
 
-  /// What [make] works out, once per change of the [on] areas for each
+  /// What [make] works out, once per change of the [on] topics for each
   /// [key]. A key should hold every argument the answer depends on, the
   /// day included; [on] is every area it reads.
-  T _remember<T>(Object key, T Function() make, {Set<Area> on = Area.all}) {
+  T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) {
     if (_memo.containsKey(key)) return _memo[key] as T;
     final made = make();
     _memo[key] = made;
@@ -291,38 +291,38 @@ final class Ledger extends ChangeNotifier {
   var _revision = 0;
 
   /// How many times each area has changed, for a screen that keeps sums
-  /// resting on some areas only.
-  int revisionOf(Area area) => _areaRevisions[area.index];
-  final _areaRevisions = List.filled(Area.values.length, 0);
+  /// resting on some topics only.
+  int revisionOf(Topic area) => _topicRevisions[area.index];
+  final _topicRevisions = List.filled(Topic.values.length, 0);
 
   Map<String, Category>? _categoryIndex;
 
-  /// Throws away what rests on [areas], and only that: a budget changed
+  /// Throws away what rests on [topics], and only that: a budget changed
   /// leaves every statement and balance worked out.
-  void _forget(Set<Area> areas) {
+  void _forget(Set<Topic> topics) {
     _revision++;
-    for (final area in areas) {
-      _areaRevisions[area.index]++;
+    for (final area in topics) {
+      _topicRevisions[area.index]++;
     }
-    if (areas.contains(Area.categories)) _categoryIndex = null;
-    if (areas.contains(Area.entries)) {
+    if (topics.contains(Topic.categories)) _categoryIndex = null;
+    if (topics.contains(Topic.entries)) {
       _idIndex = null;
       _refundIndex = null;
       _months = null;
       _days = null;
       _first = null;
     }
-    if (areas.contains(Area.entries) || areas.contains(Area.accounts)) {
+    if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
       _running = null;
       _balances.clear();
     }
-    if (areas.contains(Area.accounts)) _accountIndex = null;
-    if (areas.contains(Area.entries) || areas.contains(Area.market)) {
+    if (topics.contains(Topic.accounts)) _accountIndex = null;
+    if (topics.contains(Topic.entries) || topics.contains(Topic.market)) {
       _moved = null;
     }
     final stale = [
       for (final MapEntry(:key, value: on) in _memoOn.entries)
-        if (on.any(areas.contains)) key,
+        if (on.any(topics.contains)) key,
     ];
     for (final key in stale) {
       _memo.remove(key);
@@ -332,15 +332,15 @@ final class Ledger extends ChangeNotifier {
 
   /// Tells the screens of a change of every area.
   @override
-  void notifyListeners() => _changed(Area.all);
+  void notifyListeners() => _changed(Topic.all);
 
-  /// Tells the screens [areas] changed, after throwing away what rests on
-  /// them; those listening to [watch] hear only of the areas they asked
+  /// Tells the screens [topics] changed, after throwing away what rests on
+  /// them; those listening to [watch] hear only of the topics they asked
   /// for.
-  void _changed(Set<Area> areas) {
-    _forget(areas);
+  void _changed(Set<Topic> topics) {
+    _forget(topics);
     super.notifyListeners();
-    for (final area in areas) {
+    for (final area in topics) {
       _watchers[area]?.notify();
     }
   }
@@ -349,15 +349,16 @@ final class Ledger extends ChangeNotifier {
   /// as hiding the amounts: nothing worked out is thrown away.
   void _signal() {
     super.notifyListeners();
-    _watchers[Area.display]?.notify();
+    _watchers[Topic.display]?.notify();
   }
 
-  final _watchers = <Area, _Watcher>{};
+  final _watchers = <Topic, _Watcher>{};
 
-  /// Changes of [areas] only, and of how amounts are shown: for a screen
+  /// Changes of [topics] only, and of how amounts are shown: for a screen
   /// that need not be built again when, say, a budget changes.
-  Listenable watch(Set<Area> areas) => Listenable.merge([
-    for (final area in {...areas, Area.display}) _watchers[area] ??= _Watcher(),
+  Listenable watch(Set<Topic> topics) => Listenable.merge([
+    for (final area in {...topics, Topic.display})
+      _watchers[area] ??= _Watcher(),
   ]);
 
   /// Every entry, in the order written; the list cannot be changed.
@@ -370,22 +371,22 @@ final class Ledger extends ChangeNotifier {
   var _queue = Future<void>.value();
   var _waiting = 0;
 
-  /// Done once every change so far has reached the [journal].
+  /// Done once every change so far has reached the [data source].
   Future<void> get settled => _queue;
 
-  /// Whether a refused change left the screens ahead of the [journal].
+  /// Whether a refused change left the screens ahead of the [data source].
   var _stale = false;
 
-  /// Hands [batch] to the [journal], in turn with every change before it.
+  /// Hands [batch] to the [data source], in turn with every change before it.
   /// A batch it refuses is reported through [problem], and once nothing
   /// else waits the book is read back, so the screens show what was kept.
-  void _keep(Batch batch) {
-    final journal = this.journal;
-    if (journal == null || batch.isEmpty) return;
+  void _keep(WriteBatch batch) {
+    final dataSource = this.dataSource;
+    if (dataSource == null || batch.isEmpty) return;
     _waiting++;
     _queue = _queue.then((_) async {
       try {
-        await journal.keep(batch);
+        await dataSource.keep(batch);
       } on Object catch (error) {
         ErrorLog.instance.record('寫入帳本', error);
         problem.value = error;
@@ -394,7 +395,7 @@ final class Ledger extends ChangeNotifier {
       if (--_waiting > 0 || !_stale) return;
       _stale = false;
       try {
-        final fresh = await journal.load();
+        final fresh = await dataSource.load();
         // A change made while loading is newer than what was loaded; the
         // load after it brings both.
         if (_waiting == 0) _adopt(fresh);
@@ -429,12 +430,12 @@ final class Ledger extends ChangeNotifier {
       ..addAll(rates);
     _quotedOn = quotedOn;
     _replay(lenient: true);
-    _changed(const {Area.market});
+    _changed(const {Topic.market});
   }
 
   /// What a change of several records left different: every record not
   /// the very one it was before is kept, and those gone are dropped.
-  Batch _since(_Before before) {
+  WriteBatch _since(_Before before) {
     List<T> changed<T>(List<T> was, List<T> now, String Function(T) key) {
       final old = {for (final item in was) key(item): item};
       return [
@@ -443,8 +444,8 @@ final class Ledger extends ChangeNotifier {
       ];
     }
 
-    List<(Shelf, String)> gone<T>(
-      Shelf shelf,
+    List<(Collection, String)> gone<T>(
+      Collection collection,
       List<T> was,
       List<T> now,
       String Function(T) key,
@@ -452,7 +453,7 @@ final class Ledger extends ChangeNotifier {
       final kept = {for (final item in now) key(item)};
       return [
         for (final item in was)
-          if (!kept.contains(key(item))) (shelf, key(item)),
+          if (!kept.contains(key(item))) (collection, key(item)),
       ];
     }
 
@@ -460,7 +461,7 @@ final class Ledger extends ChangeNotifier {
     String categoryKey(Category c) => c.name;
     String budgetKey(Budget b) => b.category;
     String recurringKey(Recurring r) => r.id;
-    return Batch(
+    return WriteBatch(
       entries: changed(before.entries, _entries, entryKey),
       categories: changed(before.categories, _categories, categoryKey),
       budgets: changed(before.budgets, _budgets, budgetKey),
@@ -468,10 +469,20 @@ final class Ledger extends ChangeNotifier {
       // Entries in the trash follow a rename or a merge too.
       trash: changed(before.trash, _trash, (t) => t.entry.id),
       dropped: [
-        ...gone(Shelf.entry, before.entries, _entries, entryKey),
-        ...gone(Shelf.category, before.categories, _categories, categoryKey),
-        ...gone(Shelf.budget, before.budgets, _budgets, budgetKey),
-        ...gone(Shelf.recurring, before.recurring, _recurring, recurringKey),
+        ...gone(Collection.entry, before.entries, _entries, entryKey),
+        ...gone(
+          Collection.category,
+          before.categories,
+          _categories,
+          categoryKey,
+        ),
+        ...gone(Collection.budget, before.budgets, _budgets, budgetKey),
+        ...gone(
+          Collection.recurring,
+          before.recurring,
+          _recurring,
+          recurringKey,
+        ),
       ],
     );
   }
@@ -505,7 +516,7 @@ final class Ledger extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Takes the contents of [fresh], as reloaded from the [journal].
+  /// Takes the contents of [fresh], as reloaded from the [data source].
   void _adopt(Ledger fresh) {
     _accounts
       ..clear()
@@ -551,7 +562,7 @@ final class Ledger extends ChangeNotifier {
 /// are kept apart: what they have billed depends on the day asked about.
 /// The parts of the book a change can touch, so what rests on the others
 /// is kept.
-enum Area {
+enum Topic {
   entries,
   accounts,
   categories,

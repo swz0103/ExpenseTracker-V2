@@ -1,15 +1,15 @@
 import 'package:expense_tracker/src/core/ledger/batch.dart';
 import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing: only remembers the batches it was handed.
-final class _Batches implements Journal {
-  final kept = <Batch>[];
+final class _Batches implements LedgerDataSource {
+  final kept = <WriteBatch>[];
 
   @override
-  Future<void> keep(Batch batch) async => kept.add(batch);
+  Future<void> keep(WriteBatch batch) async => kept.add(batch);
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -17,10 +17,10 @@ final class _Batches implements Journal {
 
 void main() {
   final day = DateTime.utc(2026, 10, 4);
-  late _Batches journal;
+  late _Batches dataSource;
 
   Ledger book({List<Entry> entries = const [], List<Budget>? budgets}) {
-    journal = _Batches();
+    dataSource = _Batches();
     return Ledger(
       today: day,
       accounts: [
@@ -43,7 +43,7 @@ void main() {
       holdings: const [],
       budgets: budgets ?? const [],
       recurring: const [],
-      journal: journal,
+      dataSource: dataSource,
     );
   }
 
@@ -110,7 +110,7 @@ void main() {
     expect(ledger.entries, hasLength(2));
     expect(ledger.trash, isEmpty);
     await ledger.settled;
-    expect(journal.kept, isEmpty);
+    expect(dataSource.kept, isEmpty);
   });
 
   test('taken and reserved category names are refused', () {
@@ -151,15 +151,15 @@ void main() {
     final ledger = book(entries: [spend('a', 100), spend('b', 200)]);
     ledger.add(spend('c', 50), receipt: 'c.etr');
     await ledger.settled;
-    expect(journal.kept, hasLength(1));
-    expect(journal.kept.single.receipts, {'c': 'c.etr'});
+    expect(dataSource.kept, hasLength(1));
+    expect(dataSource.kept.single.receipts, {'c': 'c.etr'});
     expect(ledger.receiptOf('c'), 'c.etr');
 
-    journal.kept.clear();
+    dataSource.kept.clear();
     expect(ledger.recategorize(ledger.entries, '居家'), 3);
     await ledger.settled;
-    expect(journal.kept, hasLength(1));
-    expect(journal.kept.single.entries, hasLength(3));
+    expect(dataSource.kept, hasLength(1));
+    expect(dataSource.kept.single.entries, hasLength(3));
   });
 
   test('a statement moves on at midnight with nothing changed', () {

@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,11 +30,11 @@ void main() {
     store?.close();
     final opened = RowStore.open(file, key);
     store = opened;
-    return TableJournal(opened, clock: clock()).load();
+    return SqlLedgerDataSource(opened, clock: clock()).load();
   }
 
   setUp(() {
-    directory = Directory.systemTemp.createTempSync('journal-');
+    directory = Directory.systemTemp.createTempSync('dataSource-');
     file = File('${directory.path}/ledger.db');
     now = DateTime.utc(2026, 10, 4, 4);
   });
@@ -71,8 +71,8 @@ void main() {
     final demo = demoLedger();
     final opened = RowStore.open(file, key);
     store = opened;
-    await TableJournal(opened).keep(
-      Batch(
+    await SqlLedgerDataSource(opened).keep(
+      WriteBatch(
         accounts: demo.accounts,
         categories: demo.categories,
         entries: demo.entries,
@@ -207,7 +207,7 @@ void main() {
     now = DateTime.utc(2026, 11, 4, 4);
     ledger = await reopen();
     expect(ledger.trash, isEmpty);
-    expect(store!.rows(shelf: Shelf.trash.name), isEmpty);
+    expect(store!.rows(shelf: Collection.trash.name), isEmpty);
   });
 
   test('a change that cannot be kept is reported and read back', () async {
@@ -215,15 +215,15 @@ void main() {
     store!.close();
     ledger.addCategory(const Category('寵物', 'pet', 0xFF123456));
     await ledger.settled;
-    expect(ledger.problem.value, isA<JournalFailure>());
+    expect(ledger.problem.value, isA<DataSourceException>());
   });
 
   test('a record the app cannot read is told apart', () {
     final demo = demoLedger();
     final entry = jsonEncode(entryToJson(demo.entries.first));
-    TableJournal.check('entry', 'e', entry);
-    TableJournal.check('receipt', 'e', 'lunch.etr');
-    for (final (shelf, body) in [
+    SqlLedgerDataSource.check('entry', 'e', entry);
+    SqlLedgerDataSource.check('receipt', 'e', 'lunch.etr');
+    for (final (collection, body) in [
       ('entry', '{"id":"x"}'),
       ('entry', 'not json'),
       ('receipt', '../escape'),
@@ -231,9 +231,9 @@ void main() {
       ('market', '{"prices":{"2330":"high"}}'),
     ]) {
       expect(
-        () => TableJournal.check(shelf, 'x', body),
+        () => SqlLedgerDataSource.check(collection, 'x', body),
         throwsA(anyOf(isA<FormatException>(), isA<TypeError>())),
-        reason: '$shelf $body',
+        reason: '$collection $body',
       );
     }
   });
@@ -251,7 +251,7 @@ void main() {
     );
     ledger.add(entry);
     await ledger.settled;
-    final row = store!.rows(shelf: Shelf.entry.name).single;
+    final row = store!.rows(shelf: Collection.entry.name).single;
     final json = jsonDecode(row.body) as Map<String, Object?>;
     expect(json['_v'], recordVersion);
     expect(json['_at'], isA<int>());
@@ -264,7 +264,7 @@ void main() {
     await ledger.settled;
     expect(store!.rows(shelf: 'gone'), isEmpty);
     // A backup carrying the note is accepted.
-    TableJournal.check('gone', 'entry/e1', '{"at":1}');
+    SqlLedgerDataSource.check('gone', 'entry/e1', '{"at":1}');
 
     final again = await reopen(ledger);
     expect(again.entries.map((e) => e.id), contains('e1'));
@@ -282,12 +282,12 @@ void main() {
   test('a large book is decoded off the screen thread', () async {
     final opened = RowStore.open(file, key);
     store = opened;
-    final journal = TableJournal(opened, clock: clock());
-    final first = await journal.load();
+    final dataSource = SqlLedgerDataSource(opened, clock: clock());
+    final first = await dataSource.load();
     final bank = first.accounts.last;
     final category = first.categoriesFor(income: false).first.name;
-    await journal.keep(
-      Batch(
+    await dataSource.keep(
+      WriteBatch(
         entries: [
           for (var i = 0; i < 2100; i++)
             Entry(
