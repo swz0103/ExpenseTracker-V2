@@ -34,3 +34,6 @@ backups/
 Thumbs.db
 
 __pycache__/
+
+# Test coverage reports (flutter test --coverage)
+coverage/
