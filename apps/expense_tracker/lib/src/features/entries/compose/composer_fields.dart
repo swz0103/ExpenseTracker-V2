@@ -50,12 +50,13 @@ extension _Fields on _ComposerState {
     final rate = _ledger.rates[_f.currency];
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Tile(
+      child: FigureCard(
+        color: _color,
         icon: Glyph.coins,
         label: '折合台幣',
         value: value == null ? '請輸入' : groupDigits(value),
         valueColor: value == null ? Hue.hint : Hue.ink,
-        size: 15,
+        size: TextSize.body,
         sub: _f.home != null || rate == null ? null : '臺銀即期買入 $rate',
         onTap: () async {
           final typed = await _ask('折合台幣', value ?? 0);
@@ -175,14 +176,15 @@ extension _Fields on _ComposerState {
           if (_f.onCard)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Tile(
+              child: FigureCard(
+                color: _color,
                 icon: Glyph.card,
                 label: '分期付款',
                 value: _f.installments < 2
                     ? '不分期'
                     : '${_f.installments} 期 · 每期 '
                           '${groupDigits(_f.amount ~/ _f.installments)}',
-                size: 15,
+                size: TextSize.body,
                 onTap: _pickInstallments,
               ),
             ),
@@ -297,12 +299,13 @@ extension _Fields on _ComposerState {
     final value = _f.receivedValue;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Tile(
+      child: FigureCard(
+        color: _color,
         icon: Glyph.coins,
         label: '轉入金額',
         value: value == null ? '請輸入' : amountIn(value, _f.toCurrency),
         valueColor: value == null ? Hue.hint : Hue.ink,
-        size: 15,
+        size: TextSize.body,
         sub: _f.received == null && value != null ? '依臺銀即期匯率換算' : null,
         onTap: () async {
           final typed = await _ask('轉入金額', value ?? 0, unit: _f.toCurrency);
@@ -414,7 +417,7 @@ extension _Fields on _ComposerState {
         _StripItem(
           label: category.name,
           icon: iconFor(category.icon),
-          color: splitting ? shownColor(category.color) : _color,
+          color: splitting ? shownColor(Color(category.color)) : _color,
           picked: splitting
               ? inParts.contains(category.name)
               : !lending && category.name == _f.category,

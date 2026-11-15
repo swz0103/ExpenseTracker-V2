@@ -22,7 +22,7 @@ class _AllocationBar extends StatelessWidget {
               Expanded(
                 flex: amount <= 0 ? 1 : amount,
                 child: Material(
-                  color: shownColor(category.color),
+                  color: shownColor(Color(category.color)),
                   borderRadius: BorderRadius.circular(12),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -46,7 +46,9 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: TextSize.caption,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(shownColor(category.color)),
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
                               ),
                             ),
                             Text(
@@ -57,7 +59,9 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: TextSize.body,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(shownColor(category.color)),
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
                               ),
                             ),
                           ],
@@ -99,42 +103,33 @@ class _Pick extends StatelessWidget {
       button: true,
       label: '$label：$value',
       excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
+      child: Material(
+        color: Hue.group,
+        borderRadius: radius,
+        child: InkWell(
           borderRadius: radius,
-          boxShadow: Hue.tileShadow,
-        ),
-        child: Material(
-          color: Hue.white,
-          borderRadius: radius,
-          child: InkWell(
-            borderRadius: radius,
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 56),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    IconChip(icon, color: Hue.muted, background: Hue.tile),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: TextSize.title,
-                          fontWeight: FontWeight.w700,
-                          color: valueColor,
-                        ),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  SquareIcon(icon, Hue.accent, size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: TextSize.title,
+                        fontWeight: FontWeight.w700,
+                        color: valueColor,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -260,55 +255,49 @@ class _Figure extends StatelessWidget {
       button: true,
       label: '$label：$value',
       excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
+      child: Material(
+        color: Hue.group,
+        shape: RoundedRectangleBorder(
           borderRadius: radius,
-          boxShadow: Hue.tileShadow,
+          side: current
+              ? const BorderSide(color: Hue.investment, width: 2)
+              : BorderSide.none,
         ),
-        child: Material(
-          color: Hue.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: radius,
-            side: current
-                ? const BorderSide(color: Hue.investment, width: 2)
-                : BorderSide.none,
-          ),
-          child: InkWell(
-            borderRadius: radius,
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    IconChip(icon, color: Hue.muted, background: Hue.tile),
-                    const SizedBox(width: 8),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: TextSize.caption,
-                        fontWeight: FontWeight.w700,
-                        color: Hue.muted,
-                      ),
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  SquareIcon(icon, Hue.accent, size: 30),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: TextSize.caption,
+                      fontWeight: FontWeight.w700,
+                      color: Hue.muted,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          value,
-                          style: const TextStyle(
-                            fontSize: TextSize.large,
-                            fontWeight: FontWeight.w700,
-                            color: Hue.ink,
-                          ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: TextSize.large,
+                          fontWeight: FontWeight.w700,
+                          color: Hue.ink,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

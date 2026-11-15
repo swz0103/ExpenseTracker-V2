@@ -1,5 +1,3 @@
-import 'package:flutter/painting.dart' show Color;
-
 import '../../core/ledger/ledger.dart';
 
 part 'seed_history.dart';
@@ -290,15 +288,15 @@ Ledger demoLedger() {
       ),
     ],
     categories: const [
-      Category('居家生活', 'home', Color(0xFF5C9A83)),
-      Category('飲食日常', 'food', Color(0xFFD08B5B)),
-      Category('交通通勤', 'travel', Color(0xFF5B8DB0)),
-      Category('購物休閒', 'bag', Color(0xFF8E7CC0)),
-      Category('訂閱服務', 'subscription', Color(0xFFC9A34A)),
-      Category('其他支出', 'other', Color(0xFFB07A8C)),
-      Category('薪資收入', 'salary', Color(0xFF2F7A65), income: true),
-      Category('股息收入', 'dividend', Color(0xFF5A6FA8), income: true),
-      Category('其他收入', 'income', Color(0xFF4E8A9A), income: true),
+      Category('居家生活', 'home', 0xFF5C9A83),
+      Category('飲食日常', 'food', 0xFFD08B5B),
+      Category('交通通勤', 'travel', 0xFF5B8DB0),
+      Category('購物休閒', 'bag', 0xFF8E7CC0),
+      Category('訂閱服務', 'subscription', 0xFFC9A34A),
+      Category('其他支出', 'other', 0xFFB07A8C),
+      Category('薪資收入', 'salary', 0xFF2F7A65, income: true),
+      Category('股息收入', 'dividend', 0xFF5A6FA8, income: true),
+      Category('其他收入', 'income', 0xFF4E8A9A, income: true),
     ],
     entries: entries,
     holdings: const [

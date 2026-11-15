@@ -26,7 +26,7 @@ class PlanSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: ledger,
-      builder: (context, _) => TileRow([_budgetTile(), _dueTile()]),
+      builder: (context, _) => CardRow([_budgetTile(), _dueTile()]),
     );
   }
 
@@ -42,14 +42,15 @@ class PlanSection extends StatelessWidget {
     );
     final (gone, days) = ledger.daysGone(year, m);
     final pace = (gone / days * 100).round();
-    return Tile(
+    return FigureCard(
       icon: Glyph.budget,
+      color: ToolHue.budgets,
       label: '預算',
       trailing: const Text('調整', style: accentSmall),
       lead: RingGauge(share: limit == 0 ? 0 : spent / limit, size: 50),
       value: ledger.money(limit - spent),
       valueColor: limit < spent ? Hue.negative : Hue.ink,
-      size: 18,
+      size: TextSize.title,
       sub: '剩餘 · 已過 $pace%',
       onTap: () => nav.open(Pages.budgets),
     );
@@ -60,8 +61,9 @@ class PlanSection extends StatelessWidget {
   Widget _dueTile() {
     final due = ledger.due;
     final items = [...due, ...ledger.upcoming];
-    return Tile(
-      icon: Glyph.calendar,
+    return FigureCard(
+      icon: Glyph.cycleCalendar,
+      color: ToolHue.recurring,
       label: due.isEmpty ? '即將扣款' : '已到期',
       trailing: const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
       value: '${items.length} 筆',

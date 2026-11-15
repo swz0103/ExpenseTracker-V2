@@ -52,4 +52,23 @@ void main() {
       );
     }
   });
+
+  test('pages use the colour blocks, not the retired white cards', () {
+    // ADR-0006: these were replaced by FigureCard, HeroFigure,
+    // FigureCells, CardRow, GroupBox, SectionTitle, FormGroup, SquareIcon
+    // and RoundIcon; white cards with a shadow went with them.
+    final retired = RegExp(
+      r'\b(Tile|TileRow|TileStats|SoftPanel|FormBlock|SectionHead|IconChip|'
+      r'IconBadge|MenuPanel|MenuRow|PairBars)\(|Hue\.(card|tile)Shadow',
+    );
+    for (final f in files) {
+      if (under(f, ['/core/look/'])) continue;
+      final match = retired.firstMatch(f.readAsStringSync());
+      expect(
+        match,
+        isNull,
+        reason: '${path(f)}: ${match?[0]} is retired (docs/design.md)',
+      );
+    }
+  });
 }

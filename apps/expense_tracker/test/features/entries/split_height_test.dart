@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../app/places.dart';
@@ -29,9 +30,9 @@ void main() {
       await settle();
       await tester.tap(split());
       await settle();
-      await tester.tap(find.text('商家、標籤、備註'));
+      await tester.tap(find.byKey(Keys.extras));
       await settle();
-      await tester.tap(find.text('商家、標籤、備註'));
+      await tester.tap(find.byKey(Keys.extras));
       await settle();
       expect(foot(), closeTo(before, 1), reason: 'round $round');
       // Closed and opened again.

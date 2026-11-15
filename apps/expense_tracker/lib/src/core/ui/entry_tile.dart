@@ -16,7 +16,7 @@ import 'shown_amounts.dart';
   return switch (e.type) {
     EntryType.transfer => (iconFor('transfer'), Hue.transfer),
     EntryType.buy || EntryType.sell => (iconFor('investment'), Hue.investment),
-    _ => (iconFor(category.icon), shownColor(category.color)),
+    _ => (iconFor(category.icon), shownColor(Color(category.color))),
   };
 }
 
@@ -37,8 +37,8 @@ String? entryLetter(Entry e) {
 Widget entryBadge(Ledger ledger, Entry e, {double size = 34}) {
   final (icon, color) = entryMark(ledger, e);
   return switch (entryLetter(e)) {
-    final letter? => IconBadge.letter(letter, color, size: size),
-    null => IconBadge(icon, color, size: size),
+    final letter? => RoundIcon.letter(letter, color, size: size),
+    null => RoundIcon(icon, color, size: size),
   };
 }
 

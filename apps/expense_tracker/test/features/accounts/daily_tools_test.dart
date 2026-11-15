@@ -2,7 +2,6 @@ import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/accounts/model/reconcile.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_form.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
@@ -44,8 +43,8 @@ void main() {
       Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
     ],
     categories: const [
-      Category('飲食', 'food', Color(0xFF5C9A83)),
-      Category('交通', 'car', Color(0xFF5B8DB0)),
+      Category('飲食', 'food', 0xFF5C9A83),
+      Category('交通', 'car', 0xFF5B8DB0),
     ],
     entries: entries,
     holdings: const [],

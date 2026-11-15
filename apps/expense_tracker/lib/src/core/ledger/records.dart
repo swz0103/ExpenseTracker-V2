@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:domain/loans.dart' show LoanRepay;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:domain/investments.dart' show unitsPerShare;
-import 'package:flutter/painting.dart' show Color;
 
 export 'package:domain/loans.dart' show LoanRepay;
 
@@ -172,11 +171,24 @@ final class Category {
     this.place,
   });
 
+  /// A name the book has no category for, such as one since deleted:
+  /// shown in grey with the plain mark.
+  const Category.unknown(this.name)
+    : icon = 'other',
+      color = 0xFF8C8C80,
+      income = false,
+      parent = null,
+      archived = false,
+      place = null;
+
   final String name;
 
   /// A key into the app's icon set, such as `food`.
   final String icon;
-  final Color color;
+
+  /// Its colour as ARGB, as the user picked it; the look softens it on
+  /// the dark theme when painting.
+  final int color;
   final bool income;
 
   /// The category this one sits under, if any.

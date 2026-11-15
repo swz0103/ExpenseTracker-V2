@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'keys.dart';
 
 /// Short feedback at the bottom, with an optional action.
 void showNote(
@@ -24,6 +25,7 @@ void showNote(
         action: action == null || act == null
             ? null
             : SnackBarAction(
+                key: Keys.snack(action),
                 label: action,
                 textColor: Hue.selected,
                 onPressed: act,

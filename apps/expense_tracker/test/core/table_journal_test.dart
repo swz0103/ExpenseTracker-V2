@@ -8,7 +8,6 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/record_json.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
@@ -214,7 +213,7 @@ void main() {
   test('a change that cannot be kept is reported and read back', () async {
     final ledger = await reopen();
     store!.close();
-    ledger.addCategory(const Category('寵物', 'pet', Color(0xFF123456)));
+    ledger.addCategory(const Category('寵物', 'pet', 0xFF123456));
     await ledger.settled;
     expect(ledger.problem.value, isA<JournalFailure>());
   });

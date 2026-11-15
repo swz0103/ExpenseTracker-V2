@@ -2,11 +2,9 @@
 
 > 金鑰與備份：密碼、救援碼、裝置金鑰、打開帳本的 vault、加密備份。
 
-每一節對應一個公開入口（`package:vault/<入口>.dart`），原本是獨立的套件。
+## 做什麼
 
-## backup_security
-
-基礎設施層（ADR-0001）：資料庫與備份的金鑰階層。
+金鑰階層（ADR-0001）：
 
 ```
 主密碼（NFC 正規化 → Argon2id）─┐
@@ -21,17 +19,13 @@
 - 解析時嚴格檢查欄位、長度與 canonical base64，任何偏差都是 `invalidFormat`。
 - `DeviceKeyWrapper` 已由 Android 端實作：App 的 `KeystoreDeviceKey`（`lib/src/app/android/keystore.dart`）透過平台通道交給 `MainActivity.kt`，用需要指紋或臉部確認的 Keystore AES-GCM 金鑰包裝與解開。
 
-## ledger_vault
-
-手機上的帳本檔案：`keyring.json` 和 `ledger.db` 放在一起。
+帳本檔案（`keyring.json` 與 `ledger.db` 放在一起）：
 
 - 第一次設定時建立 keyring；救援碼只回傳一次，不寫入任何檔案。
 - 可用密碼、救援碼或裝置金鑰（Android Keystore）解鎖。裝置金鑰遺失時，密碼仍能打開。
 - keyring 一律先寫成 `.new` 再改名覆蓋，當機時留下的不是舊的就是新的。第一次設定時寫到一半的檔案不算帳本，可以重新設定。
 - `restore`：還原備份時先寫到暫存資料庫並通過 SQLite 完整性檢查，接著寫好新的 `keyring.json.new`，再換上資料庫，最後才把 keyring 改名就位。下次打開時（`_settle`）依留下的檔案收尾：暫存與資料庫都在就丟掉暫存，只剩暫存就換上，新 keyring 完整就採用；任何一步之間當機都開得回一本完整的帳本。
 - `OpenVault.updateKeys`：換密碼、加裝置、輪替備份金鑰後存回。
-
-## ledger_backup
 
 備份格式 v3：帳本的每一筆資料（`RowStore` 的每一列）分塊、gzip、用 keyring 的備份金鑰以 AES-256-GCM 加密，之後可附帶收據照片等檔案。
 
@@ -40,3 +34,15 @@
 - 擷取時一次讀出全部資料，備份是同一個時間點的帳本。
 - 還原時 `accept` 先看每一筆，App 讀不懂的一筆會讓還原失敗（`invalidContent`），不會換上一本打不開的帳。
 - 錯誤一律回報為 `BackupProblem`：格式錯、版本較新、驗證失敗、目標非空、內容無效。
+
+## 對外入口
+
+| 入口 | 內容 |
+| --- | --- |
+| `backup_security.dart` | keyring、`PasswordKdf`、救援碼、`DeviceKeyWrapper`（Android 端由 App 的 `KeystoreDeviceKey` 實作） |
+| `ledger_vault.dart` | 建立、解鎖、`restore`、`OpenVault.updateKeys` |
+| `ledger_backup.dart` | 備份的寫出、檢查與還原，錯誤為 `BackupProblem` |
+
+## 不做什麼
+
+- 不決定什麼時候備份、送去哪裡（App 的 `backup` 功能與 Android 的 `BackupWorker`）；不保存救援碼。

@@ -99,7 +99,7 @@ class _DailySectionState extends State<DailySection> {
     final from = '${monday.month} / ${monday.day}';
     final to = '${sunday.month} / ${sunday.day}';
     return [
-      SectionHead(
+      SectionTitle(
         '每日紀錄',
         trailing: Text('本週 ${ledger.money(weekSpent)}', style: mutedSmall),
       ),
@@ -244,9 +244,8 @@ class _WeekStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: Hue.cardShadow,
       ),
       child: Row(
         children: [
@@ -402,8 +401,7 @@ class _DayGrid extends StatelessWidget {
         ),
       );
     }
-    return SoftPanel(
-      color: Hue.white,
+    return GroupBox(
       // None: a row's 編輯 and 刪除 reach the card's edges.
       padding: EdgeInsets.zero,
       child: Column(children: rows),
@@ -422,7 +420,7 @@ class _DayGrid extends StatelessWidget {
         Row(
           children: [
             if (letter != null)
-              IconBadge.letter(letter, mark, size: 18)
+              RoundIcon.letter(letter, mark, size: 18)
             else
               GlyphIcon(icon, size: 16, color: mark),
             const SizedBox(width: 4),

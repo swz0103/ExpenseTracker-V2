@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/features/backup/model/keeper.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';
@@ -65,13 +66,13 @@ void main() {
     await show(tester, keeper);
     expect(find.text('還沒設定 · 點了設定'), findsOneWidget);
     expect(find.text('現在鎖上'), findsNothing);
-    await tester.tap(find.text('密碼'));
+    await tester.tap(find.byKey(Keys.password));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     expect(fields, findsNWidgets(2));
     await tester.enterText(fields.at(0), 'secret1');
     await tester.enterText(fields.at(1), 'secret2');
-    await tester.tap(find.text('設定'));
+    await tester.tap(find.byKey(Keys.changePassword));
     await tester.pump();
     expect(find.text('兩次輸入的新密碼不一樣'), findsOneWidget);
     expect(keeper.hasPassword, isFalse);
@@ -83,18 +84,18 @@ void main() {
     final keeper = _Keeper()..password = 'secret1';
     await show(tester, keeper);
     expect(find.text('現在鎖上'), findsOneWidget);
-    await tester.tap(find.text('密碼'));
+    await tester.tap(find.byKey(Keys.password));
     await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'wrong');
     await tester.enterText(fields.at(1), 'secret2');
     await tester.enterText(fields.at(2), 'secret2');
-    await tester.tap(find.text('變更'));
+    await tester.tap(find.byKey(Keys.changePassword));
     await tester.pumpAndSettle();
     expect(find.text('目前的密碼不正確'), findsOneWidget);
     expect(keeper.password, 'secret1');
 
-    await tester.tap(find.text('現在鎖上'));
+    await tester.tap(find.byKey(Keys.lockNow));
     await tester.pump();
     expect(keeper.locked, isTrue);
   });

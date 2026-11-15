@@ -127,14 +127,14 @@ abstract final class Hue {
   /// Gold as words, darker than [cash], which is for marks and fills.
   static const goldText = Shade(0xFF7A5E18, 0xFFDEBE6B);
 
-  /// Cards: [white] on the paper, lifted by [cardShadow]. The same
-  /// object as [white], so [SoftPanel] lifts either.
-  static const mist = white;
-
   /// Summary blocks: the page's main block and the smaller ones, both a
   /// tint of [accent] on the paper.
   static const hero = Shade(0xFFD8E1E2, 0xFF32464F);
   static const tile = Shade(0xFFE0E6E5, 0xFF313C42);
+
+  /// The flat grey under a group of rows ([GroupBox]): a step off the
+  /// paper, as deep as an account's card on the dark theme.
+  static const group = Shade(0xFFE8EBE7, 0xFF323C42);
 
   /// Empty track behind bars.
   static const track = Shade(0xFFE9ECEA, 0xFF46535A);
@@ -255,20 +255,6 @@ abstract final class Hue {
       color: Shade(0x0A1E2832, 0x00000000),
       blurRadius: 6,
       offset: Offset(0, 2),
-    ),
-  ];
-
-  /// The lift under white cards; none on the dark theme, as [tileShadow].
-  static const cardShadow = [
-    BoxShadow(
-      color: Shade(0x0F1E2832, 0x00000000),
-      blurRadius: 2,
-      offset: Offset(0, 1),
-    ),
-    BoxShadow(
-      color: Shade(0x0D1E2832, 0x00000000),
-      blurRadius: 14,
-      offset: Offset(0, 4),
     ),
   ];
 }
@@ -435,4 +421,16 @@ ThemeData appTheme() {
     ),
     textTheme: base.textTheme.apply(bodyColor: Hue.ink, displayColor: Hue.ink),
   );
+}
+
+/// The colour of each tool, on its tile in 更多, its own page and its card in 總覽.
+abstract final class ToolHue {
+  static const reports = Palette.blue;
+  static const investments = Palette.indigo;
+  static const budgets = Palette.green;
+  static const recurring = Palette.orange;
+  static const debts = Palette.violet;
+  static const categories = Palette.rose;
+  static const labels = Palette.gold;
+  static const settings = Palette.slate;
 }

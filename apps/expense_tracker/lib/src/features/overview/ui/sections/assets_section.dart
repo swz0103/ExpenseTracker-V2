@@ -129,7 +129,7 @@ class _AssetsSectionState extends State<AssetsSection> {
         ? ''
         : '　${(shownAmount * 100 / total).round()}%';
     return [
-      SectionHead(
+      SectionTitle(
         '財務分布',
         trailing: Text(
           ledger.money(shownAmount),

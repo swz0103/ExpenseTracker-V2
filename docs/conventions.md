@@ -26,7 +26,7 @@
 
 ### 檔案長度
 
-- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart` 與帳本狀態 `ledger.dart`（800）。
+- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart` 與帳本狀態 `ledger.dart`（650）。
 - 快超過時依主題拆：`python3 tool/split.py <檔案>` 把後段的宣告搬到同一個 library 的 `part` 檔，再把檔名改成看得懂的名字。單一類別太長時，把一組方法搬到同檔 library 的 `extension`（例：`composer_pickers.dart`）。
 
 ### 命名與註解
@@ -53,7 +53,7 @@
 | 各套件的 `test/` | 套件的規則與格式 |
 
 - 修 bug 先寫一個會重現它的測試，確認在舊程式上失敗、修正後通過。
-- 流程測試找元件時，優先用 `Key` 或語意標籤；只有在確認畫面文字本身時才用 `find.text`。
+- 按按鈕、分頁、選項一律用 `core/look/keys.dart` 的 `Keys`（`find.byKey(Keys.save)`）；新的可按元件要測就先加一個 key。`find.text` 只用來確認畫面文字，或點帳本裡的資料本身（某筆紀錄、某個帳戶）（`test_rules_test` 檢查）。
 - 版面、無障礙、對比測試自動涵蓋 `places.dart` 裡的每一頁：新頁面一定要加進去。
 - 不跳過、不停用測試來讓 CI 變綠。
 

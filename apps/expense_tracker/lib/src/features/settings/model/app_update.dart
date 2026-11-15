@@ -198,6 +198,23 @@ final class AppUpdate extends ChangeNotifier {
     return check();
   }
 
+  /// Whether [info] may be offered on its own, on opening the app: not
+  /// while put off with 晚一點再說, nor when 略過這一版 passed it over.
+  bool mayOffer(UpdateInfo info) {
+    final until = _preferences.updateLaterUntil;
+    if (until != null && _clock().isBefore(until)) return false;
+    return _preferences.updateSkipped != info.build;
+  }
+
+  /// 晚一點再說: not offered again on its own until tomorrow.
+  void later() {
+    final now = _clock().toLocal();
+    _preferences.updateLater(until: DateTime(now.year, now.month, now.day + 1));
+  }
+
+  /// 略過這一版: offered again on its own only when a newer build comes.
+  void skip(UpdateInfo info) => _preferences.updateLater(skip: info.build);
+
   /// Downloads the newer build, checks it and hands it to Android's
   /// installer. Null when there was nothing to install or it failed
   /// ([problem] says why).

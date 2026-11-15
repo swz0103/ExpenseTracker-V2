@@ -16,11 +16,12 @@
 
 | 類別 | 名稱 | 用在 |
 | --- | --- | --- |
-| 底與面 | `Hue.paper` `white` `surface` `tile` `hero` `line` | 頁面底、卡片、按鈕底、主卡、分隔線 |
+| 底與面 | `Hue.paper` `white` `surface` `group` `tile` `hero` `line` | 頁面底、輸入框、按鈕底、清單分組、主卡、分隔線 |
 | 文字 | `Hue.ink` `muted` `faint` `hint` | 主要、次要、停用、待填 |
 | 意義 | `Hue.accent` `positive` `negative` `transfer` `investment` | 介面主色、收入、支出、轉帳、投資 |
 | 帳戶類型 | `Hue.cash` `bank` `wallet` `card` `holdings` `receivable` | 帳戶卡與分組 |
 | 疊加 | `Hue.glass` `scrim` `lift` `float` `halo` `none` | 色卡上的霧面、面板後的暗幕、拿起的陰影 |
+| 工具 | `ToolHue.*` | 每個工具在更多、自己的頁面與總覽卡片的顏色 |
 | 色盤 | `Palette.*`、`Hue.categoryColors`、`Hue.shades` | 工具與設定的色塊、分類可選的顏色、圖表 |
 
 配色函式（`kit/colours.dart`）：
@@ -33,7 +34,7 @@
 | `chosenFill` `chosenInk` `chosenEdge` | 選中狀態：淺色實心；深色改成淡底加同色框與字 |
 | `shownColor(c)` | 使用者選的分類色在深色下的柔和版（存的值不變） |
 
-深色規則：不出現發亮的實心色塊；圖示用「深底＋淡色圖示」（`SquareIcon`）；層次靠底、卡、按鈕三階亮度，不靠陰影。
+深色規則：不出現比帳戶卡更亮的色塊（`tintOf` 在深色下越濃增加越慢）；選中與實心按鈕用 `chosenFill`；圖示用「深底＋淡色圖示」（`SquareIcon`）；層次靠底、卡、按鈕三階亮度，不靠陰影。
 
 ## 字級
 
@@ -60,8 +61,11 @@
 | 需要 | 用 | 檔案 |
 | --- | --- | --- |
 | 有標題的頁面 | `HeadedList` ＋ `CenterHeader`（子頁）或 `PageHeader`（分頁） | `headers.dart`、`kit/headers.dart` |
-| 頁面主卡 | `HeroCard` | `kit/cards.dart` |
+| 頁面主卡 | `HeroFigure`（大數字＋旁邊的膠囊）＋ `FigureCells`（並排淡色小格），外框 `HeroCard` | `kit/figures.dart`、`kit/cards.dart` |
+| 帶數字的小卡、並排 | `FigureCard`、`CardRow` | `kit/figures.dart` |
 | 色塊卡、可點的方塊 | `ColorCard`、`CardGrid` | `kit/cards.dart` |
+| 清單分組、報價列 | `GroupBox`、`QuoteBoard` | `kit/figures.dart`、`kit/boards.dart` |
+| 區塊標題、表單分組 | `SectionTitle`、`FormGroup` | `kit/figures.dart` |
 | 大的分段選擇 | `BigSegments` | `kit/cards.dart` |
 | 小的選項 | `ChoicePill`、`Segments` | `controls.dart` |
 | 開關 | `ToggleRow` ＋ `TickSwitch`（整列可點） | `kit/marks.dart` |
@@ -73,9 +77,12 @@
 | 按鈕 | `solidButton`、`wordButton` 給 `FilledButton`／`TextButton` | `kit/buttons.dart` |
 | 不換行的短字 | `OneLine` | `kit/words.dart` |
 | 報價列、空狀態、⋯ 選單 | `QuoteBoard`、`EmptyState`、`DotsMenu` | `kit/boards.dart` |
-| 圖示 | `GlyphIcon`、`SquareIcon`；新圖示加在 `tool/glyphs.py` 再產生 | `glyphs.dart` |
+| 圖示 | `GlyphIcon`；卡片與色塊用方形 `SquareIcon`，清單列與選單用圓形 `RoundIcon`；新圖示加在 `tool/glyphs.py` 再產生 | `glyphs.dart`、`kit/marks.dart` |
+| 小標記 | `Pill`、`LegendKey`、`RingGauge` | `kit/marks.dart` |
 
 認得帳本的元件（紀錄列、帳戶選擇、計算機、金額顯示）在 `core/ui/`。
+
+白卡元件已退場（[ADR-0006](adr/0006-retire-white-cards.md)），頁面不寫白底加陰影的卡（`design_rules_test`）。
 
 ## 版面規則
 

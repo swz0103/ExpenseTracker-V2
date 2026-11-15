@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/features/accounts/ui/accounts.dart';
@@ -39,7 +40,7 @@ void main() {
     }
     await drag.up();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('完成'));
+    await tester.tap(find.byKey(Keys.done));
     await tester.pumpAndSettle();
     expect(walletAccounts(ledger).first.id, isNot(first.id));
   });

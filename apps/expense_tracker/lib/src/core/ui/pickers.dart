@@ -81,7 +81,7 @@ List<Option<String>> categoryOptions(
 }) => [
   for (final c in ledger.categoriesFor(income: income))
     if (where == null || where(c))
-      Option(c.name, c.name, iconFor(c.icon), shownColor(c.color)),
+      Option(c.name, c.name, iconFor(c.icon), shownColor(Color(c.color))),
 ];
 
 /// A grid of choices, [columns] to a row; the chosen one has a coloured
@@ -207,7 +207,7 @@ class _OptionCell<T> extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconBadge(option.icon, option.color, size: 40),
+              RoundIcon(option.icon, option.color, size: 40),
               const SizedBox(height: 6),
               Text(
                 option.label,

@@ -270,16 +270,17 @@ class _CalculatorState extends State<_Calculator> {
     final operator = '÷×−+'.contains(key);
     final done = key == '完成';
     final background = done
-        ? Hue.accent
+        ? chosenFill(Hue.accent)
         : operator || key == 'C' || key == '⌫'
         ? Hue.hero
         : Hue.tile;
     final ink = done
-        ? Hue.onAccent
+        ? chosenInk(Hue.accent)
         : operator || key == 'C' || key == '⌫'
         ? Hue.accent
         : Hue.ink;
     return Pressable(
+      key: Keys.calc(key),
       depth: 0.93,
       child: Material(
         color: background,

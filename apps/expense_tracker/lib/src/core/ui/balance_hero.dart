@@ -4,10 +4,10 @@ import '../ledger/ledger.dart' show Ledger;
 import '../look/glyphs.dart';
 import '../look/haptics.dart';
 import '../look/theme.dart';
-import '../look/tiles.dart';
+import '../look/kit.dart';
 import 'shown_amounts.dart';
 
-/// The page's main tile for a stretch of time: what is left of [income]
+/// The page's main card for a stretch of time: what is left of [income]
 /// after [expense] as the figure, in ink or in the spending colour when
 /// more went out than came in; the two along its foot with [third]
 /// beside them; and, with [rate], the share of income kept.
@@ -46,8 +46,7 @@ class BalanceHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = income - expense;
     final kept = income == 0 ? 0 : (left * 100 / income).round();
-    return Tile(
-      hero: true,
+    return HeroFigure(
       icon: icon,
       label: label,
       value: ledger.money(left),
@@ -55,7 +54,7 @@ class BalanceHero extends StatelessWidget {
       size: size,
       beside: hides ? _HideAmounts(ledger) : null,
       trailing: rate ? Pill('結餘率 $kept%') : null,
-      child: TileStats([
+      child: FigureCells([
         (Glyph.income, '收入', ledger.money(income), Hue.positive),
         (Glyph.payout, '支出', ledger.money(expense), Hue.negative),
         third,

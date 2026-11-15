@@ -2,7 +2,6 @@ import 'package:expense_tracker/src/core/ledger/batch.dart';
 import 'package:expense_tracker/src/features/import/model/exchange.dart';
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing: only remembers the batches it was handed.
@@ -37,8 +36,8 @@ void main() {
         ),
       ],
       categories: const [
-        Category('飲食', 'food', Color(0xFF5C9A83)),
-        Category('居家', 'home', Color(0xFF5B8DB0)),
+        Category('飲食', 'food', 0xFF5C9A83),
+        Category('居家', 'home', 0xFF5B8DB0),
       ],
       entries: entries,
       holdings: const [],
@@ -120,7 +119,7 @@ void main() {
       expect(ledger.categoryNameFree(name), isFalse, reason: name);
     }
     expect(ledger.categoryNameFree('飲食', except: '飲食'), isTrue);
-    ledger.addCategory(const Category('轉帳', 'other', Color(0xFF000000)));
+    ledger.addCategory(const Category('轉帳', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
     expect(ledger.categories, hasLength(2));
   });
@@ -197,7 +196,7 @@ void main() {
     final ledger = Ledger(
       today: day,
       accounts: const [],
-      categories: const [Category('轉帳', 'other', Color(0xFF000000))],
+      categories: const [Category('轉帳', 'other', 0xFF000000)],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -217,9 +216,9 @@ void main() {
         Account('new', '新帳戶', AccountKind.bank, 0),
       ],
       categories: const [
-        Category('寵物', 'pet', Color(0xFF123456)),
-        Category('寵物', 'pet', Color(0xFF123456)),
-        Category('轉帳', 'other', Color(0xFF123456)),
+        Category('寵物', 'pet', 0xFF123456),
+        Category('寵物', 'pet', 0xFF123456),
+        Category('轉帳', 'other', 0xFF123456),
       ],
     );
     expect([for (final a in ledger.accounts) a.id], ['bank', 'card', 'new']);

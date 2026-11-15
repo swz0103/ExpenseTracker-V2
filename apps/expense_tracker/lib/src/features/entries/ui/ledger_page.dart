@@ -377,8 +377,7 @@ class _LedgerPageState extends State<LedgerPage> {
   /// day's entries on a white card.
   Widget _line(_Item item) => switch (item) {
     _Heading(:final day) => _heading(day),
-    _Group(:final entries) => SoftPanel(
-      color: Hue.white,
+    _Group(:final entries) => GroupBox(
       // None: a row's 編輯 and 刪除 reach the card's edges.
       padding: EdgeInsets.zero,
       child: Column(
@@ -461,13 +460,14 @@ class _PickBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget action(String label, VoidCallback onTap, {Color? color}) =>
+    Widget action(String label, VoidCallback onTap, {Color? color, Key? key}) =>
         TextButton(
+          key: key,
           onPressed: onTap,
           style: wordButton(color ?? Hue.accent),
           child: Text(label),
         );
-    return SoftPanel(
+    return GroupBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -491,7 +491,7 @@ class _PickBar extends StatelessWidget {
             children: [
               action('改分類', onCategory),
               action('改帳戶', onAccount),
-              action('刪除', onRemove, color: Hue.danger),
+              action('刪除', onRemove, color: Hue.danger, key: Keys.deletePicked),
             ],
           ),
         ],

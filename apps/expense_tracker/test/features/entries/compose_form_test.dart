@@ -2,7 +2,6 @@ import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_form.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
@@ -24,8 +23,8 @@ void main() {
       Account('cash', '現金', AccountKind.cash, 2000),
     ],
     categories: const [
-      Category('飲食', 'food', Color(0xFF5C9A83)),
-      Category('居家', 'home', Color(0xFF5B8DB0)),
+      Category('飲食', 'food', 0xFF5C9A83),
+      Category('居家', 'home', 0xFF5B8DB0),
     ],
     entries: const [],
     holdings: const [],

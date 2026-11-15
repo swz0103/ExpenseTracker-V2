@@ -136,9 +136,8 @@ class _CompareSectionState extends State<CompareSection> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: Hue.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,7 +324,7 @@ class _MovedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = shownColor(category.color);
+    final color = shownColor(Color(category.color));
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
       decoration: BoxDecoration(

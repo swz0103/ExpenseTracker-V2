@@ -55,32 +55,35 @@ class _MarketSectionState extends State<MarketSection> {
     final picked = code == null ? null : ledger.holding(code);
     final tone = change < 0 ? Hue.negative : Hue.positive;
     return [
-      SectionHead(
+      SectionTitle(
         '投資行情',
         trailing: Text(switch (ledger.quotedOn) {
           final d? => '${d.month}/${d.day} 收盤',
           null => '尚未取得收盤價',
         }, style: mutedSmall),
       ),
-      TileRow([
+      CardRow([
         // Before any close there is no move to tell, not a move of zero.
         if (ledger.quotedOn == null)
-          const Tile(
+          const FigureCard(
             icon: Glyph.investment,
+            color: ToolHue.investments,
             label: '當日損益',
             value: '—',
             sub: '尚無收盤價',
           )
         else
-          Tile(
+          FigureCard(
             icon: Glyph.investment,
+            color: ToolHue.investments,
             label: '當日損益',
             value: ledger.moneySigned(change),
             valueColor: tone,
             sub: '當日 ${percentOf(change, before)}',
           ),
-        Tile(
+        FigureCard(
           icon: Glyph.briefcase,
+          color: ToolHue.investments,
           label: '持股市值',
           value: ledger.money(ledger.investValue),
           sub: '${holdings.length} 檔',

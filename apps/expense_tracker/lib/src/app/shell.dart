@@ -516,6 +516,7 @@ class _BottomBar extends StatelessWidget {
                   ),
                 Expanded(
                   child: InkResponse(
+                    key: Keys.tab(label),
                     onTap: () => onTab(item),
                     highlightColor: Colors.transparent,
                     hoverColor: Colors.transparent,

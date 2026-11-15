@@ -49,7 +49,7 @@ class RecoveryView extends StatelessWidget {
       problem: problem,
       extras: [
         LockLink('改用密碼', onPassword, busy: busy),
-        if (back != null) LockLink('返回', back, busy: busy),
+        if (back != null) LockLink('返回', back, busy: busy, key: Keys.back),
       ],
     );
   }

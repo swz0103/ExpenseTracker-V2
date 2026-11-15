@@ -27,7 +27,7 @@ const _busyDay = Hue.surface;
 /// An item's colour and mark: its category's.
 (Glyph, Color) _mark(Ledger ledger, Recurring item) {
   final c = ledger.category(item.category);
-  return (iconFor(c.icon), shownColor(c.color));
+  return (iconFor(c.icon), shownColor(Color(c.color)));
 }
 
 /// Adds an item, or changes [item], after making sure there is an account

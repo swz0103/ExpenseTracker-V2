@@ -4,7 +4,6 @@ import 'dart:isolate';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:flutter/foundation.dart' show mapEquals;
-import 'package:flutter/painting.dart' show Color;
 import 'package:market/market_data.dart';
 import 'package:storage/storage.dart';
 
@@ -183,7 +182,7 @@ final class TableJournal implements Journal {
         categories: [
           if (noCategories)
             for (final (name, icon, color, income) in _starters)
-              Category(name, icon, Color(color), income: income),
+              Category(name, icon, color, income: income),
         ],
         accounts: [
           if (noAccounts) ...[

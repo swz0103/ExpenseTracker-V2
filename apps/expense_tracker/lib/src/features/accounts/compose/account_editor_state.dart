@@ -342,7 +342,7 @@ class _AccountEditorState extends State<_AccountEditor> {
   /// 算進負債與淨資產, or 計入資產與淨資產, as a whole row.
   Widget get _counted {
     final label = _loanForm ? '算進負債與淨資產' : '計入資產與淨資產';
-    return FormBlock(
+    return FormGroup(
       child: ToggleRow(
         value: _f.counted,
         onChanged: (on) => setState(() => _f.counted = on),
@@ -398,7 +398,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   balanceLabel: _f.kind.isDebt ? '目前欠款' : '目前餘額',
                   onColor: _pickColor,
                 ),
-                FormBlock(
+                FormGroup(
                   title: '類型',
                   child: Row(
                     children: [
@@ -420,7 +420,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                     ],
                   ),
                 ),
-                FormBlock(
+                FormGroup(
                   title: '圖示',
                   child: Row(
                     children: [
@@ -461,7 +461,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   ),
                 ),
                 if (old == null && _f.foreignAllowed)
-                  FormBlock(
+                  FormGroup(
                     title: '幣別',
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -490,24 +490,26 @@ class _AccountEditorState extends State<_AccountEditor> {
                     ),
                   ),
                 if (_f.kind == AccountKind.card)
-                  TileRow([
-                    Tile(
+                  CardRow([
+                    FigureCard(
+                      color: Hue.card,
                       icon: Glyph.calendar,
                       label: '結帳日',
                       value: '每月 ${_f.closing} 日',
-                      size: 15,
+                      size: TextSize.body,
                       onTap: () => _pickDay(true),
                     ),
-                    Tile(
+                    FigureCard(
+                      color: Hue.card,
                       icon: Glyph.calendar,
                       label: '繳款日',
                       value: '每月 ${_f.due} 日',
-                      size: 15,
+                      size: TextSize.body,
                       onTap: () => _pickDay(false),
                     ),
                   ]),
                 if (_f.kind == AccountKind.card)
-                  FormBlock(
+                  FormGroup(
                     title: '信用額度',
                     child: _Field(controller: _limit, hint: '額度', number: true),
                   ),

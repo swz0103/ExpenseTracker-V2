@@ -4,6 +4,7 @@ import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import 'lock_parts.dart';
 import '../../../../core/look/kit/buttons.dart';
+import '../../../../core/look/keys.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -200,6 +201,7 @@ class _WelcomeViewState extends State<WelcomeView>
             ProblemLine(widget.problem),
             const SizedBox(height: 12),
             FilledButton(
+              key: Keys.newBook,
               onPressed: busy ? null : widget.onStart,
               style: solidButton(
                 Hue.accent,
@@ -234,6 +236,7 @@ class _WelcomeViewState extends State<WelcomeView>
               children: [
                 const Text('已經有帳本？', style: TextStyle(color: Hue.muted)),
                 TextButton(
+                  key: Keys.restore,
                   onPressed: busy ? null : widget.onRestore,
                   style: wordButton(
                     Hue.accent,
@@ -282,6 +285,7 @@ class _WelcomeViewState extends State<WelcomeView>
                 shape: const StadiumBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
+                  key: Keys.restoreFound,
                   onTap: busy ? null : widget.onRestoreFound,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
@@ -353,6 +357,7 @@ class _WelcomeViewState extends State<WelcomeView>
               children: [
                 const Text('或', style: TextStyle(color: Hue.muted)),
                 TextButton(
+                  key: Keys.newBook,
                   onPressed: busy ? null : widget.onStart,
                   style: wordButton(
                     Hue.accent,

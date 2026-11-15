@@ -383,9 +383,9 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: add,
-            child: const SizedBox(
-              height: 74,
-              child: Column(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 74),
+              child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GlyphIcon(Glyph.add, size: 20, color: Hue.muted),
@@ -425,18 +425,21 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
         for (var i = 0; i < cards.length; i += 3)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var j = i; j < i + 3; j++) ...[
-                  if (j > i) const SizedBox(width: 8),
-                  Expanded(
-                    child: j < cards.length
-                        ? cards[j]
-                        : const SizedBox.shrink(),
-                  ),
+            // Every card in a row as tall as the tallest, 新增 included.
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var j = i; j < i + 3; j++) ...[
+                    if (j > i) const SizedBox(width: 8),
+                    Expanded(
+                      child: j < cards.length
+                          ? cards[j]
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
       ],
@@ -444,7 +447,7 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
   }
 }
 
-/// What a trade comes to beyond its sums, on a white card: its name and
+/// What a trade comes to beyond its sums, on a grey block: its name and
 /// what it rests on on the left, the figure on the right in [color].
 class _OutcomeCard extends StatelessWidget {
   const _OutcomeCard({
@@ -465,9 +468,8 @@ class _OutcomeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: Hue.tileShadow,
       ),
       child: Row(
         children: [

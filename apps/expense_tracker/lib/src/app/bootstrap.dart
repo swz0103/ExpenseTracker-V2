@@ -357,7 +357,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final update = _update;
     final newer = await update?.checkIfDue();
     if (update == null || newer == null || !mounted) return;
-    if (_offered == newer.build) return;
+    if (_offered == newer.build || !update.mayOffer(newer)) return;
     _offered = newer.build;
     await showUpdatePanel(context, update);
   }

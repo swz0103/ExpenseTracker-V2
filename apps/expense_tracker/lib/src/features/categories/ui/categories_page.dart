@@ -47,7 +47,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       initial: Category(
         '',
         _income ? 'income' : 'other',
-        _colors[count % _colors.length],
+        _colors[count % _colors.length].toARGB32(),
         income: _income,
       ),
       colors: _colors,
@@ -139,7 +139,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 },
                 child: _Tile(
                   glyph: iconFor(c.icon),
-                  color: shownColor(c.color),
+                  color: shownColor(Color(c.color)),
                   label: c.name,
                   count: children[c.name] ?? 0,
                   onTap: () => _edit(c),
@@ -257,10 +257,7 @@ class _Kind extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: chosen ? Hue.tileShadow : null,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
         child: Material(
           color: chosen ? chosenFill(color) : Hue.surface,
           shape: RoundedRectangleBorder(

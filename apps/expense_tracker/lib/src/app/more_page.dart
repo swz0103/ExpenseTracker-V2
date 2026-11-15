@@ -8,18 +8,6 @@ import '../core/ledger/ledger.dart';
 import '../core/nav.dart';
 import '../features/debts/ui/debts_page.dart';
 
-/// The colour of each tool, on its tile here and on its own page.
-abstract final class ToolHue {
-  static const reports = Palette.blue;
-  static const investments = Palette.indigo;
-  static const budgets = Palette.green;
-  static const recurring = Palette.orange;
-  static const debts = Palette.violet;
-  static const categories = Palette.rose;
-  static const labels = Palette.gold;
-  static const settings = Palette.slate;
-}
-
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
 /// each with one line on what it is about now.
 class MorePage extends StatelessWidget {
@@ -177,6 +165,7 @@ class ToolButton extends StatelessWidget {
       excludeSemantics: true,
       child: Pressable(
         child: InkWell(
+          key: Keys.tool(label),
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
           child: Padding(

@@ -1,3 +1,4 @@
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
@@ -20,9 +21,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('更多'));
+    await tester.tap(find.byKey(Keys.tab('更多')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('分類').first);
+    await tester.tap(find.byKey(Keys.tool('分類')));
     await tester.pumpAndSettle();
 
     List<String> tops() => [

@@ -52,7 +52,7 @@ class _CategoryEditor extends StatefulWidget {
 class _CategoryEditorState extends State<_CategoryEditor> {
   late final _name = TextEditingController(text: widget.initial.name);
   late var _icon = widget.initial.icon;
-  late var _color = widget.initial.color;
+  late var _color = Color(widget.initial.color);
   late var _parent = widget.initial.parent;
   String? _problem;
 
@@ -77,7 +77,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     final made = Category(
       name,
       _icon,
-      _color,
+      _color.toARGB32(),
       income: widget.initial.income,
       parent: _parent,
       archived: widget.initial.archived,
@@ -182,7 +182,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     final made = await showCategoryEditor(
       context,
       title: '新增子分類',
-      initial: Category('', c.icon, _color, income: c.income, parent: c.name),
+      initial: Category(
+        '',
+        c.icon,
+        _color.toARGB32(),
+        income: c.income,
+        parent: c.name,
+      ),
       colors: widget.colors,
       ledger: ledger,
     );
@@ -214,7 +220,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             name,
             name,
             iconFor(ledger.category(name).icon),
-            shownColor(ledger.category(name).color),
+            shownColor(Color(ledger.category(name).color)),
           ),
       ],
     );

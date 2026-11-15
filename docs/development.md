@@ -32,7 +32,7 @@
 | `tool/move.py` | 搬 Dart 檔並改好所有 import 與 part（用 git mv） |
 | `tool/split.py` | 把太長的檔案後段的宣告搬到 part 檔 |
 | `tool/glyphs.py` | 定義所有圖示，產生 `core/look/glyphs.dart`（不要手改產生的檔） |
-| `tool/test_ledger.py` | 產生半年份的測試帳本 `test-ledger.etbk`（密碼 `test1234`） |
+| `tool/test_ledger.py` | 產生兩年份、約 2,500 筆的測試帳本 `test-ledger.etbk`（密碼 `test1234`）：多家銀行、三張信用卡、外幣、車貸、代墊、十檔股票、預算與定期 |
 | `tool/screenshots/` | 依 `test/app/places.dart` 拍每頁淺色、深色截圖 |
 | `tool/app_icon.svg` | App 圖示原稿 |
 

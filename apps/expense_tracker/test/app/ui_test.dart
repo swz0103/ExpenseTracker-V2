@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/core/charts/treemap.dart';
 import 'package:expense_tracker/src/core/ui/calculator.dart';
 import 'package:expense_tracker/src/features/entries/compose/composer.dart';
@@ -238,10 +239,10 @@ void main() {
     await show(tester);
     expect(find.text('總覽'), findsWidgets);
     expect(find.text('17,519'), findsOneWidget);
-    await tester.tap(find.text('紀錄'));
+    await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
     expect(find.text('收支紀錄'), findsOneWidget);
-    await tester.tap(find.text('帳戶'));
+    await tester.tap(find.byKey(Keys.tab('帳戶')));
     await tester.pumpAndSettle();
     expect(find.text('我的帳戶'), findsOneWidget);
     // A card behind slides to the front first; a tap on it then opens it.
@@ -253,7 +254,7 @@ void main() {
     expect(find.text('近四週'), findsOneWidget);
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('更多'));
+    await tester.tap(find.byKey(Keys.tab('更多')));
     await tester.pumpAndSettle();
     for (final (tool, mark) in const [
       ('財務報表', '收支與淨資產'),
@@ -264,16 +265,16 @@ void main() {
       ('分類', '新增'),
       ('設定', '匯入與匯出'),
     ]) {
-      await tester.tap(find.text(tool));
+      await tester.tap(find.byKey(Keys.tool(tool)));
       await tester.pumpAndSettle();
       expect(find.text(mark), findsOneWidget, reason: tool);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
     }
     // A page of settings returns to the list of them.
-    await tester.tap(find.text('設定'));
+    await tester.tap(find.byKey(Keys.tool('設定')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('匯入與匯出'));
+    await tester.tap(find.byKey(Keys.tool('匯入與匯出')));
     await tester.pumpAndSettle();
     expect(find.text('匯出 CSV'), findsOneWidget);
     await tester.tap(find.byTooltip('返回'));
@@ -287,21 +288,21 @@ void main() {
     await tester.pumpAndSettle();
     // No title: the tabs say what is written.
     expect(find.text('新增支出'), findsNothing);
-    await tester.tap(find.text('記下支出'));
+    await tester.tap(find.byKey(Keys.save));
     await tester.pump();
     expect(find.text('請輸入金額'), findsOneWidget);
     // The calculator mark beside the amount.
     await tester.tap(find.byTooltip('金額'));
     await tester.pumpAndSettle();
     for (final key in ['1', '8', '0', '完成']) {
-      await tester.tap(find.text(key).last);
+      await tester.tap(find.byKey(Keys.calc(key)));
       await tester.pumpAndSettle();
     }
     expect(
       find.descendant(of: find.byType(Composer), matching: find.text('−180')),
       findsOneWidget,
     );
-    await tester.tap(find.text('記下支出'));
+    await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
     expect(find.text('已記下'), findsOneWidget);
     expect(ledger.expense(2026, 10), 17519 + 180);
@@ -317,7 +318,7 @@ void main() {
       await tester.tap(find.byTooltip(label));
       await tester.pumpAndSettle();
       for (final key in [...keys, '完成']) {
-        await tester.tap(find.text(key).last);
+        await tester.tap(find.byKey(Keys.calc(key)));
         await tester.pumpAndSettle();
       }
     }
@@ -339,10 +340,10 @@ void main() {
     await tester.tap(inSheet('代墊朋友'));
     await tester.pumpAndSettle();
     for (final key in ['C', '5', '0', '0', '完成']) {
-      await tester.tap(find.text(key).last);
+      await tester.tap(find.byKey(Keys.calc(key)));
       await tester.pumpAndSettle();
     }
-    await tester.tap(find.text('記下代墊'));
+    await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3200 + 500);
     expect(ledger.expense(2026, 10), 17519);
@@ -356,7 +357,7 @@ void main() {
     expect(inSheet('代墊朋友 還錢'), findsOneWidget);
     // It opens at all they owe; cleared, 300 of it.
     await type('還款金額', ['C', '3', '0', '0']);
-    await tester.tap(find.text('記下還款'));
+    await tester.tap(find.byKey(Keys.save));
     await tester.pumpAndSettle();
     expect(ledger.balance('lent'), 3700 - 300);
     expect(ledger.income(2026, 10), 52000);
@@ -364,23 +365,23 @@ void main() {
 
   testWidgets('a deleted entry can be restored', (tester) async {
     final ledger = await show(tester);
-    await tester.tap(find.text('紀錄'));
+    await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('週末點心'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('刪除'));
+    await tester.tap(find.byKey(Keys.discard));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('刪除').last);
+    await tester.tap(find.byKey(Keys.confirm));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519 - 200);
-    await tester.tap(find.text('復原'));
+    await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
   });
 
   testWidgets('a row slid open offers edit and delete', (tester) async {
     final ledger = await show(tester);
-    await tester.tap(find.text('紀錄'));
+    await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
     expect(find.text('編輯'), findsNothing);
     await tester.drag(find.text('週末點心'), const Offset(-200, 0));
@@ -403,10 +404,10 @@ void main() {
     expect(find.text('編輯'), findsNothing);
     await tester.drag(find.text('週末點心'), const Offset(-200, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('刪除'));
+    await tester.tap(find.byKey(Keys.swipe('刪除')).first);
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519 - 200);
-    await tester.tap(find.text('復原'));
+    await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
   });
@@ -415,16 +416,16 @@ void main() {
     tester,
   ) async {
     final ledger = await show(tester);
-    await tester.tap(find.text('紀錄'));
+    await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('週末點心'));
     await tester.pumpAndSettle();
     expect(find.textContaining('已選 1 筆'), findsOneWidget);
-    await tester.tap(find.text('刪除'));
+    await tester.tap(find.byKey(Keys.deletePicked));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519 - 200);
     expect(ledger.trash.single.entry.note, '週末點心');
-    await tester.tap(find.text('復原'));
+    await tester.tap(find.byKey(Keys.snack('復原')));
     await tester.pumpAndSettle();
     expect(ledger.expense(2026, 10), 17519);
     expect(ledger.trash, isEmpty);
@@ -447,7 +448,7 @@ void main() {
   ) async {
     addTearDown(() => Shade.dark = false);
     await show(tester);
-    await tester.tap(find.text('紀錄'));
+    await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
     final page = tester.state(find.byType(LedgerPage));
     Shade.show(dark: true);

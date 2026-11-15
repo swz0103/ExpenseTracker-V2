@@ -541,24 +541,24 @@ class _PriceCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: up ? Hue.positive : Hue.negative,
+                color: chosenFill(up ? Hue.positive : Hue.negative),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
                 children: [
                   Text(
                     before == 0 ? '—' : percentOf(held.change, before),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: TextSize.title,
                       fontWeight: FontWeight.w800,
-                      color: Hue.onAccent,
+                      color: chosenInk(up ? Hue.positive : Hue.negative),
                     ),
                   ),
                   Text(
                     '${up ? '▲' : '▼'} ${perShare.abs().toStringAsFixed(2)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: TextSize.caption,
-                      color: Hue.onAccent,
+                      color: chosenInk(up ? Hue.positive : Hue.negative),
                     ),
                   ),
                 ],

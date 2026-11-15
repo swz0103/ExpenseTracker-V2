@@ -95,9 +95,8 @@ class _Figure extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: Hue.cardShadow,
       ),
       child: Row(
         children: [
@@ -159,7 +158,8 @@ class _Limit extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
-    final color = shownColor(category?.color ?? Hue.accent);
+    final shade = category?.color;
+    final color = shownColor(shade == null ? Hue.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;

@@ -175,7 +175,7 @@ class _AddLimit extends StatelessWidget {
             CardGrid(columns: 4, gap: 8, [
               for (final c in categories)
                 ColorCard(
-                  color: shownColor(c.color),
+                  color: shownColor(Color(c.color)),
                   radius: 16,
                   label: c.name,
                   onTap: () => Navigator.of(context).pop(c.name),
@@ -188,7 +188,7 @@ class _AddLimit extends StatelessWidget {
                       GlyphIcon(
                         iconFor(c.icon),
                         size: 26,
-                        color: shownColor(c.color),
+                        color: shownColor(Color(c.color)),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -198,7 +198,7 @@ class _AddLimit extends StatelessWidget {
                         style: TextStyle(
                           fontSize: TextSize.small,
                           fontWeight: FontWeight.w700,
-                          color: deepOf(shownColor(c.color)),
+                          color: deepOf(shownColor(Color(c.color))),
                         ),
                       ),
                     ],
@@ -278,7 +278,8 @@ class _BudgetEditorState extends State<_BudgetEditor> {
     final total = name == Ledger.allSpending;
     final tag = name.startsWith('#');
     final category = total || tag ? null : ledger.category(name);
-    final color = category?.color ?? Hue.accent;
+    final shade = category?.color;
+    final color = shade == null ? Hue.accent : Color(shade);
     final glyph = total
         ? Glyph.cash
         : tag

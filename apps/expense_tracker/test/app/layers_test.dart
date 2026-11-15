@@ -82,6 +82,22 @@ void main() {
     }
   });
 
+  test('the ledger paints nothing: of Flutter, only foundation', () {
+    // ChangeNotifier and ValueNotifier are plain Dart; colours are ARGB
+    // ints, made into a Color by the page that paints them.
+    final flutter = RegExp(r"import '(package:flutter/[^']+|dart:ui)'");
+    for (final f in Directory('lib/src/core/ledger').listSync()) {
+      if (f is! File) continue;
+      for (final m in flutter.allMatches(f.readAsStringSync())) {
+        expect(
+          m[1],
+          'package:flutter/foundation.dart',
+          reason: '${f.path}: ${m[1]}',
+        );
+      }
+    }
+  });
+
   test('the ledger keeps to itself, and the book knows no storage', () {
     const store = 'lib/src/core/ledger/table_journal.dart';
     for (final MapEntry(key: file, value: uris) in imports.entries) {
@@ -207,7 +223,7 @@ void main() {
     // subject (tool/split.py) before it grows past the limit.
     const longer = {
       'lib/src/core/look/glyphs.dart': 1600,
-      'lib/src/core/ledger/ledger.dart': 800,
+      'lib/src/core/ledger/ledger.dart': 650,
     };
     for (final file in imports.keys) {
       final lines = File(file).readAsLinesSync().length;

@@ -1,6 +1,5 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
-import 'package:flutter/painting.dart' show Color;
 
 import 'records.dart';
 
@@ -101,7 +100,7 @@ Account accountFromJson(Map<String, Object?> json) => _read(
 Map<String, Object?> categoryToJson(Category c) => {
   'name': c.name,
   'icon': c.icon,
-  'color': c.color.toARGB32(),
+  'color': c.color,
   if (c.income) 'income': true,
   'parent': ?c.parent,
   if (c.archived) 'archived': true,
@@ -112,7 +111,7 @@ Category categoryFromJson(Map<String, Object?> json) => _read(
   () => Category(
     json['name']! as String,
     json['icon']! as String,
-    Color(_int(json['color'])),
+    _int(json['color']),
     income: json['income'] == true,
     parent: json['parent'] as String?,
     archived: json['archived'] == true,

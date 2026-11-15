@@ -256,10 +256,7 @@ class _Half extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: chosen ? Hue.tileShadow : null,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
           shape: RoundedRectangleBorder(
@@ -511,7 +508,7 @@ class ProjectCard extends StatelessWidget {
                       Expanded(
                         flex: (amount * 1000 ~/ spent).clamp(1, 1000),
                         child: ColoredBox(
-                          color: shownColor(ledger.category(name).color),
+                          color: shownColor(Color(ledger.category(name).color)),
                           child: const SizedBox.expand(),
                         ),
                       ),
@@ -533,7 +530,7 @@ class ProjectCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: shownColor(ledger.category(name).color),
+                          color: shownColor(Color(ledger.category(name).color)),
                           shape: BoxShape.circle,
                         ),
                       ),

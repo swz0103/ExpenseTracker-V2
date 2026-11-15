@@ -191,7 +191,7 @@ class LabelPage extends StatelessWidget {
                   QuoteRow(
                     lead: SquareIcon(
                       iconFor(ledger.category(e.category).icon),
-                      shownColor(ledger.category(e.category).color),
+                      shownColor(Color(ledger.category(e.category).color)),
                       size: 42,
                     ),
                     title: e.title,
