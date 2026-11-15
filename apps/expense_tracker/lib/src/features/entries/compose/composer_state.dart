@@ -478,15 +478,26 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       ),
     );
     // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
-    // reach however long the form is.
+    // reach however long the form is. An entry looked at shows its own
+    // card in place of the form, until 編輯.
+    final looked = _viewing && entry != null && refunded == null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        top,
-        ?pinned,
-        const SizedBox(height: 8),
-        Flexible(child: ClipRect(child: fields)),
+        if (looked)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: _view(entry),
+            ),
+          )
+        else ...[
+          top,
+          ?pinned,
+          const SizedBox(height: 8),
+          Flexible(child: ClipRect(child: fields)),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
           child: Row(

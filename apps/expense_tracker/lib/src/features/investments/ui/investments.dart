@@ -73,13 +73,27 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const Spacer(),
-                    Text(switch ((market?.problem, ledger.quotedOn)) {
-                      (final problem?, _) => problem,
-                      (_, null) => '連上網路後更新收盤價',
-                      _ when market?.busy ?? false => '更新收盤價中…',
-                      (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
-                    }, style: mutedSmall),
+                    const SizedBox(width: 8),
+                    // The cost lives here rather than on the main card.
+                    Text(
+                      '成本 ${ledger.orDots(groupDigits(ledger.investCost))}',
+                      style: mutedSmall,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        switch ((market?.problem, ledger.quotedOn)) {
+                          (final problem?, _) => problem,
+                          (_, null) => '連上網路後更新收盤價',
+                          _ when market?.busy ?? false => '更新收盤價中…',
+                          (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
+                        },
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: mutedSmall,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -491,7 +505,8 @@ class _StackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final column = size.width / stacks.length;
     final bar = min(column * 0.62, 26.0);
-    final top = 18.0;
+    // Room above the tallest bar for its sum, inside the band.
+    final top = 20.0;
     final high = sums.fold(1, max);
     double h(int v) => v / high * (size.height - top);
     if (picked >= 0) {
@@ -531,15 +546,23 @@ class _StackPainter extends CustomPainter {
         y -= height + 1.5;
       }
       if (!hidden) {
-        final text = layoutText(
-          _short(sums[k]),
-          TextStyle(
-            fontSize: TextSize.tiny,
-            fontWeight: FontWeight.w700,
-            color: words,
-          ),
+        // Inside its own column, the chosen one's band included: a long
+        // sum such as 12.5k is set smaller rather than run over the edge.
+        TextStyle style(double size) => TextStyle(
+          fontSize: size,
+          fontWeight: FontWeight.w700,
+          color: words,
         );
-        text.paint(canvas, Offset(cx - text.width / 2, y - text.height - 2));
+        var text = layoutText(_short(sums[k]), style(TextSize.tiny));
+        final room = column - 6;
+        if (text.width > room) {
+          text = layoutText(
+            _short(sums[k]),
+            style(TextSize.tiny * room / text.width),
+          );
+        }
+        final ty = max(2.0, y - text.height - 2);
+        text.paint(canvas, Offset(cx - text.width / 2, ty));
       }
     }
     final ay = size.height - h(average.round());
