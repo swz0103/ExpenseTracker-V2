@@ -61,11 +61,11 @@
 | 需要 | 用 | 檔案 |
 | --- | --- | --- |
 | 有標題的頁面 | `HeadedList` ＋ `CenterHeader`（子頁）或 `PageHeader`（分頁） | `headers.dart`、`kit/headers.dart` |
-| 頁面主卡 | `HeroFigure`（大數字＋旁邊的膠囊）＋ `FigureCells`（並排淡色小格），外框 `HeroCard` | `kit/figures.dart`、`kit/cards.dart` |
+| 頁面主卡 | 收支：`BalanceHero`（結餘＋收支長條）；其他：`HeroFigure`，外框 `HeroCard` | `core/ui/balance_hero.dart`、`kit/figures.dart` |
 | 帶數字的小卡、並排 | `FigureCard`、`CardRow` | `kit/figures.dart` |
 | 色塊卡、可點的方塊 | `ColorCard`、`CardGrid` | `kit/cards.dart` |
 | 清單分組、報價列 | `GroupBox`、`QuoteBoard` | `kit/figures.dart`、`kit/boards.dart` |
-| 區塊標題、表單分組 | `SectionTitle`、`FormGroup` | `kit/figures.dart` |
+| 區塊標題、表單分組 | `SectionTitle`、`FormGroup`（小標題＋淺灰底上的選項） | `kit/figures.dart` |
 | 大的分段選擇 | `BigSegments` | `kit/cards.dart` |
 | 小的選項 | `ChoicePill`、`Segments` | `controls.dart` |
 | 開關 | `ToggleRow` ＋ `TickSwitch`（整列可點） | `kit/marks.dart` |

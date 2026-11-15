@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/text/figures.dart';
-import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
@@ -37,9 +36,6 @@ class DailySection extends StatefulWidget {
 
 class _DailySectionState extends State<DailySection> {
   late DateTime _day = widget.ledger.today;
-  var _dayPage = 0;
-
-  static const _perPage = 6;
 
   DateTime get _monday => _day.subtract(Duration(days: _day.weekday - 1));
 
@@ -57,7 +53,6 @@ class _DailySectionState extends State<DailySection> {
     final today = widget.ledger.today;
     if (day.isAfter(today)) day = today;
     _day = day;
-    _dayPage = 0;
   }
 
   void _moveWeek(int by) {
@@ -66,7 +61,6 @@ class _DailySectionState extends State<DailySection> {
     if (next.isAfter(today)) next = today;
     setState(() {
       _day = next;
-      _dayPage = 0;
     });
     widget.onMonth((next.year, next.month));
   }
@@ -91,10 +85,6 @@ class _DailySectionState extends State<DailySection> {
       weekSpent += ledger.spentOn(monday.add(Duration(days: d)));
     }
     final entries = ledger.entriesOn(_day);
-    final pages = max(1, (entries.length / _perPage).ceil());
-    final page = _dayPage.clamp(0, pages - 1);
-    final shown = entries.skip(page * _perPage).take(_perPage).toList();
-    final last = min(entries.length, (page + 1) * _perPage);
     final atToday = !sunday.isBefore(ledger.today);
     final from = '${monday.month} / ${monday.day}';
     final to = '${sunday.month} / ${sunday.day}';
@@ -132,7 +122,6 @@ class _DailySectionState extends State<DailySection> {
             month: widget.month.$2,
             onSelect: (day) => setState(() {
               _day = day;
-              _dayPage = 0;
             }),
           ),
         ),
@@ -192,33 +181,12 @@ class _DailySectionState extends State<DailySection> {
         ],
       ),
       const SizedBox(height: 8),
-      GestureDetector(
-        onHorizontalDragEnd: (details) {
-          final speed = details.primaryVelocity ?? 0.0;
-          if (speed.abs() < 150 || pages < 2) return;
-          setState(() {
-            _dayPage = (page + (speed < 0 ? 1 : pages - 1)) % pages;
-          });
-        },
-        child: _DayGrid(
-          ledger: ledger,
-          entries: shown,
-          onTap: widget.nav.showEntry,
-          onAdd: () => widget.nav.compose(),
-        ),
+      _DayCards(
+        ledger: ledger,
+        entries: entries,
+        onTap: widget.nav.showEntry,
+        onAdd: () => widget.nav.compose(),
       ),
-      if (pages > 1)
-        Center(
-          child: TextButton(
-            onPressed: () => setState(() => _dayPage = (page + 1) % pages),
-            style: wordButton(Hue.accent, minimumSize: Size(44, 44)),
-            child: Text(
-              last < entries.length
-                  ? '還有 ${entries.length - last} 筆 ›'
-                  : '‹ 回到前 $_perPage 筆',
-            ),
-          ),
-        ),
     ];
   }
 }
@@ -341,9 +309,11 @@ class _WeekStrip extends StatelessWidget {
   }
 }
 
-/// A day's entries three to a row: icon and name above the amount.
-class _DayGrid extends StatelessWidget {
-  const _DayGrid({
+/// A day's entries as small cards in a row that slides sideways, one
+/// card an entry: its mark on a solid square, its name and its amount,
+/// on its colour's tint. A tap opens it.
+class _DayCards extends StatelessWidget {
+  const _DayCards({
     required this.ledger,
     required this.entries,
     required this.onTap,
@@ -359,7 +329,7 @@ class _DayGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             const Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
@@ -373,82 +343,57 @@ class _DayGrid extends StatelessWidget {
         ),
       );
     }
-    // Three to a row on a white card, each set apart by thin rules.
-    const across = 3;
-    final rows = <Widget>[];
-    for (var i = 0; i < entries.length; i += across) {
-      if (i > 0) rows.add(const Divider(height: 1, indent: 12, endIndent: 12));
-      rows.add(
-        IntrinsicHeight(
-          child: Row(
-            children: [
-              for (var k = i; k < i + across; k++) ...[
-                if (k > i)
-                  VerticalDivider(
-                    width: 1,
-                    indent: 10,
-                    endIndent: 10,
-                    color: k < entries.length ? Hue.line : Colors.transparent,
-                  ),
-                Expanded(
-                  child: k < entries.length
-                      ? InkWell(
-                          onTap: () => onTap(entries[k]),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                            child: _cell(entries[k]),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-    return GroupBox(
-      // None: a row's 編輯 and 刪除 reach the card's edges.
-      padding: EdgeInsets.zero,
-      child: Column(children: rows),
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return SizedBox(
+      height: 96 * scale.clamp(1.0, 1.6),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        // Out to the screen's edge, so the row reads as going on.
+        clipBehavior: Clip.none,
+        itemCount: entries.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) => _card(entries[i]),
+      ),
     );
   }
 
-  Widget _cell(Entry e) {
+  Widget _card(Entry e) {
     final (icon, mark) = entryMark(ledger, e);
-    final color = entryTone(e);
-    final letter = entryLetter(e);
+    final tone = entryTone(e);
     final currency = ledger.account(e.account).currency;
     final amount = ledger.orDots(entryAmount(e, currency: currency));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return SizedBox(
+      width: 84,
+      child: ColorCard(
+        color: mark,
+        radius: 16,
+        amount: 0.16,
+        label: '${e.title}，$amount',
+        onTap: () => onTap(e),
+        padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (letter != null)
-              RoundIcon.letter(letter, mark, size: 18)
-            else
-              GlyphIcon(icon, size: 16, color: mark),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                e.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: TextSize.small),
+            SquareIcon(icon, mark, size: 28),
+            const Spacer(),
+            OneLine(
+              e.title,
+              style: const TextStyle(
+                fontSize: TextSize.caption,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            OneLine(
+              amount,
+              style: TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w800,
+                color: tone,
               ),
             ),
           ],
         ),
-        Text(
-          amount,
-          style: TextStyle(
-            fontSize: TextSize.body,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
