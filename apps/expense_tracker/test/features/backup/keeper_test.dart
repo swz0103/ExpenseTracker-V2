@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/table_journal.dart';
-import 'package:expense_tracker/src/features/backup/model/vault_keeper.dart';
+import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +26,9 @@ void main() {
   });
 
   Startup startupIn(String name) {
-    final directory = Directory.systemTemp.createTempSync('keeper-$name-');
+    final directory = Directory.systemTemp.createTempSync(
+      'backupManager-$name-',
+    );
     directories.add(directory);
     return Startup(
       LedgerVault(
@@ -70,11 +72,11 @@ void main() {
     );
     await ledger.settled;
     expect(ledger.problem.value, isNull);
-    final keeper = VaultKeeper(first, vaultOf(first));
-    final path = await keeper.backUp();
-    expect(path, startsWith(keeper.backupFolder));
-    expect(await keeper.backUpIfDue(), isNull);
-    expect(await keeper.backUpIfDue(every: Duration.zero), isNull);
+    final backupManager = EncryptedBackupManager(first, vaultOf(first));
+    final path = await backupManager.backUp();
+    expect(path, startsWith(backupManager.backupFolder));
+    expect(await backupManager.backUpIfDue(), isNull);
+    expect(await backupManager.backUpIfDue(every: Duration.zero), isNull);
     ledger.add(
       Entry(
         id: ledger.newId(),
@@ -86,9 +88,12 @@ void main() {
       ),
     );
     await ledger.settled;
-    final weekly = await keeper.backUpIfDue(every: Duration.zero, keep: 1);
+    final weekly = await backupManager.backUpIfDue(
+      every: Duration.zero,
+      keep: 1,
+    );
     expect(weekly, isNotNull);
-    expect(Directory(keeper.backupFolder).listSync(), hasLength(1));
+    expect(Directory(backupManager.backupFolder).listSync(), hasLength(1));
 
     final second = startupIn('second');
     expect(second.state, isA<NeedsSetup>());
@@ -110,15 +115,15 @@ void main() {
     final startup = startupIn('keys');
     final oldCode = await startup.setUp(password);
     final vault = vaultOf(startup);
-    final keeper = VaultKeeper(startup, vault);
+    final backupManager = EncryptedBackupManager(startup, vault);
     await expectLater(
-      keeper.changePassword('not the password at all', changed),
+      backupManager.changePassword('not the password at all', changed),
       throwsA(isA<KeyringException>()),
     );
-    await keeper.changePassword(password, changed);
-    final newCode = await keeper.newRecoveryCode();
+    await backupManager.changePassword(password, changed);
+    final newCode = await backupManager.newRecoveryCode();
     expect(newCode, isNot(oldCode));
-    await keeper.lock();
+    await backupManager.lock();
     expect(startup.state, isA<Locked>());
 
     await expectLater(
@@ -147,7 +152,7 @@ void main() {
     final vault = vaultOf(startup);
     final journal = TableJournal(vault.store, clock: clock);
     final ledger = await journal.load();
-    final keeper = VaultKeeper(
+    final backupManager = EncryptedBackupManager(
       startup,
       vault,
       beforeLock: () => ledger.settled,
@@ -165,7 +170,7 @@ void main() {
           category: '飲食日常',
         ),
       );
-    await keeper.lock();
+    await backupManager.lock();
     expect(startup.state, isA<Locked>());
     expect(ledger.problem.value, isNull);
 
@@ -182,12 +187,12 @@ void main() {
     final startup = startupIn('quiet');
     await startup.setUpWithoutPassword();
     final vault = vaultOf(startup);
-    final keeper = VaultKeeper(startup, vault);
-    expect(keeper.hasPassword, isFalse);
-    await keeper.setPassword(changed);
-    expect(keeper.hasPassword, isTrue);
+    final backupManager = EncryptedBackupManager(startup, vault);
+    expect(backupManager.hasPassword, isFalse);
+    await backupManager.setPassword(changed);
+    expect(backupManager.hasPassword, isTrue);
     expect(startup.passwordless, isFalse);
-    await keeper.lock();
+    await backupManager.lock();
     await startup.unlockWithPassword(changed);
     expect(startup.state, isA<Ready>());
     startup.lock();
@@ -198,22 +203,26 @@ void main() {
     final startup = startupIn('cloud');
     await startup.setUp(password);
     final vault = vaultOf(startup);
-    final keeper = VaultKeeper(startup, vault);
+    final backupManager = EncryptedBackupManager(startup, vault);
     final journal = TableJournal(vault.store, clock: clock);
     final ledger = await journal.load();
     await ledger.settled;
-    expect(keeper.cloudCopyAt, isNull);
-    expect(await keeper.keepCloudCopy(), isTrue);
-    expect(keeper.cloudCopyAt, isNotNull);
+    expect(backupManager.cloudCopyAt, isNull);
+    expect(await backupManager.keepCloudCopy(), isTrue);
+    expect(backupManager.cloudCopyAt, isNotNull);
     // Written, not yet taken: Android's agent writes down when it takes it.
-    expect(keeper.googleTakenAt, isNull);
+    expect(backupManager.googleTakenAt, isNull);
     File('${startup.directory.path}/google-backup-taken')
         .writeAsStringSync('1763000000000');
     expect(
-      keeper.googleTakenAt,
+      backupManager.googleTakenAt,
       DateTime.fromMillisecondsSinceEpoch(1763000000000),
     );
-    expect(await keeper.keepCloudCopy(), isFalse, reason: 'nothing changed');
+    expect(
+      await backupManager.keepCloudCopy(),
+      isFalse,
+      reason: 'nothing changed',
+    );
     final receipts = Directory('${startup.directory.path}/receipts')
       ..createSync();
     File('${receipts.path}/photo.bin').writeAsBytesSync([1, 2, 3]);
@@ -221,10 +230,10 @@ void main() {
       Account(ledger.newId(), '錢包', AccountKind.cash, 0, icon: 'safe'),
     );
     await ledger.settled;
-    expect(await keeper.keepCloudCopy(), isTrue);
+    expect(await backupManager.keepCloudCopy(), isTrue);
     expect(startup.cloudCopy.parent.listSync(), hasLength(1));
     final copy = startup.cloudCopy.path;
-    await keeper.lock();
+    await backupManager.lock();
 
     final phone = startupIn('new-phone');
     await phone.restore(copy, password);

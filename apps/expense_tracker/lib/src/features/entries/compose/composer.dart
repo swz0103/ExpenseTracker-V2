@@ -21,8 +21,8 @@ import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/compose_form.dart';
 import '../model/receipt_photos.dart';
-import '../../import/model/exchange.dart' show invoiceRecorded;
-import '../../import/model/invoice_qr.dart';
+import '../../exchange/model/exchange.dart' show invoiceRecorded;
+import '../../exchange/model/invoice_qr.dart';
 import '../../../core/ui/shown_amounts.dart';
 
 export '../model/compose_form.dart' show ComposeMode;

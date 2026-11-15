@@ -5,11 +5,11 @@ import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
 import '../../../core/platform/startup.dart';
-import 'keeper.dart';
+import 'backup_manager.dart';
 
 /// The keys and backups of the open encrypted ledger.
-final class VaultKeeper implements Keeper {
-  VaultKeeper(
+final class EncryptedBackupManager implements BackupManager {
+  EncryptedBackupManager(
     this._startup,
     this._vault, {
     this._beforeLock,

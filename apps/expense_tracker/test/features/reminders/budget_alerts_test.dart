@@ -1,7 +1,7 @@
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
-import 'package:expense_tracker/src/features/reminders/model/notifications.dart';
+import 'package:expense_tracker/src/features/reminders/model/reminder_alerts.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.

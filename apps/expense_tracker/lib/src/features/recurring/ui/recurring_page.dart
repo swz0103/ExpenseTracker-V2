@@ -10,7 +10,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
-import '../model/calendar.dart';
+import '../model/recurring_schedule.dart';
 import '../model/subscriptions.dart';
 import '../../../core/ui/shown_amounts.dart';
 

@@ -4,11 +4,13 @@
 
 ## 規則
 
-1. **先找通用詞再命名。** 來源依序是：Dart／Flutter 官方、Android 官方、領域驅動設計（Evans）、《企業應用架構模式》（Fowler）、會計與證券的正式用語。找不到才自創，並寫進本文件的「例外」。
+1. **先找正式用語再命名。** 來源依序是：Dart／Flutter 官方、Android 官方、領域驅動設計（Evans）、《企業應用架構模式》（Fowler）、會計與證券的正式用語。找不到才自創，並寫進本文件的「例外」。名稱越正規越好：能用正式術語就不用口語。
 2. **名稱說它是什麼，不說它怎麼做。** `Repository` 不叫 `Book`，`UnitOfWork` 不叫 `ChangeSet`。
-3. **一個概念一個詞。** 同一件事不在不同檔案用不同詞；詞彙表是唯一來源。
-4. **檔名後綴固定**，見下表；一個檔案一個公開類別，檔名是類別名的 snake_case。
-5. 改名由 `tool/move.py` 與分析器完成，改完由 `naming_test` 禁止舊名重新出現。
+3. **不用縮寫**（`Perf`、`Cfg`、`Mgr`），用完整的英文詞；通用縮寫（`Id`、`Json`、`Csv`、`Url`）除外。
+4. **同一個資料概念，程式、資料夾、檔名用同一個詞**：資料叫 `tag`，功能資料夾就叫 `tags`，不叫 `labels`。
+5. **一個概念一個詞。** 同一件事不在不同檔案用不同詞；詞彙表是唯一來源。
+6. **檔名後綴固定**，見下表；一個檔案一個公開類別，檔名是類別名的 snake_case。
+7. 改名由 `tool/move.py` 與分析器完成，改完由 `naming_test` 禁止舊名重新出現。
 
 ## 檔名後綴
 
@@ -64,8 +66,11 @@
 | `app/android/*.dart` | `app/android/*_adapter.dart` | Ports and Adapters，已有 `NotifyPort`、`CalendarPort` |
 | `Keeper`、`VaultKeeper` | `BackupManager`、`EncryptedBackupManager` | Manager |
 | `Services`（`settings/model/services.dart`） | `PlatformServices` | 描述內容 |
-| `Connector` | `RemoteTask` | 它代表一件對外的工作與其狀態 |
-| `leftovers.dart` | `export_cleanup.dart` | 描述動作 |
+| `Connector` | `SyncJob` | 它代表一件對外同步的工作與其狀態（Android WorkManager 的 Job 概念） |
+| `Perf` | `PerformanceMonitor` | 不用縮寫 |
+| `features/import`（檔名 `exchange*`） | `features/import_export` | 正式名稱 |
+| `features/categories` 裡的標籤頁、`Project` | `features/tags`、`TagSummary` | 資料叫 tag |
+| `leftovers.dart` | `file_cleanup.dart` | 描述動作 |
 
 ### 已是通用詞，保留
 

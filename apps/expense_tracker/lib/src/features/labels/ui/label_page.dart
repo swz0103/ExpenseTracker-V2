@@ -52,7 +52,7 @@ class LabelPage extends StatelessWidget {
   Future<bool> _askMerge(BuildContext context, String into) {
     final count = merchant
         ? visitsTo(ledger, name).length
-        : projectOf(ledger, name)?.entries.length ?? 0;
+        : labelProjectOf(ledger, name)?.entries.length ?? 0;
     final target = merchant ? into : '#$into';
     return confirm(
       context,
@@ -122,7 +122,7 @@ class LabelPage extends StatelessWidget {
   Future<void> _remove(BuildContext context) async {
     final count = merchant
         ? visitsTo(ledger, name).length
-        : projectOf(ledger, name)?.entries.length ?? 0;
+        : labelProjectOf(ledger, name)?.entries.length ?? 0;
     final ok = await confirm(
       context,
       '移除 $_shown？',
@@ -144,7 +144,7 @@ class LabelPage extends StatelessWidget {
       builder: (context, _) {
         final entries = merchant
             ? visitsTo(ledger, name)
-            : projectOf(ledger, name)?.entries ?? const <Entry>[];
+            : labelProjectOf(ledger, name)?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
@@ -172,7 +172,7 @@ class LabelPage extends StatelessWidget {
               else
                 ProjectCard(
                   ledger: ledger,
-                  project: projectOf(ledger, name)!,
+                  project: labelProjectOf(ledger, name)!,
                   menu: menu,
                 ),
               Padding(

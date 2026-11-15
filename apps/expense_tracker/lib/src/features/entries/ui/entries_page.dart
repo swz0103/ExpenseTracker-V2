@@ -10,26 +10,26 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/batch.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
-import 'ledger_filter_sheet.dart';
+import 'entries_filter_sheet.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/balance_hero.dart';
 import '../../../core/ui/shown_amounts.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
-class LedgerPage extends StatefulWidget {
-  const LedgerPage({super.key, required this.ledger, required this.nav});
+class EntriesPage extends StatefulWidget {
+  const EntriesPage({super.key, required this.ledger, required this.nav});
 
   final Ledger ledger;
   final Nav nav;
 
   @override
-  State<LedgerPage> createState() => _LedgerPageState();
+  State<EntriesPage> createState() => _EntriesPageState();
 }
 
-class _LedgerPageState extends State<LedgerPage> {
+class _EntriesPageState extends State<EntriesPage> {
   late var _month = (widget.ledger.today.year, widget.ledger.today.month);
-  var _filter = const LedgerFilter();
+  var _filter = const EntryFilter();
 
   /// The words searched for, once typing has paused.
   String? _search;
@@ -286,7 +286,7 @@ class _LedgerPageState extends State<LedgerPage> {
           label: searching
               ? '搜尋「$words」'
               : switch (filter.range) {
-                  final range? => '${LedgerFilter.rangeLabel(range)} 結餘',
+                  final range? => '${EntryFilter.rangeLabel(range)} 結餘',
                   null => '$month 月結餘',
                 },
           income: income,
@@ -354,7 +354,7 @@ class _LedgerPageState extends State<LedgerPage> {
                 ),
               if (filter.range case final range?)
                 ChoicePill.removable(
-                  label: LedgerFilter.rangeLabel(range),
+                  label: EntryFilter.rangeLabel(range),
                   onRemove: () =>
                       setState(() => _filter = _filter.withoutRange()),
                 ),

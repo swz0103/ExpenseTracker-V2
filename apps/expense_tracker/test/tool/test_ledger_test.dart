@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/table_journal.dart';
-import 'package:expense_tracker/src/features/backup/model/vault_keeper.dart';
-import 'package:expense_tracker/src/features/import/model/exchange.dart';
+import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
+import 'package:expense_tracker/src/features/exchange/model/exchange.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
@@ -55,9 +55,9 @@ void main() {
     await ledger.settled;
     expect(ledger.problem.value, isNull);
 
-    final keeper = VaultKeeper(startup, vault);
-    final backup = await keeper.backUp();
-    await keeper.lock();
+    final backupManager = EncryptedBackupManager(startup, vault);
+    final backup = await backupManager.backUp();
+    await backupManager.lock();
 
     final phone = startupIn('restored');
     await phone.restore(backup, password);

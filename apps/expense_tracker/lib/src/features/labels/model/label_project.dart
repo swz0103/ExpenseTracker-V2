@@ -2,8 +2,8 @@ import '../../../core/ledger/ledger.dart';
 
 /// A tag seen as a project, such as a trip or a renovation: when it ran
 /// (its first and last entry), what was spent and by which category.
-final class Project {
-  const Project({
+final class LabelProject {
+  const LabelProject({
     required this.tag,
     required this.from,
     required this.to,
@@ -35,7 +35,7 @@ final class Project {
 }
 
 /// [tag] as a project; null when no entry carries it.
-Project? projectOf(Ledger ledger, String tag) {
+LabelProject? labelProjectOf(Ledger ledger, String tag) {
   final entries = [
     for (final e in ledger.entries)
       if (e.tags.contains(tag)) e,
@@ -51,7 +51,7 @@ Project? projectOf(Ledger ledger, String tag) {
       byCategory[name] = (byCategory[name] ?? 0) + value;
     }
   }
-  return Project(
+  return LabelProject(
     tag: tag,
     from: entries.last.date,
     to: entries.first.date,

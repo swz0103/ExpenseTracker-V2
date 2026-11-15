@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/categories/model/project.dart';
+import 'package:expense_tracker/src/features/labels/model/label_project.dart';
 import 'package:expense_tracker/src/features/reports/model/comparison.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('a tag as a project: when it ran, what it cost, on what', () {
-    final trip = projectOf(ledger, '花蓮')!;
+    final trip = labelProjectOf(ledger, '花蓮')!;
     expect(trip.from, DateTime.utc(2026, 9, 10));
     expect(trip.to, DateTime.utc(2026, 9, 12));
     expect(trip.days, 3);
@@ -99,6 +99,6 @@ void main() {
     expect(trip.perDay, 666);
     expect(trip.byCategory, [('交通', 1200), ('住宿', 800)]);
     expect([for (final e in trip.entries) e.id], ['c', 'b']);
-    expect(projectOf(ledger, '沒有'), isNull);
+    expect(labelProjectOf(ledger, '沒有'), isNull);
   });
 }

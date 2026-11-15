@@ -8,7 +8,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/platform/problems.dart';
 import '../model/calendar_sync.dart';
-import '../model/notifications.dart';
+import '../model/reminder_alerts.dart';
 import '../model/reminders.dart';
 import '../../../core/look/settings_hue.dart';
 

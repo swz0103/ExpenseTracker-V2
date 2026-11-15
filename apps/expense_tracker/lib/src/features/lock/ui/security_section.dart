@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../backup/model/keeper.dart';
+import '../../backup/model/backup_manager.dart';
 import '../../../core/look/dialogs.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
@@ -13,9 +13,9 @@ import '../../../core/look/settings_hue.dart';
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.
 class SecuritySection extends StatefulWidget {
-  const SecuritySection({super.key, this.keeper, this.privacy});
+  const SecuritySection({super.key, this.backupManager, this.privacy});
 
-  final Keeper? keeper;
+  final BackupManager? backupManager;
   final ScreenPrivacy? privacy;
 
   @override
@@ -23,8 +23,8 @@ class SecuritySection extends StatefulWidget {
 }
 
 class _SecuritySectionState extends State<SecuritySection> {
-  Future<void> _changePassword(Keeper keeper) async {
-    final first = !keeper.hasPassword;
+  Future<void> _changePassword(BackupManager backupManager) async {
+    final first = !backupManager.hasPassword;
     final passwords = await showPanel<(String, String)>(
       context,
       (_) => _PasswordPanel(first: first),
@@ -33,14 +33,14 @@ class _SecuritySectionState extends State<SecuritySection> {
     final (current, next) = passwords;
     try {
       if (first) {
-        await keeper.setPassword(next);
+        await backupManager.setPassword(next);
         // A ledger started without a password has had no code to show yet.
-        final code = await keeper.newRecoveryCode();
+        final code = await backupManager.newRecoveryCode();
         if (mounted) {
           await showRecoveryCode(context, code, why: '密碼設好了。忘記密碼時，只有它能打開帳本');
         }
       } else {
-        await keeper.changePassword(current, next);
+        await backupManager.changePassword(current, next);
       }
       if (mounted) setState(() {});
       if (mounted) showNote(context, first ? '已設定密碼' : '密碼已變更');
@@ -59,11 +59,11 @@ class _SecuritySectionState extends State<SecuritySection> {
     }
   }
 
-  Future<void> _newRecovery(Keeper keeper) async {
+  Future<void> _newRecovery(BackupManager backupManager) async {
     final ok = await confirm(context, '換一組新的？舊的會立刻失效', '更換');
     if (!ok) return;
     try {
-      final code = await keeper.newRecoveryCode();
+      final code = await backupManager.newRecoveryCode();
       if (mounted) await showRecoveryCode(context, code);
     } on Object catch (error) {
       if (mounted) showNote(context, '沒有換成：${describeProblem(error)}');
@@ -82,24 +82,24 @@ class _SecuritySectionState extends State<SecuritySection> {
 
   @override
   Widget build(BuildContext context) {
-    final keeper = widget.keeper;
+    final backupManager = widget.backupManager;
     final privacy = widget.privacy;
     return CardGrid([
-      if (keeper != null) ...[
+      if (backupManager != null) ...[
         SettingCard(
           key: Keys.password,
           glyph: Glyph.key,
           color: SettingsHue.password,
           title: '密碼',
-          detail: keeper.hasPassword ? '已設定 · 點了變更' : '還沒設定 · 點了設定',
-          onTap: () => _changePassword(keeper),
+          detail: backupManager.hasPassword ? '已設定 · 點了變更' : '還沒設定 · 點了設定',
+          onTap: () => _changePassword(backupManager),
         ),
         SettingCard(
           glyph: Glyph.lifebuoy,
           color: SettingsHue.recovery,
           title: '救援碼',
           detail: '忘記密碼、換手機用',
-          onTap: () => _newRecovery(keeper),
+          onTap: () => _newRecovery(backupManager),
         ),
       ],
       if (privacy != null)
@@ -112,14 +112,14 @@ class _SecuritySectionState extends State<SecuritySection> {
           onChanged: (on) => _hideScreen(privacy, on),
           onTap: () => _hideScreen(privacy, !privacy.on),
         ),
-      if (keeper != null && keeper.hasPassword)
+      if (backupManager != null && backupManager.hasPassword)
         SettingCard(
           key: Keys.lockNow,
           glyph: Glyph.lock,
           color: SettingsHue.about,
           title: '現在鎖上',
           detail: '回到解鎖畫面',
-          onTap: keeper.lock,
+          onTap: backupManager.lock,
         ),
     ]);
   }

@@ -1,11 +1,11 @@
 import 'package:expense_tracker/src/core/look/keys.dart';
-import 'package:expense_tracker/src/features/backup/model/keeper.dart';
+import 'package:expense_tracker/src/features/backup/model/backup_manager.dart';
 import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A ledger's keys without a ledger: remembers what it was asked.
-final class _Keeper implements Keeper {
+final class _StubBackupManager implements BackupManager {
   var password = '';
   var locked = false;
 
@@ -53,17 +53,20 @@ final class _Keeper implements Keeper {
 }
 
 void main() {
-  Future<void> show(WidgetTester tester, Keeper keeper) => tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: ListView(children: [SecuritySection(keeper: keeper)]),
-      ),
-    ),
-  );
+  Future<void> show(WidgetTester tester, BackupManager backupManager) =>
+      tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: [SecuritySection(backupManager: backupManager)],
+            ),
+          ),
+        ),
+      );
 
   testWidgets('new passwords that differ are refused', (tester) async {
-    final keeper = _Keeper();
-    await show(tester, keeper);
+    final backupManager = _StubBackupManager();
+    await show(tester, backupManager);
     expect(find.text('還沒設定 · 點了設定'), findsOneWidget);
     expect(find.text('現在鎖上'), findsNothing);
     await tester.tap(find.byKey(Keys.password));
@@ -75,14 +78,14 @@ void main() {
     await tester.tap(find.byKey(Keys.changePassword));
     await tester.pump();
     expect(find.text('兩次輸入的新密碼不一樣'), findsOneWidget);
-    expect(keeper.hasPassword, isFalse);
+    expect(backupManager.hasPassword, isFalse);
   });
 
   testWidgets('a wrong current password is said, and lock is offered', (
     tester,
   ) async {
-    final keeper = _Keeper()..password = 'secret1';
-    await show(tester, keeper);
+    final backupManager = _StubBackupManager()..password = 'secret1';
+    await show(tester, backupManager);
     expect(find.text('現在鎖上'), findsOneWidget);
     await tester.tap(find.byKey(Keys.password));
     await tester.pumpAndSettle();
@@ -93,10 +96,10 @@ void main() {
     await tester.tap(find.byKey(Keys.changePassword));
     await tester.pumpAndSettle();
     expect(find.text('目前的密碼不正確'), findsOneWidget);
-    expect(keeper.password, 'secret1');
+    expect(backupManager.password, 'secret1');
 
     await tester.tap(find.byKey(Keys.lockNow));
     await tester.pump();
-    expect(keeper.locked, isTrue);
+    expect(backupManager.locked, isTrue);
   });
 }

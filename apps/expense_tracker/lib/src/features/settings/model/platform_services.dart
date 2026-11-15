@@ -3,12 +3,12 @@ import 'package:flutter/foundation.dart';
 import '../../../core/platform/connector.dart';
 import 'app_update.dart';
 import '../../backup/model/drive_sync.dart';
-import '../../backup/model/keeper.dart';
+import '../../backup/model/backup_manager.dart';
 import '../../backup/model/phone_backup.dart';
 import '../../reminders/model/calendar_sync.dart';
 import '../../entries/model/receipt_photos.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../reminders/model/notifications.dart';
+import '../../reminders/model/reminder_alerts.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 import '../../../core/platform/screen_privacy.dart';
@@ -17,9 +17,9 @@ import '../../../core/platform/screen_privacy.dart';
 /// keys and backups, the calendar for due dates, hiding the screens,
 /// notifications, the person's preferences and the shortcuts that open
 /// the composer. Each is absent in the preview but the preferences.
-final class Services {
-  const Services({
-    this.keeper,
+final class PlatformServices {
+  const PlatformServices({
+    this.backupManager,
     this.calendar,
     this.privacy,
     this.preferences,
@@ -34,7 +34,7 @@ final class Services {
     this.scanQr,
   });
 
-  final Keeper? keeper;
+  final BackupManager? backupManager;
   final CalendarSync? calendar;
   final ScreenPrivacy? privacy;
   final Preferences? preferences;

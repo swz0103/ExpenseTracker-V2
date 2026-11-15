@@ -31,8 +31,8 @@ enum KindFilter {
 /// What the record list is narrowed to: a kind, an account, a category,
 /// a span of days in place of the month, and bounds on the amount. Each
 /// is unset (null, or every kind) when it does not narrow anything.
-final class LedgerFilter {
-  const LedgerFilter({
+final class EntryFilter {
+  const EntryFilter({
     this.kind = KindFilter.all,
     this.account,
     this.category,
@@ -65,7 +65,7 @@ final class LedgerFilter {
     category != null,
   ].where((on) => on).length;
 
-  LedgerFilter withKind(KindFilter kind) => LedgerFilter(
+  EntryFilter withKind(KindFilter kind) => EntryFilter(
     kind: kind,
     account: account,
     category: category,
@@ -74,7 +74,7 @@ final class LedgerFilter {
     most: most,
   );
 
-  LedgerFilter withoutAccount() => LedgerFilter(
+  EntryFilter withoutAccount() => EntryFilter(
     kind: kind,
     category: category,
     range: range,
@@ -82,7 +82,7 @@ final class LedgerFilter {
     most: most,
   );
 
-  LedgerFilter withoutCategory() => LedgerFilter(
+  EntryFilter withoutCategory() => EntryFilter(
     kind: kind,
     account: account,
     range: range,
@@ -90,7 +90,7 @@ final class LedgerFilter {
     most: most,
   );
 
-  LedgerFilter withoutRange() => LedgerFilter(
+  EntryFilter withoutRange() => EntryFilter(
     kind: kind,
     account: account,
     category: category,
@@ -98,7 +98,7 @@ final class LedgerFilter {
     most: most,
   );
 
-  LedgerFilter withoutAmounts() => LedgerFilter(
+  EntryFilter withoutAmounts() => EntryFilter(
     kind: kind,
     account: account,
     category: category,
@@ -150,11 +150,11 @@ final class LedgerFilter {
 
 /// Opens 篩選 over [current] in the middle of the screen; returns the
 /// filter applied, or null when closed without 套用.
-Future<LedgerFilter?> showLedgerFilter(
+Future<EntryFilter?> showLedgerFilter(
   BuildContext context,
   Ledger ledger,
-  LedgerFilter current,
-) => showPanel<LedgerFilter>(
+  EntryFilter current,
+) => showPanel<EntryFilter>(
   context,
   (_) => _FilterSheet(ledger: ledger, initial: current),
 );
@@ -163,7 +163,7 @@ class _FilterSheet extends StatefulWidget {
   const _FilterSheet({required this.ledger, required this.initial});
 
   final Ledger ledger;
-  final LedgerFilter initial;
+  final EntryFilter initial;
 
   @override
   State<_FilterSheet> createState() => _FilterSheetState();
@@ -291,7 +291,7 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   void _apply() {
     Navigator.of(context).pop(
-      LedgerFilter(
+      EntryFilter(
         kind: _kind,
         account: _account,
         category: _category,
@@ -340,7 +340,7 @@ class _FilterSheetState extends State<_FilterSheet> {
             labels: [
               for (final s in _Span.values)
                 s == _Span.custom && span == _Span.custom && range != null
-                    ? LedgerFilter.rangeLabel(range)
+                    ? EntryFilter.rangeLabel(range)
                     : s.label,
             ],
             selected: span.index,

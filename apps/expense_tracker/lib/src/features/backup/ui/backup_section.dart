@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../model/drive_backup.dart';
 import '../model/drive_sync.dart';
-import '../model/keeper.dart';
+import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
 import '../../../core/look/dialogs.dart';
 import '../../../core/look/glyphs.dart';
@@ -17,11 +17,14 @@ part 'backup_section_manual.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
-Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
+Future<void> restoreFromBackup(
+  BuildContext context,
+  BackupManager backupManager,
+) async {
   final ok = await confirm(context, '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。', '選擇備份');
   if (!ok) return;
   try {
-    await keeper.restoreAnother();
+    await backupManager.restoreAnother();
   } on Object catch (error) {
     if (context.mounted) {
       showNote(context, '沒有開始還原：${describeProblem(error)}');
@@ -37,13 +40,13 @@ Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
 class BackupSection extends StatefulWidget {
   const BackupSection({
     super.key,
-    required this.keeper,
+    required this.backupManager,
     this.drive,
     this.phone,
     this.preferences,
   });
 
-  final Keeper keeper;
+  final BackupManager backupManager;
 
   /// Redraws the page when a setting changes.
   final Preferences? preferences;
@@ -61,10 +64,10 @@ class BackupSection extends StatefulWidget {
 class _BackupSectionState extends State<BackupSection> {
   /// Saves a backup outside the app. Without a password, only a recovery
   /// code opens it on another phone, so a new one is made and shown.
-  Future<void> _export(Keeper keeper) async {
+  Future<void> _export(BackupManager backupManager) async {
     try {
-      final code = await _codeFor(keeper);
-      final saved = await keeper.exportBackup();
+      final code = await _codeFor(backupManager);
+      final saved = await backupManager.exportBackup();
       if (!mounted) return;
       if (code != null) {
         // The code changed even if the save was cancelled: show it anyway.
@@ -76,7 +79,7 @@ class _BackupSectionState extends State<BackupSection> {
       } else if (saved) {
         showNote(
           context,
-          keeper.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
+          backupManager.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
         );
       }
     } on Object catch (error) {
@@ -86,17 +89,17 @@ class _BackupSectionState extends State<BackupSection> {
 
   /// A ledger without a password restores with its recovery code: one is
   /// made the first time a backup leaves the phone, and shown.
-  Future<String?> _codeFor(Keeper keeper) async =>
-      keeper.hasPassword || keeper.recoveryGiven
+  Future<String?> _codeFor(BackupManager backupManager) async =>
+      backupManager.hasPassword || backupManager.recoveryGiven
       ? null
-      : await keeper.newRecoveryCode();
+      : await backupManager.newRecoveryCode();
 
   /// Signs in with Google and sends the first backup of the ledger.
-  Future<void> _linkDrive(Keeper keeper, DriveSync drive) async {
+  Future<void> _linkDrive(BackupManager backupManager, DriveSync drive) async {
     String? code;
     String note;
     try {
-      code = await _codeFor(keeper);
+      code = await _codeFor(backupManager);
       note = await drive.link()
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
@@ -246,7 +249,7 @@ class _BackupSectionState extends State<BackupSection> {
                     glyph: Glyph.upload,
                     label: '匯出一份',
                     color: SettingsHue.csv,
-                    onTap: () => _export(widget.keeper),
+                    onTap: () => _export(widget.backupManager),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -255,7 +258,8 @@ class _BackupSectionState extends State<BackupSection> {
                     glyph: Glyph.download,
                     label: '還原',
                     color: SettingsHue.invoice,
-                    onTap: () => restoreFromBackup(context, widget.keeper),
+                    onTap: () =>
+                        restoreFromBackup(context, widget.backupManager),
                   ),
                 ),
               ],
@@ -296,7 +300,9 @@ class _BackupSectionState extends State<BackupSection> {
       value: linked,
       onChanged: drive.busy
           ? null
-          : (v) => v ? _linkDrive(widget.keeper, drive) : _unlinkDrive(drive),
+          : (v) => v
+                ? _linkDrive(widget.backupManager, drive)
+                : _unlinkDrive(drive),
       rows: [
         if (linked) ...[
           _CardRow(

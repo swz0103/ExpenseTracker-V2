@@ -10,17 +10,17 @@ import '../core/ledger/ledger.dart';
 import '../core/platform/problems.dart';
 import '../core/platform/quick_action.dart';
 import '../core/ui/tour.dart';
-import '../features/settings/model/services.dart';
+import '../features/settings/model/platform_services.dart';
 import '../features/accounts/ui/account_page.dart';
 import '../features/accounts/ui/accounts.dart';
 import '../features/budgets/ui/budgets.dart';
-import '../features/cards/ui/card_page.dart';
+import '../features/accounts/ui/card_page.dart';
 import '../features/categories/ui/categories_page.dart';
 import '../features/debts/ui/debts_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
-import '../features/categories/ui/labels_page.dart';
-import '../features/entries/ui/ledger_page.dart';
+import '../features/labels/ui/labels_page.dart';
+import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
 import '../core/nav.dart';
 import '../features/overview/ui/overview.dart';
@@ -38,7 +38,7 @@ class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     required this.ledger,
-    this.services = const Services(),
+    this.services = const PlatformServices(),
     this.tour = false,
   });
 
@@ -49,7 +49,7 @@ class AppShell extends StatefulWidget {
   final bool tour;
 
   /// Keys, backups, the calendar and screen hiding; none in the preview.
-  final Services services;
+  final PlatformServices services;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -104,7 +104,7 @@ class _AppShellState extends State<AppShell> {
     compose: _compose,
     showEntry: (entry) => _compose(entry: entry),
     market: widget.services.market,
-    saveFile: widget.services.keeper?.exportBytes,
+    saveFile: widget.services.backupManager?.exportBytes,
   );
 
   @override
@@ -337,7 +337,7 @@ class _AppShellState extends State<AppShell> {
         preferences: widget.services.preferences,
         summaryKey: _touring ? _summaryKey : null,
       ),
-      _Tab.ledger => LedgerPage(ledger: ledger, nav: _nav),
+      _Tab.ledger => EntriesPage(ledger: ledger, nav: _nav),
       _Tab.accounts => AccountsPage(ledger: ledger, nav: _nav),
       _Tab.more => MorePage(ledger: ledger, nav: _nav),
     };

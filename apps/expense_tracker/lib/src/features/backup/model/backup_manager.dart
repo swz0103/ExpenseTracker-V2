@@ -1,6 +1,6 @@
 /// The ledger's keys and backups, for the settings screen. Only the
 /// encrypted ledger has one; the preview has none.
-abstract interface class Keeper {
+abstract interface class BackupManager {
   /// Writes a backup and lets the person keep a copy outside the app, such
   /// as in Downloads or on Google Drive. False when they cancel.
   Future<bool> exportBackup();

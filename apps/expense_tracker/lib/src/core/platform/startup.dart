@@ -111,7 +111,7 @@ final class Startup extends ChangeNotifier {
   }
 
   /// Kept once this ledger's recovery code has been shown, so a backup
-  /// leaving the phone does not make a new one (vault_keeper.dart).
+  /// leaving the phone does not make a new one (encrypted_backup_manager.dart).
   File get recoveryGiven => File('${directory.path}/recovery-given');
 
   /// The copy of the ledger, without its photos, that Android's own

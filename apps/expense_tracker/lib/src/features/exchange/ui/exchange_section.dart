@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../backup/model/keeper.dart';
+import '../../backup/model/backup_manager.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
@@ -18,16 +18,16 @@ import '../../../core/look/settings_hue.dart';
 /// file and the e-invoices of a carrier. CSV carries entries only, not a
 /// whole book: backups are restored in 備份與還原.
 class ExchangeSection extends StatelessWidget {
-  const ExchangeSection({super.key, required this.ledger, this.keeper});
+  const ExchangeSection({super.key, required this.ledger, this.backupManager});
 
   final Ledger ledger;
 
   /// Saves files and reads them; without it exports are copied instead.
-  final Keeper? keeper;
+  final BackupManager? backupManager;
 
   @override
   Widget build(BuildContext context) {
-    final keeper = this.keeper;
+    final backupManager = this.backupManager;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -37,7 +37,7 @@ class ExchangeSection extends StatelessWidget {
           label: '匯出 CSV',
           onTap: () => showSheet<void>(
             context,
-            (_) => _ExportSheet(ledger: ledger, keeper: keeper),
+            (_) => _ExportSheet(ledger: ledger, backupManager: backupManager),
           ),
           child: Row(
             children: [
@@ -76,7 +76,7 @@ class ExchangeSection extends StatelessWidget {
             title: 'CSV 檔案',
             detail: '別的 App 匯出的',
             onTap: () =>
-                importInto(context, ledger, readFile: keeper?.readFile),
+                importInto(context, ledger, readFile: backupManager?.readFile),
           ),
           SettingCard(
             glyph: Glyph.scan,
@@ -87,7 +87,7 @@ class ExchangeSection extends StatelessWidget {
               context,
               ledger,
               invoices: true,
-              readFile: keeper?.readFile,
+              readFile: backupManager?.readFile,
             ),
           ),
         ]),
@@ -102,10 +102,10 @@ enum _Span { month, year, all, custom }
 /// 匯出多少: four choices in a row; 自訂 adds a strip with the first and
 /// last day, each tapped to change; then 匯出 N 筆.
 class _ExportSheet extends StatefulWidget {
-  const _ExportSheet({required this.ledger, this.keeper});
+  const _ExportSheet({required this.ledger, this.backupManager});
 
   final Ledger ledger;
-  final Keeper? keeper;
+  final BackupManager? backupManager;
 
   @override
   State<_ExportSheet> createState() => _ExportSheetState();
@@ -157,18 +157,18 @@ class _ExportSheetState extends State<_ExportSheet> {
     final entries = _entries(_span);
     final text = toCsv(_ledger, entries);
     final what = ' ${entries.length} 筆紀錄的 CSV';
-    final keeper = widget.keeper;
+    final backupManager = widget.backupManager;
     final messenger = ScaffoldMessenger.maybeOf(context);
     Navigator.of(context).pop();
     void note(String words) =>
         messenger?.showSnackBar(SnackBar(content: Text(words)));
-    if (keeper == null) {
+    if (backupManager == null) {
       await Clipboard.setData(ClipboardData(text: text));
       note('已複製$what');
       return;
     }
     try {
-      final saved = await keeper.exportFile(_name(_span), text);
+      final saved = await backupManager.exportFile(_name(_span), text);
       if (saved) note('已下載$what');
     } on Object catch (error) {
       note('下載失敗：${describeProblem(error)}');

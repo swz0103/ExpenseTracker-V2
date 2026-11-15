@@ -23,18 +23,19 @@
    | 現在 | 之後 |
    | --- | --- |
    | `features/cards/ui/card_page.dart` | `features/accounts/ui/card_page.dart` |
-   | `features/import/` | `features/exchange/`（匯入與匯出） |
-   | `features/categories/ui/labels_page.dart`、`label_page.dart`、`model/project.dart` | `features/labels/ui/…`、`features/labels/model/label_project.dart` |
+   | `features/import/` | `features/import_export/` |
+   | `features/categories/ui/labels_page.dart`、`label_page.dart`、`model/project.dart` | `features/tags/ui/tags_page.dart`、`tag_page.dart`、`features/tags/model/tag_summary.dart` |
    | `features/entries/ui/ledger_page.dart`、`ledger_filter_sheet.dart` | `entries_page.dart`、`entries_filter_sheet.dart` |
    | `features/recurring/model/calendar.dart` | `recurring_schedule.dart` |
    | `features/reminders/model/notifications.dart` | `reminder_alerts.dart` |
-   | `features/backup/model/keeper.dart`、`vault_keeper.dart`、`leftovers.dart` | `backup_manager.dart`、`encrypted_backup_manager.dart`、`export_cleanup.dart` |
+   | `features/backup/model/keeper.dart`、`vault_keeper.dart`、`leftovers.dart` | `backup_manager.dart`、`encrypted_backup_manager.dart`、`file_cleanup.dart` |
    | `features/settings/model/services.dart` | `platform_services.dart` |
    | `core/look/headers.dart`、`look/kit/headers.dart` | `design_system/page_header.dart`、`components/heading.dart` |
    | `core/look/kit/figures.dart` | `components/figure_card.dart` |
    | `core/look/widgets.dart`、`kit.dart`（兩個轉出檔） | `design_system/design_system.dart`、`components/components.dart` |
    | `core/platform/problems.dart` | 畫面部分到 `core/widgets/problem_note.dart`，文字部分到詞彙庫 |
    | `app/android/*.dart`（15 檔） | `app/android/*_adapter.dart` |
+   | `core/platform/perf.dart`、`connector.dart` | `performance_monitor.dart`、`sync_job.dart` |
 
 4. **檔名後綴固定**（表見 [naming.md](../naming.md#檔名後綴)），一個檔案一個公開類別；`lib` 內不允許兩個同名檔案。
 5. **測試資料夾與 `lib` 一一對應**：`lib/src/a/b.dart` 的測試是 `test/a/b_test.dart`；跨模組的情境測試放 `test/scenarios/`。

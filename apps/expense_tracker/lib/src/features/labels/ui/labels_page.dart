@@ -8,7 +8,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../model/project.dart';
+import '../model/label_project.dart';
 import '../../../core/ui/shown_amounts.dart';
 
 part 'label_page.dart';
@@ -91,7 +91,7 @@ class _LabelsPageState extends State<LabelsPage> {
 
   List<Widget> _tagList() {
     final latest = latestTag(ledger);
-    final project = latest == null ? null : projectOf(ledger, latest);
+    final project = latest == null ? null : labelProjectOf(ledger, latest);
     if (project == null) {
       return const [
         EmptyState(
@@ -394,7 +394,7 @@ class ProjectCard extends StatelessWidget {
   });
 
   final Ledger ledger;
-  final Project project;
+  final LabelProject project;
 
   /// The cover of 標籤與商家: 最近 and the tag's name.
   final bool recent;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../accounts/compose/account_editor.dart';
-import '../../accounts/compose/reconcile_sheet.dart';
+import '../compose/account_editor.dart';
+import '../compose/reconcile_sheet.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';

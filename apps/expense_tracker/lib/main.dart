@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 
-import 'src/features/backup/model/leftovers.dart';
+import 'src/features/backup/model/file_cleanup.dart';
 import 'src/app/bootstrap.dart';
 import 'src/core/platform/perf.dart';
 import 'src/app/platform.dart';
