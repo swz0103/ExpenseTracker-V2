@@ -25,6 +25,7 @@
 | `_card`、`_tile` | 清單或網格裡的一項 | `Card`、`ListTile` |
 | `_repository` | 擁有一種紀錄的記憶體狀態 | Repository 模式 |
 | `_service` | 沒有自己的狀態、由別處的狀態算出結果 | 領域服務 |
+| `_commands` | 一組寫入指令，協調多個 Repository | CQRS Command |
 | `_adapter` | 把平台或外部系統接到 App 定義的介面 | Ports and Adapters |
 | `_data_source` | 資料實際存放的位置 | Flutter／Android data source |
 
@@ -40,6 +41,7 @@
 | `Drafts`、`Receipts`（`attachments.dart`） | `DraftRepository`、`ReceiptRepository` | DDD Repository |
 | `Market`（收盤價、匯率） | `MarketDataRepository` | `infrastructure/market` 已用 MarketData |
 | `Holdings`、`Portfolio` | `HoldingRepository`、`Portfolio`（沿用，證券正式用語） | 證券 |
+| `Ledger` 上直接寫入的指令（`add`、`mergeCategory`…） | `EntryCommands`、`AccountCommands`、`CategoryCommands`、`BudgetCommands`、`RecurringCommands`、`HoldingCommands`、`AttachmentCommands` | CQRS Command |
 | `Balances`、`CardStatements`、`Planning`、`Reports` | `BalanceService`、`StatementService`、`BudgetService`、`RecurringService`、`ReportService` | DDD Domain Service |
 | `ChangeSet`、`_before`／`_since` | `UnitOfWork` | Fowler PoEAA |
 | `QueryMemo`、`_remember`／`_forget`、`_memo` | `QueryCache` | 快取 |

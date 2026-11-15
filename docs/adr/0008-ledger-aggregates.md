@@ -1,4 +1,4 @@
-# ADR-0008：帳本拆成 Repository 與 Service，每份狀態只有一個擁有者
+# ADR-0008：帳本拆成 Repository、Service 與 Commands，每份狀態只有一個擁有者
 
 - 狀態：採用（2026-11-15）；分階段實作，進度見 [ledger.md](../ledger.md#進度)
 - 補充：ADR-0001、ADR-0003；名稱依 [naming.md](../naming.md)
@@ -13,12 +13,17 @@
 
 ## 決策
 
-1. **依主題拆成十個 Repository 與六個 Service**（領域驅動設計的 Repository 與 Domain Service）。Repository 擁有狀態：`EntryRepository`、`TrashRepository`、`AccountRepository`、`CategoryRepository`、`BudgetRepository`、`RecurringRepository`、`MarketDataRepository`、`HoldingRepository`、`DraftRepository`、`ReceiptRepository`。Service 不持有狀態：`BalanceService`、`StatementService`、`BudgetService`、`RecurringService`、`ReportService`、`EntryValidator`。成員分配見 [ledger.md](../ledger.md#成員分配)。
-2. **Repository 只改自己的狀態。** 跨 Repository 的指令（合併分類、刪除帳戶、記一筆投資）由 `Ledger` 依序呼叫，把動到的紀錄登記到一個 `UnitOfWork`（Fowler 的 Unit of Work），成功後組成一個 `WriteBatch` 交給 `WriteQueue`；不再事後比對差異。
+1. **依主題拆成三種角色**（領域驅動設計與 CQRS 的標準角色）：
+   - **Repository** 擁有狀態：`EntryRepository`、`TrashRepository`、`AccountRepository`、`CategoryRepository`、`BudgetRepository`、`RecurringRepository`、`MarketDataRepository`、`HoldingRepository`、`DraftRepository`、`ReceiptRepository`。對外是只讀的 `*Reader` 介面；改狀態的方法只有 Commands 拿得到。
+   - **Service**（Domain Service）只讀、不持有狀態：`BalanceService`、`StatementService`、`BudgetService`、`RecurringService`、`ReportService`、`EntryValidator`。
+   - **Commands**（CQRS 的 Command）負責寫入、協調多個 Repository：`EntryCommands`、`AccountCommands`、`CategoryCommands`、`BudgetCommands`、`RecurringCommands`、`HoldingCommands`、`AttachmentCommands`。
+
+   成員分配見 [ledger.md](../ledger.md#成員分配)。
+2. **Repository 只改自己的狀態。** 動到好幾個 Repository 的指令（記一筆投資、合併分類、刪除帳戶）由 Commands 開一個 `UnitOfWork`（Fowler 的 Unit of Work），各步驟把動到的紀錄與還原動作登記進去；全部成功才組成一個 `WriteBatch` 交給 `WriteQueue`，任何一步失敗就逐一還原。不再先複製再事後比對差異。
 3. **Service 只讀。** 快取由 `QueryCache` 管：查詢執行時記下它讀了哪些 Repository，那些 Repository 變動就自動作廢，不再手寫 `on:`。
 4. **變動主題與 Repository 一對一**：`Topic` 的每個值對應一個 Repository，畫面用 `watch` 訂閱的粒度不變。
 5. **一個檔案一個類別，不用 `part`。** 各 Repository 放在 `repositories/`，彼此只透過建構子注入的介面溝通。
-6. **`Ledger` 只剩接線**：組合 Repository 與 Service、開啟 `UnitOfWork`、通知畫面、持有 `WriteQueue`。直接留在 `Ledger` 的成員不超過 15 個（見 [ledger.md](../ledger.md#ledger-留下的成員)），其餘一律經由 Repository 或 Service，例如 `ledger.accounts.byId(id)`、`ledger.balanceService.balance(id)`。
+6. **`Ledger` 只剩接線**：組合 Repository、Service 與 Commands、通知畫面、持有 `WriteQueue`。直接留在 `Ledger` 的成員不超過 15 個（見 [ledger.md](../ledger.md#ledger-留下的成員)），其餘一律經由它們，例如 `ledger.accounts.byId(id)`、`ledger.balanceService.balance(id)`、`ledger.entryCommands.add(entry)`。
 7. **保留的外觀**：`today`、`newId`、`account(id)`、`category(name)`、`holding(code)` 呼叫了上百處，且是整個 App 的共同語彙，留在 `Ledger`。
 
 ## 依賴方向
@@ -32,10 +37,12 @@ Holding（讀 Entry、MarketData）        BalanceService（讀 Entry、Account�
   ↓
 StatementService  BudgetService  RecurringService  ReportService  EntryValidator   （只讀）
   ↓
-Ledger（接線、UnitOfWork、通知、WriteQueue）
+Commands（EntryCommands …，用 UnitOfWork 協調）
+  ↓
+Ledger（接線、通知、WriteQueue）
 ```
 
-上層可以讀下層，下層不知道上層；同一層的 Repository 不互相引用，要一起動就由 `Ledger` 協調。
+上層可以讀下層，下層不知道上層；同一層的 Repository 不互相引用，要一起動就由 Commands 協調。
 
 ## 守住的方式
 
