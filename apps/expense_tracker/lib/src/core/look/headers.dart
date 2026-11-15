@@ -170,9 +170,9 @@ class StepSwitch extends StatelessWidget {
 }
 
 /// A page's list under its [header], which stays put while the rest
-/// scrolls; once scrolled, a thin line shows where the list goes under
-/// it. [padding] is the list's, its sides the header's too.
-class HeadedList extends StatefulWidget {
+/// scrolls under it, with no line between them. [padding] is the list's,
+/// its sides the header's too.
+class HeadedList extends StatelessWidget {
   const HeadedList({
     super.key,
     required this.header,
@@ -187,15 +187,7 @@ class HeadedList extends StatefulWidget {
   final ScrollPhysics? physics;
 
   @override
-  State<HeadedList> createState() => _HeadedListState();
-}
-
-class _HeadedListState extends State<HeadedList> {
-  var _scrolled = false;
-
-  @override
   Widget build(BuildContext context) {
-    final padding = widget.padding;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -205,29 +197,13 @@ class _HeadedListState extends State<HeadedList> {
             right: padding.right,
             top: padding.top,
           ),
-          child: widget.header,
-        ),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 1,
-          color: _scrolled ? Hue.line : const Color(0x00000000),
+          child: header,
         ),
         Expanded(
-          child: NotificationListener<ScrollUpdateNotification>(
-            onNotification: (n) {
-              if (n.depth == 0) {
-                final scrolled = n.metrics.pixels > 0.5;
-                if (scrolled != _scrolled) {
-                  setState(() => _scrolled = scrolled);
-                }
-              }
-              return false;
-            },
-            child: ListView(
-              physics: widget.physics ?? FitScrollPhysics(padding.bottom),
-              padding: padding.copyWith(top: 0),
-              children: widget.children,
-            ),
+          child: ListView(
+            physics: physics ?? FitScrollPhysics(padding.bottom),
+            padding: padding.copyWith(top: 0),
+            children: children,
           ),
         ),
       ],

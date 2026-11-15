@@ -92,16 +92,45 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   onAction: () => widget.nav.compose(type: EntryType.buy),
                 )
               else
-                QuoteBoard([
-                  for (final h in [
-                    ...holdings,
-                  ]..sort((a, b) => b.value.compareTo(a.value)))
-                    _HoldingRow(
-                      ledger: ledger,
-                      held: h,
-                      onTap: () => widget.nav.open(Pages.holding(h.code)),
+                for (final (name, group) in [
+                  (
+                    '個股',
+                    [
+                      for (final h in holdings)
+                        if (!h.code.startsWith('00')) h,
+                    ],
+                  ),
+                  (
+                    'ETF',
+                    [
+                      for (final h in holdings)
+                        if (h.code.startsWith('00')) h,
+                    ],
+                  ),
+                ])
+                  if (group.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                      child: Text(
+                        '$name · ${group.length} 檔',
+                        style: const TextStyle(
+                          fontSize: TextSize.small,
+                          fontWeight: FontWeight.w800,
+                          color: Hue.muted,
+                        ),
+                      ),
                     ),
-                ]),
+                    QuoteBoard([
+                      for (final h
+                          in group..sort((a, b) => b.value.compareTo(a.value)))
+                        _HoldingRow(
+                          ledger: ledger,
+                          held: h,
+                          onTap: () => widget.nav.open(Pages.holding(h.code)),
+                        ),
+                    ]),
+                    const SizedBox(height: 8),
+                  ],
             ] else ...[
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
@@ -118,30 +147,42 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('$month 月領到', style: mutedSmall),
-                          Text(
-                            ledger.orDots(
-                              groupDigits(ledger.dividends(year, month)),
-                            ),
-                            style: const TextStyle(
-                              fontSize: TextSize.large,
-                              fontWeight: FontWeight.w800,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              ledger.orDots(
+                                groupDigits(ledger.dividends(year, month)),
+                              ),
+                              style: const TextStyle(
+                                fontSize: TextSize.large,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('累計', style: mutedSmall),
-                        Text(
-                          ledger.orDots(groupDigits(ledger.totalDividends)),
-                          style: const TextStyle(
-                            fontSize: TextSize.heading,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 8),
+                    // Long sums shrink to fit rather than run into each other.
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('累計', style: mutedSmall),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              ledger.orDots(groupDigits(ledger.totalDividends)),
+                              style: const TextStyle(
+                                fontSize: TextSize.heading,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

@@ -122,7 +122,7 @@ class _InvestHero extends StatelessWidget {
   }
 }
 
-/// A holding on the quote board: name, code and kind, shares and gain;
+/// A holding on the quote board: its code, shares and gain;
 /// the close big and today's move on a solid block.
 class _HoldingRow extends StatelessWidget {
   const _HoldingRow({
@@ -143,8 +143,9 @@ class _HoldingRow extends StatelessWidget {
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return QuoteRow(
       onTap: onTap,
-      title:
-          '${held.name}  ${held.code} · ${held.code.startsWith('00') ? 'ETF' : '個股'}',
+      // The code alone: the group above says 個股 or ETF, and the
+      // holding's page has its name.
+      title: held.code,
       detail:
           '${ledger.orDots(groupDigits(held.shares))} 股 · 損益 '
           '${ledger.orDots(signed(held.gain))}',

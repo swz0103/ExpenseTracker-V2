@@ -270,8 +270,10 @@ class _WeekStrip extends StatelessWidget {
       if (kinds.contains(EntryType.transfer)) Hue.transfer,
       if (kinds.any((k) => k.index >= EntryType.buy.index)) Hue.investment,
     ];
+    // The chosen day in the app's own colour: solid on the light theme,
+    // a deep tint with a ring on the dark one.
     final ink = picked
-        ? Hue.accent
+        ? chosenInk(Hue.accent)
         : future || outside
         ? Hue.faint
         : Hue.ink;
@@ -290,8 +292,11 @@ class _WeekStrip extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: picked ? Hue.selected : null,
+            color: picked ? chosenFill(Hue.accent) : null,
             borderRadius: BorderRadius.circular(12),
+            border: picked && Shade.dark
+                ? Border.fromBorderSide(chosenEdge(Hue.accent))
+                : null,
           ),
           child: Column(
             children: [
@@ -320,7 +325,8 @@ class _WeekStrip extends StatelessWidget {
                         height: 6,
                         margin: const EdgeInsets.symmetric(horizontal: 1.5),
                         decoration: BoxDecoration(
-                          color: color,
+                          // On the solid day, in its words' colour.
+                          color: picked ? ink : color,
                           shape: BoxShape.circle,
                         ),
                       ),

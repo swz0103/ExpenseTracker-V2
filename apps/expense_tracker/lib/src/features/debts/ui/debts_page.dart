@@ -174,15 +174,20 @@ class _BothWays extends StatelessWidget {
             color: Hue.muted,
           ),
         ),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: TextSize.figure,
-              fontWeight: FontWeight.w800,
-              color: color,
+        // Both figures in full on a line of the same height, so the two
+        // halves stay level even when one shrinks to fit.
+        SizedBox(
+          height: TextSize.figure * 1.4,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: TextSize.figure,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
           ),
         ),
@@ -206,7 +211,7 @@ class _BothWays extends StatelessWidget {
             Expanded(
               child: half(
                 '你還欠',
-                ledger.orDots(shortAmount(borrowed)),
+                ledger.orDots(groupDigits(borrowed)),
                 '$loans 筆貸款',
                 Hue.ink,
               ),

@@ -330,58 +330,61 @@ class _CategoryBlock extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, box) {
           final roomy = box.maxHeight > 70 && box.maxWidth > 70;
-          return Stack(
+          final top = roomy || (change != null && box.maxHeight > 52);
+          // A column, not a stack: the words at the foot shrink to the
+          // room under the top row and never run into it.
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (roomy)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  child: SquareIcon(
-                    iconFor(category.icon),
-                    color,
-                    size: large ? 40 : 28,
-                  ),
+              if (top)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (roomy)
+                      SquareIcon(
+                        iconFor(category.icon),
+                        color,
+                        size: large ? 40 : 28,
+                      ),
+                    const Spacer(),
+                    if (change != null && box.maxWidth > 60)
+                      Text(
+                        '${change >= 0 ? '▲' : '▼'} ${change.abs()}%',
+                        textScaler: TextScaler.noScaling,
+                        style: TextStyle(
+                          fontSize: TextSize.caption,
+                          fontWeight: FontWeight.w800,
+                          color: change >= 0 ? Hue.negative : Hue.positive,
+                        ),
+                      ),
+                  ],
                 ),
-              if (change != null && box.maxWidth > 60)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Text(
-                    '${change >= 0 ? '▲' : '▼'} ${change.abs()}%',
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      fontSize: TextSize.caption,
-                      fontWeight: FontWeight.w800,
-                      color: change >= 0 ? Hue.negative : Hue.positive,
-                    ),
-                  ),
-                ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+              Expanded(
+                child: Align(
                   alignment: Alignment.bottomLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${category.name} · $share%',
-                        style: TextStyle(
-                          fontSize: large ? 15 : 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: ink,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.bottomLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${category.name} · $share%',
+                          style: TextStyle(
+                            fontSize: large ? TextSize.body : TextSize.caption,
+                            fontWeight: FontWeight.w800,
+                            color: ink,
+                          ),
                         ),
-                      ),
-                      Text(
-                        ledger.orDots(groupDigits(amount)),
-                        style: TextStyle(
-                          fontSize: large ? 26 : 16,
-                          fontWeight: FontWeight.w800,
+                        Text(
+                          ledger.orDots(groupDigits(amount)),
+                          style: TextStyle(
+                            fontSize: large ? TextSize.large : TextSize.title,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

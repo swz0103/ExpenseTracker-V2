@@ -366,8 +366,9 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
-/// A group of a form: a small title over [child], set apart by space
-/// alone, with no box around it.
+/// A group of a form: a small title over [child], whose choices sit on
+/// a flat light grey of their own, so 類型, 圖示 and 幣別 read as three
+/// separate groups.
 class FormGroup extends StatelessWidget {
   const FormGroup({super.key, this.title, required this.child});
 
@@ -378,7 +379,7 @@ class FormGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final head = title;
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -389,12 +390,18 @@ class FormGroup extends StatelessWidget {
                 head,
                 style: const TextStyle(
                   fontSize: TextSize.small,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   color: Hue.muted,
                 ),
               ),
             ),
-          child,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Hue.group,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Padding(padding: const EdgeInsets.all(8), child: child),
+          ),
         ],
       ),
     );

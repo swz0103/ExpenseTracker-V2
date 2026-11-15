@@ -180,7 +180,7 @@ class _NetWorth extends StatelessWidget {
       for (final p in parts)
         if (p.$2 > 0) p,
     ];
-    final total = shown.fold<int>(0, (sum, p) => sum + p.$2);
+    final shares = visibleShares([for (final p in shown) p.$2]);
     return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
@@ -206,10 +206,10 @@ class _NetWorth extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final (i, (_, value, color)) in shown.indexed) ...[
+                        for (final (i, (_, _, color)) in shown.indexed) ...[
                           if (i > 0) const SizedBox(width: 3),
                           Expanded(
-                            flex: max(1, (value * 1000 / total).round()),
+                            flex: max(1, (shares[i] * 1000).round()),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: color,
@@ -428,3 +428,24 @@ class SortAccountsPage extends StatefulWidget {
 /// How 排序帳戶 lines the cards up: by hand, the most money first, or
 /// the one used last first.
 enum _SortBy { hand, balance, recent }
+
+/// Each of [values]' share of a bar, every one at least [least] of it so
+/// even a small sum shows; the rest is shared among the larger ones by
+/// size.
+List<double> visibleShares(List<int> values, {double least = 0.06}) {
+  final total = values.fold<int>(0, (sum, v) => sum + v);
+  if (total <= 0) return [for (final _ in values) 1 / values.length];
+  final small = {
+    for (final (i, v) in values.indexed)
+      if (v / total < least) i,
+  };
+  final rest = 1 - least * small.length;
+  final big = [
+    for (final (i, v) in values.indexed)
+      if (!small.contains(i)) v,
+  ].fold<int>(0, (sum, v) => sum + v);
+  return [
+    for (final (i, v) in values.indexed)
+      small.contains(i) ? least : (big == 0 ? 0 : v / big * rest),
+  ];
+}
