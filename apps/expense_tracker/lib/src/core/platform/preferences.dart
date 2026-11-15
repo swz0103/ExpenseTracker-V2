@@ -71,6 +71,10 @@ final class Preferences extends ChangeNotifier {
       _updateCheckedAt = DateTime.tryParse(
         json['updateCheckedAt'] as String? ?? '',
       );
+      _updateLaterUntil = DateTime.tryParse(
+        json['updateLaterUntil'] as String? ?? '',
+      );
+      _updateSkipped = (json['updateSkipped'] as num?)?.toInt();
       _widgetFigures = WidgetFigures.values.firstWhere(
         (f) => f.name == json['widgetFigures'],
         orElse: () => WidgetFigures.off,
@@ -203,6 +207,24 @@ final class Preferences extends ChangeNotifier {
     _save();
   }
 
+  /// Until when a newer version waits to be offered again: 晚一點再說
+  /// puts it off to the next day.
+  DateTime? get updateLaterUntil => _updateLaterUntil;
+  DateTime? _updateLaterUntil;
+
+  /// The build 略過這一版 passed over: offered again only when a newer
+  /// one comes.
+  int? get updateSkipped => _updateSkipped;
+  int? _updateSkipped;
+
+  /// Puts off offering a newer version until [until], or passes over
+  /// [skip]; 設定 › 關於 offers it whatever these say.
+  void updateLater({DateTime? until, int? skip}) {
+    _updateLaterUntil = until ?? _updateLaterUntil;
+    _updateSkipped = skip ?? _updateSkipped;
+    _save();
+  }
+
   /// The way to the home-screen widget was shown.
   bool get widgetShown => _widgetShown;
   var _widgetShown = false;
@@ -311,6 +333,8 @@ final class Preferences extends ChangeNotifier {
           'budgetAlerts': _budgetAlerts,
           'budgetAlerted': _budgetAlerted.toList(),
           'updateCheckedAt': _updateCheckedAt?.toUtc().toIso8601String(),
+          'updateLaterUntil': _updateLaterUntil?.toUtc().toIso8601String(),
+          'updateSkipped': _updateSkipped,
         }),
         flush: true,
       );

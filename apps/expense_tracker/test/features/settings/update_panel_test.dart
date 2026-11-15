@@ -36,11 +36,12 @@ final class _Port implements UpdatePort {
 
 void main() {
   testWidgets('a newer version shows what it changes; 更新 installs it and '
-      'closes, 稍後 just closes', (tester) async {
+      'closes; only its own choices close it', (tester) async {
     final cache = Directory.systemTemp.createTempSync('update-panel-');
     addTearDown(() => cache.deleteSync(recursive: true));
     final port = _Port();
-    final update = AppUpdate(port, Preferences(), cache: cache, build: 190);
+    final preferences = Preferences();
+    final update = AppUpdate(port, preferences, cache: cache, build: 190);
     await tester.runAsync(update.check);
     late BuildContext page;
     await tester.pumpWidget(
@@ -59,10 +60,25 @@ void main() {
     expect(find.text('新版 0.9.6'), findsOneWidget);
     expect(find.text('雲端硬碟可以只備份帳本'), findsOneWidget);
     expect(find.textContaining('MB'), findsNothing);
-    await tester.tap(find.text('稍後'));
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.text('新版 0.9.6'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('新版 0.9.6'), findsOneWidget);
+    await tester.tap(find.text('晚一點再說'));
     await tester.pumpAndSettle();
     expect(find.text('新版 0.9.6'), findsNothing);
     expect(port.installs, 0);
+    expect(update.mayOffer(update.newer!), isFalse);
+    expect(preferences.updateLaterUntil, isNotNull);
+
+    showUpdatePanel(page, update).ignore();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('略過這一版'));
+    await tester.pumpAndSettle();
+    expect(find.text('新版 0.9.6'), findsNothing);
+    expect(preferences.updateSkipped, 200);
 
     port.outcome = UpdateInstall.needsPermission;
     showUpdatePanel(page, update).ignore();

@@ -5,8 +5,10 @@ import '../model/app_update.dart';
 import '../../../core/look/kit/buttons.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
-/// 稍後 and 更新. 更新 downloads it in the same panel, a bar filling, and
-/// hands it to Android's installer; nothing else is asked or said unless
+/// 更新, and 晚一點再說 or 略過這一版 under it. Only these close it: not a
+/// tap beside it nor back, so it is not lost by a slip on opening the
+/// app. 更新 downloads it in the same panel, a bar filling, and hands it
+/// to Android's installer; nothing else is asked or said unless
 /// something goes wrong.
 Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   final info = update.newer;
@@ -14,7 +16,11 @@ Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   await showDialog<void>(
     context: context,
     barrierColor: Hue.scrim,
-    builder: (context) => _UpdatePanel(update: update, info: info),
+    barrierDismissible: false,
+    builder: (context) => PopScope(
+      canPop: false,
+      child: _UpdatePanel(update: update, info: info),
+    ),
   );
 }
 
@@ -133,28 +139,39 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       color: Hue.muted,
                     ),
                   ),
-                ] else
+                ] else ...[
+                  _Choice(
+                    '更新',
+                    color: Hue.positive,
+                    ink: Hue.onAccent,
+                    onTap: widget.update.busy ? null : _install,
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
-                        child: _Choice(
-                          '稍後',
-                          color: Hue.surface,
-                          ink: Hue.ink,
-                          onTap: () => Navigator.of(context).pop(),
+                        child: TextButton(
+                          style: wordButton(Hue.muted),
+                          onPressed: () {
+                            widget.update.later();
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('晚一點再說'),
                         ),
                       ),
-                      const SizedBox(width: 12),
                       Expanded(
-                        child: _Choice(
-                          '更新',
-                          color: Hue.positive,
-                          ink: Hue.onAccent,
-                          onTap: widget.update.busy ? null : _install,
+                        child: TextButton(
+                          style: wordButton(Hue.muted),
+                          onPressed: () {
+                            widget.update.skip(info);
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('略過這一版'),
                         ),
                       ),
                     ],
                   ),
+                ],
               ],
             );
           },
