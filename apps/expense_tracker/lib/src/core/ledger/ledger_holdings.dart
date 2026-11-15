@@ -18,7 +18,7 @@ extension LedgerHoldings on Ledger {
         rethrow;
       }
     }
-    _changed(const {Area.entries});
+    _changed(const {Topic.entries});
   }
 
   /// [_replayOrUndo], telling a refusal through [problem] rather than
@@ -28,6 +28,7 @@ extension LedgerHoldings on Ledger {
       _replayOrUndo(undo, trades: trades);
       return true;
     } on StateError {
+      // Said to the person through problem.
       problem.value = const SharesShort();
       notifyListeners();
       return false;
@@ -45,6 +46,7 @@ extension LedgerHoldings on Ledger {
       ]);
       return true;
     } on StateError {
+      // A change that would leave a sale short of shares is refused.
       return false;
     }
   }

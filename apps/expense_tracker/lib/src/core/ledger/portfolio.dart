@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:domain/investments.dart';
 
-import 'records.dart';
+import 'models/models.dart';
 
 /// Holdings replayed from starting positions and investment entries:
 /// each stock's lots and what they cost, and how many shares were held

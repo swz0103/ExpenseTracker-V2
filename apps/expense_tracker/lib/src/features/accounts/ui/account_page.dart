@@ -240,7 +240,7 @@ class _AccountBodyState extends State<AccountBody> {
           selected: _week,
           onSelect: (week) => setState(() => _week = week),
           currency: code,
-          hidden: ledger.hidden,
+          hidden: ledger.amounts.hidden,
         ),
         SectionTitle(
           '紀錄',

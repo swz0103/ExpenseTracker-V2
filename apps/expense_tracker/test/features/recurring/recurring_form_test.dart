@@ -1,12 +1,12 @@
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/recurring/model/recurring_form.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
-final class _Nowhere implements Journal {
+final class _Nowhere implements LedgerDataSource {
   @override
-  Future<void> keep(Batch batch) async {}
+  Future<void> keep(WriteBatch batch) async {}
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -19,7 +19,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 5000),
       Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
     ],
-    categories: const [
+    categories: [
       Category('居家', 'home', 0xFF5B8DB0),
       Category('薪資', 'income', 0xFF5C9A83, income: true),
     ],
@@ -27,7 +27,7 @@ void main() {
     holdings: const [],
     budgets: const [],
     recurring: const [],
-    journal: _Nowhere(),
+    dataSource: _Nowhere(),
   );
 
   test(

@@ -21,7 +21,7 @@ void main() {
   Ledger book() => Ledger(
     today: DateTime.utc(2026, 10, 12),
     accounts: const [Account('bank', '銀行', AccountKind.bank, 50000)],
-    categories: const [Category('居家', 'home', 0xFF5B8DB0)],
+    categories: [Category('居家', 'home', 0xFF5B8DB0)],
     entries: const [],
     holdings: const [],
     budgets: const [],

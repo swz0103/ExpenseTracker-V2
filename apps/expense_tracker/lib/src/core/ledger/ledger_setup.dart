@@ -15,20 +15,20 @@ extension LedgerSetup on Ledger {
       since: old.since ?? DateTime.utc(today.year, today.month),
     );
     _budgets.add(budget);
-    _changed(const {Area.budgets});
-    _keep(Batch(budgets: [budget]));
+    _changed(const {Topic.budgets});
+    _keep(WriteBatch(budgets: [budget]));
   }
 
   void removeBudget(String category) {
     _budgets.removeWhere((b) => b.category == category);
-    _changed(const {Area.budgets});
-    _keep(Batch(dropped: [(Shelf.budget, category)]));
+    _changed(const {Topic.budgets});
+    _keep(WriteBatch(dropped: [(Collection.budget, category)]));
   }
 
   void addAccount(Account account) {
     _accounts.add(account);
-    _changed(const {Area.accounts});
-    _keep(Batch(accounts: [account]));
+    _changed(const {Topic.accounts});
+    _keep(WriteBatch(accounts: [account]));
   }
 
   /// Puts [account] in place of the one with the same id.
@@ -44,8 +44,8 @@ extension LedgerSetup on Ledger {
     );
     account = _rescheduled(before, account);
     _accounts[index] = account;
-    _changed(const {Area.accounts});
-    _keep(Batch(accounts: [account]));
+    _changed(const {Topic.accounts});
+    _keep(WriteBatch(accounts: [account]));
   }
 
   /// [after] keeping [before]'s billing days for the statements closing
@@ -108,8 +108,8 @@ extension LedgerSetup on Ledger {
       ..clear()
       ..addAll(sorted);
     _categoryIndex = null;
-    _changed(const {Area.categories});
-    _keep(Batch(categories: moved));
+    _changed(const {Topic.categories});
+    _keep(WriteBatch(categories: moved));
   }
 
   /// Puts the accounts of [ids] in that order on 我的帳戶; the others
@@ -123,8 +123,8 @@ extension LedgerSetup on Ledger {
       moved.add(_accounts[index]);
     }
     if (moved.isEmpty) return;
-    _changed(const {Area.accounts});
-    _keep(Batch(accounts: moved));
+    _changed(const {Topic.accounts});
+    _keep(WriteBatch(accounts: moved));
   }
 
   /// Corrects [id]'s balance today to [target] by moving its opening
@@ -135,8 +135,8 @@ extension LedgerSetup on Ledger {
     final a = _accounts[index];
     final moved = a.copyWith(opening: a.opening + target - balance(id));
     _accounts[index] = moved;
-    _changed(const {Area.accounts});
-    _keep(Batch(accounts: [moved]));
+    _changed(const {Topic.accounts});
+    _keep(WriteBatch(accounts: [moved]));
   }
 
   /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
@@ -148,7 +148,7 @@ extension LedgerSetup on Ledger {
     final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
     _accounts[index] = moved;
     notifyListeners();
-    _keep(Batch(accounts: [moved]));
+    _keep(WriteBatch(accounts: [moved]));
   }
 
   /// Whether [id] has any entries; an account without can be removed.
@@ -166,7 +166,7 @@ extension LedgerSetup on Ledger {
     if (index < 0) return;
     final removed = _accounts.removeAt(index);
     notifyListeners();
-    _keep(Batch(dropped: [(Shelf.account, removed.id)]));
+    _keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
   }
 
   /// Whether [name] can be a new category's: not empty, not one the
@@ -191,8 +191,8 @@ extension LedgerSetup on Ledger {
       return;
     }
     _categories.add(category);
-    _changed(const {Area.categories});
-    _keep(Batch(categories: [category]));
+    _changed(const {Topic.categories});
+    _keep(WriteBatch(categories: [category]));
   }
 
   void _renameCategory(String from, String to) {
@@ -255,13 +255,20 @@ extension LedgerSetup on Ledger {
       return;
     }
     final before = _before;
-    if (next.name != name) _renameCategory(name, next.name);
+    // Whatever the edit built, it is still the category it was.
+    final kept = _categories[index];
+    final updated = next.withId(kept.id);
+    final renamed = updated.name != name;
+    if (renamed) _renameCategory(name, updated.name);
     // An edit keeps the place it was dragged to.
-    _categories[index] = next.place == null
-        ? next.copyWith(place: _categories[index].place)
-        : next;
+    _categories[index] = updated.place == null
+        ? updated.copyWith(place: kept.place)
+        : updated;
     notifyListeners();
-    _keep(_since(before));
+    // Records are kept under the category's id, so a new name is one row.
+    _keep(
+      renamed ? WriteBatch(categories: [_categories[index]]) : _since(before),
+    );
   }
 
   /// Moves everything in [from] to [into] and removes [from].

@@ -12,7 +12,7 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ledger/record_json.dart';
+import '../../../core/ledger/persistence/codec/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/calculator.dart';
@@ -21,9 +21,10 @@ import '../../categories/compose/category_editor.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/compose_form.dart';
 import '../model/receipt_photos.dart';
-import '../../import/model/exchange.dart' show invoiceRecorded;
-import '../../import/model/invoice_qr.dart';
+import '../../import_export/model/import_export.dart' show invoiceRecorded;
+import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
@@ -96,6 +97,7 @@ final class _Draft {
               ],
       );
     } on Object {
+      // A form that cannot be read is left out.
       return null;
     }
   }

@@ -1,6 +1,6 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/recurring/model/calendar.dart';
+import 'package:expense_tracker/src/features/recurring/model/recurring_schedule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 定期交易's calendar: each day with what falls due, matched to its

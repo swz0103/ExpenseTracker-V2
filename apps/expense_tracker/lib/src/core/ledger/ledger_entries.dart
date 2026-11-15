@@ -1,7 +1,7 @@
 part of 'ledger.dart';
 
 // Entries: adding, changing, removing and bringing them back, a group
-// at a time or one by one; each change kept in the journal as one batch.
+// at a time or one by one; each change kept in the data source as one batch.
 
 extension LedgerEntries on Ledger {
   /// Adds [entry], with its receipt photo [receipt] when one is given; a
@@ -9,8 +9,8 @@ extension LedgerEntries on Ledger {
   void add(Entry entry, {String? receipt}) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast(), trades: entry.isInvestment);
-    if (receipt != null) _receipts[entry.id] = receipt;
-    _keep(Batch(entries: [entry], receipts: {entry.id: ?receipt}));
+    if (receipt != null) _receipts.set(entry.id, receipt);
+    _keep(WriteBatch(entries: [entry], receipts: {entry.id: ?receipt}));
   }
 
   /// Adds every one of [entries] at once, with the [accounts] and
@@ -41,7 +41,7 @@ extension LedgerEntries on Ledger {
     _accounts.addAll(opened);
     _categories.addAll(named);
     notifyListeners();
-    _keep(Batch(accounts: opened, categories: named, entries: entries));
+    _keep(WriteBatch(accounts: opened, categories: named, entries: entries));
   }
 
   /// Puts [entry] in place of the entry with the same id, with the receipt
@@ -55,13 +55,10 @@ extension LedgerEntries on Ledger {
       () => _entries[index] = before,
       trades: entry.isInvestment || before.isInvestment,
     );
-    final photo = _receipts[entry.id] != receipt;
-    if (receipt == null) {
-      _receipts.remove(entry.id);
-    } else {
-      _receipts[entry.id] = receipt;
-    }
-    _keep(Batch(entries: [entry], receipts: {if (photo) entry.id: receipt}));
+    final photo = _receipts.set(entry.id, receipt);
+    _keep(
+      WriteBatch(entries: [entry], receipts: {if (photo) entry.id: receipt}),
+    );
   }
 
   /// Puts each of [entries] in place of the one with the same id, as one
@@ -80,7 +77,7 @@ extension LedgerEntries on Ledger {
         _entries[index] = e;
       }
     }, trades: [...before.values, ...entries].any((e) => e.isInvestment));
-    _keep(Batch(entries: [for (final i in before.keys) _entries[i]]));
+    _keep(WriteBatch(entries: [for (final i in before.keys) _entries[i]]));
   }
 
   /// Puts [entries], written as one, in place of the entries [was] held:
@@ -114,19 +111,14 @@ extension LedgerEntries on Ledger {
     final photos = <String, String?>{};
     for (final id in {...was, ...ids}) {
       final now = id == receiptOn ? receipt : null;
-      if (_receipts[id] == now) continue;
+      if (!_receipts.set(id, now)) continue;
       photos[id] = now;
-      if (now == null) {
-        _receipts.remove(id);
-      } else {
-        _receipts[id] = now;
-      }
     }
     _keep(
-      Batch(
+      WriteBatch(
         entries: entries,
         receipts: photos,
-        dropped: [for (final id in gone) (Shelf.entry, id)],
+        dropped: [for (final id in gone) (Collection.entry, id)],
       ),
     );
   }
@@ -150,13 +142,13 @@ extension LedgerEntries on Ledger {
     final trashed = Trashed(removed, today);
     _trash.insert(0, trashed);
     _keep(
-      Batch(
+      WriteBatch(
         trash: [trashed],
         recurring: skipping,
-        dropped: [(Shelf.entry, removed.id)],
+        dropped: [(Collection.entry, removed.id)],
       ),
     );
-    if (skipping.isNotEmpty) _changed(const {Area.recurring});
+    if (skipping.isNotEmpty) _changed(const {Topic.recurring});
     return (index, removed);
   }
 
@@ -183,13 +175,13 @@ extension LedgerEntries on Ledger {
     final trashed = [for (final (_, e) in removed) Trashed(e, today)];
     _trash.insertAll(0, trashed.reversed);
     _keep(
-      Batch(
+      WriteBatch(
         trash: trashed,
         recurring: skipping,
-        dropped: [for (final (_, e) in removed) (Shelf.entry, e.id)],
+        dropped: [for (final (_, e) in removed) (Collection.entry, e.id)],
       ),
     );
-    if (skipping.isNotEmpty) _changed(const {Area.recurring});
+    if (skipping.isNotEmpty) _changed(const {Topic.recurring});
     return removed;
   }
 
@@ -211,13 +203,13 @@ extension LedgerEntries on Ledger {
     final back = _unskipping([for (final (_, e) in removed) e]);
     _putRecurring(back);
     _keep(
-      Batch(
+      WriteBatch(
         entries: [for (final (_, e) in removed) e],
         recurring: back,
-        dropped: [for (final id in ids) (Shelf.trash, id)],
+        dropped: [for (final id in ids) (Collection.trash, id)],
       ),
     );
-    if (back.isNotEmpty) _changed(const {Area.recurring});
+    if (back.isNotEmpty) _changed(const {Topic.recurring});
     return true;
   }
 
@@ -234,13 +226,13 @@ extension LedgerEntries on Ledger {
     final back = _unskipping([entry]);
     _putRecurring(back);
     _keep(
-      Batch(
+      WriteBatch(
         entries: [entry],
         recurring: back,
-        dropped: [(Shelf.trash, entry.id)],
+        dropped: [(Collection.trash, entry.id)],
       ),
     );
-    if (back.isNotEmpty) _changed(const {Area.recurring});
+    if (back.isNotEmpty) _changed(const {Topic.recurring});
     return true;
   }
 
@@ -252,7 +244,7 @@ extension LedgerEntries on Ledger {
       // Already back in the book, as by an undo: only the trash keeps it.
       _trash.removeWhere((t) => t.entry.id == entry.id);
       _signal();
-      _keep(Batch(dropped: [(Shelf.trash, entry.id)]));
+      _keep(WriteBatch(dropped: [(Collection.trash, entry.id)]));
       return true;
     }
     // An entry written as one with others comes back with them.
@@ -280,13 +272,13 @@ extension LedgerEntries on Ledger {
     final unskipped = _unskipping([for (final t in back) t.entry]);
     _putRecurring(unskipped);
     _keep(
-      Batch(
+      WriteBatch(
         entries: [for (final t in back) t.entry],
         recurring: unskipped,
-        dropped: [for (final t in back) (Shelf.trash, t.entry.id)],
+        dropped: [for (final t in back) (Collection.trash, t.entry.id)],
       ),
     );
-    if (unskipped.isNotEmpty) _changed(const {Area.recurring});
+    if (unskipped.isNotEmpty) _changed(const {Topic.recurring});
     return true;
   }
 }

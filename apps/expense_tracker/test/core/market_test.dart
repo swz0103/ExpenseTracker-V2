@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:market/market_data.dart';
@@ -67,8 +67,12 @@ void main() {
       clock: () => DateTime.utc(2026, 9, 30, 4),
     );
     var (open, _) = await vault.create('market password');
-    var journal = TableJournal(open.store, clock: clock, market: market);
-    var ledger = await journal.load();
+    var dataSource = SqlLedgerDataSource(
+      open.store,
+      clock: clock,
+      market: market,
+    );
+    var ledger = await dataSource.load();
     final bank = Account(ledger.newId(), '證券戶', AccountKind.bank, 500000);
     final usd = Account(
       ledger.newId(),
@@ -94,12 +98,12 @@ void main() {
       );
     await ledger.settled;
 
-    expect(await journal.refreshQuotes(['2330']), isTrue);
-    expect(await journal.refreshRates(), isTrue);
+    expect(await dataSource.refreshQuotes(['2330']), isTrue);
+    expect(await dataSource.refreshRates(), isTrue);
     // Nothing changed since.
-    expect(await journal.refreshQuotes(['2330']), isFalse);
-    expect(await journal.refreshRates(), isFalse);
-    ledger = await journal.load();
+    expect(await dataSource.refreshQuotes(['2330']), isFalse);
+    expect(await dataSource.refreshRates(), isFalse);
+    ledger = await dataSource.load();
     expect(ledger.holding('2330')!.price, 1234.5);
     expect(ledger.holding('2330')!.value, 123450);
     expect(ledger.rates['USD'], closeTo(31.835, 1e-9));
@@ -110,8 +114,8 @@ void main() {
     // the dollars.
     open.close();
     open = await vault.unlockWithPassword('market password');
-    journal = TableJournal(open.store, clock: clock);
-    ledger = await journal.load();
+    dataSource = SqlLedgerDataSource(open.store, clock: clock);
+    ledger = await dataSource.load();
     expect(ledger.worthOf(ledger.account(usd.id)), 3184);
     open.close();
   });
@@ -130,10 +134,14 @@ void main() {
     );
     final (open, _) = await vault.create('market password');
     addTearDown(open.close);
-    final journal = TableJournal(open.store, clock: clock, market: market);
-    expect(await journal.refreshQuotes(['2330', '2317']), isTrue);
-    expect(journal.unquoted, isEmpty);
-    final ledger = await journal.load();
+    final dataSource = SqlLedgerDataSource(
+      open.store,
+      clock: clock,
+      market: market,
+    );
+    expect(await dataSource.refreshQuotes(['2330', '2317']), isTrue);
+    expect(dataSource.unquoted, isEmpty);
+    final ledger = await dataSource.load();
     expect(ledger.hasQuote('2317'), isTrue);
     expect(ledger.olderQuote('2317'), DateTime.utc(2026, 9, 26));
     expect(ledger.olderQuote('2330'), isNull);

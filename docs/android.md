@@ -63,7 +63,7 @@ Release 版經 R8 縮減：WorkManager 啟動時以名稱找 Room 產生的 `Wor
 
 ## Android 自動備份
 
-只帶一個檔。`allowBackup="true"`，備份規則（Android 12 以上 `res/xml/data_extraction_rules.xml`，11 以前 `res/xml/backup_rules.xml`）只包含 `files/cloud/`：裡面是帳本的加密備份（`記帳本.etbk`，不含照片，`Startup.cloudCopy`）。每次離開 App 且帳本有變，`VaultKeeper.keepCloudCopy` 重寫一份；Android 約每天一次、在充電且連上 Wi-Fi 時把它送到使用者的 Google 帳戶，換手機的裝置轉移也只帶這個檔。帳本本身、無密碼帳本的金鑰（`quick-open.key`）、設定都不在備份裡。
+只帶一個檔。`allowBackup="true"`，備份規則（Android 12 以上 `res/xml/data_extraction_rules.xml`，11 以前 `res/xml/backup_rules.xml`）只包含 `files/cloud/`：裡面是帳本的加密備份（`記帳本.etbk`，不含照片，`Startup.cloudCopy`）。每次離開 App 且帳本有變，`EncryptedBackupManager.keepCloudCopy` 重寫一份；Android 約每天一次、在充電且連上 Wi-Fi 時把它送到使用者的 Google 帳戶，換手機的裝置轉移也只帶這個檔。帳本本身、無密碼帳本的金鑰（`quick-open.key`）、設定都不在備份裡。
 
 重裝或換新手機時，Android 只放回這個檔；歡迎頁讀它的標頭（不需金鑰），顯示「還原 11 月 3 日的備份 · 1,234 筆紀錄」，點了才輸入密碼或救援碼還原，不會直接換掉帳本。選「建立新帳本」時，這份移到 `before-restore/`，不會被新帳本的備份蓋掉。無密碼帳本建立時就顯示一次救援碼，因為這份備份要用它打開。
 

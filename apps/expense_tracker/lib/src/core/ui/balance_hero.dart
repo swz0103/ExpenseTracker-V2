@@ -197,7 +197,7 @@ class _HideAmounts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hidden = ledger.hidden;
+    final hidden = ledger.amounts.hidden;
     // Drawn small beside the label, tapped as a full 48 dp square.
     return SizedBox(
       width: 36,
@@ -212,7 +212,7 @@ class _HideAmounts extends StatelessWidget {
             child: InkResponse(
               onTap: () {
                 Haptics.selection();
-                ledger.toggleHidden();
+                ledger.amounts.toggle();
               },
               radius: 20,
               child: SizedBox.square(

@@ -1,5 +1,4 @@
 import 'dart:collection' show UnmodifiableListView;
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:core/foundation_values.dart'
@@ -9,13 +8,21 @@ import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
 
 import '../text/amounts.dart';
+import 'amount_visibility.dart';
+import 'attachments.dart';
+import 'cache/query_cache.dart';
+import 'cache/topic.dart';
+import 'cache/topic_notifier.dart';
 import 'card_cycle.dart';
-import 'journal.dart';
+import 'persistence/ledger_data_source.dart';
+import 'persistence/write_queue.dart';
 import 'portfolio.dart';
-import 'records.dart';
+import 'repositories/entry_repository.dart';
+import 'models/models.dart';
 
 export 'card_cycle.dart';
-export 'records.dart';
+export 'cache/topic.dart';
+export 'models/models.dart';
 
 part 'ledger_cards.dart';
 part 'ledger_planning.dart';
@@ -40,7 +47,7 @@ final class Ledger extends ChangeNotifier {
     required List<Holding> holdings,
     required List<Budget> budgets,
     required List<Recurring> recurring,
-    this.journal,
+    this.dataSource,
     Map<String, double> rates = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
@@ -49,20 +56,31 @@ final class Ledger extends ChangeNotifier {
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
-       _drafts = {...drafts},
+       _drafts = Drafts(drafts),
        _day = today,
        _quoteDays = {...quoteDays},
-       _receipts = {...receipts},
+       _receipts = Receipts(receipts),
        _rates = {...rates},
        _moves = {...moves},
        _trash = [...trash],
        _accounts = [...accounts],
        _categories = _placed(categories),
-       _entries = [...entries],
+       _entries = EntryRepository(entries),
        _startHoldings = [...holdings],
        _budgets = [...budgets],
        _recurring = [...recurring] {
     _replay(lenient: true);
+    amounts.addListener(_signal);
+    final source = dataSource;
+    if (source != null) {
+      _writes = WriteQueue(source, problem: problem, onReloaded: _adopt);
+    }
+  }
+
+  @override
+  void dispose() {
+    amounts.dispose();
+    super.dispose();
   }
 
   static const allSpending = '全部支出';
@@ -87,14 +105,14 @@ final class Ledger extends ChangeNotifier {
   }
 
   /// Where changes are kept; none in the preview, which forgets them.
-  final Journal? journal;
+  final LedgerDataSource? dataSource;
 
-  /// The last change the [journal] refused, for the screens to report.
+  /// The last change the [data source] refused, for the screens to report.
   final problem = ValueNotifier<Object?>(null);
 
   final List<Account> _accounts;
   final List<Category> _categories;
-  final List<Entry> _entries;
+  final EntryRepository _entries;
   final List<Holding> _startHoldings;
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
@@ -104,51 +122,35 @@ final class Ledger extends ChangeNotifier {
 
   /// The photo of each entry's receipt, by entry id: a file name the
   /// phone keeps.
-  final Map<String, String> _receipts;
+  final Receipts _receipts;
 
   /// The receipt photo of the entry with [id]; null when none.
-  String? receiptOf(String id) => _receipts[id];
+  String? receiptOf(String id) => _receipts.of(id);
 
   /// Every receipt photo an entry keeps, deleted entries' included.
   Set<String> get receiptFiles => {
-    ..._receipts.values,
+    ..._receipts.files,
     // A form put aside keeps the photo chosen for it.
-    for (final draft in _drafts.values) ?_draftReceipt(draft),
+    ..._drafts.receipts,
   };
 
-  static String? _draftReceipt(String draft) {
-    try {
-      return (jsonDecode(draft) as Map<String, Object?>)['receipt'] as String?;
-    } on Object {
-      return null;
-    }
-  }
+  /// The forms put aside in the composer, kept across a restart.
+  final Drafts _drafts;
 
-  /// The forms put aside in the composer, as JSON by tab, kept across a
-  /// restart of the app.
-  final Map<String, String> _drafts;
-
-  String? draft(String tab) => _drafts[tab];
+  String? draft(String tab) => _drafts.of(tab);
 
   /// Keeps the form put aside on [tab], or clears it when [json] is null.
   void setDraft(String tab, String? json) {
-    if (_drafts[tab] == json) return;
-    if (json == null) {
-      _drafts.remove(tab);
-    } else {
-      _drafts[tab] = json;
-    }
-    _keep(Batch(drafts: {tab: json}));
+    if (!_drafts.set(tab, json)) return;
+    _keep(WriteBatch(drafts: {tab: json}));
   }
 
   /// Gives the entry with [id] the receipt photo [file], or takes its
   /// photo away when null.
   void setReceipt(String id, String? file) {
-    if (receiptOf(id) == file) return;
-    _receipts.remove(id);
-    if (file != null) _receipts[id] = file;
+    if (!_receipts.set(id, file)) return;
     _signal();
-    _keep(Batch(receipts: {id: file}));
+    _keep(WriteBatch(receipts: {id: file}));
   }
 
   /// The trading day of the newest closing price the holdings are
@@ -190,9 +192,10 @@ final class Ledger extends ChangeNotifier {
   ];
   List<Holding>? _moved;
 
-  /// Amounts are written as dots: the 隱藏金額 switch.
-  bool get hidden => _hidden;
-  var _hidden = false;
+  /// The 隱藏金額 switch: amounts written as dots. Its changes reach the
+  /// screens as a change of how amounts are shown, which leaves every sum
+  /// worked out as it was.
+  final amounts = AmountVisibility();
 
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
@@ -239,132 +242,76 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries in [year]/[month], newest day first; within a day the most
   /// recently recorded first. The list cannot be changed.
-  List<Entry> entriesIn(int year, int month) {
-    final months = _months ??= _indexMonths();
-    return months[year * 12 + month] ?? const <Entry>[];
-  }
-
-  /// Every month's entries in [entriesIn] order, built once per change.
-  Map<int, List<Entry>> _indexMonths() {
-    final groups = <int, List<(int, Entry)>>{};
-    for (final (i, e) in _entries.indexed) {
-      (groups[e.date.year * 12 + e.date.month] ??= []).add((i, e));
-    }
-    final months = <int, List<Entry>>{};
-    for (final MapEntry(key: month, value: found) in groups.entries) {
-      found.sort((a, b) {
-        final byDate = b.$2.date.compareTo(a.$2.date);
-        return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-      });
-      months[month] = List.unmodifiable([for (final (_, e) in found) e]);
-    }
-    return months;
-  }
+  List<Entry> entriesIn(int year, int month) => _entries.inMonth(year, month);
 
   /// What the screens ask for again and again, worked out once per change:
-  /// entries by month, balances by account and day, accounts by id.
-  Map<int, List<Entry>>? _months;
-  Map<DateTime, List<Entry>>? _days;
-  DateTime? _first;
+  /// balances by account and day, accounts by id.
   Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
-  Map<String, Entry>? _idIndex;
-  Map<String, int>? _refundIndex;
 
-  /// Sums worked out since the last change of what they rest on, by what
-  /// was asked: such as a card's statement on a given day.
-  final _memo = <Object, Object?>{};
+  /// Answers worked out once per change of what they rest on.
+  final _cache = QueryCache();
 
-  /// What each sum in [_memo] rests on.
-  final _memoOn = <Object, Set<Area>>{};
-
-  /// What [make] works out, once per change of the [on] areas for each
-  /// [key]. A key should hold every argument the answer depends on, the
-  /// day included; [on] is every area it reads.
-  T _remember<T>(Object key, T Function() make, {Set<Area> on = Area.all}) {
-    if (_memo.containsKey(key)) return _memo[key] as T;
-    final made = make();
-    _memo[key] = made;
-    _memoOn[key] = on;
-    return made;
-  }
+  /// Counts and announces the changes of each topic.
+  final _topics = TopicNotifier();
 
   /// Moves on with every change of what the sums are worked out from, so
   /// a screen that keeps sums of its own knows when to work them out
   /// again; hiding the amounts leaves it.
-  int get revision => _revision;
-  var _revision = 0;
+  int get revision => _topics.revision;
 
-  /// How many times each area has changed, for a screen that keeps sums
-  /// resting on some areas only.
-  int revisionOf(Area area) => _areaRevisions[area.index];
-  final _areaRevisions = List.filled(Area.values.length, 0);
+  /// How many times [topic] has changed, for a screen that keeps sums
+  /// resting on some topics only.
+  int revisionOf(Topic topic) => _topics.revisionOf(topic);
+
+  /// What [make] works out, once per change of the [on] topics for each
+  /// [key]. A key should hold every argument the answer depends on, the
+  /// day included; [on] is every topic it reads.
+  T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) =>
+      _cache.remember(key, make, reads: on);
 
   Map<String, Category>? _categoryIndex;
 
-  /// Throws away what rests on [areas], and only that: a budget changed
+  /// Throws away what rests on [topics], and only that: a budget changed
   /// leaves every statement and balance worked out.
-  void _forget(Set<Area> areas) {
-    _revision++;
-    for (final area in areas) {
-      _areaRevisions[area.index]++;
-    }
-    if (areas.contains(Area.categories)) _categoryIndex = null;
-    if (areas.contains(Area.entries)) {
-      _idIndex = null;
-      _refundIndex = null;
-      _months = null;
-      _days = null;
-      _first = null;
-    }
-    if (areas.contains(Area.entries) || areas.contains(Area.accounts)) {
+  void _forget(Set<Topic> topics) {
+    _topics.count(topics);
+    if (topics.contains(Topic.categories)) _categoryIndex = null;
+    if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
       _running = null;
       _balances.clear();
     }
-    if (areas.contains(Area.accounts)) _accountIndex = null;
-    if (areas.contains(Area.entries) || areas.contains(Area.market)) {
+    if (topics.contains(Topic.accounts)) _accountIndex = null;
+    if (topics.contains(Topic.entries) || topics.contains(Topic.market)) {
       _moved = null;
     }
-    final stale = [
-      for (final MapEntry(:key, value: on) in _memoOn.entries)
-        if (on.any(areas.contains)) key,
-    ];
-    for (final key in stale) {
-      _memo.remove(key);
-      _memoOn.remove(key);
-    }
+    _cache.forget(topics);
   }
 
-  /// Tells the screens of a change of every area.
+  /// Tells the screens of a change of every topic.
   @override
-  void notifyListeners() => _changed(Area.all);
+  void notifyListeners() => _changed(Topic.all);
 
-  /// Tells the screens [areas] changed, after throwing away what rests on
-  /// them; those listening to [watch] hear only of the areas they asked
+  /// Tells the screens [topics] changed, after throwing away what rests on
+  /// them; those listening to [watch] hear only of the topics they asked
   /// for.
-  void _changed(Set<Area> areas) {
-    _forget(areas);
+  void _changed(Set<Topic> topics) {
+    _forget(topics);
     super.notifyListeners();
-    for (final area in areas) {
-      _watchers[area]?.notify();
-    }
+    _topics.announce(topics);
   }
 
   /// Tells the screens of a change that leaves every sum as it was, such
   /// as hiding the amounts: nothing worked out is thrown away.
   void _signal() {
     super.notifyListeners();
-    _watchers[Area.display]?.notify();
+    _topics.announce(const {Topic.display});
   }
 
-  final _watchers = <Area, _Watcher>{};
-
-  /// Changes of [areas] only, and of how amounts are shown: for a screen
+  /// Changes of [topics] only, and of how amounts are shown: for a screen
   /// that need not be built again when, say, a budget changes.
-  Listenable watch(Set<Area> areas) => Listenable.merge([
-    for (final area in {...areas, Area.display}) _watchers[area] ??= _Watcher(),
-  ]);
+  Listenable watch(Set<Topic> topics) => _topics.watch(topics);
 
   /// Every entry, in the order written; the list cannot be changed.
   List<Entry> get entries => UnmodifiableListView(_entries);
@@ -373,42 +320,13 @@ final class Ledger extends ChangeNotifier {
 
   String newId() => PublicId.generate().value;
 
-  var _queue = Future<void>.value();
-  var _waiting = 0;
+  /// Hands the changes to the data source in turn; none without one.
+  WriteQueue? _writes;
 
-  /// Done once every change so far has reached the [journal].
-  Future<void> get settled => _queue;
+  /// Done once every change so far has reached the data source.
+  Future<void> get settled => _writes?.settled ?? Future<void>.value();
 
-  /// Whether a refused change left the screens ahead of the [journal].
-  var _stale = false;
-
-  /// Hands [batch] to the [journal], in turn with every change before it.
-  /// A batch it refuses is reported through [problem], and once nothing
-  /// else waits the book is read back, so the screens show what was kept.
-  void _keep(Batch batch) {
-    final journal = this.journal;
-    if (journal == null || batch.isEmpty) return;
-    _waiting++;
-    _queue = _queue.then((_) async {
-      try {
-        await journal.keep(batch);
-      } on Object catch (error) {
-        problem.value = error;
-        _stale = true;
-      }
-      if (--_waiting > 0 || !_stale) return;
-      _stale = false;
-      try {
-        final fresh = await journal.load();
-        // A change made while loading is newer than what was loaded; the
-        // load after it brings both.
-        if (_waiting == 0) _adopt(fresh);
-      } on Object catch (error) {
-        problem.value = error;
-        _stale = true;
-      }
-    });
-  }
+  void _keep(WriteBatch batch) => _writes?.enqueue(batch);
 
   /// Takes new closing prices and rates: the stocks' reference prices and
   /// names in [holdings], each day's change in [moves].
@@ -433,12 +351,12 @@ final class Ledger extends ChangeNotifier {
       ..addAll(rates);
     _quotedOn = quotedOn;
     _replay(lenient: true);
-    _changed(const {Area.market});
+    _changed(const {Topic.market});
   }
 
   /// What a change of several records left different: every record not
   /// the very one it was before is kept, and those gone are dropped.
-  Batch _since(_Before before) {
+  WriteBatch _since(_Before before) {
     List<T> changed<T>(List<T> was, List<T> now, String Function(T) key) {
       final old = {for (final item in was) key(item): item};
       return [
@@ -447,8 +365,8 @@ final class Ledger extends ChangeNotifier {
       ];
     }
 
-    List<(Shelf, String)> gone<T>(
-      Shelf shelf,
+    List<(Collection, String)> gone<T>(
+      Collection collection,
       List<T> was,
       List<T> now,
       String Function(T) key,
@@ -456,15 +374,15 @@ final class Ledger extends ChangeNotifier {
       final kept = {for (final item in now) key(item)};
       return [
         for (final item in was)
-          if (!kept.contains(key(item))) (shelf, key(item)),
+          if (!kept.contains(key(item))) (collection, key(item)),
       ];
     }
 
     String entryKey(Entry e) => e.id;
-    String categoryKey(Category c) => c.name;
+    String categoryKey(Category c) => c.id;
     String budgetKey(Budget b) => b.category;
     String recurringKey(Recurring r) => r.id;
-    return Batch(
+    return WriteBatch(
       entries: changed(before.entries, _entries, entryKey),
       categories: changed(before.categories, _categories, categoryKey),
       budgets: changed(before.budgets, _budgets, budgetKey),
@@ -472,10 +390,20 @@ final class Ledger extends ChangeNotifier {
       // Entries in the trash follow a rename or a merge too.
       trash: changed(before.trash, _trash, (t) => t.entry.id),
       dropped: [
-        ...gone(Shelf.entry, before.entries, _entries, entryKey),
-        ...gone(Shelf.category, before.categories, _categories, categoryKey),
-        ...gone(Shelf.budget, before.budgets, _budgets, budgetKey),
-        ...gone(Shelf.recurring, before.recurring, _recurring, recurringKey),
+        ...gone(Collection.entry, before.entries, _entries, entryKey),
+        ...gone(
+          Collection.category,
+          before.categories,
+          _categories,
+          categoryKey,
+        ),
+        ...gone(Collection.budget, before.budgets, _budgets, budgetKey),
+        ...gone(
+          Collection.recurring,
+          before.recurring,
+          _recurring,
+          recurringKey,
+        ),
       ],
     );
   }
@@ -505,11 +433,11 @@ final class Ledger extends ChangeNotifier {
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
     _adopt(fresh);
-    _hidden = false;
+    amounts.reset();
     notifyListeners();
   }
 
-  /// Takes the contents of [fresh], as reloaded from the [journal].
+  /// Takes the contents of [fresh], as reloaded from the [data source].
   void _adopt(Ledger fresh) {
     _accounts
       ..clear()
@@ -538,12 +466,8 @@ final class Ledger extends ChangeNotifier {
     _moves
       ..clear()
       ..addAll(fresh._moves);
-    _receipts
-      ..clear()
-      ..addAll(fresh._receipts);
-    _drafts
-      ..clear()
-      ..addAll(fresh._drafts);
+    _receipts.replaceWith(fresh._receipts);
+    _drafts.replaceWith(fresh._drafts);
     _quotedOn = fresh._quotedOn;
     _quoteDays
       ..clear()
@@ -552,45 +476,11 @@ final class Ledger extends ChangeNotifier {
     _replay(lenient: true);
     notifyListeners();
   }
-
-  void toggleHidden() {
-    _hidden = !_hidden;
-    _signal();
-  }
 }
 
 /// One account's entries in date order with the balance change up to each
 /// of them, so a balance on any day is one search. Instalment purchases
 /// are kept apart: what they have billed depends on the day asked about.
-/// The parts of the book a change can touch, so what rests on the others
-/// is kept.
-enum Area {
-  entries,
-  accounts,
-  categories,
-  budgets,
-  recurring,
-  market,
-
-  /// How amounts are shown (隱藏金額); nothing worked out rests on it.
-  display;
-
-  /// Every part of the book.
-  static const all = {
-    entries,
-    accounts,
-    categories,
-    budgets,
-    recurring,
-    market,
-  };
-}
-
-/// One area's listeners.
-final class _Watcher extends ChangeNotifier {
-  void notify() => notifyListeners();
-}
-
 final class _Running {
   final days = <DateTime>[];
   final totals = <int>[];

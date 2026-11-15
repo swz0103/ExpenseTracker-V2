@@ -9,7 +9,7 @@ extension LedgerQueries on Ledger {
   List<Entry> search(String words) => _remember(
     ('search', words),
     () => _search(words),
-    on: const {Area.entries, Area.accounts, Area.categories},
+    on: const {Topic.entries, Topic.accounts, Topic.categories},
   );
 
   List<Entry> _search(String words) {
@@ -21,7 +21,7 @@ extension LedgerQueries on Ledger {
         for (final e in _entries)
           [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
       ],
-      on: const {Area.entries},
+      on: const {Topic.entries},
     );
     final found = [
       for (final (i, e) in _entries.indexed)
@@ -37,19 +37,7 @@ extension LedgerQueries on Ledger {
     return [for (final (_, e) in found) e];
   }
 
-  List<Entry> entriesOn(DateTime day) =>
-      (_days ??= _indexDays())[day] ?? const [];
-
-  /// Every day's entries in [entriesIn] order, built once per change.
-  Map<DateTime, List<Entry>> _indexDays() {
-    final days = <DateTime, List<Entry>>{};
-    for (final month in (_months ??= _indexMonths()).values) {
-      for (final e in month) {
-        (days[e.date] ??= []).add(e);
-      }
-    }
-    return days;
-  }
+  List<Entry> entriesOn(DateTime day) => _entries.onDay(day);
 
   /// Income of a month, dividends included.
   int income(int year, int month) =>

@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:expense_tracker/src/app/app.dart';
-import 'package:expense_tracker/src/core/ledger/table_journal.dart';
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
@@ -42,8 +42,8 @@ Future<void> bench(
     codec: KeyringCodec(kdf: PasswordKdf.insecureForTests),
   );
   final (open, _) = await vault.create('bench password');
-  final journal = TableJournal(open.store);
-  var ledger = await journal.load();
+  final dataSource = SqlLedgerDataSource(open.store);
+  var ledger = await dataSource.load();
   final accounts = [
     for (final a in ledger.accounts)
       if (!a.kind.isDebt) a.id,
@@ -67,10 +67,10 @@ Future<void> bench(
       ),
   ];
   final writing = Stopwatch()..start();
-  await journal.keep(Batch(entries: entries));
+  await dataSource.keep(WriteBatch(entries: entries));
   writing.stop();
   final loading = Stopwatch()..start();
-  ledger = await journal.load();
+  ledger = await dataSource.load();
   loading.stop();
   report[key('entries')] = count;
   report[key('write_ms')] = writing.elapsedMilliseconds;

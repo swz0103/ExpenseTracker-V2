@@ -9,7 +9,7 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
-import '../model/calendar.dart';
+import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 
 part 'recurring_repeat.dart';

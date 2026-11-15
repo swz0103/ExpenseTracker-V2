@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/platform/preferences.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// This build's number, set by the APK build (android.yml); 0 in a build
 /// made by hand and in the preview, which never look for updates.
@@ -65,6 +66,7 @@ final class UpdateInfo {
         ],
       );
     } on FormatException {
+      // A feed that cannot be read says nothing new.
       return null;
     }
   }
@@ -174,9 +176,10 @@ final class AppUpdate extends ChangeNotifier {
       _upToDate = _newer == null;
       return _newer;
     } on Object catch (error) {
+      ErrorLog.instance.record('檢查更新', error);
       _problem = error is IOException || error is TimeoutException
           ? '連不上 GitHub，請稍後再試'
-          : '$error';
+          : ErrorLog.describe(error);
       return null;
     } finally {
       _checking = false;
@@ -249,9 +252,10 @@ final class AppUpdate extends ChangeNotifier {
       }
       return outcome;
     } on Object catch (error) {
+      ErrorLog.instance.record('下載更新', error);
       _problem = error is IOException || error is TimeoutException
           ? '下載中斷，請稍後再試'
-          : '$error';
+          : ErrorLog.describe(error);
       if (apk.existsSync()) await apk.delete();
       return null;
     } finally {

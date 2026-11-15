@@ -9,6 +9,7 @@ import '../../../core/platform/problems.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;
@@ -27,6 +28,7 @@ class TrashSection extends StatelessWidget {
         showNote(context, '已放回「${trashed.entry.title}」');
       }
     } on Object catch (error) {
+      ErrorLog.instance.record('放回刪除的紀錄', error);
       showNote(context, describeProblem(error));
     }
   }

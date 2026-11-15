@@ -244,7 +244,8 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final String? name;
     try {
       name = await photos.takeLeftover();
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('收據照片', error);
       return;
     }
     if (name == null || !mounted) return;
@@ -303,6 +304,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         if (photo != null) _ledger.setReceipt(entry.id, photo);
       }
     } on StateError catch (error) {
+      // Said to the person below the form.
       setState(() => _problem = error.message);
       return;
     }

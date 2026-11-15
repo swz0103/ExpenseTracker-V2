@@ -1,12 +1,12 @@
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing: the ledger's own work is what is timed.
-final class _Nowhere implements Journal {
+final class _Nowhere implements LedgerDataSource {
   @override
-  Future<void> keep(Batch batch) async {}
+  Future<void> keep(WriteBatch batch) async {}
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -116,13 +116,13 @@ void main() {
     categories: [
       for (final (i, name) in spending.indexed)
         Category(name, 'other', 0xFF5C9A83 + i),
-      const Category('薪資', 'income', 0xFF5B8DB0, income: true),
+      Category('薪資', 'income', 0xFF5B8DB0, income: true),
     ],
     entries: list,
     holdings: const [],
     budgets: const [],
     recurring: const [],
-    journal: _Nowhere(),
+    dataSource: _Nowhere(),
   );
 
   test('ten thousand entries stay quick on every screen', () async {

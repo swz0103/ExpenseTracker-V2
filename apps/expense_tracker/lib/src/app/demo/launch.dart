@@ -10,7 +10,7 @@ import '../../features/lock/ui/views/unlock_view.dart';
 import '../../features/lock/ui/views/welcome_view.dart';
 import '../../features/overview/model/home_widget.dart';
 import '../../features/overview/compose/widget_face.dart';
-import '../../features/settings/model/services.dart';
+import '../../features/settings/model/platform_services.dart';
 import '../shell.dart';
 import 'preview_services.dart';
 import 'seed.dart';
@@ -118,12 +118,12 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
       _Stage.app => AppShell(
         ledger: _ledger,
         tour: _tour,
-        services: Services(
+        services: PlatformServices(
           preferences: widget.preferences,
           notifier: _stand.notifier,
           privacy: _stand.privacy,
           market: _stand.market,
-          keeper: _stand.keeper,
+          backupManager: _stand.backupManager,
           sample: demoLedger,
           quick: _quick,
         ),

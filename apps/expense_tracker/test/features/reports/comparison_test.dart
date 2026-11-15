@@ -1,13 +1,13 @@
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/categories/model/project.dart';
+import 'package:expense_tracker/src/features/tags/model/tag_summary.dart';
 import 'package:expense_tracker/src/features/reports/model/comparison.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
-final class _Nowhere implements Journal {
+final class _Nowhere implements LedgerDataSource {
   @override
-  Future<void> keep(Batch batch) async {}
+  Future<void> keep(WriteBatch batch) async {}
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -34,7 +34,7 @@ void main() {
   final ledger = Ledger(
     today: DateTime.utc(2026, 10, 20),
     accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-    categories: const [],
+    categories: [],
     entries: [
       entry('a', DateTime.utc(2026, 9, 3), 300),
       entry(
@@ -64,7 +64,7 @@ void main() {
     holdings: const [],
     budgets: const [],
     recurring: const [],
-    journal: _Nowhere(),
+    dataSource: _Nowhere(),
   );
 
   test('two stretches side by side, the largest difference first', () {
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('a tag as a project: when it ran, what it cost, on what', () {
-    final trip = projectOf(ledger, '花蓮')!;
+    final trip = tagSummaryOf(ledger, '花蓮')!;
     expect(trip.from, DateTime.utc(2026, 9, 10));
     expect(trip.to, DateTime.utc(2026, 9, 12));
     expect(trip.days, 3);
@@ -99,6 +99,6 @@ void main() {
     expect(trip.perDay, 666);
     expect(trip.byCategory, [('交通', 1200), ('住宿', 800)]);
     expect([for (final e in trip.entries) e.id], ['c', 'b']);
-    expect(projectOf(ledger, '沒有'), isNull);
+    expect(tagSummaryOf(ledger, '沒有'), isNull);
   });
 }

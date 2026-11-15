@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../model/drive_backup.dart';
 import '../model/drive_sync.dart';
-import '../model/keeper.dart';
+import '../model/backup_manager.dart';
 import '../model/phone_backup.dart';
 import '../../../core/look/dialogs.dart';
 import '../../../core/look/glyphs.dart';
@@ -12,17 +12,23 @@ import '../../../core/platform/preferences.dart';
 import '../../../core/platform/problems.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 part 'backup_section_manual.dart';
+part 'backup_section_card_row.dart';
 
 /// Keeps a backup of this ledger, then opens the lock screen on choosing
 /// the backup to restore, from a file or Google Drive.
-Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
+Future<void> restoreFromBackup(
+  BuildContext context,
+  BackupManager backupManager,
+) async {
   final ok = await confirm(context, '從備份還原？會先把目前的帳本連同照片備份一份，再換成你選的備份。', '選擇備份');
   if (!ok) return;
   try {
-    await keeper.restoreAnother();
+    await backupManager.restoreAnother();
   } on Object catch (error) {
+    ErrorLog.instance.record('還原', error);
     if (context.mounted) {
       showNote(context, '沒有開始還原：${describeProblem(error)}');
     }
@@ -37,13 +43,13 @@ Future<void> restoreFromBackup(BuildContext context, Keeper keeper) async {
 class BackupSection extends StatefulWidget {
   const BackupSection({
     super.key,
-    required this.keeper,
+    required this.backupManager,
     this.drive,
     this.phone,
     this.preferences,
   });
 
-  final Keeper keeper;
+  final BackupManager backupManager;
 
   /// Redraws the page when a setting changes.
   final Preferences? preferences;
@@ -61,10 +67,10 @@ class BackupSection extends StatefulWidget {
 class _BackupSectionState extends State<BackupSection> {
   /// Saves a backup outside the app. Without a password, only a recovery
   /// code opens it on another phone, so a new one is made and shown.
-  Future<void> _export(Keeper keeper) async {
+  Future<void> _export(BackupManager backupManager) async {
     try {
-      final code = await _codeFor(keeper);
-      final saved = await keeper.exportBackup();
+      final code = await _codeFor(backupManager);
+      final saved = await backupManager.exportBackup();
       if (!mounted) return;
       if (code != null) {
         // The code changed even if the save was cancelled: show it anyway.
@@ -76,33 +82,36 @@ class _BackupSectionState extends State<BackupSection> {
       } else if (saved) {
         showNote(
           context,
-          keeper.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
+          backupManager.hasPassword ? '已匯出備份檔' : '已匯出備份檔，還原時輸入你抄下的救援碼',
         );
       }
     } on Object catch (error) {
+      ErrorLog.instance.record('匯出備份', error);
       if (mounted) showNote(context, '匯出失敗：${describeProblem(error)}');
     }
   }
 
   /// A ledger without a password restores with its recovery code: one is
   /// made the first time a backup leaves the phone, and shown.
-  Future<String?> _codeFor(Keeper keeper) async =>
-      keeper.hasPassword || keeper.recoveryGiven
+  Future<String?> _codeFor(BackupManager backupManager) async =>
+      backupManager.hasPassword || backupManager.recoveryGiven
       ? null
-      : await keeper.newRecoveryCode();
+      : await backupManager.newRecoveryCode();
 
   /// Signs in with Google and sends the first backup of the ledger.
-  Future<void> _linkDrive(Keeper keeper, DriveSync drive) async {
+  Future<void> _linkDrive(BackupManager backupManager, DriveSync drive) async {
     String? code;
     String note;
     try {
-      code = await _codeFor(keeper);
+      code = await _codeFor(backupManager);
       note = await drive.link()
           ? '已把帳本備份到 Google 雲端硬碟，之後有變動就每天一次'
           : '沒有連結 Google 雲端硬碟';
     } on DriveException catch (error) {
+      // Its own message is said to the person.
       note = error.message;
     } on Object catch (error) {
+      ErrorLog.instance.record('備份', error);
       note = '備份失敗：${describeProblem(error)}';
     }
     // The code changed even when the backup did not go up: shown anyway.
@@ -119,8 +128,10 @@ class _BackupSectionState extends State<BackupSection> {
       await drive.setPhotos(on);
       if (mounted && on) showNote(context, '已連同收據照片備份到雲端硬碟');
     } on DriveException catch (error) {
+      // Its own message is said to the person.
       if (mounted) showNote(context, error.message);
     } on Object catch (error) {
+      ErrorLog.instance.record('備份', error);
       if (mounted) showNote(context, '備份失敗：${describeProblem(error)}');
     }
   }
@@ -150,12 +161,14 @@ class _BackupSectionState extends State<BackupSection> {
         }
         go = false;
       } on FolderRejected {
+        // The phone refused this place: said to the person.
         go = await _folderRules(
           'Android 不讓 App 存到這個位置（「下載」或儲存空間最外層都不行）。'
               '請進到「文件（Documents）」或其他資料夾裡，再按「使用這個資料夾」。',
           '重新選',
         );
       } on Object catch (error) {
+        ErrorLog.instance.record('手機資料夾備份', error);
         note = '沒有備份到手機資料夾：${describeProblem(error)}';
         go = false;
       }
@@ -246,7 +259,7 @@ class _BackupSectionState extends State<BackupSection> {
                     glyph: Glyph.upload,
                     label: '匯出一份',
                     color: SettingsHue.csv,
-                    onTap: () => _export(widget.keeper),
+                    onTap: () => _export(widget.backupManager),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -255,7 +268,8 @@ class _BackupSectionState extends State<BackupSection> {
                     glyph: Glyph.download,
                     label: '還原',
                     color: SettingsHue.invoice,
-                    onTap: () => restoreFromBackup(context, widget.keeper),
+                    onTap: () =>
+                        restoreFromBackup(context, widget.backupManager),
                   ),
                 ),
               ],
@@ -296,7 +310,9 @@ class _BackupSectionState extends State<BackupSection> {
       value: linked,
       onChanged: drive.busy
           ? null
-          : (v) => v ? _linkDrive(widget.keeper, drive) : _unlinkDrive(drive),
+          : (v) => v
+                ? _linkDrive(widget.backupManager, drive)
+                : _unlinkDrive(drive),
       rows: [
         if (linked) ...[
           _CardRow(
@@ -514,72 +530,6 @@ class _BackupCard extends StatelessWidget {
             row,
           ],
         ],
-      ),
-    );
-  }
-}
-
-/// A setting on a [_BackupCard]: its name, and on the right its value
-/// with › or a control.
-class _CardRow extends StatelessWidget {
-  const _CardRow({
-    required this.color,
-    required this.title,
-    this.detail,
-    this.value,
-    this.trailing,
-    this.onTap,
-  });
-
-  final Color color;
-  final String title;
-  final String? detail;
-  final String? value;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = deepOf(color);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OneLine(
-                    title,
-                    style: TextStyle(
-                      fontSize: TextSize.body,
-                      fontWeight: FontWeight.w700,
-                      color: ink,
-                    ),
-                  ),
-                  if (detail != null)
-                    Text(
-                      detail!,
-                      style: TextStyle(fontSize: TextSize.caption, color: ink),
-                    ),
-                ],
-              ),
-            ),
-            if (value != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: OneLine(
-                  '${value!} ›',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: ink),
-                ),
-              ),
-            ?trailing,
-          ],
-        ),
       ),
     );
   }

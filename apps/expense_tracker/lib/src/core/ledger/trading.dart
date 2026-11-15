@@ -57,6 +57,7 @@ int dividendPremium(int gross, DateTime paidOn) {
     final premium = supplementaryPremium(_ntd(gross), paidOn: _day(paidOn));
     return premium.minorUnits.toInt();
   } on InvestmentException {
+    // Before the rates on record: nothing to suggest.
     return 0;
   }
 }

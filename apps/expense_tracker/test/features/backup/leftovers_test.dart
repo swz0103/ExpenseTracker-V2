@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/features/backup/model/leftovers.dart';
+import 'package:expense_tracker/src/features/backup/model/file_cleanup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

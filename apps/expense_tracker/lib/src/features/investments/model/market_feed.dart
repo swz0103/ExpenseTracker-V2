@@ -3,21 +3,21 @@ import 'dart:io';
 
 import 'package:market/market_data.dart';
 
-import '../../../core/platform/connector.dart';
+import '../../../core/platform/sync_job.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ledger/table_journal.dart';
+import '../../../core/ledger/persistence/sql_ledger_data_source.dart';
 
 /// Closing prices and exchange rates for [ledger], fetched at most every
 /// 20 minutes: when the ledger opens, when the app comes back, and at
 /// once when a stock without a close is bought. A stock the exchanges do
 /// not quote is named rather than left to look like it has a value.
-final class MarketFeed extends Connector implements PriceHistory {
+final class MarketFeed extends SyncJob implements PriceHistory {
   MarketFeed(this._journal, this._ledger, {super.clock, this.historyDir})
     : super('收盤價與匯率', gap: const Duration(minutes: 20)) {
     _ledger.addListener(_changed);
   }
 
-  final TableJournal _journal;
+  final SqlLedgerDataSource _journal;
   final Ledger _ledger;
 
   /// Where finished months of daily closes are kept, so a holding's chart

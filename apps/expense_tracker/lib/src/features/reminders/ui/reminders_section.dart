@@ -8,9 +8,10 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/platform/problems.dart';
 import '../model/calendar_sync.dart';
-import '../model/notifications.dart';
+import '../model/reminder_alerts.dart';
 import '../model/reminders.dart';
 import '../../../core/look/settings_hue.dart';
+import '../../../core/diagnostics/error_log.dart';
 
 part 'reminders_phone.dart';
 
@@ -85,7 +86,8 @@ class _RemindersSectionState extends State<RemindersSection>
       bool allowed;
       try {
         allowed = await notifier.port.access();
-      } on Object {
+      } on Object catch (error) {
+        ErrorLog.instance.record('通知權限', error);
         allowed = false;
       }
       if (!allowed) {
@@ -107,7 +109,8 @@ class _RemindersSectionState extends State<RemindersSection>
     bool allowed;
     try {
       allowed = await notifier.port.access();
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('通知權限', error);
       allowed = false;
     }
     if (!allowed && mounted) showNote(context, '請到系統設定開啟記帳本的通知');
@@ -145,7 +148,8 @@ class _RemindersSectionState extends State<RemindersSection>
       await notifier.port.test(exact: notifier.preferences.exactReminders);
       if (mounted) showNote(context, '一分鐘後會跳出一則測試通知');
     } on Object catch (error) {
-      if (mounted) showNote(context, '無法傳送測試通知：$error');
+      ErrorLog.instance.record('測試通知', error);
+      if (mounted) showNote(context, '無法傳送測試通知：${ErrorLog.describe(error)}');
     }
   }
 
@@ -221,6 +225,7 @@ class _RemindersSectionState extends State<RemindersSection>
       setState(() {});
       showNote(context, written == null ? '日曆沒有同步成功' : '已把 $written 個到期提醒放進日曆');
     } on Object catch (error) {
+      ErrorLog.instance.record('日曆同步', error);
       if (mounted) showNote(context, '日曆沒有連上：${describeProblem(error)}');
     }
   }

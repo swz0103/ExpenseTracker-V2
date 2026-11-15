@@ -11,7 +11,7 @@ void main() {
       Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
       Account('card', '卡', AccountKind.card, 0, closingDay: 25),
     ],
-    categories: const [],
+    categories: [],
     entries: entries,
     holdings: const [],
     budgets: const [],

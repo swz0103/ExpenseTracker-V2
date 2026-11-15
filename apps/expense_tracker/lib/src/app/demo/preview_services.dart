@@ -1,27 +1,32 @@
 import 'dart:math';
 
-import '../../core/platform/connector.dart';
+import '../../core/platform/sync_job.dart';
 import '../../core/ledger/ledger.dart';
 import '../../core/platform/preferences.dart';
 import '../../core/platform/screen_privacy.dart';
-import '../../features/backup/model/keeper.dart';
-import '../../features/reminders/model/notifications.dart';
+import '../../features/backup/model/backup_manager.dart';
+import '../../features/reminders/model/reminder_alerts.dart';
 
 /// The web preview's stand-ins for the phone: notifications that go
 /// nowhere, screen hiding kept in memory, made-up daily closes and keys
 /// that keep nothing, so 通知與提醒, 安全, 備份與還原, their panels and
 /// each holding's chart can be looked at; nothing leaves the browser.
-({Notifier notifier, ScreenPrivacy privacy, DemoPrices market, Keeper keeper})
+({
+  Notifier notifier,
+  ScreenPrivacy privacy,
+  DemoPrices market,
+  BackupManager backupManager,
+})
 previewServices(Preferences preferences, {Ledger Function()? ledger}) => (
   notifier: Notifier(const _NoNotifications(), preferences),
   privacy: ScreenPrivacy.inMemory(),
   market: DemoPrices(ledger),
-  keeper: DemoKeeper(),
+  backupManager: DemoBackupManager(),
 );
 
 /// Keys and backups that keep nothing: every export is cancelled, the
 /// password is only remembered while the page is open.
-final class DemoKeeper implements Keeper {
+final class DemoBackupManager implements BackupManager {
   var _password = false;
 
   @override
@@ -66,7 +71,7 @@ final class DemoKeeper implements Keeper {
 
 /// Made-up daily closes for the demo's holdings: a walk of its own for
 /// each code, the same each time, ending on the price the ledger holds.
-final class DemoPrices extends Connector implements PriceHistory {
+final class DemoPrices extends SyncJob implements PriceHistory {
   DemoPrices(this._ledger) : super('收盤價');
 
   final Ledger Function()? _ledger;

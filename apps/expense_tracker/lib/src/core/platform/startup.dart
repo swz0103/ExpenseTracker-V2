@@ -8,7 +8,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'perf.dart';
+import '../diagnostics/error_log.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.
@@ -67,7 +67,7 @@ final class Startup extends ChangeNotifier {
 
   /// Throws for a record the app cannot read, so a backup holding one is
   /// refused rather than restored.
-  final void Function(String shelf, String id, String body)? check;
+  final void Function(String collection, String id, String body)? check;
   late StartupState _state;
   String? _recovery;
 
@@ -111,7 +111,7 @@ final class Startup extends ChangeNotifier {
   }
 
   /// Kept once this ledger's recovery code has been shown, so a backup
-  /// leaving the phone does not make a new one (vault_keeper.dart).
+  /// leaving the phone does not make a new one (encrypted_backup_manager.dart).
   File get recoveryGiven => File('${directory.path}/recovery-given');
 
   /// The copy of the ledger, without its photos, that Android's own
@@ -126,7 +126,8 @@ final class Startup extends ChangeNotifier {
     if (_state is! NeedsSetup || !cloudCopy.existsSync()) return null;
     try {
       return await LedgerBackup.readHeader(cloudCopy);
-    } on Object {
+    } on Object catch (error) {
+      ErrorLog.instance.record('讀取備份標頭', error);
       return null;
     }
   }
@@ -367,7 +368,7 @@ final class Startup extends ChangeNotifier {
       await open.updateKeys(keys);
       _reEnrol = false;
     } on Object catch (error) {
-      Perf.instance.problem('指紋登記', error);
+      ErrorLog.instance.record('指紋登記', error);
       // Only turning the prompt down stops it; a failure asks next time.
       if (error is PlatformException && error.code == 'declined') {
         await _noDevice.writeAsString('', flush: true);

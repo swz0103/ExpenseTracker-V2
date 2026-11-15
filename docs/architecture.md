@@ -26,20 +26,21 @@ lib/src/
   core/       所有功能共用：text look charts ledger platform ui，加上 nav.dart
 ```
 
-### core 的六個部分
+### core 的七個部分
 
 | 部分 | 內容 | 可以用 |
 | --- | --- | --- |
 | `text/` | 金額與日期的文字格式，純函式 | — |
+| `diagnostics/` | `ErrorLog`（去識別化的錯誤記錄）、`PerformanceMonitor`（載入與影格時間） | — |
 | `look/` | 設計系統：顏色、字級、圖示、元件、面板（不知道帳本） | text |
 | `charts/` | 圖表 | look、text |
-| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、`platform/perf.dart` |
-| `platform/` | 偏好設定、連接器、開啟帳本、隱私、效能紀錄 | ledger、text |
+| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、diagnostics |
+| `platform/` | 偏好設定、背景同步工作、開啟帳本、隱私 | ledger、text、diagnostics |
 | `ui/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
 
 ### features
 
-`accounts` `backup` `budgets` `cards` `categories` `debts` `entries` `import` `investments` `lock` `overview` `recurring` `reminders` `reports` `settings`
+`accounts` `backup` `budgets` `categories` `debts` `entries` `import_export` `investments` `lock` `overview` `recurring` `reminders` `reports` `settings` `tags`
 
 - `model/`：資料與服務，不碰畫面。
 - `compose/`：表單與面板，別的功能可以打開它。
@@ -59,7 +60,8 @@ lib/src/
 3. 寫：頁面呼叫 `Ledger` 的修改（紀錄、定期、設定各一個 part 檔）；畫面先生效，再交給 `Journal` 一個 `Batch`。
 4. 存：`TableJournal` 把 `Batch` 寫成 `RowStore` 一個交易；失敗時回報並重讀，畫面回到實際存下的狀態。
 
-- 資料格式：每列 JSON 帶 `_v`，讀取時逐版升級；新欄位一律選填、有預設值，不寫 migration。
+- 資料格式：每列 JSON 帶 `_v`；新欄位一律選填、有預設值。改變資料的存法時（不只是加欄位）寫一個升級函式，打開帳本時在**一個交易**裡完成、失敗就整個還原，並用舊格式的樣本資料列測試。
+- 版本 2：紀錄、預算、定期交易、回收區、拆帳都以**分類 id** 存放，載入時換回名稱；分類改名只寫分類那一列。找不到對應分類的名稱（已刪除的）照原樣保留。舊帳本與舊備份打開時自動升級（`persistence/category_id_migration.dart`）。
 - 能不能記（`checks.dart`）只有一處；計算規則呼叫 domain，不在畫面重寫。
 
 ## 金鑰與備份
@@ -100,6 +102,7 @@ lib/src/
 | 測試用 `Keys` 按按鈕 | `test/app/test_rules_test.dart` |
 | 只有 `openFlow` 推路由 | `layers_test` |
 | 檔案 600 行以內 | `layers_test` |
+| 捕捉到的錯誤要記錄、重新拋出或說明為何不用處理；不把原始例外放進訊息 | `test/app/error_rules_test.dart` |
 | 範例帳本只在 `app/demo/`，正式入口碰不到 | `layers_test`、`entry_test.dart` |
 | 顏色、字級、按鈕只在 `core/look` | `test/app/design_rules_test.dart` |
 | Android 自動備份只帶 `files/cloud/` | `test/app/backup_rules_test.dart` |

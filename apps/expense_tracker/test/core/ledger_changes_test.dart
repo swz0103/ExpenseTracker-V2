@@ -1,15 +1,15 @@
 import 'package:expense_tracker/src/core/ledger/batch.dart';
-import 'package:expense_tracker/src/features/import/model/exchange.dart';
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing: only remembers the batches it was handed.
-final class _Batches implements Journal {
-  final kept = <Batch>[];
+final class _Batches implements LedgerDataSource {
+  final kept = <WriteBatch>[];
 
   @override
-  Future<void> keep(Batch batch) async => kept.add(batch);
+  Future<void> keep(WriteBatch batch) async => kept.add(batch);
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -17,10 +17,10 @@ final class _Batches implements Journal {
 
 void main() {
   final day = DateTime.utc(2026, 10, 4);
-  late _Batches journal;
+  late _Batches dataSource;
 
   Ledger book({List<Entry> entries = const [], List<Budget>? budgets}) {
-    journal = _Batches();
+    dataSource = _Batches();
     return Ledger(
       today: day,
       accounts: [
@@ -35,7 +35,7 @@ void main() {
           closes: {DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23)},
         ),
       ],
-      categories: const [
+      categories: [
         Category('飲食', 'food', 0xFF5C9A83),
         Category('居家', 'home', 0xFF5B8DB0),
       ],
@@ -43,7 +43,7 @@ void main() {
       holdings: const [],
       budgets: budgets ?? const [],
       recurring: const [],
-      journal: journal,
+      dataSource: dataSource,
     );
   }
 
@@ -110,7 +110,7 @@ void main() {
     expect(ledger.entries, hasLength(2));
     expect(ledger.trash, isEmpty);
     await ledger.settled;
-    expect(journal.kept, isEmpty);
+    expect(dataSource.kept, isEmpty);
   });
 
   test('taken and reserved category names are refused', () {
@@ -119,7 +119,7 @@ void main() {
       expect(ledger.categoryNameFree(name), isFalse, reason: name);
     }
     expect(ledger.categoryNameFree('飲食', except: '飲食'), isTrue);
-    ledger.addCategory(const Category('轉帳', 'other', 0xFF000000));
+    ledger.addCategory(Category('轉帳', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
     expect(ledger.categories, hasLength(2));
   });
@@ -151,15 +151,15 @@ void main() {
     final ledger = book(entries: [spend('a', 100), spend('b', 200)]);
     ledger.add(spend('c', 50), receipt: 'c.etr');
     await ledger.settled;
-    expect(journal.kept, hasLength(1));
-    expect(journal.kept.single.receipts, {'c': 'c.etr'});
+    expect(dataSource.kept, hasLength(1));
+    expect(dataSource.kept.single.receipts, {'c': 'c.etr'});
     expect(ledger.receiptOf('c'), 'c.etr');
 
-    journal.kept.clear();
+    dataSource.kept.clear();
     expect(ledger.recategorize(ledger.entries, '居家'), 3);
     await ledger.settled;
-    expect(journal.kept, hasLength(1));
-    expect(journal.kept.single.entries, hasLength(3));
+    expect(dataSource.kept, hasLength(1));
+    expect(dataSource.kept.single.entries, hasLength(3));
   });
 
   test('a statement moves on at midnight with nothing changed', () {
@@ -170,7 +170,7 @@ void main() {
       accounts: const [
         Account('card', '卡', AccountKind.card, 0, closingDay: 25, dueDay: 10),
       ],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -196,7 +196,7 @@ void main() {
     final ledger = Ledger(
       today: day,
       accounts: const [],
-      categories: const [Category('轉帳', 'other', 0xFF000000)],
+      categories: [Category('轉帳', 'other', 0xFF000000)],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -215,7 +215,7 @@ void main() {
         Account('bank', '重複的銀行', AccountKind.bank, 0),
         Account('new', '新帳戶', AccountKind.bank, 0),
       ],
-      categories: const [
+      categories: [
         Category('寵物', 'pet', 0xFF123456),
         Category('寵物', 'pet', 0xFF123456),
         Category('轉帳', 'other', 0xFF123456),
@@ -265,7 +265,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 2),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: [paid],
       holdings: const [],
       budgets: const [],
@@ -277,7 +277,7 @@ void main() {
     final fresh = Ledger(
       today: DateTime.utc(2026, 10, 2),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],

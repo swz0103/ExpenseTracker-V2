@@ -63,11 +63,7 @@ extension LedgerReports on Ledger {
   }
 
   /// The day of the first entry, where the book starts.
-  DateTime get firstDay => _first ??= _firstDay();
-
-  DateTime _firstDay() => _entries.isEmpty
-      ? today
-      : _entries.map((e) => e.date).reduce((a, b) => a.isBefore(b) ? a : b);
+  DateTime get firstDay => _entries.firstDate ?? today;
 
   /// What [e] does to [account]'s balance as of today.
   int effect(Entry e, String account) => _effect(e, account, today);
@@ -90,7 +86,7 @@ extension LedgerReports on Ledger {
 
   /// Known merchants, most used first.
   List<String> get merchants =>
-      _remember('merchants', _merchants, on: const {Area.entries});
+      _remember('merchants', _merchants, on: const {Topic.entries});
 
   List<String> _merchants() {
     final counts = <String, int>{};
@@ -115,7 +111,7 @@ extension LedgerReports on Ledger {
       if (kept == null || !e.date.isBefore(kept.date)) latest[e.merchant] = e;
     }
     return latest;
-  }, on: const {Area.entries})[merchant];
+  }, on: const {Topic.entries})[merchant];
 
   /// Spending recorded alike at least three times in the last 90 days
   /// (the same category, merchant and account), the most often first, at
@@ -148,7 +144,7 @@ extension LedgerReports on Ledger {
             if (value >= 3) key,
         ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
         return [for (final key in keys.take(most)) latest[key]!];
-      }, on: const {Area.entries});
+      }, on: const {Topic.entries});
 
   /// Transfers made alike again and again lately, the most made first:
   /// the same two accounts and amount, two times or more in 90 days.
@@ -177,7 +173,7 @@ extension LedgerReports on Ledger {
             if (value >= 2) key,
         ]..sort((a, b) => counts[b]!.compareTo(counts[a]!));
         return [for (final key in keys.take(most)) latest[key]!];
-      }, on: const {Area.entries, Area.accounts});
+      }, on: const {Topic.entries, Topic.accounts});
 
   /// Every entry written as one with [entry]: a spending first, then
   /// what was paid in it for others; [entry] alone when it has no group.
@@ -198,7 +194,7 @@ extension LedgerReports on Ledger {
         );
       }
       return groups;
-    }, on: const {Area.entries});
+    }, on: const {Topic.entries});
     return all[group] ?? [entry];
   }
 
@@ -242,12 +238,12 @@ extension LedgerReports on Ledger {
       if (e.amount > taken) owed.add((e, e.amount - taken));
     }
     return owed.reversed.toList();
-  }, on: const {Area.entries});
+  }, on: const {Topic.entries});
 
   /// Every tag with how many entries carry it and their spending, most
   /// used first.
   List<(String, int, int)> get tagStats =>
-      _remember('tagStats', _tagStats, on: const {Area.entries});
+      _remember('tagStats', _tagStats, on: const {Topic.entries});
 
   List<(String, int, int)> _tagStats() {
     final counts = <String, int>{};
@@ -279,23 +275,14 @@ extension LedgerReports on Ledger {
   ]..sort((a, b) => b.date.compareTo(a.date));
 
   /// The entry with [id], if it is still in the book.
-  Entry? byId(String id) =>
-      (_idIndex ??= {for (final e in _entries) e.id: e})[id];
+  Entry? byId(String id) => _entries.byId(id);
 
   /// How much of [original] has been refunded.
   int refunded(Entry original) => original.amount - refundable(original);
 
   /// How much of [original] is left to refund.
-  int refundable(Entry original) {
-    final back = _refundIndex ??= () {
-      final sums = <String, int>{};
-      for (final e in _entries) {
-        if (e.refundOf case final of?) sums[of] = (sums[of] ?? 0) + e.amount;
-      }
-      return sums;
-    }();
-    return original.amount - (back[original.id] ?? 0);
-  }
+  int refundable(Entry original) =>
+      original.amount - _entries.refundedTotal(original.id);
 
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
@@ -456,7 +443,7 @@ extension LedgerReports on Ledger {
       _remember(
         ('weekly', account, weeks, today),
         () => _weeklyChanges(account, weeks),
-        on: _cardAreas,
+        on: _cardTopics,
       );
 
   List<(DateTime, int)> _weeklyChanges(String account, int weeks) {

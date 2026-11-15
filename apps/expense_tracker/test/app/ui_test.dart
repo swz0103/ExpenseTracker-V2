@@ -7,7 +7,7 @@ import 'package:expense_tracker/src/features/entries/compose/composer.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/entries/ui/ledger_page.dart';
+import 'package:expense_tracker/src/features/entries/ui/entries_page.dart';
 import 'package:expense_tracker/src/features/reports/ui/report_period.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:flutter/material.dart';
@@ -450,13 +450,13 @@ void main() {
     await show(tester);
     await tester.tap(find.byKey(Keys.tab('紀錄')));
     await tester.pumpAndSettle();
-    final page = tester.state(find.byType(LedgerPage));
+    final page = tester.state(find.byType(EntriesPage));
     Shade.show(dark: true);
     await tester.pumpAndSettle();
     expect(Hue.paper.computeLuminance(), lessThan(0.05));
-    expect(tester.state(find.byType(LedgerPage)), same(page));
+    expect(tester.state(find.byType(EntriesPage)), same(page));
     Shade.show(dark: false);
     await tester.pumpAndSettle();
-    expect(tester.state(find.byType(LedgerPage)), same(page));
+    expect(tester.state(find.byType(EntriesPage)), same(page));
   });
 }

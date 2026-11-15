@@ -1,4 +1,4 @@
-import '../../features/reminders/model/notifications.dart';
+import '../../features/reminders/model/reminder_alerts.dart';
 import 'channel.dart';
 
 /// Notifications through `Reminders.kt`: each alert is an alarm that

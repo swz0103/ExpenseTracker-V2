@@ -1,13 +1,13 @@
-import 'package:expense_tracker/src/core/ledger/journal.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:expense_tracker/src/features/entries/model/compose_form.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
-final class _Nowhere implements Journal {
+final class _Nowhere implements LedgerDataSource {
   @override
-  Future<void> keep(Batch batch) async {}
+  Future<void> keep(WriteBatch batch) async {}
 
   @override
   Future<Ledger> load() => throw UnimplementedError();
@@ -22,7 +22,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 100000),
       Account('cash', '現金', AccountKind.cash, 2000),
     ],
-    categories: const [
+    categories: [
       Category('飲食', 'food', 0xFF5C9A83),
       Category('居家', 'home', 0xFF5B8DB0),
     ],
@@ -30,7 +30,7 @@ void main() {
     holdings: const [],
     budgets: const [],
     recurring: const [],
-    journal: _Nowhere(),
+    dataSource: _Nowhere(),
   );
 
   test('a new expense starts on the first account, today', () {

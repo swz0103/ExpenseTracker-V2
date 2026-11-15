@@ -17,32 +17,32 @@ import 'android/market_cache.dart';
 import 'app.dart';
 import '../features/backup/model/drive_backup.dart';
 import '../features/backup/model/drive_sync.dart';
-import '../features/backup/model/leftovers.dart';
+import '../features/backup/model/file_cleanup.dart';
 import '../features/backup/model/outbox.dart';
 import '../features/overview/model/home_widget.dart';
 import '../features/backup/model/phone_backup.dart';
-import '../core/ledger/table_journal.dart';
+import '../core/ledger/persistence/sql_ledger_data_source.dart';
 import '../features/investments/model/market_feed.dart';
-import '../features/backup/model/vault_keeper.dart';
+import '../features/backup/model/encrypted_backup_manager.dart';
 import '../features/reminders/model/calendar_sync.dart';
 import '../features/entries/model/receipt_photos.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
-import '../features/reminders/model/notifications.dart';
+import '../features/reminders/model/reminder_alerts.dart';
 import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
 import '../core/look/recovery_code.dart';
 import 'shell.dart';
 import '../core/platform/away_clock.dart';
-import '../core/platform/perf.dart';
 import 'platform.dart';
 import '../core/platform/preferences.dart';
 import '../core/platform/screen_privacy.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
-import '../features/settings/model/services.dart';
+import '../features/settings/model/platform_services.dart';
 import '../core/platform/startup.dart';
+import '../core/diagnostics/error_log.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not
@@ -51,7 +51,7 @@ Startup productionStartup(Directory directory, {DeviceUnlock? device}) =>
     Startup(
       LedgerVault(directory, codec: KeyringCodec(minimumPassword: 6)),
       device: device,
-      check: TableJournal.check,
+      check: SqlLedgerDataSource.check,
     );
 
 /// Where this device keeps the ledger: the app's private folder on
@@ -154,7 +154,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         )
       : null;
 
-  late final _journal = TableJournal(
+  late final _journal = SqlLedgerDataSource(
     widget.vault.store,
     market: MarketDataGateway(
       transport: _marketCache ?? const IoMarketTransport(),
@@ -173,7 +173,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       ? Notifier(const AndroidNotifications(), widget.preferences)
       : null;
 
-  late final _keeper = VaultKeeper(
+  late final _backupManager = EncryptedBackupManager(
     widget.startup,
     widget.vault,
     beforeLock: () async => _loaded?.settled,
@@ -186,9 +186,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
       ? DriveSync(
           androidDrive(),
           widget.preferences,
-          withBackup: _keeper.withBackup<void>,
-          revision: () => _keeper.revision,
-          ledger: _keeper.ledgerId,
+          withBackup: _backupManager.withBackup<void>,
+          revision: () => _backupManager.revision,
+          ledger: _backupManager.ledgerId,
           unmetered: androidUnmetered,
         )
       : null;
@@ -198,9 +198,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
       ? PhoneBackup(
           const AndroidFolder(),
           widget.preferences,
-          withBackup: _keeper.withBackup<void>,
-          revision: () => _keeper.revision,
-          ledger: _keeper.ledgerId,
+          withBackup: _backupManager.withBackup<void>,
+          revision: () => _backupManager.revision,
+          ledger: _backupManager.ledgerId,
         )
       : null;
 
@@ -210,9 +210,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
       ? Outbox(
           widget.startup.directory,
           widget.preferences,
-          write: _keeper.writeInto,
-          revision: () => _keeper.revision,
-          ledger: _keeper.ledgerId,
+          write: _backupManager.writeInto,
+          revision: () => _backupManager.revision,
+          ledger: _backupManager.ledgerId,
           schedule: androidBackgroundBackups,
         )
       : null;
@@ -250,7 +250,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
       try {
         await sweepReceipts(widget.startup.directory, ledger.receiptFiles);
       } on Object catch (error) {
-        Perf.instance.problem('清除收據照片', error);
+        ErrorLog.instance.record('清除收據照片', error);
       }
       _receipts = AndroidReceipts(
         widget.startup.directory,
@@ -276,7 +276,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         );
         unawaited(_checkUpdate());
       } on Object catch (error) {
-        Perf.instance.problem('檢查更新', error);
+        ErrorLog.instance.record('檢查更新', error);
       }
     }
     _calendar?.follow(ledger);
@@ -303,7 +303,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
         await inbox.remove(item.name);
       }
     } on Object catch (error) {
-      Perf.instance.problem('收件匣', error);
+      ErrorLog.instance.record('收件匣', error);
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -337,7 +337,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       booked = ledger.bookDue();
     } on Object catch (error) {
-      Perf.instance.problem('定期自動入帳', error);
+      ErrorLog.instance.record('定期自動入帳', error);
       return;
     }
     if (booked == 0) return;
@@ -355,7 +355,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
     final problem = phone.problem;
     if (problem == null || _phoneWarned) return;
     _phoneWarned = true;
-    Perf.instance.problem('手機資料夾備份', problem);
+    ErrorLog.instance.record('手機資料夾備份', problem);
     if (mounted) showNote(context, '沒有備份到手機資料夾，可以到「設定」重新選擇');
   }
 
@@ -389,17 +389,17 @@ class _OpenedLedgerState extends State<OpenedLedger>
       // the ledger from the welcome page. No longer a choice on 備份與還原
       // (0.13.0): one turned off before is kept again.
       if (Platform.isAndroid) {
-        await _keeper.keepCloudCopy();
+        await _backupManager.keepCloudCopy();
       }
     } on Object catch (error) {
-      Perf.instance.problem('Google 備份', error);
+      ErrorLog.instance.record('Google 備份', error);
     }
     final outbox = _outbox;
     if (outbox == null) return;
     try {
       await outbox.prepare();
     } on Object catch (error) {
-      Perf.instance.problem('背景備份', error);
+      ErrorLog.instance.record('背景備份', error);
     }
   }
 
@@ -407,10 +407,10 @@ class _OpenedLedgerState extends State<OpenedLedger>
   void _collectOutbox() {
     try {
       for (final problem in _outbox?.collect() ?? const <String>[]) {
-        Perf.instance.problem('背景備份', problem);
+        ErrorLog.instance.record('背景備份', problem);
       }
     } on Object catch (error) {
-      Perf.instance.problem('背景備份', error);
+      ErrorLog.instance.record('背景備份', error);
     }
   }
 
@@ -419,9 +419,9 @@ class _OpenedLedgerState extends State<OpenedLedger>
   /// at the next start.
   Future<void> _weeklyBackup() async {
     try {
-      await _keeper.backUpIfDue();
+      await _backupManager.backUpIfDue();
     } on Object catch (error) {
-      Perf.instance.problem('每週備份', error);
+      ErrorLog.instance.record('每週備份', error);
       if (mounted) showNote(context, '每週自動備份沒有完成，可以到「設定」手動備份');
     }
     _collectOutbox();
@@ -431,12 +431,12 @@ class _OpenedLedgerState extends State<OpenedLedger>
     try {
       await drive.backUpIfDue();
     } on DriveException catch (error) {
-      Perf.instance.problem('雲端硬碟備份', error);
+      ErrorLog.instance.record('雲端硬碟備份', error);
       if (error.problem != DriveProblem.offline && mounted) {
         showNote(context, '沒有備份到 Google 雲端硬碟，可以到「設定」重新連結');
       }
     } on Object catch (error) {
-      Perf.instance.problem('雲端硬碟備份', error);
+      ErrorLog.instance.record('雲端硬碟備份', error);
     }
   }
 
@@ -511,7 +511,7 @@ class _OpenedLedgerState extends State<OpenedLedger>
           unawaited(_phoneBackup());
         }
         if (_awayClock.back(_away) && !widget.startup.passwordless) {
-          unawaited(_keeper.lock());
+          unawaited(_backupManager.lock());
         }
       default:
         break;
@@ -532,8 +532,8 @@ class _OpenedLedgerState extends State<OpenedLedger>
       return AppShell(
         ledger: ledger,
         tour: _fresh,
-        services: Services(
-          keeper: _keeper,
+        services: PlatformServices(
+          backupManager: _backupManager,
           calendar: _calendar,
           privacy: widget.privacy,
           preferences: widget.preferences,

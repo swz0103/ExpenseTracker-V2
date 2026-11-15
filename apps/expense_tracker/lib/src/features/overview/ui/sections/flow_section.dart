@@ -140,7 +140,7 @@ class _FlowSectionState extends State<FlowSection> {
           months: months,
           selected: picked,
           onSelect: (index) => setState(() => _flowMonth = index),
-          hidden: ledger.hidden,
+          hidden: ledger.amounts.hidden,
         ),
       ),
     ];

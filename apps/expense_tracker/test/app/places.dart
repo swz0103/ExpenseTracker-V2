@@ -5,7 +5,7 @@ import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/app/shell.dart';
 import 'package:expense_tracker/src/core/look/theme.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
-import 'package:expense_tracker/src/features/settings/model/services.dart';
+import 'package:expense_tracker/src/features/settings/model/platform_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,12 +116,12 @@ Future<void> show(
         // and screen hiding, so those pages and panels are checked too.
         home: AppShell(
           ledger: ledger,
-          services: Services(
+          services: PlatformServices(
             preferences: preferences,
             notifier: stand.notifier,
             privacy: stand.privacy,
             market: stand.market,
-            keeper: stand.keeper,
+            backupManager: stand.backupManager,
           ),
         ),
       ),

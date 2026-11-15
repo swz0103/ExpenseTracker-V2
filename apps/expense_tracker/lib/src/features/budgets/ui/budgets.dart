@@ -87,9 +87,9 @@ class _BudgetsPageState extends State<BudgetsPage> {
     return ListenableBuilder(
       // Spending and budgets only: a price or a card change leaves it.
       listenable: ledger.watch(const {
-        Area.entries,
-        Area.budgets,
-        Area.categories,
+        Topic.entries,
+        Topic.budgets,
+        Topic.categories,
       }),
       builder: (context, _) {
         final (year, month) = _month;

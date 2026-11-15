@@ -38,7 +38,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
     final market = widget.nav.market;
     return ListenableBuilder(
       listenable: Listenable.merge([
-        ledger.watch(const {Area.entries, Area.market}),
+        ledger.watch(const {Topic.entries, Topic.market}),
         ?market,
       ]),
       builder: (context, _) {
@@ -364,7 +364,7 @@ class _ReturnsState extends State<_Returns> {
                   sums: sums,
                   average: average,
                   picked: picked,
-                  hidden: ledger.hidden,
+                  hidden: ledger.amounts.hidden,
                   words: Hue.muted,
                   rule: Hue.line,
                   band: tintOf(Palette.gold, 0.18),
