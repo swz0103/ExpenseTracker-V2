@@ -222,7 +222,7 @@ void main() {
     () async {
       writeLegacy(open(), broken: true);
       final before = [for (final r in store!.rows()) (r.shelf, r.id, r.body)];
-      await expectLater(load(), throwsA(anything));
+      await expectLater(load(), throwsFormatException);
       expect([for (final r in open().rows()) (r.shelf, r.id, r.body)], before);
       // Categories are still under their names: nothing was half done.
       expect(rowsOf(store!, 'category').keys.toSet(), {'飲食', '早餐', '交通', '薪水'});
