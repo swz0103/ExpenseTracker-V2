@@ -364,7 +364,7 @@ class _ReturnsState extends State<_Returns> {
                   sums: sums,
                   average: average,
                   picked: picked,
-                  hidden: ledger.hidden,
+                  hidden: ledger.amounts.hidden,
                   words: Hue.muted,
                   rule: Hue.line,
                   band: tintOf(Palette.gold, 0.18),

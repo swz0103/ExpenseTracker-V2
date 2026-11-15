@@ -79,4 +79,44 @@ void main() {
     expect((budgets, market, all), (1, 0, 2));
     await ledger.settled;
   });
+
+  test('hiding amounts is a change of display and leaves every sum', () async {
+    final ledger = book();
+    final merchants = ledger.merchants;
+    final revision = ledger.revision;
+    var all = 0;
+    var display = 0;
+    var budgets = 0;
+    ledger.addListener(() => all++);
+    // A page watching budgets alone still hears of how amounts are shown.
+    ledger.watch(const {Area.budgets}).addListener(() => budgets++);
+    ledger.watch(const <Area>{}).addListener(() => display++);
+
+    expect(ledger.amounts.hidden, isFalse);
+    ledger.amounts.toggle();
+    expect(ledger.amounts.hidden, isTrue);
+    expect((all, display, budgets), (1, 1, 1));
+    expect(ledger.revision, revision);
+    expect(identical(ledger.merchants, merchants), isTrue);
+
+    ledger.amounts.toggle();
+    expect(ledger.amounts.hidden, isFalse);
+    expect(all, 2);
+  });
+
+  test('starting a book over shows amounts again, once', () {
+    final ledger = book();
+    ledger.amounts.toggle();
+    var heard = 0;
+    ledger.addListener(() => heard++);
+    ledger.resetTo(book());
+    expect(ledger.amounts.hidden, isFalse);
+    // resetTo itself tells the screens once; showing again adds one more
+    // change of display, never a lost one.
+    expect(heard, greaterThanOrEqualTo(1));
+    ledger.amounts.reset();
+    final after = heard;
+    ledger.amounts.reset();
+    expect(heard, after);
+  });
 }

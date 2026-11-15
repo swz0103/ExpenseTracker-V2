@@ -6,7 +6,7 @@ import '../text/figures.dart';
 /// open at once (as in tests) never share the switch.
 extension ShownAmounts on Ledger {
   /// [text], or dots while amounts are hidden.
-  String orDots(String text) => hidden ? '••••' : text;
+  String orDots(String text) => amounts.hidden ? '••••' : text;
 
   /// [groupDigits], or dots while amounts are hidden.
   String money(int value) => orDots(groupDigits(value));

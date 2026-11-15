@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
 
 import '../text/amounts.dart';
+import 'amount_visibility.dart';
 import 'attachments.dart';
 import 'card_cycle.dart';
 import 'journal.dart';
@@ -63,6 +64,13 @@ final class Ledger extends ChangeNotifier {
        _budgets = [...budgets],
        _recurring = [...recurring] {
     _replay(lenient: true);
+    amounts.addListener(_signal);
+  }
+
+  @override
+  void dispose() {
+    amounts.dispose();
+    super.dispose();
   }
 
   static const allSpending = '全部支出';
@@ -174,9 +182,10 @@ final class Ledger extends ChangeNotifier {
   ];
   List<Holding>? _moved;
 
-  /// Amounts are written as dots: the 隱藏金額 switch.
-  bool get hidden => _hidden;
-  var _hidden = false;
+  /// The 隱藏金額 switch: amounts written as dots. Its changes reach the
+  /// screens as a change of how amounts are shown, which leaves every sum
+  /// worked out as it was.
+  final amounts = AmountVisibility();
 
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<Category> get categories => List.unmodifiable(_categories);
@@ -489,7 +498,7 @@ final class Ledger extends ChangeNotifier {
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
     _adopt(fresh);
-    _hidden = false;
+    amounts.reset();
     notifyListeners();
   }
 
@@ -531,11 +540,6 @@ final class Ledger extends ChangeNotifier {
     _day = fresh.today;
     _replay(lenient: true);
     notifyListeners();
-  }
-
-  void toggleHidden() {
-    _hidden = !_hidden;
-    _signal();
   }
 }
 
