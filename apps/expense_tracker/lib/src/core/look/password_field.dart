@@ -41,7 +41,9 @@ class PasswordField extends StatelessWidget {
       autocorrect: false,
       enableSuggestions: false,
       onSubmitted: submit == null ? null : (_) => submit(),
-      style: plain ? const TextStyle(fontSize: 18, letterSpacing: 2) : null,
+      style: plain
+          ? const TextStyle(fontSize: TextSize.heading, letterSpacing: 2)
+          : null,
       decoration: plain
           ? InputDecoration.collapsed(hintText: hint).copyWith(
               contentPadding: const EdgeInsets.symmetric(vertical: 8),

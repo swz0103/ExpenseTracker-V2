@@ -4,7 +4,7 @@ import 'package:core/foundation_values.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
-import '../../lock/model/startup.dart';
+import '../../../core/platform/startup.dart';
 import 'keeper.dart';
 
 /// The keys and backups of the open encrypted ledger.

@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/look/haptics.dart';
 import '../core/look/theme.dart';
-import '../core/preferences.dart';
+import '../core/platform/preferences.dart';
 import '../core/ui/privacy_cover.dart';
 
 /// The app shell: the theme, light or dark, the scrolling and [home].

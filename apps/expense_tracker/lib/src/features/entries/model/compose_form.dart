@@ -1,9 +1,12 @@
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../import/model/exchange.dart' show guessCategory;
 import '../../import/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
+
+part 'compose_form_lending.dart';
+part 'compose_form_split.dart';
 
 /// The kinds of record the composer makes. 代墊 has no tab of its own:
 /// it is picked inside 支出 (paid for someone) or 收入 (paid back).
@@ -218,103 +221,6 @@ final class ComposeForm {
     }
   }
 
-  /// Opens a transfer to or from someone's account as 代墊 or 還款.
-  void findLending(Entry entry) {
-    if (entry.type != EntryType.transfer) return;
-    final other = entry.to;
-    if (other == null) return;
-    if (ledger.account(other).kind == AccountKind.receivable) {
-      // Paid for someone: a spending of which none is one's own.
-      mode = ComposeMode.expense;
-      back = false;
-      lent = [(other, entry.amount)];
-      _lentIds[other] = entry.id;
-      _ids.add(entry.id);
-      final common = categoryChoices();
-      category = common.isEmpty ? '' : common.first;
-    } else if (ledger.account(entry.account).kind == AccountKind.receivable) {
-      // Saved from the person to the account; the form keeps the person
-      // in [to] either way.
-      mode = ComposeMode.lend;
-      back = true;
-      account = other;
-      to = entry.account;
-    }
-  }
-
-  /// Puts the entries written as one with [entry] in the fields: the
-  /// spending, and what was paid in it for each person.
-  void loadGroup(Entry entry) {
-    final members = ledger.groupOf(entry);
-    final own = [
-      for (final m in members)
-        if (m.type == EntryType.expense) m,
-    ];
-    final others = [
-      for (final m in members)
-        if (m.type == EntryType.transfer && m.to != null) m,
-    ];
-    load(own.isEmpty ? members.first : own.first);
-    mode = ComposeMode.expense;
-    if (own.isEmpty) {
-      final common = categoryChoices();
-      category = common.isEmpty ? '' : common.first;
-      merchant = '';
-    }
-    _group = entry.group;
-    _ownId = own.isEmpty ? null : own.first.id;
-    _ids.addAll([for (final m in members) m.id]);
-    for (final m in others) {
-      _lentIds[m.to!] = m.id;
-    }
-    lent = [for (final m in others) (m.to!, m.amount)];
-    amount = members.fold(0, (sum, m) => sum + m.amount);
-  }
-
-  /// The ids of the entries the form was opened from: one, or all those
-  /// written as one with it.
-  Set<String> get openedIds => {..._ids, ?editing?.id};
-
-  /// Starts paying for [people] in this spending, or changes who: the
-  /// amount is shared evenly, one's own share counted too, the rest of a
-  /// cent going to one's own. Splitting stops, as the two do not mix.
-  void lendTo(List<String> people) {
-    if (people.isEmpty) {
-      lent = null;
-      return;
-    }
-    parts = null;
-    final share = amount ~/ (people.length + 1);
-    lent = [for (final p in people) (p, share)];
-  }
-
-  /// What is paid for the person at [index] changed.
-  void setLent(int index, int value) {
-    final now = lent;
-    if (now == null) return;
-    lent = [
-      for (final (i, p) in now.indexed)
-        if (i == index) (p.$1, value) else p,
-    ];
-  }
-
-  /// Back to a spending all one's own.
-  void stopLending() => lent = null;
-
-  /// Paying for others in a spending.
-  bool get lending => mode == ComposeMode.expense && lent != null;
-
-  /// One's own share of a spending paid partly for others.
-  int get own =>
-      amount -
-      (lent ?? const <(String, int)>[]).fold(0, (sum, p) => sum + p.$2);
-
-  /// The tab showing: 代墊 sits under 支出, 還款 under 收入.
-  ComposeMode get tab => switch (mode) {
-    ComposeMode.lend => back ? ComposeMode.income : ComposeMode.expense,
-    final mode => mode,
-  };
-
   /// The tabs along the top.
   static const tabs = [
     ComposeMode.expense,
@@ -322,19 +228,6 @@ final class ComposeForm {
     ComposeMode.transfer,
     ComposeMode.investment,
   ];
-
-  /// 代墊 from the expense tab, 對方還錢 from the income tab; the amount,
-  /// date and notes stay.
-  void lend({required bool back}) {
-    mode = ComposeMode.lend;
-    this.back = back;
-    parts = null;
-    installments = 0;
-    final main = ledger.mainAccount;
-    if (main.isNotEmpty) account = main;
-    final known = {for (final a in people) a.id};
-    if (!known.contains(to)) to = people.isEmpty ? '' : people.first.id;
-  }
 
   /// A category picked: back to a plain expense or income from 代墊.
   void pickCategory(String name) {
@@ -552,104 +445,6 @@ final class ComposeForm {
     final (fee, tax) = charges;
     return trade == EntryType.sell ? amount - fee - tax : amount + fee;
   }
-
-  /// Splits the amount into parts, or puts it back into one; not while
-  /// paying for others.
-  void toggleSplit() {
-    if (lending) return;
-    parts = parts == null ? [(category, amount)] : null;
-  }
-
-  /// Shares the amount evenly over the parts; the last takes what is
-  /// left over.
-  void evenly() {
-    final now = parts;
-    if (now == null || now.isEmpty) return;
-    final each = amount ~/ now.length;
-    parts = [
-      for (final (i, (name, _)) in now.indexed)
-        (name, i == now.length - 1 ? amount - each * (now.length - 1) : each),
-    ];
-  }
-
-  /// Adds a part for [name] with what is not yet shared out.
-  void addPart(String name) {
-    final now = parts ?? [];
-    final used = now.fold(0, (sum, p) => sum + p.$2);
-    parts = [...now, (name, amount - used)];
-  }
-
-  /// Adds a part for [name], or takes away the one it has: a tap on a
-  /// category while splitting.
-  void togglePart(String name) {
-    final now = parts ?? [];
-    final at = now.indexWhere((p) => p.$1 == name);
-    if (at < 0) {
-      addPart(name);
-    } else {
-      parts = [
-        for (final (i, p) in now.indexed)
-          if (i != at) p,
-      ];
-    }
-  }
-
-  /// The two accounts of a transfer the other way round.
-  void swapEnds() {
-    final from = account;
-    account = to;
-    to = from;
-    received = null;
-  }
-
-  /// Starts a new transfer from [entry], one of [Ledger.usualTransfers]:
-  /// its two accounts and amount, on today.
-  void startTransferFrom(Entry entry) {
-    final open = {for (final a in ledger.openAccounts) a.id};
-    final other = entry.to;
-    if (!open.contains(entry.account) ||
-        other == null ||
-        !open.contains(other)) {
-      return;
-    }
-    account = entry.account;
-    to = other;
-    setAmount(entry.amount);
-  }
-
-  /// Changes the part at [index] to [value]; zero takes it away.
-  void setPart(int index, int value) {
-    final now = parts;
-    if (now == null) return;
-    parts = [
-      for (final (i, p) in now.indexed)
-        if (i != index) p else if (value > 0) (p.$1, value),
-    ];
-  }
-
-  /// Moving between a trade and a dividend starts the shares afresh: a
-  /// dividend's are the ones it adds.
-  void changeTrade(EntryType next) {
-    if ((next == EntryType.dividend) != (trade == EntryType.dividend)) {
-      shares = 0;
-      amount = 0;
-      splitShares = false;
-      shareChange = false;
-      reduce = false;
-    }
-    tradeFee = null;
-    tradeTax = null;
-    trade = next;
-  }
-
-  /// The parts of a split being written; none for a foreign amount.
-  List<(String, int)>? get splitParts =>
-      type == EntryType.expense && !foreign ? parts : null;
-
-  /// A dividend that changes the shares held: a stock dividend, a split
-  /// or, with [reduce], a capital reduction.
-  bool get stock => type == EntryType.dividend && shares > 0;
-  bool get reducing => stock && reduce;
 
   /// Why the entry cannot be kept yet; null when it can. The ledger's
   /// own checks, and a split that must add up to the amount.

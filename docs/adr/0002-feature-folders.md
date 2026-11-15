@@ -1,6 +1,6 @@
 # ADR-0002：依功能分資料夾、帳本核心加模組、背景收件匣
 
-- 狀態：採用（2026-10-27）。第 1 節由 PR-2 完成；第 2～5 節依 `claude/plan-2026-10-27.md` 分期施工，完成時在此標註。
+- 狀態：採用（2026-10-27）；第 1 節的引用規則由 [ADR-0003](0003-layer-rules.md) 取代。第 1 節由 PR-2 完成；第 2～5 節依 `claude/plan-2026-10-27.md` 分期施工，完成時在此標註。
 - 取代：ADR-0001 中 App 內部分層（model／book／compose／pages）的部分。套件分層（core、domain、storage、vault、market）不變。
 
 ## 背景

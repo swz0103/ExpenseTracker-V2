@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/preferences.dart';
+import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
 import '../../../core/nav.dart';
 import 'sections/assets_section.dart';

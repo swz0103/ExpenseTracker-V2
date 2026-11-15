@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../core/quick_action.dart';
+import '../../core/platform/quick_action.dart';
 import 'channel.dart';
 
 /// What a home-screen shortcut, the widget or a notification asked for:

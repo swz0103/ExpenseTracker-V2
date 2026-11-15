@@ -79,7 +79,7 @@ class MenuRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontSize: 15, color: color),
+                  style: TextStyle(fontSize: TextSize.body, color: color),
                 ),
               ),
               // Expanded, not Flexible: the detail takes its half whatever

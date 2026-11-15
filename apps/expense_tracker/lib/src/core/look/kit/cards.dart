@@ -115,13 +115,16 @@ class SettingCard extends StatelessWidget {
           OneLine(
             title,
             style: TextStyle(
-              fontSize: 17,
+              fontSize: TextSize.title,
               fontWeight: FontWeight.w700,
               color: deepOf(color),
             ),
           ),
           const SizedBox(height: 2),
-          OneLine(detail, style: TextStyle(fontSize: 13, color: deepOf(color))),
+          OneLine(
+            detail,
+            style: TextStyle(fontSize: TextSize.small, color: deepOf(color)),
+          ),
         ],
       ),
     );

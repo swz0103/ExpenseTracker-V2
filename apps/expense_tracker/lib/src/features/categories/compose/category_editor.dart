@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
@@ -126,7 +126,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
         ),
         child: GlyphIcon(
           iconFor(key),
-          color: picked ? const Color(0xFFFFFFFF) : Hue.muted,
+          color: picked ? Hue.onSolid : Hue.muted,
           tinted: !picked,
         ),
       ),
@@ -167,7 +167,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
               color: add ? Hue.ink : deepOf(_color),
             ),
@@ -246,7 +246,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           Center(
             child: Text(
               widget.title,
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -294,7 +297,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                       Text(
                         '名稱',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: TextSize.caption,
                           fontWeight: FontWeight.w700,
                           color: ink,
                         ),
@@ -303,14 +306,14 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                         controller: _name,
                         autofocus: widget.initial.name.isEmpty,
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: TextSize.large,
                           fontWeight: FontWeight.w800,
                           color: ink,
                         ),
                         decoration: InputDecoration.collapsed(
                           hintText: '點這裡取個名字',
                           hintStyle: TextStyle(
-                            fontSize: 20,
+                            fontSize: TextSize.heading,
                             color: ink.withValues(alpha: 0.6),
                           ),
                         ),
@@ -381,7 +384,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             const Text(
               '子分類',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: Hue.muted,
               ),

@@ -57,7 +57,7 @@ class Segments extends StatelessWidget {
                       label,
                       alignment: Alignment.center,
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: TextSize.small,
                         fontWeight: i == selected
                             ? FontWeight.w700
                             : FontWeight.w500,
@@ -198,7 +198,7 @@ class ChoicePill extends StatelessWidget {
       label,
       alignment: Alignment.center,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: TextSize.small,
         fontWeight: FontWeight.w600,
         color: selected ? chosenInk(Hue.accent) : Hue.accent,
       ),

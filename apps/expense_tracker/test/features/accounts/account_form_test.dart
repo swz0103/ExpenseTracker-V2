@@ -136,7 +136,13 @@ void main() {
     final loan = ledger.accounts.last;
     expect(ledger.balance(loan.id), -1000000);
     expect(
-      (loan.rate, loan.months, loan.repay, loan.dueDay, loan.payFrom),
+      (
+        loan.loan?.rate,
+        loan.loan?.months,
+        loan.loan?.repay,
+        loan.dueDay,
+        loan.loan?.payFrom,
+      ),
       (200, 240, LoanRepay.even, 10, 'bank'),
     );
     final again = AccountForm(ledger, old: loan);

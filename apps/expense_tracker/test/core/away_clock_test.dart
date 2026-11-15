@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/away_clock.dart';
+import 'package:expense_tracker/src/core/platform/away_clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/look/theme.dart';
 import '../model/app_update.dart';
+import '../../../core/look/kit/buttons.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
 /// 稍後 and 更新. 更新 downloads it in the same panel, a bar filling, and
@@ -12,7 +13,7 @@ Future<void> showUpdatePanel(BuildContext context, AppUpdate update) async {
   if (info == null) return;
   await showDialog<void>(
     context: context,
-    barrierColor: const Color(0x66222B30),
+    barrierColor: Hue.scrim,
     builder: (context) => _UpdatePanel(update: update, info: info),
   );
 }
@@ -67,7 +68,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   '新版 ${info.name}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: TextSize.heading,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -80,12 +81,15 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       children: [
                         const Text(
                           '・',
-                          style: TextStyle(fontSize: 15, color: Hue.accent),
+                          style: TextStyle(
+                            fontSize: TextSize.body,
+                            color: Hue.accent,
+                          ),
                         ),
                         Expanded(
                           child: Text(
                             line,
-                            style: const TextStyle(fontSize: 15),
+                            style: const TextStyle(fontSize: TextSize.body),
                           ),
                         ),
                       ],
@@ -95,7 +99,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   const Text(
                     '修正與改進',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Hue.muted),
+                    style: TextStyle(fontSize: TextSize.body, color: Hue.muted),
                   ),
                 if (_problem case final problem?)
                   Padding(
@@ -103,7 +107,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     child: Text(
                       problem,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 14, color: Hue.negative),
+                      style: const TextStyle(
+                        fontSize: TextSize.body,
+                        color: Hue.negative,
+                      ),
                     ),
                   ),
                 const SizedBox(height: 18),
@@ -121,7 +128,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   Text(
                     '下載中 ${(progress * 100).round()}%',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14, color: Hue.muted),
+                    style: const TextStyle(
+                      fontSize: TextSize.body,
+                      color: Hue.muted,
+                    ),
                   ),
                 ] else
                   Row(
@@ -171,12 +181,15 @@ class _Choice extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton(
       onPressed: onTap,
-      style: FilledButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: ink,
-        minimumSize: const Size(0, 52),
-        textStyle: appFont.copyWith(fontSize: 16, fontWeight: FontWeight.w800),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      style: solidButton(
+        color,
+        ink: ink,
+        minimumSize: Size(0, 52),
+        radius: 16,
+        words: appFont.copyWith(
+          fontSize: TextSize.title,
+          fontWeight: FontWeight.w800,
+        ),
       ),
       child: Text(label),
     );

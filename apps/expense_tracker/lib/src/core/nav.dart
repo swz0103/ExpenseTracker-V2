@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'connector.dart';
+import 'platform/connector.dart';
 import 'ledger/ledger.dart';
 
 /// The pages under 更多, each opened over the tab with a back arrow.
@@ -14,6 +14,9 @@ enum Section {
   settings,
   labels,
 }
+
+/// The pages under 定期交易, each with a back arrow to it.
+enum RecurringView { manage, subscriptions, paused }
 
 /// The pages under 設定與資料, each with a back arrow to it.
 enum SettingsPart {
@@ -140,6 +143,23 @@ final class SettingsPlace extends Place {
   int get hashCode => Object.hash(SettingsPlace, part);
 }
 
+/// A page of 定期交易, which returns to it.
+final class RecurringPlace extends Place {
+  const RecurringPlace(this.view);
+
+  final RecurringView view;
+
+  @override
+  Place get parent => Pages.recurring;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecurringPlace && other.view == view;
+
+  @override
+  int get hashCode => Object.hash(RecurringPlace, view);
+}
+
 /// The places pages open, by name.
 abstract final class Pages {
   static const reports = SectionPlace(Section.reports);
@@ -157,6 +177,7 @@ abstract final class Pages {
   static Place tag(String name) => LabelPlace(name);
   static Place merchant(String name) => LabelPlace(name, merchant: true);
   static Place settingsPart(SettingsPart part) => SettingsPlace(part);
+  static Place recurringView(RecurringView view) => RecurringPlace(view);
 }
 
 /// What a page may ask of the app frame.

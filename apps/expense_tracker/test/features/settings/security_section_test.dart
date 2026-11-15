@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/features/backup/model/keeper.dart';
-import 'package:expense_tracker/src/features/settings/ui/sections/security_section.dart';
+import 'package:expense_tracker/src/features/lock/ui/security_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

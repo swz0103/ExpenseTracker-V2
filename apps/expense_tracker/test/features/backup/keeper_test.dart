@@ -5,7 +5,7 @@ import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/ledger/table_journal.dart';
 import 'package:expense_tracker/src/features/backup/model/vault_keeper.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/features/lock/model/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_vault.dart';

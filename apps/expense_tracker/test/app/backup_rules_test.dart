@@ -62,7 +62,7 @@ void main() {
   });
 
   test('the copy is where the app writes it', () {
-    final startup = File('lib/src/features/lock/model/startup.dart')
+    final startup = File('lib/src/core/platform/startup.dart')
         .readAsStringSync();
     expect(startup, contains(r"'${directory.path}/cloud/記帳本.etbk'"));
   });

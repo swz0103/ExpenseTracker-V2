@@ -1,6 +1,6 @@
 # core
 
-所有套件共用的值型別與時鐘，純 Dart（只用 `uuid`）。
+> 所有套件共用的值型別與時鐘，純 Dart（只用 `uuid`）。
 
 ## foundation_values
 

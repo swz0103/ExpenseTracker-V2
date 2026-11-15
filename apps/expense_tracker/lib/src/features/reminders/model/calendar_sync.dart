@@ -3,7 +3,7 @@ import 'dart:io';
 
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
-import '../../../core/perf.dart';
+import '../../../core/platform/perf.dart';
 
 /// A calendar on the phone, such as one synced with Google Calendar.
 final class CalendarChoice {

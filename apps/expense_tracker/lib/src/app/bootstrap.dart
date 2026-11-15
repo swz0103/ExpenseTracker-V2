@@ -29,19 +29,19 @@ import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
 import '../features/reminders/model/inbox_apply.dart';
 import '../features/reminders/model/notifications.dart';
-import '../features/lock/model/restore_sources.dart';
+import '../features/backup/model/restore_sources.dart';
 import '../features/lock/ui/lock_screen.dart';
-import '../features/lock/ui/recovery_code.dart';
+import '../core/look/recovery_code.dart';
 import 'shell.dart';
-import '../core/away_clock.dart';
-import '../core/perf.dart';
+import '../core/platform/away_clock.dart';
+import '../core/platform/perf.dart';
 import 'platform.dart';
-import '../core/preferences.dart';
-import '../core/screen_privacy.dart';
+import '../core/platform/preferences.dart';
+import '../core/platform/screen_privacy.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/services.dart';
-import '../features/lock/model/startup.dart';
+import '../core/platform/startup.dart';
 
 /// The only production composition (code audit C-01): the encrypted ledger
 /// in [directory], opened through [Startup]. The memory preview is not

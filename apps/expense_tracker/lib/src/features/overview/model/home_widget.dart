@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/perf.dart';
-import '../../../core/preferences.dart';
+import '../../../core/platform/perf.dart';
+import '../../../core/platform/preferences.dart';
 
 /// What the home-screen widget 本月概況 shows for [figures], as the text it
 /// shows and nothing more; null when it shows no figures. With

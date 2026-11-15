@@ -25,7 +25,7 @@ class RuleHead extends StatelessWidget {
             child: Text(
               title,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: Hue.muted,
               ),
@@ -72,7 +72,10 @@ class CenterHeader extends StatelessWidget {
               title,
               alignment: Alignment.center,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.heading,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           Row(mainAxisSize: MainAxisSize.min, children: actions),
@@ -230,7 +233,10 @@ class TitleRow extends StatelessWidget {
             header: true,
             child: Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           ?trailing,

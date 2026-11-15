@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:core/foundation_values.dart';
-import 'package:expense_tracker/src/features/lock/model/startup.dart';
+import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

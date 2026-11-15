@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/ui/calculator.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
-import '../../../core/look/icons.dart';
+import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../../core/ui/shown_amounts.dart';
+
+part 'budgets_pace.dart';
+part 'budgets_month_picker.dart';
 
 /// The colour of 預算管理, as on 更多.
 const _budgetHue = Palette.green;
@@ -165,7 +169,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     child: OneLine(
                       '分類與標籤額度',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: TextSize.heading,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -196,7 +200,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     Text(
                       '分類或標籤',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
                         color: Hue.accent,
                       ),
@@ -267,7 +271,7 @@ class _MonthRow extends StatelessWidget {
                   Text(
                     '$month 月',
                     style: const TextStyle(
-                      fontSize: 32,
+                      fontSize: TextSize.big,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -289,13 +293,11 @@ class _MonthRow extends StatelessWidget {
         if (!current)
           TextButton(
             onPressed: onToday,
-            style: TextButton.styleFrom(
-              backgroundColor: Hue.selected,
-              foregroundColor: Hue.accent,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
+            style: wordButton(
+              Hue.accent,
+              fill: Hue.selected,
+              minimumSize: Size(0, 44),
+              radius: 22,
             ),
             child: const Text(
               '回到本月',
@@ -355,7 +357,7 @@ class _Main extends StatelessWidget {
                     Text(
                       '${current ? '本月' : '$month 月'}${over ? '超支' : '剩'}',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w800,
                         color: over ? Hue.negative : ink,
                       ),
@@ -366,7 +368,7 @@ class _Main extends StatelessWidget {
                       child: Text(
                         ledger.orDots(groupDigits(left.abs())),
                         style: TextStyle(
-                          fontSize: 34,
+                          fontSize: TextSize.big,
                           fontWeight: FontWeight.w800,
                           color: over ? Hue.negative : Hue.ink,
                         ),
@@ -406,7 +408,7 @@ class _Main extends StatelessWidget {
                 ),
               ],
             ),
-            style: const TextStyle(fontSize: 14, color: Hue.muted),
+            style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
           const SizedBox(height: 10),
           _DayBar(passed: current ? passed : days, days: days, today: current),
@@ -419,7 +421,7 @@ class _Main extends StatelessWidget {
                 Text(
                   '今天 $month/$passed',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -509,7 +511,7 @@ class _NoBudget extends StatelessWidget {
                 OneLine(
                   '${current ? '本月' : '$month 月'}花了',
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: TextSize.small,
                     fontWeight: FontWeight.w800,
                     color: Hue.accent,
                   ),
@@ -517,7 +519,7 @@ class _NoBudget extends StatelessWidget {
                 OneLine(
                   ledger.orDots(groupDigits(spent)),
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: TextSize.figure,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -527,802 +529,16 @@ class _NoBudget extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             onPressed: onSet,
-            style: FilledButton.styleFrom(
-              backgroundColor: chosenFill(_budgetHue),
-              foregroundColor: chosenInk(_budgetHue),
-              side: chosenEdge(_budgetHue),
-              minimumSize: const Size(0, 48),
+            style: solidButton(
+              _budgetHue,
+              minimumSize: Size(0, 48),
+              radius: 14,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
             ),
             child: const Text(
               '設定預算',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Two white cards: what can be spent a day and where the month is
-/// heading; for a past month, what was spent a day and against the
-/// budget.
-class _Pace extends StatelessWidget {
-  const _Pace({
-    required this.ledger,
-    required this.year,
-    required this.month,
-    required this.current,
-    required this.spent,
-    required this.total,
-  });
-
-  final Ledger ledger;
-  final int year;
-  final int month;
-  final bool current;
-  final int spent;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final (passed, days) = ledger.daysGone(year, month);
-    String money(int v) => ledger.orDots(groupDigits(v));
-    if (!current) {
-      final saved = total - spent;
-      return CardGrid(gap: 10, [
-        _Figure(
-          glyph: Glyph.cash,
-          color: Hue.positive,
-          label: '平均每天花',
-          value: money(spent ~/ days),
-          sub: '$month 月 $days 天',
-        ),
-        _Figure(
-          glyph: Glyph.calendar,
-          color: Hue.accent,
-          label: '跟預算比',
-          value: '${saved >= 0 ? '省' : '超'} ${money(saved.abs())}',
-          valueColor: saved >= 0 ? Hue.accent : Hue.negative,
-          sub: '用了 ${spent * 100 ~/ total}%',
-        ),
-      ]);
-    }
-    final left = total - spent;
-    final remaining = days - passed + 1;
-    final heading = ledger.forecast(spent, year, month);
-    final over = heading > total;
-    return CardGrid(gap: 10, [
-      _Figure(
-        glyph: Glyph.cash,
-        color: Hue.positive,
-        label: '每天可以花',
-        value: left > 0 ? money(left ~/ remaining) : '0',
-        sub: '剩 $remaining 天',
-      ),
-      _Figure(
-        glyph: Glyph.calendar,
-        color: over ? Hue.negative : Hue.accent,
-        label: '月底預估',
-        value: passed >= 7 ? money(heading) : '—',
-        valueColor: over && passed >= 7 ? Hue.negative : null,
-        sub: passed < 7
-            ? '第 7 天起估算'
-            : over
-            ? '會超 ${money(heading - total)}'
-            : '約剩 ${money(total - heading)}',
-      ),
-    ]);
-  }
-}
-
-/// A white card with a solid icon, a label, a figure and a line.
-class _Figure extends StatelessWidget {
-  const _Figure({
-    required this.glyph,
-    required this.color,
-    required this.label,
-    required this.value,
-    required this.sub,
-    this.valueColor,
-  });
-
-  final Glyph glyph;
-  final Color color;
-  final String label;
-  final String value;
-  final String sub;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: Hue.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: Hue.cardShadow,
-      ),
-      child: Row(
-        children: [
-          SquareIcon(glyph, color, size: 36),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OneLine(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Hue.muted,
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: valueColor ?? color,
-                    ),
-                  ),
-                ),
-                OneLine(sub, style: mutedSmall),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A category's or tag's allowance as a square: a small ring of the share
-/// used around its icon, 超支 or 快用完, its name, what is left or over,
-/// and used against the allowance.
-class _Limit extends StatelessWidget {
-  const _Limit({
-    required this.ledger,
-    required this.budget,
-    required this.used,
-    required this.limit,
-    required this.onTap,
-  });
-
-  final Ledger ledger;
-  final Budget budget;
-  final int used;
-  final int limit;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tag = budget.tag != null;
-    final category = tag ? null : ledger.category(budget.category);
-    final color = shownColor(category?.color ?? Hue.accent);
-    final glyph = tag ? Glyph.tag : iconFor(category!.icon);
-    final left = limit - used;
-    final over = left < 0;
-    final near = !over && limit > 0 && used * 100 >= limit * budget.warning;
-    final tone = over ? Hue.negative : (near ? _nearHue : color);
-    final share = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
-    final ink = deepOf(color);
-    return ColorCard(
-      color: over ? Hue.negative : (near ? _nearHue : color),
-      amount: 0.18,
-      onTap: onTap,
-      label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox.square(
-                dimension: 38,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: share,
-                      strokeWidth: 4,
-                      strokeCap: StrokeCap.round,
-                      color: tone,
-                      backgroundColor: tintOf(tone, 0.3),
-                    ),
-                    Center(child: GlyphIcon(glyph, size: 16, color: tone)),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              if (over || near)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tone,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    over ? '超支' : '快用完',
-                    textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Hue.onAccent,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            budget.category,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: over ? deepOf(Hue.negative) : ink,
-            ),
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${over ? '超' : '剩'} ${ledger.orDots(groupDigits(left.abs()))}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: over ? Hue.negative : Hue.ink,
-              ),
-            ),
-          ),
-          Text(
-            '${ledger.orDots(groupDigits(used))} / '
-            '${ledger.orDots(groupDigits(limit))}',
-            style: mutedSmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A year of months, each saying how much of its budget was used: red
-/// when over, gold from nine in ten.
-class _MonthPicker extends StatefulWidget {
-  const _MonthPicker({
-    required this.ledger,
-    required this.chosen,
-    required this.first,
-    required this.last,
-  });
-
-  final Ledger ledger;
-  final (int, int) chosen;
-  final (int, int) first;
-  final (int, int) last;
-
-  @override
-  State<_MonthPicker> createState() => _MonthPickerState();
-}
-
-class _MonthPickerState extends State<_MonthPicker> {
-  late var _year = widget.chosen.$1;
-
-  @override
-  Widget build(BuildContext context) {
-    final ledger = widget.ledger;
-    final whole = ledger.budgetFor(Ledger.allSpending);
-    int key((int, int) m) => m.$1 * 12 + m.$2;
-    Widget arrow(Glyph glyph, String label, bool on, int by) => Material(
-      color: on ? Hue.surface : Hue.paper,
-      shape: const CircleBorder(),
-      child: IconButton(
-        tooltip: label,
-        onPressed: on ? () => setState(() => _year += by) : null,
-        icon: GlyphIcon(glyph, size: 20, color: on ? Hue.ink : Hue.faint),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              arrow(Glyph.back, '前一年', _year > widget.first.$1, -1),
-              Expanded(
-                child: Text(
-                  '$_year',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              arrow(Glyph.next, '下一年', _year < widget.last.$1, 1),
-            ],
-          ),
-          const SizedBox(height: 14),
-          CardGrid(columns: 4, gap: 8, [
-            for (var m = 1; m <= 12; m++)
-              () {
-                final on =
-                    key((_year, m)) >= key(widget.first) &&
-                    key((_year, m)) <= key(widget.last);
-                final total = ledger.allowance(whole, _year, m);
-                final spent = ledger.expense(_year, m);
-                final share = total == 0 ? null : spent * 100 ~/ total;
-                final chosen = (_year, m) == widget.chosen;
-                final tone = share == null
-                    ? Hue.muted
-                    : share > 100
-                    ? Hue.negative
-                    : share >= 90
-                    ? Hue.goldText
-                    : Hue.muted;
-                return Semantics(
-                  button: true,
-                  selected: chosen,
-                  enabled: on,
-                  label: '$m 月',
-                  excludeSemantics: true,
-                  child: Material(
-                    color: chosen ? Hue.selected : Hue.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: chosen
-                          ? const BorderSide(color: Hue.accent, width: 2)
-                          : BorderSide.none,
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: on
-                          ? () => Navigator.of(context).pop((_year, m))
-                          : null,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Column(
-                          children: [
-                            Text(
-                              '$m 月',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: on ? Hue.ink : Hue.faint,
-                              ),
-                            ),
-                            Text(
-                              !on || share == null
-                                  ? ' '
-                                  : share > 100
-                                  ? '超支'
-                                  : '$share%',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: tone,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }(),
-          ]),
-          const SizedBox(height: 12),
-          const Text(
-            '每個月下面寫用了幾成；超支紅、九成以上金色',
-            textAlign: TextAlign.center,
-            style: mutedSmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 幫哪個設額度: the spending categories without one, as squares, and the
-/// tags without one, as chips.
-class _AddLimit extends StatelessWidget {
-  const _AddLimit({required this.ledger});
-
-  final Ledger ledger;
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = [
-      for (final c in ledger.categoriesFor(income: false))
-        if (ledger.budgetFor(c.name).limit == 0) c,
-    ];
-    final tags = [
-      for (final tag in ledger.tags)
-        if (ledger.budgetFor('#$tag').limit == 0) tag,
-    ];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Center(
-            child: Text(
-              '幫哪個設額度',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-            ),
-          ),
-          if (categories.isNotEmpty) ...[
-            const RuleHead('分類'),
-            CardGrid(columns: 4, gap: 8, [
-              for (final c in categories)
-                ColorCard(
-                  color: shownColor(c.color),
-                  radius: 16,
-                  label: c.name,
-                  onTap: () => Navigator.of(context).pop(c.name),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 2,
-                  ),
-                  child: Column(
-                    children: [
-                      GlyphIcon(
-                        iconFor(c.icon),
-                        size: 26,
-                        color: shownColor(c.color),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        c.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: deepOf(shownColor(c.color)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ]),
-          ],
-          if (tags.isNotEmpty) ...[
-            const RuleHead('標籤'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final tag in tags)
-                  ActionChip(
-                    backgroundColor: Hue.surface,
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    label: Text(
-                      '#$tag',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    onPressed: () => Navigator.of(context).pop('#$tag'),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 14),
-          const Text(
-            '已經設過額度的不會出現在這裡',
-            textAlign: TextAlign.center,
-            style: mutedSmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A budget's form, the card itself: its icon and name, the monthly
-/// allowance in big figures (the calculator beside), this month's use on
-/// a bar with the warning line; then the share to warn at, whether what
-/// is left carries over, and 儲存. A category's or tag's has a bin.
-class _BudgetEditor extends StatefulWidget {
-  const _BudgetEditor({required this.ledger, required this.budget});
-
-  final Ledger ledger;
-  final Budget budget;
-
-  @override
-  State<_BudgetEditor> createState() => _BudgetEditorState();
-}
-
-class _BudgetEditorState extends State<_BudgetEditor> {
-  late var _limit = widget.budget.limit;
-  late var _warning = widget.budget.warning;
-  late var _carry = widget.budget.carry;
-
-  static const _shares = [70, 80, 90, 100];
-
-  Future<void> _calculate() async {
-    final value = await showCalculator(
-      context,
-      title: '每月額度',
-      initial: _limit,
-      color: Hue.accent,
-    );
-    if (value != null) setState(() => _limit = value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ledger = widget.ledger;
-    final name = widget.budget.category;
-    final total = name == Ledger.allSpending;
-    final tag = name.startsWith('#');
-    final category = total || tag ? null : ledger.category(name);
-    final color = category?.color ?? Hue.accent;
-    final glyph = total
-        ? Glyph.cash
-        : tag
-        ? Glyph.tag
-        : iconFor(category!.icon);
-    final today = ledger.today;
-    final used = total
-        ? ledger.expense(today.year, today.month)
-        : ledger.spentAgainst(widget.budget, today.year, today.month);
-    final ink = deepOf(color);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
-            decoration: BoxDecoration(
-              color: tintOf(color, 0.24),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    SquareIcon(glyph, color, size: 52),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            total ? '總預算' : name,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: ink,
-                            ),
-                          ),
-                          Text(
-                            total
-                                ? '這個月所有支出'
-                                : tag
-                                ? '標籤額度'
-                                : '分類額度',
-                            style: TextStyle(fontSize: 13, color: ink),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!total)
-                      Material(
-                        color: Hue.white,
-                        borderRadius: BorderRadius.circular(14),
-                        child: IconButton(
-                          tooltip: '移除額度',
-                          onPressed: () {
-                            ledger.removeBudget(name);
-                            Navigator.of(context).pop();
-                          },
-                          icon: const GlyphIcon(
-                            Glyph.trash,
-                            size: 18,
-                            color: Hue.danger,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  '每月額度',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                  ),
-                ),
-                AmountTap(
-                  label: '每月額度 $_limit',
-                  onTap: _calculate,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: 'NT\$ ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        TextSpan(
-                          text: groupDigits(_limit),
-                          style: const TextStyle(
-                            fontSize: 44,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                LayoutBuilder(
-                  builder: (context, box) {
-                    final share = _limit == 0
-                        ? 0.0
-                        : (used / _limit).clamp(0.0, 1.0);
-                    final line = box.maxWidth * _warning / 100;
-                    return SizedBox(
-                      height: 18,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.centerLeft,
-                        children: [
-                          Container(
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: Hue.white,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: share,
-                            child: Container(
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: (line - 1).clamp(0, box.maxWidth - 2),
-                            top: 0,
-                            bottom: 0,
-                            child: Container(width: 2, color: Hue.ink),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(text: '這個月已用 '),
-                          TextSpan(
-                            text: ledger.orDots(groupDigits(used)),
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ],
-                      ),
-                      style: TextStyle(fontSize: 13, color: ink),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$_warning% 時提醒',
-                      style: TextStyle(fontSize: 13, color: ink),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '用到幾成時提醒',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              for (final (i, p) in _shares.indexed) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: Material(
-                    color: p == _warning ? Hue.accent : Hue.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => setState(() => _warning = p),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        child: Center(
-                          child: Text(
-                            '$p%',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: p == _warning ? Hue.onAccent : Hue.ink,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          ColorCard(
-            color: Hue.faint,
-            amount: 0.15,
-            radius: 18,
-            onTap: () => setState(() => _carry = !_carry),
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '沒用完的留到下個月',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text('上個月剩的，加到這個月的額度', style: mutedSmall),
-                    ],
-                  ),
-                ),
-                TickSwitch(
-                  value: _carry,
-                  color: Hue.accent,
-                  label: '沒用完的留到下個月',
-                  onChanged: (on) => setState(() => _carry = on),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          PanelButton(
-            '儲存',
-            color: Hue.accent,
-            onTap: () {
-              ledger.setBudget(name, _limit, warning: _warning, carry: _carry);
-              Navigator.of(context).pop();
-            },
           ),
         ],
       ),

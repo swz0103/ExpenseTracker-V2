@@ -50,15 +50,23 @@ void main() {
       principal: 2000000,
       place: 3,
       color: 0xFF5B8DB0,
-      rate: 215,
-      months: 240,
-      repay: LoanRepay.principal,
-      payFrom: 'bank',
+      loan: LoanTerms(
+        rate: 215,
+        months: 240,
+        repay: LoanRepay.principal,
+        payFrom: 'bank',
+      ),
     );
     final kept = accountFromJson(accountToJson(loan));
     expect((kept.principal, kept.place), (2000000, 3));
     expect(
-      (kept.color, kept.rate, kept.months, kept.repay, kept.payFrom),
+      (
+        kept.color,
+        kept.loan?.rate,
+        kept.loan?.months,
+        kept.loan?.repay,
+        kept.loan?.payFrom,
+      ),
       (0xFF5B8DB0, 215, 240, LoanRepay.principal, 'bank'),
     );
     expect(accountToJson(usd).containsKey('place'), isFalse);

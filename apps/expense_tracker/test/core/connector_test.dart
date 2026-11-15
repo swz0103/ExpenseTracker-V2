@@ -1,4 +1,4 @@
-import 'package:expense_tracker/src/core/connector.dart';
+import 'package:expense_tracker/src/core/platform/connector.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:expense_tracker/src/core/nav.dart';
 import 'package:flutter_test/flutter_test.dart';

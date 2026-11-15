@@ -3,6 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'type.dart';
+
+export 'type.dart';
+
 /// A colour with a light and a dark value, read when painted: the whole
 /// palette follows [Shade.dark] without a const widget changing.
 final class Shade extends Color {
@@ -164,6 +168,43 @@ abstract final class Hue {
   static const accentRule = Shade(0x2E3B6C80, 0x3372A8BC);
   static const accentTrack = Shade(0x263B6C80, 0x2E72A8BC);
 
+  /// The guided tour's card: the light theme's own colours on both
+  /// themes, for the card stands on the dimmed screen, not on the page;
+  /// and the dim spread over the screen around the light.
+  static const tourPaper = Color(0xFFF3F4F1);
+  static const tourTint = Color(0xFFDCE6E8);
+  static const tourInk = Color(0xFF26323A);
+  static const tourAccent = Color(0xFF35657A);
+  static const tourMuted = Color(0xFF66737A);
+  static const tourDim = Color(0xA30C1216);
+  static const tourShadow = Color(0x4D000000);
+
+  /// White on a solid mark of any colour, the same on both themes.
+  static const onSolid = Color(0xFFFFFFFF);
+
+  /// Nothing: a border or a fade's far end that should not show.
+  static const none = Color(0x00000000);
+
+  /// A frosted fill on a tinted card, such as an icon's circle or a small
+  /// label: white mist on the light theme, a whisper on the dark one.
+  static const glass = Shade(0xC0FFFFFF, 0x1FFFFFFF);
+
+  /// The soft light behind the lock screen's mark.
+  static const halo = Shade(0xBFFFFFFF, 0x1A72A8BC);
+
+  /// The dark over the page behind a panel in the middle.
+  static const scrim = Color(0x66222B30);
+
+  /// The shadow of something lifted by a finger, such as a card dragged.
+  static const lift = Color(0x40000000);
+
+  /// The soft shadow under a floating card, such as the widget's face.
+  static const float = Color(0x1F1E2832);
+
+  /// The shadows of a card in a stack: far above it, and close under it.
+  static const stackFar = Shade(0x141E2832, 0x00000000);
+  static const stackNear = Shade(0x0F1E2832, 0x00000000);
+
   /// The glow under the round 記一筆 button.
   static const accentGlow = Shade(0x553B6C80, 0x66000000);
 
@@ -236,16 +277,16 @@ abstract final class Hue {
 Color softOf(Color color) => Color.lerp(color, Hue.paper, 0.82)!;
 
 /// Secondary words in 13 px, such as a count or a date beside a heading.
-const mutedSmall = TextStyle(fontSize: 13, color: Hue.muted);
+const mutedSmall = TextStyle(fontSize: TextSize.small, color: Hue.muted);
 
 /// Words in 13 px in the interface colour that do something, such as a
 /// small link or 調整 on a tile. Words that only label stay [mutedSmall].
-const accentSmall = TextStyle(fontSize: 13, color: Hue.accent);
+const accentSmall = TextStyle(fontSize: TextSize.small, color: Hue.accent);
 
 /// A tile's or a form block's own label in 13 px, in the interface
 /// colour and a little heavier than [accentSmall].
 const accentLabel = TextStyle(
-  fontSize: 13,
+  fontSize: TextSize.small,
   fontWeight: FontWeight.w600,
   color: Hue.accent,
 );
@@ -386,7 +427,7 @@ ThemeData appTheme() {
       contentTextStyle: TextStyle(
         fontFamily: 'Nunito',
         fontFamilyFallback: const ['NotoSansTC'],
-        fontSize: 14,
+        fontSize: TextSize.body,
         color: dark ? Hue.ink : Hue.white,
       ),
       elevation: 6,

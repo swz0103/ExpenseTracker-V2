@@ -45,6 +45,14 @@ void showNote(
 /// much it holds, as [sheetHeight] for the pickers 記一筆 opens: one
 /// picker after another, the sheet stays put. Its content fills it, and
 /// scrolls inside it when longer.
+/// Opens [builder] as a task over the whole screen with its own 取消 and
+/// 完成, such as 排序帳戶 or 匯入: not a place to go back to, so not one
+/// of the app frame's pages. The one way the app pushes a route itself.
+Future<T?> openFlow<T>(BuildContext context, WidgetBuilder builder) =>
+    Navigator.of(
+      context,
+    ).push<T>(MaterialPageRoute<T>(fullscreenDialog: true, builder: builder));
+
 Future<T?> showSheet<T>(
   BuildContext context,
   WidgetBuilder builder, {

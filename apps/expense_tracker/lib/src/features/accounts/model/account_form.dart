@@ -1,6 +1,7 @@
-import '../../../core/ledger/amounts.dart';
+import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../debts/model/loan_plan.dart';
+
+import 'package:domain/loans.dart';
 
 /// What the account form holds while it is filled in, and what saving
 /// it does to the ledger: a new account, or the changes to [old] with
@@ -18,10 +19,10 @@ final class AccountForm {
       currency = old?.currency ?? homeCode,
       principal = '${old?.principal ?? ''}',
       color = old?.color,
-      rate = rateText(old?.rate),
-      months = '${old?.months ?? ''}',
-      repay = old?.repay ?? LoanRepay.even,
-      payFrom = old?.payFrom;
+      rate = rateText(old?.loan?.rate),
+      months = '${old?.loan?.months ?? ''}',
+      repay = old?.loan?.repay ?? LoanRepay.even,
+      payFrom = old?.loan?.payFrom;
 
   final Ledger ledger;
 
@@ -65,6 +66,16 @@ final class AccountForm {
     final n = int.tryParse(months.trim());
     return loan && n != null && n > 0 ? n : null;
   }
+
+  /// The loan's terms as typed; null for any other account.
+  LoanTerms? get loanTerms => loan
+      ? LoanTerms(
+          rate: typedRate,
+          months: typedMonths,
+          repay: repay,
+          payFrom: payFrom,
+        )
+      : null;
 
   /// What the loan as typed costs; null while something is missing.
   LoanPlan? get plan => loanPlan(
@@ -147,10 +158,7 @@ final class AccountForm {
         currency: foreignAllowed ? currency : homeCode,
         principal: typedPrincipal,
         color: color,
-        rate: typedRate,
-        months: typedMonths,
-        repay: loan ? repay : null,
-        payFrom: loan ? payFrom : null,
+        loan: loanTerms,
         place: kind == AccountKind.loan || kind == AccountKind.receivable
             ? null
             : _nextPlace,
@@ -172,10 +180,7 @@ final class AccountForm {
       history: before.history,
       principal: typedPrincipal,
       color: color,
-      rate: typedRate,
-      months: typedMonths,
-      repay: loan ? repay : null,
-      payFrom: loan ? payFrom : null,
+      loan: loanTerms,
       place: before.place,
     );
   }

@@ -1,6 +1,6 @@
 # storage
 
-加密的單一 SQLite 檔（SQLCipher）：App 的每一筆資料（帳戶、分類、紀錄、預算、定期交易、最近刪除、收據、行情）都是一列 JSON，依「架」（shelf）分開。
+> 加密的單一 SQLite 檔（SQLCipher）：App 的每一筆資料（帳戶、分類、紀錄、預算、定期交易、最近刪除、收據、行情）都是一列 JSON，依「架」（shelf）分開。
 
 - `RowStore.open`：檢查函式庫是 SQLCipher（否則 `notEncrypted`）、金鑰正確（否則 `wrongKey`，錯誤訊息不含金鑰）、檔案不比程式新（否則 `newerSchema`）、同時只有一個連線（否則 `inUse`）。
 - 一個檔案、WAL、`synchronous=NORMAL`（WAL 下 App 當掉不會壞；只有存檔後瞬間斷電可能少最後一筆）；崩潰復原交給 SQLite。

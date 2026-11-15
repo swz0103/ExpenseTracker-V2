@@ -1,23 +1,68 @@
 import 'dart:math';
 
-import '../../core/connector.dart';
+import '../../core/platform/connector.dart';
 import '../../core/ledger/ledger.dart';
-import '../../core/preferences.dart';
-import '../../core/screen_privacy.dart';
+import '../../core/platform/preferences.dart';
+import '../../core/platform/screen_privacy.dart';
+import '../../features/backup/model/keeper.dart';
 import '../../features/reminders/model/notifications.dart';
 
 /// The web preview's stand-ins for the phone: notifications that go
-/// nowhere, screen hiding kept in memory and made-up daily closes, so
-/// 通知與提醒, 安全, their panels and each holding's chart can be looked
-/// at; nothing leaves the browser.
-({Notifier notifier, ScreenPrivacy privacy, DemoPrices market}) previewServices(
-  Preferences preferences, {
-  Ledger Function()? ledger,
-}) => (
+/// nowhere, screen hiding kept in memory, made-up daily closes and keys
+/// that keep nothing, so 通知與提醒, 安全, 備份與還原, their panels and
+/// each holding's chart can be looked at; nothing leaves the browser.
+({Notifier notifier, ScreenPrivacy privacy, DemoPrices market, Keeper keeper})
+previewServices(Preferences preferences, {Ledger Function()? ledger}) => (
   notifier: Notifier(const _NoNotifications(), preferences),
   privacy: ScreenPrivacy.inMemory(),
   market: DemoPrices(ledger),
+  keeper: DemoKeeper(),
 );
+
+/// Keys and backups that keep nothing: every export is cancelled, the
+/// password is only remembered while the page is open.
+final class DemoKeeper implements Keeper {
+  var _password = false;
+
+  @override
+  Future<bool> exportBackup() async => false;
+
+  @override
+  Future<bool> exportFile(String name, String text) async => false;
+
+  @override
+  Future<bool> exportBytes(String name, List<int> bytes) async => false;
+
+  @override
+  DateTime? get cloudCopyAt => null;
+
+  @override
+  DateTime? get googleTakenAt => null;
+
+  @override
+  Future<String?> readFile() async => null;
+
+  @override
+  bool get hasPassword => _password;
+
+  @override
+  Future<void> setPassword(String next) async => _password = true;
+
+  @override
+  Future<void> changePassword(String current, String next) async {}
+
+  @override
+  Future<String> newRecoveryCode() async => 'ABCD-EFGH-JKLM-NPQR';
+
+  @override
+  bool get recoveryGiven => true;
+
+  @override
+  Future<void> lock() async {}
+
+  @override
+  Future<String> restoreAnother() async => '';
+}
 
 /// Made-up daily closes for the demo's holdings: a walk of its own for
 /// each code, the same each time, ending on the price the ledger holds.

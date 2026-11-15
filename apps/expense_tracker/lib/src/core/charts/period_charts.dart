@@ -144,7 +144,7 @@ class _BarsPainter extends CustomPainter {
         canvas,
         b.label,
         TextStyle(
-          fontSize: 11.5,
+          fontSize: TextSize.tiny,
           color: i == selected ? Hue.ink : Hue.muted,
           fontWeight: i == selected ? FontWeight.w700 : FontWeight.w400,
         ),

@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import '../look/theme.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -272,11 +275,11 @@ class _Card extends StatelessWidget {
 
   /// The same in dark mode as in light: the pill stands on the dimmed
   /// screen, not on the page.
-  static const _paper = Color(0xFFF3F4F1);
-  static const _tint = Color(0xFFDCE6E8);
-  static const _ink = Color(0xFF26323A);
-  static const _accent = Color(0xFF35657A);
-  static const _muted = Color(0xFF66737A);
+  static const _paper = Hue.tourPaper;
+  static const _tint = Hue.tourTint;
+  static const _ink = Hue.tourInk;
+  static const _accent = Hue.tourAccent;
+  static const _muted = Hue.tourMuted;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +290,7 @@ class _Card extends StatelessWidget {
         shape: StadiumBorder(),
         shadows: [
           BoxShadow(
-            color: Color(0x4D000000),
+            color: Hue.tourShadow,
             blurRadius: 30,
             offset: Offset(0, 14),
           ),
@@ -319,7 +322,7 @@ class _Card extends StatelessWidget {
                     Text(
                       stop.title,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: TextSize.body,
                         fontWeight: FontWeight.w700,
                         height: 1.35,
                         color: _ink,
@@ -329,7 +332,7 @@ class _Card extends StatelessWidget {
                       Text(
                         detail,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: TextSize.caption,
                           height: 1.4,
                           color: _muted,
                         ),
@@ -353,12 +356,12 @@ class _Card extends StatelessWidget {
                             ? const Icon(
                                 Icons.check_rounded,
                                 size: 24,
-                                color: Color(0xFFFFFFFF),
+                                color: Hue.onSolid,
                               )
                             : const GlyphIcon(
                                 Glyph.arrow,
                                 size: 21,
-                                color: Color(0xFFFFFFFF),
+                                color: Hue.onSolid,
                               ),
                       ),
                     ),
@@ -397,7 +400,7 @@ class _Dim extends CustomPainter {
   /// How far the ring has spread from the light, 0 to 1; none at 0.
   final double ring;
 
-  static const _shade = Color(0xA30C1216);
+  static const _shade = Hue.tourDim;
 
   @override
   void paint(Canvas canvas, Size size) {

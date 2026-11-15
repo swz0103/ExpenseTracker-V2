@@ -4,12 +4,13 @@ import 'package:flutter/services.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/ui/pickers.dart';
-import '../../../core/look/figures.dart';
+import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../model/exchange.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/ui/shown_amounts.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
 const _csvHue = Palette.periwinkle;
@@ -26,11 +27,9 @@ Future<void> importInto(
   Future<String?> Function()? readFile,
 }) async {
   if (!await ensureAccount(context, ledger) || !context.mounted) return;
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) =>
-          _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
-    ),
+  await openFlow<void>(
+    context,
+    (_) => _ImportPage(ledger: ledger, invoices: invoices, readFile: readFile),
   );
 }
 
@@ -168,7 +167,10 @@ class _ImportPageState extends State<_ImportPage> {
             for (final why in found.problems)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(why, style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  why,
+                  style: const TextStyle(fontSize: TextSize.body),
+                ),
               ),
             if (found.problems.length < found.skipped)
               const Text('其他的看不懂或是空白行', style: mutedSmall),
@@ -240,7 +242,7 @@ class _ImportPageState extends State<_ImportPage> {
                       'D|AB12345678|1|鮮奶 2 瓶'
                 : '日期,類型,金額,帳戶,分類,商家\n'
                       '2026-11-03,支出,268,現金,飲食,全聯',
-            style: const TextStyle(fontSize: 13, height: 1.5),
+            style: const TextStyle(fontSize: TextSize.small, height: 1.5),
           ),
         ),
         const SizedBox(height: 12),
@@ -287,7 +289,7 @@ class _ImportPageState extends State<_ImportPage> {
                     Text(
                       '讀到',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: TextSize.small,
                         fontWeight: FontWeight.w700,
                         color: deepOf(color),
                       ),
@@ -295,13 +297,16 @@ class _ImportPageState extends State<_ImportPage> {
                     Text(
                       '${found.entries.length} 筆',
                       style: const TextStyle(
-                        fontSize: 30,
+                        fontSize: TextSize.figure,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
                       '合計 ${ledger.money(total)}',
-                      style: TextStyle(fontSize: 14, color: deepOf(color)),
+                      style: TextStyle(
+                        fontSize: TextSize.body,
+                        color: deepOf(color),
+                      ),
                     ),
                   ],
                 ),
@@ -309,10 +314,7 @@ class _ImportPageState extends State<_ImportPage> {
               if (found.skipped > 0)
                 TextButton(
                   onPressed: () => _skipped(found),
-                  style: TextButton.styleFrom(
-                    foregroundColor: deepOf(color),
-                    minimumSize: const Size(0, 48),
-                  ),
+                  style: wordButton(deepOf(color), minimumSize: Size(0, 48)),
                   child: Text(
                     '略過 ${found.skipped} 行 ⓘ',
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -367,7 +369,7 @@ class _ImportPageState extends State<_ImportPage> {
                   child: Text(
                     '＋ $name',
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: TextSize.small,
                       fontWeight: FontWeight.w700,
                       color: Hue.goldText,
                     ),
@@ -382,7 +384,7 @@ class _ImportPageState extends State<_ImportPage> {
             child: Text(
               '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,
                 color: Hue.muted,
               ),
@@ -463,7 +465,7 @@ class _BigChoice extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: TextSize.heading,
             fontWeight: FontWeight.w800,
             color: deepOf(color),
           ),

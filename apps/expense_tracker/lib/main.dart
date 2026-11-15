@@ -6,10 +6,10 @@ import 'package:flutter/widgets.dart';
 
 import 'src/features/backup/model/leftovers.dart';
 import 'src/app/bootstrap.dart';
-import 'src/core/perf.dart';
+import 'src/core/platform/perf.dart';
 import 'src/app/platform.dart';
-import 'src/core/preferences.dart';
-import 'src/core/screen_privacy.dart';
+import 'src/core/platform/preferences.dart';
+import 'src/core/platform/screen_privacy.dart';
 
 /// The production entry: the encrypted ledger only. The web preview starts
 /// from `main_preview.dart`.

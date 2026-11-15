@@ -2,13 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/look/figures.dart';
+import '../../../../core/text/figures.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/entry_tile.dart';
 import '../../../../core/nav.dart';
+import '../../../../core/ui/shown_amounts.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -107,7 +108,7 @@ class _DailySectionState extends State<DailySection> {
         previousLabel: '上一週',
         nextLabel: '下一週',
         expand: true,
-        style: const TextStyle(fontSize: 14, color: Hue.muted),
+        style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
         onPrevious: () => _moveWeek(-1),
         onNext: atToday ? null : () => _moveWeek(1),
       ),
@@ -157,7 +158,10 @@ class _DailySectionState extends State<DailySection> {
               '${_day.month} 月 ${_day.day} 日',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.body,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -175,7 +179,7 @@ class _DailySectionState extends State<DailySection> {
                     TextSpan(
                       text: ledger.money(ledger.spentOn(_day)),
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: TextSize.title,
                         fontWeight: FontWeight.w700,
                         color: Hue.negative,
                       ),
@@ -207,10 +211,7 @@ class _DailySectionState extends State<DailySection> {
         Center(
           child: TextButton(
             onPressed: () => setState(() => _dayPage = (page + 1) % pages),
-            style: TextButton.styleFrom(
-              foregroundColor: Hue.accent,
-              minimumSize: const Size(44, 44),
-            ),
+            style: wordButton(Hue.accent, minimumSize: Size(44, 44)),
             child: Text(
               last < entries.length
                   ? '還有 ${entries.length - last} 筆 ›'
@@ -297,13 +298,13 @@ class _WeekStrip extends StatelessWidget {
             children: [
               Text(
                 weekdayNames[day.weekday - 1],
-                style: TextStyle(fontSize: 13, color: ink),
+                style: TextStyle(fontSize: TextSize.small, color: ink),
               ),
               const SizedBox(height: 4),
               Text(
                 '${day.day}',
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: TextSize.large,
                   fontWeight: FontWeight.w500,
                   color: ink,
                 ),
@@ -360,7 +361,7 @@ class _DayGrid extends StatelessWidget {
             const Spacer(),
             TextButton(
               onPressed: onAdd,
-              style: TextButton.styleFrom(foregroundColor: Hue.accent),
+              style: wordButton(Hue.accent),
               child: const Text('＋ 記一筆'),
             ),
           ],
@@ -430,7 +431,7 @@ class _DayGrid extends StatelessWidget {
                 e.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: TextSize.small),
               ),
             ),
           ],
@@ -438,7 +439,7 @@ class _DayGrid extends StatelessWidget {
         Text(
           amount,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: TextSize.body,
             fontWeight: FontWeight.w600,
             color: color,
           ),

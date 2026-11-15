@@ -23,7 +23,10 @@ extension on _AccountEditorState {
       Text(
         old == null ? '新增貸款' : '編輯貸款',
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          fontSize: TextSize.heading,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       const SizedBox(height: 12),
       _LoanCard(
@@ -160,7 +163,7 @@ extension on _AccountEditorState {
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (v) => Navigator.of(context).pop(v),
                 style: const TextStyle(
-                  fontSize: 22,
+                  fontSize: TextSize.large,
                   fontWeight: FontWeight.w800,
                 ),
                 decoration: InputDecoration(
@@ -269,7 +272,7 @@ class _LoanCard extends StatelessWidget {
                 child: TextField(
                   controller: name,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: TextSize.heading,
                     fontWeight: FontWeight.w800,
                   ),
                   decoration: const InputDecoration(
@@ -373,7 +376,7 @@ class _Figure extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: TextSize.small,
                 fontWeight: FontWeight.w700,
                 color: ink,
               ),
@@ -410,7 +413,7 @@ class _Block extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Shade(0xB3FFFFFF, 0x1FFFFFFF),
+      color: Hue.glass,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -429,7 +432,7 @@ class _Block extends StatelessWidget {
                   Text(
                     label,
                     maxLines: 1,
-                    style: TextStyle(fontSize: 12, color: ink),
+                    style: TextStyle(fontSize: TextSize.caption, color: ink),
                   ),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -437,7 +440,7 @@ class _Block extends StatelessWidget {
                     child: Text(
                       value,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: TextSize.title,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -484,7 +487,7 @@ class _Estimate extends StatelessWidget {
             Expanded(
               child: Text(
                 '填好本金、利率、期數就會試算',
-                style: TextStyle(fontSize: 14, color: Hue.muted),
+                style: TextStyle(fontSize: TextSize.body, color: Hue.muted),
               ),
             ),
           ],
@@ -514,7 +517,7 @@ class _Estimate extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: TextSize.caption,
                       fontWeight: FontWeight.w700,
                       color: deepOf(tone),
                     ),
@@ -525,7 +528,7 @@ class _Estimate extends StatelessWidget {
                     child: Text(
                       value,
                       style: const TextStyle(
-                        fontSize: 22,
+                        fontSize: TextSize.large,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -564,63 +567,6 @@ class _Estimate extends StatelessWidget {
         const SizedBox(width: 10),
         block(Glyph.coins, color, '總利息', money(plan.interest), ''),
       ],
-    );
-  }
-}
-
-/// An account the loan is paid from or went into, as a block: its mark
-/// and name, or what having none means.
-class _AccountBlock extends StatelessWidget {
-  const _AccountBlock({
-    required this.label,
-    required this.account,
-    required this.empty,
-    required this.onTap,
-  });
-
-  final String label;
-  final Account? account;
-  final String empty;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final account = this.account;
-    final color = account == null ? Hue.faint : accountHue(account);
-    return ColorCard(
-      color: color,
-      amount: account == null ? 0.22 : 0.2,
-      radius: 20,
-      onTap: onTap,
-      label: '$label，${account?.name ?? empty}',
-      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-      child: Row(
-        children: [
-          SquareIcon(
-            account == null ? Glyph.other : accountIcon(account),
-            color,
-            size: 40,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OneLine(label, style: mutedSmall),
-                Text(
-                  account?.name ?? empty,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -28,7 +28,7 @@ class PageHeader extends StatelessWidget {
               child: OneLine(
                 title,
                 style: const TextStyle(
-                  fontSize: 22,
+                  fontSize: TextSize.large,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -90,7 +90,10 @@ class StepSwitch extends StatelessWidget {
     this.onNext,
     this.onLabelTap,
     this.labelHint = '選擇範圍',
-    this.style = const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+    this.style = const TextStyle(
+      fontSize: TextSize.title,
+      fontWeight: FontWeight.w600,
+    ),
     this.iconSize = 18,
     this.expand = false,
   });
@@ -186,7 +189,7 @@ class SectionHead extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: TextSize.heading,
                   fontWeight: FontWeight.w700,
                 ),
               ),

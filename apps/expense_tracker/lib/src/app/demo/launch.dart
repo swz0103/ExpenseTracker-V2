@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/ledger/ledger.dart';
 import '../../core/look/app_mark.dart';
 import '../../core/look/theme.dart';
-import '../../core/preferences.dart';
-import '../../core/quick_action.dart';
+import '../../core/platform/preferences.dart';
+import '../../core/platform/quick_action.dart';
 import '../../features/lock/ui/views/lock_parts.dart';
 import '../../features/lock/ui/views/unlock_view.dart';
 import '../../features/lock/ui/views/welcome_view.dart';
 import '../../features/overview/model/home_widget.dart';
-import '../../features/overview/ui/widget_face.dart';
+import '../../features/overview/compose/widget_face.dart';
 import '../../features/settings/model/services.dart';
 import '../shell.dart';
 import 'preview_services.dart';
@@ -123,6 +123,7 @@ class _PreviewLaunchState extends State<PreviewLaunch> {
           notifier: _stand.notifier,
           privacy: _stand.privacy,
           market: _stand.market,
+          keeper: _stand.keeper,
           sample: demoLedger,
           quick: _quick,
         ),
@@ -286,11 +287,14 @@ class _HomeScreen extends StatelessWidget {
           children: [
             Text(
               '9:41',
-              style: white.copyWith(fontSize: 56, fontWeight: FontWeight.w300),
+              style: white.copyWith(
+                fontSize: TextSize.display,
+                fontWeight: FontWeight.w300,
+              ),
             ),
             Text(
               '${ledger.today.month} 月 ${ledger.today.day} 日',
-              style: white.copyWith(fontSize: 16),
+              style: white.copyWith(fontSize: TextSize.title),
             ),
             const SizedBox(height: 24),
             WidgetFace(
@@ -341,7 +345,7 @@ class _HomeScreen extends StatelessWidget {
               '預覽：選擇打開 App 的情境',
               textAlign: TextAlign.center,
               style: white.copyWith(
-                fontSize: 12,
+                fontSize: TextSize.caption,
                 color: const Color(0xCCFFFFFF),
               ),
             ),
@@ -377,7 +381,7 @@ class _AppIcon extends StatelessWidget {
               '記帳本',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: TextSize.caption,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -415,7 +419,7 @@ class _OtherApp extends StatelessWidget {
             name,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: TextSize.caption,
               decoration: TextDecoration.none,
             ),
           ),

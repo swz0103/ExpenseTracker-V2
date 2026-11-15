@@ -1,4 +1,4 @@
-import 'amounts.dart';
+import '../text/amounts.dart';
 import 'ledger.dart';
 
 /// What the ledger will not keep, said before it is asked: every form

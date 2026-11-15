@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/connector.dart';
+import '../../../core/platform/connector.dart';
 import 'app_update.dart';
 import '../../backup/model/drive_sync.dart';
 import '../../backup/model/keeper.dart';
@@ -9,9 +9,9 @@ import '../../reminders/model/calendar_sync.dart';
 import '../../entries/model/receipt_photos.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../reminders/model/notifications.dart';
-import '../../../core/preferences.dart';
-import '../../../core/quick_action.dart';
-import '../../../core/screen_privacy.dart';
+import '../../../core/platform/preferences.dart';
+import '../../../core/platform/quick_action.dart';
+import '../../../core/platform/screen_privacy.dart';
 
 /// What the phone and the open ledger offer the screens beyond the book:
 /// keys and backups, the calendar for due dates, hiding the screens,

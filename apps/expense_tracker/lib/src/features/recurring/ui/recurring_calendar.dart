@@ -52,7 +52,7 @@ class _Calendar extends StatelessWidget {
                     child: Text(
                       w,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: TextSize.caption,
                         color: Hue.muted,
                         fontWeight: FontWeight.w700,
                       ),
@@ -103,10 +103,7 @@ class _Calendar extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color.lerp(color, const Color(0xFFFFFFFF), 0.15)!,
-                  color,
-                ],
+                colors: [Color.lerp(color, Hue.onSolid, 0.15)!, color],
               ),
             );
     } else if (items.isNotEmpty) {
@@ -115,9 +112,7 @@ class _Calendar extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
       );
     }
-    final onColor = single
-        ? (Shade.dark ? Hue.ink : const Color(0xFFFFFFFF))
-        : Hue.ink;
+    final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
     final number = Container(
       width: 24,
       height: 24,
@@ -129,7 +124,7 @@ class _Calendar extends StatelessWidget {
         '$d',
         textScaler: TextScaler.noScaling,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: TextSize.small,
           fontWeight: FontWeight.w800,
           color: isToday
               ? Hue.onAccent
@@ -148,7 +143,7 @@ class _Calendar extends StatelessWidget {
       slot = GlyphIcon(
         glyph,
         size: 16,
-        color: Shade.dark ? color : const Color(0xFFFFFFFF),
+        color: Shade.dark ? color : Hue.onSolid,
         tinted: false,
       );
     } else if (items.isNotEmpty) {
@@ -194,7 +189,7 @@ class _Calendar extends StatelessWidget {
                   border: Border.all(
                     color: isChosen
                         ? (single ? deepOf(color) : Hue.accent)
-                        : const Color(0x00000000),
+                        : Hue.none,
                     width: 2.5,
                   ),
                 ),
@@ -223,7 +218,7 @@ class _Calendar extends StatelessWidget {
                     '到期',
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: TextSize.tiny,
                       fontWeight: FontWeight.w800,
                       color: Hue.negative,
                     ),
@@ -301,7 +296,7 @@ class _DayItemsState extends State<_DayItems> {
               Text(
                 '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
                 style: const TextStyle(
-                  fontSize: 17,
+                  fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -309,7 +304,7 @@ class _DayItemsState extends State<_DayItems> {
               Text(
                 right,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: TextSize.body,
                   fontWeight: FontWeight.w700,
                   color: overdue ? Hue.negative : Hue.muted,
                 ),
@@ -328,10 +323,7 @@ class _DayItemsState extends State<_DayItems> {
               const Spacer(),
               TextButton(
                 onPressed: widget.onAdd,
-                style: TextButton.styleFrom(
-                  foregroundColor: Hue.accent,
-                  minimumSize: const Size(0, 48),
-                ),
+                style: wordButton(Hue.accent, minimumSize: Size(0, 48)),
                 child: const Text(
                   '＋ 新增',
                   style: TextStyle(fontWeight: FontWeight.w800),
@@ -369,7 +361,7 @@ class _DayItemsState extends State<_DayItems> {
       '${item.income ? '+' : ''}'
       '${ledger.orDots(recurringAmount(ledger, item))}',
       style: TextStyle(
-        fontSize: 17,
+        fontSize: TextSize.title,
         fontWeight: FontWeight.w800,
         color: item.income && booked == null ? Hue.positive : Hue.ink,
       ),
@@ -405,7 +397,7 @@ class _DayItemsState extends State<_DayItems> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: TextSize.body,
                     fontWeight: FontWeight.w800,
                     color: deepOf(color),
                   ),
@@ -415,7 +407,7 @@ class _DayItemsState extends State<_DayItems> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: TextSize.caption,
                     color: due ? Hue.negative : Hue.muted,
                     fontWeight: due ? FontWeight.w800 : FontWeight.w400,
                   ),
@@ -429,14 +421,11 @@ class _DayItemsState extends State<_DayItems> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: () => widget.onBook(item),
-              style: FilledButton.styleFrom(
-                backgroundColor: markColor,
-                foregroundColor: wordsOn(markColor),
-                minimumSize: const Size(0, 44),
+              style: solidButton(
+                markColor,
+                minimumSize: Size(0, 44),
+                radius: 12,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
               child: const Text(
                 '入帳',
@@ -447,14 +436,12 @@ class _DayItemsState extends State<_DayItems> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: () => ledger.unskip(item, x.day),
-              style: FilledButton.styleFrom(
-                backgroundColor: Hue.white,
-                foregroundColor: Hue.accent,
-                minimumSize: const Size(0, 44),
+              style: solidButton(
+                Hue.white,
+                ink: Hue.accent,
+                minimumSize: Size(0, 44),
+                radius: 12,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
               child: const Text(
                 '恢復',
@@ -493,12 +480,18 @@ class _Cell extends StatelessWidget {
         children: [
           OneLine(
             label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.caption,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           OneLine(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: TextSize.body,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -523,109 +516,10 @@ class _Tag extends StatelessWidget {
     child: Text(
       text,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: TextSize.caption,
         fontWeight: FontWeight.w800,
         color: deepOf(color),
       ),
     ),
   );
-}
-
-/// An item as one row in its colour: mark, name over how often and from
-/// where, the amount over a small tag with the next date (or [lines] in
-/// place of the second line, and [trailing] after it all).
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({
-    required this.ledger,
-    required this.item,
-    required this.onTap,
-    this.grey = false,
-    this.trailing,
-    this.lines,
-  });
-
-  final Ledger ledger;
-  final Recurring item;
-  final VoidCallback onTap;
-  final bool grey;
-  final Widget? trailing;
-  final List<String>? lines;
-
-  @override
-  Widget build(BuildContext context) {
-    final (glyph, mark) = _mark(ledger, item);
-    final color = grey ? Hue.faint : mark;
-    final next = grey || lines != null ? '' : ledger.nextLabel(item);
-    final sub =
-        lines?.join(' · ') ??
-        '${item.rhythm} · ${ledger.account(item.account).name}';
-    return ColorCard(
-      color: color,
-      amount: 0.16,
-      radius: 18,
-      onTap: onTap,
-      label: '${item.name}，$sub${next.isEmpty ? '' : '，下次 $next'}',
-      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
-      child: Row(
-        children: [
-          grey
-              ? Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Hue.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: GlyphIcon(glyph, size: 20, color: Hue.muted),
-                )
-              : SquareIcon(glyph, color, size: 40),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: deepOf(color),
-                  ),
-                ),
-                Text(
-                  sub,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Hue.muted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${item.income ? '+' : ''}'
-                '${ledger.orDots(recurringAmount(ledger, item))}',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: item.income && !grey ? Hue.positive : Hue.ink,
-                ),
-              ),
-              if (next.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                _Tag('下次 $next', color: color),
-              ],
-            ],
-          ),
-          if (trailing case final t?) ...[const SizedBox(width: 10), t],
-        ],
-      ),
-    );
-  }
 }

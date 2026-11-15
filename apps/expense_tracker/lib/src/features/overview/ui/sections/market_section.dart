@@ -3,13 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/bar_scale.dart';
-import '../../../../core/look/figures.dart';
+import '../../../../core/text/figures.dart';
 import '../../../../core/look/glyphs.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/entry_tile.dart' show holdingLabel;
+import '../../../../core/ui/shown_amounts.dart';
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.
@@ -144,7 +145,7 @@ class _MarketSectionState extends State<MarketSection> {
                 h.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: TextSize.small),
               ),
             ),
             // A single holding's bar would only ever be full.
@@ -165,7 +166,7 @@ class _MarketSectionState extends State<MarketSection> {
                 quoted ? widget.ledger.moneySigned(h.change) : '—',
                 textAlign: TextAlign.end,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: TextSize.small,
                   fontWeight: FontWeight.w600,
                   color: !quoted
                       ? Hue.muted

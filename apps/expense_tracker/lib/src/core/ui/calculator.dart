@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart' show Currency;
 import 'package:flutter/material.dart';
 
-import '../look/figures.dart';
+import '../text/figures.dart';
 import '../look/glyphs.dart';
 import '../look/haptics.dart';
 import '../look/theme.dart';
@@ -174,7 +174,10 @@ class _CalculatorState extends State<_Calculator> {
           Text(
             widget.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: TextSize.title,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           Container(
@@ -188,14 +191,17 @@ class _CalculatorState extends State<_Calculator> {
               children: [
                 Text(
                   working ? _keys.expression : widget.unit,
-                  style: const TextStyle(fontSize: 14, color: Hue.muted),
+                  style: const TextStyle(
+                    fontSize: TextSize.body,
+                    color: Hue.muted,
+                  ),
                 ),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     shown,
                     style: TextStyle(
-                      fontSize: 42,
+                      fontSize: TextSize.hero,
                       fontWeight: FontWeight.w700,
                       color: widget.color,
                     ),

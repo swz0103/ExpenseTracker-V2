@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/charts/flow_chart.dart';
-import '../../../../core/look/figures.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
+import '../../../../core/ui/shown_amounts.dart';
 
 /// 收支對照: six months of income and spending up to the page's month,
 /// with net worth as a line; a tap on a month reads it out.
@@ -92,13 +92,16 @@ class _FlowSectionState extends State<FlowSection> {
           Expanded(
             child: Text(
               scope,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: TextSize.small,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Text(
             '結餘 ${ledger.money(left)}',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: TextSize.small,
               fontWeight: FontWeight.w700,
               color: left < 0 ? Hue.negative : Hue.ink,
             ),
