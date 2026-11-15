@@ -17,6 +17,7 @@ import 'card_cycle.dart';
 import 'persistence/ledger_data_source.dart';
 import 'persistence/write_queue.dart';
 import 'portfolio.dart';
+import 'repositories/entry_repository.dart';
 import 'models/models.dart';
 
 export 'card_cycle.dart';
@@ -64,7 +65,7 @@ final class Ledger extends ChangeNotifier {
        _trash = [...trash],
        _accounts = [...accounts],
        _categories = _placed(categories),
-       _entries = [...entries],
+       _entries = EntryRepository(entries),
        _startHoldings = [...holdings],
        _budgets = [...budgets],
        _recurring = [...recurring] {
@@ -111,7 +112,7 @@ final class Ledger extends ChangeNotifier {
 
   final List<Account> _accounts;
   final List<Category> _categories;
-  final List<Entry> _entries;
+  final EntryRepository _entries;
   final List<Holding> _startHoldings;
   final List<Budget> _budgets;
   final List<Recurring> _recurring;
@@ -241,38 +242,13 @@ final class Ledger extends ChangeNotifier {
 
   /// Entries in [year]/[month], newest day first; within a day the most
   /// recently recorded first. The list cannot be changed.
-  List<Entry> entriesIn(int year, int month) {
-    final months = _months ??= _indexMonths();
-    return months[year * 12 + month] ?? const <Entry>[];
-  }
-
-  /// Every month's entries in [entriesIn] order, built once per change.
-  Map<int, List<Entry>> _indexMonths() {
-    final groups = <int, List<(int, Entry)>>{};
-    for (final (i, e) in _entries.indexed) {
-      (groups[e.date.year * 12 + e.date.month] ??= []).add((i, e));
-    }
-    final months = <int, List<Entry>>{};
-    for (final MapEntry(key: month, value: found) in groups.entries) {
-      found.sort((a, b) {
-        final byDate = b.$2.date.compareTo(a.$2.date);
-        return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-      });
-      months[month] = List.unmodifiable([for (final (_, e) in found) e]);
-    }
-    return months;
-  }
+  List<Entry> entriesIn(int year, int month) => _entries.inMonth(year, month);
 
   /// What the screens ask for again and again, worked out once per change:
-  /// entries by month, balances by account and day, accounts by id.
-  Map<int, List<Entry>>? _months;
-  Map<DateTime, List<Entry>>? _days;
-  DateTime? _first;
+  /// balances by account and day, accounts by id.
   Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
   Map<String, Account>? _accountIndex;
-  Map<String, Entry>? _idIndex;
-  Map<String, int>? _refundIndex;
 
   /// Answers worked out once per change of what they rest on.
   final _cache = QueryCache();
@@ -302,13 +278,6 @@ final class Ledger extends ChangeNotifier {
   void _forget(Set<Topic> topics) {
     _topics.count(topics);
     if (topics.contains(Topic.categories)) _categoryIndex = null;
-    if (topics.contains(Topic.entries)) {
-      _idIndex = null;
-      _refundIndex = null;
-      _months = null;
-      _days = null;
-      _first = null;
-    }
     if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
       _running = null;
       _balances.clear();

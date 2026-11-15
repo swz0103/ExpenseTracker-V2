@@ -83,7 +83,8 @@ core/ledger/
 | `QueryCache` 自動追蹤依賴（取代手寫 `on:`） | 隨 Repository 完成 |
 | `UnitOfWork` 取代 `_before`／`_since` 與各指令手寫的還原 | 尚未 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
-| `EntryRepository` 與增量索引 | 尚未 |
+| `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
+| `EntryRepository` 索引改增量維護 | 尚未 |
 | Trash、Account、MarketData、Holding Repository | 尚未 |
 | `CategoryRepository` 與分類 id | 尚未 |
 | Budget、Recurring Repository、各 Service 與各 Commands | 尚未 |

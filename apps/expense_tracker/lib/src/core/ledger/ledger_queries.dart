@@ -37,19 +37,7 @@ extension LedgerQueries on Ledger {
     return [for (final (_, e) in found) e];
   }
 
-  List<Entry> entriesOn(DateTime day) =>
-      (_days ??= _indexDays())[day] ?? const [];
-
-  /// Every day's entries in [entriesIn] order, built once per change.
-  Map<DateTime, List<Entry>> _indexDays() {
-    final days = <DateTime, List<Entry>>{};
-    for (final month in (_months ??= _indexMonths()).values) {
-      for (final e in month) {
-        (days[e.date] ??= []).add(e);
-      }
-    }
-    return days;
-  }
+  List<Entry> entriesOn(DateTime day) => _entries.onDay(day);
 
   /// Income of a month, dividends included.
   int income(int year, int month) =>

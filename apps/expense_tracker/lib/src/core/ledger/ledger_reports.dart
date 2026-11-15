@@ -63,11 +63,7 @@ extension LedgerReports on Ledger {
   }
 
   /// The day of the first entry, where the book starts.
-  DateTime get firstDay => _first ??= _firstDay();
-
-  DateTime _firstDay() => _entries.isEmpty
-      ? today
-      : _entries.map((e) => e.date).reduce((a, b) => a.isBefore(b) ? a : b);
+  DateTime get firstDay => _entries.firstDate ?? today;
 
   /// What [e] does to [account]'s balance as of today.
   int effect(Entry e, String account) => _effect(e, account, today);
@@ -279,23 +275,14 @@ extension LedgerReports on Ledger {
   ]..sort((a, b) => b.date.compareTo(a.date));
 
   /// The entry with [id], if it is still in the book.
-  Entry? byId(String id) =>
-      (_idIndex ??= {for (final e in _entries) e.id: e})[id];
+  Entry? byId(String id) => _entries.byId(id);
 
   /// How much of [original] has been refunded.
   int refunded(Entry original) => original.amount - refundable(original);
 
   /// How much of [original] is left to refund.
-  int refundable(Entry original) {
-    final back = _refundIndex ??= () {
-      final sums = <String, int>{};
-      for (final e in _entries) {
-        if (e.refundOf case final of?) sums[of] = (sums[of] ?? 0) + e.amount;
-      }
-      return sums;
-    }();
-    return original.amount - (back[original.id] ?? 0);
-  }
+  int refundable(Entry original) =>
+      original.amount - _entries.refundedTotal(original.id);
 
   /// The balance of [account] at the end of [until], or of today.
   int balance(String account, {DateTime? until}) {
