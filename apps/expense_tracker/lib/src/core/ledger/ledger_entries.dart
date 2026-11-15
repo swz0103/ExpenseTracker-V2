@@ -9,7 +9,7 @@ extension LedgerEntries on Ledger {
   void add(Entry entry, {String? receipt}) {
     _entries.add(entry);
     _replayOrUndo(() => _entries.removeLast(), trades: entry.isInvestment);
-    if (receipt != null) _receipts[entry.id] = receipt;
+    if (receipt != null) _receipts.set(entry.id, receipt);
     _keep(Batch(entries: [entry], receipts: {entry.id: ?receipt}));
   }
 
@@ -55,12 +55,7 @@ extension LedgerEntries on Ledger {
       () => _entries[index] = before,
       trades: entry.isInvestment || before.isInvestment,
     );
-    final photo = _receipts[entry.id] != receipt;
-    if (receipt == null) {
-      _receipts.remove(entry.id);
-    } else {
-      _receipts[entry.id] = receipt;
-    }
+    final photo = _receipts.set(entry.id, receipt);
     _keep(Batch(entries: [entry], receipts: {if (photo) entry.id: receipt}));
   }
 
@@ -114,13 +109,8 @@ extension LedgerEntries on Ledger {
     final photos = <String, String?>{};
     for (final id in {...was, ...ids}) {
       final now = id == receiptOn ? receipt : null;
-      if (_receipts[id] == now) continue;
+      if (!_receipts.set(id, now)) continue;
       photos[id] = now;
-      if (now == null) {
-        _receipts.remove(id);
-      } else {
-        _receipts[id] = now;
-      }
     }
     _keep(
       Batch(

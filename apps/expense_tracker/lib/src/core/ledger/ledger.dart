@@ -1,5 +1,4 @@
 import 'dart:collection' show UnmodifiableListView;
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:core/foundation_values.dart'
@@ -9,6 +8,7 @@ import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
 
 import '../text/amounts.dart';
+import 'attachments.dart';
 import 'card_cycle.dart';
 import 'journal.dart';
 import 'portfolio.dart';
@@ -49,10 +49,10 @@ final class Ledger extends ChangeNotifier {
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
-       _drafts = {...drafts},
+       _drafts = Drafts(drafts),
        _day = today,
        _quoteDays = {...quoteDays},
-       _receipts = {...receipts},
+       _receipts = Receipts(receipts),
        _rates = {...rates},
        _moves = {...moves},
        _trash = [...trash],
@@ -104,49 +104,33 @@ final class Ledger extends ChangeNotifier {
 
   /// The photo of each entry's receipt, by entry id: a file name the
   /// phone keeps.
-  final Map<String, String> _receipts;
+  final Receipts _receipts;
 
   /// The receipt photo of the entry with [id]; null when none.
-  String? receiptOf(String id) => _receipts[id];
+  String? receiptOf(String id) => _receipts.of(id);
 
   /// Every receipt photo an entry keeps, deleted entries' included.
   Set<String> get receiptFiles => {
-    ..._receipts.values,
+    ..._receipts.files,
     // A form put aside keeps the photo chosen for it.
-    for (final draft in _drafts.values) ?_draftReceipt(draft),
+    ..._drafts.receipts,
   };
 
-  static String? _draftReceipt(String draft) {
-    try {
-      return (jsonDecode(draft) as Map<String, Object?>)['receipt'] as String?;
-    } on Object {
-      return null;
-    }
-  }
+  /// The forms put aside in the composer, kept across a restart.
+  final Drafts _drafts;
 
-  /// The forms put aside in the composer, as JSON by tab, kept across a
-  /// restart of the app.
-  final Map<String, String> _drafts;
-
-  String? draft(String tab) => _drafts[tab];
+  String? draft(String tab) => _drafts.of(tab);
 
   /// Keeps the form put aside on [tab], or clears it when [json] is null.
   void setDraft(String tab, String? json) {
-    if (_drafts[tab] == json) return;
-    if (json == null) {
-      _drafts.remove(tab);
-    } else {
-      _drafts[tab] = json;
-    }
+    if (!_drafts.set(tab, json)) return;
     _keep(Batch(drafts: {tab: json}));
   }
 
   /// Gives the entry with [id] the receipt photo [file], or takes its
   /// photo away when null.
   void setReceipt(String id, String? file) {
-    if (receiptOf(id) == file) return;
-    _receipts.remove(id);
-    if (file != null) _receipts[id] = file;
+    if (!_receipts.set(id, file)) return;
     _signal();
     _keep(Batch(receipts: {id: file}));
   }
@@ -538,12 +522,8 @@ final class Ledger extends ChangeNotifier {
     _moves
       ..clear()
       ..addAll(fresh._moves);
-    _receipts
-      ..clear()
-      ..addAll(fresh._receipts);
-    _drafts
-      ..clear()
-      ..addAll(fresh._drafts);
+    _receipts.replaceWith(fresh._receipts);
+    _drafts.replaceWith(fresh._drafts);
     _quotedOn = fresh._quotedOn;
     _quoteDays
       ..clear()
