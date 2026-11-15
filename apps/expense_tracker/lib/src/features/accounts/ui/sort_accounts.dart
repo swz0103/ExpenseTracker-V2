@@ -141,8 +141,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   },
                   footer: Padding(
                     padding: const EdgeInsets.only(top: 14),
-                    child: SoftPanel(
-                      color: Hue.white,
+                    child: GroupBox(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 13,
@@ -186,7 +185,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                           ),
                           child: Row(
                             children: [
-                              IconChip(accountIcon(a), color: color),
+                              SquareIcon(accountIcon(a), color, size: 30),
                               const SizedBox(width: 9),
                               Expanded(
                                 child: Text(

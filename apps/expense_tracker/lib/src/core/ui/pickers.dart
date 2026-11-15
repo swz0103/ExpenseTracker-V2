@@ -207,7 +207,7 @@ class _OptionCell<T> extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconBadge(option.icon, option.color, size: 40),
+              RoundIcon(option.icon, option.color, size: 40),
               const SizedBox(height: 6),
               Text(
                 option.label,

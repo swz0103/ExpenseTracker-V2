@@ -19,9 +19,8 @@ extension _Habits on _ReportsPageState {
       Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
         decoration: BoxDecoration(
-          color: Hue.white,
+          color: Hue.group,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: Hue.cardShadow,
         ),
         child: Row(
           children: [
@@ -103,8 +102,7 @@ extension _Habits on _ReportsPageState {
     final heaviest = days.indexOf(most);
     return [
       TitleRow('星期', trailing: const Text('虛線是每天平均', style: mutedSmall)),
-      SoftPanel(
-        color: Hue.white,
+      GroupBox(
         padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
         child: Column(
           children: [

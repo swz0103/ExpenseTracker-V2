@@ -447,7 +447,7 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
   }
 }
 
-/// What a trade comes to beyond its sums, on a white card: its name and
+/// What a trade comes to beyond its sums, on a grey block: its name and
 /// what it rests on on the left, the figure on the right in [color].
 class _OutcomeCard extends StatelessWidget {
   const _OutcomeCard({
@@ -468,9 +468,8 @@ class _OutcomeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: Hue.tileShadow,
       ),
       child: Row(
         children: [

@@ -19,7 +19,7 @@ class _OriginalTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconBadge(
+          RoundIcon(
             iconFor(category.icon),
             shownColor(category.color),
             size: 36,

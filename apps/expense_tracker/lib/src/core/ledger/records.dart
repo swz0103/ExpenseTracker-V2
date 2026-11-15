@@ -172,6 +172,16 @@ final class Category {
     this.place,
   });
 
+  /// A name the book has no category for, such as one since deleted:
+  /// shown in grey with the plain mark.
+  const Category.unknown(this.name)
+    : icon = 'other',
+      color = const Color(0xFF8C8C80),
+      income = false,
+      parent = null,
+      archived = false,
+      place = null;
+
   final String name;
 
   /// A key into the app's icon set, such as `food`.

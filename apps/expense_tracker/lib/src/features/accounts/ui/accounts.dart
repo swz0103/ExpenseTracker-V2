@@ -112,7 +112,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   style: mutedSmall,
                 ),
               ),
-            SectionHead(
+            SectionTitle(
               '帳戶',
               trailing: Text('${accounts.length} 個', style: mutedSmall),
             ),
@@ -127,7 +127,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 onOpen: (a) => nav.open(Pages.account(a.id)),
               ),
             if (archived.isNotEmpty) ...[
-              const SectionHead('已封存'),
+              const SectionTitle('已封存'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -181,8 +181,7 @@ class _NetWorth extends StatelessWidget {
         if (p.$2 > 0) p,
     ];
     final total = shown.fold<int>(0, (sum, p) => sum + p.$2);
-    return Tile(
-      hero: true,
+    return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
       value: ledger.money(net),
@@ -263,16 +262,29 @@ class _Wallet extends StatefulWidget {
 }
 
 class _WalletState extends State<_Wallet> {
-  /// Lifted by a long press, and the card in front when it began.
+  /// Lifted by a long press; the drag since the last card turned.
   var _lifted = false;
-  var _from = 0;
+  var _baseline = 0.0;
 
-  void _turnTo(int steps) {
+  /// How far a finger moves for one card to turn: one card a step, at
+  /// the same pace however fast the finger goes.
+  static const _pace = 56.0;
+
+  void _turn(int step) {
     final n = widget.accounts.length;
-    final next = ((_from + steps) % n + n) % n;
-    if (next == widget.index) return;
+    final next = ((widget.index + step) % n + n) % n;
     Haptics.selection();
     widget.onShow(widget.accounts[next]);
+  }
+
+  void _dragged(double dy) {
+    if (dy - _baseline <= -_pace) {
+      _baseline -= _pace;
+      _turn(1);
+    } else if (dy - _baseline >= _pace) {
+      _baseline += _pace;
+      _turn(-1);
+    }
   }
 
   @override
@@ -300,66 +312,104 @@ class _WalletState extends State<_Wallet> {
               Haptics.medium();
               setState(() {
                 _lifted = true;
-                _from = index;
+                _baseline = 0;
               });
             },
-      // Every 40 dp up brings the next card forward; down, the one before.
-      onLongPressMoveUpdate: (d) =>
-          _turnTo((-d.offsetFromOrigin.dy / 40).round()),
+      // Up brings the next card forward, down the one before, one card
+      // for each [_pace] of the drag.
+      onLongPressMoveUpdate: (d) => _dragged(d.offsetFromOrigin.dy),
       onLongPressEnd: (_) => setState(() => _lifted = false),
       child: AnimatedScale(
         scale: _lifted ? 1.03 : 1,
         duration: quiet ? Duration.zero : const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        child: SizedBox(
-          height: step * last + front,
-          child: Stack(
-            children: [
-              for (final (i, a) in order.indexed)
-                AnimatedPositioned(
-                  key: ValueKey(a.id),
-                  duration: quiet
-                      ? Duration.zero
-                      : const Duration(milliseconds: 260),
-                  curve: Curves.easeOutCubic,
-                  top: step * i,
-                  left: 0,
-                  right: 0,
-                  child: i == last
-                      ? AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: _lifted
-                                ? const [
-                                    BoxShadow(
-                                      color: Hue.lift,
-                                      blurRadius: 18,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ]
-                                : const [],
-                          ),
-                          child: AccountCard(
-                            ledger: widget.ledger,
-                            account: a,
-                            onTap: () => widget.onOpen(a),
-                          ),
-                        )
-                      : AccountCard(
-                          ledger: widget.ledger,
-                          account: a,
-                          front: false,
-                          onTap: () {
-                            Haptics.selection();
-                            widget.onShow(a);
-                          },
-                        ),
-                ),
-            ],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(end: _lifted ? 1 : 0),
+          duration: quiet ? Duration.zero : const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          builder: (context, lift, _) => SizedBox(
+            height: step * last + front,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final (i, a) in order.indexed)
+                  AnimatedPositioned(
+                    key: ValueKey(a.id),
+                    duration: quiet
+                        ? Duration.zero
+                        : const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    top: step * i,
+                    left: 0,
+                    right: 0,
+                    child: _Tilt(
+                      depth: last - i,
+                      lift: lift,
+                      child: i == last
+                          ? AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: _lifted
+                                    ? const [
+                                        BoxShadow(
+                                          color: Hue.lift,
+                                          blurRadius: 18,
+                                          offset: Offset(0, 8),
+                                        ),
+                                      ]
+                                    : const [],
+                              ),
+                              child: AccountCard(
+                                ledger: widget.ledger,
+                                account: a,
+                                onTap: () => widget.onOpen(a),
+                              ),
+                            )
+                          : AccountCard(
+                              ledger: widget.ledger,
+                              account: a,
+                              // Lifted, every card is a whole card seen
+                              // in depth; at rest, a strip behind.
+                              front: lift > 0,
+                              onTap: () {
+                                Haptics.selection();
+                                widget.onShow(a);
+                              },
+                            ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A card of the lifted stack seen in depth, as a wheel of cards: tipped
+/// back and smaller the further it is behind the front one ([depth] 0).
+/// [lift] runs from 0, flat, to 1, lifted.
+class _Tilt extends StatelessWidget {
+  const _Tilt({required this.depth, required this.lift, required this.child});
+
+  final int depth;
+  final double lift;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (lift == 0) return child;
+    final far = depth.clamp(0, 6);
+    final tilt = Matrix4.identity()
+      ..setEntry(3, 2, 0.0014)
+      ..rotateX(lift * (0.12 + 0.07 * far))
+      ..scaleByDouble(1 - lift * 0.035 * far, 1 - lift * 0.035 * far, 1, 1);
+    return Transform(
+      alignment: Alignment.bottomCenter,
+      transform: tilt,
+      child: child,
     );
   }
 }

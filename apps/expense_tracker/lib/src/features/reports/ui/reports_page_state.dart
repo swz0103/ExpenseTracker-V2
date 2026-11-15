@@ -262,9 +262,8 @@ class _ReportsPageState extends State<ReportsPage> {
       Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
-          color: Hue.white,
+          color: Hue.group,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: Hue.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -402,8 +401,7 @@ class _ReportsPageState extends State<ReportsPage> {
     ];
     return [
       const TitleRow('年度總結'),
-      SoftPanel(
-        color: Hue.white,
+      GroupBox(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         child: Column(
           children: [
@@ -561,8 +559,7 @@ class _ReportsPageState extends State<ReportsPage> {
               style: mutedSmall,
             ),
             const SizedBox(height: 12),
-            SoftPanel(
-              color: Hue.white,
+            GroupBox(
               // None: a row's 編輯 and 刪除 reach the card's edges.
               padding: EdgeInsets.zero,
               child: Column(

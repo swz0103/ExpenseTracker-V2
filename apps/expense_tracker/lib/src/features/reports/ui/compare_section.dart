@@ -136,9 +136,8 @@ class _CompareSectionState extends State<CompareSection> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: Hue.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -377,8 +377,7 @@ class _LedgerPageState extends State<LedgerPage> {
   /// day's entries on a white card.
   Widget _line(_Item item) => switch (item) {
     _Heading(:final day) => _heading(day),
-    _Group(:final entries) => SoftPanel(
-      color: Hue.white,
+    _Group(:final entries) => GroupBox(
       // None: a row's 編輯 and 刪除 reach the card's edges.
       padding: EdgeInsets.zero,
       child: Column(
@@ -467,7 +466,7 @@ class _PickBar extends StatelessWidget {
           style: wordButton(color ?? Hue.accent),
           child: Text(label),
         );
-    return SoftPanel(
+    return GroupBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

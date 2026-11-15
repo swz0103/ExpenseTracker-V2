@@ -4,9 +4,9 @@ import '../glyphs.dart';
 import '../theme.dart';
 import '../kit.dart';
 
-// The white board of rows, the ⋯ menu and what a page shows when empty.
+// The grey board of rows, the ⋯ menu and what a page shows when empty.
 
-/// The white board of rows, as on a quote board: each row an icon, a name
+/// The grey board of rows, as on a quote board: each row an icon, a name
 /// with one line under it, and a figure on the right, thin rules between.
 class QuoteBoard extends StatelessWidget {
   const QuoteBoard(this.rows, {super.key});
@@ -17,9 +17,8 @@ class QuoteBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: Hue.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(

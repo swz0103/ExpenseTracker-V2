@@ -22,7 +22,7 @@ class SwipeActions extends StatefulWidget {
     super.key,
     required this.actions,
     required this.child,
-    this.background = Hue.white,
+    this.background = Hue.group,
   });
 
   final List<SwipeAction> actions;

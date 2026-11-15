@@ -6,7 +6,8 @@ import '../haptics.dart';
 import '../theme.dart';
 import '../kit.dart';
 
-// A solid square icon and the tick-in-a-circle switch.
+// The square and round icons, the tick-in-a-circle switch, and small
+// marks: a legend key, a pill of words, a ring for a share.
 
 /// An icon in white on a rounded square of solid [color]: the mark of a
 /// category, a setting or a tool. On the dark theme, the icon in [color]
@@ -74,7 +75,11 @@ class TickSwitch extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: value ? color : tintOf(color, 0.3),
+            // On, solid on the light theme; on the dark one a deep tint
+            // with the tick in [color], not a bright dot.
+            color: value
+                ? (Shade.dark ? tintOf(color, 0.6) : color)
+                : tintOf(color, 0.3),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -84,7 +89,7 @@ class TickSwitch extends StatelessWidget {
             weight: 2.2,
             tinted: false,
             color: value
-                ? const Color(0xFFFFFFFF)
+                ? (Shade.dark ? color : const Color(0xFFFFFFFF))
                 : Color.lerp(tintOf(color, 0.3), color, 0.35),
           ),
         ),
@@ -139,4 +144,190 @@ class ToggleRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// An icon on a soft circle of its own colour: the mark of a row in a
+/// list or a menu ([SquareIcon] is for cards and blocks).
+class RoundIcon extends StatelessWidget {
+  const RoundIcon(
+    this.icon,
+    this.color, {
+    super.key,
+    this.size = 40,
+    this.filled = false,
+  }) : letter = null;
+
+  /// A letter, such as a merchant's first, in place of an icon.
+  const RoundIcon.letter(
+    String this.letter,
+    this.color, {
+    super.key,
+    this.size = 40,
+  }) : icon = Glyph.store,
+       filled = false;
+
+  final Glyph icon;
+  final String? letter;
+  final Color color;
+  final double size;
+
+  /// Solid colour with a light icon, for the chosen option.
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: filled ? color : softOf(color),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: switch (letter) {
+        // The row says the merchant already.
+        final letter? => ExcludeSemantics(
+          child: Text(
+            letter,
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              fontSize: size * 0.44,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ),
+        null => GlyphIcon(
+          icon,
+          size: size * 0.55,
+          color: filled ? Hue.onAccent : color,
+        ),
+      },
+    );
+  }
+}
+
+/// A legend mark, a dot or a short line, with its label.
+class LegendKey extends StatelessWidget {
+  const LegendKey(this.color, this.label, {super.key, this.line = false});
+
+  final Color color;
+  final String label;
+  final bool line;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: line ? 12 : 8,
+          height: line ? 2.5 : 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: mutedSmall),
+      ],
+    );
+  }
+}
+
+/// A small rounded label, such as 「結餘率 66%」.
+class Pill extends StatelessWidget {
+  const Pill(this.text, {super.key, this.color = Hue.accent});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Hue.glass,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        softWrap: false,
+        style: TextStyle(fontSize: TextSize.caption, color: color),
+      ),
+    );
+  }
+}
+
+/// A share of a whole as a ring with the percentage inside.
+class RingGauge extends StatelessWidget {
+  const RingGauge({
+    super.key,
+    required this.share,
+    this.size = 52,
+    this.color = Hue.accent,
+  });
+
+  /// 0 to 1; more than 1 draws a full ring in the spending colour.
+  final double share;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _RingPainter(share, share > 1 ? Hue.negative : color),
+        child: Center(
+          child: Text(
+            '${(share * 100).round()}%',
+            style: TextStyle(fontSize: size / 4.2, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.share, this.color);
+
+  final double share;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.13;
+    final rect = Offset.zero & size;
+    final arc = rect.deflate(stroke / 2);
+    canvas.drawArc(
+      arc,
+      0,
+      6.2832,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = Hue.accentTrack,
+    );
+    canvas.drawArc(
+      arc,
+      -1.5708,
+      6.2832 * share.clamp(0.0, 1.0),
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.share != share || old.color != color;
 }

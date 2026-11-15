@@ -38,9 +38,8 @@ class _Calendar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: Hue.cardShadow,
       ),
       child: Column(
         children: [

@@ -26,7 +26,7 @@
 
 ### 檔案長度
 
-- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart` 與帳本狀態 `ledger.dart`（800）。
+- 一個檔案 600 行以內（`layers_test` 檢查）。例外只有產生的 `glyphs.dart` 與帳本狀態 `ledger.dart`（650）。
 - 快超過時依主題拆：`python3 tool/split.py <檔案>` 把後段的宣告搬到同一個 library 的 `part` 檔，再把檔名改成看得懂的名字。單一類別太長時，把一組方法搬到同檔 library 的 `extension`（例：`composer_pickers.dart`）。
 
 ### 命名與註解

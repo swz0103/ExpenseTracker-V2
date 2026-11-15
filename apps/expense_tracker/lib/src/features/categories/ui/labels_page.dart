@@ -256,10 +256,7 @@ class _Half extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: chosen ? Hue.tileShadow : null,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
           shape: RoundedRectangleBorder(

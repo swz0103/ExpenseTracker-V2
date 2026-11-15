@@ -257,10 +257,7 @@ class _Kind extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: chosen ? Hue.tileShadow : null,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
         child: Material(
           color: chosen ? chosenFill(color) : Hue.surface,
           shape: RoundedRectangleBorder(

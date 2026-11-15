@@ -143,7 +143,6 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   _Choice(
                     '更新',
                     color: Hue.positive,
-                    ink: Hue.onAccent,
                     onTap: widget.update.busy ? null : _install,
                   ),
                   const SizedBox(height: 6),
@@ -182,16 +181,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
 }
 
 class _Choice extends StatelessWidget {
-  const _Choice(
-    this.label, {
-    required this.color,
-    required this.ink,
-    this.onTap,
-  });
+  const _Choice(this.label, {required this.color, this.onTap});
 
   final String label;
   final Color color;
-  final Color ink;
   final VoidCallback? onTap;
 
   @override
@@ -200,7 +193,6 @@ class _Choice extends StatelessWidget {
       onPressed: onTap,
       style: solidButton(
         color,
-        ink: ink,
         minimumSize: Size(0, 52),
         radius: 16,
         words: appFont.copyWith(

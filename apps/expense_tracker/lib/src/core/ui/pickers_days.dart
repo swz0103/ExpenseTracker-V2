@@ -86,7 +86,7 @@ class _DayChoicesState extends State<DayChoices> {
     final picked = day == widget.selected;
     // Only the chosen day is filled; a day with entries has a dot.
     final ink = picked
-        ? Hue.onAccent
+        ? chosenInk(widget.color)
         : !inMonth || future
         ? Hue.faint
         : Hue.ink;
@@ -101,8 +101,11 @@ class _DayChoicesState extends State<DayChoices> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: picked ? widget.color : null,
+              color: picked ? chosenFill(widget.color) : null,
               shape: BoxShape.circle,
+              border: picked && Shade.dark
+                  ? Border.fromBorderSide(chosenEdge(widget.color))
+                  : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

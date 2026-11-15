@@ -37,8 +37,8 @@ String? entryLetter(Entry e) {
 Widget entryBadge(Ledger ledger, Entry e, {double size = 34}) {
   final (icon, color) = entryMark(ledger, e);
   return switch (entryLetter(e)) {
-    final letter? => IconBadge.letter(letter, color, size: size),
-    null => IconBadge(icon, color, size: size),
+    final letter? => RoundIcon.letter(letter, color, size: size),
+    null => RoundIcon(icon, color, size: size),
   };
 }
 

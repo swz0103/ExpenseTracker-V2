@@ -106,9 +106,8 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
                 decoration: BoxDecoration(
-                  color: Hue.white,
+                  color: Hue.group,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: Hue.cardShadow,
                 ),
                 child: Row(
                   children: [

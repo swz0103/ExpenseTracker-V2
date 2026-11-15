@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../look/kit/colours.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 
@@ -174,9 +175,12 @@ class _TreemapPainter extends CustomPainter {
       if (rect.isEmpty) continue;
       final picked = i == selected;
       final faded = selected != null && !picked;
+      // On the dark theme a deep tint, as an account's card, not a bright
+      // block.
+      final fill = Shade.dark ? tintOf(color, 0.4) : color;
       canvas.drawRRect(
         RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-        Paint()..color = faded ? color.withValues(alpha: 0.4) : color,
+        Paint()..color = faded ? fill.withValues(alpha: 0.4) : fill,
       );
       if (rect.width < 36 || rect.height < 20) continue;
       final label = TextStyle(

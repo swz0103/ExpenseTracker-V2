@@ -169,39 +169,6 @@ class StepSwitch extends StatelessWidget {
   }
 }
 
-/// A section's title in 17 px with something on the right.
-class SectionHead extends StatelessWidget {
-  const SectionHead(this.title, {super.key, this.trailing});
-
-  final String title;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: TextSize.heading,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-          ?trailing,
-        ],
-      ),
-    );
-  }
-}
-
 /// A page's list under its [header], which stays put while the rest
 /// scrolls; once scrolled, a thin line shows where the list goes under
 /// it. [padding] is the list's, its sides the header's too.

@@ -7,7 +7,6 @@ import 'package:core/foundation_values.dart'
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, Listenable, ValueNotifier;
-import 'package:flutter/painting.dart' show Color;
 
 import '../text/amounts.dart';
 import 'card_cycle.dart';
@@ -22,6 +21,8 @@ part 'ledger_cards.dart';
 part 'ledger_planning.dart';
 part 'ledger_reports.dart';
 part 'ledger_entries.dart';
+part 'ledger_queries.dart';
+part 'ledger_holdings.dart';
 part 'ledger_recurring.dart';
 part 'ledger_setup.dart';
 
@@ -217,7 +218,7 @@ final class Ledger extends ChangeNotifier {
 
   Category category(String name) =>
       (_categoryIndex ??= {for (final c in _categories) c.name: c})[name] ??
-      Category(name, 'other', const Color(0xFF8C8C80));
+      Category.unknown(name);
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
@@ -367,89 +368,6 @@ final class Ledger extends ChangeNotifier {
 
   /// Every entry, in the order written; the list cannot be changed.
   List<Entry> get entries => UnmodifiableListView(_entries);
-
-  /// Entries of any month whose note, merchant, category or tags hold
-  /// [words], or whose amount is [words]; newest first.
-  List<Entry> search(String words) => _remember(
-    ('search', words),
-    () => _search(words),
-    on: const {Area.entries, Area.accounts, Area.categories},
-  );
-
-  List<Entry> _search(String words) {
-    final lower = words.toLowerCase();
-    // Each entry's words, lower-cased once per change.
-    final texts = _remember(
-      'searchText',
-      () => [
-        for (final e in _entries)
-          [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
-      ],
-      on: const {Area.entries},
-    );
-    final found = [
-      for (final (i, e) in _entries.indexed)
-        if (texts[i].contains(lower) ||
-            '${e.amount}' == words ||
-            plainIn(e.amount, account(e.account).currency) == words)
-          (i, e),
-    ];
-    found.sort((a, b) {
-      final byDate = b.$2.date.compareTo(a.$2.date);
-      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
-    });
-    return [for (final (_, e) in found) e];
-  }
-
-  List<Entry> entriesOn(DateTime day) =>
-      (_days ??= _indexDays())[day] ?? const [];
-
-  /// Every day's entries in [entriesIn] order, built once per change.
-  Map<DateTime, List<Entry>> _indexDays() {
-    final days = <DateTime, List<Entry>>{};
-    for (final month in (_months ??= _indexMonths()).values) {
-      for (final e in month) {
-        (days[e.date] ??= []).add(e);
-      }
-    }
-    return days;
-  }
-
-  /// Income of a month, dividends included.
-  int income(int year, int month) =>
-      entriesIn(year, month).fold(0, (total, e) => total + e.earning);
-
-  /// Spending of a month, less refunds, with transfer fees.
-  int expense(int year, int month, {int? untilDay}) => entriesIn(year, month)
-      .where((e) => untilDay == null || e.date.day <= untilDay)
-      .fold(0, (total, e) => total + e.spending);
-
-  int dividends(int year, int month) =>
-      entriesIn(year, month).fold(0, (sum, e) => sum + e.dividendNet);
-
-  int spentOn(DateTime day) =>
-      entriesOn(day).fold(0, (total, e) => total + e.spending);
-
-  /// A month's spending by category, largest first.
-  List<(Category, int)> expenseByCategory(
-    int year,
-    int month, {
-    int? untilDay,
-  }) {
-    final totals = <String, int>{};
-    for (final e in entriesIn(year, month)) {
-      if (untilDay != null && e.date.day > untilDay) continue;
-      for (final (name, value) in e.spendingParts) {
-        totals[name] = (totals[name] ?? 0) + value;
-      }
-    }
-    final rows = [
-      for (final MapEntry(:key, :value) in totals.entries)
-        (category(key), value),
-    ];
-    rows.sort((a, b) => b.$2.compareTo(a.$2));
-    return rows;
-  }
 
   // Changes.
 
@@ -638,60 +556,6 @@ final class Ledger extends ChangeNotifier {
   void toggleHidden() {
     _hidden = !_hidden;
     _signal();
-  }
-
-  /// Works the holdings out again when [trades] were touched, then tells
-  /// the screens the entries changed; an oversold trade is undone and
-  /// rethrown.
-  void _replayOrUndo(void Function() undo, {bool trades = true}) {
-    if (trades) {
-      try {
-        _replay();
-      } on StateError {
-        undo();
-        _replay();
-        rethrow;
-      }
-    }
-    _changed(const {Area.entries});
-  }
-
-  /// [_replayOrUndo], telling a refusal through [problem] rather than
-  /// throwing; false when refused.
-  bool _tryReplay(void Function() undo, {required bool trades}) {
-    try {
-      _replayOrUndo(undo, trades: trades);
-      return true;
-    } on StateError {
-      problem.value = const SharesShort();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  /// Whether [extra] can join the entries, in place of [replacing]: none
-  /// of their trades sells more shares than are held by then.
-  bool holdsWith(List<Entry> extra, {Entry? replacing}) {
-    try {
-      Portfolio.replay(_startHoldings, [
-        for (final e in _entries)
-          if (replacing == null || e.id != replacing.id) e,
-        ...extra,
-      ]);
-      return true;
-    } on StateError {
-      return false;
-    }
-  }
-
-  /// Rebuilds the holdings from the starting positions and every
-  /// investment entry; an oversold trade throws a [StateError], or, when
-  /// [lenient], as for a book just loaded, is left out of the holdings.
-  void _replay({bool lenient = false}) {
-    // The caller says what changed (_changed); the day's moves rest on
-    // the holdings, so they go now.
-    _moved = null;
-    _portfolio = Portfolio.replay(_startHoldings, _entries, lenient: lenient);
   }
 }
 

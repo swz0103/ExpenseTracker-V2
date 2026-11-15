@@ -74,13 +74,12 @@ class _AccountPageState extends State<AccountPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Tile(
-                    hero: true,
+                  HeroFigure(
                     icon: accountIcon(account),
                     label: groupName(account.kind),
                     value: ledger.moneyIn(balance, account.currency),
                     valueColor: balance < 0 ? Hue.negative : Hue.ink,
-                    child: TileStats([
+                    child: FigureCells([
                       (Glyph.income, '本月流入', into, Hue.positive),
                       (Glyph.payout, '本月流出', out, Hue.negative),
                     ]),
@@ -234,7 +233,7 @@ class _AccountBodyState extends State<AccountBody> {
             ],
           ),
         ),
-        const SectionHead('近四週'),
+        const SectionTitle('近四週'),
         Waterfall(
           weeks: weeks,
           balance: balance,
@@ -243,7 +242,7 @@ class _AccountBodyState extends State<AccountBody> {
           currency: code,
           hidden: ledger.hidden,
         ),
-        SectionHead(
+        SectionTitle(
           '紀錄',
           trailing: MonthSwitch(
             month: _month,
@@ -281,8 +280,7 @@ class _AccountBodyState extends State<AccountBody> {
               ],
             ),
           ),
-          SoftPanel(
-            color: Hue.white,
+          GroupBox(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
@@ -302,7 +300,7 @@ class _AccountBodyState extends State<AccountBody> {
   }
 }
 
-/// One of the things done with an account, as a white tile.
+/// One of the things done with an account, as a grey block.
 class _Action extends StatelessWidget {
   const _Action({required this.icon, required this.label, required this.onTap});
 
@@ -312,13 +310,12 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SoftPanel(
-      color: Hue.white,
+    return GroupBox(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       onTap: onTap,
       child: Column(
         children: [
-          IconChip(icon, size: 28, background: Hue.tile),
+          SquareIcon(icon, Hue.accent, size: 30),
           const SizedBox(height: 4),
           Text(
             label,

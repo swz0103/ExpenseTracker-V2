@@ -171,8 +171,7 @@ class CardPage extends StatelessWidget {
             ],
           ),
           children: [
-            Tile(
-              hero: true,
+            HeroFigure(
               icon: Glyph.card,
               label: '本期帳單 · ${_day(start)}–${_day(end)}',
               trailing: Pill(owed == 0 ? '已繳清' : '已出帳'),
@@ -206,8 +205,9 @@ class CardPage extends StatelessWidget {
                       ),
                     ),
             ),
-            TileRow([
-              Tile(
+            CardRow([
+              FigureCard(
+                color: Hue.card,
                 icon: Glyph.calendar,
                 label: '本期未出帳',
                 value: ledger.money(spentSince),
@@ -223,7 +223,8 @@ class CardPage extends StatelessWidget {
                   ),
                 ),
               ),
-              Tile(
+              FigureCard(
+                color: Hue.card,
                 icon: Glyph.budget,
                 label: '可用額度',
                 value: limit == null
@@ -266,7 +267,8 @@ class CardPage extends StatelessWidget {
             ]),
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Tile(
+              child: FigureCard(
+                color: Hue.card,
                 icon: Glyph.calendar,
                 label: '下次結帳',
                 value: _day(next),
@@ -275,8 +277,9 @@ class CardPage extends StatelessWidget {
                 onTap: () => _moveClose(context, card, next),
               ),
             ),
-            TileRow([
-              Tile(
+            CardRow([
+              FigureCard(
+                color: Hue.positive,
                 icon: Glyph.sparkle,
                 label: '今年回饋',
                 value: ledger.money(_tagged(card, '回饋', EntryType.income)),
@@ -286,7 +289,8 @@ class CardPage extends StatelessWidget {
                 trailing: const GlyphIcon(Glyph.add, size: 16),
                 onTap: () => _extra(card, EntryType.income),
               ),
-              Tile(
+              FigureCard(
+                color: Hue.negative,
                 icon: Glyph.ticket,
                 label: '今年年費',
                 value: ledger.money(_tagged(card, '年費', EntryType.expense)),
@@ -295,12 +299,11 @@ class CardPage extends StatelessWidget {
               ),
             ]),
             if (plans.isNotEmpty) ...[
-              SectionHead(
+              SectionTitle(
                 '分期中',
                 trailing: Text('${plans.length} 筆', style: mutedSmall),
               ),
-              SoftPanel(
-                color: Hue.white,
+              GroupBox(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 4,
@@ -313,7 +316,7 @@ class CardPage extends StatelessWidget {
                 ),
               ),
             ],
-            SectionHead(
+            SectionTitle(
               '本期未出帳',
               trailing: Text(
                 '${_day(end.add(const Duration(days: 1)))} 起',
@@ -323,8 +326,7 @@ class CardPage extends StatelessWidget {
             if (unbilled.isEmpty)
               const Text('還沒有新的刷卡', style: TextStyle(color: Hue.muted))
             else
-              SoftPanel(
-                color: Hue.white,
+              GroupBox(
                 // None: a row's 編輯 and 刪除 reach the card's edges.
                 padding: EdgeInsets.zero,
                 child: Column(
@@ -339,9 +341,8 @@ class CardPage extends StatelessWidget {
                   ],
                 ),
               ),
-            const SectionHead('設定'),
-            SoftPanel(
-              color: Hue.white,
+            const SectionTitle('設定'),
+            GroupBox(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               child: Column(
                 children: [
@@ -368,7 +369,7 @@ class CardPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          IconBadge(
+          RoundIcon(
             iconFor(category.icon),
             shownColor(category.color),
             size: 34,

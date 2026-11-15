@@ -1,0 +1,89 @@
+part of 'ledger.dart';
+
+// Questions asked of the entries again and again: a search, a day's
+// entries, and a month's income, spending and spending by category.
+
+extension LedgerQueries on Ledger {
+  /// Entries of any month whose note, merchant, category or tags hold
+  /// [words], or whose amount is [words]; newest first.
+  List<Entry> search(String words) => _remember(
+    ('search', words),
+    () => _search(words),
+    on: const {Area.entries, Area.accounts, Area.categories},
+  );
+
+  List<Entry> _search(String words) {
+    final lower = words.toLowerCase();
+    // Each entry's words, lower-cased once per change.
+    final texts = _remember(
+      'searchText',
+      () => [
+        for (final e in _entries)
+          [e.note, e.merchant, e.category, ...e.tags].join('\n').toLowerCase(),
+      ],
+      on: const {Area.entries},
+    );
+    final found = [
+      for (final (i, e) in _entries.indexed)
+        if (texts[i].contains(lower) ||
+            '${e.amount}' == words ||
+            plainIn(e.amount, account(e.account).currency) == words)
+          (i, e),
+    ];
+    found.sort((a, b) {
+      final byDate = b.$2.date.compareTo(a.$2.date);
+      return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+    });
+    return [for (final (_, e) in found) e];
+  }
+
+  List<Entry> entriesOn(DateTime day) =>
+      (_days ??= _indexDays())[day] ?? const [];
+
+  /// Every day's entries in [entriesIn] order, built once per change.
+  Map<DateTime, List<Entry>> _indexDays() {
+    final days = <DateTime, List<Entry>>{};
+    for (final month in (_months ??= _indexMonths()).values) {
+      for (final e in month) {
+        (days[e.date] ??= []).add(e);
+      }
+    }
+    return days;
+  }
+
+  /// Income of a month, dividends included.
+  int income(int year, int month) =>
+      entriesIn(year, month).fold(0, (total, e) => total + e.earning);
+
+  /// Spending of a month, less refunds, with transfer fees.
+  int expense(int year, int month, {int? untilDay}) => entriesIn(year, month)
+      .where((e) => untilDay == null || e.date.day <= untilDay)
+      .fold(0, (total, e) => total + e.spending);
+
+  int dividends(int year, int month) =>
+      entriesIn(year, month).fold(0, (sum, e) => sum + e.dividendNet);
+
+  int spentOn(DateTime day) =>
+      entriesOn(day).fold(0, (total, e) => total + e.spending);
+
+  /// A month's spending by category, largest first.
+  List<(Category, int)> expenseByCategory(
+    int year,
+    int month, {
+    int? untilDay,
+  }) {
+    final totals = <String, int>{};
+    for (final e in entriesIn(year, month)) {
+      if (untilDay != null && e.date.day > untilDay) continue;
+      for (final (name, value) in e.spendingParts) {
+        totals[name] = (totals[name] ?? 0) + value;
+      }
+    }
+    final rows = [
+      for (final MapEntry(:key, :value) in totals.entries)
+        (category(key), value),
+    ];
+    rows.sort((a, b) => b.$2.compareTo(a.$2));
+    return rows;
+  }
+}

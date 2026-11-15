@@ -95,9 +95,8 @@ class _Figure extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
       decoration: BoxDecoration(
-        color: Hue.white,
+        color: Hue.group,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: Hue.cardShadow,
       ),
       child: Row(
         children: [

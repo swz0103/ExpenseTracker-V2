@@ -207,7 +207,7 @@ void main() {
     // subject (tool/split.py) before it grows past the limit.
     const longer = {
       'lib/src/core/look/glyphs.dart': 1600,
-      'lib/src/core/ledger/ledger.dart': 800,
+      'lib/src/core/ledger/ledger.dart': 650,
     };
     for (final file in imports.keys) {
       final lines = File(file).readAsLinesSync().length;

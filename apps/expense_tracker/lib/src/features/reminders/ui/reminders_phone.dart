@@ -56,7 +56,6 @@ class _PhoneStrip extends StatelessWidget {
             onPressed: good ? onTest : fix,
             style: solidButton(
               deepOf(color),
-              ink: Hue.paper,
               minimumSize: Size(0, 48),
               radius: 14,
             ),
