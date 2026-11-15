@@ -1,4 +1,16 @@
-part of 'records.dart';
+import 'dart:math';
+
+/// How often a recurring item comes round.
+enum RepeatUnit {
+  day('天'),
+  week('週'),
+  month('個月'),
+  year('年');
+
+  const RepeatUnit(this.label);
+
+  final String label;
+}
 
 final class Recurring {
   const Recurring({
@@ -136,12 +148,4 @@ final class Recurring {
     }
     return dates;
   }
-}
-
-/// An entry deleted on [on], kept for a while to be restored.
-final class Trashed {
-  const Trashed(this.entry, this.on);
-
-  final Entry entry;
-  final DateTime on;
 }

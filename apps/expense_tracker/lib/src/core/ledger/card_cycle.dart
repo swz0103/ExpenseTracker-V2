@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart';
 
-import 'records.dart';
+import 'models/models.dart';
 
 /// A card's billing cycle, by the ledger's own schedule: when its
 /// statements close, moved closes and earlier billing days included, and

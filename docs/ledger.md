@@ -68,10 +68,11 @@ core/ledger/
 | 隱藏金額獨立成物件（`AmountVisibility`） | 完成 |
 | 快取一致性測試（隨機修改 × 二十多種查詢） | 完成 |
 | 規模量測（`scale_bench_test`） | 完成 |
+| 錯誤記錄獨立成 `core/diagnostics`，全部 catch 記錄或說明 | 完成 |
 | `WriteQueue` 獨立 | 尚未 |
 | `QueryCache` 與自動依賴、`Topic` | 尚未 |
 | `UnitOfWork` 取代 `_before`／`_since` | 尚未 |
-| `models/` 依型別拆檔 | 尚未 |
+| `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository` 與增量索引 | 尚未 |
 | Trash、Account、MarketData、Holding Repository | 尚未 |
 | `CategoryRepository` 與分類 id | 尚未 |

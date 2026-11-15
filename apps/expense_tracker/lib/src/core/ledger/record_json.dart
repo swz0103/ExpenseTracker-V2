@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 
-import 'records.dart';
+import 'models/models.dart';
 
 // The ledger's records as JSON, as the journal keeps them and a backup
 // carries them. Each reader takes what its writer wrote and fills in the
