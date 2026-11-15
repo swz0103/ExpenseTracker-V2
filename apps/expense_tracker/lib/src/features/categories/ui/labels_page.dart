@@ -188,42 +188,41 @@ class _LabelsPageState extends State<LabelsPage> {
         ),
       ),
       if (rest.isNotEmpty) ...[
-        const RuleHead('其他'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final (name, count, _) in rest)
-              ColorCard(
-                color: nameColor(name),
-                radius: 14,
-                label: '$name，$count 次',
-                onTap: () => widget.nav.open(Pages.merchant(name)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: name,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+        const SectionTitle('其他'),
+        // Two to a row, each as wide as the other, so long and short
+        // names line up.
+        CardGrid(gap: 8, [
+          for (final (name, count, _) in rest)
+            ColorCard(
+              color: nameColor(name),
+              radius: 14,
+              label: '$name，$count 次',
+              onTap: () => widget.nav.open(Pages.merchant(name)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OneLine(
+                      name,
+                      style: TextStyle(
+                        fontSize: TextSize.body,
+                        fontWeight: FontWeight.w800,
+                        color: deepOf(nameColor(name)),
                       ),
-                      TextSpan(
-                        text: '  $count 次',
-                        style: const TextStyle(fontSize: TextSize.caption),
-                      ),
-                    ],
+                    ),
                   ),
-                  style: TextStyle(
-                    fontSize: TextSize.body,
-                    color: deepOf(nameColor(name)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$count 次',
+                    style: TextStyle(
+                      fontSize: TextSize.caption,
+                      color: deepOf(nameColor(name)),
+                    ),
                   ),
-                ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ]),
       ],
     ];
   }

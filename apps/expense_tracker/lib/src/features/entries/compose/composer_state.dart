@@ -16,9 +16,6 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
   /// An entry opened from a list is shown first; 編輯 unlocks it.
   late var _viewing = widget.entry != null;
 
-  /// The fields have scrolled under the amount: the line between shows.
-  var _scrolled = false;
-
   Ledger get _ledger => widget.ledger;
 
   /// This ledger's forms put aside, by tab.
@@ -465,43 +462,42 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
           );
     // The sheet is as tall as the tallest tab's fields, which scroll
     // inside it past three quarters of the screen.
-    final fields = NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        final moved = n.metrics.pixels > 0.5;
-        if (moved != _scrolled) setState(() => _scrolled = moved);
-        return false;
-      },
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: IgnorePointer(
-          ignoring: _viewing,
-          child: _Fill(
-            // A new entry keeps the tallest tab's height, so switching
-            // tabs does not jump; one looked at or edited takes only
-            // the room it needs.
-            minHeight: widget.entry == null ? _tallest : 0,
-            grow: -1,
-            onHeight: _measured,
-            children: below,
-          ),
+    final fields = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: IgnorePointer(
+        ignoring: _viewing,
+        child: _Fill(
+          // A new entry keeps the tallest tab's height, so switching
+          // tabs does not jump; one looked at or edited takes only
+          // the room it needs.
+          minHeight: widget.entry == null ? _tallest : 0,
+          grow: -1,
+          onHeight: _measured,
+          children: below,
         ),
       ),
     );
     // 刪除 or 暫存 and the main button stay at the foot of the sheet, in
-    // reach however long the form is.
+    // reach however long the form is. An entry looked at shows its own
+    // card in place of the form, until 編輯.
+    final looked = _viewing && entry != null && refunded == null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        top,
-        ?pinned,
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 1,
-          margin: const EdgeInsets.only(top: 8),
-          color: _scrolled ? Hue.line : Hue.line.withValues(alpha: 0),
-        ),
-        Flexible(child: ClipRect(child: fields)),
+        if (looked)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: _view(entry),
+            ),
+          )
+        else ...[
+          top,
+          ?pinned,
+          const SizedBox(height: 8),
+          Flexible(child: ClipRect(child: fields)),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
           child: Row(
@@ -564,25 +560,31 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       if (left == null || !mounted) return;
       var invoice = InvoiceQr.parse(left);
       if (invoice == null) {
-        showNote(context, '這不是電子發票左邊的 QR Code，請掃左邊那個');
+        _say('這不是電子發票左邊的 QR Code，請掃左邊那個');
         return;
       }
       if (invoiceRecorded(_ledger, invoice.date, invoice.number)) {
-        showNote(context, '發票 ${invoice.number} 已經記過了');
+        _say('發票 ${invoice.number} 已經記過了');
         return;
       }
       if (invoice.wantsMore) {
-        showNote(context, '還有品項在右邊的 QR Code，請再掃一次');
+        _say('還有品項在右邊的 QR Code，請再掃一次');
         final right = await scan();
         if (right != null) invoice = invoice.withRight(right);
       }
       if (!mounted) return;
       final scanned = invoice;
       _set(() => _f.fillInvoice(scanned));
-    } on Object catch (error) {
-      if (mounted) showNote(context, '沒有掃到：$error');
+    } on Object {
+      // Most often Google's scanner is still being fetched, or Play
+      // services is off.
+      _say('掃描器還沒準備好，請稍等一下再掃一次');
     }
   }
+
+  /// A word on the scan in the form itself: a note at the foot of the
+  /// screen would sit under the sheet, out of sight.
+  void _say(String words) => _set(() => _problem = words);
 
   void _set(VoidCallback change) {
     if (mounted) setState(change);

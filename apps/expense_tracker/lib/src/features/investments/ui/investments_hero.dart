@@ -1,7 +1,8 @@
 part of 'investments.dart';
 
-/// 市值 big with today's move on a solid block, and under a rule what is
-/// unrealized, realized, and the yearly return.
+/// 市值 big with today's move beside the label, and under a rule three
+/// even columns, thin lines between: unrealized, realized, and the
+/// yearly return, each a label, a figure and one short line.
 class _InvestHero extends StatelessWidget {
   const _InvestHero({required this.ledger});
 
@@ -17,47 +18,57 @@ class _InvestHero extends StatelessWidget {
     final rate = returnOf(ledger);
     Widget column(String label, String figure, Color color, String sub) =>
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: mutedSmall),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  figure,
-                  style: TextStyle(
-                    fontSize: TextSize.heading,
-                    fontWeight: FontWeight.w800,
-                    color: color,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OneLine(
+                  label,
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
                   ),
                 ),
-              ),
-              Text(
-                sub,
-                style: const TextStyle(
-                  fontSize: TextSize.tiny,
-                  color: Hue.muted,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    figure,
+                    style: TextStyle(
+                      fontSize: TextSize.title,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                OneLine(
+                  sub,
+                  style: const TextStyle(
+                    fontSize: TextSize.caption,
+                    color: Hue.muted,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
+    const rule = VerticalDivider(width: 1, thickness: 1, color: Hue.accentRule);
     return HeroCard(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '市值',
-            style: TextStyle(
-              fontSize: TextSize.small,
-              fontWeight: FontWeight.w800,
-              color: Hue.accent,
-            ),
+          Row(
+            children: [
+              const SquareIcon(Glyph.pie, Palette.indigo, size: 30),
+              const SizedBox(width: 8),
+              const Text('市值', style: accentLabel),
+            ],
           ),
-          // The chip goes under the figure when both do not fit on a line,
-          // rather than shrinking the figure.
+          const SizedBox(height: 8),
+          // Today's move beside the figure, or under it when both do not
+          // fit on a line, rather than either shrinking.
           Wrap(
             spacing: 10,
             runSpacing: 6,
@@ -68,53 +79,44 @@ class _InvestHero extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: TextSize.big,
                   fontWeight: FontWeight.w800,
+                  height: 1.15,
                 ),
               ),
               if (ledger.quotedOn != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chosenFill(day < 0 ? Hue.negative : Hue.positive),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '今日 ${ledger.orDots(signed(day))}'
-                    '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
-                    style: TextStyle(
-                      fontSize: TextSize.small,
-                      fontWeight: FontWeight.w800,
-                      color: chosenInk(day < 0 ? Hue.negative : Hue.positive),
-                    ),
-                  ),
+                Pill(
+                  '今日 ${ledger.orDots(signed(day))}'
+                  '${before == 0 ? '' : ' · ${percentOf(day, before)}'}',
+                  color: day < 0 ? Hue.negative : Hue.positive,
                 ),
             ],
           ),
-          const Divider(height: 22, color: Hue.accentRule),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              column(
-                '未實現',
-                ledger.orDots(signed(gain)),
-                gain < 0 ? Hue.negative : Hue.positive,
-                '${percentOf(gain, cost)} · 成本 ${ledger.orDots(groupDigits(cost))}',
-              ),
-              column(
-                '已實現',
-                ledger.orDots(signed(ledger.realized)),
-                ledger.realized < 0 ? Hue.negative : Hue.positive,
-                '已賣出',
-              ),
-              column(
-                '年化報酬',
-                rate == null ? '—' : yearlyRate(rate),
-                rate == null || rate >= 0 ? Hue.positive : Hue.negative,
-                rate == null ? '有期初持股' : '含股息',
-              ),
-            ],
+          const Divider(height: 24, color: Hue.accentRule),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                column(
+                  '未實現',
+                  ledger.orDots(signed(gain)),
+                  gain < 0 ? Hue.negative : Hue.positive,
+                  percentOf(gain, cost),
+                ),
+                rule,
+                column(
+                  '已實現',
+                  ledger.orDots(signed(ledger.realized)),
+                  ledger.realized < 0 ? Hue.negative : Hue.positive,
+                  '已賣出',
+                ),
+                rule,
+                column(
+                  '年化',
+                  rate == null ? '—' : yearlyRate(rate),
+                  rate == null || rate >= 0 ? Hue.positive : Hue.negative,
+                  rate == null ? '資料不足' : '含股息',
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -122,7 +124,7 @@ class _InvestHero extends StatelessWidget {
   }
 }
 
-/// A holding on the quote board: name, code and kind, shares and gain;
+/// A holding on the quote board: its code, shares and gain;
 /// the close big and today's move on a solid block.
 class _HoldingRow extends StatelessWidget {
   const _HoldingRow({
@@ -143,8 +145,9 @@ class _HoldingRow extends StatelessWidget {
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return QuoteRow(
       onTap: onTap,
-      title:
-          '${held.name}  ${held.code} · ${held.code.startsWith('00') ? 'ETF' : '個股'}',
+      // The code alone: the group above says 個股 or ETF, and the
+      // holding's page has its name.
+      title: held.code,
       detail:
           '${ledger.orDots(groupDigits(held.shares))} 股 · 損益 '
           '${ledger.orDots(signed(held.gain))}',

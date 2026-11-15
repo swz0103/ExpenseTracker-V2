@@ -14,6 +14,7 @@ import 'account_card.dart';
 import '../../../core/ui/shown_amounts.dart';
 
 part 'sort_accounts.dart';
+part 'wallet.dart';
 
 /// The kinds 我的帳戶 holds, in the order 依類型重新排 puts them. Money
 /// paid for someone and loans have a page of their own.
@@ -180,7 +181,7 @@ class _NetWorth extends StatelessWidget {
       for (final p in parts)
         if (p.$2 > 0) p,
     ];
-    final total = shown.fold<int>(0, (sum, p) => sum + p.$2);
+    final shares = visibleShares([for (final p in shown) p.$2]);
     return HeroFigure(
       icon: Glyph.wallet,
       label: '淨資產',
@@ -206,10 +207,10 @@ class _NetWorth extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final (i, (_, value, color)) in shown.indexed) ...[
+                        for (final (i, (_, _, color)) in shown.indexed) ...[
                           if (i > 0) const SizedBox(width: 3),
                           Expanded(
-                            flex: max(1, (value * 1000 / total).round()),
+                            flex: max(1, (shares[i] * 1000).round()),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: color,
@@ -237,183 +238,6 @@ class _NetWorth extends StatelessWidget {
   }
 }
 
-/// The accounts as one stack of cards: the top strip of each, and the
-/// one at [index] whole in front, at the bottom. Held, the stack lifts;
-/// moved up or down while held, the cards turn through the front one by
-/// one, and the one in front when let go stays there. A tap on a card
-/// behind brings it to the front too.
-class _Wallet extends StatefulWidget {
-  const _Wallet({
-    required this.ledger,
-    required this.accounts,
-    required this.index,
-    required this.onShow,
-    required this.onOpen,
-  });
-
-  final Ledger ledger;
-  final List<Account> accounts;
-  final int index;
-  final ValueChanged<Account> onShow;
-  final ValueChanged<Account> onOpen;
-
-  @override
-  State<_Wallet> createState() => _WalletState();
-}
-
-class _WalletState extends State<_Wallet> {
-  /// Lifted by a long press; the drag since the last card turned.
-  var _lifted = false;
-  var _baseline = 0.0;
-
-  /// How far a finger moves for one card to turn: one card a step, at
-  /// the same pace however fast the finger goes.
-  static const _pace = 56.0;
-
-  void _turn(int step) {
-    final n = widget.accounts.length;
-    final next = ((widget.index + step) % n + n) % n;
-    Haptics.selection();
-    widget.onShow(widget.accounts[next]);
-  }
-
-  void _dragged(double dy) {
-    if (dy - _baseline <= -_pace) {
-      _baseline -= _pace;
-      _turn(1);
-    } else if (dy - _baseline >= _pace) {
-      _baseline += _pace;
-      _turn(-1);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final accounts = widget.accounts;
-    final index = widget.index;
-    final last = accounts.length - 1;
-    final (strip, front) = cardHeights(context);
-    // How far each card sits below the one behind it.
-    final step = strip - 12;
-    final quiet = MediaQuery.disableAnimationsOf(context);
-    final shown = accounts[index];
-    // The stack's order: the others as they are, the one shown last.
-    final order = [
-      for (final a in accounts)
-        if (a.id != shown.id) a,
-      shown,
-    ];
-    return GestureDetector(
-      // A screen reader taps each card instead.
-      excludeFromSemantics: true,
-      onLongPressStart: accounts.length < 2
-          ? null
-          : (_) {
-              Haptics.medium();
-              setState(() {
-                _lifted = true;
-                _baseline = 0;
-              });
-            },
-      // Up brings the next card forward, down the one before, one card
-      // for each [_pace] of the drag.
-      onLongPressMoveUpdate: (d) => _dragged(d.offsetFromOrigin.dy),
-      onLongPressEnd: (_) => setState(() => _lifted = false),
-      child: AnimatedScale(
-        scale: _lifted ? 1.03 : 1,
-        duration: quiet ? Duration.zero : const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(end: _lifted ? 1 : 0),
-          duration: quiet ? Duration.zero : const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          builder: (context, lift, _) => SizedBox(
-            height: step * last + front,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (final (i, a) in order.indexed)
-                  AnimatedPositioned(
-                    key: ValueKey(a.id),
-                    duration: quiet
-                        ? Duration.zero
-                        : const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    top: step * i,
-                    left: 0,
-                    right: 0,
-                    child: _Tilt(
-                      depth: last - i,
-                      lift: lift,
-                      child: i == last
-                          ? AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: _lifted
-                                    ? const [
-                                        BoxShadow(
-                                          color: Hue.lift,
-                                          blurRadius: 18,
-                                          offset: Offset(0, 8),
-                                        ),
-                                      ]
-                                    : const [],
-                              ),
-                              child: AccountCard(
-                                ledger: widget.ledger,
-                                account: a,
-                                onTap: () => widget.onOpen(a),
-                              ),
-                            )
-                          : AccountCard(
-                              ledger: widget.ledger,
-                              account: a,
-                              // Lifted, every card is a whole card seen
-                              // in depth; at rest, a strip behind.
-                              front: lift > 0,
-                              onTap: () {
-                                Haptics.selection();
-                                widget.onShow(a);
-                              },
-                            ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A card of the lifted stack seen in depth, as a wheel of cards: tipped
-/// back and smaller the further it is behind the front one ([depth] 0).
-/// [lift] runs from 0, flat, to 1, lifted.
-class _Tilt extends StatelessWidget {
-  const _Tilt({required this.depth, required this.lift, required this.child});
-
-  final int depth;
-  final double lift;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (lift == 0) return child;
-    final far = depth.clamp(0, 6);
-    final tilt = Matrix4.identity()
-      ..setEntry(3, 2, 0.0014)
-      ..rotateX(lift * (0.12 + 0.07 * far))
-      ..scaleByDouble(1 - lift * 0.035 * far, 1 - lift * 0.035 * far, 1, 1);
-    return Transform(
-      alignment: Alignment.bottomCenter,
-      transform: tilt,
-      child: child,
-    );
-  }
-}
-
 /// 排序帳戶: the cards laid flat, each dragged by its handle. Nothing is
 /// kept until 完成.
 class SortAccountsPage extends StatefulWidget {
@@ -428,3 +252,24 @@ class SortAccountsPage extends StatefulWidget {
 /// How 排序帳戶 lines the cards up: by hand, the most money first, or
 /// the one used last first.
 enum _SortBy { hand, balance, recent }
+
+/// Each of [values]' share of a bar, every one at least [least] of it so
+/// even a small sum shows; the rest is shared among the larger ones by
+/// size.
+List<double> visibleShares(List<int> values, {double least = 0.06}) {
+  final total = values.fold<int>(0, (sum, v) => sum + v);
+  if (total <= 0) return [for (final _ in values) 1 / values.length];
+  final small = {
+    for (final (i, v) in values.indexed)
+      if (v / total < least) i,
+  };
+  final rest = 1 - least * small.length;
+  final big = [
+    for (final (i, v) in values.indexed)
+      if (!small.contains(i)) v,
+  ].fold<int>(0, (sum, v) => sum + v);
+  return [
+    for (final (i, v) in values.indexed)
+      small.contains(i) ? least : (big == 0 ? 0 : v / big * rest),
+  ];
+}

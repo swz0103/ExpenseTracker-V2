@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/look/glyphs.dart';
-import '../../../../core/look/theme.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/balance_hero.dart';
 import '../../../../core/ui/shown_amounts.dart';
@@ -27,12 +26,7 @@ class SummarySection extends StatelessWidget {
           hides: true,
           income: ledger.income(year, m),
           expense: ledger.expense(year, m),
-          third: (
-            Glyph.dividend,
-            '其中股息',
-            ledger.money(ledger.dividends(year, m)),
-            Hue.investment,
-          ),
+          middle: ('其中股息', ledger.money(ledger.dividends(year, m))),
         );
       },
     );

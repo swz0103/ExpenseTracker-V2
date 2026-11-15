@@ -34,6 +34,9 @@ abstract final class Keys {
   /// The composer's fold of merchant, tags, note and receipt.
   static const extras = ValueKey('compose:extras');
 
+  /// 完成 over the account wallet while its cards turn.
+  static const walletDone = ValueKey('wallet:done');
+
   /// 完成 at the top of a whole-screen task, such as 排序帳戶.
   static const done = ValueKey('flow:done');
 

@@ -266,15 +266,14 @@ class _LedgerPageState extends State<LedgerPage> {
           ledger: ledger,
           icon: Glyph.records,
           label: searching
-              ? '搜尋「$words」· ${shown.length} 筆'
+              ? '搜尋「$words」'
               : switch (filter.range) {
-                  final range? =>
-                    '${LedgerFilter.rangeLabel(range)} 結餘 · ${shown.length} 筆',
-                  null => '$month 月結餘 · ${shown.length} 筆',
+                  final range? => '${LedgerFilter.rangeLabel(range)} 結餘',
+                  null => '$month 月結餘',
                 },
           income: income,
           expense: expense,
-          third: (Glyph.transfer, '轉帳', '${transfers.length} 筆', Hue.ink),
+          note: '${shown.length} 筆 · 轉帳 ${transfers.length}',
           rate: false,
           size: 28,
         ),

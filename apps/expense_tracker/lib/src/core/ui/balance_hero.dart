@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../ledger/ledger.dart' show Ledger;
@@ -9,8 +11,9 @@ import 'shown_amounts.dart';
 
 /// The page's main card for a stretch of time: what is left of [income]
 /// after [expense] as the figure, in ink or in the spending colour when
-/// more went out than came in; the two along its foot with [third]
-/// beside them; and, with [rate], the share of income kept.
+/// more went out than came in; under it one bar of what came in against
+/// what went out, and the two sums at its ends, [middle] between them.
+/// No blocks inside the card: the bar says the share at a glance.
 class BalanceHero extends StatelessWidget {
   const BalanceHero({
     super.key,
@@ -19,7 +22,8 @@ class BalanceHero extends StatelessWidget {
     required this.label,
     required this.income,
     required this.expense,
-    required this.third,
+    this.middle,
+    this.note,
     this.rate = true,
     this.size,
     this.hides = false,
@@ -35,32 +39,145 @@ class BalanceHero extends StatelessWidget {
   final int income;
   final int expense;
 
-  /// The third figure along the foot: its mark, label, words and colour.
-  final (Glyph, String, String, Color) third;
+  /// A third figure between the two, such as 其中股息: its label and words.
+  final (String, String)? middle;
+
+  /// A few words at the right of the label, such as 轉帳 2 筆.
+  final String? note;
+
+  /// Whether 結餘率 shows at the right of the label.
   final bool rate;
 
-  /// The figure's size; the hero tile's own when null.
+  /// The figure's size; [TextSize.big] when null.
   final double? size;
 
   @override
   Widget build(BuildContext context) {
     final left = income - expense;
     final kept = income == 0 ? 0 : (left * 100 / income).round();
-    return HeroFigure(
-      icon: icon,
-      label: label,
-      value: ledger.money(left),
-      valueColor: left < 0 ? Hue.negative : Hue.ink,
-      size: size,
-      beside: hides ? _HideAmounts(ledger) : null,
-      trailing: rate ? Pill('結餘率 $kept%') : null,
-      child: FigureCells([
-        (Glyph.income, '收入', ledger.money(income), Hue.positive),
-        (Glyph.payout, '支出', ledger.money(expense), Hue.negative),
-        third,
-      ]),
+    final total = income + expense;
+    // Each side at least a sliver of the bar, so a small one still shows.
+    int share(int v) => total == 0
+        ? 1
+        : max(1, (max(v / total, v == 0 ? 0 : 0.06) * 1000).round());
+    Widget end(String name, String value, Color color, CrossAxisAlignment at) =>
+        Column(
+          crossAxisAlignment: at,
+          children: [
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: TextSize.caption,
+                color: Hue.muted,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: TextSize.title,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ],
+        );
+    return HeroCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SquareIcon(icon, Hue.accent, size: 30),
+              const SizedBox(width: 8),
+              Flexible(child: OneLine(label, style: accentLabel)),
+              if (hides) _HideAmounts(ledger),
+              const Spacer(),
+              if (rate) Pill('結餘率 $kept%'),
+              if (note case final words?) OneLine(words, style: mutedSmall),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              ledger.money(left),
+              style: TextStyle(
+                fontSize: size ?? TextSize.big,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: left < 0 ? Hue.negative : Hue.ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 8,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (total == 0)
+                  const Expanded(child: _Bar(Hue.line))
+                else ...[
+                  if (income > 0)
+                    Expanded(
+                      flex: share(income),
+                      child: const _Bar(Hue.positive),
+                    ),
+                  if (income > 0 && expense > 0) const SizedBox(width: 3),
+                  if (expense > 0)
+                    Expanded(
+                      flex: share(expense),
+                      child: const _Bar(Hue.negative),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: end(
+                  '收入',
+                  ledger.money(income),
+                  Hue.positive,
+                  CrossAxisAlignment.start,
+                ),
+              ),
+              if (middle case (final name, final value))
+                Expanded(
+                  child: end(name, value, Hue.ink, CrossAxisAlignment.center),
+                ),
+              Expanded(
+                child: end(
+                  '支出',
+                  ledger.money(expense),
+                  Hue.negative,
+                  CrossAxisAlignment.end,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
+
+/// A rounded piece of the income and spending bar.
+class _Bar extends StatelessWidget {
+  const _Bar(this.color);
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 }
 
 /// The eye beside a balance: hides every amount in the app, or shows

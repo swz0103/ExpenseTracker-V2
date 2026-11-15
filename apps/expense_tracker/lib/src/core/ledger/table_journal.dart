@@ -361,7 +361,10 @@ final class TableJournal implements Journal {
     var quotedOn = kept.quotedOn;
     var changed = false;
     final missed = <String>[];
-    for (final code in codes) {
+    // Every code asked at once: the exchanges' day lists are fetched once
+    // and shared, and a code looked for on TPEx or in the month report
+    // does not hold up the others.
+    Future<StockClose?> closeOf(String code) async {
       try {
         var result = await gateway.stockClose(Listing(code));
         if (result.state == MarketState.missing) {
@@ -373,46 +376,49 @@ final class TableJournal implements Journal {
           final fallback = await gateway.listedHistoryClose(code);
           if (fallback.value != null) result = fallback;
         }
-        final close = result.value;
-        final price = close == null
-            ? null
-            : double.tryParse(close.decimalPrice);
-        if (close == null || price == null) {
-          missed.add(code);
-          continue;
-        }
-        final day = DateTime.utc(
-          close.asOf.year,
-          close.asOf.month,
-          close.asOf.day,
-        );
-        if (quotedOn == null || day.isAfter(quotedOn)) {
-          quotedOn = day;
-          changed = true;
-        }
-        if (days[code] != day) {
-          days[code] = day;
-          changed = true;
-        }
-        final move = double.tryParse(close.decimalChange ?? '');
-        final name = close.name;
-        if (prices[code] == price &&
-            moves[code] == move &&
-            (name == null || names[code] == name)) {
-          continue;
-        }
-        prices[code] = price;
-        if (move == null) {
-          moves.remove(code);
-        } else {
-          moves[code] = move;
-        }
-        if (name != null) names[code] = name;
-        changed = true;
+        return result.value;
       } on Object {
+        return null;
+      }
+    }
+
+    final asked = codes.toList();
+    final closes = await Future.wait([for (final code in asked) closeOf(code)]);
+    for (final (i, code) in asked.indexed) {
+      final close = closes[i];
+      final price = close == null ? null : double.tryParse(close.decimalPrice);
+      if (close == null || price == null) {
         missed.add(code);
         continue;
       }
+      final day = DateTime.utc(
+        close.asOf.year,
+        close.asOf.month,
+        close.asOf.day,
+      );
+      if (quotedOn == null || day.isAfter(quotedOn)) {
+        quotedOn = day;
+        changed = true;
+      }
+      if (days[code] != day) {
+        days[code] = day;
+        changed = true;
+      }
+      final move = double.tryParse(close.decimalChange ?? '');
+      final name = close.name;
+      if (prices[code] == price &&
+          moves[code] == move &&
+          (name == null || names[code] == name)) {
+        continue;
+      }
+      prices[code] = price;
+      if (move == null) {
+        moves.remove(code);
+      } else {
+        moves[code] = move;
+      }
+      if (name != null) names[code] = name;
+      changed = true;
     }
     unquoted = List.unmodifiable(missed);
     if (changed) {

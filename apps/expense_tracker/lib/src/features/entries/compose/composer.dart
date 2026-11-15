@@ -38,6 +38,7 @@ part 'composer_usual_chip.dart';
 part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';
+part 'composer_view.dart';
 
 /// How each kind of record looks on its tab.
 extension ComposeModeLook on ComposeMode {

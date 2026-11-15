@@ -73,13 +73,27 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const Spacer(),
-                    Text(switch ((market?.problem, ledger.quotedOn)) {
-                      (final problem?, _) => problem,
-                      (_, null) => '連上網路後更新收盤價',
-                      _ when market?.busy ?? false => '更新收盤價中…',
-                      (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
-                    }, style: mutedSmall),
+                    const SizedBox(width: 8),
+                    // The cost lives here rather than on the main card.
+                    Text(
+                      '成本 ${ledger.orDots(groupDigits(ledger.investCost))}',
+                      style: mutedSmall,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        switch ((market?.problem, ledger.quotedOn)) {
+                          (final problem?, _) => problem,
+                          (_, null) => '連上網路後更新收盤價',
+                          _ when market?.busy ?? false => '更新收盤價中…',
+                          (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
+                        },
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: mutedSmall,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -92,16 +106,45 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                   onAction: () => widget.nav.compose(type: EntryType.buy),
                 )
               else
-                QuoteBoard([
-                  for (final h in [
-                    ...holdings,
-                  ]..sort((a, b) => b.value.compareTo(a.value)))
-                    _HoldingRow(
-                      ledger: ledger,
-                      held: h,
-                      onTap: () => widget.nav.open(Pages.holding(h.code)),
+                for (final (name, group) in [
+                  (
+                    '個股',
+                    [
+                      for (final h in holdings)
+                        if (!h.code.startsWith('00')) h,
+                    ],
+                  ),
+                  (
+                    'ETF',
+                    [
+                      for (final h in holdings)
+                        if (h.code.startsWith('00')) h,
+                    ],
+                  ),
+                ])
+                  if (group.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                      child: Text(
+                        '$name · ${group.length} 檔',
+                        style: const TextStyle(
+                          fontSize: TextSize.small,
+                          fontWeight: FontWeight.w800,
+                          color: Hue.muted,
+                        ),
+                      ),
                     ),
-                ]),
+                    QuoteBoard([
+                      for (final h
+                          in group..sort((a, b) => b.value.compareTo(a.value)))
+                        _HoldingRow(
+                          ledger: ledger,
+                          held: h,
+                          onTap: () => widget.nav.open(Pages.holding(h.code)),
+                        ),
+                    ]),
+                    const SizedBox(height: 8),
+                  ],
             ] else ...[
               Container(
                 padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
@@ -118,30 +161,42 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('$month 月領到', style: mutedSmall),
-                          Text(
-                            ledger.orDots(
-                              groupDigits(ledger.dividends(year, month)),
-                            ),
-                            style: const TextStyle(
-                              fontSize: TextSize.large,
-                              fontWeight: FontWeight.w800,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              ledger.orDots(
+                                groupDigits(ledger.dividends(year, month)),
+                              ),
+                              style: const TextStyle(
+                                fontSize: TextSize.large,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('累計', style: mutedSmall),
-                        Text(
-                          ledger.orDots(groupDigits(ledger.totalDividends)),
-                          style: const TextStyle(
-                            fontSize: TextSize.heading,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 8),
+                    // Long sums shrink to fit rather than run into each other.
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('累計', style: mutedSmall),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              ledger.orDots(groupDigits(ledger.totalDividends)),
+                              style: const TextStyle(
+                                fontSize: TextSize.heading,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -450,7 +505,8 @@ class _StackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final column = size.width / stacks.length;
     final bar = min(column * 0.62, 26.0);
-    final top = 18.0;
+    // Room above the tallest bar for its sum, inside the band.
+    final top = 20.0;
     final high = sums.fold(1, max);
     double h(int v) => v / high * (size.height - top);
     if (picked >= 0) {
@@ -490,15 +546,23 @@ class _StackPainter extends CustomPainter {
         y -= height + 1.5;
       }
       if (!hidden) {
-        final text = layoutText(
-          _short(sums[k]),
-          TextStyle(
-            fontSize: TextSize.tiny,
-            fontWeight: FontWeight.w700,
-            color: words,
-          ),
+        // Inside its own column, the chosen one's band included: a long
+        // sum such as 12.5k is set smaller rather than run over the edge.
+        TextStyle style(double size) => TextStyle(
+          fontSize: size,
+          fontWeight: FontWeight.w700,
+          color: words,
         );
-        text.paint(canvas, Offset(cx - text.width / 2, y - text.height - 2));
+        var text = layoutText(_short(sums[k]), style(TextSize.tiny));
+        final room = column - 6;
+        if (text.width > room) {
+          text = layoutText(
+            _short(sums[k]),
+            style(TextSize.tiny * room / text.width),
+          );
+        }
+        final ty = max(2.0, y - text.height - 2);
+        text.paint(canvas, Offset(cx - text.width / 2, ty));
       }
     }
     final ay = size.height - h(average.round());

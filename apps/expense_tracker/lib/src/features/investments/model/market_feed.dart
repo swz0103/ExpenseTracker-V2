@@ -48,8 +48,11 @@ final class MarketFeed extends Connector implements PriceHistory {
   Future<void> refresh({bool force = false}) => attempt(force: force, () async {
     final codes = _held;
     _asked = codes;
-    final quotes = await _journal.refreshQuotes(codes);
-    final rates = await _journal.refreshRates();
+    // Closes and rates come from different places: asked side by side.
+    final (quotes, rates) = await (
+      _journal.refreshQuotes(codes),
+      _journal.refreshRates(),
+    ).wait;
     if (quotes || rates) {
       final market = _journal.market();
       _ledger.setMarket(

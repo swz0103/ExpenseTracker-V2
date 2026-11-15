@@ -4,18 +4,59 @@ import '../ledger/ledger.dart';
 import '../look/glyphs.dart';
 import '../look/theme.dart';
 
-/// Icon groups a category may take its mark from, by what it is for.
+/// Icon groups a category may take its mark from, by what it is for:
+/// a hundred in all (`icons_test`).
 const categoryIconGroups = [
-  ('飲食', ['food', 'cup', 'drink', 'cake', 'beer', 'cart']),
-  ('交通', ['travel', 'bus', 'train', 'bike', 'car', 'fuel', 'parking', 'plane']),
-  ('居家', ['home', 'bolt', 'water', 'wifi', 'tool', 'bed', 'leaf']),
-  ('購物', ['bag', 'shirt', 'sparkle', 'scissors', 'gift', 'store']),
-  ('娛樂', ['game', 'film', 'music', 'camera', 'ticket', 'suitcase']),
-  ('健康', ['health', 'pill', 'fitness', 'baby', 'pet']),
-  ('學習與工作', ['book', 'school', 'laptop', 'briefcase', 'phone']),
-  ('金融', ['subscription', 'shield', 'tax', 'card', 'coins', 'safe', 'heart']),
-  ('收入', ['salary', 'income', 'dividend', 'investment']),
-  ('其他', ['umbrella', 'other']),
+  (
+    '飲食',
+    [
+      'food', 'cup', 'drink', 'cake', 'beer', 'cart', 'apple', 'burger', //
+      'pizza', 'rice', 'icecream', 'wine', 'bread',
+    ],
+  ),
+  (
+    '交通',
+    [
+      'travel', 'bus', 'train', 'bike', 'car', 'fuel', 'parking', 'plane', //
+      'ship', 'scooter', 'pin', 'map',
+    ],
+  ),
+  (
+    '居家',
+    [
+      'home', 'bolt', 'water', 'wifi', 'tool', 'bed', 'leaf', 'sofa', //
+      'lamp', 'washer', 'door', 'calendar',
+    ],
+  ),
+  (
+    '購物',
+    [
+      'bag', 'shirt', 'sparkle', 'scissors', 'gift', 'store', 'glasses', //
+      'shoe', 'lipstick', 'jewel', 'perfume', 'tag',
+    ],
+  ),
+  (
+    '娛樂',
+    [
+      'game', 'film', 'music', 'camera', 'ticket', 'suitcase', 'palette', //
+      'tent', 'headphones', 'ball', 'image',
+    ],
+  ),
+  ('健康', ['health', 'pill', 'fitness', 'baby', 'pet', 'tooth', 'clinic']),
+  (
+    '學習與工作',
+    ['book', 'school', 'laptop', 'briefcase', 'phone', 'pen', 'calculator'],
+  ),
+  ('人情', ['chat', 'bell', 'flower', 'people', 'redPacket', 'balloon']),
+  (
+    '金融',
+    [
+      'subscription', 'shield', 'tax', 'card', 'coins', 'safe', 'heart', //
+      'receipt', 'percent',
+    ],
+  ),
+  ('收入', ['salary', 'income', 'dividend', 'investment', 'trophy', 'medal']),
+  ('其他', ['umbrella', 'other', 'sun', 'cloud', 'parcel']),
 ];
 
 Glyph iconFor(String key) {
