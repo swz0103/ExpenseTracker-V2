@@ -6,7 +6,7 @@ import '../core/look/glyphs.dart';
 import '../core/look/theme.dart';
 import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
-import '../core/platform/perf.dart';
+import '../core/platform/performance_monitor.dart';
 import '../core/platform/problems.dart';
 import '../features/settings/model/app_update.dart';
 import '../features/settings/ui/update_panel.dart';
@@ -26,12 +26,14 @@ class AboutSection extends StatelessWidget {
   final PlatformServices services;
 
   Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: Perf.instance.text));
+    await Clipboard.setData(
+      ClipboardData(text: PerformanceMonitor.instance.text),
+    );
     if (context.mounted) showNote(context, '已複製診斷紀錄');
   }
 
   Future<void> _export(BuildContext context) async {
-    final text = Perf.instance.text;
+    final text = PerformanceMonitor.instance.text;
     final backupManager = services.backupManager;
     if (backupManager == null) return _copy(context);
     try {
@@ -53,7 +55,7 @@ class AboutSection extends StatelessWidget {
 
   void _diagnostics(BuildContext context) {
     const color = SettingsHue.about;
-    final figures = Perf.instance.figures;
+    final figures = PerformanceMonitor.instance.figures;
     Widget figure(String label, String value) => Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
       decoration: BoxDecoration(
@@ -97,7 +99,9 @@ class AboutSection extends StatelessWidget {
             ]),
             const SizedBox(height: 10),
             Text(buildLabel, style: mutedSmall),
-            for (final (at, what) in Perf.instance.problems.take(3))
+            for (final (at, what) in PerformanceMonitor.instance.problems.take(
+              3,
+            ))
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('${at.month}/${at.day} $what', style: mutedSmall),

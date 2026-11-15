@@ -8,7 +8,7 @@ import 'package:vault/backup_security.dart';
 import 'package:vault/ledger_backup.dart';
 import 'package:vault/ledger_vault.dart';
 
-import 'perf.dart';
+import 'performance_monitor.dart';
 
 /// A hardware key for unlocking without the password, such as an Android
 /// Keystore key behind biometrics.
@@ -367,7 +367,7 @@ final class Startup extends ChangeNotifier {
       await open.updateKeys(keys);
       _reEnrol = false;
     } on Object catch (error) {
-      Perf.instance.problem('指紋登記', error);
+      PerformanceMonitor.instance.problem('指紋登記', error);
       // Only turning the prompt down stops it; a failure asks next time.
       if (error is PlatformException && error.code == 'declined') {
         await _noDevice.writeAsString('', flush: true);

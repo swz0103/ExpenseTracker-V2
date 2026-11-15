@@ -10,7 +10,7 @@ import 'package:storage/storage.dart';
 import 'journal.dart';
 import 'ledger.dart';
 import 'record_json.dart';
-import '../platform/perf.dart';
+import '../platform/performance_monitor.dart';
 
 /// The categories a new ledger starts with, with their marks and colours.
 const _starters = [
@@ -94,7 +94,7 @@ final class TableJournal implements Journal {
   }
 
   @override
-  Future<Ledger> load() => Perf.instance.timeLoad(() async {
+  Future<Ledger> load() => PerformanceMonitor.instance.timeLoad(() async {
     try {
       return await _load();
     } on StateError catch (error) {

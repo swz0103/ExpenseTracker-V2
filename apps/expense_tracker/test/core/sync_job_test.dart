@@ -1,10 +1,10 @@
-import 'package:expense_tracker/src/core/platform/connector.dart';
+import 'package:expense_tracker/src/core/platform/sync_job.dart';
 import 'package:expense_tracker/src/core/ledger/trading.dart';
 import 'package:expense_tracker/src/core/nav.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Fails on demand, and says what it was asked to say.
-final class _Probe extends Connector {
+final class _Probe extends SyncJob {
   _Probe(DateTime Function() clock)
     : super('測試', gap: const Duration(minutes: 20), clock: clock);
 

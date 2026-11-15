@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/platform/connector.dart';
+import '../../../core/platform/sync_job.dart';
 import 'app_update.dart';
 import '../../backup/model/drive_sync.dart';
 import '../../backup/model/backup_manager.dart';
@@ -58,7 +58,7 @@ final class PlatformServices {
   final PhoneBackup? phone;
 
   /// Closing prices and rates; none in the preview.
-  final Connector? market;
+  final SyncJob? market;
 
   /// Newer versions of the app, on Android.
   final AppUpdate? update;

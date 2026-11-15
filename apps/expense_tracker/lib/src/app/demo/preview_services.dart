@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../../core/platform/connector.dart';
+import '../../core/platform/sync_job.dart';
 import '../../core/ledger/ledger.dart';
 import '../../core/platform/preferences.dart';
 import '../../core/platform/screen_privacy.dart';
@@ -71,7 +71,7 @@ final class DemoBackupManager implements BackupManager {
 
 /// Made-up daily closes for the demo's holdings: a walk of its own for
 /// each code, the same each time, ending on the price the ledger holds.
-final class DemoPrices extends Connector implements PriceHistory {
+final class DemoPrices extends SyncJob implements PriceHistory {
   DemoPrices(this._ledger) : super('收盤價');
 
   final Ledger Function()? _ledger;

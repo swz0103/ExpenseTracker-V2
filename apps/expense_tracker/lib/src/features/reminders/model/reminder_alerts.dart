@@ -3,7 +3,7 @@ import 'dart:async';
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
 import 'reminders.dart';
-import '../../../core/platform/perf.dart';
+import '../../../core/platform/performance_monitor.dart';
 import '../../../core/platform/preferences.dart';
 import '../../../core/platform/quick_action.dart';
 
@@ -237,7 +237,7 @@ final class Notifier {
       );
       await postBudgets(ledger);
     } on Object catch (error) {
-      Perf.instance.problem('通知', error);
+      PerformanceMonitor.instance.problem('通知', error);
     }
   }
 

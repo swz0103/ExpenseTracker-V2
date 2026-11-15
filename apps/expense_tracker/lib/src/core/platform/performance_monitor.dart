@@ -6,10 +6,10 @@ import 'package:flutter/services.dart' show PlatformException;
 
 /// How fast this phone runs the app: the last ledger loads and recent
 /// frames, shown under 設定 › 效能 so a real phone can be measured.
-final class Perf {
-  Perf._();
+final class PerformanceMonitor {
+  PerformanceMonitor._();
 
-  static final instance = Perf._();
+  static final instance = PerformanceMonitor._();
 
   /// The last loads of the ledger, in milliseconds.
   final _loads = <int>[];

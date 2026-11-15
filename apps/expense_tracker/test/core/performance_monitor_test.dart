@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:expense_tracker/src/core/platform/perf.dart';
+import 'package:expense_tracker/src/core/platform/performance_monitor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,7 +24,7 @@ void main() {
           'ArgumentError: Invalid argument(s): see …',
     };
     for (final MapEntry(key: error, value: kept) in cases.entries) {
-      final said = Perf.describe(error);
+      final said = PerformanceMonitor.describe(error);
       expect(said, kept, reason: '$error');
       expect(said, isNot(contains('/data/')));
       // Nothing the person wrote: no Chinese, only ASCII and the ellipsis.
@@ -33,7 +33,9 @@ void main() {
   });
 
   test('a long message is cut to one short line', () {
-    final said = Perf.describe(StateError('x' * 500 + '\nsecond line'));
+    final said = PerformanceMonitor.describe(
+      StateError('x' * 500 + '\nsecond line'),
+    );
     expect(said, isNot(contains('second')));
     expect(said.length, lessThan(160));
   });

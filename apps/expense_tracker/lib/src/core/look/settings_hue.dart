@@ -16,7 +16,7 @@ abstract final class SettingsHue {
   static const haptics = Palette.orange;
   static const widget = Palette.teal;
   static const sections = Palette.green;
-  static const exchange = Palette.periwinkle;
+  static const importExport = Palette.periwinkle;
   static const csv = Palette.green;
   static const invoice = Palette.gold;
   static const trash = Shade(0xFFA8503E, 0xFFE0907E);

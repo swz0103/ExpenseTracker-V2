@@ -1,4 +1,4 @@
-part of 'exchange.dart';
+part of 'import_export.dart';
 
 final class _Reader {
   _Reader(this.ledger, this.fallback)

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'platform/connector.dart';
+import 'platform/sync_job.dart';
 import 'ledger/ledger.dart';
 
 /// The pages under 更多, each opened over the tab with a back arrow.
@@ -12,7 +12,7 @@ enum Section {
   recurring,
   categories,
   settings,
-  labels,
+  tags,
 }
 
 /// The pages under 定期交易, each with a back arrow to it.
@@ -21,7 +21,7 @@ enum RecurringView { manage, subscriptions, paused }
 /// The pages under 設定與資料, each with a back arrow to it.
 enum SettingsPart {
   backup('備份與還原'),
-  exchange('匯入與匯出'),
+  importExport('匯入與匯出'),
   reminders('通知與提醒'),
   security('安全'),
   appearance('外觀與操作'),
@@ -109,21 +109,21 @@ final class MerchantsPlace extends Place {
 
 /// A tag's page, or a merchant's, which returns to 標籤與商家 on the
 /// half it came from.
-final class LabelPlace extends Place {
-  const LabelPlace(this.name, {this.merchant = false});
+final class TagPlace extends Place {
+  const TagPlace(this.name, {this.merchant = false});
 
   final String name;
   final bool merchant;
 
   @override
-  Place get parent => merchant ? const MerchantsPlace() : Pages.labels;
+  Place get parent => merchant ? const MerchantsPlace() : Pages.tags;
 
   @override
   bool operator ==(Object other) =>
-      other is LabelPlace && other.name == name && other.merchant == merchant;
+      other is TagPlace && other.name == name && other.merchant == merchant;
 
   @override
-  int get hashCode => Object.hash(LabelPlace, name, merchant);
+  int get hashCode => Object.hash(TagPlace, name, merchant);
 }
 
 /// A page of 設定與資料, which returns to it.
@@ -169,13 +169,13 @@ abstract final class Pages {
   static const recurring = SectionPlace(Section.recurring);
   static const categories = SectionPlace(Section.categories);
   static const settings = SectionPlace(Section.settings);
-  static const labels = SectionPlace(Section.labels);
+  static const tags = SectionPlace(Section.tags);
 
   static Place account(String id) => AccountPlace(id);
   static Place holding(String code) => HoldingPlace(code);
   static Place debt(String id) => DebtPlace(id);
-  static Place tag(String name) => LabelPlace(name);
-  static Place merchant(String name) => LabelPlace(name, merchant: true);
+  static Place tag(String name) => TagPlace(name);
+  static Place merchant(String name) => TagPlace(name, merchant: true);
   static Place settingsPart(SettingsPart part) => SettingsPlace(part);
   static Place recurringView(RecurringView view) => RecurringPlace(view);
 }
@@ -207,7 +207,7 @@ final class Nav {
 
   /// Closing prices and rates, to refresh and to say how they stand; none
   /// in the preview.
-  final Connector? market;
+  final SyncJob? market;
 
   /// Each stock's past daily closes, when [market] keeps them.
   PriceHistory? get prices => switch (market) {

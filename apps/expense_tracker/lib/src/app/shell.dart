@@ -19,7 +19,7 @@ import '../features/categories/ui/categories_page.dart';
 import '../features/debts/ui/debts_page.dart';
 import '../features/investments/ui/holding_page.dart';
 import '../features/investments/ui/investments.dart';
-import '../features/labels/ui/labels_page.dart';
+import '../features/tags/ui/tags_page.dart';
 import '../features/entries/ui/entries_page.dart';
 import 'more_page.dart';
 import '../core/nav.dart';
@@ -283,7 +283,7 @@ class _AppShellState extends State<AppShell> {
                   nav: _nav,
                   accountId: id,
                 ),
-        LabelPlace(:final name, :final merchant) => LabelPage(
+        TagPlace(:final name, :final merchant) => TagPage(
           key: ValueKey(page),
           ledger: ledger,
           nav: _nav,
@@ -309,7 +309,7 @@ class _AppShellState extends State<AppShell> {
           nav: _nav,
           view: view,
         ),
-        MerchantsPlace() => LabelsPage(
+        MerchantsPlace() => TagsPage(
           ledger: ledger,
           nav: _nav,
           merchants: true,
@@ -321,7 +321,7 @@ class _AppShellState extends State<AppShell> {
           Section.budgets => BudgetsPage(ledger: ledger, nav: _nav),
           Section.recurring => RecurringPage(ledger: ledger, nav: _nav),
           Section.categories => CategoriesPage(ledger: ledger, nav: _nav),
-          Section.labels => LabelsPage(ledger: ledger, nav: _nav),
+          Section.tags => TagsPage(ledger: ledger, nav: _nav),
           Section.settings => SettingsPage(
             ledger: ledger,
             nav: _nav,

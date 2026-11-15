@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/batch.dart';
-import 'package:expense_tracker/src/features/exchange/model/exchange.dart';
+import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:flutter_test/flutter_test.dart';

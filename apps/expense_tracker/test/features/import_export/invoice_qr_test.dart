@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:expense_tracker/src/features/exchange/model/invoice_qr.dart';
+import 'package:expense_tracker/src/features/import_export/model/invoice_qr.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

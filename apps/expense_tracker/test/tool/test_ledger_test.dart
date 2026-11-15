@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/ledger/table_journal.dart';
 import 'package:expense_tracker/src/features/backup/model/encrypted_backup_manager.dart';
-import 'package:expense_tracker/src/features/exchange/model/exchange.dart';
+import 'package:expense_tracker/src/features/import_export/model/import_export.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault/backup_security.dart';

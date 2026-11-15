@@ -431,6 +431,6 @@ abstract final class ToolHue {
   static const recurring = Palette.orange;
   static const debts = Palette.violet;
   static const categories = Palette.rose;
-  static const labels = Palette.gold;
+  static const tags = Palette.gold;
   static const settings = Palette.slate;
 }

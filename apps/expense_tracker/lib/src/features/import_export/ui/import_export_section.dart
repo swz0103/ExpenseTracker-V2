@@ -7,7 +7,7 @@ import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ui/pickers.dart';
-import '../model/exchange.dart';
+import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/platform/problems.dart';
 import 'import_page.dart';
@@ -17,8 +17,12 @@ import '../../../core/look/settings_hue.dart';
 /// this year, everything, or from one day to another); under 匯入, a CSV
 /// file and the e-invoices of a carrier. CSV carries entries only, not a
 /// whole book: backups are restored in 備份與還原.
-class ExchangeSection extends StatelessWidget {
-  const ExchangeSection({super.key, required this.ledger, this.backupManager});
+class ImportExportSection extends StatelessWidget {
+  const ImportExportSection({
+    super.key,
+    required this.ledger,
+    this.backupManager,
+  });
 
   final Ledger ledger;
 
@@ -72,7 +76,7 @@ class ExchangeSection extends StatelessWidget {
         CardGrid([
           SettingCard(
             glyph: Glyph.records,
-            color: SettingsHue.exchange,
+            color: SettingsHue.importExport,
             title: 'CSV 檔案',
             detail: '別的 App 匯出的',
             onTap: () =>

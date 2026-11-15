@@ -1,9 +1,9 @@
-part of 'labels_page.dart';
+part of 'tags_page.dart';
 
 /// A tag's page or a merchant's: the big card with ⋯ (改名, 合併到…,
 /// 移除), then its entries on a white board, each opening that entry.
-class LabelPage extends StatelessWidget {
-  const LabelPage({
+class TagPage extends StatelessWidget {
+  const TagPage({
     super.key,
     required this.ledger,
     required this.nav,
@@ -52,7 +52,7 @@ class LabelPage extends StatelessWidget {
   Future<bool> _askMerge(BuildContext context, String into) {
     final count = merchant
         ? visitsTo(ledger, name).length
-        : labelProjectOf(ledger, name)?.entries.length ?? 0;
+        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
     final target = merchant ? into : '#$into';
     return confirm(
       context,
@@ -122,7 +122,7 @@ class LabelPage extends StatelessWidget {
   Future<void> _remove(BuildContext context) async {
     final count = merchant
         ? visitsTo(ledger, name).length
-        : labelProjectOf(ledger, name)?.entries.length ?? 0;
+        : tagSummaryOf(ledger, name)?.entries.length ?? 0;
     final ok = await confirm(
       context,
       '移除 $_shown？',
@@ -144,7 +144,7 @@ class LabelPage extends StatelessWidget {
       builder: (context, _) {
         final entries = merchant
             ? visitsTo(ledger, name)
-            : labelProjectOf(ledger, name)?.entries ?? const <Entry>[];
+            : tagSummaryOf(ledger, name)?.entries ?? const <Entry>[];
         final menu = DotsMenu([
           DotsItem(Glyph.edit, '改名', () => _rename(context)),
           if (_others().isNotEmpty)
@@ -172,7 +172,7 @@ class LabelPage extends StatelessWidget {
               else
                 ProjectCard(
                   ledger: ledger,
-                  project: labelProjectOf(ledger, name)!,
+                  project: tagSummaryOf(ledger, name)!,
                   menu: menu,
                 ),
               Padding(

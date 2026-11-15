@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-import 'perf.dart';
+import 'performance_monitor.dart';
 
 /// Something the app fetches or sends outside the phone, such as closing
 /// prices or a backup on Google Drive: whether it is at work, when it last
 /// worked, and why it did not. A failure is never kept quiet: it is noted
 /// for 效能與診斷 and shown where the connector's data is shown.
-abstract class Connector extends ChangeNotifier {
-  Connector(this.label, {this.gap = Duration.zero, DateTime Function()? clock})
+abstract class SyncJob extends ChangeNotifier {
+  SyncJob(this.label, {this.gap = Duration.zero, DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
   /// What it is called on screen and in the diagnostics, such as 收盤價.
@@ -55,7 +55,7 @@ abstract class Connector extends ChangeNotifier {
       _problem = await work();
       _lastSuccess = _clock();
     } on Object catch (error) {
-      Perf.instance.problem(label, error);
+      PerformanceMonitor.instance.problem(label, error);
       _problem = failure;
     } finally {
       _busy = false;

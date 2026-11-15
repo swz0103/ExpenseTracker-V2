@@ -5,7 +5,7 @@ import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
 
-part 'exchange_reader.dart';
+part 'import_reader.dart';
 
 /// What an import found: the entries to add, the accounts and categories
 /// they name that the book does not have yet, and the lines left out, as

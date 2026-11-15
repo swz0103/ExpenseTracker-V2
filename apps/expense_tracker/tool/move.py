@@ -26,16 +26,20 @@ def dart_files():
 
 
 def main(pairs):
+    # Pairs apply in order, as the same moves would one after another: a
+    # later pair names where an earlier one left a file. `moves` keeps each
+    # file's first place and its last, so every import is rewritten once.
     moves = {}
+    where = {f: f for f in dart_files()}  # first place -> place so far
     for pair in pairs:
         old, new = pair.split('=')
         old, new = os.path.normpath(old), os.path.normpath(new)
-        if os.path.isdir(old):
-            for f in dart_files():
-                if f.startswith(old + os.sep):
-                    moves[f] = os.path.join(new, os.path.relpath(f, old))
-        else:
-            moves[old] = new
+        for first, here in list(where.items()):
+            if here == old:
+                where[first] = new
+            elif here.startswith(old + os.sep):
+                where[first] = os.path.join(new, os.path.relpath(here, old))
+    moves = {first: here for first, here in where.items() if first != here}
     files = list(dart_files())
     texts = {f: open(f, encoding='utf-8').read() for f in files}
 

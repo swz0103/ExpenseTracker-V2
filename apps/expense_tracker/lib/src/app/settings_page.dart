@@ -7,7 +7,7 @@ import '../core/ledger/ledger.dart';
 import '../core/nav.dart';
 import '../features/settings/model/platform_services.dart';
 import '../features/backup/ui/backup_section.dart';
-import '../features/exchange/ui/exchange_section.dart';
+import '../features/import_export/ui/import_export_section.dart';
 import '../features/settings/ui/preferences_section.dart';
 import '../features/reminders/ui/reminders_section.dart';
 import '../features/entries/ui/trash_section.dart';
@@ -141,10 +141,10 @@ class SettingsPage extends StatelessWidget {
           ),
         _Row(
           glyph: Glyph.swap,
-          color: SettingsHue.exchange,
+          color: SettingsHue.importExport,
           title: '匯入與匯出',
           detail: 'CSV、發票',
-          onTap: () => _open(SettingsPart.exchange),
+          onTap: () => _open(SettingsPart.importExport),
         ),
         _Row(
           glyph: Glyph.reset,
@@ -196,8 +196,8 @@ class SettingsPage extends StatelessWidget {
             preferences: preferences,
           ),
       ],
-      SettingsPart.exchange => [
-        ExchangeSection(ledger: ledger, backupManager: backupManager),
+      SettingsPart.importExport => [
+        ImportExportSection(ledger: ledger, backupManager: backupManager),
       ],
       SettingsPart.reminders => [
         RemindersSection(

@@ -15,7 +15,7 @@ abstract final class Layout {
     'text': [],
     'look': ['text'],
     'charts': ['look', 'text'],
-    'ledger': ['text', 'platform/perf.dart'],
+    'ledger': ['text', 'platform/performance_monitor.dart'],
     'platform': ['ledger', 'text'],
     'ui': ['look', 'text', 'ledger', 'charts', 'platform', 'nav.dart'],
   };
@@ -43,7 +43,7 @@ abstract final class Layout {
 
   /// What the ledger may import besides itself.
   static const ledgerMayImport = [
-    'lib/src/core/platform/perf.dart',
+    'lib/src/core/platform/performance_monitor.dart',
     'lib/src/core/text/',
   ];
 

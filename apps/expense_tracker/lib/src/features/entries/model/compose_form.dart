@@ -1,8 +1,8 @@
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../exchange/model/exchange.dart' show guessCategory;
-import '../../exchange/model/invoice_qr.dart';
+import '../../import_export/model/import_export.dart' show guessCategory;
+import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ledger/trading.dart';
 
 part 'compose_form_lending.dart';

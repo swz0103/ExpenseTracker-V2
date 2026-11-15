@@ -8,10 +8,10 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
-import '../model/label_project.dart';
+import '../model/tag_summary.dart';
 import '../../../core/ui/shown_amounts.dart';
 
-part 'label_page.dart';
+part 'tag_page.dart';
 
 /// The colours of the two halves of 標籤與商家.
 const _tagHue = Palette.gold;
@@ -22,8 +22,8 @@ const _merchantHue = Palette.orange;
 /// categories), then every tag under the year it was last used, three to
 /// a row. Merchants: a podium of the three most visited, then the others
 /// as chips with their visits. A tap opens that tag's or merchant's page.
-class LabelsPage extends StatefulWidget {
-  const LabelsPage({
+class TagsPage extends StatefulWidget {
+  const TagsPage({
     super.key,
     required this.ledger,
     required this.nav,
@@ -37,10 +37,10 @@ class LabelsPage extends StatefulWidget {
   final bool merchants;
 
   @override
-  State<LabelsPage> createState() => _LabelsPageState();
+  State<TagsPage> createState() => _TagsPageState();
 }
 
-class _LabelsPageState extends State<LabelsPage> {
+class _TagsPageState extends State<TagsPage> {
   late var _merchants = widget.merchants;
 
   Ledger get ledger => widget.ledger;
@@ -91,7 +91,7 @@ class _LabelsPageState extends State<LabelsPage> {
 
   List<Widget> _tagList() {
     final latest = latestTag(ledger);
-    final project = latest == null ? null : labelProjectOf(ledger, latest);
+    final project = latest == null ? null : tagSummaryOf(ledger, latest);
     if (project == null) {
       return const [
         EmptyState(
@@ -394,7 +394,7 @@ class ProjectCard extends StatelessWidget {
   });
 
   final Ledger ledger;
-  final LabelProject project;
+  final TagSummary project;
 
   /// The cover of 標籤與商家: 最近 and the tag's name.
   final bool recent;

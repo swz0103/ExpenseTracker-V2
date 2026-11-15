@@ -101,10 +101,10 @@ class MorePage extends StatelessWidget {
               ),
               ToolButton(
                 glyph: Glyph.tag,
-                color: ToolHue.labels,
+                color: ToolHue.tags,
                 label: '標籤與商家',
                 detail: '${ledger.tags.length} 個標籤',
-                onTap: () => nav.open(Pages.labels),
+                onTap: () => nav.open(Pages.tags),
               ),
               ToolButton(
                 glyph: Glyph.gear,

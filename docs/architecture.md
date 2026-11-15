@@ -33,7 +33,7 @@ lib/src/
 | `text/` | 金額與日期的文字格式，純函式 | — |
 | `look/` | 設計系統：顏色、字級、圖示、元件、面板（不知道帳本） | text |
 | `charts/` | 圖表 | look、text |
-| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、`platform/perf.dart` |
+| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、`platform/performance_monitor.dart` |
 | `platform/` | 偏好設定、連接器、開啟帳本、隱私、效能紀錄 | ledger、text |
 | `ui/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
 
