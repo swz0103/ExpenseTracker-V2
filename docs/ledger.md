@@ -70,8 +70,9 @@ core/ledger/
 | 規模量測（`scale_bench_test`） | 完成 |
 | 錯誤記錄獨立成 `core/diagnostics`，全部 catch 記錄或說明 | 完成 |
 | 儲存層改通用名稱並放進 `persistence/`（`LedgerDataSource`、`SqlLedgerDataSource`、`WriteBatch`、`Collection`、`DataSourceException`；`Area` 改 `Topic`） | 完成 |
-| `WriteQueue` 獨立 | 尚未 |
-| `QueryCache` 與自動依賴、`Topic` | 尚未 |
+| `WriteQueue` 獨立（依序寫入、失敗回報、清空後重讀），有 8 個行為測試 | 完成 |
+| `Topic`、`TopicNotifier`（計數與通知）、`QueryCache`（依主題作廢）獨立到 `cache/`，各有單元測試與隨機比對測試 | 完成 |
+| `QueryCache` 自動追蹤依賴（取代手寫 `on:`） | 隨 Repository 完成 |
 | `UnitOfWork` 取代 `_before`／`_since` | 尚未 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository` 與增量索引 | 尚未 |

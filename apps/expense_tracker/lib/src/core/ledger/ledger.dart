@@ -10,13 +10,17 @@ import 'package:flutter/foundation.dart'
 import '../text/amounts.dart';
 import 'amount_visibility.dart';
 import 'attachments.dart';
+import 'cache/query_cache.dart';
+import 'cache/topic.dart';
+import 'cache/topic_notifier.dart';
 import 'card_cycle.dart';
 import 'persistence/ledger_data_source.dart';
+import 'persistence/write_queue.dart';
 import 'portfolio.dart';
 import 'models/models.dart';
-import '../diagnostics/error_log.dart';
 
 export 'card_cycle.dart';
+export 'cache/topic.dart';
 export 'models/models.dart';
 
 part 'ledger_cards.dart';
@@ -66,6 +70,10 @@ final class Ledger extends ChangeNotifier {
        _recurring = [...recurring] {
     _replay(lenient: true);
     amounts.addListener(_signal);
+    final source = dataSource;
+    if (source != null) {
+      _writes = WriteQueue(source, problem: problem, onReloaded: _adopt);
+    }
   }
 
   @override
@@ -266,44 +274,33 @@ final class Ledger extends ChangeNotifier {
   Map<String, Entry>? _idIndex;
   Map<String, int>? _refundIndex;
 
-  /// Sums worked out since the last change of what they rest on, by what
-  /// was asked: such as a card's statement on a given day.
-  final _memo = <Object, Object?>{};
+  /// Answers worked out once per change of what they rest on.
+  final _cache = QueryCache();
 
-  /// What each sum in [_memo] rests on.
-  final _memoOn = <Object, Set<Topic>>{};
-
-  /// What [make] works out, once per change of the [on] topics for each
-  /// [key]. A key should hold every argument the answer depends on, the
-  /// day included; [on] is every area it reads.
-  T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) {
-    if (_memo.containsKey(key)) return _memo[key] as T;
-    final made = make();
-    _memo[key] = made;
-    _memoOn[key] = on;
-    return made;
-  }
+  /// Counts and announces the changes of each topic.
+  final _topics = TopicNotifier();
 
   /// Moves on with every change of what the sums are worked out from, so
   /// a screen that keeps sums of its own knows when to work them out
   /// again; hiding the amounts leaves it.
-  int get revision => _revision;
-  var _revision = 0;
+  int get revision => _topics.revision;
 
-  /// How many times each area has changed, for a screen that keeps sums
+  /// How many times [topic] has changed, for a screen that keeps sums
   /// resting on some topics only.
-  int revisionOf(Topic area) => _topicRevisions[area.index];
-  final _topicRevisions = List.filled(Topic.values.length, 0);
+  int revisionOf(Topic topic) => _topics.revisionOf(topic);
+
+  /// What [make] works out, once per change of the [on] topics for each
+  /// [key]. A key should hold every argument the answer depends on, the
+  /// day included; [on] is every topic it reads.
+  T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) =>
+      _cache.remember(key, make, reads: on);
 
   Map<String, Category>? _categoryIndex;
 
   /// Throws away what rests on [topics], and only that: a budget changed
   /// leaves every statement and balance worked out.
   void _forget(Set<Topic> topics) {
-    _revision++;
-    for (final area in topics) {
-      _topicRevisions[area.index]++;
-    }
+    _topics.count(topics);
     if (topics.contains(Topic.categories)) _categoryIndex = null;
     if (topics.contains(Topic.entries)) {
       _idIndex = null;
@@ -320,17 +317,10 @@ final class Ledger extends ChangeNotifier {
     if (topics.contains(Topic.entries) || topics.contains(Topic.market)) {
       _moved = null;
     }
-    final stale = [
-      for (final MapEntry(:key, value: on) in _memoOn.entries)
-        if (on.any(topics.contains)) key,
-    ];
-    for (final key in stale) {
-      _memo.remove(key);
-      _memoOn.remove(key);
-    }
+    _cache.forget(topics);
   }
 
-  /// Tells the screens of a change of every area.
+  /// Tells the screens of a change of every topic.
   @override
   void notifyListeners() => _changed(Topic.all);
 
@@ -340,26 +330,19 @@ final class Ledger extends ChangeNotifier {
   void _changed(Set<Topic> topics) {
     _forget(topics);
     super.notifyListeners();
-    for (final area in topics) {
-      _watchers[area]?.notify();
-    }
+    _topics.announce(topics);
   }
 
   /// Tells the screens of a change that leaves every sum as it was, such
   /// as hiding the amounts: nothing worked out is thrown away.
   void _signal() {
     super.notifyListeners();
-    _watchers[Topic.display]?.notify();
+    _topics.announce(const {Topic.display});
   }
-
-  final _watchers = <Topic, _Watcher>{};
 
   /// Changes of [topics] only, and of how amounts are shown: for a screen
   /// that need not be built again when, say, a budget changes.
-  Listenable watch(Set<Topic> topics) => Listenable.merge([
-    for (final area in {...topics, Topic.display})
-      _watchers[area] ??= _Watcher(),
-  ]);
+  Listenable watch(Set<Topic> topics) => _topics.watch(topics);
 
   /// Every entry, in the order written; the list cannot be changed.
   List<Entry> get entries => UnmodifiableListView(_entries);
@@ -368,44 +351,13 @@ final class Ledger extends ChangeNotifier {
 
   String newId() => PublicId.generate().value;
 
-  var _queue = Future<void>.value();
-  var _waiting = 0;
+  /// Hands the changes to the data source in turn; none without one.
+  WriteQueue? _writes;
 
-  /// Done once every change so far has reached the [data source].
-  Future<void> get settled => _queue;
+  /// Done once every change so far has reached the data source.
+  Future<void> get settled => _writes?.settled ?? Future<void>.value();
 
-  /// Whether a refused change left the screens ahead of the [data source].
-  var _stale = false;
-
-  /// Hands [batch] to the [data source], in turn with every change before it.
-  /// A batch it refuses is reported through [problem], and once nothing
-  /// else waits the book is read back, so the screens show what was kept.
-  void _keep(WriteBatch batch) {
-    final dataSource = this.dataSource;
-    if (dataSource == null || batch.isEmpty) return;
-    _waiting++;
-    _queue = _queue.then((_) async {
-      try {
-        await dataSource.keep(batch);
-      } on Object catch (error) {
-        ErrorLog.instance.record('寫入帳本', error);
-        problem.value = error;
-        _stale = true;
-      }
-      if (--_waiting > 0 || !_stale) return;
-      _stale = false;
-      try {
-        final fresh = await dataSource.load();
-        // A change made while loading is newer than what was loaded; the
-        // load after it brings both.
-        if (_waiting == 0) _adopt(fresh);
-      } on Object catch (error) {
-        ErrorLog.instance.record('重新讀取帳本', error);
-        problem.value = error;
-        _stale = true;
-      }
-    });
-  }
+  void _keep(WriteBatch batch) => _writes?.enqueue(batch);
 
   /// Takes new closing prices and rates: the stocks' reference prices and
   /// names in [holdings], each day's change in [moves].
@@ -560,35 +512,6 @@ final class Ledger extends ChangeNotifier {
 /// One account's entries in date order with the balance change up to each
 /// of them, so a balance on any day is one search. Instalment purchases
 /// are kept apart: what they have billed depends on the day asked about.
-/// The parts of the book a change can touch, so what rests on the others
-/// is kept.
-enum Topic {
-  entries,
-  accounts,
-  categories,
-  budgets,
-  recurring,
-  market,
-
-  /// How amounts are shown (隱藏金額); nothing worked out rests on it.
-  display;
-
-  /// Every part of the book.
-  static const all = {
-    entries,
-    accounts,
-    categories,
-    budgets,
-    recurring,
-    market,
-  };
-}
-
-/// One area's listeners.
-final class _Watcher extends ChangeNotifier {
-  void notify() => notifyListeners();
-}
-
 final class _Running {
   final days = <DateTime>[];
   final totals = <int>[];
