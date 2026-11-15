@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'layout.dart';
+
 /// Every library under `lib/src`, with the app libraries it imports or
 /// exports, as paths from the app folder.
 Map<String, List<String>> appImports() {
@@ -10,7 +12,7 @@ Map<String, List<String>> appImports() {
     multiLine: true,
   );
   final found = <String, List<String>>{};
-  for (final file in Directory('lib/src').listSync(recursive: true)) {
+  for (final file in Directory(Layout.src).listSync(recursive: true)) {
     if (file is! File || !file.path.endsWith('.dart')) continue;
     final path = file.uri.path;
     found[path] = [
@@ -35,14 +37,14 @@ Map<String, List<String>> appImports() {
 /// - `app/`: puts the app together; may use everything.
 void main() {
   final imports = appImports();
-  const screens = ['/ui/', '/compose/', 'core/look/', 'core/charts/'];
+  const screens = [...Layout.screenFolders, ...Layout.paintingDirs];
   String feature(String path) =>
-      RegExp(r'lib/src/features/([^/]+)/').firstMatch(path)?[1] ?? '';
+      RegExp('${Layout.featuresDir}([^/]+)/').firstMatch(path)?[1] ?? '';
 
   test('every library sits in core, a feature or the app', () {
     for (final path in imports.keys) {
       expect(
-        RegExp(r'^lib/src/(core|app|features/[a-z_]+)/').hasMatch(path),
+        RegExp('^${Layout.src}/(core|app|features/[a-z_]+)/').hasMatch(path),
         isTrue,
         reason: path,
       );
@@ -51,10 +53,10 @@ void main() {
 
   test('core knows no feature and not the app', () {
     for (final MapEntry(key: file, value: uris) in imports.entries) {
-      if (!file.startsWith('lib/src/core/')) continue;
+      if (!file.startsWith(Layout.coreDir)) continue;
       for (final uri in uris) {
         expect(
-          uri.startsWith('lib/src/features/') || uri.startsWith('lib/src/app/'),
+          uri.startsWith(Layout.featuresDir) || uri.startsWith(Layout.appDir),
           isFalse,
           reason: '$file imports $uri',
         );
@@ -64,9 +66,9 @@ void main() {
 
   test('features do not reach into how the app is put together', () {
     for (final MapEntry(key: file, value: uris) in imports.entries) {
-      if (!file.startsWith('lib/src/features/')) continue;
+      if (!file.startsWith(Layout.featuresDir)) continue;
       for (final uri in uris) {
-        expect(uri.startsWith('lib/src/app/'), isFalse, reason: '$file: $uri');
+        expect(uri.startsWith(Layout.appDir), isFalse, reason: '$file: $uri');
       }
     }
   });
@@ -74,7 +76,8 @@ void main() {
   test('the ledger needs no screens; models need no screens', () {
     for (final MapEntry(key: file, value: uris) in imports.entries) {
       final model =
-          file.startsWith('lib/src/core/ledger/') || file.contains('/model/');
+          file.startsWith(Layout.ledgerDir) ||
+          file.contains(Layout.modelFolder);
       if (!model) continue;
       for (final uri in uris) {
         expect(screens.any(uri.contains), isFalse, reason: '$file: $uri');
@@ -86,7 +89,7 @@ void main() {
     // ChangeNotifier and ValueNotifier are plain Dart; colours are ARGB
     // ints, made into a Color by the page that paints them.
     final flutter = RegExp(r"import '(package:flutter/[^']+|dart:ui)'");
-    for (final f in Directory('lib/src/core/ledger').listSync()) {
+    for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
       if (f is! File) continue;
       for (final m in flutter.allMatches(f.readAsStringSync())) {
         expect(
@@ -99,16 +102,16 @@ void main() {
   });
 
   test('the ledger keeps to itself, and the book knows no storage', () {
-    const store = 'lib/src/core/ledger/table_journal.dart';
     for (final MapEntry(key: file, value: uris) in imports.entries) {
-      if (!file.startsWith('lib/src/core/ledger/')) continue;
+      if (!file.startsWith(Layout.ledgerDir)) continue;
       for (final uri in uris) {
         final inside =
-            uri.startsWith('lib/src/core/ledger/') ||
-            uri == 'lib/src/core/platform/perf.dart' ||
-            uri.startsWith('lib/src/core/text/');
+            uri.startsWith(Layout.ledgerDir) ||
+            Layout.ledgerMayImport.any(uri.startsWith);
         expect(inside, isTrue, reason: '$file: $uri');
-        if (file != store) expect(uri, isNot(store), reason: file);
+        if (file != Layout.storageFile) {
+          expect(uri, isNot(Layout.storageFile), reason: file);
+        }
       }
     }
   });
@@ -117,9 +120,9 @@ void main() {
     for (final path in imports.keys) {
       final name = feature(path);
       if (name.isEmpty) continue;
-      final inside = path.substring('lib/src/features/$name/'.length);
+      final inside = path.substring('${Layout.featuresDir}$name/'.length);
       expect(
-        RegExp(r'^(model|ui|compose)/').hasMatch(inside),
+        RegExp('^(${Layout.featureFolders.join('|')})/').hasMatch(inside),
         isTrue,
         reason: path,
       );
@@ -128,7 +131,7 @@ void main() {
 
   test('only the preview reaches the made-up book', () {
     for (final MapEntry(key: file, value: uris) in imports.entries) {
-      if (file.startsWith('lib/src/app/demo/')) continue;
+      if (file.startsWith(Layout.demoDir)) continue;
       for (final uri in uris) {
         expect(uri.contains('/demo/'), isFalse, reason: '$file: $uri');
       }
@@ -137,23 +140,16 @@ void main() {
 
   test('core is in its parts, each using only those below it', () {
     // What each part of core may import from core, besides itself.
-    const allowed = {
-      'text': <String>[],
-      'look': ['text'],
-      'charts': ['look', 'text'],
-      'ledger': ['text', 'platform/perf.dart'],
-      'platform': ['ledger', 'text'],
-      'ui': ['look', 'text', 'ledger', 'charts', 'platform', 'nav.dart'],
-    };
+    const allowed = Layout.coreParts;
     for (final MapEntry(key: file, value: uris) in imports.entries) {
-      if (!file.startsWith('lib/src/core/')) continue;
-      final inside = file.substring('lib/src/core/'.length);
-      if (inside == 'nav.dart') continue;
+      if (!file.startsWith(Layout.coreDir)) continue;
+      final inside = file.substring(Layout.coreDir.length);
+      if (inside == Layout.navigation) continue;
       final part = inside.split('/').first;
       expect(allowed.containsKey(part), isTrue, reason: file);
       for (final uri in uris) {
-        if (!uri.startsWith('lib/src/core/')) continue;
-        final target = uri.substring('lib/src/core/'.length);
+        if (!uri.startsWith(Layout.coreDir)) continue;
+        final target = uri.substring(Layout.coreDir.length);
         final ok =
             target.startsWith('$part/') ||
             allowed[part]!.any(
@@ -205,9 +201,8 @@ void main() {
   });
 
   test('pages open through Nav; a route is pushed in one place only', () {
-    const flow = 'lib/src/core/look/feedback.dart';
     for (final file in imports.keys) {
-      if (file == flow) continue;
+      if (file == Layout.routePusher) continue;
       final text = File(file).readAsStringSync();
       expect(
         RegExp(r'Navigator(\.of\([^)]*\))?\s*\.\s*push').hasMatch(text),
@@ -221,15 +216,11 @@ void main() {
     // The made-up glyph paths are drawn by tool/glyphs.py, and the
     // ledger's own state is one class; every other file is split by
     // subject (tool/split.py) before it grows past the limit.
-    const longer = {
-      'lib/src/core/look/glyphs.dart': 2100,
-      'lib/src/core/ledger/ledger.dart': 650,
-    };
     for (final file in imports.keys) {
       final lines = File(file).readAsLinesSync().length;
       expect(
         lines,
-        lessThanOrEqualTo(longer[file] ?? 600),
+        lessThanOrEqualTo(Layout.longer[file] ?? Layout.maxLines),
         reason: '$file has $lines lines',
       );
     }
