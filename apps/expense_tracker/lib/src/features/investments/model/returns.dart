@@ -80,17 +80,6 @@ double? returnOf(Ledger ledger, {String? code}) {
   return xirr(flows);
 }
 
-/// Since when [code] (or anything, when null) has been invested: the
-/// first trade.
-DateTime? investedSince(Ledger ledger, {String? code}) {
-  DateTime? first;
-  for (final e in ledger.entries) {
-    if (!e.isInvestment || (code != null && e.holding != code)) continue;
-    if (first == null || e.date.isBefore(first)) first = e.date;
-  }
-  return first;
-}
-
 /// A dividend expected in [month], from what [code] paid a year before.
 typedef DividendGuess = ({
   String code,

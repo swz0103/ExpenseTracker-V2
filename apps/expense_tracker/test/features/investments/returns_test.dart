@@ -81,7 +81,6 @@ void main() {
     expect(rate, greaterThan(0.05));
     expect(rate, lessThan(0.06));
     expect(returnOf(ledger), closeTo(rate, 1e-9));
-    expect(investedSince(ledger), DateTime.utc(2025, 10, 20));
     expect(payingMonths(ledger, '0056'), [1, 7]);
   });
 
