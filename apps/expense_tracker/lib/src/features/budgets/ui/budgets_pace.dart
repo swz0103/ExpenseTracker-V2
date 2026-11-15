@@ -158,7 +158,8 @@ class _Limit extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = budget.tag != null;
     final category = tag ? null : ledger.category(budget.category);
-    final color = shownColor(category?.color ?? Hue.accent);
+    final shade = category?.color;
+    final color = shownColor(shade == null ? Hue.accent : Color(shade));
     final glyph = tag ? Glyph.tag : iconFor(category!.icon);
     final left = limit - used;
     final over = left < 0;

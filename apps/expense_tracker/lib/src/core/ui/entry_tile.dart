@@ -16,7 +16,7 @@ import 'shown_amounts.dart';
   return switch (e.type) {
     EntryType.transfer => (iconFor('transfer'), Hue.transfer),
     EntryType.buy || EntryType.sell => (iconFor('investment'), Hue.investment),
-    _ => (iconFor(category.icon), shownColor(category.color)),
+    _ => (iconFor(category.icon), shownColor(Color(category.color))),
   };
 }
 

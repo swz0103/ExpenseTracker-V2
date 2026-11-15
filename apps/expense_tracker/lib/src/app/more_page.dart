@@ -165,6 +165,7 @@ class ToolButton extends StatelessWidget {
       excludeSemantics: true,
       child: Pressable(
         child: InkWell(
+          key: Keys.tool(label),
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
           child: Padding(

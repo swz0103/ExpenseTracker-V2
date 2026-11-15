@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/look/theme.dart';
 import '../model/app_update.dart';
 import '../../../core/look/kit/buttons.dart';
+import '../../../core/look/keys.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
 /// 更新, and 晚一點再說 or 略過這一版 under it. Only these close it: not a
@@ -142,6 +143,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                 ] else ...[
                   _Choice(
                     '更新',
+                    key: Keys.install,
                     color: Hue.positive,
                     onTap: widget.update.busy ? null : _install,
                   ),
@@ -150,6 +152,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     children: [
                       Expanded(
                         child: TextButton(
+                          key: Keys.later,
                           style: wordButton(Hue.muted),
                           onPressed: () {
                             widget.update.later();
@@ -160,6 +163,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       ),
                       Expanded(
                         child: TextButton(
+                          key: Keys.skip,
                           style: wordButton(Hue.muted),
                           onPressed: () {
                             widget.update.skip(info);
@@ -181,7 +185,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
 }
 
 class _Choice extends StatelessWidget {
-  const _Choice(this.label, {required this.color, this.onTap});
+  const _Choice(this.label, {super.key, required this.color, this.onTap});
 
   final String label;
   final Color color;

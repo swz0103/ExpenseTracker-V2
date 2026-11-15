@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'keys.dart';
+import 'kit/colours.dart';
 import 'theme.dart';
 
 /// Asks for a line of text; null when cancelled or left empty.
@@ -89,8 +91,11 @@ Future<bool> confirm(
                 Expanded(
                   child: _Choice(
                     action,
-                    color: danger ? Hue.danger : Hue.accent,
-                    ink: Hue.onAccent,
+                    key: Keys.confirm,
+                    // A deep tint with its own colour's words on the dark
+                    // theme, not a bright block.
+                    color: chosenFill(danger ? Hue.danger : Hue.accent),
+                    ink: chosenInk(danger ? Hue.danger : Hue.accent),
                     onTap: () => Navigator.of(context).pop(true),
                   ),
                 ),
@@ -107,6 +112,7 @@ Future<bool> confirm(
 class _Choice extends StatelessWidget {
   const _Choice(
     this.label, {
+    super.key,
     required this.color,
     required this.ink,
     required this.onTap,

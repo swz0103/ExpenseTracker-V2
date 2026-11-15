@@ -22,7 +22,7 @@ class _AllocationBar extends StatelessWidget {
               Expanded(
                 flex: amount <= 0 ? 1 : amount,
                 child: Material(
-                  color: shownColor(category.color),
+                  color: shownColor(Color(category.color)),
                   borderRadius: BorderRadius.circular(12),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -46,7 +46,9 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: TextSize.caption,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(shownColor(category.color)),
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
                               ),
                             ),
                             Text(
@@ -57,7 +59,9 @@ class _AllocationBar extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: TextSize.body,
                                 fontWeight: FontWeight.w700,
-                                color: wordsOn(shownColor(category.color)),
+                                color: wordsOn(
+                                  shownColor(Color(category.color)),
+                                ),
                               ),
                             ),
                           ],

@@ -1,6 +1,5 @@
 import 'package:core/foundation_values.dart' show BusinessDate, Currency;
 import 'package:domain/data_exchange.dart';
-import 'package:flutter/painting.dart' show Color;
 
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/checks.dart';
@@ -261,13 +260,13 @@ const _kinds = {
 
 /// Colours for categories an import adds.
 const _shades = [
-  Color(0xFF5C9A83),
-  Color(0xFFD08B5B),
-  Color(0xFF5B8DB0),
-  Color(0xFF8E7CC0),
-  Color(0xFFC9A34A),
-  Color(0xFFB07A8C),
-  Color(0xFF4E8A9A),
+  0xFF5C9A83,
+  0xFFD08B5B,
+  0xFF5B8DB0,
+  0xFF8E7CC0,
+  0xFFC9A34A,
+  0xFFB07A8C,
+  0xFF4E8A9A,
 ];
 
 /// Every kind of entry in [text], CSV with a header naming at least 日期

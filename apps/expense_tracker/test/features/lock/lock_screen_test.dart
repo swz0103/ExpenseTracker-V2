@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:core/foundation_values.dart';
 import 'package:expense_tracker/src/core/platform/startup.dart';
 import 'package:expense_tracker/src/features/lock/ui/lock_screen.dart';
@@ -74,7 +75,7 @@ void main() {
     await show(tester, startup);
     expect(find.text('從備份還原'), findsOneWidget);
     expect(startup.takeRestore(), isFalse, reason: 'asked once');
-    await tester.tap(find.text('返回'));
+    await tester.tap(find.byKey(Keys.back));
     await tester.pump();
     expect(find.text('忘記密碼？'), findsOneWidget);
   });
@@ -109,7 +110,7 @@ void main() {
     expect(find.text('還原備份'), findsOneWidget);
     expect(find.text('先設定密碼'), findsNothing);
 
-    await tester.tap(find.text('建立新帳本'));
+    await tester.tap(find.byKey(Keys.newBook));
     await tester.pump();
     await settle(tester, () => startup.state is Ready);
     expect(startup.state, isA<Ready>());
@@ -124,11 +125,11 @@ void main() {
     final startup = Startup(vault);
     await show(tester, startup);
     await settleIn(tester);
-    await tester.tap(find.text('還原備份'));
+    await tester.tap(find.byKey(Keys.restore));
     await tester.pump();
     expect(find.text('從備份還原'), findsOneWidget);
 
-    await tester.tap(find.text('返回'));
+    await tester.tap(find.byKey(Keys.back));
     await tester.pump();
     expect(find.text('建立新帳本'), findsOneWidget);
     expect(startup.state, isA<NeedsSetup>());
@@ -169,7 +170,7 @@ void main() {
     expect(find.text('建立新帳本'), findsOneWidget);
     expect(find.text('還原備份'), findsNothing);
 
-    await tester.tap(find.text('還原 11 月 3 日的備份'));
+    await tester.tap(find.byKey(Keys.restoreFound));
     await tester.pump();
     expect(find.text('從備份還原'), findsOneWidget);
     expect(phone.state, isA<NeedsSetup>());

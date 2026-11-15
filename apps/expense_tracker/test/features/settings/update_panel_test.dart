@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:expense_tracker/src/core/look/keys.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/settings/model/app_update.dart';
 import 'package:expense_tracker/src/features/settings/ui/update_panel.dart';
@@ -66,7 +67,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('新版 0.9.6'), findsOneWidget);
-    await tester.tap(find.text('晚一點再說'));
+    await tester.tap(find.byKey(Keys.later));
     await tester.pumpAndSettle();
     expect(find.text('新版 0.9.6'), findsNothing);
     expect(port.installs, 0);
@@ -75,7 +76,7 @@ void main() {
 
     showUpdatePanel(page, update).ignore();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('略過這一版'));
+    await tester.tap(find.byKey(Keys.skip));
     await tester.pumpAndSettle();
     expect(find.text('新版 0.9.6'), findsNothing);
     expect(preferences.updateSkipped, 200);
@@ -84,7 +85,7 @@ void main() {
     showUpdatePanel(page, update).ignore();
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
-      await tester.tap(find.text('更新'));
+      await tester.tap(find.byKey(Keys.install));
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pumpAndSettle();
@@ -92,7 +93,7 @@ void main() {
 
     port.outcome = UpdateInstall.started;
     await tester.runAsync(() async {
-      await tester.tap(find.text('更新'));
+      await tester.tap(find.byKey(Keys.install));
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pumpAndSettle();

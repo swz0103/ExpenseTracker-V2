@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/look/app_mark.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/kit/buttons.dart';
+import '../../../../core/look/keys.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -221,6 +222,7 @@ class _UnlockViewState extends State<UnlockView>
                           child: _rise(
                             come,
                             TextButton(
+                              key: Keys.back,
                               onPressed: widget.busy ? null : back,
                               style: wordButton(Hue.muted),
                               child: const Text('返回'),

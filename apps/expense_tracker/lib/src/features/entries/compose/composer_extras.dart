@@ -20,6 +20,7 @@ extension _Extras on _ComposerState {
     final open = _f.more || _viewing;
     final names = [if (expense) '商家', '標籤', '備註', if (withPhoto) '收據'];
     return _fold(
+      key: Keys.extras,
       closed: filled.isEmpty ? names.join('、') : filled.join(' · '),
       open: open,
       body: [
@@ -103,6 +104,7 @@ extension _Extras on _ComposerState {
   /// A heading at the foot of the form that opens and closes [body]:
   /// closed, [closed] says what is in it.
   Widget _fold({
+    Key? key,
     required String closed,
     required bool open,
     required List<Widget> body,
@@ -119,6 +121,7 @@ extension _Extras on _ComposerState {
       );
     }
     final heading = InkWell(
+      key: key,
       borderRadius: BorderRadius.circular(12),
       onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),
       child: Padding(

@@ -494,7 +494,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       child: _CategoryBlock(
                         ledger: ledger,
                         category: name == '其他' && !spending.containsKey('其他')
-                            ? Category('其他', 'other', Hue.faint)
+                            ? Category('其他', 'other', Hue.faint.toARGB32())
                             : ledger.category(name),
                         amount: amount,
                         share: expense == 0 ? 0 : amount * 100 ~/ expense,

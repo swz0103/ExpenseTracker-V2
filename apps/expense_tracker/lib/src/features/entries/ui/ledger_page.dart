@@ -460,8 +460,9 @@ class _PickBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget action(String label, VoidCallback onTap, {Color? color}) =>
+    Widget action(String label, VoidCallback onTap, {Color? color, Key? key}) =>
         TextButton(
+          key: key,
           onPressed: onTap,
           style: wordButton(color ?? Hue.accent),
           child: Text(label),
@@ -490,7 +491,7 @@ class _PickBar extends StatelessWidget {
             children: [
               action('改分類', onCategory),
               action('改帳戶', onAccount),
-              action('刪除', onRemove, color: Hue.danger),
+              action('刪除', onRemove, color: Hue.danger, key: Keys.deletePicked),
             ],
           ),
         ],

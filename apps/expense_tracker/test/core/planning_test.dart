@@ -1,6 +1,5 @@
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -91,7 +90,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 4),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 50000)],
-      categories: const [Category('居家', 'home', Color(0xFF5B8DB0))],
+      categories: const [Category('居家', 'home', 0xFF5B8DB0)],
       entries: const [],
       holdings: const [],
       budgets: const [],

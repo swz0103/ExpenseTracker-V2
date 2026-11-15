@@ -371,7 +371,7 @@ class CardPage extends StatelessWidget {
         children: [
           RoundIcon(
             iconFor(category.icon),
-            shownColor(category.color),
+            shownColor(Color(category.color)),
             size: 34,
           ),
           const SizedBox(width: 10),
@@ -401,7 +401,7 @@ class CardPage extends StatelessWidget {
                   value: periods / e.installments,
                   minHeight: 5,
                   borderRadius: BorderRadius.circular(3),
-                  color: shownColor(category.color),
+                  color: shownColor(Color(category.color)),
                   backgroundColor: Hue.track,
                 ),
                 const SizedBox(height: 4),

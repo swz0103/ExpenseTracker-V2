@@ -245,6 +245,7 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorCard(
+      key: Keys.tool(title),
       color: color,
       onTap: onTap,
       label: '$title，$detail',

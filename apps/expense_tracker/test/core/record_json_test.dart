@@ -1,5 +1,3 @@
-import 'dart:ui' show Color;
-
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
@@ -77,7 +75,7 @@ void main() {
     const pet = Category(
       '寵物',
       'pet',
-      Color(0xFF123456),
+      0xFF123456,
       parent: '居家生活',
       archived: true,
       place: 3,

@@ -5,7 +5,6 @@ import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/core/platform/preferences.dart';
 import 'package:expense_tracker/src/features/overview/model/home_widget.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
@@ -23,7 +22,7 @@ void main() {
   Ledger book({List<Budget> budgets = const []}) => Ledger(
     today: day,
     accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
-    categories: const [Category('飲食', 'food', Color(0xFF5C9A83))],
+    categories: const [Category('飲食', 'food', 0xFF5C9A83)],
     entries: [
       Entry(
         id: 'rent',

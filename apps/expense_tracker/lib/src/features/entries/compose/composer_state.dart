@@ -215,7 +215,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
       initial: Category(
         '',
         income ? 'income' : 'other',
-        Hue.categoryColors[count % Hue.categoryColors.length],
+        Hue.categoryColors[count % Hue.categoryColors.length].toARGB32(),
         income: income,
       ),
       colors: Hue.categoryColors,
@@ -507,6 +507,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
           child: Row(
             children: [
               TextButton(
+                key: Keys.discard,
                 onPressed: entry != null ? _delete : _putAside,
                 style: wordButton(
                   entry != null ? Hue.danger : Hue.muted,
@@ -529,6 +530,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                     onPressed: _viewing
                         ? () => setState(() => _viewing = false)
                         : _submit,
+                    key: Keys.save,
                     style: solidButton(
                       _viewing ? Hue.accent : _color,
                       radius: 18,

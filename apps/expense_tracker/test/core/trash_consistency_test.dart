@@ -1,5 +1,4 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// What comes back from 最近刪除 fits the book as it is now (the code
@@ -12,8 +11,8 @@ void main() {
       Account('cash', '現金', AccountKind.cash, 500),
     ],
     categories: const [
-      Category('飲食', 'food', Color(0xFFD08B5B)),
-      Category('外食', 'food', Color(0xFFD08B5B)),
+      Category('飲食', 'food', 0xFFD08B5B),
+      Category('外食', 'food', 0xFFD08B5B),
     ],
     entries: [
       Entry(

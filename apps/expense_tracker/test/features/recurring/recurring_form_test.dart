@@ -1,7 +1,6 @@
 import 'package:expense_tracker/src/core/ledger/journal.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
 import 'package:expense_tracker/src/features/recurring/model/recurring_form.dart';
-import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Keeps nothing.
@@ -21,8 +20,8 @@ void main() {
       Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
     ],
     categories: const [
-      Category('居家', 'home', Color(0xFF5B8DB0)),
-      Category('薪資', 'income', Color(0xFF5C9A83), income: true),
+      Category('居家', 'home', 0xFF5B8DB0),
+      Category('薪資', 'income', 0xFF5C9A83, income: true),
     ],
     entries: const [],
     holdings: const [],

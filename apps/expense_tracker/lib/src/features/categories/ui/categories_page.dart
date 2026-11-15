@@ -47,7 +47,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
       initial: Category(
         '',
         _income ? 'income' : 'other',
-        _colors[count % _colors.length],
+        _colors[count % _colors.length].toARGB32(),
         income: _income,
       ),
       colors: _colors,
@@ -139,7 +139,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 },
                 child: _Tile(
                   glyph: iconFor(c.icon),
-                  color: shownColor(c.color),
+                  color: shownColor(Color(c.color)),
                   label: c.name,
                   count: children[c.name] ?? 0,
                   onTap: () => _edit(c),

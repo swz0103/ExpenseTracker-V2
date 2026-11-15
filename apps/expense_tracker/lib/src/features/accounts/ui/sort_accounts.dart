@@ -79,6 +79,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                     ),
                   ),
                   TextButton(
+                    key: Keys.done,
                     onPressed: _done,
                     style: wordButton(Hue.accent),
                     child: const Text('完成'),

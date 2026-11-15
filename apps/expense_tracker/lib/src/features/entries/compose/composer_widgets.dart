@@ -21,7 +21,7 @@ class _OriginalTile extends StatelessWidget {
         children: [
           RoundIcon(
             iconFor(category.icon),
-            shownColor(category.color),
+            shownColor(Color(category.color)),
             size: 36,
           ),
           const SizedBox(width: 10),

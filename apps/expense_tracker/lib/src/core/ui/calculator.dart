@@ -280,6 +280,7 @@ class _CalculatorState extends State<_Calculator> {
         ? Hue.accent
         : Hue.ink;
     return Pressable(
+      key: Keys.calc(key),
       depth: 0.93,
       child: Material(
         color: background,

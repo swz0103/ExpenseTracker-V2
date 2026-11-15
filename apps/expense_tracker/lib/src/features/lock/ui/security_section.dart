@@ -87,6 +87,7 @@ class _SecuritySectionState extends State<SecuritySection> {
     return CardGrid([
       if (keeper != null) ...[
         SettingCard(
+          key: Keys.password,
           glyph: Glyph.key,
           color: SettingsHue.password,
           title: '密碼',
@@ -113,6 +114,7 @@ class _SecuritySectionState extends State<SecuritySection> {
         ),
       if (keeper != null && keeper.hasPassword)
         SettingCard(
+          key: Keys.lockNow,
           glyph: Glyph.lock,
           color: SettingsHue.about,
           title: '現在鎖上',
@@ -202,7 +204,12 @@ class _PasswordPanelState extends State<_PasswordPanel> {
       ),
       actions: [
         PanelButton('取消', onTap: () => Navigator.of(context).pop()),
-        PanelButton(first ? '設定' : '變更', color: color, onTap: _submit),
+        PanelButton(
+          first ? '設定' : '變更',
+          key: Keys.changePassword,
+          color: color,
+          onTap: _submit,
+        ),
       ],
     );
   }

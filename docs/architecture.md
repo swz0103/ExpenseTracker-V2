@@ -33,7 +33,7 @@ lib/src/
 | `text/` | 金額與日期的文字格式，純函式 | — |
 | `look/` | 設計系統：顏色、字級、圖示、元件、面板（不知道帳本） | text |
 | `charts/` | 圖表 | look、text |
-| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal` | text、`platform/perf.dart` |
+| `ledger/` | 帳本 `Ledger`、資料型別、JSON、`TableJournal`；Flutter 只用 `foundation`（顏色存成 ARGB 整數） | text、`platform/perf.dart` |
 | `platform/` | 偏好設定、連接器、開啟帳本、隱私、效能紀錄 | ledger、text |
 | `ui/` | 認得帳本的共用元件：紀錄列、選擇器、計算機、金額顯示 | 以上全部與 `nav.dart` |
 
@@ -96,7 +96,8 @@ lib/src/
 | 套件不碰平台、lockfile 一致、CI 涵蓋每個模組 | `tooling/architecture_checks` |
 | core 的六部分只用允許的部分 | `test/app/layers_test.dart` |
 | 功能不用別人的 `ui/`、功能之間沒有循環 | `layers_test` |
-| model 與帳本不碰畫面；帳本只有 `table_journal.dart` 碰儲存 | `layers_test` |
+| model 與帳本不碰畫面；帳本只用 Flutter 的 `foundation`；只有 `table_journal.dart` 碰儲存 | `layers_test` |
+| 測試用 `Keys` 按按鈕 | `test/app/test_rules_test.dart` |
 | 只有 `openFlow` 推路由 | `layers_test` |
 | 檔案 600 行以內 | `layers_test` |
 | 範例帳本只在 `app/demo/`，正式入口碰不到 | `layers_test`、`entry_test.dart` |

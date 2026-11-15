@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
+import '../look/keys.dart';
 import '../look/theme.dart';
 
 /// A button a row shows when slid open.
@@ -99,6 +100,7 @@ class SwipeActionsState extends State<SwipeActions>
           child: Material(
             color: a.color,
             child: InkWell(
+              key: Keys.swipe(a.label),
               onTap: () {
                 close();
                 a.onTap();

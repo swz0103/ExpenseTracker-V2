@@ -324,7 +324,7 @@ class _MovedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = shownColor(category.color);
+    final color = shownColor(Color(category.color));
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
       decoration: BoxDecoration(
