@@ -255,13 +255,20 @@ extension LedgerSetup on Ledger {
       return;
     }
     final before = _before;
-    if (next.name != name) _renameCategory(name, next.name);
+    // Whatever the edit built, it is still the category it was.
+    final kept = _categories[index];
+    final updated = next.withId(kept.id);
+    final renamed = updated.name != name;
+    if (renamed) _renameCategory(name, updated.name);
     // An edit keeps the place it was dragged to.
-    _categories[index] = next.place == null
-        ? next.copyWith(place: _categories[index].place)
-        : next;
+    _categories[index] = updated.place == null
+        ? updated.copyWith(place: kept.place)
+        : updated;
     notifyListeners();
-    _keep(_since(before));
+    // Records are kept under the category's id, so a new name is one row.
+    _keep(
+      renamed ? WriteBatch(categories: [_categories[index]]) : _since(before),
+    );
   }
 
   /// Moves everything in [from] to [into] and removes [from].

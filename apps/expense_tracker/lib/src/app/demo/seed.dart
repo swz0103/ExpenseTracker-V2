@@ -287,7 +287,7 @@ Ledger demoLedger() {
         icon: 'heart',
       ),
     ],
-    categories: const [
+    categories: [
       Category('居家生活', 'home', 0xFF5C9A83),
       Category('飲食日常', 'food', 0xFFD08B5B),
       Category('交通通勤', 'travel', 0xFF5B8DB0),

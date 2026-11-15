@@ -12,7 +12,7 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
-import '../../../core/ledger/record_json.dart';
+import '../../../core/ledger/persistence/codec/record_json.dart';
 import '../../../core/ledger/trading.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/calculator.dart';

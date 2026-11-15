@@ -17,7 +17,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 20),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],

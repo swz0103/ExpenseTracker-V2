@@ -18,7 +18,7 @@ void main() {
   Ledger book(List<Entry> entries) => Ledger(
     today: day,
     accounts: const [Account('bank', '銀行', AccountKind.bank, 1000000)],
-    categories: const [],
+    categories: [],
     entries: entries,
     holdings: const [],
     budgets: const [],

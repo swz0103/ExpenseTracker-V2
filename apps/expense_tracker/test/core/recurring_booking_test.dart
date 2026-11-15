@@ -1,5 +1,5 @@
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/record_json.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Recurring items booked by themselves: every period missed while the
@@ -34,7 +34,7 @@ void main() {
       Ledger(
         today: today,
         accounts: const [Account('bank', '銀行', AccountKind.bank, 500000)],
-        categories: const [Category('居家', 'home', 0xFF5B8DB0)],
+        categories: [Category('居家', 'home', 0xFF5B8DB0)],
         entries: entries,
         holdings: const [],
         budgets: const [],

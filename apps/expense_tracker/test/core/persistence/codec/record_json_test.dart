@@ -1,7 +1,7 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/record_json.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Every record the data source keeps reads back as it was written.
@@ -72,7 +72,7 @@ void main() {
   });
 
   test('categories, budgets and recurring items read back whole', () {
-    const pet = Category(
+    final pet = Category(
       '寵物',
       'pet',
       0xFF123456,

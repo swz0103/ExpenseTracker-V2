@@ -116,7 +116,7 @@ void main() {
     categories: [
       for (final (i, name) in spending.indexed)
         Category(name, 'other', 0xFF5C9A83 + i),
-      const Category('薪資', 'income', 0xFF5B8DB0, income: true),
+      Category('薪資', 'income', 0xFF5B8DB0, income: true),
     ],
     entries: list,
     holdings: const [],

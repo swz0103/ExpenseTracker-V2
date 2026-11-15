@@ -15,7 +15,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 4, 3),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 50000), card],
-      categories: const [],
+      categories: [],
       entries: [
         Entry(
           id: 'shoes',

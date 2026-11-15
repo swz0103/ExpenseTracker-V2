@@ -19,7 +19,7 @@ void main() {
   Ledger book() => Ledger(
     today: day,
     accounts: const [Account('bank', '銀行', AccountKind.bank, 100000)],
-    categories: const [Category('飲食', 'food', 0xFF5C9A83)],
+    categories: [Category('飲食', 'food', 0xFF5C9A83)],
     entries: [
       Entry(
         id: 'lunch',

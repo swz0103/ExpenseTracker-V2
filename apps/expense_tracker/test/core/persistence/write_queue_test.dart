@@ -60,7 +60,7 @@ void main() {
     fresh = Ledger(
       today: DateTime.utc(2026, 10, 4),
       accounts: const [Account('a', 'A', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],

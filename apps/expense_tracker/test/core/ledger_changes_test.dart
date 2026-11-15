@@ -35,7 +35,7 @@ void main() {
           closes: {DateTime.utc(2026, 10, 25): DateTime.utc(2026, 10, 23)},
         ),
       ],
-      categories: const [
+      categories: [
         Category('飲食', 'food', 0xFF5C9A83),
         Category('居家', 'home', 0xFF5B8DB0),
       ],
@@ -119,7 +119,7 @@ void main() {
       expect(ledger.categoryNameFree(name), isFalse, reason: name);
     }
     expect(ledger.categoryNameFree('飲食', except: '飲食'), isTrue);
-    ledger.addCategory(const Category('轉帳', 'other', 0xFF000000));
+    ledger.addCategory(Category('轉帳', 'other', 0xFF000000));
     expect(ledger.problem.value, isA<NameTaken>());
     expect(ledger.categories, hasLength(2));
   });
@@ -170,7 +170,7 @@ void main() {
       accounts: const [
         Account('card', '卡', AccountKind.card, 0, closingDay: 25, dueDay: 10),
       ],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -196,7 +196,7 @@ void main() {
     final ledger = Ledger(
       today: day,
       accounts: const [],
-      categories: const [Category('轉帳', 'other', 0xFF000000)],
+      categories: [Category('轉帳', 'other', 0xFF000000)],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -215,7 +215,7 @@ void main() {
         Account('bank', '重複的銀行', AccountKind.bank, 0),
         Account('new', '新帳戶', AccountKind.bank, 0),
       ],
-      categories: const [
+      categories: [
         Category('寵物', 'pet', 0xFF123456),
         Category('寵物', 'pet', 0xFF123456),
         Category('轉帳', 'other', 0xFF123456),
@@ -265,7 +265,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 10, 2),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: [paid],
       holdings: const [],
       budgets: const [],
@@ -277,7 +277,7 @@ void main() {
     final fresh = Ledger(
       today: DateTime.utc(2026, 10, 2),
       accounts: const [Account('bank', '銀行', AccountKind.bank, 0)],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],

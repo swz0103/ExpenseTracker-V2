@@ -113,7 +113,7 @@ void main() {
         categories: [
           for (final (i, n) in names.indexed)
             Category(n, 'food', 0xFF000000 + i),
-          const Category('薪水', 'salary', 0xFF2F7A65, income: true),
+          Category('薪水', 'salary', 0xFF2F7A65, income: true),
         ],
         entries: [for (var i = 0; i < 12; i++) make(r, 'seed$i', banks)],
         holdings: const [],

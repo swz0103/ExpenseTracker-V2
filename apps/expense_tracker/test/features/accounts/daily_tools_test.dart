@@ -42,7 +42,7 @@ void main() {
       Account('card', '信用卡', AccountKind.card, 0, closingDay: 25, dueDay: 10),
       Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
     ],
-    categories: const [
+    categories: [
       Category('飲食', 'food', 0xFF5C9A83),
       Category('交通', 'car', 0xFF5B8DB0),
     ],

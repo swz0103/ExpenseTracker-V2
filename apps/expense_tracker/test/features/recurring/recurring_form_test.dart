@@ -19,7 +19,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 5000),
       Account('usd', '美元', AccountKind.bank, 0, currency: 'USD'),
     ],
-    categories: const [
+    categories: [
       Category('居家', 'home', 0xFF5B8DB0),
       Category('薪資', 'income', 0xFF5C9A83, income: true),
     ],

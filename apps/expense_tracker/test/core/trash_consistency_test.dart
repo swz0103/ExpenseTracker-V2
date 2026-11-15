@@ -10,7 +10,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 10000),
       Account('cash', '現金', AccountKind.cash, 500),
     ],
-    categories: const [
+    categories: [
       Category('飲食', 'food', 0xFFD08B5B),
       Category('外食', 'food', 0xFFD08B5B),
     ],

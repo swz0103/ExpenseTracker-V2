@@ -19,7 +19,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 5000),
       Account('card', '卡', AccountKind.card, -1200, closingDay: 25, dueDay: 10),
     ],
-    categories: const [],
+    categories: [],
     entries: const [],
     holdings: const [],
     budgets: const [],

@@ -50,7 +50,7 @@ void main() {
   Ledger book() => Ledger(
     today: day,
     accounts: const [Account('cash', '現金', AccountKind.cash, 50000)],
-    categories: const [Category('飲食', 'food', 0xFF5C9A83)],
+    categories: [Category('飲食', 'food', 0xFF5C9A83)],
     entries: const [],
     holdings: const [],
     budgets: const [Budget('飲食', 1000)],

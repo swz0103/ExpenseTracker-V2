@@ -9,7 +9,10 @@ import 'package:storage/storage.dart';
 
 import 'ledger_data_source.dart';
 import '../ledger.dart';
-import '../record_json.dart';
+import 'category_id_migration.dart';
+import 'codec/category_refs.dart';
+import 'record_version.dart';
+import 'codec/record_json.dart';
 import '../../diagnostics/performance_monitor.dart';
 import '../../diagnostics/error_log.dart';
 
@@ -41,11 +44,6 @@ const _gone = 'gone';
 /// Forms put aside in the composer, by tab ([WriteBatch.drafts]).
 const _draft = 'draft';
 
-/// The version of the record rows this app writes; each row carries it as
-/// `_v`, with `_at`, when it was written. A row without `_v` is version 1.
-/// A newer version's row is refused rather than misread.
-const recordVersion = 1;
-
 /// The collections whose deletions are noted in [_gone].
 const _noted = {
   Collection.account,
@@ -55,19 +53,15 @@ const _noted = {
   Collection.recurring,
 };
 
-/// Brings a stored row up to [recordVersion], one version at a time; a
-/// change of a record's shape adds a step here.
-Map<String, Object?> upgradeRecord(
-  String collection,
-  Map<String, Object?> json,
-) {
-  final version = (json['_v'] as num?)?.toInt() ?? 1;
-  if (version > recordVersion) {
-    throw FormatException('A newer app wrote this $collection ($version).');
-  }
-  // No step yet: version 1 is the first.
-  return json;
-}
+List<Object?> _decodeAll(List<String> bodies) => [
+  for (final body in bodies) jsonDecode(body),
+];
+
+/// [_decodeAll] on a worker isolate. Kept out of the methods of the data
+/// source: a closure made beside one that uses `this` carries it along,
+/// and the database cannot be sent to another isolate.
+Future<List<Object?>> _decodeApartFrom(List<String> bodies) =>
+    Isolate.run(() => _decodeAll(bodies));
 
 /// Above this many rows the JSON is decoded on a worker isolate, so the
 /// screen does not freeze while a large book opens.
@@ -87,6 +81,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   /// Where closing prices and rates come from; none in tests.
   final MarketDataGateway? _gateway;
+
+  /// Which category each id stands for, as the records are read and kept.
+  final _refs = CategoryRefs();
 
   /// The exchanges, for a holding's daily closes; none in tests and the
   /// preview.
@@ -108,6 +105,7 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   Future<Ledger> _load() async {
     _start();
+    giveCategoriesIds(_store);
     final collections = <String, List<StoredRow>>{};
     for (final row in _store.rows()) {
       (collections[row.shelf] ??= []).add(row);
@@ -117,10 +115,9 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         if (collection != Collection.receipt) ...?collections[collection.name],
     ];
     final bodies = [for (final row in records) row.body];
-    List<Object?> decodeAll() => [for (final b in bodies) jsonDecode(b)];
     final decoded = bodies.length > _decodeApart
-        ? await Isolate.run(decodeAll)
-        : decodeAll();
+        ? await _decodeApartFrom(bodies)
+        : _decodeAll(bodies);
     final json = <StoredRow, Map<String, Object?>>{
       for (final (i, row) in records.indexed)
         row: upgradeRecord(row.shelf, decoded[i]! as Map<String, Object?>),
@@ -132,9 +129,21 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       for (final row in collections[collection.name] ?? const <StoredRow>[])
         from(json[row]!),
     ];
+    // What each category id stands for first: a category's parent and every
+    // other record name theirs through it.
+    _refs.fill([
+      for (final row
+          in collections[Collection.category.name] ?? const <StoredRow>[])
+        if (json[row]! case {'id': final String id, 'name': final String name})
+          (id, name),
+    ]);
+    final categories = read(
+      Collection.category,
+      (j) => categoryFromJson(j, _refs),
+    );
     final market = _marketFrom(collections[_market] ?? const []);
     final today = _today();
-    final trash = read(Collection.trash, trashedFromJson);
+    final trash = read(Collection.trash, (j) => trashedFromJson(j, _refs));
     final from = today.subtract(_keptInTrash);
     final expired = [
       for (final t in trash)
@@ -153,11 +162,11 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       today: today,
       clock: _today,
       accounts: read(Collection.account, accountFromJson),
-      categories: read(Collection.category, categoryFromJson),
-      entries: read(Collection.entry, entryFromJson),
+      categories: categories,
+      entries: read(Collection.entry, (j) => entryFromJson(j, _refs)),
       holdings: _holdingsOf(market),
-      budgets: read(Collection.budget, budgetFromJson),
-      recurring: read(Collection.recurring, recurringFromJson),
+      budgets: read(Collection.budget, (j) => budgetFromJson(j, _refs)),
+      recurring: read(Collection.recurring, (j) => recurringFromJson(j, _refs)),
       rates: market.rates,
       moves: market.moves,
       quotedOn: market.quotedOn,
@@ -213,6 +222,15 @@ final class SqlLedgerDataSource implements LedgerDataSource {
 
   void _write(WriteBatch batch) {
     final at = DateTime.now().millisecondsSinceEpoch;
+    // A category, as the rest of the batch names it, first; and what a
+    // dropped budget was kept under, before its category goes.
+    for (final c in batch.categories) {
+      _refs.set(c);
+    }
+    final budgetKeys = {
+      for (final (collection, key) in batch.dropped)
+        if (collection == Collection.budget) key: _refs.idOf(key) ?? key,
+    };
     String text(Map<String, Object?> json) =>
         jsonEncode({...json, '_v': recordVersion, '_at': at});
     _store.write((w) {
@@ -227,19 +245,23 @@ final class SqlLedgerDataSource implements LedgerDataSource {
         keep(Collection.account, a.id, accountToJson(a));
       }
       for (final c in batch.categories) {
-        keep(Collection.category, c.name, categoryToJson(c));
+        keep(Collection.category, c.id, categoryToJson(c, _refs));
       }
       for (final e in batch.entries) {
-        keep(Collection.entry, e.id, entryToJson(e));
+        keep(Collection.entry, e.id, entryToJson(e, _refs));
       }
       for (final b in batch.budgets) {
-        keep(Collection.budget, b.category, budgetToJson(b));
+        keep(
+          Collection.budget,
+          _refs.idOf(b.category) ?? b.category,
+          budgetToJson(b, _refs),
+        );
       }
       for (final r in batch.recurring) {
-        keep(Collection.recurring, r.id, recurringToJson(r));
+        keep(Collection.recurring, r.id, recurringToJson(r, _refs));
       }
       for (final t in batch.trash) {
-        keep(Collection.trash, t.entry.id, trashedToJson(t));
+        keep(Collection.trash, t.entry.id, trashedToJson(t, _refs));
       }
       for (final MapEntry(key: id, value: file) in batch.receipts.entries) {
         if (file == null) {
@@ -248,11 +270,13 @@ final class SqlLedgerDataSource implements LedgerDataSource {
           w.put(Collection.receipt.name, id, file);
         }
       }
-      for (final (collection, id) in batch.dropped) {
+      for (final (collection, name) in batch.dropped) {
+        final id = collection == Collection.budget ? budgetKeys[name]! : name;
         w.drop(collection.name, id);
         if (_noted.contains(collection)) {
           w.put(_gone, '${collection.name}/$id', jsonEncode({'at': at}));
         }
+        if (collection == Collection.category) _refs.remove(id);
       }
       for (final MapEntry(key: tab, value: json) in batch.drafts.entries) {
         if (json == null) {
@@ -294,13 +318,21 @@ final class SqlLedgerDataSource implements LedgerDataSource {
       _marketFrom([StoredRow(0, collection, id, body)]);
       return;
     }
+    // Out of context, a category's id is as good as its name.
+    final refs = CategoryRefs.lenient();
     final reader = switch (Collection.values.asNameMap()[collection]) {
       Collection.account => accountFromJson,
-      Collection.category => categoryFromJson,
-      Collection.entry => entryFromJson,
-      Collection.budget => budgetFromJson,
-      Collection.recurring => recurringFromJson,
-      Collection.trash => trashedFromJson,
+      Collection.category => (Map<String, Object?> j) => categoryFromJson(
+        j,
+        refs,
+      ),
+      Collection.entry => (Map<String, Object?> j) => entryFromJson(j, refs),
+      Collection.budget => (Map<String, Object?> j) => budgetFromJson(j, refs),
+      Collection.recurring => (Map<String, Object?> j) => recurringFromJson(
+        j,
+        refs,
+      ),
+      Collection.trash => (Map<String, Object?> j) => trashedFromJson(j, refs),
       _ => throw FormatException('Unknown collection $collection'),
     };
     reader(upgradeRecord(collection, json));

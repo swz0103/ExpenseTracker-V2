@@ -1,7 +1,8 @@
 import 'package:core/foundation_values.dart' show BusinessDate;
 import 'package:domain/credit_cards.dart' show CardScheduleChange;
 
-import 'models/models.dart';
+import '../../models/models.dart';
+import 'category_refs.dart';
 
 // The ledger's records as JSON, as the data source keeps them and a backup
 // carries them. Each reader takes what its writer wrote and fills in the
@@ -97,36 +98,45 @@ Account accountFromJson(Map<String, Object?> json) => _read(
   ),
 );
 
-Map<String, Object?> categoryToJson(Category c) => {
+/// [c] as JSON. With [refs] its parent is kept by id, so a parent renamed
+/// leaves it as it is.
+Map<String, Object?> categoryToJson(Category c, [CategoryRefs? refs]) => {
+  'id': c.id,
   'name': c.name,
   'icon': c.icon,
   'color': c.color,
   if (c.income) 'income': true,
-  'parent': ?c.parent,
+  ..._ref('parent', c.parent, refs),
   if (c.archived) 'archived': true,
   'place': ?c.place,
 };
 
-Category categoryFromJson(Map<String, Object?> json) => _read(
-  () => Category(
-    json['name']! as String,
-    json['icon']! as String,
-    _int(json['color']),
-    income: json['income'] == true,
-    parent: json['parent'] as String?,
-    archived: json['archived'] == true,
-    place: _maybe(json['place']),
-  ),
-);
+/// The category [categoryToJson] wrote; one kept before ids has none, and
+/// is given one.
+Category categoryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
+    _read(
+      () => Category(
+        json['name']! as String,
+        json['icon']! as String,
+        _int(json['color']),
+        id: json['id'] as String?,
+        income: json['income'] == true,
+        parent: _refName(json, 'parent', refs),
+        archived: json['archived'] == true,
+        place: _maybe(json['place']),
+      ),
+    );
 
 /// [e] as JSON, every field the screens keep.
-Map<String, Object?> entryToJson(Entry e) => {
+/// With [refs] the category and each part's category are kept by id, so a
+/// category renamed leaves the entry as it is.
+Map<String, Object?> entryToJson(Entry e, [CategoryRefs? refs]) => {
   'id': e.id,
   'date': _day(e.date),
   'type': e.type.name,
   'amount': e.amount,
   'account': e.account,
-  if (e.category.isNotEmpty) 'category': e.category,
+  if (e.category.isNotEmpty) ..._ref('category', e.category, refs),
   if (e.note.isNotEmpty) 'note': e.note,
   'to': ?e.to,
   'holding': ?e.holding,
@@ -136,7 +146,8 @@ Map<String, Object?> entryToJson(Entry e) => {
   if (e.tags.isNotEmpty) 'tags': e.tags,
   if (e.parts.isNotEmpty)
     'parts': [
-      for (final (name, amount) in e.parts) {'name': name, 'amount': amount},
+      for (final (name, amount) in e.parts)
+        {..._ref('name', name, refs, idKey: 'categoryId'), 'amount': amount},
     ],
   if (e.fee != 0) 'fee': e.fee,
   if (e.tax != 0) 'tax': e.tax,
@@ -150,14 +161,14 @@ Map<String, Object?> entryToJson(Entry e) => {
 };
 
 /// The entry [entryToJson] wrote.
-Entry entryFromJson(Map<String, Object?> json) => _read(
+Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
   () => Entry(
     id: json['id']! as String,
     date: _date(json['date']! as String),
     type: EntryType.values.byName(json['type']! as String),
     amount: _int(json['amount']),
     account: json['account']! as String,
-    category: json['category'] as String? ?? '',
+    category: _refName(json, 'category', refs) ?? '',
     note: json['note'] as String? ?? '',
     to: json['to'] as String?,
     holding: json['holding'] as String?,
@@ -167,8 +178,8 @@ Entry entryFromJson(Map<String, Object?> json) => _read(
     tags: [for (final t in json['tags'] as List? ?? const []) t! as String],
     parts: [
       for (final p in json['parts'] as List? ?? const [])
-        if (p case {'name': final String name, 'amount': final int amount})
-          (name, amount)
+        if (p case {'amount': final int amount} when p is Map<String, Object?>)
+          (_refName(p, 'name', refs, idKey: 'categoryId') ?? '', amount)
         else
           throw const FormatException('parts'),
     ],
@@ -184,17 +195,17 @@ Entry entryFromJson(Map<String, Object?> json) => _read(
   ),
 );
 
-Map<String, Object?> budgetToJson(Budget b) => {
-  'category': b.category,
+Map<String, Object?> budgetToJson(Budget b, [CategoryRefs? refs]) => {
+  ..._ref('category', b.category, refs),
   'limit': b.limit,
   if (b.warning != 80) 'warning': b.warning,
   if (b.carry) 'carry': true,
   if (b.since case final since?) 'since': _day(since),
 };
 
-Budget budgetFromJson(Map<String, Object?> json) => _read(
+Budget budgetFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
   () => Budget(
-    json['category']! as String,
+    _refName(json, 'category', refs)!,
     _int(json['limit']),
     warning: _maybe(json['warning']) ?? 80,
     carry: json['carry'] == true,
@@ -205,13 +216,13 @@ Budget budgetFromJson(Map<String, Object?> json) => _read(
   ),
 );
 
-Map<String, Object?> recurringToJson(Recurring r) => {
+Map<String, Object?> recurringToJson(Recurring r, [CategoryRefs? refs]) => {
   'id': r.id,
   'name': r.name,
   'amount': r.amount,
   'day': r.day,
   'account': r.account,
-  'category': r.category,
+  ..._ref('category', r.category, refs),
   if (!r.active) 'active': false,
   if (r.unit != RepeatUnit.month) 'unit': r.unit.name,
   if (r.every != 1) 'every': r.every,
@@ -224,46 +235,73 @@ Map<String, Object?> recurringToJson(Recurring r) => {
     'skipped': [for (final d in r.skipped.toList()..sort()) _day(d)],
 };
 
-Recurring recurringFromJson(Map<String, Object?> json) => _read(
-  () => Recurring(
-    id: json['id']! as String,
-    name: json['name']! as String,
-    amount: _int(json['amount']),
-    day: _int(json['day']),
-    account: json['account']! as String,
-    category: json['category']! as String,
-    active: json['active'] != false,
-    unit: RepeatUnit.values.byName(json['unit'] as String? ?? 'month'),
-    every: _maybe(json['every']) ?? 1,
-    start: switch (json['start']) {
-      final String day => _date(day),
-      _ => null,
-    },
-    end: switch (json['end']) {
-      final String day => _date(day),
-      _ => null,
-    },
-    income: json['income'] == true,
-    merchant: json['merchant'] as String? ?? '',
-    auto: json['auto'] == true,
-    skipped: {
-      for (final day in json['skipped'] as List? ?? const [])
-        _date(day as String),
-    },
-  ),
-);
+Recurring recurringFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
+    _read(
+      () => Recurring(
+        id: json['id']! as String,
+        name: json['name']! as String,
+        amount: _int(json['amount']),
+        day: _int(json['day']),
+        account: json['account']! as String,
+        category: _refName(json, 'category', refs)!,
+        active: json['active'] != false,
+        unit: RepeatUnit.values.byName(json['unit'] as String? ?? 'month'),
+        every: _maybe(json['every']) ?? 1,
+        start: switch (json['start']) {
+          final String day => _date(day),
+          _ => null,
+        },
+        end: switch (json['end']) {
+          final String day => _date(day),
+          _ => null,
+        },
+        income: json['income'] == true,
+        merchant: json['merchant'] as String? ?? '',
+        auto: json['auto'] == true,
+        skipped: {
+          for (final day in json['skipped'] as List? ?? const [])
+            _date(day as String),
+        },
+      ),
+    );
 
-Map<String, Object?> trashedToJson(Trashed t) => {
+Map<String, Object?> trashedToJson(Trashed t, [CategoryRefs? refs]) => {
   'on': _day(t.on),
-  'entry': entryToJson(t.entry),
+  'entry': entryToJson(t.entry, refs),
 };
 
-Trashed trashedFromJson(Map<String, Object?> json) => _read(
-  () => Trashed(
-    entryFromJson(json['entry']! as Map<String, Object?>),
-    _date(json['on']! as String),
-  ),
-);
+Trashed trashedFromJson(Map<String, Object?> json, [CategoryRefs? refs]) =>
+    _read(
+      () => Trashed(
+        entryFromJson(json['entry']! as Map<String, Object?>, refs),
+        _date(json['on']! as String),
+      ),
+    );
+
+/// A category named [name] as it is kept under [key]: by its id, under
+/// `${key}Id` (or [idKey]), when [refs] knows it, else by the name.
+Map<String, Object?> _ref(
+  String key,
+  String? name,
+  CategoryRefs? refs, {
+  String? idKey,
+}) {
+  if (name == null) return const {};
+  final id = refs?.idOf(name);
+  return id == null ? {key: name} : {idKey ?? '${key}Id': id};
+}
+
+/// The name of the category [json] keeps under [key], by id or by name.
+String? _refName(
+  Map<String, Object?> json,
+  String key,
+  CategoryRefs? refs, {
+  String? idKey,
+}) {
+  final id = json[idKey ?? '${key}Id'];
+  if (id is String) return refs?.nameOf(id) ?? id;
+  return json[key] as String?;
+}
 
 /// [read], with any slip in the JSON's shape a [FormatException].
 T _read<T>(T Function() read) {

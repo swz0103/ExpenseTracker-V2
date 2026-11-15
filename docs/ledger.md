@@ -86,6 +86,7 @@ core/ledger/
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
 | `EntryRepository` 索引改增量維護（記一筆後的月份／單日查詢，10 萬筆時 84／36 ms 降到 0.0／0.1 ms） | 完成 |
 | Trash、Account、MarketData、Holding Repository | 尚未 |
-| `CategoryRepository` 與分類 id | 尚未 |
+| 分類 id：`Category.id`、`CategoryRefs`、版本 2 資料格式、舊帳本在一個交易裡自動升級，12 個升級測試（含失敗時完全不動、改名只寫一列） | 完成 |
+| `CategoryRepository` | 尚未 |
 | Budget、Recurring Repository、各 Service 與各 Commands | 尚未 |
 | Ledger 瘦身與 `layers_test` 新規則 | 尚未 |

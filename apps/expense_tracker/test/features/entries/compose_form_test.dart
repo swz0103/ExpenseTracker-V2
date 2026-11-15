@@ -22,7 +22,7 @@ void main() {
       Account('bank', '銀行', AccountKind.bank, 100000),
       Account('cash', '現金', AccountKind.cash, 2000),
     ],
-    categories: const [
+    categories: [
       Category('飲食', 'food', 0xFF5C9A83),
       Category('居家', 'home', 0xFF5B8DB0),
     ],

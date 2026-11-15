@@ -379,7 +379,7 @@ final class Ledger extends ChangeNotifier {
     }
 
     String entryKey(Entry e) => e.id;
-    String categoryKey(Category c) => c.name;
+    String categoryKey(Category c) => c.id;
     String budgetKey(Budget b) => b.category;
     String recurringKey(Recurring r) => r.id;
     return WriteBatch(

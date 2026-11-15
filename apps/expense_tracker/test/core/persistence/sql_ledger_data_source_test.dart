@@ -3,11 +3,12 @@ import 'dart:io';
 
 import 'package:core/app_core.dart';
 import 'package:core/foundation_values.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/record_version.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/sql_ledger_data_source.dart';
 import 'package:expense_tracker/src/app/demo/seed.dart';
 import 'package:expense_tracker/src/core/ledger/persistence/ledger_data_source.dart';
 import 'package:expense_tracker/src/core/ledger/ledger.dart';
-import 'package:expense_tracker/src/core/ledger/record_json.dart';
+import 'package:expense_tracker/src/core/ledger/persistence/codec/record_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storage/storage.dart';
 
@@ -213,7 +214,7 @@ void main() {
   test('a change that cannot be kept is reported and read back', () async {
     final ledger = await reopen();
     store!.close();
-    ledger.addCategory(const Category('寵物', 'pet', 0xFF123456));
+    ledger.addCategory(Category('寵物', 'pet', 0xFF123456));
     await ledger.settled;
     expect(ledger.problem.value, isA<DataSourceException>());
   });

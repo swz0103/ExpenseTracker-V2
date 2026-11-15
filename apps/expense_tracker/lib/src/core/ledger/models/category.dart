@@ -1,3 +1,5 @@
+import 'package:core/foundation_values.dart' show PublicId;
+
 /// The category every transfer carries.
 const transferCategory = '轉帳';
 
@@ -6,25 +8,35 @@ const transferCategory = '轉帳';
 const feeCategory = '其他支出';
 
 final class Category {
-  const Category(
+  /// A new category has an [id] of its own unless it is given one, as when
+  /// it is read back.
+  Category(
     this.name,
     this.icon,
     this.color, {
+    String? id,
     this.income = false,
     this.parent,
     this.archived = false,
     this.place,
-  });
+  }) : id = id ?? PublicId.generate().value;
 
   /// A name the book has no category for, such as one since deleted:
   /// shown in grey with the plain mark.
+  ///
+  /// It has no id and is never kept.
   const Category.unknown(this.name)
-    : icon = 'other',
+    : id = '',
+      icon = 'other',
       color = 0xFF8C8C80,
       income = false,
       parent = null,
       archived = false,
       place = null;
+
+  /// What the category is known by for good: a name can change, an id does
+  /// not. Entries, budgets and recurring items are kept under it.
+  final String id;
 
   final String name;
 
@@ -46,6 +58,19 @@ final class Category {
   /// null for one never moved, which follows the placed ones.
   final int? place;
 
+  /// This category under another [id]: the one an edited copy built
+  /// afresh must keep, to stay the same category.
+  Category withId(String id) => Category(
+    name,
+    icon,
+    color,
+    id: id,
+    income: income,
+    parent: parent,
+    archived: archived,
+    place: place,
+  );
+
   Category copyWith({
     String? name,
     String? parent,
@@ -56,6 +81,7 @@ final class Category {
     name ?? this.name,
     icon,
     color,
+    id: id,
     income: income,
     parent: clearParent ? null : parent ?? this.parent,
     archived: archived ?? this.archived,

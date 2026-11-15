@@ -30,7 +30,7 @@ void main() {
         Account('usd', '美元', AccountKind.bank, 10000, currency: 'USD'),
         Account('jpy', '日圓', AccountKind.cash, 10000, currency: 'JPY'),
       ],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -71,7 +71,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 4, 5),
       accounts: [card],
-      categories: const [],
+      categories: [],
       entries: const [],
       holdings: const [],
       budgets: const [],
@@ -102,7 +102,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 4, 25),
       accounts: [card],
-      categories: const [],
+      categories: [],
       entries: [split, charge('b', DateTime.utc(2026, 4, 25))],
       holdings: const [],
       budgets: const [],
@@ -133,7 +133,7 @@ void main() {
     final ledger = Ledger(
       today: DateTime.utc(2026, 4, 25),
       accounts: [bank],
-      categories: const [],
+      categories: [],
       entries: [buy],
       holdings: const [],
       budgets: const [],
