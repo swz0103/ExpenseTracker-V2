@@ -23,15 +23,21 @@ extension _Extras on _ComposerState {
       closed: filled.isEmpty ? names.join('、') : filled.join(' · '),
       open: open,
       body: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _noteField(lines: 3)),
-            if (photos != null && (!_viewing || _f.receipt != null)) ...[
-              const SizedBox(width: 8),
-              _receiptSquare(photos),
+        // The square as tall as the note box and level with it.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _noteField(lines: 3)),
+              if (photos != null && (!_viewing || _f.receipt != null)) ...[
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _receiptSquare(photos),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
         if (expense && (!_viewing || _f.merchant.isNotEmpty)) ...[
           const _GroupLabel('商家'),
@@ -182,25 +188,43 @@ extension _Extras on _ComposerState {
       return TapArea(
         label: '收據',
         onTap: () async {
-          final camera = await _open<bool>(
-            '收據',
-            (done) => Row(
-              children: [
-                Expanded(
-                  child: _WordChip('拍照', () => done(true), color: _color),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _WordChip('從相簿', () => done(false), color: _color),
-                ),
-              ],
+          final camera = await showPanel<bool>(
+            context,
+            (context) => CenterPanel(
+              glyph: Glyph.camera,
+              color: _color,
+              title: '收據',
+              body: CardGrid([
+                for (final (glyph, word, camera) in [
+                  (Glyph.camera, '拍照', true),
+                  (Glyph.image, '從相簿', false),
+                ])
+                  ColorCard(
+                    color: _color,
+                    label: word,
+                    onTap: () => Navigator.of(context).pop(camera),
+                    child: Column(
+                      children: [
+                        SquareIcon(glyph, _color),
+                        const SizedBox(height: 10),
+                        OneLine(
+                          word,
+                          style: const TextStyle(
+                            fontSize: TextSize.body,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ]),
             ),
           );
           if (camera != null) await take(camera: camera);
         },
         child: Container(
           width: size,
-          height: size,
+          constraints: const BoxConstraints(minHeight: size),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Hue.line, width: 1.5),
