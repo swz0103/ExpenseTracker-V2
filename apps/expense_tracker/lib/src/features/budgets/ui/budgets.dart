@@ -411,7 +411,7 @@ class _Main extends StatelessWidget {
             style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
           const SizedBox(height: 10),
-          _DayBar(passed: current ? passed : days, days: days, today: current),
+          DayBar(passed: current ? passed : days, days: days, today: current),
           const SizedBox(height: 6),
           if (current)
             Row(
@@ -435,48 +435,6 @@ class _Main extends StatelessWidget {
               style: mutedSmall,
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// One segment for each day of the month: the days gone filled, today
-/// darker, the rest pale.
-class _DayBar extends StatelessWidget {
-  const _DayBar({
-    required this.passed,
-    required this.days,
-    required this.today,
-  });
-
-  final int passed;
-  final int days;
-  final bool today;
-
-  @override
-  Widget build(BuildContext context) {
-    return ExcludeSemantics(
-      child: SizedBox(
-        height: 14,
-        child: Row(
-          children: [
-            for (var d = 1; d <= days; d++) ...[
-              if (d > 1) const SizedBox(width: 2),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    color: d > passed
-                        ? Hue.white
-                        : today && d == passed
-                        ? Hue.ink
-                        : Hue.accent,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
