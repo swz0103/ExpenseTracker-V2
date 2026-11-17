@@ -179,7 +179,11 @@ Entry entryFromJson(Map<String, Object?> json, [CategoryRefs? refs]) => _read(
     parts: [
       for (final p in json['parts'] as List? ?? const [])
         if (p case {'amount': final int amount} when p is Map<String, Object?>)
-          (_refName(p, 'name', refs, idKey: 'categoryId') ?? '', amount)
+          (
+            _refName(p, 'name', refs, idKey: 'categoryId') ??
+                (throw const FormatException('parts')),
+            amount,
+          )
         else
           throw const FormatException('parts'),
     ],

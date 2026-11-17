@@ -133,4 +133,48 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('a part of a split with no category is refused, not left blank', () {
+    Map<String, Object?> entry(Object parts) => {
+      'id': 'x',
+      'date': '2026-10-01',
+      'type': 'expense',
+      'amount': 100,
+      'account': 'a',
+      'parts': parts,
+    };
+    expect(
+      () => entryFromJson(
+        entry([
+          {'amount': 100},
+        ]),
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => entryFromJson(
+        entry([
+          {'name': '飲食'},
+        ]),
+      ),
+      throwsFormatException,
+    );
+    // Either the name or the category's id will do.
+    expect(
+      entryFromJson(
+        entry([
+          {'name': '飲食', 'amount': 100},
+        ]),
+      ).parts,
+      [('飲食', 100)],
+    );
+    expect(
+      entryFromJson(
+        entry([
+          {'categoryId': 'c1', 'amount': 100},
+        ]),
+      ).parts,
+      [('c1', 100)],
+    );
+  });
 }

@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' show Random;
 
 import '../models/models.dart';
 
@@ -185,12 +186,15 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
   void operator []=(int index, Entry entry) {
     final old = _items[index];
     _items[index] = entry;
-    if (old.date == entry.date) {
-      // Put in place of one on the same day: the same place in its month.
+    if (old.id == entry.id && old.date == entry.date) {
+      // A new version of the same entry, on the same day: the same place
+      // in its month.
       _replaceInMonth(old, entry);
     } else {
-      // Moved to another day: where it stands among that day's entries
-      // depends on where each was written, which only the list knows.
+      // Another entry, or another day: where it stands among that day's
+      // entries depends on where each is in the list, which only the list
+      // knows. (Another entry put here may be one moved from elsewhere in
+      // the list, as a sort does.)
       _discard();
     }
   }
@@ -277,6 +281,62 @@ final class EntryRepository extends ListBase<Entry> implements EntryReader {
   void clear() {
     _discard();
     _items.clear();
+  }
+
+  // The rest of what a list can do, each a change that cannot be followed
+  // one entry at a time: done on the list itself, the indexes thrown away.
+
+  @override
+  void insertAll(int index, Iterable<Entry> iterable) {
+    _discard();
+    _items.insertAll(index, iterable);
+  }
+
+  @override
+  void setRange(
+    int start,
+    int end,
+    Iterable<Entry> iterable, [
+    int skipCount = 0,
+  ]) {
+    _discard();
+    _items.setRange(start, end, iterable, skipCount);
+  }
+
+  @override
+  void setAll(int index, Iterable<Entry> iterable) {
+    _discard();
+    _items.setAll(index, iterable);
+  }
+
+  @override
+  void replaceRange(int start, int end, Iterable<Entry> newContents) {
+    _discard();
+    _items.replaceRange(start, end, newContents);
+  }
+
+  @override
+  void fillRange(int start, int end, [Entry? fill]) {
+    _discard();
+    _items.fillRange(start, end, fill);
+  }
+
+  @override
+  void retainWhere(bool Function(Entry) test) {
+    _discard();
+    _items.retainWhere(test);
+  }
+
+  @override
+  void sort([int Function(Entry a, Entry b)? compare]) {
+    _discard();
+    _items.sort(compare);
+  }
+
+  @override
+  void shuffle([Random? random]) {
+    _discard();
+    _items.shuffle(random);
   }
 
   // What is asked of them.

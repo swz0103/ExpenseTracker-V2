@@ -281,6 +281,70 @@ void main() {
     });
   });
 
+  group('every way a list can be changed keeps the indexes right', () {
+    // Each starts from a repository whose indexes are already worked out,
+    // changes it with a list method, and checks against the list itself.
+    List<Entry> fresh() => [
+      for (var i = 0; i < 12; i++) _entry('e$i', _day(10, 1 + i % 3)),
+    ];
+
+    void agrees(EntryRepository entries, String how) {
+      final wanted = [...entries.indexed]
+        ..sort((a, b) {
+          final byDate = b.$2.date.compareTo(a.$2.date);
+          return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+        });
+      expect(_ids(entries.inMonth(2026, 10)), [
+        for (final (_, e) in wanted) e.id,
+      ], reason: how);
+      for (final e in entries) {
+        expect(entries.byId(e.id), same(e), reason: how);
+      }
+    }
+
+    final changes = <String, void Function(EntryRepository)>{
+      'sort': (r) => r.sort((a, b) => b.id.compareTo(a.id)),
+      'shuffle': (r) => r.shuffle(Random(4)),
+      'insertAll': (r) => r.insertAll(3, [
+        _entry('x1', _day(10, 2)),
+        _entry('x2', _day(10, 1)),
+      ]),
+      'setRange': (r) => r.setRange(0, 2, [
+        _entry('y1', _day(10, 3)),
+        _entry('y2', _day(10, 3)),
+      ]),
+      'setAll': (r) => r.setAll(4, [_entry('z1', _day(10, 2))]),
+      'replaceRange': (r) => r.replaceRange(1, 4, [_entry('w1', _day(10, 1))]),
+      'retainWhere': (r) => r.retainWhere((e) => e.date.day != 2),
+      'fillRange': (r) => r.fillRange(5, 7, _entry('f', _day(10, 3))),
+      'reversed into place': (r) {
+        final back = r.reversed.toList();
+        for (var i = 0; i < back.length; i++) {
+          r[i] = back[i];
+        }
+      },
+    };
+    for (final MapEntry(key: how, value: change) in changes.entries) {
+      test(how, () {
+        final entries = EntryRepository(fresh());
+        entries.inMonth(2026, 10);
+        entries.byId('e0');
+        change(entries);
+        agrees(entries, how);
+      });
+      // All on one day, where only the place in the list orders them.
+      test('$how, all on one day', () {
+        final entries = EntryRepository([
+          for (var i = 0; i < 12; i++) _entry('d$i', _day(10, 2)),
+        ]);
+        entries.inMonth(2026, 10);
+        entries.byId('d0');
+        change(entries);
+        agrees(entries, '$how, one day');
+      });
+    }
+  });
+
   for (final seed in [1, 5, 9, 31, 77, 123, 456, 789]) {
     test('it answers like a list worked through the slow way ($seed)', () {
       final random = Random(seed);
