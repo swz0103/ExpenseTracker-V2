@@ -93,15 +93,20 @@ class _Figure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
           SquareIcon(glyph, color, size: 36),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,7 +177,12 @@ class _Limit extends StatelessWidget {
       amount: 0.18,
       onTap: onTap,
       label: '${budget.category}，${over ? '超支' : '剩'} ${left.abs()}',
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -199,12 +209,12 @@ class _Limit extends StatelessWidget {
               if (over || near)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: Space.s2,
+                    vertical: Space.half,
                   ),
                   decoration: BoxDecoration(
                     color: tone,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(Radii.small),
                   ),
                   child: Text(
                     over ? '超支' : '快用完',
@@ -218,7 +228,7 @@ class _Limit extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             budget.category,
             maxLines: 1,

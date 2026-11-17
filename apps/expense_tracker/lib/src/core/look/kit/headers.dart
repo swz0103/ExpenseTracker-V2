@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import '../glyphs.dart';
 import '../theme.dart';
 import 'words.dart';
+import '../spacing.dart';
 
 // Title rows: a sub-page's centred one, small headings and section spacing.
 
@@ -17,7 +18,7 @@ class RuleHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 10),
+      padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
       child: Row(
         children: [
           Semantics(
@@ -31,9 +32,9 @@ class RuleHead extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           const Expanded(child: Divider(height: 1, color: Hue.line)),
-          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+          if (trailing != null) ...[const SizedBox(width: Space.s2), trailing!],
         ],
       ),
     );
@@ -58,7 +59,7 @@ class CenterHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minHeight: 60),
-      margin: const EdgeInsets.only(top: 6),
+      margin: const EdgeInsets.only(top: Space.s2),
       child: _HeaderRow(
         children: [
           IconButton(
@@ -222,7 +223,7 @@ class TitleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      padding: const EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s2),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,

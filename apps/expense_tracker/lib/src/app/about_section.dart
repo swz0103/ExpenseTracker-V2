@@ -15,6 +15,8 @@ import '../features/settings/model/platform_services.dart';
 import '../core/look/settings_hue.dart';
 import '../core/look/app_mark.dart';
 import '../core/text/dates.dart';
+import '../core/look/shape.dart';
+import '../core/look/spacing.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -65,10 +67,15 @@ class AboutSection extends StatelessWidget {
     const color = SettingsHue.about;
     final figures = PerformanceMonitor.instance.figures;
     Widget figure(String label, String value) => Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s3,
+      ),
       decoration: BoxDecoration(
         color: tintOf(color, 0.14),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,11 +112,11 @@ class AboutSection extends StatelessWidget {
               figure('影格', figures.frame),
               figure('錯誤', '${ErrorLog.instance.count}'),
             ]),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Text(buildLabel, style: mutedSmall),
             for (final (at, what) in ErrorLog.instance.entries.take(3))
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: Space.s1),
                 child: Text('${formatMd(at)} $what', style: mutedSmall),
               ),
           ],
@@ -132,7 +139,7 @@ class AboutSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _VersionCard(update: update),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           CardGrid([
             if (preferences != null && (update?.possible ?? false))
               _Row2(
@@ -157,7 +164,7 @@ class AboutSection extends StatelessWidget {
           ], gap: 10),
           // Only the preview's made-up book can be reset.
           if (services.sample case final sample?) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             PanelButton('重設範例資料', onTap: () => _reset(context, sample)),
           ],
         ],
@@ -187,11 +194,11 @@ class _Row2 extends StatelessWidget {
     color: color,
     onTap: onTap,
     radius: 20,
-    padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s2, Space.s2),
     child: Row(
       children: [
         SquareIcon(glyph, color, size: 40),
-        const SizedBox(width: 12),
+        const SizedBox(width: Space.s3),
         Expanded(
           child: Text(
             title,
@@ -270,14 +277,19 @@ class _VersionCardState extends State<_VersionCard> {
       onTap: update == null || !update.possible
           ? null
           : () => _tap(context, update),
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Row(
         children: [
           const ClipRRect(
-            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderRadius: BorderRadius.all(Radius.circular(Radii.large)),
             child: AppMark(size: 60),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: Space.s4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,9 +311,9 @@ class _VersionCardState extends State<_VersionCard> {
                 ),
                 if (progress != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.s2),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(Radii.extraSmall),
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 5,

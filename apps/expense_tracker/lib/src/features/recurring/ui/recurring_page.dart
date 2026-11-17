@@ -15,6 +15,8 @@ import '../model/subscriptions.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
@@ -137,7 +139,7 @@ class _RecurringPageState extends State<RecurringPage> {
         );
         if (ledger.recurring.all.isEmpty) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
             children: [
               header,
               EmptyState(
@@ -164,7 +166,7 @@ class _RecurringPageState extends State<RecurringPage> {
         }
         final yearly = yearlyCosts(ledger).fold(0, (sum, r) => sum + r.$2);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: header,
           children: [
             Row(
@@ -199,7 +201,7 @@ class _RecurringPageState extends State<RecurringPage> {
                   (Glyph.next, '下個月', 1),
                 ])
                   Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.only(left: Space.s2),
                     child: Material(
                       color: Hue.surface,
                       shape: const CircleBorder(),
@@ -212,7 +214,7 @@ class _RecurringPageState extends State<RecurringPage> {
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             _Calendar(
               ledger: ledger,
               year: year,
@@ -222,7 +224,7 @@ class _RecurringPageState extends State<RecurringPage> {
               onPick: (d) => setState(() => _day = d),
             ),
             if (day != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.s4),
               _DayItems(
                 ledger: ledger,
                 day: DateTime.utc(year, month, day),
@@ -233,7 +235,7 @@ class _RecurringPageState extends State<RecurringPage> {
                 onAdd: () => _edit(on: DateTime.utc(year, month, day)),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             CardGrid(columns: 3, gap: 8, [
               _Cell(
                 label: current ? '還沒扣' : '$month 月要扣',

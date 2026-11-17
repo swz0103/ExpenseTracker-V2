@@ -8,6 +8,7 @@ import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/look/spacing.dart';
 
 /// 財務分布: where the assets are as a map of tiles, largest first. A tap
 /// picks a tile; a second opens a group of accounts or the holdings.
@@ -148,7 +149,7 @@ class _AssetsSectionState extends State<AssetsSection> {
         child: Row(
           children: [
             Text(scope, style: mutedSmall),
-            const SizedBox(width: 6),
+            const SizedBox(width: Space.s2),
             Flexible(
               child: Text(
                 '$shownName$share',
@@ -167,7 +168,7 @@ class _AssetsSectionState extends State<AssetsSection> {
           ],
         ),
       ),
-      const SizedBox(height: 4),
+      const SizedBox(height: Space.s1),
       AnimatedSwitcher(
         duration: const Duration(milliseconds: 280),
         switchInCurve: Curves.easeOutCubic,

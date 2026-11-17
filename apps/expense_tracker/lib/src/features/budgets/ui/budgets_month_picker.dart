@@ -37,7 +37,7 @@ class _MonthPickerState extends State<_MonthPicker> {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,7 +58,7 @@ class _MonthPickerState extends State<_MonthPicker> {
               arrow(Glyph.next, '下一年', _year < widget.last.$1, 1),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           CardGrid(columns: 4, gap: 8, [
             for (var m = 1; m <= 12; m++)
               () {
@@ -85,18 +85,18 @@ class _MonthPickerState extends State<_MonthPicker> {
                   child: Material(
                     color: chosen ? Hue.selected : Hue.surface,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(Radii.large),
                       side: chosen
                           ? const BorderSide(color: Hue.accent, width: 2)
                           : BorderSide.none,
                     ),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(Radii.large),
                       onTap: on
                           ? () => Navigator.of(context).pop((_year, m))
                           : null,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: Space.s2),
                         child: Column(
                           children: [
                             Text(
@@ -127,7 +127,7 @@ class _MonthPickerState extends State<_MonthPicker> {
                 );
               }(),
           ]),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           const Text(
             '每個月下面寫用了幾成；超支紅、九成以上金色',
             textAlign: TextAlign.center,
@@ -157,7 +157,7 @@ class _AddLimit extends StatelessWidget {
         if (ledger.budgets.forCategory('#$tag').limit == 0) tag,
     ];
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -180,8 +180,8 @@ class _AddLimit extends StatelessWidget {
                   label: c.name,
                   onTap: () => Navigator.of(context).pop(c.name),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 2,
+                    vertical: Space.s2,
+                    horizontal: Space.half,
                   ),
                   child: Column(
                     children: [
@@ -190,7 +190,7 @@ class _AddLimit extends StatelessWidget {
                         size: 26,
                         color: shownColor(Color(c.color)),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: Space.s2),
                       Text(
                         c.name,
                         maxLines: 1,
@@ -217,7 +217,7 @@ class _AddLimit extends StatelessWidget {
                     backgroundColor: Hue.surface,
                     side: BorderSide.none,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(Radii.large),
                     ),
                     label: Text(
                       '#$tag',
@@ -228,7 +228,7 @@ class _AddLimit extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           const Text(
             '已經設過額度的不會出現在這裡',
             textAlign: TextAlign.center,
@@ -295,16 +295,21 @@ class _BudgetEditorState extends State<_BudgetEditor> {
           );
     final ink = deepOf(color);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s4,
+              Space.s4,
+              Space.s4,
+            ),
             decoration: BoxDecoration(
               color: tintOf(color, 0.24),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -312,7 +317,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                 Row(
                   children: [
                     SquareIcon(glyph, color, size: 52),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: Space.s4),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,7 +347,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                     if (!total)
                       Material(
                         color: Hue.white,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(Radii.large),
                         child: IconButton(
                           tooltip: '移除額度',
                           onPressed: () {
@@ -358,7 +363,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: Space.s4),
                 Text(
                   '每月額度',
                   style: TextStyle(
@@ -391,7 +396,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 LayoutBuilder(
                   builder: (context, box) {
                     final share = _limit == 0
@@ -408,7 +413,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                             height: 10,
                             decoration: BoxDecoration(
                               color: Hue.white,
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(
+                                Radii.extraSmall,
+                              ),
                             ),
                           ),
                           FractionallySizedBox(
@@ -417,7 +424,9 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                               height: 10,
                               decoration: BoxDecoration(
                                 color: color,
-                                borderRadius: BorderRadius.circular(5),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.extraSmall,
+                                ),
                               ),
                             ),
                           ),
@@ -432,7 +441,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
                     );
                   },
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.s2),
                 Row(
                   children: [
                     Text.rich(
@@ -457,7 +466,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           const Text(
             '用到幾成時提醒',
             style: TextStyle(
@@ -465,17 +474,17 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Row(
             children: [
               for (final (i, p) in _shares.indexed) ...[
-                if (i > 0) const SizedBox(width: 8),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: Material(
                     color: p == _warning ? Hue.accent : Hue.surface,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Radii.large),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(Radii.large),
                       onTap: () => setState(() => _warning = p),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 48),
@@ -496,13 +505,18 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               ],
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           ColorCard(
             color: Hue.faint,
             amount: 0.15,
             radius: 18,
             onTap: () => setState(() => _carry = !_carry),
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s2,
+              Space.s2,
+              Space.s2,
+            ),
             child: Row(
               children: [
                 const Expanded(
@@ -529,7 +543,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           PanelButton(
             '儲存',
             color: Hue.accent,

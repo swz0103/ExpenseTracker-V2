@@ -5,6 +5,8 @@ import 'haptics.dart';
 import 'kit/colours.dart';
 import 'kit/words.dart';
 import 'theme.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// A row of choices in a tinted track, the chosen one on white.
 class Segments extends StatelessWidget {
@@ -25,10 +27,10 @@ class Segments extends StatelessWidget {
   Widget build(BuildContext context) {
     // Each choice is a 48 dp target inside a thin track.
     return Container(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(Space.half),
       decoration: BoxDecoration(
         color: Hue.tile,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -47,10 +49,10 @@ class Segments extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     constraints: const BoxConstraints(minHeight: 48),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: Space.s2),
                     decoration: BoxDecoration(
                       color: i == selected ? Hue.white : null,
-                      borderRadius: BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(Radii.medium),
                     ),
                     alignment: Alignment.center,
                     child: OneLine(
@@ -219,10 +221,10 @@ class ChoicePill extends StatelessWidget {
         height: 36,
         width: fill ? double.infinity : null,
         constraints: const BoxConstraints(minWidth: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s2),
         decoration: BoxDecoration(
           color: selected ? chosenFill(Hue.accent) : background,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.large),
           border: selected && Shade.dark
               ? Border.all(color: Hue.accent, width: 1.5)
               : null,
@@ -236,7 +238,7 @@ class ChoicePill extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     words,
-                    const SizedBox(width: 4),
+                    const SizedBox(width: Space.s1),
                     const GlyphIcon(Glyph.close, size: 14, color: Hue.onAccent),
                   ],
                 )

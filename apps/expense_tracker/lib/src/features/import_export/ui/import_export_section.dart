@@ -14,6 +14,8 @@ import 'import_page.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// 匯入與匯出: 匯出 CSV across the page, which asks how much (this month,
 /// this year, everything, or from one day to another); under 匯入, a CSV
@@ -48,7 +50,7 @@ class ImportExportSection extends StatelessWidget {
           child: Row(
             children: [
               const SquareIcon(Glyph.upload, SettingsHue.csv, size: 50),
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,7 +222,7 @@ class _ExportSheetState extends State<_ExportSheet> {
       _Span.custom: '自訂',
     };
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -234,13 +236,13 @@ class _ExportSheetState extends State<_ExportSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final (i, span) in _Span.values.indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _SpanChoice(
                       label: names[span]!,
@@ -255,11 +257,11 @@ class _ExportSheetState extends State<_ExportSheet> {
             ),
           ),
           if (_span == _Span.custom) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Container(
               decoration: BoxDecoration(
                 color: tintOf(color, 0.16),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Row(
                 children: [
@@ -298,7 +300,7 @@ class _ExportSheetState extends State<_ExportSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           PanelButton(
             '匯出 ${groupDigits(count)} 筆',
             color: color,
@@ -333,16 +335,19 @@ class _SpanChoice extends StatelessWidget {
       child: Material(
         color: chosen ? chosenFill(color) : tintOf(color, 0.16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: chosen ? chosenEdge(color) : BorderSide.none,
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 64),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s2,
+                horizontal: Space.s1,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -388,9 +393,9 @@ class _DayEnd extends StatelessWidget {
     final ink = deepOf(color);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(Radii.large),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: Space.s3),
         child: Column(
           children: [
             Text(

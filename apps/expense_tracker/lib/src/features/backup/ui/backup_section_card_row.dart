@@ -24,7 +24,7 @@ class _CardRow extends StatelessWidget {
     final ink = deepOf(color);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.medium),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48),
         child: Row(
@@ -52,7 +52,7 @@ class _CardRow extends StatelessWidget {
             ),
             if (value != null)
               Padding(
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: Space.s2),
                 child: OneLine(
                   '${value!} ›',
                   style: TextStyle(fontWeight: FontWeight.w700, color: ink),

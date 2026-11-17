@@ -6,6 +6,8 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// 編輯分類: a big card in the category's tint with its icon (tapped to
 /// choose another) and name, a row of colours, the ones under it four to
@@ -120,13 +122,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
         _icon = key;
         _icons = false;
       }),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.medium),
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
           color: picked ? _color : Hue.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.medium),
         ),
         child: GlyphIcon(
           iconFor(key),
@@ -150,7 +152,10 @@ class _CategoryEditorState extends State<_CategoryEditor> {
       radius: 16,
       onTap: onTap,
       label: label,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s2,
+        horizontal: Space.half,
+      ),
       child: Column(
         children: [
           add
@@ -159,13 +164,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: Hue.white,
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
                   child: const GlyphIcon(Glyph.add, size: 18, color: Hue.ink),
                 )
               : SquareIcon(glyph, _color, size: 36),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             label,
             maxLines: 1,
@@ -252,7 +257,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
     ];
     final ink = deepOf(_color);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -266,13 +271,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           // The card is the form: the icon and the name on the tint.
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(Space.s4),
             decoration: BoxDecoration(
               color: tintOf(_color, 0.22),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Row(
               children: [
@@ -303,7 +308,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: Space.s4),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,13 +346,13 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           ),
           if (_problem case final problem?)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: Text(problem, style: const TextStyle(color: Hue.danger)),
             ),
           if (_icons)
             for (final (group, keys) in categoryIconGroups) ...[
               Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 6),
+                padding: const EdgeInsets.only(top: Space.s3, bottom: Space.s2),
                 child: Text(group, style: mutedSmall),
               ),
               Wrap(
@@ -356,7 +361,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 children: [for (final key in keys) _iconChoice(key)],
               ),
             ],
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -394,7 +399,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
             ),
           ),
           if (book != null && widget.initial.parent == null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             const Text(
               '子分類',
               style: TextStyle(
@@ -403,7 +408,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                 color: Hue.muted,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             CardGrid(columns: 4, gap: 8, [
               for (final c in children)
                 _child(c.name, iconFor(c.icon), () => _editChild(book, c)),
@@ -413,13 +418,16 @@ class _CategoryEditorState extends State<_CategoryEditor> {
           // One level only: a category with its own subcategories stays on
           // top.
           if (ledger != null && parents.isNotEmpty && children.isEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             ColorCard(
               color: Hue.faint,
               amount: 0.18,
               radius: 16,
               onTap: () => _pickParent(ledger, parents),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4,
+                vertical: Space.s4,
+              ),
               child: Row(
                 children: [
                   const Text(
@@ -438,19 +446,19 @@ class _CategoryEditorState extends State<_CategoryEditor> {
               ),
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: Space.s4),
           Row(
             children: [
               if (book != null) ...[
                 Expanded(child: PanelButton('合併', onTap: () => _merge(book))),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: PanelButton(
                     widget.initial.archived ? '恢復' : '封存',
                     onTap: () => _archive(book),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
               ] else ...[
                 Expanded(
                   child: PanelButton(
@@ -458,7 +466,7 @@ class _CategoryEditorState extends State<_CategoryEditor> {
                     onTap: () => Navigator.of(context).pop(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
               ],
               Expanded(
                 flex: 2,

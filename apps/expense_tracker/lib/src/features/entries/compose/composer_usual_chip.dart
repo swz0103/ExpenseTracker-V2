@@ -24,10 +24,15 @@ class _UsualChip extends StatelessWidget {
     return TapArea(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s1,
+          Space.s1,
+          Space.s3,
+          Space.s1,
+        ),
         decoration: BoxDecoration(
           color: Hue.white,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(Radii.full),
           border: Border.all(color: Hue.line),
         ),
         child: Row(
@@ -43,7 +48,7 @@ class _UsualChip extends StatelessWidget {
               ),
               child: GlyphIcon(icon, size: 14, color: Hue.muted),
             ),
-            const SizedBox(width: 7),
+            const SizedBox(width: Space.s2),
             Text(
               name,
               maxLines: 1,
@@ -54,7 +59,7 @@ class _UsualChip extends StatelessWidget {
               ),
             ),
             if (figure != null) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: Space.s2),
               Text(
                 figure,
                 maxLines: 1,
@@ -93,10 +98,15 @@ class _LentChip extends StatelessWidget {
       onTap: onTap,
       label: '幫$name付 $amount',
       child: Container(
-        padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s1,
+          Space.s1,
+          Space.s3,
+          Space.s1,
+        ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(Radii.full),
           border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
@@ -112,7 +122,7 @@ class _LentChip extends StatelessWidget {
               ),
               child: GlyphIcon(Glyph.heart, size: 13, color: color),
             ),
-            const SizedBox(width: 7),
+            const SizedBox(width: Space.s2),
             Text(
               name,
               maxLines: 1,
@@ -122,7 +132,7 @@ class _LentChip extends StatelessWidget {
                 color: color,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: Space.s2),
             Text(
               amount,
               maxLines: 1,
@@ -160,12 +170,12 @@ class _UsualRow extends StatelessWidget {
               Container(
                 width: 1,
                 height: 22,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+                margin: const EdgeInsets.symmetric(horizontal: Space.s2),
                 color: Hue.line,
               ),
           ],
           for (final (i, child) in children.indexed) ...[
-            if (i > 0) const SizedBox(width: 8),
+            if (i > 0) const SizedBox(width: Space.s2),
             child,
           ],
         ],
@@ -197,10 +207,13 @@ class _PersonPill extends StatelessWidget {
     final clear = onClear;
     return Center(
       child: Container(
-        padding: EdgeInsets.only(left: 5, right: clear == null ? 12 : 0),
+        padding: EdgeInsets.only(
+          left: Space.s1,
+          right: clear == null ? Space.s3 : 0,
+        ),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(Radii.full),
           border: Border.all(color: color, width: 1.5),
         ),
         child: Row(
@@ -223,7 +236,7 @@ class _PersonPill extends StatelessWidget {
                       ),
                       child: GlyphIcon(Glyph.heart, size: 13, color: color),
                     ),
-                    const SizedBox(width: 7),
+                    const SizedBox(width: Space.s2),
                     Flexible(
                       child: Text(
                         text,
@@ -236,7 +249,7 @@ class _PersonPill extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     Flexible(
                       child: Text(
                         sub,
@@ -286,7 +299,7 @@ class _OwedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.circular(Radii.large);
     return Semantics(
       button: true,
       selected: picked,
@@ -304,7 +317,12 @@ class _OwedCard extends StatelessWidget {
           child: SizedBox(
             width: 150,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s3,
+                Space.s2,
+                Space.s2,
+                Space.s2,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -329,7 +347,7 @@ class _OwedCard extends StatelessWidget {
                             color: Hue.muted,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: Space.half),
                         Text(
                           amount,
                           maxLines: 1,
@@ -392,10 +410,13 @@ class _WordChip extends StatelessWidget {
       onTap: onTap,
       selected: picked,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s3,
+          vertical: Space.s2,
+        ),
         decoration: BoxDecoration(
           color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.medium),
           border: picked ? Border.all(color: color, width: 1.5) : null,
         ),
         child: Text(
@@ -424,7 +445,7 @@ class _WordRow extends StatelessWidget {
       child: Row(
         children: [
           for (final (i, child) in children.indexed) ...[
-            if (i > 0) const SizedBox(width: 7),
+            if (i > 0) const SizedBox(width: Space.s2),
             child,
           ],
         ],
@@ -442,7 +463,12 @@ class _GroupLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 10, 2, 2),
+      padding: const EdgeInsets.fromLTRB(
+        Space.half,
+        Space.s2,
+        Space.half,
+        Space.half,
+      ),
       child: Text(
         text,
         style: const TextStyle(
@@ -453,134 +479,4 @@ class _GroupLabel extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The form's fields one under another, stretched to the width, and at
-/// least [minHeight] tall: height to spare goes above and below the child
-/// at [grow], such as the amount, so the form keeps one size from tab to
-/// tab with nothing left empty at its foot. Its own height without the
-/// spare is told to [onHeight].
-class _Fill extends MultiChildRenderObjectWidget {
-  const _Fill({
-    required this.minHeight,
-    required this.grow,
-    required this.onHeight,
-    required super.children,
-  });
-
-  final double minHeight;
-  final int grow;
-  final ValueChanged<double> onHeight;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderFill(minHeight, grow, onHeight);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderFill renderObject) {
-    renderObject
-      ..minHeight = minHeight
-      ..grow = grow
-      ..onHeight = onHeight;
-  }
-}
-
-class _FillData extends ContainerBoxParentData<RenderBox> {}
-
-class _RenderFill extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _FillData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _FillData> {
-  _RenderFill(this._minHeight, this._grow, this.onHeight);
-
-  double _minHeight;
-  set minHeight(double value) {
-    if (value == _minHeight) return;
-    _minHeight = value;
-    markNeedsLayout();
-  }
-
-  int _grow;
-  set grow(int value) {
-    if (value == _grow) return;
-    _grow = value;
-    markNeedsLayout();
-  }
-
-  ValueChanged<double> onHeight;
-  double? _told;
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _FillData) child.parentData = _FillData();
-  }
-
-  @override
-  void performLayout() {
-    final width = constraints.maxWidth;
-    final inner = BoxConstraints.tightFor(width: width);
-    var natural = 0.0;
-    var child = firstChild;
-    while (child != null) {
-      child.layout(inner, parentUsesSize: true);
-      natural += child.size.height;
-      child = childAfter(child);
-    }
-    final height = constraints.constrainHeight(math.max(natural, _minHeight));
-    final spare = math.max(0.0, height - natural);
-    var y = 0.0;
-    var i = 0;
-    child = firstChild;
-    while (child != null) {
-      if (i == _grow) y += spare / 2;
-      (child.parentData! as _FillData).offset = Offset(0, y);
-      y += child.size.height;
-      if (i == _grow) y += spare / 2;
-      i++;
-      child = childAfter(child);
-    }
-    size = constraints.constrain(Size(width, height));
-    if (_told != natural) {
-      _told = natural;
-      final told = natural;
-      WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(told));
-    }
-  }
-
-  @override
-  Size computeDryLayout(covariant BoxConstraints constraints) {
-    final inner = BoxConstraints.tightFor(width: constraints.maxWidth);
-    var natural = 0.0;
-    var child = firstChild;
-    while (child != null) {
-      natural += child.getDryLayout(inner).height;
-      child = childAfter(child);
-    }
-    return constraints.constrain(
-      Size(constraints.maxWidth, math.max(natural, _minHeight)),
-    );
-  }
-
-  @override
-  double computeMinIntrinsicHeight(double width) {
-    var sum = 0.0;
-    var child = firstChild;
-    while (child != null) {
-      sum += child.getMinIntrinsicHeight(width);
-      child = childAfter(child);
-    }
-    return math.max(sum, _minHeight);
-  }
-
-  @override
-  double computeMaxIntrinsicHeight(double width) =>
-      computeMinIntrinsicHeight(width);
-
-  @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
 }

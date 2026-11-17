@@ -4,6 +4,8 @@ import '../controls.dart';
 import '../glyphs.dart';
 import '../theme.dart';
 import '../kit.dart';
+import '../shape.dart';
+import '../spacing.dart';
 
 // The panel in the middle of the screen and its buttons.
 
@@ -37,10 +39,20 @@ class CenterPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Hue.paper,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s5,
+        vertical: Space.s6,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
+      ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s6,
+          Space.s6,
+          Space.s6,
+          Space.s5,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,7 +60,7 @@ class CenterPanel extends StatelessWidget {
             Row(
               children: [
                 SquareIcon(glyph, color, size: 56),
-                const SizedBox(width: 16),
+                const SizedBox(width: Space.s4),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,13 +89,13 @@ class CenterPanel extends StatelessWidget {
                 ?trailing,
               ],
             ),
-            if (body != null) ...[const SizedBox(height: 18), body!],
+            if (body != null) ...[const SizedBox(height: Space.s4), body!],
             if (actions.isNotEmpty) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: Space.s5),
               Row(
                 children: [
                   for (final (i, action) in actions.indexed) ...[
-                    if (i > 0) const SizedBox(width: 12),
+                    if (i > 0) const SizedBox(width: Space.s3),
                     Expanded(child: action),
                   ],
                 ],
@@ -185,19 +197,19 @@ class PanelButton extends StatelessWidget {
             ? tintOf(solid, 0.22)
             : chosenFill(solid),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: solid == null || tinted ? BorderSide.none : chosenEdge(solid),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.large),
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: Space.s4,
+                  vertical: Space.s3,
                 ),
                 child: OneLine(
                   label,

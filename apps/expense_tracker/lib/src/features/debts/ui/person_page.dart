@@ -88,7 +88,7 @@ class PersonPage extends StatelessWidget {
         final color = nameColor(person.name);
         final oldest = owed.isEmpty ? null : owed.last.$1.date;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(person.name, onBack: nav.back),
           children: [
             _DebtHero(
@@ -112,7 +112,7 @@ class PersonPage extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Row(
               children: [
                 Expanded(
@@ -123,7 +123,7 @@ class PersonPage extends StatelessWidget {
                     onTap: () => _move(person, lend: true),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Action(
                     glyph: Glyph.check,
@@ -151,7 +151,7 @@ class PersonPage extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _DaysTag(_days(ledger, e.date)),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         RowFigure(ledger.orDots(groupDigits(left))),
                       ],
                     ),
@@ -199,10 +199,13 @@ class _DaysTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final long = days > 14;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s2,
+        vertical: Space.s1,
+      ),
       decoration: BoxDecoration(
         color: long ? Palette.gold : Hue.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
         '$days 天',
@@ -251,7 +254,7 @@ class LoanPage extends StatelessWidget {
             if (e.account == loan.id || e.to == loan.id) e,
         ]..sort((a, b) => b.date.compareTo(a.date));
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(loan.name, onBack: nav.back),
           children: [
             _DebtHero(
@@ -288,7 +291,7 @@ class LoanPage extends StatelessWidget {
                 ),
               ]),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             _Action(
               glyph: Glyph.add,
               label: '記一筆還款',

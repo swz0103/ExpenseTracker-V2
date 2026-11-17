@@ -12,7 +12,7 @@ class _Strip extends StatelessWidget {
   Widget build(BuildContext context) {
     final still = pinned;
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -27,7 +27,11 @@ class _Strip extends StatelessWidget {
             Container(
               width: 1,
               height: 34,
-              margin: const EdgeInsets.only(top: 8, left: 4, right: 4),
+              margin: const EdgeInsets.only(
+                top: Space.s2,
+                left: Space.s1,
+                right: Space.s1,
+              ),
               color: Hue.line,
             ),
             still,

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'glyphs.dart';
 import 'theme.dart';
 import 'widgets.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// The gold of the recovery code, on 安全 and wherever a new one is shown.
 const recoveryHue = Palette.gold;
@@ -56,10 +58,13 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
             label: '救援碼 ${widget.code}',
             excludeSemantics: true,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s4,
+                horizontal: Space.s2,
+              ),
               decoration: BoxDecoration(
                 color: tintOf(color, 0.22),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Wrap(
                 alignment: WrapAlignment.center,
@@ -81,7 +86,7 @@ class _RecoveryPanelState extends State<_RecoveryPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           const Text('抄下來或複製存好，只會顯示這一次。', style: mutedSmall),
         ],
       ),

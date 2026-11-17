@@ -28,7 +28,7 @@ extension on _AccountEditorState {
           fontWeight: FontWeight.w700,
         ),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: Space.s3),
       _LoanCard(
         color: color,
         name: _name,
@@ -60,9 +60,9 @@ extension on _AccountEditorState {
         ),
         onDay: () => _pickDay(false),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       _Estimate(ledger: ledger, plan: _f.plan, repay: _f.repay, color: color),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       BigSegments(
         items: [
           for (final repay in LoanRepay.values)
@@ -79,7 +79,7 @@ extension on _AccountEditorState {
         selected: _f.repay.index,
         onChanged: (i) => _set(() => _f.repay = LoanRepay.values[i]),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       Row(
         children: [
           Expanded(
@@ -91,7 +91,7 @@ extension on _AccountEditorState {
             ),
           ),
           if (old == null) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.s2),
             Expanded(
               child: _AccountBlock(
                 label: '撥款到',
@@ -153,7 +153,7 @@ extension on _AccountEditorState {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.s4),
               TextField(
                 controller: typed,
                 autofocus: false,
@@ -172,7 +172,7 @@ extension on _AccountEditorState {
                   filled: true,
                   fillColor: Hue.white,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Radii.large),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -252,9 +252,14 @@ class _LoanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = deepOf(color);
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s2,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -267,7 +272,7 @@ class _LoanCard extends StatelessWidget {
           Row(
             children: [
               SquareIcon(Glyph.loan, color, size: 36),
-              const SizedBox(width: 10),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: TextField(
                   controller: name,
@@ -280,13 +285,13 @@ class _LoanCard extends StatelessWidget {
                     hintStyle: TextStyle(color: Hue.faint),
                     isDense: true,
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -300,7 +305,7 @@ class _LoanCard extends StatelessWidget {
                   onTap: onPrincipal,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 flex: 2,
                 child: _Figure(
@@ -314,7 +319,7 @@ class _LoanCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Row(
             children: [
               for (final (i, (label, value, onTap)) in [
@@ -322,7 +327,7 @@ class _LoanCard extends StatelessWidget {
                 ('期數', months, onMonths),
                 ('每月扣款', day, onDay),
               ].indexed) ...[
-                if (i > 0) const SizedBox(width: 8),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Block(
                     label: label,
@@ -366,7 +371,7 @@ class _Figure extends StatelessWidget {
       child: Container(
         width: double.infinity,
         alignment: end ? Alignment.centerRight : Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: Space.s1),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: end
@@ -414,9 +419,9 @@ class _Block extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Hue.glass,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(Radii.large),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
         onTap: onTap,
         child: Semantics(
           button: true,
@@ -425,7 +430,10 @@ class _Block extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s2,
+                vertical: Space.s2,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -479,11 +487,14 @@ class _Estimate extends StatelessWidget {
         color: Hue.faint,
         amount: 0.22,
         radius: 20,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s4,
+          vertical: Space.s4,
+        ),
         child: const Row(
           children: [
             GlyphIcon(Glyph.calculator, size: 22, color: Hue.muted),
-            SizedBox(width: 10),
+            SizedBox(width: Space.s2),
             Expanded(
               child: Text(
                 '填好本金、利率、期數就會試算',
@@ -505,11 +516,16 @@ class _Estimate extends StatelessWidget {
         color: tone,
         amount: 0.2,
         radius: 20,
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s3,
+          Space.s3,
+          Space.s3,
+          Space.s3,
+        ),
         child: Row(
           children: [
             GlyphIcon(glyph, size: 22, color: tone),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,7 +580,7 @@ class _Estimate extends StatelessWidget {
             LoanRepay.interest => '到期還本金',
           },
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: Space.s2),
         block(Glyph.coins, color, '總利息', money(plan.interest), ''),
       ],
     );

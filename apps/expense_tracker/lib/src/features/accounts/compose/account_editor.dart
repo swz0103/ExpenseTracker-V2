@@ -17,6 +17,8 @@ import '../model/account_form.dart';
 import '../ui/account_card.dart' show cardKindLabel;
 import '../ui/accounts.dart' show walletKinds;
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'loan_fields.dart';
 part 'loan_blocks.dart';

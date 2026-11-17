@@ -12,6 +12,8 @@ import '../../../../core/nav.dart';
 import '../../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/text/dates.dart';
+import '../../../../core/look/shape.dart';
+import '../../../../core/look/spacing.dart';
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.
@@ -91,12 +93,12 @@ class _MarketSectionState extends State<MarketSection> {
           onTap: () => widget.nav.open(Pages.investments),
         ),
       ]),
-      const SizedBox(height: 8),
+      const SizedBox(height: Space.s2),
       for (final h in holdings.all)
         _moveRow(h, largest, anyLoss ? 0.5 : 0, bar: holdings.all.length > 1),
       if (picked != null)
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Text.rich(
             TextSpan(
               style: mutedSmall,
@@ -134,13 +136,13 @@ class _MarketSectionState extends State<MarketSection> {
         widget.ledger.marketData.quotedOn != null;
     return InkWell(
       onTap: () => setState(() => _holding = picked ? null : h.code),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(Radii.small),
       child: Container(
         constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s1),
         decoration: BoxDecoration(
           color: picked ? Hue.selected.withValues(alpha: 0.6) : null,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.small),
         ),
         child: Row(
           children: [

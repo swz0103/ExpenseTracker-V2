@@ -68,7 +68,7 @@ class TagPage extends StatelessWidget {
     final into = await showSheet<String>(
       context,
       (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -82,7 +82,7 @@ class TagPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             Flexible(
               child: SingleChildScrollView(
                 child: CardGrid(columns: 3, gap: 10, [
@@ -93,8 +93,8 @@ class TagPage extends StatelessWidget {
                       label: merchant ? other : '#$other',
                       onTap: () => Navigator.of(context).pop(other),
                       padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 6,
+                        vertical: Space.s4,
+                        horizontal: Space.s2,
                       ),
                       child: Text(
                         merchant ? other : '#$other',
@@ -159,7 +159,7 @@ class TagPage extends StatelessWidget {
           ),
         ]);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(_shown, onBack: nav.back),
           children: [
             if (entries.isEmpty)
@@ -178,7 +178,12 @@ class TagPage extends StatelessWidget {
                   menu: menu,
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(6, 20, 6, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s5,
+                  Space.s2,
+                  Space.s2,
+                ),
                 child: Text(
                   merchant ? '紀錄' : '紀錄 · ${entries.length} 筆',
                   style: const TextStyle(
@@ -229,9 +234,14 @@ class _VisitsCard extends StatelessWidget {
     final last = visits.first.date;
     final first = visits.last.date;
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -273,7 +283,7 @@ class _VisitsCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.s2),
                 Text(
                   '最近 ${formatMd(last)} · '
                   '第一次 ${formatYMd(first)}',
@@ -325,11 +335,11 @@ class _RenameSheetState extends State<_RenameSheet> {
     final ink = deepOf(color);
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20,
+        Space.s5,
         0,
-        20,
+        Space.s5,
         // showSheet already lifts the sheet over the keyboard.
-        20,
+        Space.s5,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -344,12 +354,15 @@ class _RenameSheetState extends State<_RenameSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s4,
+              vertical: Space.s4,
+            ),
             decoration: BoxDecoration(
               color: tintOf(color, 0.25),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Row(
               children: [

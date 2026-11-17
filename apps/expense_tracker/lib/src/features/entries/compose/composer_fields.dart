@@ -5,11 +5,11 @@ part of 'composer.dart';
 extension _Fields on _ComposerState {
   /// Two cards side by side, such as the account and the day.
   Widget _pair(Widget left, Widget right) => Padding(
-    padding: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.only(top: Space.s3),
     child: Row(
       children: [
         Expanded(child: left),
-        const SizedBox(width: 8),
+        const SizedBox(width: Space.s2),
         Expanded(child: right),
       ],
     ),
@@ -47,7 +47,7 @@ extension _Fields on _ComposerState {
     final value = _f.homeValue;
     final rate = _ledger.marketData.rates[_f.currency];
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: FigureCard(
         color: _color,
         icon: Glyph.coins,
@@ -70,15 +70,15 @@ extension _Fields on _ComposerState {
     // only while editing.
     if (_viewing) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        padding: const EdgeInsets.fromLTRB(Space.s1, Space.s2, Space.s1, 0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Padding(
-              padding: EdgeInsets.only(top: 2),
+              padding: EdgeInsets.only(top: Space.half),
               child: GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Expanded(
               child: Text(
                 _note.text,
@@ -90,7 +90,7 @@ extension _Fields on _ComposerState {
       );
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: TextField(
         controller: _note,
         minLines: lines,
@@ -100,7 +100,7 @@ extension _Fields on _ComposerState {
           filled: true,
           fillColor: Hue.surface,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             borderSide: BorderSide.none,
           ),
         ),
@@ -113,16 +113,19 @@ extension _Fields on _ComposerState {
     if (_viewing && _note.text.isEmpty) return const SizedBox.shrink();
     if (_f.more || _note.text.isNotEmpty || _viewing) return _noteField();
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.medium),
         onTap: () => _set(() => _f.more = true),
         child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s4,
+          ),
           child: Row(
             children: [
               GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
-              SizedBox(width: 8),
+              SizedBox(width: Space.s2),
               Expanded(
                 child: Text(
                   '備註',
@@ -173,7 +176,7 @@ extension _Fields on _ComposerState {
           if (_f.foreign) _homeTile(),
           if (_f.onCard)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
                 color: _color,
                 icon: Glyph.card,
@@ -194,7 +197,10 @@ extension _Fields on _ComposerState {
           _ends(),
           if (_f.crossing) _receivedTile(),
           if (!_f.takesFee)
-            Padding(padding: const EdgeInsets.only(top: 12), child: _datePick())
+            Padding(
+              padding: const EdgeInsets.only(top: Space.s3),
+              child: _datePick(),
+            )
           else
             _pair(
               _f.takesFee
@@ -234,7 +240,7 @@ extension _Fields on _ComposerState {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.s3),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -257,7 +263,7 @@ extension _Fields on _ComposerState {
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: _TransferEnd(
                   account: to,
@@ -296,7 +302,7 @@ extension _Fields on _ComposerState {
   Widget _receivedTile() {
     final value = _f.receivedValue;
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: FigureCard(
         color: _color,
         icon: Glyph.coins,

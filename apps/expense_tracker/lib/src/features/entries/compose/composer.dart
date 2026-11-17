@@ -26,6 +26,8 @@ import '../../import_export/model/invoice_qr.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 export '../model/compose_form.dart' show ComposeMode;
 
@@ -37,6 +39,7 @@ part 'composer_state.dart';
 part 'composer_strip.dart';
 part 'composer_allocation_bar.dart';
 part 'composer_usual_chip.dart';
+part 'composer_fill_layout.dart';
 part 'composer_extras.dart';
 part 'composer_pickers.dart';
 part 'composer_amount.dart';

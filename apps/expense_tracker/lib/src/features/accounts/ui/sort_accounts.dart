@@ -61,7 +61,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
       backgroundColor: Hue.paper,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          padding: const EdgeInsets.fromLTRB(Space.s3, Space.s1, Space.s3, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -91,7 +91,12 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s2,
+                  Space.s2,
+                  Space.s2,
+                  0,
+                ),
                 child: Row(
                   children: [
                     for (final (i, (by, label)) in const [
@@ -99,7 +104,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       (_SortBy.balance, '餘額'),
                       (_SortBy.recent, '最近使用'),
                     ].indexed) ...[
-                      if (i > 0) const SizedBox(width: 6),
+                      if (i > 0) const SizedBox(width: Space.s2),
                       Expanded(
                         child: ChoicePill(
                           label: label,
@@ -111,11 +116,16 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.s2),
               Expanded(
                 child: ReorderableListView.builder(
                   buildDefaultDragHandles: false,
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s2,
+                    0,
+                    Space.s2,
+                    Space.s6,
+                  ),
                   itemCount: _order.length,
                   // [to] already counts the card taken out.
                   onReorderStart: (_) => Haptics.medium(),
@@ -130,7 +140,7 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                           color: Colors.transparent,
                           elevation: 10 * t,
                           shadowColor: Hue.lift,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(Radii.large),
                           child: child,
                         ),
                       );
@@ -145,11 +155,11 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                     });
                   },
                   footer: Padding(
-                    padding: const EdgeInsets.only(top: 14),
+                    padding: const EdgeInsets.only(top: Space.s4),
                     child: GroupBox(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 13,
+                        horizontal: Space.s4,
+                        vertical: Space.s3,
                       ),
                       onTap: () {
                         _byKind();
@@ -180,18 +190,18 @@ class _SortAccountsPageState extends State<SortAccountsPage> {
                       key: ValueKey(a.id),
                       index: i,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: Space.s2),
                         child: Container(
                           height: 56,
-                          padding: const EdgeInsets.only(left: 14),
+                          padding: const EdgeInsets.only(left: Space.s4),
                           decoration: BoxDecoration(
                             color: softOf(color),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(Radii.large),
                           ),
                           child: Row(
                             children: [
                               SquareIcon(accountIcon(a), color, size: 30),
-                              const SizedBox(width: 9),
+                              const SizedBox(width: Space.s2),
                               Expanded(
                                 child: Text(
                                   a.name,
@@ -263,10 +273,10 @@ class _Grip extends StatelessWidget {
           Container(
             width: 20,
             height: 2.5,
-            margin: const EdgeInsets.symmetric(vertical: 2),
+            margin: const EdgeInsets.symmetric(vertical: Space.half),
             decoration: BoxDecoration(
               color: Hue.muted,
-              borderRadius: BorderRadius.circular(1),
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
             ),
           ),
       ],

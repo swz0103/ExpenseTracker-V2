@@ -13,6 +13,8 @@ import 'entries_filter_sheet.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/balance_hero.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// 收支紀錄: the month's income against spending, then every entry by
 /// day, with search and filters; 設定 exports it.
@@ -214,7 +216,7 @@ class _EntriesPageState extends State<EntriesPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s5),
               child: title,
             ),
             Expanded(
@@ -228,7 +230,12 @@ class _EntriesPageState extends State<EntriesPage> {
                   _stepMonth(speed < 0 ? 1 : -1);
                 },
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s5,
+                    0,
+                    Space.s5,
+                    Space.s4,
+                  ),
                   itemCount: head.length + items.length,
                   itemBuilder: (context, i) =>
                       i < head.length ? head[i] : _line(items[i - head.length]),
@@ -294,7 +301,7 @@ class _EntriesPageState extends State<EntriesPage> {
           rate: false,
           size: 28,
         ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       Row(
         children: [
           Expanded(
@@ -309,9 +316,11 @@ class _EntriesPageState extends State<EntriesPage> {
                   isDense: true,
                   filled: true,
                   fillColor: Hue.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: Space.s4,
+                  ),
                   prefixIcon: const Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(Space.s3),
                     child: GlyphIcon(Glyph.search, size: 18, color: Hue.muted),
                   ),
                   suffixIcon: _searchText.text.isEmpty
@@ -326,7 +335,7 @@ class _EntriesPageState extends State<EntriesPage> {
                           ),
                         ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(Radii.large),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -334,13 +343,13 @@ class _EntriesPageState extends State<EntriesPage> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           _FilterButton(count: filter.count, onTap: _openFilter),
         ],
       ),
       if (filter.count > 0)
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -381,7 +390,7 @@ class _EntriesPageState extends State<EntriesPage> {
         ),
       if (shown.isEmpty)
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 40),
+          padding: EdgeInsets.symmetric(vertical: Space.s10),
           child: Center(
             child: Text('沒有符合的紀錄', style: TextStyle(color: Hue.muted)),
           ),
@@ -531,14 +540,16 @@ class _FilterButton extends StatelessWidget {
       message: on ? '篩選（$count）' : '篩選',
       child: Material(
         color: on ? Hue.accent : Hue.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: on ? 12 : 15),
+              padding: EdgeInsets.symmetric(
+                horizontal: on ? Space.s3 : Space.s4,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -549,7 +560,7 @@ class _FilterButton extends StatelessWidget {
                     color: on ? Hue.onAccent : Hue.accent,
                   ),
                   if (on) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     Text(
                       '$count',
                       style: const TextStyle(

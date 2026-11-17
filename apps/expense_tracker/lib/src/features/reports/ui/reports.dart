@@ -22,6 +22,8 @@ import 'report_period.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'report_figures.dart';
 part 'report_blocks.dart';

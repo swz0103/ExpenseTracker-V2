@@ -5,6 +5,8 @@ import '../glyphs.dart';
 import '../haptics.dart';
 import '../theme.dart';
 import '../kit.dart';
+import '../shape.dart';
+import '../spacing.dart';
 
 // The square and round icons, the tick-in-a-circle switch, and small
 // marks: a legend key, a pill of words, a ring for a share.
@@ -226,10 +228,10 @@ class LegendKey extends StatelessWidget {
           height: line ? 2.5 : 8,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(Radii.extraSmall),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: Space.s1),
         Text(label, style: mutedSmall),
       ],
     );
@@ -246,10 +248,13 @@ class Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s2,
+        vertical: Space.half,
+      ),
       decoration: BoxDecoration(
         color: Hue.glass,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
         text,
@@ -359,11 +364,11 @@ class DayBar extends StatelessWidget {
         child: Row(
           children: [
             for (var d = 1; d <= days; d++) ...[
-              if (d > 1) const SizedBox(width: 2),
+              if (d > 1) const SizedBox(width: Space.half),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(Radii.extraSmall),
                     color: d > passed
                         ? Hue.white
                         : today && d == passed

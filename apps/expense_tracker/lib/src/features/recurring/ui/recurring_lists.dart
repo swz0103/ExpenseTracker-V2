@@ -18,7 +18,7 @@ class _SubPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => HeadedList(
-    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+    padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
     header: CenterHeader(title, onBack: nav.back, actions: actions),
     children: [...children],
   );
@@ -57,7 +57,12 @@ class _Manage extends StatelessWidget {
           }
           return [
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s1,
+                Space.s4,
+                Space.s1,
+                Space.s2,
+              ),
               child: Row(
                 children: [
                   Text(
@@ -81,7 +86,7 @@ class _Manage extends StatelessWidget {
                 item: r,
                 onTap: () => onEdit(item: r),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.s2),
             ],
           ];
         }
@@ -139,15 +144,15 @@ class _Subscriptions extends StatelessWidget {
             '平均每月 ${ledger.orDots(groupDigits(total ~/ 12))}',
             style: mutedSmall,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(Radii.small),
             child: SizedBox(
               height: 12,
               child: Row(
                 children: [
                   for (final (i, (item, yearly)) in rows.indexed) ...[
-                    if (i > 0) const SizedBox(width: 2),
+                    if (i > 0) const SizedBox(width: Space.half),
                     Expanded(
                       flex: (yearly * 1000 ~/ total).clamp(1, 1000),
                       child: ColoredBox(
@@ -161,7 +166,12 @@ class _Subscriptions extends StatelessWidget {
             ),
           ),
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 18, 4, 10),
+            padding: EdgeInsets.fromLTRB(
+              Space.s1,
+              Space.s4,
+              Space.s1,
+              Space.s2,
+            ),
             child: Row(
               children: [
                 Text(
@@ -187,7 +197,7 @@ class _Subscriptions extends StatelessWidget {
                     '佔 ${yearly * 100 ~/ total}%',
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
           ],
         ],
       ],
@@ -221,7 +231,7 @@ class _Paused extends StatelessWidget {
           title: '已暫停',
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(4, 0, 4, 14),
+              padding: EdgeInsets.fromLTRB(Space.s1, 0, Space.s1, Space.s4),
               child: Text('暫停的項目不會出現在月曆上，也不算進每月固定支出。', style: mutedSmall),
             ),
             if (paused.isEmpty)
@@ -246,7 +256,7 @@ class _Paused extends StatelessWidget {
                       ink: Hue.accent,
                       minimumSize: Size(0, 40),
                       radius: 12,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: Space.s3),
                     ),
                     child: const Text(
                       '恢復',
@@ -254,7 +264,7 @@ class _Paused extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.s2),
               ],
           ],
         );

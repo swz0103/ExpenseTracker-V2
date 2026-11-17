@@ -15,6 +15,8 @@ import '../shell.dart';
 import 'preview_services.dart';
 import 'seed.dart';
 import '../../core/text/dates.dart';
+import '../../core/look/shape.dart';
+import '../../core/look/spacing.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks
@@ -224,7 +226,7 @@ class _HomeHandle extends StatelessWidget {
               height: 5,
               decoration: BoxDecoration(
                 color: const Color(0x99000000),
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(Radii.extraSmall),
               ),
             ),
           ),
@@ -278,10 +280,10 @@ class _HomeScreen extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          20,
-          padding.top + 24,
-          20,
-          padding.bottom + 16,
+          Space.s5,
+          padding.top + Space.s6,
+          Space.s5,
+          padding.bottom + Space.s4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,14 +299,14 @@ class _HomeScreen extends StatelessWidget {
               formatMMMd(ledger.today),
               style: white.copyWith(fontSize: TextSize.title),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: Space.s6),
             WidgetFace(
               snapshot: snapshot,
               onOpen: () => onOpen(),
               onExpense: () => onOpen(quick: QuickAction.expense),
               onIncome: () => onOpen(quick: QuickAction.income),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             WidgetRow(
               snapshot: snapshot,
               onOpen: () => onOpen(),
@@ -321,7 +323,7 @@ class _HomeScreen extends StatelessWidget {
                 _AppIcon(onTap: () => onOpen()),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: Space.s4),
             // Preview only: which person's phone this is.
             Center(
               child: SegmentedButton<PreviewStart>(
@@ -341,7 +343,7 @@ class _HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Text(
               '預覽：選擇打開 App 的情境',
               textAlign: TextAlign.center,
@@ -374,10 +376,10 @@ class _AppIcon extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(Radii.large),
               child: const AppMark(size: 60),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             const Text(
               '記帳本',
               style: TextStyle(
@@ -411,11 +413,11 @@ class _OtherApp extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               color: const Color(0x33FFFFFF),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             name,
             style: const TextStyle(

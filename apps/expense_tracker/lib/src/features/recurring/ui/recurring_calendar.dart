@@ -36,10 +36,15 @@ class _Calendar extends StatelessWidget {
       cells.add(const SizedBox());
     }
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s3,
+        Space.s2,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
         children: [
@@ -60,7 +65,7 @@ class _Calendar extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           for (var r = 0; r < cells.length; r += 7)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,11 +99,11 @@ class _Calendar extends StatelessWidget {
       // account's card, not a pale block.
       fill = Shade.dark
           ? BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(Radii.medium),
               color: tintOf(color, 0.34),
             )
           : BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(Radii.medium),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -108,7 +113,7 @@ class _Calendar extends StatelessWidget {
     } else if (items.isNotEmpty) {
       fill = BoxDecoration(
         color: _busyDay,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(Radii.medium),
       );
     }
     final onColor = single ? (Shade.dark ? Hue.ink : Hue.onSolid) : Hue.ink;
@@ -175,16 +180,16 @@ class _Calendar extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onPick(d),
         child: Padding(
-          padding: const EdgeInsets.all(1),
+          padding: const EdgeInsets.all(Space.half),
           child: Column(
             children: [
               // Every day keeps the room of the ring, so the chosen one is
               // as large as the rest and the row stays even.
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(Space.half),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(Radii.large),
                   border: Border.all(
                     color: isChosen
                         ? (single ? deepOf(color) : Hue.accent)
@@ -198,13 +203,16 @@ class _Calendar extends StatelessWidget {
                       fill ??
                       BoxDecoration(
                         color: isChosen ? Hue.selected : null,
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(Radii.medium),
                       ),
-                  padding: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.only(top: Space.half),
                   child: Column(
                     children: [
                       number,
-                      SizedBox(height: 16, child: Center(child: slot)),
+                      SizedBox(
+                        height: Space.s4,
+                        child: Center(child: slot),
+                      ),
                     ],
                   ),
                 ),
@@ -289,7 +297,7 @@ class _DayItemsState extends State<_DayItems> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: Space.s1),
           child: Row(
             children: [
               Text(
@@ -311,12 +319,12 @@ class _DayItemsState extends State<_DayItems> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         if (items.isEmpty)
           Row(
             children: [
               const Padding(
-                padding: EdgeInsets.only(left: 4),
+                padding: EdgeInsets.only(left: Space.s1),
                 child: Text('這天沒有固定交易', style: TextStyle(color: Hue.muted)),
               ),
               const Spacer(),
@@ -332,7 +340,7 @@ class _DayItemsState extends State<_DayItems> {
           )
         else
           for (final (i, x) in items.indexed) ...[
-            if (i > 0) const SizedBox(height: 8),
+            if (i > 0) const SizedBox(height: Space.s2),
             _itemCard(x, todayDay),
           ],
       ],
@@ -371,7 +379,12 @@ class _DayItemsState extends State<_DayItems> {
       radius: 18,
       onTap: () => booked == null ? widget.onEdit(item) : widget.onOpen(booked),
       label: '${item.name}，${line.replaceAll(' · ', '，')}',
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Row(
         children: [
           !x.settled
@@ -381,12 +394,12 @@ class _DayItemsState extends State<_DayItems> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: Hue.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
                   child: GlyphIcon(glyph, size: 20, color: Hue.muted),
                 ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.s3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,17 +427,17 @@ class _DayItemsState extends State<_DayItems> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           amount,
           if (due) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.s2),
             FilledButton(
               onPressed: () => widget.onBook(item),
               style: solidButton(
                 markColor,
                 minimumSize: Size(0, 44),
                 radius: 12,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               ),
               child: const Text(
                 '入帳',
@@ -432,7 +445,7 @@ class _DayItemsState extends State<_DayItems> {
               ),
             ),
           ] else if (skipped) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: Space.s2),
             FilledButton(
               onPressed: () => ledger.recurringCommands.unskip(item, x.day),
               style: solidButton(
@@ -440,7 +453,7 @@ class _DayItemsState extends State<_DayItems> {
                 ink: Hue.accent,
                 minimumSize: Size(0, 44),
                 radius: 12,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               ),
               child: const Text(
                 '恢復',
@@ -448,7 +461,7 @@ class _DayItemsState extends State<_DayItems> {
               ),
             ),
           ] else if (booked != null) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             const GlyphIcon(Glyph.check, size: 20, color: Hue.muted),
           ],
         ],
@@ -473,7 +486,12 @@ class _Cell extends StatelessWidget {
       radius: 16,
       onTap: onTap,
       label: '$label $value',
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -484,7 +502,7 @@ class _Cell extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.half),
           OneLine(
             value,
             style: const TextStyle(
@@ -507,10 +525,13 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    padding: const EdgeInsets.symmetric(
+      horizontal: Space.s2,
+      vertical: Space.half,
+    ),
     decoration: BoxDecoration(
       color: tintOf(color, 0.22),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(Radii.small),
     ),
     child: Text(
       text,

@@ -36,7 +36,12 @@ class _ItemRow extends StatelessWidget {
       radius: 18,
       onTap: onTap,
       label: '${item.name}，$sub${next.isEmpty ? '' : '，下次 $next'}',
-      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s3,
+        Space.s2,
+      ),
       child: Row(
         children: [
           grey
@@ -45,13 +50,13 @@ class _ItemRow extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: Hue.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Radii.medium),
                   ),
                   alignment: Alignment.center,
                   child: GlyphIcon(glyph, size: 20, color: Hue.muted),
                 )
               : SquareIcon(glyph, color, size: 40),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.s3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,7 +83,7 @@ class _ItemRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -92,12 +97,12 @@ class _ItemRow extends StatelessWidget {
                 ),
               ),
               if (next.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: Space.half),
                 _Tag('下次 $next', color: color),
               ],
             ],
           ),
-          if (trailing case final t?) ...[const SizedBox(width: 10), t],
+          if (trailing case final t?) ...[const SizedBox(width: Space.s2), t],
         ],
       ),
     );

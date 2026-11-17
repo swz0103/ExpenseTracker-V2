@@ -33,7 +33,12 @@ class _PhoneStrip extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.16,
-      padding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s2,
+        Space.s2,
+        Space.s2,
+      ),
       child: Row(
         children: [
           GlyphIcon(
@@ -41,7 +46,7 @@ class _PhoneStrip extends StatelessWidget {
             size: 20,
             color: deepOf(color),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.s3),
           Expanded(
             child: OneLine(
               missing ?? '手機設定都好了',
@@ -89,7 +94,7 @@ class _Labelled extends StatelessWidget {
           color: Hue.muted,
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: Space.s2),
       child,
     ],
   );
@@ -106,10 +111,10 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(14, 10, 12, 12),
+    padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s3, Space.s3),
     decoration: BoxDecoration(
       color: tintOf(color, 0.16),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(Radii.large),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,7 +162,10 @@ class _ToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = Padding(
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: flat ? 0 : 16),
+      padding: EdgeInsets.symmetric(
+        vertical: Space.s2,
+        horizontal: flat ? 0 : Space.s4,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -202,7 +210,7 @@ class _ToggleRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: tintOf(color, 0.16),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: whole,
     );

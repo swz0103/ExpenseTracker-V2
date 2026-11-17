@@ -24,10 +24,13 @@ class _Readout extends StatelessWidget {
   Widget build(BuildContext context) {
     final left = income - expense;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s2,
+      ),
       decoration: BoxDecoration(
         color: Hue.tile,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -38,7 +41,7 @@ class _Readout extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Space.s3),
           // Wraps onto a second line rather than shrinking when the
           // phone's text is large.
           Expanded(
@@ -110,7 +113,12 @@ class _Hero extends StatelessWidget {
         : (expense - lastExpense) * 100 ~/ lastExpense;
     final until = this.until;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -158,9 +166,9 @@ class _Hero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           ClipRRect(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(Radii.extraSmall),
             child: SizedBox(
               height: 10,
               child: Row(
@@ -174,7 +182,7 @@ class _Hero extends StatelessWidget {
                       ),
                     ),
                   if (spentShare > 0 && spentShare < 1)
-                    const SizedBox(width: 3),
+                    const SizedBox(width: Space.half),
                   if (spentShare < 1)
                     Expanded(
                       flex: ((1 - spentShare) * 1000).round().clamp(1, 1000),
@@ -187,7 +195,7 @@ class _Hero extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             spacing: 12,
@@ -197,13 +205,13 @@ class _Hero extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const LegendKey(Hue.negative, '支出'),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Text(
                     ledger.orDots(groupDigits(expense)),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   if (change != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     Text(
                       '${change >= 0 ? '▲' : '▼'}${change.abs()}%',
                       style: TextStyle(
@@ -219,7 +227,7 @@ class _Hero extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const LegendKey(Hue.positive, '存下'),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Text(
                     '$keptShare%',
                     style: const TextStyle(fontWeight: FontWeight.w800),
@@ -255,14 +263,19 @@ class _Block extends StatelessWidget {
     final ink = deepOf(color);
     return ColorCard(
       color: color,
-      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               SquareIcon(glyph, color, size: 32),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   label,
@@ -275,7 +288,7 @@ class _Block extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           OneLine(
             value,
             style: const TextStyle(
@@ -326,7 +339,7 @@ class _CategoryBlock extends StatelessWidget {
       radius: 18,
       onTap: onTap,
       label: '${category.name} $share%',
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(Space.s2),
       child: LayoutBuilder(
         builder: (context, box) {
           final roomy = box.maxHeight > 70 && box.maxWidth > 70;

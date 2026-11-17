@@ -343,12 +343,17 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s2),
               child: _PageHeader(title: page.title, onBack: page.close),
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.s4,
+                  Space.s3,
+                  Space.s4,
+                  Space.s4,
+                ),
                 child: page.body,
               ),
             ),
@@ -366,13 +371,13 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         _ledger.entryQueryService.refundable(entry) > 0;
     // The top stays put: the kind of entry, or what is being changed.
     final top = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (refunded != null)
             Padding(
-              padding: const EdgeInsets.only(right: 8, bottom: 4),
+              padding: const EdgeInsets.only(right: Space.s2, bottom: Space.s1),
               child: _OriginalTile(ledger: _ledger, entry: refunded),
             )
           else if (_viewing)
@@ -391,7 +396,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
             ),
           if (_marks.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4, right: 8),
+              padding: const EdgeInsets.only(top: Space.s1, right: Space.s2),
               child: Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 6,
@@ -412,11 +417,14 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         ? all.first as _AmountHero
         : null;
     final below = [
-      if (hero?.under case final under?) ...[const SizedBox(height: 4), under],
+      if (hero?.under case final under?) ...[
+        const SizedBox(height: Space.s1),
+        under,
+      ],
       ...hero == null ? all : all.skip(1),
       if (problem != null)
         Padding(
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Text(
             problem,
             textAlign: TextAlign.center,
@@ -427,7 +435,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     final pinned = hero == null
         ? null
         : Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: Space.s5),
             child: IgnorePointer(
               ignoring: _viewing,
               child: _AmountHero(
@@ -443,7 +451,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
     // The sheet is as tall as the tallest tab's fields, which scroll
     // inside it past three quarters of the screen.
     final fields = SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, 0),
       child: IgnorePointer(
         ignoring: _viewing,
         child: _Fill(
@@ -467,18 +475,28 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
         if (looked)
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s5,
+                Space.s1,
+                Space.s5,
+                0,
+              ),
               child: _view(entry),
             ),
           )
         else ...[
           top,
           ?pinned,
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Flexible(child: ClipRect(child: fields)),
         ],
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 20, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s3,
+            Space.s2,
+            Space.s5,
+            Space.s4,
+          ),
           child: Row(
             children: [
               TextButton(
@@ -497,7 +515,7 @@ class _ComposerState extends State<Composer> with WidgetsBindingObserver {
                   style: wordButton(Hue.positive, minimumSize: Size(64, 48)),
                   child: const Text('退款'),
                 ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: SizedBox(
                   height: 54,

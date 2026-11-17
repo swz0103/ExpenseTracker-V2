@@ -9,6 +9,8 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// 分類: 支出 or 收入 on two big segments, then that kind's categories
 /// three to a row, each its solid icon and name on its own tint, a small
@@ -154,13 +156,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ),
         ];
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader('分類', onBack: widget.nav.back),
           children: [
             Row(
               children: [
                 for (final (i, income) in const [false, true].indexed) ...[
-                  if (i > 0) const SizedBox(width: 10),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _Kind(
                       label: income ? '收入' : '支出',
@@ -173,7 +175,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 ],
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: Space.s4),
             CardGrid(columns: 3, gap: 10, tiles),
             if (archived.isNotEmpty) ...[
               const RuleHead('已封存'),
@@ -186,7 +188,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       backgroundColor: Hue.surface,
                       side: BorderSide.none,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(Radii.large),
                       ),
                       avatar: GlyphIcon(
                         iconFor(c.icon),
@@ -257,15 +259,17 @@ class _Kind extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.large),
+        ),
         child: Material(
           color: chosen ? chosenFill(color) : Hue.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 52),
@@ -391,7 +395,7 @@ class _Tile extends StatelessWidget {
             height: 50,
             decoration: BoxDecoration(
               color: Hue.white,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             alignment: Alignment.center,
             child: const GlyphIcon(Glyph.add, size: 24, color: Hue.ink),
@@ -403,7 +407,12 @@ class _Tile extends StatelessWidget {
       radius: 20,
       onTap: onTap,
       label: count > 0 ? '$label，$count 個子分類' : label,
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s4,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -436,7 +445,7 @@ class _Tile extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Text(
             label,
             maxLines: 1,

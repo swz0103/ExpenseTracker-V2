@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// Shows the app at phone size on a wide screen: a 390 × 844 screen in a
 /// dark bezel, scaled down to fit. On a phone-sized screen the app fills
@@ -15,7 +17,7 @@ class PhoneFrame extends StatelessWidget {
   static const _statusHeight = 34.0;
 
   /// Room the app leaves for the status bar and the gesture bar.
-  static const _insets = EdgeInsets.only(top: _statusHeight, bottom: 18);
+  static const _insets = EdgeInsets.only(top: _statusHeight, bottom: Space.s4);
 
   @override
   Widget build(BuildContext context) {
@@ -24,13 +26,13 @@ class PhoneFrame extends StatelessWidget {
     return ColoredBox(
       color: const Color(0xFFE2E5E1),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(Space.s6),
         child: FittedBox(
           child: Container(
             padding: const EdgeInsets.all(_bezel),
             decoration: BoxDecoration(
               color: const Color(0xFF26302A),
-              borderRadius: BorderRadius.circular(48),
+              borderRadius: BorderRadius.circular(Radii.extraExtraLarge),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x33000000),
@@ -40,7 +42,7 @@ class PhoneFrame extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(38),
+              borderRadius: BorderRadius.circular(Radii.extraLargeIncreased),
               child: SizedBox.fromSize(
                 size: screen,
                 child: Stack(
@@ -86,7 +88,7 @@ class _StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 26),
+      padding: EdgeInsets.symmetric(horizontal: Space.s6),
       child: Row(
         children: [
           Text(
@@ -155,7 +157,7 @@ class _StatusIcons extends CustomPainter {
           size.height - h,
           25 + i * 4.5,
           size.height,
-          const Radius.circular(1),
+          const Radius.circular(Radii.extraSmall),
         ),
         ink,
       );
@@ -167,7 +169,7 @@ class _StatusIcons extends CustomPainter {
       mid - 6,
       size.width - 3,
       mid + 6,
-      const Radius.circular(3),
+      const Radius.circular(Radii.extraSmall),
     );
     canvas
       ..drawRRect(
@@ -193,7 +195,7 @@ class _StatusIcons extends CustomPainter {
           mid - 2.5,
           size.width,
           mid + 2.5,
-          const Radius.circular(1),
+          const Radius.circular(Radii.extraSmall),
         ),
         ink,
       );
@@ -215,7 +217,7 @@ class _HomeBar extends StatelessWidget {
         height: 4,
         decoration: BoxDecoration(
           color: Hue.ink.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(Radii.extraSmall),
         ),
       ),
     );

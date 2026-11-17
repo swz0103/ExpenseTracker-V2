@@ -22,11 +22,11 @@ class _DayChoicesState extends State<DayChoices> {
       children: [
         if (quick.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: Space.s2),
             child: Row(
               children: [
                 for (final (i, (name, day)) in quick.indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _QuickDay(
                       name: name,
@@ -55,7 +55,7 @@ class _DayChoicesState extends State<DayChoices> {
                   _month = DateTime.utc(first.year, first.month + 1);
                 }),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Space.s1),
         Row(
           children: [
             for (final name in weekdayNames)
@@ -68,7 +68,7 @@ class _DayChoicesState extends State<DayChoices> {
               ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Space.s1),
         for (var week = 0; week < 6; week++)
           Row(
             children: [
@@ -122,7 +122,7 @@ class _DayChoicesState extends State<DayChoices> {
                   Container(
                     width: 4,
                     height: 4,
-                    margin: const EdgeInsets.only(top: 1),
+                    margin: const EdgeInsets.only(top: Space.half),
                     decoration: BoxDecoration(
                       color: widget.color.withValues(alpha: 0.6),
                       shape: BoxShape.circle,
@@ -155,7 +155,7 @@ class _QuickDay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.circular(Radii.large);
     return Material(
       color: picked ? color.withValues(alpha: 0.12) : Hue.surface,
       shape: RoundedRectangleBorder(
@@ -166,7 +166,10 @@ class _QuickDay extends StatelessWidget {
         borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          padding: const EdgeInsets.symmetric(
+            vertical: Space.s2,
+            horizontal: Space.s1,
+          ),
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Column(

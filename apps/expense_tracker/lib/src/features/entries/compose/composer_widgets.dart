@@ -12,10 +12,10 @@ class _OriginalTile extends StatelessWidget {
     final currency = ledger.account(entry.account).currency;
     final category = ledger.category(entry.category);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(Space.s3),
       decoration: BoxDecoration(
         color: Hue.tile,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -24,7 +24,7 @@ class _OriginalTile extends StatelessWidget {
             shownColor(Color(category.color)),
             size: 36,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,12 +100,12 @@ class _MerchantPickerState extends State<_MerchantPicker> {
             filled: true,
             fillColor: Hue.tile,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(Radii.large),
               borderSide: BorderSide.none,
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         Column(
           children: [
             if (typed.isNotEmpty && !widget.known.contains(typed))
@@ -193,7 +193,7 @@ class _TagPickerState extends State<_TagPicker> {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         Row(
           children: [
             Expanded(
@@ -205,7 +205,7 @@ class _TagPickerState extends State<_TagPicker> {
                   filled: true,
                   fillColor: Hue.tile,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Radii.large),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -218,7 +218,7 @@ class _TagPickerState extends State<_TagPicker> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         FilledButton(
           onPressed: () => widget.onDone(_picked),
           style: solidButton(Hue.accent, minimumSize: Size.fromHeight(44)),
@@ -371,7 +371,7 @@ class _AmountHero extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: Space.s2),
           child: Text(
             unit,
             style: const TextStyle(
@@ -381,7 +381,7 @@ class _AmountHero extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: Space.s2),
         Text(
           value,
           maxLines: 1,
@@ -397,7 +397,7 @@ class _AmountHero extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 14),
+        const SizedBox(height: Space.s4),
         Row(
           children: [
             const SizedBox(width: 48),
@@ -430,7 +430,7 @@ class _AmountHero extends StatelessWidget {
         ),
         if (note != null)
           Text(note, textAlign: TextAlign.center, style: mutedSmall),
-        if (below != null) ...[const SizedBox(height: 12), below],
+        if (below != null) ...[const SizedBox(height: Space.s3), below],
       ],
     );
   }
@@ -452,10 +452,13 @@ class _Bubble extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color ?? Hue.surface,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(Radii.full),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s3,
+            vertical: Space.s2,
+          ),
           child: Text(
             label,
             maxLines: 1,
@@ -485,7 +488,7 @@ class _Bubbles extends StatelessWidget {
         child: Row(
           children: [
             for (final (i, child) in children.indexed) ...[
-              if (i > 0) const SizedBox(width: 6),
+              if (i > 0) const SizedBox(width: Space.s2),
               child,
             ],
           ],
@@ -536,7 +539,7 @@ class _StripItem extends StatelessWidget {
                     : picked
                     ? color.withValues(alpha: 0.14)
                     : Hue.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(Radii.large),
                 border: picked ? Border.all(color: color, width: 2) : null,
               ),
               child: GlyphIcon(
@@ -549,7 +552,7 @@ class _StripItem extends StatelessWidget {
                     : Hue.muted,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: Space.s1),
             Text(
               label,
               maxLines: 1,

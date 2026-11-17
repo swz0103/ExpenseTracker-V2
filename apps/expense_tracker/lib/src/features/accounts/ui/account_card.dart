@@ -6,6 +6,8 @@ import '../../../core/look/theme.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.
@@ -71,7 +73,7 @@ class AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accountHue(account);
-    final radius = BorderRadius.circular(20);
+    final radius = BorderRadius.circular(Radii.largeIncreased);
     final (stripHeight, frontHeight) = cardHeights(context);
     final (label, figure, note) = front ? _face() : ('', '', '');
     final head = Row(
@@ -86,7 +88,7 @@ class AccountCard extends StatelessWidget {
           alignment: Alignment.center,
           child: GlyphIcon(accountIcon(account), size: 17, color: color),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: Space.s2),
         Expanded(
           child: Text(
             account.name.isEmpty ? '帳戶名稱' : account.name,
@@ -99,7 +101,7 @@ class AccountCard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: Space.s2),
         if (front)
           Text(cardKindLabel(account), style: mutedSmall)
         else
@@ -130,7 +132,12 @@ class AccountCard extends StatelessWidget {
           child: SizedBox(
             height: front ? frontHeight : stripHeight,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 16, 16, 14),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s4,
+                Space.s4,
+                Space.s4,
+                Space.s4,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -162,7 +169,10 @@ class AccountCard extends StatelessWidget {
                         ),
                         if (note.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 4),
+                            padding: const EdgeInsets.only(
+                              left: Space.s2,
+                              bottom: Space.s1,
+                            ),
                             child: Text(note, style: mutedSmall),
                           ),
                       ],

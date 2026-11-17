@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
+import '../look/shape.dart';
 
 /// One month of [FlowChart].
 final class FlowMonth {
@@ -152,7 +153,7 @@ class _FlowPainter extends CustomPainter {
         top - 6,
         left + slot * (selected + 1) - 2,
         bottom + 20,
-        const Radius.circular(6),
+        const Radius.circular(Radii.small),
       ),
       Paint()..color = Hue.surface,
     );
@@ -166,8 +167,8 @@ class _FlowPainter extends CustomPainter {
         canvas.drawRRect(
           RRect.fromRectAndCorners(
             Rect.fromLTWH(x, bottom - h, bar, h),
-            topLeft: const Radius.circular(2),
-            topRight: const Radius.circular(2),
+            topLeft: const Radius.circular(Radii.extraSmall),
+            topRight: const Radius.circular(Radii.extraSmall),
           ),
           Paint()..color = faded ? color.withValues(alpha: 0.85) : color,
         );

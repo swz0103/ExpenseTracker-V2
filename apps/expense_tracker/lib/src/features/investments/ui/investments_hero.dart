@@ -19,7 +19,7 @@ class _InvestHero extends StatelessWidget {
     Widget column(String label, String figure, Color color, String sub) =>
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: Space.s2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -55,18 +55,23 @@ class _InvestHero extends StatelessWidget {
         );
     const rule = VerticalDivider(width: 1, thickness: 1, color: Hue.accentRule);
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               const SquareIcon(Glyph.pie, Palette.indigo, size: 30),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               const Text('市值', style: accentLabel),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           // Today's move beside the figure, or under it when both do not
           // fit on a line, rather than either shrinking.
           Wrap(
@@ -157,15 +162,15 @@ class _HoldingRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           RowFigure(held.price.toStringAsFixed(held.price < 100 ? 2 : 0)),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Container(
             width: 72,
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: Space.s2),
             decoration: BoxDecoration(
               color: !quoted
                   ? Hue.surface
                   : chosenFill(up ? Hue.positive : Hue.negative),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Radii.medium),
             ),
             child: Column(
               children: [

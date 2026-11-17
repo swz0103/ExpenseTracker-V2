@@ -7,6 +7,7 @@ import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/entry_tile.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/look/spacing.dart';
 
 /// 預算 and 即將扣款 side by side: what is left of the month's limit, and
 /// what falls due.
@@ -51,7 +52,12 @@ class PlanSection extends StatelessWidget {
     return ColorCard(
       color: ToolHue.budgets,
       radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s3,
+      ),
       onTap: () => nav.open(Pages.budgets),
       label: limit == 0
           ? '預算，本月花了 ${ledger.money(spent)}'
@@ -62,7 +68,7 @@ class PlanSection extends StatelessWidget {
           Row(
             children: [
               const SquareIcon(Glyph.budget, ToolHue.budgets, size: 28),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   limit == 0 ? '本月花了' : '本月剩',
@@ -75,7 +81,7 @@ class PlanSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -89,7 +95,7 @@ class PlanSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           if (limit == 0)
             const OneLine('設定預算 ›', style: accentSmall)
           else
@@ -105,7 +111,7 @@ class PlanSection extends StatelessWidget {
                     height: 10,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Text('$used%', style: muted),
               ],
             ),
@@ -133,7 +139,12 @@ class PlanSection extends StatelessWidget {
     return ColorCard(
       color: ToolHue.recurring,
       radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s3,
+      ),
       onTap: () => nav.open(Pages.recurring),
       label: '即將扣款，$figure',
       child: Column(
@@ -146,7 +157,7 @@ class PlanSection extends StatelessWidget {
                 ToolHue.recurring,
                 size: 28,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   '即將扣款',
@@ -160,7 +171,7 @@ class PlanSection extends StatelessWidget {
               const GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -174,7 +185,7 @@ class PlanSection extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.half),
           OneLine(
             next == null
                 ? '沒有待扣款項目'

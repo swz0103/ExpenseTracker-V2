@@ -11,6 +11,8 @@ import '../model/comparison.dart';
 import 'report_period.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// What the period is set against.
 enum _Against {
@@ -137,19 +139,24 @@ class _CompareSectionState extends State<CompareSection> {
     String then(String label) =>
         _against == _Against.custom ? '自訂' : label.replaceAll('同期', '');
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(Space.s1),
             decoration: BoxDecoration(
               color: Hue.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Row(
               children: [
@@ -162,9 +169,9 @@ class _CompareSectionState extends State<CompareSection> {
                         color: against == _against
                             ? Hue.white
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(Radii.medium),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(11),
+                          borderRadius: BorderRadius.circular(Radii.medium),
                           onTap: () => _choose(against),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(minHeight: 44),
@@ -190,7 +197,7 @@ class _CompareSectionState extends State<CompareSection> {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           for (final (name, now, before) in rows.take(3))
             _Pair(
               ledger: ledger,
@@ -206,7 +213,7 @@ class _CompareSectionState extends State<CompareSection> {
               },
             ),
           if (moved.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             const Text(
               '變化最多的分類',
               style: TextStyle(
@@ -214,7 +221,7 @@ class _CompareSectionState extends State<CompareSection> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -258,7 +265,7 @@ class _Pair extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget bar(int value, Color tone) => ClipRRect(
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(Radii.extraSmall),
       child: SizedBox(
         height: 9,
         child: Align(
@@ -271,7 +278,7 @@ class _Pair extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.s3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -302,9 +309,9 @@ class _Pair extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           bar(now, color),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           bar(then, tintOf(color, 0.4)),
         ],
       ),
@@ -329,21 +336,26 @@ class _MovedChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = shownColor(Color(category.color));
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s2,
+        Space.s3,
+        Space.s2,
+      ),
       decoration: BoxDecoration(
         color: tintOf(color, 0.22),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SquareIcon(iconFor(category.icon), color, size: 28),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Text(
             category.name,
             style: TextStyle(fontWeight: FontWeight.w800, color: deepOf(color)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Text(
             ledger.orDots(signed(change)),
             style: TextStyle(

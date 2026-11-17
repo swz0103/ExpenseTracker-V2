@@ -6,6 +6,7 @@ import 'lock_parts.dart';
 import '../../../../core/look/kit/buttons.dart';
 import '../../../../core/look/keys.dart';
 import '../../../../core/text/dates.dart';
+import '../../../../core/look/spacing.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -200,7 +201,7 @@ class _WelcomeViewState extends State<WelcomeView>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ProblemLine(widget.problem),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             FilledButton(
               key: Keys.newBook,
               onPressed: busy ? null : widget.onStart,
@@ -220,7 +221,7 @@ class _WelcomeViewState extends State<WelcomeView>
                           weight: 2.2,
                           color: Hue.onAccent,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: Space.s2),
                         Text(
                           '建立新帳本',
                           style: TextStyle(
@@ -231,7 +232,7 @@ class _WelcomeViewState extends State<WelcomeView>
                       ],
                     ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -242,7 +243,7 @@ class _WelcomeViewState extends State<WelcomeView>
                   style: wordButton(
                     Hue.accent,
                     minimumSize: Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),
                   child: const Text(
                     '還原備份',
@@ -269,7 +270,7 @@ class _WelcomeViewState extends State<WelcomeView>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ProblemLine(widget.problem),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             DecoratedBox(
               decoration: const ShapeDecoration(
                 shape: StadiumBorder(),
@@ -289,7 +290,12 @@ class _WelcomeViewState extends State<WelcomeView>
                   key: Keys.restoreFound,
                   onTap: busy ? null : widget.onRestoreFound,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+                    padding: const EdgeInsets.fromLTRB(
+                      Space.s2,
+                      Space.s2,
+                      Space.s2,
+                      Space.s2,
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -306,7 +312,7 @@ class _WelcomeViewState extends State<WelcomeView>
                             color: Hue.accent,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +335,7 @@ class _WelcomeViewState extends State<WelcomeView>
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: Space.s3),
                         Container(
                           width: 48,
                           height: 48,
@@ -352,7 +358,7 @@ class _WelcomeViewState extends State<WelcomeView>
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -363,7 +369,7 @@ class _WelcomeViewState extends State<WelcomeView>
                   style: wordButton(
                     Hue.accent,
                     minimumSize: Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s2),
                   ),
                   child: const Text(
                     '建立新帳本',

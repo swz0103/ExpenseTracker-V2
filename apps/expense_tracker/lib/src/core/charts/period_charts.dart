@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../look/paint.dart';
 import '../look/theme.dart';
+import '../look/shape.dart';
 
 /// One stretch of a report: a week, a month, and what came in and went
 /// out in it. A stretch still ahead has [ahead] set and no figures.
@@ -114,7 +115,7 @@ class _BarsPainter extends CustomPainter {
             0,
             slot * (i + 1) - 2,
             plot,
-            const Radius.circular(8),
+            const Radius.circular(Radii.small),
           ),
           Paint()..color = Hue.selected,
         );
@@ -133,8 +134,8 @@ class _BarsPainter extends CustomPainter {
               plot - h,
               left + bar,
               plot,
-              topLeft: const Radius.circular(3),
-              topRight: const Radius.circular(3),
+              topLeft: const Radius.circular(Radii.extraSmall),
+              topRight: const Radius.circular(Radii.extraSmall),
             ),
             Paint()..color = dim ? color.withValues(alpha: 0.35) : color,
           );

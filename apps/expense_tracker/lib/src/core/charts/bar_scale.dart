@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../look/theme.dart';
+import '../look/shape.dart';
 
 /// The share of a bar's full length that [value] takes next to
 /// [largest], in proportion, and at least a sliver when it is not zero.
@@ -85,7 +86,7 @@ class _AxisBarPainter extends CustomPainter {
         middle - height / 2,
         size.width,
         middle + height / 2,
-        const Radius.circular(3),
+        const Radius.circular(Radii.extraSmall),
       ),
       Paint()..color = Hue.surface.withValues(alpha: 0.6),
     );
@@ -98,7 +99,7 @@ class _AxisBarPainter extends CustomPainter {
         middle - height / 2,
         left + length,
         middle + height / 2,
-        const Radius.circular(2),
+        const Radius.circular(Radii.extraSmall),
       ),
       Paint()..color = color,
     );

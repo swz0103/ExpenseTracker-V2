@@ -13,6 +13,8 @@ import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
 import '../../../core/text/dates.dart';
 import '../../../core/messages/recurring_messages.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'recurring_repeat.dart';
 
@@ -153,12 +155,17 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     ];
     Widget mini(String label, String value, VoidCallback onTap) => Material(
       color: Hue.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(Radii.large),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s3,
+            Space.s2,
+            Space.s2,
+            Space.s2,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -191,7 +198,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       ),
     );
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,7 +206,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           Row(
             children: [
               for (final (i, income) in const [false, true].indexed) ...[
-                if (i > 0) const SizedBox(width: 10),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: Semantics(
                     selected: _f.income == income,
@@ -207,9 +214,9 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                       color: _f.income == income
                           ? (income ? Hue.positive : Hue.negative)
                           : Hue.surface,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(Radii.large),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(Radii.large),
                         onTap: () => setState(() => _f.setIncome(income)),
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 50),
@@ -233,13 +240,18 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               ],
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           // The card is the form.
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s4,
+              Space.s3,
+              Space.s4,
+            ),
             decoration: BoxDecoration(
               color: tintOf(color, 0.22),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -247,7 +259,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                 Row(
                   children: [
                     SquareIcon(iconFor(category.icon), color, size: 48),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: Space.s3),
                     Expanded(
                       child: TextField(
                         controller: _name,
@@ -268,7 +280,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     if (editing)
                       Material(
                         color: Hue.white,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(Radii.large),
                         child: IconButton(
                           tooltip: '刪除',
                           onPressed: _remove,
@@ -283,7 +295,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                       GlyphIcon(Glyph.edit, size: 16, color: ink),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 AmountTap(
                   label: '金額 ${_f.amount}',
                   onTap: _amount,
@@ -310,7 +322,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -322,7 +334,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                           _account,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: Space.s2),
                       Expanded(child: mini('重複', _f.rhythm, _repeat)),
                     ],
                   ),
@@ -332,15 +344,15 @@ class _RecurringEditorState extends State<_RecurringEditor> {
           ),
           if (_problem case final problem?)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: Text(problem, style: const TextStyle(color: Hue.danger)),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           Row(
             children: [
               for (final c in usual) ...[
                 Expanded(child: _categoryChoice(c)),
-                const SizedBox(width: 6),
+                const SizedBox(width: Space.s2),
               ],
               Expanded(
                 child: Semantics(
@@ -348,7 +360,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   label: '全部分類',
                   child: InkWell(
                     onTap: _allCategories,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(Radii.large),
                     child: Column(
                       children: [
                         Container(
@@ -356,7 +368,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                           height: 48,
                           decoration: BoxDecoration(
                             color: Hue.surface,
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(Radii.large),
                           ),
                           alignment: Alignment.center,
                           child: const GlyphIcon(
@@ -365,7 +377,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                             color: Hue.muted,
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: Space.s4),
                       ],
                     ),
                   ),
@@ -373,18 +385,21 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           ColorCard(
             color: Hue.faint,
             amount: 0.18,
             radius: 16,
             onTap: _others,
             label: '其他設定',
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s4,
+              vertical: Space.s4,
+            ),
             child: Row(
               children: [
                 const GlyphIcon(Glyph.calendar, size: 18, color: Hue.muted),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: Text(
                     notes.join(' · '),
@@ -395,7 +410,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           PanelButton(
             editing
                 ? '儲存'
@@ -419,7 +434,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
       excludeSemantics: true,
       child: InkWell(
         onTap: () => setState(() => _f.category = c.name),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
         child: Column(
           children: [
             Stack(
@@ -436,7 +451,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                         height: 48,
                         decoration: BoxDecoration(
                           color: tintOf(shownColor(Color(c.color)), 0.22),
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(Radii.large),
                         ),
                         alignment: Alignment.center,
                         child: GlyphIcon(
@@ -466,7 +481,7 @@ class _RecurringEditorState extends State<_RecurringEditor> {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: Space.s1),
             Text(
               c.name,
               maxLines: 1,

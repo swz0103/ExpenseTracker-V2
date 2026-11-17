@@ -13,6 +13,8 @@ import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// A credit card: the last statement and when it is due, with 繳卡款;
 /// what has been spent since, the credit left, purchases paid in
@@ -145,7 +147,7 @@ class CardPage extends StatelessWidget {
             ? '這期已繳清'
             : '繳款截止 ${_day(due)}（${left < 0 ? '已逾期' : '還有 $left 天'}）';
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: CenterHeader(
             card.name,
             onBack: nav.back,
@@ -188,7 +190,7 @@ class CardPage extends StatelessWidget {
               child: owed == 0
                   ? null
                   : Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: Space.s3),
                       child: FilledButton(
                         onPressed: () => nav.compose(
                           type: EntryType.transfer,
@@ -220,11 +222,11 @@ class CardPage extends StatelessWidget {
                 value: ledger.money(spentSince),
                 sub: '第 $gone / $cycleDays 天',
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: Space.s2),
                   child: LinearProgressIndicator(
                     value: cycleDays == 0 ? 0 : gone / cycleDays,
                     minHeight: 6,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(Radii.extraSmall),
                     color: Hue.accent,
                     backgroundColor: Hue.accentTrack,
                   ),
@@ -247,7 +249,7 @@ class CardPage extends StatelessWidget {
                 child: limit == null || limit <= 0
                     ? null
                     : Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: Space.s2),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -256,13 +258,15 @@ class CardPage extends StatelessWidget {
                                   .clamp(0, 1)
                                   .toDouble(),
                               minHeight: 6,
-                              borderRadius: BorderRadius.circular(3),
+                              borderRadius: BorderRadius.circular(
+                                Radii.extraSmall,
+                              ),
                               color: (debt + pending) * 100 >= limit * 80
                                   ? Hue.negative
                                   : Hue.accent,
                               backgroundColor: Hue.accentTrack,
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: Space.s1),
                             Text(
                               '已用 ${((debt + pending) * 100 / limit).round()}%',
                               style: mutedSmall,
@@ -273,7 +277,7 @@ class CardPage extends StatelessWidget {
               ),
             ]),
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: FigureCard(
                 color: Hue.card,
                 icon: Glyph.calendar,
@@ -312,8 +316,8 @@ class CardPage extends StatelessWidget {
               ),
               GroupBox(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 4,
+                  horizontal: Space.s4,
+                  vertical: Space.s1,
                 ),
                 child: Column(
                   children: [
@@ -356,7 +360,10 @@ class CardPage extends StatelessWidget {
               ),
             const SectionTitle('設定'),
             GroupBox(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4,
+                vertical: Space.s1,
+              ),
               child: Column(
                 children: [
                   _setting('結帳日', '每月 ${card.closingDay ?? 1} 日'),
@@ -379,7 +386,7 @@ class CardPage extends StatelessWidget {
     final each = e.amount ~/ e.installments;
     final category = ledger.category(e.category);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: Space.s2),
       child: Row(
         children: [
           RoundIcon(
@@ -387,7 +394,7 @@ class CardPage extends StatelessWidget {
             shownColor(Color(category.color)),
             size: 34,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,15 +416,15 @@ class CardPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: Space.s2),
                 LinearProgressIndicator(
                   value: periods / e.installments,
                   minHeight: 5,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(Radii.extraSmall),
                   color: shownColor(Color(category.color)),
                   backgroundColor: Hue.track,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.s1),
                 Text(
                   '第 $periods / ${e.installments} 期 · '
                   '剩 ${ledger.money(e.amount - ledger.statementService.billed(e, ledger.statementService.closedBy))}',
@@ -433,7 +440,7 @@ class CardPage extends StatelessWidget {
 
   Widget _setting(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: Space.s3),
       child: Row(
         children: [
           Text(label, style: const TextStyle(fontSize: TextSize.body)),

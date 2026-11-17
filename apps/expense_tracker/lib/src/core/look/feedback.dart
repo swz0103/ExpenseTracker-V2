@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 import 'keys.dart';
+import 'shape.dart';
 
 /// Short feedback at the bottom, with an optional action.
 void showNote(
@@ -69,7 +70,9 @@ Future<T?> showSheet<T>(
     showDragHandle: handle,
     backgroundColor: Hue.panel,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(Radii.largeIncreased),
+      ),
     ),
     builder: (context) {
       final share = height;

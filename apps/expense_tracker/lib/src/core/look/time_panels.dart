@@ -7,6 +7,8 @@ import 'headers.dart';
 import 'kit.dart';
 import 'theme.dart';
 import '../text/dates.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or
@@ -158,7 +160,7 @@ class _RangePanelState extends State<_RangePanel> {
                   ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           StepSwitch(
             label: formatYMMM(month),
             previousLabel: '上個月',
@@ -176,7 +178,7 @@ class _RangePanelState extends State<_RangePanel> {
                     () => _month = _make(month.year, month.month + 1, 1),
                   ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           Row(
             children: [
               for (final name in weekdayNames)
@@ -189,7 +191,7 @@ class _RangePanelState extends State<_RangePanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           for (var week = 0; week < 6; week++)
             Row(
               children: [
@@ -425,11 +427,11 @@ class _TimePanelState extends State<_TimePanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           DecoratedBox(
             decoration: BoxDecoration(
               color: Hue.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -438,10 +440,10 @@ class _TimePanelState extends State<_TimePanel> {
                 IgnorePointer(
                   child: Container(
                     height: 44,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    margin: const EdgeInsets.symmetric(horizontal: Space.s2),
                     decoration: BoxDecoration(
                       color: tintOf(color, 0.18),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(Radii.medium),
                     ),
                   ),
                 ),

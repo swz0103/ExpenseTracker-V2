@@ -6,6 +6,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/platform/preferences.dart';
 import '../model/overview_blocks.dart';
+import '../../../core/look/spacing.dart';
 
 /// Lets the person put 總覽's blocks in another order and hide some;
 /// each change is kept at once.
@@ -46,7 +47,7 @@ class _OverviewEditorState extends State<_OverviewEditor> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,13 +60,13 @@ class _OverviewEditorState extends State<_OverviewEditor> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           const Text(
             '拖曳右側把手排序，關掉的區塊不會顯示',
             textAlign: TextAlign.center,
             style: mutedSmall,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           ReorderableListView(
             shrinkWrap: true,
             buildDefaultDragHandles: false,
@@ -91,7 +92,7 @@ class _OverviewEditorState extends State<_OverviewEditor> {
                     trailing: ReorderableDragStartListener(
                       index: i,
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(Space.s3),
                         child: Semantics(
                           label: '拖曳排序',
                           child: const GlyphIcon(

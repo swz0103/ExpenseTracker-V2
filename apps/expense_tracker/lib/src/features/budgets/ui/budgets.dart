@@ -9,6 +9,8 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'budgets_pace.dart';
 part 'budgets_month_picker.dart';
@@ -116,7 +118,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
         });
         final current = _month == _now;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader('預算管理', onBack: widget.nav.back),
           children: [
             _MonthRow(
@@ -128,7 +130,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
               onNext: () => _step(1),
               onToday: () => setState(() => _month = _now),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             GestureDetector(
               onHorizontalDragEnd: (d) {
                 final v = d.primaryVelocity ?? 0;
@@ -154,7 +156,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                     ),
             ),
             if (total > 0) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: Space.s2),
               _Pace(
                 ledger: ledger,
                 year: year,
@@ -165,7 +167,12 @@ class _BudgetsPageState extends State<BudgetsPage> {
               ),
             ],
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 22, 4, 12),
+              padding: const EdgeInsets.fromLTRB(
+                Space.s1,
+                Space.s6,
+                Space.s1,
+                Space.s3,
+              ),
               child: Row(
                 children: [
                   const Expanded(
@@ -195,11 +202,11 @@ class _BudgetsPageState extends State<BudgetsPage> {
                 amount: 0.22,
                 onTap: _addLimit,
                 label: '為分類或標籤設定額度',
-                padding: const EdgeInsets.symmetric(vertical: 22),
+                padding: const EdgeInsets.symmetric(vertical: Space.s6),
                 child: const Column(
                   children: [
                     GlyphIcon(Glyph.add, size: 24, color: Hue.accent),
-                    SizedBox(height: 8),
+                    SizedBox(height: Space.s2),
                     Text(
                       '分類或標籤',
                       style: TextStyle(
@@ -243,7 +250,7 @@ class _MonthRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget round(Glyph glyph, String label, VoidCallback? onTap) => Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: Space.s2),
       child: Material(
         color: onTap == null ? Hue.paper : Hue.surface,
         shape: const CircleBorder(),
@@ -266,9 +273,12 @@ class _MonthRow extends StatelessWidget {
           excludeSemantics: true,
           child: InkWell(
             onTap: onPick,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.medium),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s1,
+                horizontal: Space.s1,
+              ),
               child: Row(
                 children: [
                   Text(
@@ -278,7 +288,7 @@ class _MonthRow extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Transform.rotate(
                     angle: 1.5708,
                     child: const GlyphIcon(
@@ -346,7 +356,12 @@ class _Main extends StatelessWidget {
     final ink = Hue.accent;
     final next = month == 12 ? 1 : month + 1;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -382,7 +397,7 @@ class _Main extends StatelessWidget {
               ),
               Material(
                 color: Hue.white,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(Radii.large),
                 child: IconButton(
                   tooltip: '改總預算',
                   onPressed: onEdit,
@@ -413,9 +428,9 @@ class _Main extends StatelessWidget {
             ),
             style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           DayBar(passed: current ? passed : days, days: days, today: current),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           if (current)
             Row(
               children: [
@@ -462,7 +477,12 @@ class _NoBudget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s3,
+        Space.s3,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -487,14 +507,14 @@ class _NoBudget extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           FilledButton(
             onPressed: onSet,
             style: solidButton(
               _budgetHue,
               minimumSize: Size(0, 48),
               radius: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(
               '設定預算',

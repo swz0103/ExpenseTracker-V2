@@ -17,10 +17,15 @@ extension _Habits on _ReportsPageState {
         ),
       ),
       Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s4,
+          Space.s4,
+          Space.s4,
+        ),
         decoration: BoxDecoration(
           color: Hue.group,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(Radii.largeIncreased),
         ),
         child: Row(
           children: [
@@ -32,28 +37,30 @@ extension _Habits on _ReportsPageState {
                   (r.$3, Hue.shades[(i + 2) % Hue.shades.length]),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: Space.s4),
             Expanded(
               child: Column(
                 children: [
                   for (final (i, (name, count, amount)) in rows.indexed)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: Space.s1),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 5),
+                            padding: const EdgeInsets.only(top: Space.s1),
                             child: Container(
                               width: 10,
                               height: 10,
                               decoration: BoxDecoration(
                                 color: Hue.shades[(i + 2) % Hue.shades.length],
-                                borderRadius: BorderRadius.circular(3),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.extraSmall,
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: Space.s2),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,7 +110,12 @@ extension _Habits on _ReportsPageState {
     return [
       TitleRow('星期', trailing: const Text('虛線是每天平均', style: mutedSmall)),
       GroupBox(
-        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s2,
+          Space.s4,
+          Space.s2,
+          Space.s2,
+        ),
         child: Column(
           children: [
             SizedBox(
@@ -118,7 +130,7 @@ extension _Habits on _ReportsPageState {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
+                                horizontal: Space.s2,
                               ),
                               child: FractionallySizedBox(
                                 heightFactor: spent <= 0
@@ -129,7 +141,9 @@ extension _Habits on _ReportsPageState {
                                     color: i == heaviest
                                         ? Hue.negative
                                         : softOf(Hue.negative),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: BorderRadius.circular(
+                                      Radii.small,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -150,7 +164,7 @@ extension _Habits on _ReportsPageState {
                 ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Row(
               children: [
                 for (final (i, name) in weekdayNames.indexed)
@@ -189,7 +203,12 @@ extension _Habits on _ReportsPageState {
           ColorCard(
             color: nameColor(tag),
             radius: 16,
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s3,
+              Space.s2,
+              Space.s2,
+              Space.s2,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

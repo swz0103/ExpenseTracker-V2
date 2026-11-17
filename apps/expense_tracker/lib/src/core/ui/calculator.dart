@@ -7,6 +7,8 @@ import '../look/haptics.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import 'amount_keys.dart';
+import '../look/shape.dart';
+import '../look/spacing.dart';
 
 export 'amount_keys.dart';
 
@@ -82,7 +84,7 @@ class AmountTap extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -98,7 +100,7 @@ class AmountTap extends StatelessWidget {
                 ),
                 if (onTap != null)
                   const Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(Space.s3),
                     child: GlyphIcon(
                       Glyph.calculator,
                       size: 20,
@@ -166,7 +168,7 @@ class _CalculatorState extends State<_Calculator> {
         : groupDigits(value.round());
     final working = _keys.working;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,12 +181,17 @@ class _CalculatorState extends State<_Calculator> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           Container(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s4,
+              Space.s3,
+              Space.s4,
+              Space.s4,
+            ),
             decoration: BoxDecoration(
               color: Hue.hero,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(Radii.largeIncreased),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -210,7 +217,7 @@ class _CalculatorState extends State<_Calculator> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           SizedBox(
             height: 5 * 54 + 4 * 8,
             child: Row(
@@ -227,13 +234,13 @@ class _CalculatorState extends State<_Calculator> {
                         ['1', '2', '3'],
                         ['00', '0', if (widget.decimal) '.' else '000'],
                       ].indexed) ...[
-                        if (i > 0) const SizedBox(height: 8),
+                        if (i > 0) const SizedBox(height: Space.s2),
                         Expanded(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (final (j, key) in row.indexed) ...[
-                                if (j > 0) const SizedBox(width: 8),
+                                if (j > 0) const SizedBox(width: Space.s2),
                                 Expanded(child: _key(key)),
                               ],
                             ],
@@ -243,17 +250,17 @@ class _CalculatorState extends State<_Calculator> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(child: _key('×')),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: Space.s2),
                       Expanded(child: _key('−')),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: Space.s2),
                       Expanded(child: _key('+')),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: Space.s2),
                       Expanded(flex: 2, child: _key('完成')),
                     ],
                   ),
@@ -284,9 +291,9 @@ class _CalculatorState extends State<_Calculator> {
       depth: 0.93,
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
           onTap: () => _press(key),
           child: Center(
             child: key == '⌫'

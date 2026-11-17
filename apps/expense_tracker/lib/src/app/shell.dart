@@ -28,6 +28,7 @@ import '../features/recurring/ui/recurring_page.dart';
 import '../features/reports/ui/reports.dart';
 import 'settings_page.dart';
 import '../core/ui/shown_amounts.dart';
+import '../core/look/spacing.dart';
 
 enum _Tab { overview, ledger, accounts, more }
 
@@ -539,7 +540,7 @@ class _BottomBar extends StatelessWidget {
                                 tinted: item == tab,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: Space.half),
                             Text(
                               label,
                               style: TextStyle(

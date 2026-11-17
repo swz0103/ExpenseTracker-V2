@@ -13,6 +13,8 @@ import '../model/reminders.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/spacing.dart';
+import '../../../core/look/shape.dart';
 
 part 'reminders_phone.dart';
 
@@ -178,7 +180,7 @@ class _RemindersSectionState extends State<RemindersSection>
             children: [
               for (final c in choices)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: Space.s2),
                   child: ColorCard(
                     color: SettingsHue.calendar,
                     amount: c.id == chosen ? 0.32 : 0.14,
@@ -302,7 +304,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
             if (onBudgets != null)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(top: Space.s2),
                 child: TextButton.icon(
                   style: wordButton(
                     deepOf(SettingsHue.budget),
@@ -348,7 +350,7 @@ class _RemindersSectionState extends State<RemindersSection>
               radius: 18,
               label: '提醒時間',
               onTap: () => _pickNudgeTime(notifier),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: Space.s4),
               child: Center(
                 child: Text(
                   '${_two(preferences.nudgeHour)} : '
@@ -361,7 +363,7 @@ class _RemindersSectionState extends State<RemindersSection>
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             _ToggleRow(
               color: color,
               title: '準時提醒',
@@ -394,7 +396,7 @@ class _RemindersSectionState extends State<RemindersSection>
               color: color,
               amount: 0.16,
               radius: 18,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
               child: Column(
                 children: [
                   _ToggleRow(
@@ -440,7 +442,7 @@ class _RemindersSectionState extends State<RemindersSection>
                 ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             TextButton(
               style: wordButton(Hue.danger, minimumSize: Size(0, 48)),
               onPressed: () {
@@ -522,7 +524,7 @@ class _RemindersSectionState extends State<RemindersSection>
             ),
         ]),
         if (notifier != null && asked && status != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           _PhoneStrip(
             status: status,
             exact: notifier.preferences.exactReminders,

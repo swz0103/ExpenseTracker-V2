@@ -7,6 +7,8 @@ import '../look/widgets.dart';
 import '../ledger/ledger.dart';
 import 'shown_amounts.dart';
 import '../text/dates.dart';
+import '../look/shape.dart';
+import '../look/spacing.dart';
 
 part 'pickers_days.dart';
 
@@ -25,7 +27,7 @@ Future<T?> showChildPage<T>(
   return showSheet<T>(
     context,
     (context) => Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -37,7 +39,7 @@ Future<T?> showChildPage<T>(
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Flexible(child: builder(context)),
         ],
       ),
@@ -146,11 +148,11 @@ class OptionGrid<T> extends StatelessWidget {
       children: [
         for (final row in rows)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: Space.s2),
             child: Row(
               children: [
                 for (var i = 0; i < columns; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: i < row.length
                         ? _OptionCell(
@@ -188,7 +190,7 @@ class _OptionCell<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final edge = ring;
-    final radius = BorderRadius.circular(14);
+    final radius = BorderRadius.circular(Radii.large);
     return Material(
       color: picked
           ? (edge == null ? Hue.selected : edge.withValues(alpha: 0.12))
@@ -203,12 +205,15 @@ class _OptionCell<T> extends StatelessWidget {
         borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+          padding: const EdgeInsets.symmetric(
+            vertical: Space.s2,
+            horizontal: Space.half,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               RoundIcon(option.icon, option.color, size: 40),
-              const SizedBox(height: 6),
+              const SizedBox(height: Space.s2),
               Text(
                 option.label,
                 maxLines: 1,
@@ -295,7 +300,12 @@ class AccountChoices extends StatelessWidget {
         for (final (name, kinds) in groups)
           if (open.any((a) => kinds.contains(a.kind))) ...[
             Padding(
-              padding: const EdgeInsets.fromLTRB(2, 8, 2, 6),
+              padding: const EdgeInsets.fromLTRB(
+                Space.half,
+                Space.s2,
+                Space.half,
+                Space.s2,
+              ),
               child: Text(
                 name,
                 style: const TextStyle(
@@ -337,11 +347,11 @@ class _Pairs extends StatelessWidget {
       children: [
         for (var i = 0; i < children.length; i += 2)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: Space.s2),
             child: Row(
               children: [
                 Expanded(child: children[i]),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: i + 1 < children.length
                       ? children[i + 1]
@@ -374,7 +384,7 @@ class _AccountChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(14);
+    final radius = BorderRadius.circular(Radii.large);
     return Material(
       color: picked ? ring.withValues(alpha: 0.12) : Hue.surface,
       shape: RoundedRectangleBorder(
@@ -387,7 +397,10 @@ class _AccountChoice extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s2,
+              vertical: Space.s2,
+            ),
             child: Row(
               children: [
                 Container(
@@ -396,7 +409,7 @@ class _AccountChoice extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Hue.white,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(Radii.small),
                   ),
                   child: GlyphIcon(
                     accountIcon(account),
@@ -404,7 +417,7 @@ class _AccountChoice extends StatelessWidget {
                     color: picked ? ring : Hue.muted,
                   ),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

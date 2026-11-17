@@ -91,4 +91,32 @@ void main() {
       }
     }
   });
+
+  test('corners and gaps take a step from Radii and Space', () {
+    // A fraction is a fine adjustment below the grid, and corners past
+    // 48 belong to one drawing; whole numbers otherwise are steps.
+    final radius = RegExp(r'Radius\.circular\((\d+)\)');
+    final insets = RegExp(r'EdgeInsets\.\w+\(([^()]*)\)');
+    final whole = RegExp(r'(?<![\w.])(\d+)(?![\w.])');
+    final gap = RegExp(r'SizedBox\((?:height|width): (\d+)(?![\w.])');
+    const own = ['core/look/shape.dart', 'core/look/spacing.dart'];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (own.any(file.path.endsWith)) continue;
+      for (final (i, line) in file.readAsLinesSync().indexed) {
+        final at = '${file.path}:${i + 1}';
+        for (final m in radius.allMatches(line)) {
+          expect(int.parse(m[1]!), greaterThan(48), reason: '$at: use Radii');
+        }
+        for (final m in insets.allMatches(line)) {
+          for (final n in whole.allMatches(m[1]!)) {
+            expect(n[1], '0', reason: '$at: use Space');
+          }
+        }
+        for (final m in gap.allMatches(line)) {
+          expect(int.parse(m[1]!), greaterThan(24), reason: '$at: use Space');
+        }
+      }
+    }
+  });
 }

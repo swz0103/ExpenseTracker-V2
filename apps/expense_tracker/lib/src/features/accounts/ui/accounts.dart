@@ -12,6 +12,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import 'account_card.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'sort_accounts.dart';
 part 'wallet.dart';
@@ -81,7 +83,7 @@ class _AccountsPageState extends State<AccountsPage> {
         final at = accounts.indexWhere((a) => a.id == _shown);
         final index = at < 0 ? accounts.length - 1 : at;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: PageHeader(
             '我的帳戶',
             trailing: Row(
@@ -106,7 +108,7 @@ class _AccountsPageState extends State<AccountsPage> {
             _NetWorth(ledger: ledger),
             if (ledger.balanceService.unrated.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: Space.s2),
                 child: Text(
                   '尚未取得臺銀匯率，${ledger.balanceService.unrated.map((a) => a.name).join('、')}'
                   '暫不計入總額',
@@ -200,7 +202,7 @@ class _NetWorth extends StatelessWidget {
       child: shown.isEmpty
           ? null
           : Padding(
-              padding: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.only(top: Space.s2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -212,13 +214,15 @@ class _NetWorth extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final (i, (_, _, color)) in shown.indexed) ...[
-                          if (i > 0) const SizedBox(width: 3),
+                          if (i > 0) const SizedBox(width: Space.half),
                           Expanded(
                             flex: max(1, (shares[i] * 1000).round()),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 color: color,
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.extraSmall,
+                                ),
                               ),
                             ),
                           ),
@@ -226,7 +230,7 @@ class _NetWorth extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.s2),
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,

@@ -69,7 +69,7 @@ extension _View on _ComposerState {
           label: '查看收據',
           onTap: () => unawaited(_showReceipt(photos.image(receipt))),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             child: Image(
               image: photos.image(receipt),
               height: 64,
@@ -85,7 +85,7 @@ extension _View on _ComposerState {
       children: [
         if (_marks.isNotEmpty || e.recurring != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: Space.s2),
             child: Wrap(
               spacing: 6,
               children: [
@@ -97,14 +97,19 @@ extension _View on _ComposerState {
         ColorCard(
           color: color,
           radius: 22,
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s4,
+            Space.s4,
+            Space.s4,
+            Space.s4,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   SquareIcon(glyph, color, size: 52),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: Space.s3),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +129,7 @@ extension _View on _ComposerState {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.s2),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
@@ -141,7 +146,7 @@ extension _View on _ComposerState {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         CardGrid(gap: 8, cells),
       ],
     );
@@ -157,10 +162,10 @@ class _ViewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+    padding: const EdgeInsets.fromLTRB(Space.s3, Space.s2, Space.s3, Space.s2),
     decoration: BoxDecoration(
       color: Hue.group,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(Radii.large),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

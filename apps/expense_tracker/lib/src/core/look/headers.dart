@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'glyphs.dart';
 import 'kit/words.dart';
 import 'theme.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// A tab page's title row (總覽, 紀錄, 帳戶, 更多): the title on the left
 /// in 22 px and whatever sits on the right. A page opened from another
@@ -19,7 +21,7 @@ class PageHeader extends StatelessWidget {
     // phone's text is larger.
     return Container(
       constraints: const BoxConstraints(minHeight: 60),
-      margin: const EdgeInsets.only(top: 6),
+      margin: const EdgeInsets.only(top: Space.s2),
       child: Row(
         children: [
           Expanded(
@@ -136,11 +138,14 @@ class StepSwitch extends StatelessWidget {
         hint: labelHint,
         child: InkWell(
           onTap: tap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Radii.small),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s2,
+                vertical: Space.s2,
+              ),
               child: Center(widthFactor: 1, heightFactor: 1, child: words),
             ),
           ),

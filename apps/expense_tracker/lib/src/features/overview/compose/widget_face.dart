@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/look/theme.dart' show Hue;
 import '../../../core/look/widget_hue.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 const _days = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -48,7 +50,12 @@ class WidgetFace extends StatelessWidget {
     final weekTotal = shown['weekTotal'] as String? ?? '';
     return _Card(
       radius: 26,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s2,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,7 +85,7 @@ class WidgetFace extends StatelessWidget {
                   ],
                 ),
                 _BudgetBar(snapshot: shown, height: 8, top: 6),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.s1),
                 Row(
                   children: [
                     Expanded(
@@ -95,7 +102,7 @@ class WidgetFace extends StatelessWidget {
                   ],
                 ),
                 if (week != null && week.length == 7) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: Space.s2),
                   _Week(
                     week: week,
                     total: weekTotal,
@@ -105,7 +112,7 @@ class WidgetFace extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           SizedBox(
             height: 44,
             child: Row(
@@ -119,7 +126,7 @@ class WidgetFace extends StatelessWidget {
                     onTap: onExpense,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Half(
                     label: '收入',
@@ -159,7 +166,12 @@ class WidgetRow extends StatelessWidget {
     final shown = snapshot ?? _empty;
     return _Card(
       radius: 31,
-      padding: const EdgeInsets.fromLTRB(18, 11, 9, 11),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s2,
+        Space.s3,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -189,14 +201,14 @@ class WidgetRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           _Round(
             mark: '−',
             label: '記支出',
             color: WidgetLook.expense,
             onTap: onExpense,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           _Round(
             mark: '＋',
             label: '記收入',
@@ -324,7 +336,7 @@ class _Week extends StatelessWidget {
             if (total.isNotEmpty) Text(total, style: _text(11, WidgetLook.ink)),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Space.s1),
         SizedBox(
           height: 40,
           child: Row(
@@ -333,7 +345,7 @@ class _Week extends StatelessWidget {
               for (var i = 0; i < 7; i++)
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s1),
                     child: week[i] < 0
                         ? const Align(
                             alignment: Alignment.bottomCenter,
@@ -357,7 +369,9 @@ class _Week extends StatelessWidget {
                                 color: i == today
                                     ? WidgetLook.accent
                                     : WidgetLook.bar,
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.small,
+                                ),
                               ),
                             ),
                           ),
@@ -366,7 +380,7 @@ class _Week extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: Space.half),
         Row(
           children: [
             for (var i = 0; i < 7; i++)
@@ -415,13 +429,13 @@ class _Half extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tint,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(mark, style: _text(15, color)),
-              const SizedBox(width: 7),
+              const SizedBox(width: Space.s2),
               Text(label, style: _text(14, color)),
             ],
           ),

@@ -10,6 +10,7 @@ import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
 import 'shown_amounts.dart';
 import '../text/dates.dart';
+import '../look/spacing.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
@@ -143,14 +144,14 @@ class EntryTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s4),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: Space.s2),
           decoration: divider ? ruleBelow : null,
           child: Row(
             children: [
               entryBadge(ledger, entry),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.s3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,7 +185,7 @@ class EntryTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -293,7 +294,7 @@ class DayHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final sum = total;
     return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 4),
+      padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s1),
       child: Row(
         children: [
           Text(formatMMMEd(date), style: mutedSmall),

@@ -8,9 +8,9 @@ class _RepeatSheetState extends State<_RepeatSheet> {
     selected: chosen,
     child: Material(
       color: chosen ? Hue.accent : Hue.surface,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.medium),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Radii.medium),
         onTap: () => setState(onTap),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
@@ -54,7 +54,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
     ];
     final next = nextTimes(_f.build(), _f.start);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -68,31 +68,31 @@ class _RepeatSheetState extends State<_RepeatSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           Row(
             children: [
               for (final (i, (unit, label)) in units.indexed) ...[
-                if (i > 0) const SizedBox(width: 6),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: _cell(label, _f.unit == unit, () => _f.unit = unit),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           switch (_f.unit) {
             RepeatUnit.month => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text('每個月的哪一天', style: mutedSmall),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.s2),
                 _days(),
               ],
             ),
             RepeatUnit.week => Row(
               children: [
                 for (var w = 1; w <= 7; w++) ...[
-                  if (w > 1) const SizedBox(width: 6),
+                  if (w > 1) const SizedBox(width: Space.s2),
                   Expanded(
                     child: _cell(
                       weekdayNames[w - 1],
@@ -107,14 +107,14 @@ class _RepeatSheetState extends State<_RepeatSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text('哪個月', style: mutedSmall),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.s2),
                 CardGrid(columns: 6, gap: 6, [
                   for (var m = 1; m <= 12; m++)
                     _cell('$m', _f.start.month == m, () => _setMonth(m)),
                 ]),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.s3),
                 const Text('哪一天', style: mutedSmall),
-                const SizedBox(height: 8),
+                const SizedBox(height: Space.s2),
                 CardGrid(columns: 7, gap: 6, [
                   for (var d = 1; d <= 31; d++)
                     _cell('$d', _f.start.day == d, () {
@@ -127,7 +127,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
             ),
             RepeatUnit.day => const SizedBox(),
           },
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           Row(
             children: [
               const Text('每', style: TextStyle(fontSize: TextSize.title)),
@@ -162,13 +162,13 @@ class _RepeatSheetState extends State<_RepeatSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Text(
             '接下來：${next.map((d) => formatMd(d)).join('、')}',
             textAlign: TextAlign.center,
             style: mutedSmall,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           PanelButton(
             '完成',
             color: Hue.accent,
@@ -213,7 +213,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     radius: 16,
     onTap: onTap,
     label: '$label $value',
-    padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+    padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s1, Space.s2),
     child: Row(
       children: [
         Expanded(
@@ -251,7 +251,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     amount: 0.18,
     radius: 16,
     onTap: () => setState(() => set(!value)),
-    padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+    padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s2, Space.s2),
     child: Row(
       children: [
         Expanded(
@@ -283,7 +283,7 @@ class _OtherSheetState extends State<_OtherSheet> {
     final start = _f.start;
     final end = _f.end;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,7 +297,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: Space.s3),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -308,7 +308,7 @@ class _OtherSheetState extends State<_OtherSheet> {
                     if (day != null) setState(() => _f.start = day);
                   }),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _date(
                     '結束',
@@ -325,7 +325,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -338,7 +338,7 @@ class _OtherSheetState extends State<_OtherSheet> {
                     (v) => _f.auto = v,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _toggle(
                     '暫停',
@@ -350,7 +350,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           PanelButton(
             '完成',
             color: Hue.accent,

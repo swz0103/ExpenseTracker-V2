@@ -11,6 +11,8 @@ import '../../../core/nav.dart';
 import '../model/tag_summary.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'tag_page.dart';
 
@@ -54,7 +56,7 @@ class _TagsPageState extends State<TagsPage> {
         final tags = ledger.reportService.tagStats;
         final merchants = ledger.reportService.merchantStats;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader('標籤與商家', onBack: widget.nav.back),
           children: [
             Row(
@@ -69,7 +71,7 @@ class _TagsPageState extends State<TagsPage> {
                     onTap: () => setState(() => _merchants = false),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Half(
                     glyph: Glyph.store,
@@ -82,7 +84,7 @@ class _TagsPageState extends State<TagsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             ...(_merchants ? _merchantList(merchants) : _tagList()),
           ],
         );
@@ -111,7 +113,12 @@ class _TagsPageState extends State<TagsPage> {
       ),
       for (final (year, names) in tagsByYear(ledger)) ...[
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s1,
+            Space.s5,
+            Space.s1,
+            Space.s2,
+          ),
           child: Text(
             '$year',
             style: const TextStyle(
@@ -128,7 +135,10 @@ class _TagsPageState extends State<TagsPage> {
               radius: 16,
               label: '#$name',
               onTap: () => widget.nav.open(Pages.tag(name)),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              padding: const EdgeInsets.symmetric(
+                vertical: Space.s4,
+                horizontal: Space.s2,
+              ),
               child: Text(
                 '#$name',
                 textAlign: TextAlign.center,
@@ -172,7 +182,7 @@ class _TagsPageState extends State<TagsPage> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             for (final ((name, count, _), rank) in podium) ...[
-              if (rank != podium.first.$2) const SizedBox(width: 10),
+              if (rank != podium.first.$2) const SizedBox(width: Space.s2),
               Expanded(
                 child: _Step(
                   name: name,
@@ -199,7 +209,10 @@ class _TagsPageState extends State<TagsPage> {
               radius: 14,
               label: '$name，$count 次',
               onTap: () => widget.nav.open(Pages.merchant(name)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s4,
+                vertical: Space.s2,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -212,7 +225,7 @@ class _TagsPageState extends State<TagsPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Text(
                     '$count 次',
                     style: TextStyle(
@@ -256,15 +269,17 @@ class _Half extends StatelessWidget {
       label: '$label $count 個',
       excludeSemantics: true,
       child: DecoratedBox(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.large),
+        ),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 52),
@@ -272,7 +287,7 @@ class _Half extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GlyphIcon(glyph, size: 20, color: ink, tinted: false),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.s2),
                   Text(
                     label,
                     style: TextStyle(
@@ -281,7 +296,7 @@ class _Half extends StatelessWidget {
                       color: ink,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Text(
                     '$count',
                     style: TextStyle(fontSize: TextSize.small, color: ink),
@@ -337,14 +352,14 @@ class _Step extends StatelessWidget {
                 color: ink,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: Space.s2),
             Container(
               height: height,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                  bottom: Radius.circular(8),
+                  top: Radius.circular(Radii.large),
+                  bottom: Radius.circular(Radii.small),
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -352,7 +367,7 @@ class _Step extends StatelessWidget {
                   colors: [tintOf(color, 0.45), tintOf(color, 0.2)],
                 ),
               ),
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: Space.s3),
               alignment: Alignment.topCenter,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -413,9 +428,14 @@ class ProjectCard extends StatelessWidget {
     final parts = project.byCategory;
     final spent = project.spent;
     final card = Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -434,14 +454,14 @@ class ProjectCard extends StatelessWidget {
                   children: [
                     if (recent)
                       Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: Space.s2),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+                          horizontal: Space.s2,
+                          vertical: Space.half,
                         ),
                         decoration: BoxDecoration(
                           color: color,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(Radii.small),
                         ),
                         child: const Text(
                           '最近',
@@ -462,7 +482,7 @@ class ProjectCard extends StatelessWidget {
                     ),
                     if (recent)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: Space.s1),
                         child: Text(
                           '#${project.tag}',
                           style: TextStyle(
@@ -478,7 +498,7 @@ class ProjectCard extends StatelessWidget {
               ?menu,
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: Space.s2),
           Text(
             ledger.orDots(groupDigits(spent)),
             style: const TextStyle(
@@ -496,15 +516,15 @@ class ProjectCard extends StatelessWidget {
             ),
           ),
           if (parts.isNotEmpty && spent > 0) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: Space.s4),
             ClipRRect(
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(Radii.extraSmall),
               child: SizedBox(
                 height: 10,
                 child: Row(
                   children: [
                     for (final (i, (name, amount)) in parts.indexed) ...[
-                      if (i > 0) const SizedBox(width: 2),
+                      if (i > 0) const SizedBox(width: Space.half),
                       Expanded(
                         flex: (amount * 1000 ~/ spent).clamp(1, 1000),
                         child: ColoredBox(
@@ -517,7 +537,7 @@ class ProjectCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Wrap(
               spacing: 14,
               runSpacing: 4,
@@ -534,7 +554,7 @@ class ProjectCard extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: Space.s2),
                       Text(
                         '$name ${amount * 100 ~/ spent}%',
                         style: TextStyle(

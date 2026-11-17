@@ -114,7 +114,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ? null
             : buckets[selected];
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: CenterHeader(
             '財務報表',
             onBack: widget.nav.back,
@@ -172,13 +172,13 @@ class _ReportsPageState extends State<ReportsPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             BigSegments(
               items: _tabs,
               selected: _tab,
               onChanged: (i) => setState(() => _tab = i),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             switch (_tab) {
               0 => Sections([
                 for (final w in _flow(
@@ -259,12 +259,17 @@ class _ReportsPageState extends State<ReportsPage> {
               : ledger.orDots(groupDigits(buckets[peak].expense)),
         ),
       ]),
-      const SizedBox(height: 12),
+      const SizedBox(height: Space.s3),
       Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s4,
+          Space.s4,
+          Space.s3,
+        ),
         decoration: BoxDecoration(
           color: Hue.group,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(Radii.largeIncreased),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -281,20 +286,20 @@ class _ReportsPageState extends State<ReportsPage> {
                   ),
                 ),
                 LegendKey(Hue.negative, '支出'),
-                SizedBox(width: 8),
+                SizedBox(width: Space.s2),
                 LegendKey(Hue.positive, '收入'),
-                SizedBox(width: 8),
+                SizedBox(width: Space.s2),
                 LegendKey(Hue.investment, '淨資產', line: true),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             PeriodBars(
               buckets: buckets,
               worth: report.worth,
               selected: selected,
               onSelect: (i) => setState(() => _stretch = i),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             _Readout(
               ledger: ledger,
               label: readout == null ? '整段期間' : _stretchName(readout),
@@ -304,7 +309,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   ? report.worthNow
                   : report.worth.elementAtOrNull(selected),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Space.s2),
             Row(
               children: [
                 Expanded(
@@ -325,7 +330,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             if (ledger.holdings.all.isNotEmpty)
               const Padding(
-                padding: EdgeInsets.only(top: 4),
+                padding: EdgeInsets.only(top: Space.s1),
                 child: Text('過去的股票市值以今日股價估算', style: mutedSmall),
               ),
           ],
@@ -403,12 +408,15 @@ class _ReportsPageState extends State<ReportsPage> {
     return [
       const TitleRow('年度總結'),
       GroupBox(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s4,
+          vertical: Space.s1,
+        ),
         child: Column(
           children: [
             for (final (i, (label, value)) in lines.indexed)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: Space.s2),
                 decoration: i == 0 ? null : ruleAbove,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,7 +522,7 @@ class _ReportsPageState extends State<ReportsPage> {
         },
       ),
       const Padding(
-        padding: EdgeInsets.only(top: 6, left: 4),
+        padding: EdgeInsets.only(top: Space.s2, left: Space.s1),
         child: Text('▲▼ 是跟去年同期比', style: mutedSmall),
       ),
     ];
@@ -544,7 +552,7 @@ class _ReportsPageState extends State<ReportsPage> {
         ),
         child: ListView(
           shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
           children: [
             Text(
               name,
@@ -559,7 +567,7 @@ class _ReportsPageState extends State<ReportsPage> {
               textAlign: TextAlign.center,
               style: mutedSmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             GroupBox(
               // None: a row's 編輯 and 刪除 reach the card's edges.
               padding: EdgeInsets.zero,

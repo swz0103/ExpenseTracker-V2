@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../look/kit/colours.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
+import '../look/shape.dart';
 
 /// Splits [bounds] into one rectangle per value, topics in proportion and
 /// as close to square as the values allow (the squarified layout of
@@ -179,7 +180,7 @@ class _TreemapPainter extends CustomPainter {
       // block.
       final fill = Shade.dark ? tintOf(color, 0.4) : color;
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()..color = faded ? fill.withValues(alpha: 0.4) : fill,
       );
       if (rect.width < 36 || rect.height < 20) continue;

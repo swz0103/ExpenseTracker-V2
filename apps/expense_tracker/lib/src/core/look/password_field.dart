@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// A field for a password, a recovery code or a backup's path: no
 /// autocorrect and no suggestions, so the keyboard neither changes what
@@ -46,7 +48,7 @@ class PasswordField extends StatelessWidget {
           : null,
       decoration: plain
           ? InputDecoration.collapsed(hintText: hint).copyWith(
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(vertical: Space.s2),
               isDense: true,
             )
           : boxed
@@ -55,7 +57,7 @@ class PasswordField extends StatelessWidget {
               filled: true,
               fillColor: Hue.white,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(Radii.medium),
                 borderSide: BorderSide.none,
               ),
             )

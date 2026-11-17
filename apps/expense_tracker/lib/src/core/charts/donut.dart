@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../look/theme.dart';
+import '../look/spacing.dart';
 
 /// A ring cut into [slices], each its value's share of the whole and in
 /// its own colour, clockwise from the top; [center] sits in the hole.
@@ -27,7 +28,10 @@ class Donut extends StatelessWidget {
       child: CustomPaint(
         painter: _DonutPainter(slices, thickness),
         child: Center(
-          child: Padding(padding: EdgeInsets.all(thickness + 4), child: center),
+          child: Padding(
+            padding: EdgeInsets.all(thickness + Space.s1),
+            child: center,
+          ),
         ),
       ),
     );

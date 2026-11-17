@@ -13,6 +13,7 @@ import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/spacing.dart';
 
 /// One account: its balance and this month's flow over [AccountBody].
 class AccountPage extends StatefulWidget {
@@ -49,7 +50,7 @@ class _AccountPageState extends State<AccountPage> {
         final balance = ledger.balanceService.balance(account.id);
         final (into, out) = monthFlow(ledger, account);
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(12, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s3, 0, Space.s5, Space.s8),
           header: CenterHeader(
             account.name,
             onBack: widget.nav.back,
@@ -71,7 +72,7 @@ class _AccountPageState extends State<AccountPage> {
           ),
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: Space.s2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -203,7 +204,7 @@ class _AccountBodyState extends State<AccountBody> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Row(
             children: [
               Expanded(
@@ -213,7 +214,7 @@ class _AccountBodyState extends State<AccountBody> {
                   onTap: () => _record(account),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: _Action(
                   icon: Glyph.transfer,
@@ -222,7 +223,7 @@ class _AccountBodyState extends State<AccountBody> {
                 ),
               ),
               if (reconcilable) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: _Action(
                     icon: Glyph.calculator,
@@ -255,7 +256,12 @@ class _AccountBodyState extends State<AccountBody> {
           const Text('這個月沒有紀錄', style: TextStyle(color: Hue.muted)),
         for (final MapEntry(key: day, value: list) in days.entries) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s1,
+              Space.s2,
+              Space.s1,
+              Space.s2,
+            ),
             child: Row(
               children: [
                 Text(
@@ -313,12 +319,15 @@ class _Action extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GroupBox(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s2,
+        horizontal: Space.s1,
+      ),
       onTap: onTap,
       child: Column(
         children: [
           SquareIcon(icon, Hue.accent, size: 30),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           Text(
             label,
             maxLines: 1,

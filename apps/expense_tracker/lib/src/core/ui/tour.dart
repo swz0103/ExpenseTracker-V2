@@ -7,6 +7,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../look/glyphs.dart';
+import '../look/shape.dart';
+import '../look/spacing.dart';
 
 /// One stop of a [Tour]: the place it lights and what it says there.
 final class TourStop {
@@ -132,7 +134,10 @@ class _TourState extends State<Tour> with TickerProviderStateMixin {
     final at = overlay.globalToLocal(target.localToGlobal(Offset.zero));
     final box = (at & target.size).inflate(stop.pad);
     if (!stop.round) {
-      return RRect.fromRectAndRadius(box, const Radius.circular(22));
+      return RRect.fromRectAndRadius(
+        box,
+        const Radius.circular(Radii.largeIncreased),
+      );
     }
     final side = math.max(box.width, box.height);
     return RRect.fromRectAndRadius(
@@ -300,7 +305,12 @@ class _Card extends StatelessWidget {
         color: _paper,
         shape: const StadiumBorder(),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s2,
+            Space.s2,
+            Space.s2,
+            Space.s2,
+          ),
           child: Row(
             children: [
               Container(
@@ -313,7 +323,7 @@ class _Card extends StatelessWidget {
                 alignment: Alignment.center,
                 child: GlyphIcon(stop.glyph, size: 21, color: _accent),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.s3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,7 +350,7 @@ class _Card extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.s3),
               Tooltip(
                 message: label,
                 child: Material(

@@ -14,6 +14,8 @@ import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/spacing.dart';
+import '../../../core/look/shape.dart';
 
 part 'backup_section_manual.dart';
 part 'backup_section_card_row.dart';
@@ -245,11 +247,11 @@ class _BackupSectionState extends State<BackupSection> {
           children: [
             _status(folder: folder),
             if (drive != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.s3),
               _driveCard(drive),
             ],
             if (phone != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: Space.s3),
               _folderCard(phone),
             ],
             const RuleHead('手動'),
@@ -263,7 +265,7 @@ class _BackupSectionState extends State<BackupSection> {
                     onTap: () => _export(widget.backupManager),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Manual(
                     glyph: Glyph.download,
@@ -428,14 +430,19 @@ class BackupHero extends StatelessWidget {
       amount: 0.22,
       onTap: onTap,
       label: '$small，$big',
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               SquareIcon(Glyph.safe, color, size: 56),
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +469,10 @@ class BackupHero extends StatelessWidget {
                 const GlyphIcon(Glyph.next, size: 18, color: Hue.muted),
             ],
           ),
-          if (trailing != null) ...[const SizedBox(height: 12), trailing!],
+          if (trailing != null) ...[
+            const SizedBox(height: Space.s3),
+            trailing!,
+          ],
         ],
       ),
     );
@@ -493,7 +503,12 @@ class _BackupCard extends StatelessWidget {
     final change = onChanged;
     return ColorCard(
       color: color,
-      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         children: [
           ToggleRow(
@@ -503,7 +518,7 @@ class _BackupCard extends StatelessWidget {
             child: Row(
               children: [
                 SquareIcon(glyph, color, size: 40),
-                const SizedBox(width: 14),
+                const SizedBox(width: Space.s4),
                 Expanded(
                   child: Text(
                     title,
@@ -525,7 +540,7 @@ class _BackupCard extends StatelessWidget {
           ),
           for (final row in rows) ...[
             Padding(
-              padding: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.only(right: Space.s2),
               child: Divider(height: 12, color: tintOf(color, 0.4)),
             ),
             row,

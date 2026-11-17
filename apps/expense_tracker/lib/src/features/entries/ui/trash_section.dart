@@ -11,6 +11,7 @@ import '../../../core/look/settings_hue.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/spacing.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;
@@ -61,7 +62,7 @@ class TrashSection extends StatelessWidget {
           child: Row(
             children: [
               const SquareIcon(Glyph.reset, SettingsHue.trash, size: 54),
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -86,7 +87,12 @@ class TrashSection extends StatelessWidget {
         ),
         for (final MapEntry(key: day, value: group) in days.entries) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s2,
+              Space.s4,
+              Space.s2,
+              Space.s2,
+            ),
             child: Text(
               '${formatMEd(day)} 記的',
               style: const TextStyle(
@@ -122,7 +128,7 @@ class TrashSection extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           RowFigure(ledger.orDots(groupDigits(e.amount))),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           FilledButton(
             onPressed: () => _restore(context, t),
             style: solidButton(
@@ -130,7 +136,7 @@ class TrashSection extends StatelessWidget {
               ink: Hue.accent,
               minimumSize: Size(56, 44),
               radius: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s4),
             ),
             child: const Text(
               '放回',

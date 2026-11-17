@@ -9,6 +9,8 @@ import '../../../../core/ui/entry_tile.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/shown_amounts.dart';
 import '../../../../core/text/dates.dart';
+import '../../../../core/look/shape.dart';
+import '../../../../core/look/spacing.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -127,7 +129,7 @@ class _DailySectionState extends State<DailySection> {
         ),
       ),
       const Padding(
-        padding: EdgeInsets.only(top: 6),
+        padding: EdgeInsets.only(top: Space.s2),
         child: Wrap(
           alignment: WrapAlignment.center,
           spacing: 10,
@@ -139,7 +141,7 @@ class _DailySectionState extends State<DailySection> {
           ],
         ),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: Space.s4),
       Row(
         children: [
           Flexible(
@@ -153,7 +155,7 @@ class _DailySectionState extends State<DailySection> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: Space.s2),
           Text('${entries.length} 筆', style: mutedSmall),
           const Spacer(),
           // Shrinks rather than overflows when the phone's text is large.
@@ -180,7 +182,7 @@ class _DailySectionState extends State<DailySection> {
           ),
         ],
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: Space.s2),
       _DayCards(
         ledger: ledger,
         entries: entries,
@@ -210,10 +212,10 @@ class _WeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(Space.s1),
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [
@@ -258,10 +260,10 @@ class _WeekStrip extends StatelessWidget {
         onTap: tap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: Space.s2),
           decoration: BoxDecoration(
             color: picked ? chosenFill(Hue.accent) : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Radii.medium),
             border: picked && Shade.dark
                 ? Border.fromBorderSide(chosenEdge(Hue.accent))
                 : null,
@@ -272,7 +274,7 @@ class _WeekStrip extends StatelessWidget {
                 weekdayNames[day.weekday - 1],
                 style: TextStyle(fontSize: TextSize.small, color: ink),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: Space.s1),
               Text(
                 '${day.day}',
                 style: TextStyle(
@@ -281,7 +283,7 @@ class _WeekStrip extends StatelessWidget {
                   color: ink,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: Space.s1),
               SizedBox(
                 height: 6,
                 child: Row(
@@ -329,7 +331,7 @@ class _DayCards extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: Space.s2),
         child: Row(
           children: [
             const Text('這天沒有紀錄', style: TextStyle(color: Hue.muted)),
@@ -351,7 +353,7 @@ class _DayCards extends StatelessWidget {
         // Out to the screen's edge, so the row reads as going on.
         clipBehavior: Clip.none,
         itemCount: entries.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: Space.s2),
         itemBuilder: (context, i) => _card(entries[i]),
       ),
     );
@@ -370,7 +372,12 @@ class _DayCards extends StatelessWidget {
         amount: 0.16,
         label: '${e.title}，$amount',
         onTap: () => onTap(e),
-        padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s2,
+          Space.s2,
+          Space.s2,
+          Space.s2,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

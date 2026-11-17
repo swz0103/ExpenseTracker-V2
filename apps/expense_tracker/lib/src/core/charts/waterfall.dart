@@ -6,6 +6,7 @@ import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
 import '../text/dates.dart';
+import '../look/shape.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's
@@ -128,7 +129,7 @@ class _WaterfallPainter extends CustomPainter {
         max(max(from, to), min(from, to) + 2),
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(Radii.extraSmall)),
         Paint()
           ..color = picked || selected < 0
               ? color

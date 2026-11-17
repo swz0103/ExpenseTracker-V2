@@ -13,6 +13,8 @@ import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'holding_bento.dart';
 
@@ -40,7 +42,7 @@ class HoldingPage extends StatelessWidget {
         final trades = ledger.entryQueryService.tradesOf(code);
         if (held == null) {
           return HeadedList(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
             header: CenterHeader(code, onBack: nav.back),
             children: [
               _SoldOut(ledger: ledger, trades: trades),
@@ -58,11 +60,11 @@ class HoldingPage extends StatelessWidget {
         final lots = ledger.holdings.lotsOf(code);
         final average = held.shares == 0 ? 0 : held.cost / held.shares;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
           header: CenterHeader('${held.name} $code', onBack: nav.back),
           children: [
             _PriceCard(ledger: ledger, held: held, quoted: quoted),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             _PriceChart(
               ledger: ledger,
               nav: nav,
@@ -73,7 +75,7 @@ class HoldingPage extends StatelessWidget {
                   if (e.type == EntryType.buy && e.shares > 0) e,
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Builder(
               builder: (context) {
                 final rate = returnOf(ledger, code: code);
@@ -105,7 +107,7 @@ class HoldingPage extends StatelessWidget {
                         ],
                       ),
                     ]),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: Space.s2),
                     _DividendCard(
                       ledger: ledger,
                       total: held.dividends,
@@ -117,7 +119,7 @@ class HoldingPage extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             Row(
               children: [
                 for (final (i, (type, label, color)) in const [
@@ -125,7 +127,7 @@ class HoldingPage extends StatelessWidget {
                   (EntryType.sell, '賣出', _sellHue),
                   (EntryType.dividend, '記股息', _dividendHue),
                 ].indexed) ...[
-                  if (i > 0) const SizedBox(width: 8),
+                  if (i > 0) const SizedBox(width: Space.s2),
                   Expanded(
                     child: PanelButton(
                       label,
@@ -184,7 +186,12 @@ class _DividendCard extends StatelessWidget {
     return ColorCard(
       color: _dividendHue,
       amount: 0.22,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -235,14 +242,14 @@ class _DividendCard extends StatelessWidget {
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           if (months.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             Semantics(
               label: '配息月份 ${months.join('、')} 月',
               child: ExcludeSemantics(
                 child: Row(
                   children: [
                     for (var m = 1; m <= 12; m++) ...[
-                      if (m > 1) const SizedBox(width: 4),
+                      if (m > 1) const SizedBox(width: Space.s1),
                       Expanded(
                         child: Container(
                           height: 12,
@@ -250,7 +257,9 @@ class _DividendCard extends StatelessWidget {
                             color: months.contains(m)
                                 ? _dividendHue
                                 : Hue.white.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(
+                              Radii.extraSmall,
+                            ),
                           ),
                         ),
                       ),
@@ -340,7 +349,7 @@ class _TradeBoard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.s5),
         TitleRow('交易紀錄', trailing: Text('共 $count 筆', style: mutedSmall)),
         QuoteBoard([
           for (final (i, row) in rows.indexed)
@@ -381,7 +390,10 @@ class _TradeRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s4,
+          vertical: Space.s3,
+        ),
         child: Row(
           children: [
             Container(
@@ -390,11 +402,11 @@ class _TradeRow extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tintOf(color, 0.22),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: GlyphIcon(glyph, size: 20, color: deepOf(color)),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: Space.s3),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,7 +433,7 @@ class _TradeRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Text(
               amount,
               style: TextStyle(
@@ -464,8 +476,13 @@ class _SoldOut extends StatelessWidget {
     }
     final made = sold + dividends - paid;
     return HeroCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      margin: const EdgeInsets.only(bottom: Space.s3),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s5,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -515,7 +532,12 @@ class _PriceCard extends StatelessWidget {
     final before = held.value - held.change;
     final perShare = held.shares == 0 ? 0.0 : held.change / held.shares;
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -538,10 +560,13 @@ class _PriceCard extends StatelessWidget {
           ),
           if (quoted)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s3,
+                vertical: Space.s2,
+              ),
               decoration: BoxDecoration(
                 color: chosenFill(up ? Hue.positive : Hue.negative),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(Radii.large),
               ),
               child: Column(
                 children: [

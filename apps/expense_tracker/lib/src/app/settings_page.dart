@@ -14,6 +14,8 @@ import '../features/entries/ui/trash_section.dart';
 import '../core/look/settings_hue.dart';
 import '../features/lock/ui/security_section.dart';
 import 'about_section.dart';
+import '../core/look/shape.dart';
+import '../core/look/spacing.dart';
 
 /// 設定與資料: the main card says when the ledger was last backed up and
 /// which ways are on (gold after three days without one), then six cards
@@ -50,7 +52,7 @@ class SettingsPage extends StatelessWidget {
       builder: (context, _) {
         final part = this.part;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
           header: CenterHeader(part?.label ?? '設定與資料', onBack: nav.back),
           children: part == null ? _index(context) : _page(context, part),
         );
@@ -76,10 +78,13 @@ class SettingsPage extends StatelessWidget {
     final stale =
         latest != null && DateTime.now().difference(latest).inDays > 3;
     Widget way(String name, bool on) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s2,
+        vertical: Space.s2,
+      ),
       decoration: BoxDecoration(
         color: Hue.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Text(
         '${on ? '✓' : '!'} $name',
@@ -108,7 +113,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
       ],
       CardGrid([
         if (services.notifier != null || services.calendar != null)
@@ -248,13 +253,18 @@ class _Row extends StatelessWidget {
       color: color,
       onTap: onTap,
       label: '$title，$detail',
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s2,
+        Space.s4,
+      ),
       radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SquareIcon(glyph, color, size: 40),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           OneLine(
             title,
             style: TextStyle(

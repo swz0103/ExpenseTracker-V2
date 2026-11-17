@@ -21,7 +21,12 @@ class _Bento extends StatelessWidget {
     return ColorCard(
       color: color,
       amount: 0.22,
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s3,
+        Space.s3,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -170,7 +175,7 @@ class _PriceChartState extends State<_PriceChart> {
             _load();
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         Row(
           children: [
             if (buy != null) ...[
@@ -182,7 +187,7 @@ class _PriceChartState extends State<_PriceChart> {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: Space.s2),
             ],
             Expanded(
               child: buy != null
@@ -215,7 +220,7 @@ class _PriceChartState extends State<_PriceChart> {
               change(first, last, ''),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         SizedBox(
           height: _height,
           child: closes == null || closes.length < 2
@@ -292,7 +297,7 @@ class _PriceChartState extends State<_PriceChart> {
                 ),
         ),
         if (closes != null && closes.length >= 2) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.s1),
           Padding(
             padding: const EdgeInsets.only(right: _gutter),
             child: Row(
@@ -311,7 +316,7 @@ class _PriceChartState extends State<_PriceChart> {
             ),
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         Wrap(
           spacing: 14,
           runSpacing: 4,
@@ -456,7 +461,7 @@ class _LinePainter extends CustomPainter {
       final at = y(v);
       final box = RRect.fromRectAndRadius(
         Rect.fromLTWH(width + 2, at - 10, gutter - 2, 20),
-        const Radius.circular(6),
+        const Radius.circular(Radii.small),
       );
       canvas.drawRRect(box, Paint()..color = color);
       text.paint(

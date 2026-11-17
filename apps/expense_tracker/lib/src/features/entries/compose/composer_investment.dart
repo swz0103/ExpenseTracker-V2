@@ -12,7 +12,7 @@ extension _InvestmentFields on _ComposerState {
     // many at what price; when and from where; then the rest folded away.
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.only(top: Space.s1),
         child: Segments(
           labels: const ['買進', '賣出', '股息'],
           selected: trades.indexOf(_f.trade),
@@ -120,11 +120,11 @@ extension _InvestmentFields on _ComposerState {
         ),
         if (sell && !_viewing)
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: Space.s2),
             child: Row(
               children: [
                 const Padding(
-                  padding: EdgeInsets.only(left: 4, right: 10),
+                  padding: EdgeInsets.only(left: Space.s1, right: Space.s2),
                   child: Text(
                     '成本算法',
                     style: TextStyle(
@@ -147,7 +147,7 @@ extension _InvestmentFields on _ComposerState {
           ),
         if (_f.amount > 0)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: Space.s2),
             child: _OutcomeCard(
               title: cost == null ? '交割' : '已實現損益',
               sub: cost == null
@@ -199,7 +199,7 @@ extension _InvestmentFields on _ComposerState {
           ),
         ],
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Space.s2),
           child: Row(
             children: [
               if (_f.shareChange) ...[
@@ -223,7 +223,7 @@ extension _InvestmentFields on _ComposerState {
                           },
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
               ],
               if (!_f.reducing)
                 Expanded(
@@ -243,7 +243,7 @@ extension _InvestmentFields on _ComposerState {
         ),
         if (!_viewing && !_f.reducing)
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 6, 4, 0),
+            padding: EdgeInsets.fromLTRB(Space.s1, Space.s2, Space.s1, 0),
             child: Text('單筆股息 2 萬以上才扣二代健保，會自動算', style: mutedSmall),
           ),
         _noteField(lines: 2),
@@ -252,7 +252,7 @@ extension _InvestmentFields on _ComposerState {
   }
 
   Widget _operator(String sign) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 5),
+    padding: const EdgeInsets.symmetric(horizontal: Space.s1),
     child: Text(
       sign,
       style: const TextStyle(
@@ -270,7 +270,7 @@ extension _InvestmentFields on _ComposerState {
     final holdings = _ledger.holdings;
     final known = {for (final h in holdings.all) h.code};
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: Row(
         children: [
           Expanded(
@@ -281,7 +281,7 @@ extension _InvestmentFields on _ComposerState {
                   if (code != null && !known.contains(code))
                     _CodePill(code: code, name: '', picked: true, onTap: () {}),
                   for (final h in holdings.all) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: Space.s2),
                     _CodePill(
                       code: h.code,
                       name: _shortName(h.name),
@@ -296,7 +296,7 @@ extension _InvestmentFields on _ComposerState {
           Container(
             width: 1,
             height: 24,
-            margin: const EdgeInsets.only(left: 4),
+            margin: const EdgeInsets.only(left: Space.s1),
             color: Hue.line,
           ),
           _SquareButton(
@@ -377,11 +377,11 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
         Material(
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: const BorderSide(color: Hue.line, width: 1.5),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: add,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 74),
@@ -416,22 +416,22 @@ class _HoldingChoicesState extends State<_HoldingChoices> {
             filled: true,
             fillColor: Hue.surface,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(Radii.large),
               borderSide: BorderSide.none,
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         for (var i = 0; i < cards.length; i += 3)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: Space.s2),
             // Every card in a row as tall as the tallest, 新增 included.
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var j = i; j < i + 3; j++) ...[
-                    if (j > i) const SizedBox(width: 8),
+                    if (j > i) const SizedBox(width: Space.s2),
                     Expanded(
                       child: j < cards.length
                           ? cards[j]
@@ -466,10 +466,13 @@ class _OutcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final figure = value;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s2,
+      ),
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Radii.large),
       ),
       child: Row(
         children: [

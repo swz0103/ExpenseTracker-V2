@@ -89,7 +89,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final picked = await showSheet<int>(
       context,
       (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -100,7 +100,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: Space.s3),
             GridView.count(
               crossAxisCount: 7,
               shrinkWrap: true,
@@ -216,7 +216,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final picked = await showSheet<String>(
       context,
       (context) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -231,7 +231,7 @@ class _AccountEditorState extends State<_AccountEditor> {
             ),
             for (final (group, marks) in accountIconGroups) ...[
               Padding(
-                padding: const EdgeInsets.only(top: 14, bottom: 6),
+                padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
                 child: Text(group, style: accentLabel),
               ),
               GridView.count(
@@ -254,7 +254,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                             picked: key == shown,
                             size: 44,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: Space.s1),
                           Text(
                             name,
                             style: const TextStyle(
@@ -302,7 +302,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 14),
+        const SizedBox(height: Space.s4),
         Row(
           children: [
             if (old != null)
@@ -322,7 +322,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                       : '結清封存',
                 ),
               ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Expanded(
               child: FilledButton(
                 onPressed: _save,
@@ -374,7 +374,7 @@ class _AccountEditorState extends State<_AccountEditor> {
     final shownIcon = _f.icon ?? kindIcon(_f.kind).name;
     return SingleChildScrollView(
       physics: const FitScrollPhysics(16),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,7 +389,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: Space.s3),
                 _EditCard(
                   color: color,
                   icon: accountIcon(_preview),
@@ -404,7 +404,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                   child: Row(
                     children: [
                       for (final (i, kind) in _kinds.indexed) ...[
-                        if (i > 0) const SizedBox(width: 6),
+                        if (i > 0) const SizedBox(width: Space.s2),
                         Expanded(
                           child: ChoicePill(
                             label: switch (kind) {
@@ -478,7 +478,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                               background: Hue.white,
                               onTap: () => setState(() => _f.currency = code),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: Space.s2),
                           ],
                           ChoicePill(
                             label: '更多',
@@ -518,7 +518,7 @@ class _AccountEditorState extends State<_AccountEditor> {
                 _buttons(old),
                 if (old != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.s2),
                     child: Text(
                       '目前 ${widget.ledger.moneyIn(widget.ledger.balanceService.balance(old.id), old.currency)}',
                       textAlign: TextAlign.center,

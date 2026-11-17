@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../glyphs.dart';
 import '../theme.dart';
 import '../kit.dart';
+import '../shape.dart';
+import '../spacing.dart';
 
 // The grey board of rows, the ⋯ menu and what a page shows when empty.
 
@@ -18,7 +20,7 @@ class QuoteBoard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Hue.group,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -68,7 +70,7 @@ class QuoteRow extends StatelessWidget {
         ),
         if (detail != null)
           Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: Space.half),
             child: OneLine(detail!, style: mutedSmall),
           ),
       ],
@@ -78,12 +80,18 @@ class QuoteRow extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 64),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s3,
+          ),
           child: Row(
             children: [
-              if (lead != null) ...[lead!, const SizedBox(width: 14)],
+              if (lead != null) ...[lead!, const SizedBox(width: Space.s4)],
               Expanded(child: words),
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+              if (trailing != null) ...[
+                const SizedBox(width: Space.s2),
+                trailing!,
+              ],
             ],
           ),
         ),
@@ -136,7 +144,9 @@ class DotsMenu extends StatelessWidget {
       color: Hue.white,
       elevation: 8,
       position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.large),
+      ),
       onSelected: (i) => items[i].onTap(),
       itemBuilder: (context) => [
         for (final (i, item) in items.indexed) ...[
@@ -152,7 +162,7 @@ class DotsMenu extends StatelessWidget {
                   tinted: false,
                   color: item.danger ? Hue.danger : Hue.ink,
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: Space.s4),
                 Text(
                   item.label,
                   style: TextStyle(
@@ -171,7 +181,7 @@ class DotsMenu extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           color: const Color(0x33FFFFFF),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.medium),
         ),
         alignment: Alignment.center,
         child: const GlyphIcon(Glyph.more, size: 22, color: Hue.ink),
@@ -203,7 +213,10 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final act = onAction;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.s8,
+        horizontal: Space.s3,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -212,7 +225,7 @@ class EmptyState extends StatelessWidget {
             height: 96,
             decoration: BoxDecoration(
               color: tintOf(color, 0.22),
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(Radii.extraLarge),
             ),
             alignment: Alignment.center,
             child: GlyphIcon(
@@ -221,23 +234,23 @@ class EmptyState extends StatelessWidget {
               color: Color.lerp(tintOf(color, 0.22), color, 0.7),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           Text(
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: TextSize.body, color: Hue.muted),
           ),
           if (action != null && act != null) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: Space.s4),
             FilledButton(
               onPressed: act,
               style: FilledButton.styleFrom(
                 backgroundColor: color,
                 foregroundColor: Hue.onAccent,
                 minimumSize: const Size(0, 52),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: Space.s6),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(Radii.large),
                 ),
                 textStyle: appFont.copyWith(
                   fontSize: TextSize.title,

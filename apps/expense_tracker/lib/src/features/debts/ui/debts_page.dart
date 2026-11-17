@@ -15,8 +15,11 @@ import 'package:domain/loans.dart';
 import '../../../core/ui/icons.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 part 'person_page.dart';
+part 'debts_loan_card.dart';
 
 /// The people paid for, most owed first, open ones only.
 List<Account> peopleOwing(Ledger ledger) =>
@@ -91,7 +94,7 @@ class DebtsPage extends StatelessWidget {
           (sum, a) => sum + owedOn(ledger, a),
         );
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s8),
           header: CenterHeader(
             '代墊與借貸',
             onBack: nav.back,
@@ -114,7 +117,10 @@ class DebtsPage extends StatelessWidget {
             const RuleHead('代墊'),
             if (people.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: Space.s1,
+                  vertical: Space.s2,
+                ),
                 child: Text(
                   '記一筆支出時按「代墊」選人，幫忙付的錢就會記在這裡，收回時在收入選「對方還錢」。',
                   style: mutedSmall,
@@ -132,12 +138,15 @@ class DebtsPage extends StatelessWidget {
             const RuleHead('貸款'),
             if (loans.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: Space.s1,
+                  vertical: Space.s2,
+                ),
                 child: Text('房貸、信貸或車貸，按右上的＋新增。', style: mutedSmall),
               ),
             for (final loan in loans)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: Space.s2),
                 child: _LoanCard(
                   ledger: ledger,
                   loan: loan,
@@ -201,7 +210,12 @@ class _BothWays extends StatelessWidget {
       ],
     );
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s4,
+        Space.s5,
+        Space.s4,
+      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -277,11 +291,16 @@ class _PersonSquare extends StatelessWidget {
       color: color,
       radius: 20,
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s2,
+        Space.s4,
+        Space.s2,
+        Space.s3,
+      ),
       child: Column(
         children: [
           _Initial(person.name),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           Text(
             person.name,
             maxLines: 1,
@@ -313,117 +332,6 @@ class _PersonSquare extends StatelessWidget {
   }
 }
 
-/// How much of a loan is paid, as a ring with the share in the middle.
-class _PaidRing extends StatelessWidget {
-  const _PaidRing({required this.share, required this.color, this.size = 64});
-
-  final double share;
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        CircularProgressIndicator(
-          value: share,
-          strokeWidth: size / 9,
-          strokeCap: StrokeCap.round,
-          color: color,
-          backgroundColor: tintOf(color, 0.3),
-        ),
-        Center(
-          child: Text(
-            '${(share * 100).round()}%',
-            textScaler: TextScaler.noScaling,
-            style: TextStyle(
-              fontSize: size / 4,
-              fontWeight: FontWeight.w800,
-              color: deepOf(color),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// A loan: how much is paid as a ring, its name and amount taken out,
-/// and what is left, on its colour's tint.
-class _LoanCard extends StatelessWidget {
-  const _LoanCard({
-    required this.ledger,
-    required this.loan,
-    required this.onTap,
-  });
-
-  final Ledger ledger;
-  final Account loan;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final share = paidShare(ledger, loan);
-    final principal = loan.principal;
-    final color = nameColor(loan.name);
-    final ink = deepOf(color);
-    return ColorCard(
-      color: color,
-      onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(14, 14, 18, 14),
-      child: Row(
-        children: [
-          if (share != null)
-            _PaidRing(share: share, color: color)
-          else
-            SquareIcon(Glyph.loan, color, size: 52),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loan.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: TextSize.title,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
-                ),
-                if (principal != null)
-                  OneLine(
-                    '原借 ${ledger.orDots(groupDigits(principal))}',
-                    style: TextStyle(fontSize: TextSize.small, color: ink),
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '尚欠',
-                style: TextStyle(fontSize: TextSize.caption, color: ink),
-              ),
-              Text(
-                ledger.orDots(groupDigits(owedOn(ledger, loan))),
-                style: const TextStyle(
-                  fontSize: TextSize.heading,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// A big card in [color]: [lead] on the left, then a small label, the
 /// figure and a line, with the ⋯ menu in the corner.
 class _DebtHero extends StatelessWidget {
@@ -447,9 +355,14 @@ class _DebtHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = deepOf(color);
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s3,
+        Space.s4,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -502,7 +415,7 @@ class _DebtHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [lead, const Spacer(), menu],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 words,
               ],
             );
@@ -511,7 +424,7 @@ class _DebtHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               lead,
-              const SizedBox(width: 16),
+              const SizedBox(width: Space.s4),
               Expanded(child: words),
               menu,
             ],
@@ -544,11 +457,11 @@ class _Action extends StatelessWidget {
     return Material(
       color: solid ? chosenFill(color) : tintOf(color, 0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
         side: solid ? chosenEdge(color) : BorderSide.none,
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Radii.large),
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 54),
@@ -556,7 +469,7 @@ class _Action extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GlyphIcon(glyph, size: 18, color: ink, tinted: false),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Text(
                 label,
                 style: TextStyle(
@@ -582,7 +495,7 @@ List<Widget> _board(
   RuleHead(title),
   if (rows.isEmpty)
     Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s1),
       child: Text(empty, style: mutedSmall),
     )
   else

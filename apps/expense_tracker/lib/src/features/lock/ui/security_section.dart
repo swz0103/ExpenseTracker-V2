@@ -10,6 +10,8 @@ import '../../../core/platform/screen_privacy.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// 安全: four cards: the password, the recovery code, hiding the screens,
 /// and locking the ledger now.
@@ -167,12 +169,17 @@ class _PasswordPanelState extends State<_PasswordPanel> {
   Widget build(BuildContext context) {
     const color = SettingsHue.password;
     Widget field(TextEditingController controller, String label) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: Space.s2),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s2,
+          Space.s4,
+          Space.s1,
+        ),
         decoration: BoxDecoration(
           color: tintOf(color, 0.14),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Radii.large),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

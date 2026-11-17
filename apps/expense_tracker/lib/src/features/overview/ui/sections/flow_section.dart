@@ -5,6 +5,7 @@ import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/look/spacing.dart';
 
 /// 收支對照: six months of income and spending up to the page's month,
 /// with net worth as a line; a tap on a month reads it out.
@@ -108,7 +109,7 @@ class _FlowSectionState extends State<FlowSection> {
           ),
         ],
       ),
-      const SizedBox(height: 4),
+      const SizedBox(height: Space.s1),
       // Wraps to a second line when the phone's text is large.
       Wrap(
         spacing: 12,
@@ -128,7 +129,7 @@ class _FlowSectionState extends State<FlowSection> {
             ),
         ],
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Space.s2),
       Semantics(
         container: true,
         label: [

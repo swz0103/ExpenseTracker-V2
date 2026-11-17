@@ -27,13 +27,18 @@ class _EditCard extends StatelessWidget {
     const plain = InputDecoration(
       isDense: true,
       border: InputBorder.none,
-      contentPadding: EdgeInsets.symmetric(vertical: 6),
+      contentPadding: EdgeInsets.symmetric(vertical: Space.s2),
     );
     return Material(
       color: softOf(color),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(Radii.largeIncreased),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 8, 10),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s4,
+          Space.s2,
+          Space.s2,
+          Space.s2,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -49,7 +54,7 @@ class _EditCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: GlyphIcon(icon, size: 17, color: color),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: Space.s2),
                 Expanded(
                   child: TextField(
                     controller: name,
@@ -92,7 +97,7 @@ class _EditCard extends StatelessWidget {
             Row(
               children: [
                 Text(balanceLabel, style: mutedSmall),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: TextField(
                     controller: balance,
@@ -110,7 +115,7 @@ class _EditCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
               ],
             ),
           ],
@@ -247,7 +252,7 @@ class _Field extends StatelessWidget {
         filled: true,
         fillColor: Hue.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Radii.medium),
           borderSide: BorderSide.none,
         ),
       ),
@@ -274,7 +279,7 @@ class _DayKey extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: picked ? Hue.accent : Hue.tile,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(Radii.small),
         ),
         child: Text(
           '$day',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'type.dart';
+import 'shape.dart';
 
 export 'type.dart';
 
@@ -417,7 +418,9 @@ ThemeData appTheme() {
         color: dark ? Hue.ink : Hue.white,
       ),
       elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.large),
+      ),
     ),
     textTheme: base.textTheme.apply(bodyColor: Hue.ink, displayColor: Hue.ink),
   );

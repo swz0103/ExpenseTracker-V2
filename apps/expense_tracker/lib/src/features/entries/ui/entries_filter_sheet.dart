@@ -7,6 +7,8 @@ import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
@@ -324,7 +326,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           Row(
             children: [
               for (final (i, kind) in KindFilter.values.indexed) ...[
-                if (i > 0) const SizedBox(width: 6),
+                if (i > 0) const SizedBox(width: Space.s2),
                 Expanded(
                   child: _KindTile(
                     kind: kind,
@@ -351,13 +353,13 @@ class _FilterSheetState extends State<_FilterSheet> {
             children: [
               Expanded(child: _AmountField(_least, '最少')),
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
+                padding: EdgeInsets.symmetric(horizontal: Space.s2),
                 child: Text('–', style: TextStyle(color: Hue.muted)),
               ),
               Expanded(child: _AmountField(_most, '最多')),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: Space.s4),
           _ChoiceRow(
             glyph: Glyph.wallet,
             color: Palette.teal,
@@ -368,7 +370,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ? null
                 : () => setState(() => _account = null),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           _ChoiceRow(
             glyph: Glyph.categories,
             color: Palette.orange,
@@ -397,7 +399,7 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 6),
+    padding: const EdgeInsets.only(top: Space.s4, bottom: Space.s2),
     child: Text(text, style: const TextStyle(color: Hue.muted)),
   );
 }
@@ -433,14 +435,14 @@ class _KindTile extends StatelessWidget {
       child: Material(
         color: selected ? chosenFill(color) : tintOf(color, 0.2),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Radii.large),
           side: selected ? chosenEdge(color) : BorderSide.none,
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: Space.s2),
             child: Column(
               children: [
                 GlyphIcon(
@@ -448,7 +450,7 @@ class _KindTile extends StatelessWidget {
                   size: 20,
                   color: selected ? chosenInk(color) : deepOf(color),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Space.s1),
                 Text(
                   kind.label,
                   maxLines: 1,
@@ -490,19 +492,19 @@ class _ChoiceRow extends StatelessWidget {
     final clear = onClear;
     return Material(
       color: Hue.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(Radii.large),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.only(left: 10, right: 4),
+          padding: const EdgeInsets.only(left: Space.s2, right: Space.s1),
           child: Row(
             children: [
               SquareIcon(glyph, color, size: 32),
-              const SizedBox(width: 10),
+              const SizedBox(width: Space.s2),
               Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(width: 12),
+              const SizedBox(width: Space.s3),
               Expanded(
                 child: Text(
                   value,
@@ -527,7 +529,7 @@ class _ChoiceRow extends StatelessWidget {
                 )
               else
                 const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(Space.s3),
                   child: GlyphIcon(Glyph.next, size: 16, color: Hue.muted),
                 ),
             ],
@@ -554,9 +556,12 @@ class _AmountField extends StatelessWidget {
       isDense: true,
       filled: true,
       fillColor: Hue.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s4,
+        vertical: Space.s4,
+      ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Radii.large),
         borderSide: BorderSide.none,
       ),
     ),

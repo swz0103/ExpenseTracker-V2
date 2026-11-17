@@ -112,13 +112,13 @@ extension _LendFields on _ComposerState {
         : _ledger.reportService.owedBy(_f.to);
     if (owed.isEmpty || _viewing) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.s3),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             for (final (i, (e, left)) in owed.indexed) ...[
-              if (i > 0) const SizedBox(width: 8),
+              if (i > 0) const SizedBox(width: Space.s2),
               _OwedCard(
                 title: _owedTitle(e),
                 when: e.group == null
@@ -240,7 +240,7 @@ class _PeopleChoicesState extends State<_PeopleChoices> {
             });
           },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Space.s2),
         SizedBox(
           height: 52,
           child: FilledButton(

@@ -5,6 +5,8 @@ import '../glyphs.dart';
 import '../haptics.dart';
 import '../theme.dart';
 import '../kit.dart';
+import '../shape.dart';
+import '../spacing.dart';
 
 // Cards that carry a figure, their row, the cells under a main figure,
 // the grey group of rows, section and form titles, and small marks.
@@ -72,7 +74,12 @@ class FigureCard extends StatelessWidget {
     return ColorCard(
       color: color,
       radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s3,
+        Space.s4,
+        Space.s3,
+      ),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,7 +87,7 @@ class FigureCard extends StatelessWidget {
           Row(
             children: [
               SquareIcon(icon, color, size: 30),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Expanded(
                 child: OneLine(
                   label,
@@ -94,7 +101,7 @@ class FigureCard extends StatelessWidget {
               ?trailing,
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Space.s2),
           if (side != null)
             // Beside the figure when there is room for both, over it on a
             // narrow phone or with large text, rather than the figure
@@ -157,19 +164,24 @@ class HeroFigure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HeroCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s4,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               SquareIcon(icon, Hue.accent, size: 30),
-              const SizedBox(width: 8),
+              const SizedBox(width: Space.s2),
               Flexible(child: OneLine(label, style: accentLabel)),
               ?beside,
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Wrap(
             spacing: 10,
             runSpacing: 6,
@@ -193,7 +205,7 @@ class HeroFigure extends StatelessWidget {
             ],
           ),
           if (sub case final note?) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: Space.half),
             OneLine(note, style: mutedSmall),
           ],
           ?child,
@@ -214,19 +226,24 @@ class FigureCells extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.only(top: Space.s4),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, (icon, label, value, color)) in items.indexed) ...[
-              if (i > 0) const SizedBox(width: 8),
+              if (i > 0) const SizedBox(width: Space.s2),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s2,
+                    Space.s2,
+                    Space.s2,
+                    Space.s2,
+                  ),
                   decoration: BoxDecoration(
                     color: tintOf(color, 0.16),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Radii.large),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +251,7 @@ class FigureCells extends StatelessWidget {
                       Row(
                         children: [
                           GlyphIcon(icon, size: 14, color: deepOf(color)),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: Space.s1),
                           Expanded(
                             child: OneLine(
                               label,
@@ -246,7 +263,7 @@ class FigureCells extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: Space.half),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
@@ -280,13 +297,13 @@ class CardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: Space.s2),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, card) in cards.indexed) ...[
-              if (i > 0) const SizedBox(width: 8),
+              if (i > 0) const SizedBox(width: Space.s2),
               Expanded(child: card),
             ],
           ],
@@ -302,7 +319,7 @@ class GroupBox extends StatelessWidget {
   const GroupBox({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(Space.s4),
     this.onTap,
   });
 
@@ -312,7 +329,7 @@ class GroupBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(Radii.large);
     final tap = onTap;
     final group = Material(
       color: Hue.group,
@@ -344,7 +361,7 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 10),
+      padding: const EdgeInsets.only(top: Space.s6, bottom: Space.s2),
       child: Row(
         children: [
           Expanded(
@@ -379,13 +396,13 @@ class FormGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final head = title;
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: Space.s4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (head != null)
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              padding: const EdgeInsets.only(left: Space.s1, bottom: Space.s2),
               child: OneLine(
                 head,
                 style: const TextStyle(
@@ -398,9 +415,12 @@ class FormGroup extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: Hue.group,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Radii.large),
             ),
-            child: Padding(padding: const EdgeInsets.all(8), child: child),
+            child: Padding(
+              padding: const EdgeInsets.all(Space.s2),
+              child: child,
+            ),
           ),
         ],
       ),

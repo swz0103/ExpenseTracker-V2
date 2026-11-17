@@ -5,6 +5,8 @@ import '../glyphs.dart';
 import '../haptics.dart';
 import '../theme.dart';
 import '../kit.dart';
+import '../shape.dart';
+import '../spacing.dart';
 
 // Flat tinted cards, their grid, the main card and the big segment buttons.
 
@@ -17,7 +19,7 @@ class ColorCard extends StatelessWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(Space.s4),
     this.radius = 22,
     this.amount = 0.2,
     this.label,
@@ -93,7 +95,12 @@ class SettingCard extends StatelessWidget {
     return ColorCard(
       color: color,
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(16, 16, 10, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s4,
+        Space.s4,
+        Space.s2,
+        Space.s4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -111,7 +118,7 @@ class SettingCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Space.s4),
           OneLine(
             title,
             style: TextStyle(
@@ -120,7 +127,7 @@ class SettingCard extends StatelessWidget {
               color: deepOf(color),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: Space.half),
           OneLine(
             detail,
             style: TextStyle(fontSize: TextSize.small, color: deepOf(color)),
@@ -240,30 +247,40 @@ class _BigSegment extends StatelessWidget {
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Radii.large),
           boxShadow: chosen ? Hue.tileShadow : null,
         ),
         child: Material(
           color: chosen ? chosenFill(color) : tintOf(color, 0.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(Radii.large),
             side: chosen ? chosenEdge(color) : BorderSide.none,
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(Radii.large),
             onTap: onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 52),
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: stacked ? 12 : 8),
+                padding: EdgeInsets.symmetric(
+                  vertical: stacked ? Space.s3 : Space.s2,
+                ),
                 child: stacked
                     ? Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: [icon, const SizedBox(height: 4), word],
+                        children: [
+                          icon,
+                          const SizedBox(height: Space.s1),
+                          word,
+                        ],
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [icon, const SizedBox(width: 8), word],
+                        children: [
+                          icon,
+                          const SizedBox(width: Space.s2),
+                          word,
+                        ],
                       ),
               ),
             ),
@@ -280,7 +297,12 @@ class HeroCard extends StatelessWidget {
   const HeroCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.fromLTRB(20, 16, 20, 16),
+    this.padding = const EdgeInsets.fromLTRB(
+      Space.s5,
+      Space.s4,
+      Space.s5,
+      Space.s4,
+    ),
     this.margin,
   });
 
@@ -294,7 +316,7 @@ class HeroCard extends StatelessWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(Radii.largeIncreased),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

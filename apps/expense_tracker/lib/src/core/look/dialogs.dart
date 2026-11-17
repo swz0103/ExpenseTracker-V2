@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'keys.dart';
 import 'kit/colours.dart';
 import 'theme.dart';
+import 'shape.dart';
+import 'spacing.dart';
 
 /// Asks for a line of text; null when cancelled or left empty.
 Future<String?> askText(
@@ -49,10 +51,20 @@ Future<bool> confirm(
     barrierColor: Hue.scrim,
     builder: (context) => Dialog(
       backgroundColor: Hue.paper,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s6,
+        vertical: Space.s6,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s6,
+          Space.s6,
+          Space.s6,
+          Space.s5,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,7 +78,7 @@ Future<bool> confirm(
               ),
             ),
             if (body != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: Space.s2),
               Text(
                 body,
                 textAlign: TextAlign.center,
@@ -76,7 +88,7 @@ Future<bool> confirm(
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: Space.s5),
             Row(
               children: [
                 Expanded(
@@ -87,7 +99,7 @@ Future<bool> confirm(
                     onTap: () => Navigator.of(context).pop(false),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Space.s3),
                 Expanded(
                   child: _Choice(
                     action,
@@ -126,9 +138,9 @@ class _Choice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: color,
-    borderRadius: BorderRadius.circular(16),
+    borderRadius: BorderRadius.circular(Radii.large),
     child: InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(Radii.large),
       onTap: onTap,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 52),

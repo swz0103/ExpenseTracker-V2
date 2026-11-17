@@ -4,6 +4,8 @@ import '../../../../core/look/app_mark.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/kit/buttons.dart';
 import '../../../../core/look/keys.dart';
+import '../../../../core/look/shape.dart';
+import '../../../../core/look/spacing.dart';
 
 /// Opening a ledger with its password, on the welcome's ground: the mark
 /// and the name, the password as dots that fill in as it is typed (the
@@ -198,19 +200,21 @@ class _UnlockViewState extends State<UnlockView>
                                 child: Semantics(
                                   label: '記帳本',
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(
+                                      Radii.large,
+                                    ),
                                     child: const AppMark(size: _mark),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: Space.s4),
                             _rise(come, _name()),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: Space.s6),
                             _rise(come, _dots()),
                             _rise(come, _problem()),
                             _rise(come, _fingerprint()),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: Space.s2),
                             _rise(come, _forgot()),
                           ],
                         ),

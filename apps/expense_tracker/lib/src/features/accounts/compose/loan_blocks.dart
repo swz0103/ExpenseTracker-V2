@@ -25,7 +25,12 @@ class _AccountBlock extends StatelessWidget {
       radius: 20,
       onTap: onTap,
       label: '$label，${account?.name ?? empty}',
-      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s3,
+        Space.s3,
+        Space.s2,
+        Space.s3,
+      ),
       child: Row(
         children: [
           SquareIcon(
@@ -33,7 +38,7 @@ class _AccountBlock extends StatelessWidget {
             color,
             size: 40,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: Space.s2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

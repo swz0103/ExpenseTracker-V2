@@ -11,26 +11,26 @@ class _AllocationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: Space.s3),
       // 56 high, taller when the phone's text is larger.
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, (category, amount)) in parts.indexed) ...[
-              if (i > 0) const SizedBox(width: 3),
+              if (i > 0) const SizedBox(width: Space.half),
               Expanded(
                 flex: amount <= 0 ? 1 : amount,
                 child: Material(
                   color: shownColor(Color(category.color)),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(Radii.medium),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () => onTap(i),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
+                        horizontal: Space.s2,
+                        vertical: Space.s2,
                       ),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(minHeight: 44),
@@ -98,7 +98,7 @@ class _Pick extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(Radii.large);
     return Semantics(
       button: true,
       label: '$label：$value',
@@ -112,11 +112,14 @@ class _Pick extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s3,
+                vertical: Space.s2,
+              ),
               child: Row(
                 children: [
                   SquareIcon(icon, Hue.accent, size: 30),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: Space.s2),
                   Expanded(
                     child: Text(
                       value,
@@ -163,7 +166,7 @@ class _TransferEnd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(Radii.large);
     return Semantics(
       button: true,
       label: '$label：${account.name}，$after',
@@ -177,7 +180,12 @@ class _TransferEnd extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 60),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(end ? 22 : 12, 9, end ? 10 : 22, 9),
+              padding: EdgeInsets.fromLTRB(
+                end ? Space.s6 : Space.s3,
+                Space.s2,
+                end ? Space.s2 : Space.s6,
+                Space.s2,
+              ),
               child: Row(
                 children: [
                   Container(
@@ -186,7 +194,7 @@ class _TransferEnd extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: Hue.white,
-                      borderRadius: BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(Radii.medium),
                     ),
                     child: GlyphIcon(
                       accountIcon(account),
@@ -194,7 +202,7 @@ class _TransferEnd extends StatelessWidget {
                       color: Hue.muted,
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: Space.s2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +258,7 @@ class _Figure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(Radii.large);
     return Semantics(
       button: true,
       label: '$label：$value',
@@ -269,11 +277,11 @@ class _Figure extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 52),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s3),
               child: Row(
                 children: [
                   SquareIcon(icon, Hue.accent, size: 30),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: Space.s2),
                   Text(
                     label,
                     style: const TextStyle(
@@ -282,7 +290,7 @@ class _Figure extends StatelessWidget {
                       color: Hue.muted,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: Space.s2),
                   Expanded(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -319,7 +327,7 @@ class _EqBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tap = onTap;
-    final radius = BorderRadius.circular(14);
+    final radius = BorderRadius.circular(Radii.large);
     return Semantics(
       button: tap != null,
       label: '$label：$value',
@@ -338,7 +346,10 @@ class _EqBox extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 52),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.s2,
+                vertical: Space.s2,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -395,10 +406,10 @@ class _CodePill extends StatelessWidget {
       label: '$code $name',
       child: Container(
         height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: Space.s3),
         decoration: BoxDecoration(
           color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(Radii.medium),
           border: picked ? Border.all(color: Hue.investment, width: 2) : null,
         ),
         child: Row(
@@ -413,7 +424,7 @@ class _CodePill extends StatelessWidget {
               ),
             ),
             if (name.isNotEmpty) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: Space.s2),
               Text(
                 name,
                 style: TextStyle(
@@ -487,7 +498,7 @@ class _HoldingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(16);
+    final radius = BorderRadius.circular(Radii.large);
     return Material(
       color: picked ? Hue.investment.withValues(alpha: 0.12) : Hue.surface,
       shape: RoundedRectangleBorder(
@@ -500,7 +511,7 @@ class _HoldingCard extends StatelessWidget {
         borderRadius: radius,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(Space.s3),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -554,7 +565,7 @@ class _SquareButton extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Hue.surface,
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(Radii.medium),
         ),
         child: GlyphIcon(icon, size: 19, color: Hue.muted),
       ),

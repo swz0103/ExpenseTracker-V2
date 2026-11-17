@@ -4,6 +4,8 @@ import '../../../core/look/theme.dart';
 import '../model/app_update.dart';
 import '../../../core/look/kit/buttons.dart';
 import '../../../core/look/keys.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// A newer version: its name and what it changes in a few lines, with
 /// 更新, and 晚一點再說 or 略過這一版 under it. Only these close it: not a
@@ -59,10 +61,20 @@ class _UpdatePanelState extends State<_UpdatePanel> {
     final info = widget.info;
     return Dialog(
       backgroundColor: Hue.paper,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: Space.s6,
+        vertical: Space.s6,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.extraLarge),
+      ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        padding: const EdgeInsets.fromLTRB(
+          Space.s6,
+          Space.s6,
+          Space.s6,
+          Space.s5,
+        ),
         child: ListenableBuilder(
           listenable: widget.update,
           builder: (context, _) {
@@ -79,10 +91,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: Space.s4),
                 for (final line in info.notes)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.only(bottom: Space.s2),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -110,7 +122,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                   ),
                 if (_problem case final problem?)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: Space.s2),
                     child: Text(
                       problem,
                       textAlign: TextAlign.center,
@@ -120,10 +132,10 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 18),
+                const SizedBox(height: Space.s4),
                 if (progress != null) ...[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(Radii.extraSmall),
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 8,
@@ -131,7 +143,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                       backgroundColor: Hue.surface,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Space.s2),
                   Text(
                     '下載中 ${(progress * 100).round()}%',
                     textAlign: TextAlign.center,
@@ -147,7 +159,7 @@ class _UpdatePanelState extends State<_UpdatePanel> {
                     color: Hue.positive,
                     onTap: widget.update.busy ? null : _install,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: Space.s2),
                   Row(
                     children: [
                       Expanded(

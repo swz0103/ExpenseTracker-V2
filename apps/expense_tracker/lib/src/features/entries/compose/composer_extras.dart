@@ -31,9 +31,9 @@ extension _Extras on _ComposerState {
             children: [
               Expanded(child: _noteField(lines: 3)),
               if (photos != null && (!_viewing || _f.receipt != null)) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: Space.s2),
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: Space.s2),
                   child: _receiptSquare(photos),
                 ),
               ],
@@ -113,7 +113,7 @@ extension _Extras on _ComposerState {
     // shows, with no heading repeating it.
     if (_viewing) {
       return Padding(
-        padding: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.only(top: Space.s1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: body,
@@ -122,14 +122,17 @@ extension _Extras on _ComposerState {
     }
     final heading = InkWell(
       key: key,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(Radii.medium),
       onTap: _viewing ? null : () => _set(() => _f.more = !_f.more),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s1,
+          vertical: Space.s3,
+        ),
         child: Row(
           children: [
             const GlyphIcon(Glyph.note, size: 18, color: Hue.muted),
-            const SizedBox(width: 8),
+            const SizedBox(width: Space.s2),
             Expanded(
               child: Text(
                 closed,
@@ -152,7 +155,7 @@ extension _Extras on _ComposerState {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: Space.s1),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -210,7 +213,7 @@ extension _Extras on _ComposerState {
                     child: Column(
                       children: [
                         SquareIcon(glyph, _color),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: Space.s2),
                         OneLine(
                           word,
                           style: const TextStyle(
@@ -230,14 +233,14 @@ extension _Extras on _ComposerState {
           width: size,
           constraints: const BoxConstraints(minHeight: size),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             border: Border.all(color: Hue.line, width: 1.5),
           ),
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               GlyphIcon(Glyph.camera, size: 22, color: Hue.muted),
-              SizedBox(height: 4),
+              SizedBox(height: Space.s1),
               Text(
                 '收據',
                 style: TextStyle(
@@ -258,7 +261,7 @@ extension _Extras on _ComposerState {
           label: '查看收據',
           onTap: () => unawaited(_showReceipt(photos.image(receipt))),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
             child: Image(
               image: photos.image(receipt),
               width: size,
@@ -291,7 +294,7 @@ extension _Extras on _ComposerState {
   Future<void> _showReceipt(ImageProvider image) => showDialog<void>(
     context: context,
     builder: (context) => Dialog(
-      insetPadding: const EdgeInsets.all(12),
+      insetPadding: const EdgeInsets.all(Space.s3),
       clipBehavior: Clip.antiAlias,
       child: GestureDetector(
         onTap: () => Navigator.of(context).pop(),

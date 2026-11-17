@@ -12,6 +12,8 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/look/shape.dart';
+import '../../../core/look/spacing.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
 const _csvHue = Palette.periwinkle;
@@ -168,7 +170,7 @@ class _ImportPageState extends State<_ImportPage> {
           children: [
             for (final why in found.problems)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: Space.s2),
                 child: Text(
                   why,
                   style: const TextStyle(fontSize: TextSize.body),
@@ -176,7 +178,7 @@ class _ImportPageState extends State<_ImportPage> {
               ),
             if (found.problems.length < found.skipped)
               const Text('其他的看不懂或是空白行', style: mutedSmall),
-            const SizedBox(height: 10),
+            const SizedBox(height: Space.s2),
             const Text(duplicateRules, style: mutedSmall),
           ],
         ),
@@ -195,7 +197,7 @@ class _ImportPageState extends State<_ImportPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: Space.s5),
               child: CenterHeader(
                 title,
                 onBack: () => Navigator.of(context).pop(),
@@ -214,7 +216,12 @@ class _ImportPageState extends State<_ImportPage> {
     final readFile = widget.readFile;
     final color = _color;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s1,
+        Space.s5,
+        Space.s6,
+      ),
       children: [
         CardGrid([
           _BigChoice(
@@ -233,10 +240,10 @@ class _ImportPageState extends State<_ImportPage> {
         ]),
         const RuleHead('範例'),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(Space.s4),
           decoration: BoxDecoration(
             color: Hue.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Radii.large),
           ),
           child: Text(
             widget.invoices
@@ -247,7 +254,7 @@ class _ImportPageState extends State<_ImportPage> {
             style: const TextStyle(fontSize: TextSize.small, height: 1.5),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         Text(
           widget.invoices
               ? '財政部「消費明細」的 CSV 或載具的 M／D 行都可以，記過的發票不會重複。'
@@ -276,7 +283,12 @@ class _ImportPageState extends State<_ImportPage> {
       for (final c in chosen.categories) c.name,
     ];
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s1,
+        Space.s5,
+        Space.s6,
+      ),
       children: [
         ColorCard(
           color: color,
@@ -325,18 +337,21 @@ class _ImportPageState extends State<_ImportPage> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.s2),
         ColorCard(
           color: Hue.accent,
           amount: 0.1,
           radius: 16,
           onTap: _pickAccount,
           label: widget.invoices ? '付款帳戶' : '沒填帳戶時',
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.s4,
+            vertical: Space.s4,
+          ),
           child: Row(
             children: [
               const GlyphIcon(Glyph.wallet, size: 20, color: Hue.accent),
-              const SizedBox(width: 10),
+              const SizedBox(width: Space.s2),
               Text(
                 widget.invoices ? '付款帳戶' : '沒填帳戶時記到',
                 style: const TextStyle(fontWeight: FontWeight.w700),
@@ -353,7 +368,7 @@ class _ImportPageState extends State<_ImportPage> {
           ),
         ),
         if (added.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.s2),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -361,12 +376,12 @@ class _ImportPageState extends State<_ImportPage> {
               for (final name in added)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: Space.s3,
+                    vertical: Space.s2,
                   ),
                   decoration: BoxDecoration(
                     color: tintOf(_invoiceHue, 0.3),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(Radii.largeIncreased),
                   ),
                   child: Text(
                     '＋ $name',
@@ -382,7 +397,12 @@ class _ImportPageState extends State<_ImportPage> {
         ],
         for (final day in keys) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 16, 6, 8),
+            padding: const EdgeInsets.fromLTRB(
+              Space.s2,
+              Space.s4,
+              Space.s2,
+              Space.s2,
+            ),
             child: Text(
               formatMEd(day),
               style: const TextStyle(
@@ -430,7 +450,12 @@ class _ImportPageState extends State<_ImportPage> {
     final count = _chosen?.entries.length ?? 0;
     return Container(
       color: Hue.paper,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: const EdgeInsets.fromLTRB(
+        Space.s5,
+        Space.s2,
+        Space.s5,
+        Space.s4,
+      ),
       child: PanelButton(
         count == 0 ? '沒有勾選的紀錄' : '匯入 $count 筆',
         color: count == 0 ? null : _color,
@@ -459,11 +484,11 @@ class _BigChoice extends StatelessWidget {
     color: color,
     onTap: onTap,
     label: label,
-    padding: const EdgeInsets.symmetric(vertical: 28),
+    padding: const EdgeInsets.symmetric(vertical: Space.s6),
     child: Column(
       children: [
         SquareIcon(glyph, color, size: 60),
-        const SizedBox(height: 12),
+        const SizedBox(height: Space.s3),
         Text(
           label,
           style: TextStyle(

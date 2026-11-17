@@ -11,6 +11,7 @@ import 'sections/flow_section.dart';
 import 'sections/market_section.dart';
 import 'sections/plan_section.dart';
 import 'sections/summary_section.dart';
+import '../../../core/look/spacing.dart';
 
 /// 總覽: the month in four figures, what falls due, a week of days with
 /// the chosen day's entries, the market, spending against the budget,
@@ -105,7 +106,7 @@ class _OverviewPageState extends State<OverviewPage> {
     final ledger = widget.ledger;
     final preferences = widget.preferences;
     return HeadedList(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s4),
       header: ListenableBuilder(
         listenable: ledger,
         builder: (context, _) => PageHeader(

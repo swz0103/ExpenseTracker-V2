@@ -7,6 +7,8 @@ import '../core/look/widgets.dart';
 import '../core/ledger/ledger.dart';
 import '../core/nav.dart';
 import '../features/debts/ui/debts_page.dart';
+import '../core/look/shape.dart';
+import '../core/look/spacing.dart';
 
 /// 更多: the tools as big icon buttons, three to a row, in three groups,
 /// each with one line on what it is about now.
@@ -37,7 +39,7 @@ class MorePage extends StatelessWidget {
             .fold<int>(0, (sum, a) => sum + owedFrom(ledger, a));
         final left = limit - expense;
         return HeadedList(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(Space.s5, 0, Space.s5, Space.s6),
           header: const PageHeader('更多'),
           children: [
             const RuleHead('報表與投資'),
@@ -169,9 +171,12 @@ class ToolButton extends StatelessWidget {
         child: InkWell(
           key: Keys.tool(label),
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(Radii.largeIncreased),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            padding: const EdgeInsets.symmetric(
+              vertical: Space.s2,
+              horizontal: Space.half,
+            ),
             child: Column(
               children: [
                 Container(
@@ -179,12 +184,12 @@ class ToolButton extends StatelessWidget {
                   height: 62,
                   decoration: BoxDecoration(
                     color: tintOf(color, 0.2),
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(Radii.largeIncreased),
                   ),
                   alignment: Alignment.center,
                   child: GlyphIcon(glyph, size: 30, color: color),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: Space.s2),
                 OneLine(
                   label,
                   alignment: Alignment.center,
@@ -193,7 +198,7 @@ class ToolButton extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: Space.half),
                 OneLine(
                   detail,
                   alignment: Alignment.center,
