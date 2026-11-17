@@ -176,10 +176,10 @@ final class EntryCommands {
     );
   }
 
-  /// Removes the entry with [id] and returns it with its place, for undo.
-  /// Null when there is none, or when taking it away would leave a later
-  /// sale short of shares: that is told through [CommandContext.problem].
-  (int, Entry)? remove(String id) {
+  /// Removes the entry with [id] and returns it, for undo. Null when
+  /// there is none, or when taking it away would leave a later sale short
+  /// of shares: that is told through [CommandContext.problem].
+  Entry? remove(String id) {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return null;
     // Its period, worked out while it still counts.
@@ -202,13 +202,13 @@ final class EntryCommands {
       ),
     );
     if (skipping.isNotEmpty) _context.changed(const {Topic.recurring});
-    return (index, removed);
+    return removed;
   }
 
-  /// Removes every entry of [ids] as one change, and returns each with its
-  /// place, for undo; none when taking them away would leave a later sale
-  /// short of shares, which is told through [CommandContext.problem].
-  List<(int, Entry)> removeAll(Iterable<String> ids) {
+  /// Removes every entry of [ids] as one change, and returns them, for
+  /// undo; none when taking them away would leave a later sale short of
+  /// shares, which is told through [CommandContext.problem].
+  List<Entry> removeAll(Iterable<String> ids) {
     final wanted = {...ids};
     final removed = <(int, Entry)>[
       for (final (i, e) in _entries.indexed)
@@ -235,29 +235,29 @@ final class EntryCommands {
       ),
     );
     if (skipping.isNotEmpty) _context.changed(const {Topic.recurring});
-    return removed;
+    return [for (final (_, e) in removed) e];
   }
 
   /// Puts back what [removeAll] took away, as one change.
-  bool restoreAll(List<(int, Entry)> removed) {
+  bool restoreAll(List<Entry> removed) {
     if (removed.isEmpty) return true;
-    final ids = {for (final (_, e) in removed) e.id};
+    final ids = {for (final e in removed) e.id};
     if (_entries.any((e) => ids.contains(e.id))) return false;
-    for (final (i, e) in removed) {
-      _entries.insert(i.clamp(0, _entries.length), e);
-    }
+    // Back as the latest written, which is where the data source keeps a
+    // record written again: the order is the same after a restart.
+    _entries.addAll(removed);
     if (!_tryReplay(
       () => _entries.removeWhere((e) => ids.contains(e.id)),
-      trades: removed.any((r) => r.$2.isInvestment),
+      trades: removed.any((e) => e.isInvestment),
     )) {
       return false;
     }
     _trash.removeEntries(ids);
-    final back = _unskipping([for (final (_, e) in removed) e]);
+    final back = _unskipping(removed);
     _recurring.replaceExisting(back);
     _context.keep(
       WriteBatch(
-        entries: [for (final (_, e) in removed) e],
+        entries: removed,
         recurring: back,
         dropped: [for (final id in ids) (Collection.trash, id)],
       ),
@@ -268,10 +268,10 @@ final class EntryCommands {
 
   /// Puts back an entry [remove] took away. False, told through
   /// [CommandContext.problem], when it no longer fits the trades kept since.
-  bool restore((int, Entry) removed) {
-    final (index, entry) = removed;
+  bool restore(Entry entry) {
     if (_entries.byId(entry.id) != null) return false;
-    _entries.insert(index.clamp(0, _entries.length), entry);
+    // Back as the latest written, as in [restoreAll].
+    _entries.add(entry);
     if (!_tryReplay(() => _entries.remove(entry), trades: entry.isInvestment)) {
       return false;
     }

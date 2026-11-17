@@ -71,6 +71,7 @@ Service 與 Commands 在第一次用到時才建立，共用同一組 Repository
 - 檔案不用 `part`；依賴只往下，`layers_test` 檢查。
 - 新的查詢一律經 `QueryCache`；讀了哪些主題由 Reader 自動回報，只有從參數拿到的紀錄要在 `reads:` 寫明。
 - `?.` 不會執行參數：先做修改，再把結果交給 `unit?.register…`。
+- 改到多筆紀錄的指令用 `UnitOfWork`；任何指令都由 `round_trip_test` 保證「重開後等於記憶體」，新指令要加進它的隨機動作。
 
 ## 進度
 

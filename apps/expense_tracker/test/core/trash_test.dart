@@ -11,7 +11,7 @@ void main() {
     );
     final count = ledger.entries.length;
     final removed = ledger.entryCommands.remove(entry.id)!;
-    expect(ledger.trash.all.single.entry, same(removed.$2));
+    expect(ledger.trash.all.single.entry, same(removed));
     expect(ledger.trash.all.single.on, ledger.today);
 
     ledger.entryCommands.restoreTrashed(ledger.trash.all.single);
