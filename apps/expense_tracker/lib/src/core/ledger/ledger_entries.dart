@@ -31,7 +31,7 @@ extension LedgerEntries on Ledger {
     final seen = <String>{};
     final named = [
       for (final c in categories)
-        if (categoryNameFree(c.name) && seen.add(c.name.trim())) c,
+        if (categoryNameFree(c.name) && seen.add(c.name.trim())) _trimmed(c),
     ];
     final opened = _accounts.addNew(accounts);
     _categories.addAll(named);

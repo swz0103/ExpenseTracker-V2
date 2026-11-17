@@ -152,11 +152,19 @@ extension LedgerSetup on Ledger {
   bool categoryNameFree(String name, {String? except}) =>
       _categories.isNameFree(name, except: except);
 
+  /// [category] under its name without the spaces around it, as every
+  /// name is compared.
+  Category _trimmed(Category category) {
+    final name = category.name.trim();
+    return name == category.name ? category : category.copyWith(name: name);
+  }
+
   void addCategory(Category category) {
     if (!categoryNameFree(category.name)) {
       problem.value = const NameTaken();
       return;
     }
+    category = _trimmed(category);
     _categories.add(category);
     _changed(const {Topic.categories});
     _keep(WriteBatch(categories: [category]));
@@ -195,6 +203,7 @@ extension LedgerSetup on Ledger {
       problem.value = const NameTaken();
       return;
     }
+    next = _trimmed(next);
     final before = _before;
     final renamed = next.name != name;
     if (renamed) _renameCategory(name, next.name);

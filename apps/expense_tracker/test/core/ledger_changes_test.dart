@@ -113,6 +113,43 @@ void main() {
     expect(dataSource.kept, isEmpty);
   });
 
+  test('a category name is kept without the spaces around it', () async {
+    final ledger = book();
+    ledger.addCategory(Category(' 寵物 ', 'other', 0xFF000000));
+    expect(ledger.category('寵物').name, '寵物');
+    // The same name with spaces is taken, not a second category.
+    ledger.addCategory(Category('寵物', 'other', 0xFF000000));
+    expect(ledger.problem.value, isA<NameTaken>());
+    expect(ledger.categories.where((c) => c.name == '寵物'), hasLength(1));
+    ledger.updateCategory('寵物', ledger.category('寵物').copyWith(name: '毛孩 '));
+    expect(ledger.category('毛孩').id, isNotEmpty);
+    expect(ledger.categories.any((c) => c.name.contains(' ')), isFalse);
+    await ledger.settled;
+    expect(
+      dataSource.kept.expand((b) => b.categories).map((c) => c.name),
+      everyElement(isNot(contains(' '))),
+    );
+  });
+
+  test('categories brought in are kept under trimmed names', () async {
+    final ledger = book();
+    ledger.addAll(
+      const [],
+      categories: [
+        Category(' 寵物', 'other', 0xFF000000),
+        Category('寵物 ', 'other', 0xFF000000),
+      ],
+    );
+    expect(
+      [
+        for (final c in ledger.categories)
+          if (c.name.contains('寵物')) c.name,
+      ],
+      ['寵物'],
+    );
+    await ledger.settled;
+  });
+
   test('taken and reserved category names are refused', () {
     final ledger = book();
     for (final name in ['飲食', '全部支出', '轉帳', '#旅遊', ' ']) {
