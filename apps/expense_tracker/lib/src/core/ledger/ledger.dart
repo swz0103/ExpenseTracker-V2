@@ -16,9 +16,11 @@ import 'cache/topic_notifier.dart';
 import 'card_cycle.dart';
 import 'persistence/ledger_data_source.dart';
 import 'persistence/write_queue.dart';
-import 'portfolio.dart';
+import 'repositories/account_repository.dart';
 import 'repositories/budget_repository.dart';
 import 'repositories/category_repository.dart';
+import 'repositories/holding_repository.dart';
+import 'repositories/market_data_repository.dart';
 import 'repositories/entry_repository.dart';
 import 'repositories/recurring_repository.dart';
 import 'repositories/trash_repository.dart';
@@ -55,24 +57,27 @@ final class Ledger extends ChangeNotifier {
     Map<String, double> rates = const {},
     List<Trashed> trash = const [],
     Map<String, double> moves = const {},
-    this._quotedOn,
+    DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
     Map<String, String> receipts = const {},
     Map<String, String> drafts = const {},
   }) : _clock = clock ?? (() => today),
        _drafts = Drafts(drafts),
        _day = today,
-       _quoteDays = {...quoteDays},
        _receipts = Receipts(receipts),
-       _rates = {...rates},
-       _moves = {...moves},
+       _market = MarketDataRepository(
+         rates: rates,
+         moves: moves,
+         quotedOn: quotedOn,
+         quoteDays: quoteDays,
+       ),
        _trash = TrashRepository(trash),
-       _accounts = [...accounts],
+       _accounts = AccountRepository(accounts),
        _categories = CategoryRepository(categories),
        _entries = EntryRepository(entries),
-       _startHoldings = [...holdings],
        _budgets = BudgetRepository(budgets),
        _recurring = RecurringRepository(recurring) {
+    _holdings = HoldingRepository(holdings, moveOf: _market.moveOf);
     _replay(lenient: true);
     amounts.addListener(_signal);
     final source = dataSource;
@@ -112,10 +117,11 @@ final class Ledger extends ChangeNotifier {
   /// The last change the [data source] refused, for the screens to report.
   final problem = ValueNotifier<Object?>(null);
 
-  final List<Account> _accounts;
+  final AccountRepository _accounts;
   final CategoryRepository _categories;
   final EntryRepository _entries;
-  final List<Holding> _startHoldings;
+  final MarketDataRepository _market;
+  late final HoldingRepository _holdings;
   final BudgetRepository _budgets;
   final RecurringRepository _recurring;
 
@@ -157,51 +163,26 @@ final class Ledger extends ChangeNotifier {
 
   /// The trading day of the newest closing price the holdings are
   /// valued at; null when none was fetched yet.
-  DateTime? get quotedOn => _quotedOn;
+  DateTime? get quotedOn => _market.quotedOn;
 
   /// Whether [code] has a fetched close, rather than the price it was
   /// last bought at standing in for one.
-  bool hasQuote(String code) => _startHoldings.any((h) => h.code == code);
-  DateTime? _quotedOn;
+  bool hasQuote(String code) => _holdings.hasQuote(code);
 
   /// The day of [code]'s kept close, when it is older than [quotedOn]:
   /// the last trading day of a stock not traded since, or a close kept
   /// from before when the latest could not be fetched. Null when it is
   /// the latest, or not known.
-  DateTime? olderQuote(String code) {
-    final day = _quoteDays[code];
-    final latest = _quotedOn;
-    if (day == null || latest == null || !day.isBefore(latest)) return null;
-    return day;
-  }
-
-  final Map<String, DateTime> _quoteDays;
-
-  /// Each stock's change on its last trading day, per share, by code.
-  final Map<String, double> _moves;
-  final Map<String, double> _rates;
-
-  /// The holdings replayed from [_startHoldings] and the entries.
-  late Portfolio _portfolio;
-
-  /// The holdings replayed, with the day's change where a close gave one.
-  List<Holding> get _holdings => _moved ??= [
-    for (final h in _portfolio.holdings)
-      if (_moves[h.code] case final move?)
-        h.withChange((h.shares * move).round())
-      else
-        h,
-  ];
-  List<Holding>? _moved;
+  DateTime? olderQuote(String code) => _market.olderQuote(code);
 
   /// The 隱藏金額 switch: amounts written as dots. Its changes reach the
   /// screens as a change of how amounts are shown, which leaves every sum
   /// worked out as it was.
   final amounts = AmountVisibility();
 
-  List<Account> get accounts => List.unmodifiable(_accounts);
+  List<Account> get accounts => _accounts.all;
   List<Category> get categories => _categories.all;
-  List<Holding> get holdings => UnmodifiableListView(_holdings);
+  List<Holding> get holdings => _holdings.all;
   List<Budget> get budgets => _budgets.all;
   List<Recurring> get recurring => _recurring.all;
   List<Trashed> get trash => _trash.all;
@@ -211,30 +192,22 @@ final class Ledger extends ChangeNotifier {
       _categories.forEntries(income: income);
 
   /// Whether [id] is an account of this book, archived ones included.
-  bool hasAccount(String id) =>
-      (_accountIndex ??= {for (final a in _accounts) a.id: a}).containsKey(id);
+  bool hasAccount(String id) => _accounts.contains(id);
 
-  Account account(String id) {
-    final accounts = _accountIndex ??= {for (final a in _accounts) a.id: a};
-    return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
-  }
+  Account account(String id) =>
+      _accounts.byId(id) ?? Account(id, id, AccountKind.bank, 0);
 
   Category category(String name) => _categories.byName(name);
 
   /// The lots of [code] still held, oldest first.
-  List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
+  List<Lot> lotsOf(String code) => _holdings.lotsOf(code);
 
   /// What selling [shares] of [code] now would cost: the oldest lots
   /// first, or the average price.
   int saleCost(String code, int shares, {bool average = false}) =>
-      _portfolio.saleCost(code, shares, average: average);
+      _holdings.saleCost(code, shares, average: average);
 
-  Holding? holding(String code) {
-    for (final h in _holdings) {
-      if (h.code == code) return h;
-    }
-    return null;
-  }
+  Holding? holding(String code) => _holdings.byCode(code);
 
   // Entries.
 
@@ -246,7 +219,6 @@ final class Ledger extends ChangeNotifier {
   /// balances by account and day, accounts by id.
   Map<String, _Running>? _running;
   final _balances = <(String, DateTime), int>{};
-  Map<String, Account>? _accountIndex;
 
   /// Answers worked out once per change of what they rest on.
   final _cache = QueryCache();
@@ -276,10 +248,6 @@ final class Ledger extends ChangeNotifier {
     if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
       _running = null;
       _balances.clear();
-    }
-    if (topics.contains(Topic.accounts)) _accountIndex = null;
-    if (topics.contains(Topic.entries) || topics.contains(Topic.market)) {
-      _moved = null;
     }
     _cache.forget(topics);
   }
@@ -332,19 +300,13 @@ final class Ledger extends ChangeNotifier {
     DateTime? quotedOn,
     Map<String, DateTime> quoteDays = const {},
   }) {
-    _startHoldings
-      ..clear()
-      ..addAll(holdings);
-    _quoteDays
-      ..clear()
-      ..addAll(quoteDays);
-    _moves
-      ..clear()
-      ..addAll(moves);
-    _rates
-      ..clear()
-      ..addAll(rates);
-    _quotedOn = quotedOn;
+    _market.replace(
+      rates: rates,
+      moves: moves,
+      quotedOn: quotedOn,
+      quoteDays: quoteDays,
+    );
+    _holdings.replaceStart(holdings);
     _replay(lenient: true);
     _changed(const {Topic.market});
   }
@@ -420,31 +382,18 @@ final class Ledger extends ChangeNotifier {
 
   /// Takes the contents of [fresh], as reloaded from the [data source].
   void _adopt(Ledger fresh) {
-    _accounts
-      ..clear()
-      ..addAll(fresh._accounts);
+    _accounts.replaceWith(fresh._accounts.all);
     _categories.replaceWith(fresh._categories.all);
     _entries
       ..clear()
       ..addAll(fresh._entries);
-    _startHoldings
-      ..clear()
-      ..addAll(fresh._startHoldings);
+    _holdings.replaceStart(fresh._holdings.start);
     _budgets.replaceWith(fresh._budgets.all);
     _recurring.replaceWith(fresh._recurring.all);
-    _rates
-      ..clear()
-      ..addAll(fresh._rates);
     _trash.replaceWith(fresh._trash.all);
-    _moves
-      ..clear()
-      ..addAll(fresh._moves);
     _receipts.replaceWith(fresh._receipts);
     _drafts.replaceWith(fresh._drafts);
-    _quotedOn = fresh._quotedOn;
-    _quoteDays
-      ..clear()
-      ..addAll(fresh._quoteDays);
+    _market.replaceWith(fresh._market);
     _day = fresh.today;
     _replay(lenient: true);
     notifyListeners();

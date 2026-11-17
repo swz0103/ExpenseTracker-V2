@@ -86,7 +86,9 @@ core/ledger/
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
 | `EntryRepository` 索引改增量維護（記一筆後的月份／單日查詢，10 萬筆時 84／36 ms 降到 0.0／0.1 ms） | 完成 |
 | `TrashRepository`（最新在前、依 id 或物件放回、改名合併時一起改），8 個測試 | 完成 |
-| Account、MarketData、Holding Repository | 尚未 |
+| `AccountRepository`（id 索引隨寫入作廢、只加入新 id、原位替換、拖曳排序、移除），9 個測試 | 完成 |
+| `MarketDataRepository`（匯率、當日漲跌、報價日；交出的 Map 不可改、傳入的會複製），8 個測試 | 完成 |
+| `HoldingRepository`（期初持股與重播；賣超時丟出且不動原狀態，寬鬆模式略過；交出的清單之後不變），9 個測試 | 完成 |
 | 分類 id：`Category.id`、`CategoryRefs`、版本 2 資料格式、舊帳本在一個交易裡自動升級，12 個升級測試（含失敗時完全不動、改名只寫一列） | 完成 |
 | `CategoryRepository`（依拖曳位置排序、名稱索引、改名連同子分類、合併後子分類獨立、編輯保留 id 與位置），11 個測試；`allSpending` 移到 `models/budget.dart` | 完成 |
 | `BudgetRepository`（設定、移除、改名時同名只留第一個），8 個測試 | 完成 |

@@ -32,9 +32,8 @@ extension LedgerSetup on Ledger {
 
   /// Puts [account] in place of the one with the same id.
   void updateAccount(Account account) {
-    final index = _accounts.indexWhere((a) => a.id == account.id);
-    if (index < 0) return addAccount(account);
-    final before = _accounts[index];
+    final before = _accounts.byId(account.id);
+    if (before == null) return addAccount(account);
     // A form that does not show a card's moved closes and earlier billing
     // days keeps them.
     account = account.copyWith(
@@ -42,7 +41,7 @@ extension LedgerSetup on Ledger {
       history: account.history.isEmpty ? before.history : null,
     );
     account = _rescheduled(before, account);
-    _accounts[index] = account;
+    _accounts.replace(account);
     _changed(const {Topic.accounts});
     _keep(WriteBatch(accounts: [account]));
   }
@@ -103,13 +102,7 @@ extension LedgerSetup on Ledger {
   /// Puts the accounts of [ids] in that order on 我的帳戶; the others
   /// keep their places.
   void placeAccounts(List<String> ids) {
-    final moved = <Account>[];
-    for (final (place, id) in ids.indexed) {
-      final index = _accounts.indexWhere((a) => a.id == id);
-      if (index < 0 || _accounts[index].place == place) continue;
-      _accounts[index] = _accounts[index].copyWith(place: place);
-      moved.add(_accounts[index]);
-    }
+    final moved = _accounts.place(ids);
     if (moved.isEmpty) return;
     _changed(const {Topic.accounts});
     _keep(WriteBatch(accounts: moved));
@@ -118,11 +111,10 @@ extension LedgerSetup on Ledger {
   /// Corrects [id]'s balance today to [target] by moving its opening
   /// balance, so its history keeps its shape.
   void setBalance(String id, int target) {
-    final index = _accounts.indexWhere((a) => a.id == id);
-    if (index < 0) return;
-    final a = _accounts[index];
+    final a = _accounts.byId(id);
+    if (a == null) return;
     final moved = a.copyWith(opening: a.opening + target - balance(id));
-    _accounts[index] = moved;
+    _accounts.replace(moved);
     _changed(const {Topic.accounts});
     _keep(WriteBatch(accounts: [moved]));
   }
@@ -130,16 +122,14 @@ extension LedgerSetup on Ledger {
   /// Moves the close of [cardId]'s statement scheduled on [scheduled] to
   /// [closesOn], up to a week either way, as a bank does around a holiday.
   void moveClose(String cardId, DateTime scheduled, DateTime closesOn) {
-    final index = _accounts.indexWhere((a) => a.id == cardId);
-    if (index < 0) return;
-    final card = _accounts[index];
+    final card = _accounts.byId(cardId);
+    if (card == null) return;
     final moved = card.copyWith(closes: {...card.closes, scheduled: closesOn});
-    _accounts[index] = moved;
+    _accounts.replace(moved);
     notifyListeners();
     _keep(WriteBatch(accounts: [moved]));
   }
 
-  /// Whether [id] has any entries; an account without can be removed.
   /// Whether anything still names account [id]: an entry, one in the
   /// trash that may come back, or a recurring item. One in use is
   /// archived rather than deleted, so nothing is left pointing nowhere.
@@ -150,9 +140,8 @@ extension LedgerSetup on Ledger {
 
   void removeAccount(String id) {
     if (isUsed(id)) return;
-    final index = _accounts.indexWhere((a) => a.id == id);
-    if (index < 0) return;
-    final removed = _accounts.removeAt(index);
+    final removed = _accounts.remove(id);
+    if (removed == null) return;
     notifyListeners();
     _keep(WriteBatch(dropped: [(Collection.account, removed.id)]));
   }

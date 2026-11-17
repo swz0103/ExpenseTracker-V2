@@ -33,12 +33,7 @@ extension LedgerEntries on Ledger {
       for (final c in categories)
         if (categoryNameFree(c.name) && seen.add(c.name.trim())) c,
     ];
-    final ids = {for (final a in _accounts) a.id};
-    final opened = [
-      for (final a in accounts)
-        if (ids.add(a.id)) a,
-    ];
-    _accounts.addAll(opened);
+    final opened = _accounts.addNew(accounts);
     _categories.addAll(named);
     notifyListeners();
     _keep(WriteBatch(accounts: opened, categories: named, entries: entries));

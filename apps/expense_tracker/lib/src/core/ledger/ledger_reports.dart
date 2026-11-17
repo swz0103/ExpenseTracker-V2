@@ -329,17 +329,15 @@ extension LedgerReports on Ledger {
     return running;
   }
 
-  int get investValue => _holdings.fold(0, (sum, h) => sum + h.value);
-  int get investCost => _holdings.fold(0, (sum, h) => sum + h.cost);
-  int get dayChange => _holdings.fold(0, (sum, h) => sum + h.change);
-  int get realized => _holdings.fold(0, (sum, h) => sum + h.realized);
-  int get totalDividends => _holdings.fold(0, (sum, h) => sum + h.dividends);
+  int get investValue => _holdings.all.fold(0, (sum, h) => sum + h.value);
+  int get investCost => _holdings.all.fold(0, (sum, h) => sum + h.cost);
+  int get dayChange => _holdings.all.fold(0, (sum, h) => sum + h.change);
+  int get realized => _holdings.all.fold(0, (sum, h) => sum + h.realized);
+  int get totalDividends =>
+      _holdings.all.fold(0, (sum, h) => sum + h.dividends);
 
   /// Accounts still open, in their order.
-  List<Account> get openAccounts => [
-    for (final a in _accounts)
-      if (!a.archived) a,
-  ];
+  List<Account> get openAccounts => _accounts.open;
 
   /// The account money usually comes from or goes back to, as for a card
   /// payment or money paid back: the first open NT$ bank account, else
@@ -359,13 +357,13 @@ extension LedgerReports on Ledger {
 
   /// NT$ for one unit of each foreign currency: 臺灣銀行's spot buying
   /// rate, what a foreign balance would fetch today. Empty until fetched.
-  Map<String, double> get rates => Map.unmodifiable(_rates);
+  Map<String, double> get rates => _market.rates;
 
   /// [minor] units of [currency] in whole NT$ at [rates]; null without a
   /// rate for it.
   int? toHome(int minor, String currency) {
     if (currency == homeCode) return minor;
-    final rate = _rates[currency];
+    final rate = _market.rateOf(currency);
     if (rate == null) return null;
     return (minor / _unit(currency) * rate).round();
   }
@@ -377,13 +375,13 @@ extension LedgerReports on Ledger {
     final home = from == homeCode ? amount.toDouble() : _rated(amount, from);
     if (home == null) return null;
     if (to == homeCode) return home.round();
-    final rate = _rates[to];
+    final rate = _market.rateOf(to);
     if (rate == null || rate <= 0) return null;
     return (home / rate * _unit(to)).round();
   }
 
   double? _rated(int minor, String currency) {
-    final rate = _rates[currency];
+    final rate = _market.rateOf(currency);
     return rate == null ? null : minor / _unit(currency) * rate;
   }
 
@@ -397,14 +395,14 @@ extension LedgerReports on Ledger {
 
   /// Counted foreign accounts left out of the totals for want of a rate.
   List<Account> get unrated => [
-    for (final a in _accounts)
-      if (a.foreign && a.inNetWorth && !_rates.containsKey(a.currency)) a,
+    for (final a in _accounts.all)
+      if (a.foreign && a.inNetWorth && _market.rateOf(a.currency) == null) a,
   ];
 
   /// What every counted account holds, debts aside, plus investments.
   int get assets {
     var total = investValue;
-    for (final a in _accounts) {
+    for (final a in _accounts.all) {
       if (!a.kind.isDebt && a.inNetWorth) total += worthOf(a);
     }
     return total;
@@ -418,7 +416,7 @@ extension LedgerReports on Ledger {
 
   int _owed(AccountKind kind) {
     var total = 0;
-    for (final a in _accounts) {
+    for (final a in _accounts.all) {
       if (a.kind == kind && a.inNetWorth) total += -worthOf(a);
     }
     return total < 0 ? 0 : total;
@@ -428,10 +426,10 @@ extension LedgerReports on Ledger {
   /// price, at the end of [day].
   int netWorthAt(DateTime day) {
     var total = 0;
-    for (final h in _holdings) {
-      total += (h.price * _portfolio.sharesOn(h.code, day)).round();
+    for (final h in _holdings.all) {
+      total += (h.price * _holdings.sharesOn(h.code, day)).round();
     }
-    for (final a in _accounts) {
+    for (final a in _accounts.all) {
       if (a.inNetWorth) total += worthOf(a, until: day);
     }
     return total;

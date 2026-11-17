@@ -38,26 +38,18 @@ extension LedgerHoldings on Ledger {
   /// Whether [extra] can join the entries, in place of [replacing]: none
   /// of their trades sells more shares than are held by then.
   bool holdsWith(List<Entry> extra, {Entry? replacing}) {
-    try {
-      Portfolio.replay(_startHoldings, [
-        for (final e in _entries)
-          if (replacing == null || e.id != replacing.id) e,
-        ...extra,
-      ]);
-      return true;
-    } on StateError {
-      // A change that would leave a sale short of shares is refused.
-      return false;
-    }
+    return _holdings.holdsWith([
+      for (final e in _entries)
+        if (replacing == null || e.id != replacing.id) e,
+      ...extra,
+    ]);
   }
 
   /// Rebuilds the holdings from the starting positions and every
   /// investment entry; an oversold trade throws a [StateError], or, when
   /// [lenient], as for a book just loaded, is left out of the holdings.
   void _replay({bool lenient = false}) {
-    // The caller says what changed (_changed); the day's moves rest on
-    // the holdings, so they go now.
-    _moved = null;
-    _portfolio = Portfolio.replay(_startHoldings, _entries, lenient: lenient);
+    // The caller says what changed (_changed).
+    _holdings.replay(_entries, lenient: lenient);
   }
 }
