@@ -11,10 +11,10 @@ core/ledger/
   models/                  account category entry holding budget recurring trashed，一型別一檔，不含狀態
   repositories/            擁有狀態：entry account category budget recurring trash holding market_data draft receipt
   services/                由狀態算出結果：balance statement budget recurring report portfolio entry_validator
-  commands/                協調寫入：entry account category budget recurring holding attachment；unit_of_work
+  commands/                協調寫入：entry account category budget recurring holding attachment
   cache/                   query_cache · topic · topic_notifier
   persistence/             ledger_data_source · sql_ledger_data_source · write_batch · write_queue ·
-                           starter_data · record_upgrade
+                           unit_of_work · starter_data · record_upgrade
   persistence/codec/       一種紀錄一檔的 JSON 轉換 · json_reader（有型別的讀取，取代 `as` 強轉）
 ```
 
@@ -55,7 +55,7 @@ core/ledger/
 
 ## 一個指令怎麼走
 
-**合併分類**（跨 Repository）：`CategoryCommands.mergeCategory(from, into)` 開一個 `UnitOfWork`，依序叫 `entries.moveCategory`、`trash.moveCategory`、`recurring.moveCategory`、`budgets.drop`、`categories.remove`；各 Repository 把動到的紀錄和還原動作登記到 `UnitOfWork`。全部成功後 `UnitOfWork` 組成一個 `WriteBatch` 交給 `WriteQueue`，並通知受影響的 `Topic`；任何一步失敗就逐一還原，畫面沒有半個狀態。
+**合併分類**（跨 Repository）：`mergeCategory(from, into)` 開一個 `UnitOfWork`，依序改 `entries`、`trash.changeEntries`、`recurring.renameCategory`、`budgets.remove`、`categories.removeMerged`；各 Repository 只改自己的狀態並回傳動到的紀錄，由指令登記到 `UnitOfWork`（Repository 不依賴它）。最後 `UnitOfWork.batch` 組成一個 `WriteBatch` 交給 `WriteQueue`，並通知受影響的 `Topic`。這些步驟不會中途失敗；會失敗的只有持股重播，見下一段。
 
 **記一筆賣出**：`EntryCommands.add` → `entries.add` → `holdings.replay`（持股不夠丟 `SharesShort`，`UnitOfWork` 還原 `entries`）→ `receipts` 記收據 → 送出。
 
@@ -81,7 +81,7 @@ core/ledger/
 | `WriteQueue` 獨立（依序寫入、失敗回報、清空後重讀），有 8 個行為測試 | 完成 |
 | `Topic`、`TopicNotifier`（計數與通知）、`QueryCache`（依主題作廢）獨立到 `cache/`，各有單元測試與隨機比對測試 | 完成 |
 | `QueryCache` 自動追蹤依賴（取代手寫 `on:`） | 隨 Repository 完成 |
-| `UnitOfWork` 取代 `_before`／`_since` 與各指令手寫的還原 | 尚未 |
+| `UnitOfWork`（Fowler：`registerDirty`、`registerDeleted`）取代 `_before`／`_since` 的整本比對：合併分類、改名標籤、改名商家只登記動到的紀錄；各 Repository 的批次修改改為回傳動到的紀錄。14 個測試，其中 8 個隨機種子逐步比對舊的整本比對結果，並以刻意漏登記確認測試會失敗 | 完成 |
 | `models/` 依型別拆檔（一型別一檔，`models.dart` 轉出） | 完成 |
 | `EntryRepository`（紀錄清單與月、日、id、退款索引，寫入即自動作廢）與隨機比對測試 | 完成 |
 | `EntryRepository` 索引改增量維護（記一筆後的月份／單日查詢，10 萬筆時 84／36 ms 降到 0.0／0.1 ms） | 完成 |

@@ -24,7 +24,7 @@ final class DataSourceException implements Exception {
 }
 
 /// The kinds of record a [WriteBatch] carries, each kept by its own key: an
-/// account, entry or recurring item by id, a category by name, a budget
+/// account, entry, category or recurring item by id, a budget
 /// by what it covers, a deleted entry and a receipt by the entry's id.
 enum Collection { account, category, entry, budget, recurring, trash, receipt }
 

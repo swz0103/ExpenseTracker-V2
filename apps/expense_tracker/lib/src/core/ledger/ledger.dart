@@ -14,6 +14,7 @@ import 'cache/topic.dart';
 import 'cache/topic_notifier.dart';
 import 'card_cycle.dart';
 import 'persistence/ledger_data_source.dart';
+import 'persistence/unit_of_work.dart';
 import 'persistence/write_queue.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/budget_repository.dart';
@@ -312,68 +313,6 @@ final class Ledger extends ChangeNotifier {
     _changed(const {Topic.market});
   }
 
-  /// What a change of several records left different: every record not
-  /// the very one it was before is kept, and those gone are dropped.
-  WriteBatch _since(_Before before) {
-    List<T> changed<T>(List<T> was, List<T> now, String Function(T) key) {
-      final old = {for (final item in was) key(item): item};
-      return [
-        for (final item in now)
-          if (!identical(old[key(item)], item)) item,
-      ];
-    }
-
-    List<(Collection, String)> gone<T>(
-      Collection collection,
-      List<T> was,
-      List<T> now,
-      String Function(T) key,
-    ) {
-      final kept = {for (final item in now) key(item)};
-      return [
-        for (final item in was)
-          if (!kept.contains(key(item))) (collection, key(item)),
-      ];
-    }
-
-    String entryKey(Entry e) => e.id;
-    String categoryKey(Category c) => c.id;
-    String budgetKey(Budget b) => b.category;
-    String recurringKey(Recurring r) => r.id;
-    return WriteBatch(
-      entries: changed(before.entries, _entries, entryKey),
-      categories: changed(before.categories, _categories.all, categoryKey),
-      budgets: changed(before.budgets, _budgets.all, budgetKey),
-      recurring: changed(before.recurring, _recurring.all, recurringKey),
-      // Entries in the trash follow a rename or a merge too.
-      trash: changed(before.trash, _trash.all, (t) => t.entry.id),
-      dropped: [
-        ...gone(Collection.entry, before.entries, _entries, entryKey),
-        ...gone(
-          Collection.category,
-          before.categories,
-          _categories.all,
-          categoryKey,
-        ),
-        ...gone(Collection.budget, before.budgets, _budgets.all, budgetKey),
-        ...gone(
-          Collection.recurring,
-          before.recurring,
-          _recurring.all,
-          recurringKey,
-        ),
-      ],
-    );
-  }
-
-  _Before get _before => (
-    entries: List.of(_entries),
-    categories: _categories.all,
-    budgets: _budgets.all,
-    recurring: _recurring.all,
-    trash: _trash.all,
-  );
-
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
     _adopt(fresh);
@@ -424,15 +363,6 @@ final class _Running {
     return low == 0 ? 0 : totals[low - 1];
   }
 }
-
-/// The records a change of several may touch, as they were before it.
-typedef _Before = ({
-  List<Entry> entries,
-  List<Category> categories,
-  List<Budget> budgets,
-  List<Recurring> recurring,
-  List<Trashed> trash,
-});
 
 /// A change was refused because it would leave a later sale or reduction
 /// of a stock short of shares.

@@ -181,18 +181,27 @@ extension LedgerSetup on Ledger {
   /// Puts the entries, the deleted entries and the recurring items of
   /// category [from] in [to]: what comes back from 最近刪除 fits the book
   /// as it is now, not as it was.
-  void _moveUses(String from, String to) {
+  ///
+  /// What changed is registered with [unit], when given.
+  void _moveUses(String from, String to, [UnitOfWork? unit]) {
+    Entry? moved(Entry e) =>
+        e.category == from || e.parts.any((p) => p.$1 == from)
+        ? e.withCategory(to, from: from)
+        : null;
+    _changeEntries(moved, unit);
+    unit?.registerAllDirty(_trash.changeEntries(moved));
+    unit?.registerAllDirty(_recurring.renameCategory(from, to));
+  }
+
+  /// Puts what [change] gives in place of each entry it gives one for,
+  /// registering each with [unit], when given.
+  void _changeEntries(Entry? Function(Entry entry) change, UnitOfWork? unit) {
     for (final (i, e) in _entries.indexed) {
-      if (e.category == from || e.parts.any((p) => p.$1 == from)) {
-        _entries[i] = e.withCategory(to, from: from);
-      }
+      final next = change(e);
+      if (next == null) continue;
+      _entries[i] = next;
+      unit?.registerDirty(next);
     }
-    _trash.changeEntries(
-      (e) => e.category == from || e.parts.any((p) => p.$1 == from)
-          ? e.withCategory(to, from: from)
-          : null,
-    );
-    _recurring.renameCategory(from, to);
   }
 
   /// Changes a category's place, name, mark, colour or archive state; a
@@ -204,7 +213,6 @@ extension LedgerSetup on Ledger {
       return;
     }
     next = _trimmed(next);
-    final before = _before;
     final renamed = next.name != name;
     if (renamed) _renameCategory(name, next.name);
     // Whatever the edit built, it is still the category it was, in the
@@ -212,63 +220,58 @@ extension LedgerSetup on Ledger {
     final kept = _categories.replace(renamed ? next.name : name, next)!;
     notifyListeners();
     // Records are kept under the category's id, so a new name is one row.
-    _keep(renamed ? WriteBatch(categories: [kept]) : _since(before));
+    _keep(WriteBatch(categories: [kept]));
   }
 
   /// Moves everything in [from] to [into] and removes [from].
   void mergeCategory(String from, String into) {
     if (from == into) return;
-    final before = _before;
-    _moveUses(from, into);
-    _budgets.remove(from);
-    _categories.removeMerged(from);
+    final unit = UnitOfWork();
+    _moveUses(from, into, unit);
+    if (_budgets.remove(from)) unit.registerDeleted(Collection.budget, from);
+    final (:removed, :freed) = _categories.removeMerged(from);
+    if (removed != null) unit.registerDeleted(Collection.category, removed.id);
+    unit.registerAllDirty(freed);
     notifyListeners();
-    _keep(_since(before));
+    _keep(unit.batch);
   }
 
   /// Renames or merges a tag across every entry; an empty [to] removes it.
   void renameTag(String from, String to) {
-    final before = _before;
+    final unit = UnitOfWork();
     if (to.isEmpty) {
-      _budgets.remove('#$from');
+      if (_budgets.remove('#$from')) {
+        unit.registerDeleted(Collection.budget, '#$from');
+      }
     } else {
-      _budgets.rename('#$from', '#$to');
+      final (:removed, :moved) = _budgets.rename('#$from', '#$to');
+      if (removed) unit.registerDeleted(Collection.budget, '#$from');
+      if (moved != null) unit.registerDirty(moved);
     }
-    for (final (i, e) in _entries.indexed) {
-      if (!e.tags.contains(from)) continue;
-      final tags = {
-        for (final t in e.tags)
-          if (t != from) t,
-        if (to.isNotEmpty) to,
-      }.toList();
-      _entries[i] = e.withLabels(tags: tags);
-    }
-    _trash.changeEntries(
-      (e) => e.tags.contains(from)
-          ? e.withLabels(
-              tags: {
-                for (final t in e.tags)
-                  if (t != from) t,
-                if (to.isNotEmpty) to,
-              }.toList(),
-            )
-          : null,
-    );
+    Entry? retagged(Entry e) => e.tags.contains(from)
+        ? e.withLabels(
+            tags: {
+              for (final t in e.tags)
+                if (t != from) t,
+              if (to.isNotEmpty) to,
+            }.toList(),
+          )
+        : null;
+    _changeEntries(retagged, unit);
+    unit.registerAllDirty(_trash.changeEntries(retagged));
     notifyListeners();
-    _keep(_since(before));
+    _keep(unit.batch);
   }
 
   /// Renames or merges a merchant across every entry; an empty [to]
   /// clears it.
   void renameMerchant(String from, String to) {
-    final before = _before;
-    for (final (i, e) in _entries.indexed) {
-      if (e.merchant == from) _entries[i] = e.withLabels(merchant: to);
-    }
-    _trash.changeEntries(
-      (e) => e.merchant == from ? e.withLabels(merchant: to) : null,
-    );
+    final unit = UnitOfWork();
+    Entry? renamed(Entry e) =>
+        e.merchant == from ? e.withLabels(merchant: to) : null;
+    _changeEntries(renamed, unit);
+    unit.registerAllDirty(_trash.changeEntries(renamed));
     notifyListeners();
-    _keep(_since(before));
+    _keep(unit.batch);
   }
 }

@@ -54,10 +54,12 @@ final class RecurringRepository implements RecurringReader {
   }
 
   /// Moves the items of category [from] to [to].
-  void renameCategory(String from, String to) {
+  List<Recurring> renameCategory(String from, String to) {
+    final changed = <Recurring>[];
     for (final (i, r) in _items.indexed) {
-      if (r.category == from) _items[i] = r.copyWith(category: to);
+      if (r.category == from) changed.add(_items[i] = r.copyWith(category: to));
     }
+    return changed;
   }
 
   /// Whether an item is paid from or into the account [id].

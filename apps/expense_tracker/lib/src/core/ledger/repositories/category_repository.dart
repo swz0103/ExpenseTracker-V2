@@ -130,13 +130,19 @@ final class CategoryRepository implements CategoryReader {
   }
 
   /// Takes away [name], whose entries went elsewhere; those under it are
-  /// no longer under anything.
-  void removeMerged(String name) {
-    _items.removeWhere((c) => c.name == name);
+  /// no longer under anything. Returns the one taken away, if any, and
+  /// those freed.
+  ({Category? removed, List<Category> freed}) removeMerged(String name) {
+    final index = _items.indexWhere((c) => c.name == name);
+    final removed = index < 0 ? null : _items.removeAt(index);
+    final freed = <Category>[];
     for (final (i, c) in _items.indexed) {
-      if (c.parent == name) _items[i] = c.copyWith(clearParent: true);
+      if (c.parent == name) {
+        freed.add(_items[i] = c.copyWith(clearParent: true));
+      }
     }
     _changed();
+    return (removed: removed, freed: freed);
   }
 
   /// Takes the categories of [categories], in their order, as when the
