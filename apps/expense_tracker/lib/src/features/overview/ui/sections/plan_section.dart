@@ -26,7 +26,12 @@ class PlanSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: ledger.watch(const {
+        Topic.budgets,
+        Topic.recurring,
+        Topic.entries,
+      }),
       builder: (context, _) => CardRow([_budgetTile(), _dueTile()]),
     );
   }

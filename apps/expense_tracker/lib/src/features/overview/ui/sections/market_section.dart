@@ -33,7 +33,8 @@ class _MarketSectionState extends State<MarketSection> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: widget.ledger.watch(const {Topic.entries, Topic.market}),
       builder: (context, _) {
         final parts = _market();
         // Nothing to show before the first trade.

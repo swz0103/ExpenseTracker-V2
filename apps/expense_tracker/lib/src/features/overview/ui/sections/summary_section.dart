@@ -16,7 +16,8 @@ class SummarySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ledger,
+      // Only what it shows: a change elsewhere leaves it as it is.
+      listenable: ledger.watch(const {Topic.entries}),
       builder: (context, _) {
         final (year, m) = month;
         return BalanceHero(
