@@ -11,6 +11,7 @@ import '../../../../core/ledger/ledger.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/entry_tile.dart' show holdingLabel;
 import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/text/dates.dart';
 
 /// 投資行情: today's profit and the market value, then each holding's move
 /// as a bar; a tap on one shows its value and gain so far.
@@ -58,7 +59,7 @@ class _MarketSectionState extends State<MarketSection> {
       SectionTitle(
         '投資行情',
         trailing: Text(switch (ledger.marketData.quotedOn) {
-          final d? => '${d.month}/${d.day} 收盤',
+          final d? => '${formatMd(d)} 收盤',
           null => '尚未取得收盤價',
         }, style: mutedSmall),
       ),

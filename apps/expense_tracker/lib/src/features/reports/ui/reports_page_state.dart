@@ -395,7 +395,7 @@ class _ReportsPageState extends State<ReportsPage> {
       if (biggest != null)
         (
           '最大一筆支出',
-          '${biggest.date.month}/${biggest.date.day} ${biggest.title} '
+          '${formatMd(biggest.date)} ${biggest.title} '
               '${ledger.money(biggest.spending)}',
         ),
       if (merchant != null) ('最常去', '${merchant.$1}（${merchant.$2} 次）'),

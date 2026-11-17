@@ -189,7 +189,7 @@ class _PriceChartState extends State<_PriceChart> {
                   ? Text.rich(
                       TextSpan(
                         text:
-                            '${buy.date.year}/${buy.date.month}/${buy.date.day} '
+                            '${formatYMd(buy.date)} '
                             '買 ${groupDigits(buy.shares)} 股',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                         children: [
@@ -204,7 +204,7 @@ class _PriceChartState extends State<_PriceChart> {
                   : Text(
                       shown == null
                           ? (_range == 3 ? '從第一次買到現在' : '這段期間')
-                          : '${shown.$1.year}/${shown.$1.month}/${shown.$1.day} '
+                          : '${formatYMd(shown.$1)} '
                                 '收盤 ${_price(shown.$2)}',
                       style: mutedSmall,
                     ),
@@ -333,8 +333,7 @@ class _PriceChartState extends State<_PriceChart> {
     final start = closes.first.$1;
     final middle = closes[closes.length ~/ 2].$1;
     final long = closes.last.$1.difference(start).inDays > 400;
-    String at(DateTime d) =>
-        long ? '${d.year}/${d.month}' : '${d.month}/${d.day}';
+    String at(DateTime d) => long ? formatYM(d) : formatMd(d);
     return [at(start), at(middle), '現在'];
   }
 }

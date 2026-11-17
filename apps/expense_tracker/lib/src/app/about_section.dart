@@ -14,6 +14,7 @@ import '../features/settings/ui/update_panel.dart';
 import '../features/settings/model/platform_services.dart';
 import '../core/look/settings_hue.dart';
 import '../core/look/app_mark.dart';
+import '../core/text/dates.dart';
 
 /// 關於: the main card says the version and how it stands against the
 /// newest (已是最新, 有新版 with 更新, or the download with its bar); two
@@ -109,7 +110,7 @@ class AboutSection extends StatelessWidget {
             for (final (at, what) in ErrorLog.instance.entries.take(3))
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('${at.month}/${at.day} $what', style: mutedSmall),
+                child: Text('${formatMd(at)} $what', style: mutedSmall),
               ),
           ],
         ),

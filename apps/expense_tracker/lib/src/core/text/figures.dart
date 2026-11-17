@@ -31,12 +31,6 @@ String percentOf(int part, int whole) {
   return '${value > 0 ? '+' : ''}${value.toStringAsFixed(1)}%';
 }
 
-const weekdayNames = ['一', '二', '三', '四', '五', '六', '日'];
-
-/// 「10 月 4 日 · 週日」.
-String longDay(DateTime date) =>
-    '${date.month} 月 ${date.day} 日 · 週${weekdayNames[date.weekday - 1]}';
-
 /// [minor] units of [currency] as people write them: NT$ as [groupDigits],
 /// others with their code and decimals, such as `USD 1,234.50`.
 String amountIn(int minor, String currency) {

@@ -115,7 +115,7 @@ class _Hero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            until == null ? '結餘' : '結餘 · 至 ${until.month}/${until.day}',
+            until == null ? '結餘' : '結餘 · 至 ${formatMd(until)}',
             style: const TextStyle(
               fontSize: TextSize.small,
               fontWeight: FontWeight.w800,

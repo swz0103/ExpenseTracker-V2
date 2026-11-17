@@ -14,6 +14,7 @@ import 'views/restore_view.dart';
 import 'views/unlock_view.dart';
 import 'views/welcome_view.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 /// The first screen of the phone app. A new ledger starts with one tap,
 /// without a password (one can be set later in settings), or from a
@@ -276,7 +277,7 @@ class _LockScreenState extends State<LockScreen> {
       final at = header.createdAt.toLocal();
       String two(int n) => n.toString().padLeft(2, '0');
       about =
-          '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)}'
+          '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)}'
           ' 的備份 · ${header.rows} 筆資料';
     } on Object {
       // A file that is not a backup is said so.
@@ -372,7 +373,7 @@ class _LockScreenState extends State<LockScreen> {
   static String _fileLabel(File file) {
     final at = file.lastModifiedSync();
     String two(int n) => n.toString().padLeft(2, '0');
-    return '${at.year}/${at.month}/${at.day} ${two(at.hour)}:${two(at.minute)} 留下';
+    return '${formatYMd(at)} ${two(at.hour)}:${two(at.minute)} 留下';
   }
 
   static String _driveLabel(DriveFile file) {
@@ -381,7 +382,7 @@ class _LockScreenState extends State<LockScreen> {
     final size = file.size == 0
         ? ''
         : ' · ${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${at.year}/${at.month}/${at.day} '
+    return '${formatYMd(at)} '
         '${two(at.hour)}:${two(at.minute)}$size';
   }
 

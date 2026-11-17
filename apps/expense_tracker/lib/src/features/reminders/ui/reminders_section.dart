@@ -12,6 +12,7 @@ import '../model/reminder_alerts.dart';
 import '../model/reminders.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 part 'reminders_phone.dart';
 
@@ -260,7 +261,7 @@ class _RemindersSectionState extends State<RemindersSection>
                   for (final r in coming)
                     _Chip(
                       color: SettingsHue.reminders,
-                      top: '${r.day.month}/${r.day.day}',
+                      top: formatMd(r.day),
                       bottom: r.title,
                     ),
                 ], gap: 10),

@@ -72,4 +72,23 @@ void main() {
       );
     }
   });
+
+  test('dates are written by core/text/dates.dart, not built by hand', () {
+    final handBuilt = RegExp(
+      r'\.(month|year)\}/\$\{|\.month\} 月 \$\{|\.year\} 年 \$\{|'
+      r'週\$\{weekdayNames\[\w+\.weekday',
+    );
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path.endsWith('core/text/dates.dart')) continue;
+      final lines = file.readAsLinesSync();
+      for (final (i, line) in lines.indexed) {
+        expect(
+          handBuilt.hasMatch(line),
+          isFalse,
+          reason: '${file.path}:${i + 1} builds a date: use dates.dart',
+        );
+      }
+    }
+  });
 }

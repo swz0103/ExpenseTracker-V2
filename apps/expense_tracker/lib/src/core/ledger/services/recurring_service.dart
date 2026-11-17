@@ -6,6 +6,7 @@ import '../repositories/account_repository.dart';
 import '../repositories/entry_repository.dart';
 import '../repositories/market_data_repository.dart';
 import '../repositories/recurring_repository.dart';
+import '../../text/dates.dart';
 
 /// What falls due next for each recurring item, what it has booked and
 /// the entry that would book it.
@@ -90,7 +91,7 @@ final class RecurringService {
   /// [nextDate] as 「10/5」.
   String nextLabel(Recurring item) {
     final d = nextDate(item);
-    return d == null ? '' : '${d.month}/${d.day}';
+    return d == null ? '' : formatMd(d);
   }
 
   /// Active items whose day has come this month but are not yet booked.

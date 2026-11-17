@@ -12,6 +12,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 /// One account: its balance and this month's flow over [AccountBody].
 class AccountPage extends StatefulWidget {
@@ -258,7 +259,7 @@ class _AccountBodyState extends State<AccountBody> {
             child: Row(
               children: [
                 Text(
-                  longDay(day),
+                  formatMMMEd(day),
                   style: const TextStyle(
                     fontSize: TextSize.small,
                     fontWeight: FontWeight.w700,

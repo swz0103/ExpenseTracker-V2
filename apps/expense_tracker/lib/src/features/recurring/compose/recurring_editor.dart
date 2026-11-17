@@ -11,6 +11,7 @@ import '../../../core/ui/calculator.dart';
 import '../../../core/ui/pickers.dart';
 import '../model/recurring_schedule.dart';
 import '../model/recurring_form.dart';
+import '../../../core/text/dates.dart';
 
 part 'recurring_repeat.dart';
 
@@ -144,9 +145,9 @@ class _RecurringEditorState extends State<_RecurringEditor> {
     }
     final start = _f.start;
     final notes = [
-      '${start.month}/${start.day} 起',
+      '${formatMd(start)} 起',
       _f.auto ? '到期自動入帳' : '手動入帳',
-      if (_f.end case final end?) '到 ${end.month}/${end.day}',
+      if (_f.end case final end?) '到 ${formatMd(end)}',
       if (!_f.active) '已暫停',
     ];
     Widget mini(String label, String value, VoidCallback onTap) => Material(

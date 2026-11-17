@@ -10,6 +10,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/tag_summary.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 part 'tag_page.dart';
 
@@ -405,7 +406,7 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = nameColor(project.tag);
     final ink = deepOf(color);
-    String day(DateTime d) => '${d.month}/${d.day}';
+    String day(DateTime d) => formatMd(d);
     final days = project.from == project.to
         ? day(project.from)
         : '${day(project.from)} – ${day(project.to)} · ${project.days} 天';

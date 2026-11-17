@@ -197,7 +197,7 @@ class TagPage extends StatelessWidget {
                       size: 42,
                     ),
                     title: e.title,
-                    detail: '${e.category} · ${e.date.month}/${e.date.day}',
+                    detail: '${e.category} · ${formatMd(e.date)}',
                     trailing: RowFigure(ledger.orDots(groupDigits(e.amount))),
                     onTap: () => nav.showEntry(e),
                   ),
@@ -275,8 +275,8 @@ class _VisitsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '最近 ${last.month}/${last.day} · '
-                  '第一次 ${first.year}/${first.month}/${first.day}',
+                  '最近 ${formatMd(last)} · '
+                  '第一次 ${formatYMd(first)}',
                   style: TextStyle(
                     fontSize: TextSize.body,
                     fontWeight: FontWeight.w700,

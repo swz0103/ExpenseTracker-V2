@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../../text/dates.dart';
+
 /// How often a recurring item comes round.
 enum RepeatUnit {
   day('天'),
@@ -69,7 +71,7 @@ final class Recurring {
     final first = start;
     final n = every == 1 ? '' : ' $every ';
     final weekday = first == null ? '' : ' 週${_weekdays[first.weekday - 1]}';
-    final date = first == null ? '' : ' ${first.month}/${first.day}';
+    final date = first == null ? '' : ' ${formatMd(first)}';
     return switch (unit) {
       RepeatUnit.day => '每$n天',
       RepeatUnit.week => '每$n週$weekday',

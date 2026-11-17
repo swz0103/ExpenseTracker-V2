@@ -41,7 +41,7 @@ class _DayChoicesState extends State<DayChoices> {
             ),
           ),
         StepSwitch(
-          label: '${first.year} 年 ${first.month} 月',
+          label: formatYMMM(first),
           previousLabel: '上個月',
           nextLabel: '下個月',
           iconSize: 20,
@@ -180,7 +180,7 @@ class _QuickDay extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+                  formatMEd(day),
                   style: const TextStyle(
                     fontSize: TextSize.caption,
                     color: Hue.muted,

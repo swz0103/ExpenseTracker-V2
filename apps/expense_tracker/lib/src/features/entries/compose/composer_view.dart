@@ -37,7 +37,7 @@ extension _View on _ComposerState {
     };
     final tiles = <(String, String)>[
       if (e.type != EntryType.transfer) ('帳戶', account.name),
-      ('日期', longDay(e.date)),
+      ('日期', formatMMMEd(e.date)),
       if (e.merchant.isNotEmpty) ('商家', e.merchant),
       if (e.tags.isNotEmpty) ('標籤', e.tags.map((t) => '#$t').join(' ')),
       if (e.parts.isNotEmpty)

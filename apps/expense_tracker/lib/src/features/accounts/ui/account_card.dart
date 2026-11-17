@@ -5,6 +5,7 @@ import '../../../core/ui/icons.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 /// How tall a card of 我的帳戶 is when it lies in front, and how much of
 /// each card behind it shows.
@@ -206,7 +207,7 @@ class AccountCard extends StatelessWidget {
         return (
           '本期應繳',
           ledger.money(ledger.statementService.statementDue(account)),
-          '${due.month}/${due.day} 繳款',
+          '${formatMd(due)} 繳款',
         );
       case AccountKind.loan:
         return ('尚欠', ledger.money(-balance), '');

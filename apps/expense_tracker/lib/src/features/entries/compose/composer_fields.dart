@@ -33,13 +33,11 @@ extension _Fields on _ComposerState {
   }
 
   Widget _datePick() {
-    final day = '${_f.date.month}/${_f.date.day}';
+    final day = formatMd(_f.date);
     return _Pick(
       icon: Glyph.calendar,
       label: '日期',
-      value: _f.date == _ledger.today
-          ? '今天 $day'
-          : '$day 週${weekdayNames[_f.date.weekday - 1]}',
+      value: _f.date == _ledger.today ? '今天 $day' : '$day ${formatE(_f.date)}',
       onTap: _pickDate,
     );
   }

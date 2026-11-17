@@ -122,8 +122,8 @@ extension _LendFields on _ComposerState {
               _OwedCard(
                 title: _owedTitle(e),
                 when: e.group == null
-                    ? '${e.date.month}/${e.date.day}'
-                    : '${e.date.month}/${e.date.day} 一起付的',
+                    ? formatMd(e.date)
+                    : '${formatMd(e.date)} 一起付的',
                 amount: groupDigits(left),
                 picked: _paying.contains(e.id),
                 color: _color,

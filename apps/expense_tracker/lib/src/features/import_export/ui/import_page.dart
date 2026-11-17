@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../accounts/compose/account_editor.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/ui/pickers.dart';
-import '../../../core/text/figures.dart';
 import '../../../core/look/glyphs.dart';
 import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
@@ -12,6 +11,7 @@ import '../model/import_export.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 /// The colours of the two imports, as on 匯入與匯出.
 const _csvHue = Palette.periwinkle;
@@ -384,7 +384,7 @@ class _ImportPageState extends State<_ImportPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 16, 6, 8),
             child: Text(
-              '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+              formatMEd(day),
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,

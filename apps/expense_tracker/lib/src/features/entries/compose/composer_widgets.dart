@@ -29,10 +29,7 @@ class _OriginalTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '原支出 · ${entry.date.month}/${entry.date.day}',
-                  style: mutedSmall,
-                ),
+                Text('原支出 · ${formatMd(entry.date)}', style: mutedSmall),
                 Text(
                   entry.title,
                   maxLines: 1,

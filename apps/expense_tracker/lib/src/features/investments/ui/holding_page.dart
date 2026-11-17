@@ -12,6 +12,7 @@ import '../../../core/nav.dart';
 import '../model/returns.dart';
 import 'investments.dart' show yearlyRate;
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 part 'holding_bento.dart';
 
@@ -289,7 +290,7 @@ class _TradeBoard extends StatelessWidget {
     final shown = [...trades]..sort((a, b) => b.date.compareTo(a.date));
     final count = shown.length + opening.length;
     if (count == 0) return const SizedBox.shrink();
-    String day(DateTime d) => '${d.year}/${d.month}/${d.day}';
+    String day(DateTime d) => formatYMd(d);
     final rows = <Widget>[
       for (final e in shown)
         _TradeRow(
@@ -310,9 +311,7 @@ class _TradeBoard extends StatelessWidget {
             _ when e.shares > 0 => '配股',
             _ => '股息',
           },
-          when: e.type == EntryType.dividend
-              ? '${e.date.month}/${e.date.day}'
-              : day(e.date),
+          when: e.type == EntryType.dividend ? formatMd(e.date) : day(e.date),
           detail: e.shares != 0 && e.type != EntryType.dividend
               ? '${groupDigits(e.shares)} 股 × '
                     '${_price(e.amount / e.shares.abs())}'
@@ -533,7 +532,7 @@ class _PriceCard extends StatelessWidget {
                 if (!quoted)
                   Text('尚無收盤價，以成本估算', style: mutedSmall)
                 else if (ledger.marketData.quotedOn case final d?)
-                  Text('${d.month}/${d.day} 收盤', style: mutedSmall),
+                  Text('${formatMd(d)} 收盤', style: mutedSmall),
               ],
             ),
           ),

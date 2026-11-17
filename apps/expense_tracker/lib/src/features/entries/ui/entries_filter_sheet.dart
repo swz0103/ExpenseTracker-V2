@@ -6,6 +6,7 @@ import '../../../core/look/theme.dart';
 import '../../../core/look/widgets.dart';
 import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/pickers.dart';
+import '../../../core/text/dates.dart';
 
 /// Kinds the record list can be narrowed to.
 enum KindFilter {
@@ -135,8 +136,7 @@ final class EntryFilter {
 
   /// The chosen days as words, such as 9/1–10/4.
   static String rangeLabel(DateTimeRange range) =>
-      '${range.start.month}/${range.start.day}–'
-      '${range.end.month}/${range.end.day}';
+      '${formatMd(range.start)}–${formatMd(range.end)}';
 
   /// The amount bounds as words, such as 金額 100–500.
   String get amountLabel => switch ((least, most)) {

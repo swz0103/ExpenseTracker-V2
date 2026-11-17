@@ -1,5 +1,6 @@
 import '../../../core/text/amounts.dart';
 import '../../../core/ledger/ledger.dart';
+import '../../../core/text/dates.dart';
 
 /// A day the ledger wants remembered, as a calendar shows it: recurring
 /// items falling due and card payments.
@@ -91,7 +92,7 @@ extension LedgerReminders on Ledger {
           day: due,
           title: '繳卡費：${card.name} ${groupDigits(owed)}',
           bare: '繳卡費：${card.name}',
-          note: '${end.month}/${end.day} 結帳的帳單',
+          note: '${formatMd(end)} 結帳的帳單',
           daysAhead: 2,
         ),
       );

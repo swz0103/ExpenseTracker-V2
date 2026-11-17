@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'controls.dart';
-import '../text/figures.dart';
 import 'glyphs.dart';
 import 'haptics.dart';
 import 'headers.dart';
 import 'kit.dart';
 import 'theme.dart';
+import '../text/dates.dart';
 
 // The app's own date range and time pickers, as panels in the middle of
 // the screen: quick choices on top, then a month to tap the days on, or
@@ -117,9 +117,8 @@ class _RangePanelState extends State<_RangePanel> {
     });
   }
 
-  String _label(DateTime d) => d.year == widget.last.year
-      ? '${d.month}/${d.day}'
-      : '${d.year}/${d.month}/${d.day}';
+  String _label(DateTime d) =>
+      d.year == widget.last.year ? formatMd(d) : formatYMd(d);
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +160,7 @@ class _RangePanelState extends State<_RangePanel> {
           ),
           const SizedBox(height: 12),
           StepSwitch(
-            label: '${month.year} 年 ${month.month} 月',
+            label: formatYMMM(month),
             previousLabel: '上個月',
             nextLabel: '下個月',
             iconSize: 20,
@@ -237,7 +236,7 @@ class _RangePanelState extends State<_RangePanel> {
     return Semantics(
       button: !out,
       selected: inside,
-      label: '${day.month} 月 ${day.day} 日',
+      label: formatMMMd(day),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

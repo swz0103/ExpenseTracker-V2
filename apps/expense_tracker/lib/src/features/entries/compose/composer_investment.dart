@@ -151,8 +151,8 @@ extension _InvestmentFields on _ComposerState {
             child: _OutcomeCard(
               title: cost == null ? '交割' : '已實現損益',
               sub: cost == null
-                  ? '${settled.month}/${settled.day}'
-                  : '成本 ${groupDigits(cost)} · 交割 ${settled.month}/${settled.day}',
+                  ? formatMd(settled)
+                  : '成本 ${groupDigits(cost)} · 交割 ${formatMd(settled)}',
               value: cost == null ? null : signed(settles - cost),
               color: cost == null || settles >= cost
                   ? Hue.positive

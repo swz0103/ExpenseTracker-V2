@@ -14,6 +14,7 @@ import '../../features/settings/model/platform_services.dart';
 import '../shell.dart';
 import 'preview_services.dart';
 import 'seed.dart';
+import '../../core/text/dates.dart';
 
 /// How the preview's app opens, as a real one would for each person: a
 /// ledger without a password goes straight in, one with a password asks
@@ -293,7 +294,7 @@ class _HomeScreen extends StatelessWidget {
               ),
             ),
             Text(
-              '${ledger.today.month} 月 ${ledger.today.day} 日',
+              formatMMMd(ledger.today),
               style: white.copyWith(fontSize: TextSize.title),
             ),
             const SizedBox(height: 24),

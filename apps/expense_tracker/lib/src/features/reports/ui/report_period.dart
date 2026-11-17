@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../../../core/text/dates.dart';
+
 /// How long a report runs.
 enum ReportSpan { month, quarter, year, custom }
 
@@ -75,7 +77,7 @@ final class ReportPeriod {
       ReportSpan.month => '$y 年 ${start.month} 月',
       ReportSpan.quarter => '$y 年 第 ${(start.month - 1) ~/ 3 + 1} 季',
       ReportSpan.year => '$y 年',
-      ReportSpan.custom => '$y/${start.month} – ${end.year}/${end.month}',
+      ReportSpan.custom => '$y/${start.month} – ${formatYM(end)}',
     };
   }
 

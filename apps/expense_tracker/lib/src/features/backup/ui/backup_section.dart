@@ -13,6 +13,7 @@ import '../../../core/platform/problems.dart';
 import '../../../core/look/recovery_code.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 part 'backup_section_manual.dart';
 part 'backup_section_card_row.dart';
@@ -219,7 +220,7 @@ class _BackupSectionState extends State<BackupSection> {
     final days = today.difference(day).inDays;
     if (days == 0) return '今天 $time';
     if (days == 1) return '昨天 $time';
-    return '${local.month}/${local.day} $time';
+    return '${formatMd(local)} $time';
   }
 
   static DateTime? _latest(Iterable<DateTime?> times) {

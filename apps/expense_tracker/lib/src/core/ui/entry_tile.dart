@@ -9,6 +9,7 @@ import '../look/widgets.dart';
 import '../ledger/ledger.dart';
 import 'swipe_actions.dart';
 import 'shown_amounts.dart';
+import '../text/dates.dart';
 
 /// The icon of an entry: its category's, or transfer and trade marks.
 (Glyph, Color) entryMark(Ledger ledger, Entry e) {
@@ -295,7 +296,7 @@ class DayHeading extends StatelessWidget {
       padding: const EdgeInsets.only(top: 18, bottom: 4),
       child: Row(
         children: [
-          Text(longDay(date), style: mutedSmall),
+          Text(formatMMMEd(date), style: mutedSmall),
           const Spacer(),
           if (sum != null) Text(sum, style: mutedSmall),
         ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../text/figures.dart';
 import '../look/paint.dart';
 import '../look/theme.dart';
+import '../text/dates.dart';
 
 /// An account's balance over recent weeks: each bar rises or falls by the
 /// week's net change from where the last one ended, finishing on today's
@@ -140,7 +141,7 @@ class _WaterfallPainter extends CustomPainter {
           connector,
         );
       }
-      final label = '${monday.month}/${monday.day}';
+      final label = formatMd(monday);
       paintText(
         canvas,
         label,

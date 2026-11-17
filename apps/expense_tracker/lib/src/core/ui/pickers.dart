@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../text/figures.dart';
 import '../look/glyphs.dart';
 import 'icons.dart';
 import '../look/theme.dart';
 import '../look/widgets.dart';
 import '../ledger/ledger.dart';
 import 'shown_amounts.dart';
+import '../text/dates.dart';
 
 part 'pickers_days.dart';
 

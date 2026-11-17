@@ -11,6 +11,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/nav.dart';
 import '../model/returns.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 part 'investments_hero.dart';
 
@@ -86,7 +87,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                           (final problem?, _) => problem,
                           (_, null) => '連上網路後更新收盤價',
                           _ when market?.busy ?? false => '更新收盤價中…',
-                          (_, final d?) => '${d.month}/${d.day} 收盤 · 下拉更新',
+                          (_, final d?) => '${formatMd(d)} 收盤 · 下拉更新',
                         },
                         textAlign: TextAlign.end,
                         maxLines: 1,

@@ -10,6 +10,7 @@ import '../../../core/ledger/ledger.dart';
 import '../model/comparison.dart';
 import 'report_period.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 /// What the period is set against.
 enum _Against {
@@ -109,8 +110,8 @@ class _CompareSectionState extends State<CompareSection> {
   static String _span((DateTime, DateTime) days) {
     final (from, to) = days;
     return from.year == to.year
-        ? '${from.month}/${from.day}–${to.month}/${to.day}'
-        : '${from.year}/${from.month}/${from.day}–${to.year}/${to.month}/${to.day}';
+        ? '${formatMd(from)}–${formatMd(to)}'
+        : '${formatYMd(from)}–${formatYMd(to)}';
   }
 
   @override

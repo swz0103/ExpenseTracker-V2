@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/text/figures.dart';
 import '../../../../core/look/theme.dart';
 import '../../../../core/look/widgets.dart';
 import '../../../../core/ledger/ledger.dart';
 import '../../../../core/ui/entry_tile.dart';
 import '../../../../core/nav.dart';
 import '../../../../core/ui/shown_amounts.dart';
+import '../../../../core/text/dates.dart';
 
 /// 每日紀錄: a week of days with marks for what each holds, and the chosen
 /// day's entries three to a row, six at a time.
@@ -144,7 +144,7 @@ class _DailySectionState extends State<DailySection> {
         children: [
           Flexible(
             child: Text(
-              '${_day.month} 月 ${_day.day} 日',
+              formatMMMd(_day),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -250,7 +250,7 @@ class _WeekStrip extends StatelessWidget {
       button: true,
       enabled: !future,
       selected: picked,
-      label: kinds.isEmpty ? longDay(day) : '${longDay(day)}，有紀錄',
+      label: kinds.isEmpty ? formatMMMEd(day) : '${formatMMMEd(day)}，有紀錄',
       onTap: tap,
       excludeSemantics: true,
       child: GestureDetector(

@@ -145,7 +145,7 @@ class PersonPage extends StatelessWidget {
                         nav.showEntry(ledger.entryQueryService.groupLead(e)),
                     title: _what(e),
                     detail:
-                        '${e.date.month}/${e.date.day}'
+                        '${formatMd(e.date)}'
                         '${left < e.amount ? ' · 共 ${ledger.orDots(groupDigits(e.amount))}' : ''}',
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -178,7 +178,7 @@ class PersonPage extends StatelessWidget {
         size: 40,
       ),
       title: back ? '收回' : _what(e),
-      detail: '${e.date.month}/${e.date.day}',
+      detail: formatMd(e.date),
       trailing: RowFigure(
         back
             ? '−${ledger.orDots(groupDigits(e.amount))}'
@@ -317,8 +317,8 @@ class LoanPage extends StatelessWidget {
                     size: 40,
                   ),
                   title: e.to == loan.id
-                      ? '還款 ${e.date.month}/${e.date.day}'
-                      : '${e.title} ${e.date.month}/${e.date.day}',
+                      ? '還款 ${formatMd(e.date)}'
+                      : '${e.title} ${formatMd(e.date)}',
                   detail: e.to == loan.id
                       ? '從 ${ledger.account(e.account).name}'
                       : null,

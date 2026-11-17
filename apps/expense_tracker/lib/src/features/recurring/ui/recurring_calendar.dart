@@ -293,7 +293,7 @@ class _DayItemsState extends State<_DayItems> {
           child: Row(
             children: [
               Text(
-                '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]}',
+                formatMEd(day),
                 style: const TextStyle(
                   fontSize: TextSize.title,
                   fontWeight: FontWeight.w800,
@@ -352,7 +352,7 @@ class _DayItemsState extends State<_DayItems> {
     final line = skipped
         ? '已跳過 · 不會再記'
         : booked != null
-        ? '已入帳 · ${booked.date.month}/${booked.date.day}'
+        ? '已入帳 · ${formatMd(booked.date)}'
         : due
         ? '$account · 到期'
         : '$account · ${away == 0 ? '今天' : '$away 天後'}';

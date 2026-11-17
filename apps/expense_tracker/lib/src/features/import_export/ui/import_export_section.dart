@@ -13,6 +13,7 @@ import '../../../core/platform/problems.dart';
 import 'import_page.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 /// 匯入與匯出: 匯出 CSV across the page, which asks how much (this month,
 /// this year, everything, or from one day to another); under 匯入, a CSV
@@ -397,7 +398,7 @@ class _DayEnd extends StatelessWidget {
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
             Text(
-              '${day.year}/${day.month}/${day.day}',
+              formatYMd(day),
               style: TextStyle(
                 fontSize: TextSize.heading,
                 fontWeight: FontWeight.w800,
@@ -405,7 +406,7 @@ class _DayEnd extends StatelessWidget {
               ),
             ),
             Text(
-              '週${weekdayNames[day.weekday - 1]}',
+              formatE(day),
               style: TextStyle(fontSize: TextSize.caption, color: ink),
             ),
           ],

@@ -164,7 +164,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            '接下來：${next.map((d) => '${d.month}/${d.day}').join('、')}',
+            '接下來：${next.map((d) => formatMd(d)).join('、')}',
             textAlign: TextAlign.center,
             style: mutedSmall,
           ),
@@ -303,7 +303,7 @@ class _OtherSheetState extends State<_OtherSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: _date('開始', '${start.month}/${start.day}', () async {
+                  child: _date('開始', formatMd(start), () async {
                     final day = await _pick('開始日', start);
                     if (day != null) setState(() => _f.start = day);
                   }),
@@ -312,7 +312,7 @@ class _OtherSheetState extends State<_OtherSheet> {
                 Expanded(
                   child: _date(
                     '結束',
-                    end == null ? '不結束' : '${end.month}/${end.day}',
+                    end == null ? '不結束' : formatMd(end),
                     () async {
                       final day = await _pick('結束日', end ?? start);
                       if (day != null) setState(() => _f.end = day);

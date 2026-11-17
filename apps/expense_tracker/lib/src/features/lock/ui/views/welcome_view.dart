@@ -5,6 +5,7 @@ import '../../../../core/look/theme.dart';
 import 'lock_parts.dart';
 import '../../../../core/look/kit/buttons.dart';
 import '../../../../core/look/keys.dart';
+import '../../../../core/text/dates.dart';
 
 /// The first screen of a new ledger: the opening animation, then the page
 /// takes on the tint of 總覽's main tile, the mark rises a little with the
@@ -312,7 +313,7 @@ class _WelcomeViewState extends State<WelcomeView>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '還原 ${at.month} 月 ${at.day} 日的備份',
+                                '還原 ${formatMMMd(at)}的備份',
                                 style: const TextStyle(
                                   fontSize: TextSize.body,
                                   fontWeight: FontWeight.w700,

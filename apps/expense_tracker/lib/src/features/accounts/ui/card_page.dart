@@ -12,6 +12,7 @@ import '../../../core/ledger/ledger.dart';
 import '../../../core/ui/entry_tile.dart';
 import '../../../core/nav.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 /// A credit card: the last statement and when it is due, with 繳卡款;
 /// what has been spent since, the credit left, purchases paid in
@@ -372,7 +373,7 @@ class CardPage extends StatelessWidget {
     );
   }
 
-  static String _day(DateTime day) => '${day.month}/${day.day}';
+  static String _day(DateTime day) => formatMd(day);
 
   Widget _plan(Entry e, int periods) {
     final each = e.amount ~/ e.installments;

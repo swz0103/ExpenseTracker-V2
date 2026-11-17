@@ -10,6 +10,7 @@ import '../../../core/ui/entry_tile.dart';
 import '../../../core/look/settings_hue.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/diagnostics/error_log.dart';
+import '../../../core/text/dates.dart';
 
 /// How long a deleted entry is kept before it is gone for good.
 const _keptDays = 30;
@@ -87,7 +88,7 @@ class TrashSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
             child: Text(
-              '${day.month}/${day.day} 週${weekdayNames[day.weekday - 1]} 記的',
+              '${formatMEd(day)} 記的',
               style: const TextStyle(
                 fontSize: TextSize.body,
                 fontWeight: FontWeight.w700,

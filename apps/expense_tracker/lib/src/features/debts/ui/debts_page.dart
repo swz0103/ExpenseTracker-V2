@@ -14,6 +14,7 @@ import 'package:domain/loans.dart';
 
 import '../../../core/ui/icons.dart';
 import '../../../core/ui/shown_amounts.dart';
+import '../../../core/text/dates.dart';
 
 part 'person_page.dart';
 
