@@ -123,7 +123,7 @@ void _settle(Ledger ledger) {
   String id(String name) =>
       ledger.accounts.firstWhere((a) => a.name == name).id;
   for (final (category, limit) in [
-    (Ledger.allSpending, 38000),
+    (allSpending, 38000),
     ('飲食日常', 12000),
     ('居家生活', 16000),
     ('交通通勤', 4500),

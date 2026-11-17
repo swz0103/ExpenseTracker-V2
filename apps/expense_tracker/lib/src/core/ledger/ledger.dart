@@ -18,6 +18,7 @@ import 'persistence/ledger_data_source.dart';
 import 'persistence/write_queue.dart';
 import 'portfolio.dart';
 import 'repositories/budget_repository.dart';
+import 'repositories/category_repository.dart';
 import 'repositories/entry_repository.dart';
 import 'repositories/recurring_repository.dart';
 import 'repositories/trash_repository.dart';
@@ -67,7 +68,7 @@ final class Ledger extends ChangeNotifier {
        _moves = {...moves},
        _trash = TrashRepository(trash),
        _accounts = [...accounts],
-       _categories = _placed(categories),
+       _categories = CategoryRepository(categories),
        _entries = EntryRepository(entries),
        _startHoldings = [...holdings],
        _budgets = BudgetRepository(budgets),
@@ -85,8 +86,6 @@ final class Ledger extends ChangeNotifier {
     amounts.dispose();
     super.dispose();
   }
-
-  static const allSpending = '全部支出';
 
   /// Today, as a UTC midnight: from the clock, so a ledger left open
   /// past midnight moves on to the new day.
@@ -114,7 +113,7 @@ final class Ledger extends ChangeNotifier {
   final problem = ValueNotifier<Object?>(null);
 
   final List<Account> _accounts;
-  final List<Category> _categories;
+  final CategoryRepository _categories;
   final EntryRepository _entries;
   final List<Holding> _startHoldings;
   final BudgetRepository _budgets;
@@ -201,17 +200,15 @@ final class Ledger extends ChangeNotifier {
   final amounts = AmountVisibility();
 
   List<Account> get accounts => List.unmodifiable(_accounts);
-  List<Category> get categories => List.unmodifiable(_categories);
+  List<Category> get categories => _categories.all;
   List<Holding> get holdings => UnmodifiableListView(_holdings);
   List<Budget> get budgets => _budgets.all;
   List<Recurring> get recurring => _recurring.all;
   List<Trashed> get trash => _trash.all;
 
   /// Categories offered for new entries: open ones of the kind.
-  List<Category> categoriesFor({required bool income}) => [
-    for (final c in _categories)
-      if (c.income == income && !c.archived) c,
-  ];
+  List<Category> categoriesFor({required bool income}) =>
+      _categories.forEntries(income: income);
 
   /// Whether [id] is an account of this book, archived ones included.
   bool hasAccount(String id) =>
@@ -222,9 +219,7 @@ final class Ledger extends ChangeNotifier {
     return accounts[id] ?? Account(id, id, AccountKind.bank, 0);
   }
 
-  Category category(String name) =>
-      (_categoryIndex ??= {for (final c in _categories) c.name: c})[name] ??
-      Category.unknown(name);
+  Category category(String name) => _categories.byName(name);
 
   /// The lots of [code] still held, oldest first.
   List<Lot> lotsOf(String code) => _portfolio.lotsOf(code);
@@ -274,13 +269,10 @@ final class Ledger extends ChangeNotifier {
   T _remember<T>(Object key, T Function() make, {Set<Topic> on = Topic.all}) =>
       _cache.remember(key, make, reads: on);
 
-  Map<String, Category>? _categoryIndex;
-
   /// Throws away what rests on [topics], and only that: a budget changed
   /// leaves every statement and balance worked out.
   void _forget(Set<Topic> topics) {
     _topics.count(topics);
-    if (topics.contains(Topic.categories)) _categoryIndex = null;
     if (topics.contains(Topic.entries) || topics.contains(Topic.accounts)) {
       _running = null;
       _balances.clear();
@@ -387,7 +379,7 @@ final class Ledger extends ChangeNotifier {
     String recurringKey(Recurring r) => r.id;
     return WriteBatch(
       entries: changed(before.entries, _entries, entryKey),
-      categories: changed(before.categories, _categories, categoryKey),
+      categories: changed(before.categories, _categories.all, categoryKey),
       budgets: changed(before.budgets, _budgets.all, budgetKey),
       recurring: changed(before.recurring, _recurring.all, recurringKey),
       // Entries in the trash follow a rename or a merge too.
@@ -397,7 +389,7 @@ final class Ledger extends ChangeNotifier {
         ...gone(
           Collection.category,
           before.categories,
-          _categories,
+          _categories.all,
           categoryKey,
         ),
         ...gone(Collection.budget, before.budgets, _budgets.all, budgetKey),
@@ -413,25 +405,11 @@ final class Ledger extends ChangeNotifier {
 
   _Before get _before => (
     entries: List.of(_entries),
-    categories: List.of(_categories),
+    categories: _categories.all,
     budgets: _budgets.all,
     recurring: _recurring.all,
     trash: _trash.all,
   );
-
-  /// [categories] with the placed ones first, by place, then the others
-  /// in the order they came.
-  static List<Category> _placed(List<Category> categories) {
-    final indexed = [...categories.indexed];
-    indexed.sort((a, b) {
-      final (pa, pb) = (a.$2.place, b.$2.place);
-      if (pa != null && pb != null && pa != pb) return pa.compareTo(pb);
-      if (pa != null && pb == null) return -1;
-      if (pa == null && pb != null) return 1;
-      return a.$1.compareTo(b.$1);
-    });
-    return [for (final (_, c) in indexed) c];
-  }
 
   /// Replaces everything with the contents of [fresh], for a demo reset.
   void resetTo(Ledger fresh) {
@@ -445,9 +423,7 @@ final class Ledger extends ChangeNotifier {
     _accounts
       ..clear()
       ..addAll(fresh._accounts);
-    _categories
-      ..clear()
-      ..addAll(fresh._categories);
+    _categories.replaceWith(fresh._categories.all);
     _entries
       ..clear()
       ..addAll(fresh._entries);

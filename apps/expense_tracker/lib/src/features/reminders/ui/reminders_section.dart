@@ -295,7 +295,7 @@ class _RemindersSectionState extends State<RemindersSection>
                           color: SettingsHue.budget,
                           top: '用到',
                           bottom:
-                              '${b.category == Ledger.allSpending ? '總預算' : b.category} ${b.warning}%',
+                              '${b.category == allSpending ? '總預算' : b.category} ${b.warning}%',
                         ),
                     ], gap: 10),
             ),

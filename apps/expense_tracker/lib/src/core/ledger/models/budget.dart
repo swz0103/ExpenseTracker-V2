@@ -1,3 +1,6 @@
+/// What a budget for all spending is kept under, in place of a category.
+const allSpending = '全部支出';
+
 final class Budget {
   const Budget(
     this.category,
@@ -7,7 +10,7 @@ final class Budget {
     this.since,
   });
 
-  /// A category name, [Ledger.allSpending] for the total, or `#` and a
+  /// A category name, [allSpending] for the total, or `#` and a
   /// tag for the spending carrying it, such as `#旅遊`.
   final String category;
   final int limit;

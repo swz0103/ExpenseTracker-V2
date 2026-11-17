@@ -402,7 +402,7 @@ Ledger demoLedger() {
       Holding('2603', '長榮', shares: 3, price: 188, cost: 510, change: 5),
     ],
     budgets: const [
-      Budget(Ledger.allSpending, 32000),
+      Budget(allSpending, 32000),
       Budget('飲食日常', 8000),
       Budget('居家生活', 14000),
       Budget('交通通勤', 2500),

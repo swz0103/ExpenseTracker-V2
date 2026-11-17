@@ -29,7 +29,7 @@ Map<String, Object?>? widgetSnapshot(Ledger ledger, WidgetFigures figures) {
   final spent = ledger.expense(today.year, m);
   Budget? total;
   for (final b in ledger.budgets) {
-    if (b.category == Ledger.allSpending && b.limit > 0) total = b;
+    if (b.category == allSpending && b.limit > 0) total = b;
   }
   final allowance = total == null
       ? null

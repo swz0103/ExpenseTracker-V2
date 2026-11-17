@@ -94,19 +94,8 @@ extension LedgerSetup on Ledger {
   /// Puts the categories of [names] in that order, as dragged on 分類;
   /// the others keep their places after them.
   void placeCategories(List<String> names) {
-    final moved = <Category>[];
-    for (final (place, name) in names.indexed) {
-      final index = _categories.indexWhere((c) => c.name == name);
-      if (index < 0 || _categories[index].place == place) continue;
-      _categories[index] = _categories[index].copyWith(place: place);
-      moved.add(_categories[index]);
-    }
+    final moved = _categories.place(names);
     if (moved.isEmpty) return;
-    final sorted = Ledger._placed(_categories);
-    _categories
-      ..clear()
-      ..addAll(sorted);
-    _categoryIndex = null;
     _changed(const {Topic.categories});
     _keep(WriteBatch(categories: moved));
   }
@@ -171,18 +160,8 @@ extension LedgerSetup on Ledger {
   /// Whether [name] can be a new category's: not empty, not one the
   /// ledger keeps for itself (all spending, transfers, a `#` tag budget)
   /// and not taken, unless by [except].
-  bool categoryNameFree(String name, {String? except}) {
-    final trimmed = name.trim();
-    // A category keeps its own name, even one from before these rules.
-    if (except != null && trimmed == except) return true;
-    if (trimmed.isEmpty ||
-        trimmed == Ledger.allSpending ||
-        trimmed == transferCategory ||
-        trimmed.startsWith('#')) {
-      return false;
-    }
-    return !_categories.any((c) => c.name == trimmed);
-  }
+  bool categoryNameFree(String name, {String? except}) =>
+      _categories.isNameFree(name, except: except);
 
   void addCategory(Category category) {
     if (!categoryNameFree(category.name)) {
@@ -196,10 +175,7 @@ extension LedgerSetup on Ledger {
 
   void _renameCategory(String from, String to) {
     if (from == to || to.isEmpty) return;
-    for (final (i, c) in _categories.indexed) {
-      if (c.name == from) _categories[i] = c.copyWith(name: to);
-      if (c.parent == from) _categories[i] = c.copyWith(parent: to);
-    }
+    _categories.rename(from, to);
     _moveUses(from, to);
     _budgets.rename(from, to);
     notifyListeners();
@@ -225,27 +201,20 @@ extension LedgerSetup on Ledger {
   /// Changes a category's place, name, mark, colour or archive state; a
   /// new name reaches every entry, budget and recurring item that uses it.
   void updateCategory(String name, Category next) {
-    final index = _categories.indexWhere((c) => c.name == name);
-    if (index < 0) return;
+    if (_categories.all.every((c) => c.name != name)) return;
     if (!categoryNameFree(next.name, except: name)) {
       problem.value = const NameTaken();
       return;
     }
     final before = _before;
-    // Whatever the edit built, it is still the category it was.
-    final kept = _categories[index];
-    final updated = next.withId(kept.id);
-    final renamed = updated.name != name;
-    if (renamed) _renameCategory(name, updated.name);
-    // An edit keeps the place it was dragged to.
-    _categories[index] = updated.place == null
-        ? updated.copyWith(place: kept.place)
-        : updated;
+    final renamed = next.name != name;
+    if (renamed) _renameCategory(name, next.name);
+    // Whatever the edit built, it is still the category it was, in the
+    // place it was dragged to.
+    final kept = _categories.replace(renamed ? next.name : name, next)!;
     notifyListeners();
     // Records are kept under the category's id, so a new name is one row.
-    _keep(
-      renamed ? WriteBatch(categories: [_categories[index]]) : _since(before),
-    );
+    _keep(renamed ? WriteBatch(categories: [kept]) : _since(before));
   }
 
   /// Moves everything in [from] to [into] and removes [from].
@@ -254,10 +223,7 @@ extension LedgerSetup on Ledger {
     final before = _before;
     _moveUses(from, into);
     _budgets.remove(from);
-    _categories.removeWhere((c) => c.name == from);
-    for (final (i, c) in _categories.indexed) {
-      if (c.parent == from) _categories[i] = c.copyWith(clearParent: true);
-    }
+    _categories.removeMerged(from);
     notifyListeners();
     _keep(_since(before));
   }

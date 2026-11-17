@@ -28,7 +28,7 @@ class MorePage extends StatelessWidget {
         final expense = ledger.expense(today.year, today.month);
         final rate = income == 0 ? 0 : (income - expense) * 100 ~/ income;
         final limit = ledger.allowance(
-          ledger.budgetFor(Ledger.allSpending),
+          ledger.budgetFor(allSpending),
           today.year,
           today.month,
         );

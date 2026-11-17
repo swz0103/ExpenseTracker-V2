@@ -55,7 +55,7 @@ void main() {
     });
 
     test('budgets and recurring items', () {
-      expect(ledger.budgetFor(Ledger.allSpending).limit, 32000);
+      expect(ledger.budgetFor(allSpending).limit, 32000);
       expect(
         [for (final r in ledger.upcoming) r.name],
         ['Netflix', '家用網路', '瑜珈月費'],

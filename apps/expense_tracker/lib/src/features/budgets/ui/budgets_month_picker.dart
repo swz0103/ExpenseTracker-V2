@@ -25,7 +25,7 @@ class _MonthPickerState extends State<_MonthPicker> {
   @override
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
-    final whole = ledger.budgetFor(Ledger.allSpending);
+    final whole = ledger.budgetFor(allSpending);
     int key((int, int) m) => m.$1 * 12 + m.$2;
     Widget arrow(Glyph glyph, String label, bool on, int by) => Material(
       color: on ? Hue.surface : Hue.paper,
@@ -275,7 +275,7 @@ class _BudgetEditorState extends State<_BudgetEditor> {
   Widget build(BuildContext context) {
     final ledger = widget.ledger;
     final name = widget.budget.category;
-    final total = name == Ledger.allSpending;
+    final total = name == allSpending;
     final tag = name.startsWith('#');
     final category = total || tag ? null : ledger.category(name);
     final shade = category?.color;

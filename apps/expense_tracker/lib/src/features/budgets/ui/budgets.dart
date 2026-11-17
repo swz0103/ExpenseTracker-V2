@@ -94,11 +94,11 @@ class _BudgetsPageState extends State<BudgetsPage> {
       builder: (context, _) {
         final (year, month) = _month;
         final spent = ledger.expense(year, month);
-        final whole = ledger.budgetFor(Ledger.allSpending);
+        final whole = ledger.budgetFor(allSpending);
         final total = ledger.allowance(whole, year, month);
         final rows = [
           for (final b in ledger.budgets)
-            if (b.category != Ledger.allSpending && b.limit > 0)
+            if (b.category != allSpending && b.limit > 0)
               (
                 b,
                 ledger.spentAgainst(b, year, month),
@@ -137,7 +137,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       spent: spent,
                       month: month,
                       current: current,
-                      onSet: () => _edit(Ledger.allSpending),
+                      onSet: () => _edit(allSpending),
                     )
                   : _Main(
                       ledger: ledger,
@@ -147,7 +147,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       spent: spent,
                       total: total,
                       whole: whole,
-                      onEdit: () => _edit(Ledger.allSpending),
+                      onEdit: () => _edit(allSpending),
                     ),
             ),
             if (total > 0) ...[

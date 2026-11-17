@@ -33,7 +33,7 @@ extension LedgerPlanning on Ledger {
   /// What counts against [budget] in [year]/[month]: all spending, the
   /// spending carrying its tag, or its category's share of spending.
   int spentAgainst(Budget budget, int year, int month) {
-    if (budget.category == Ledger.allSpending) return expense(year, month);
+    if (budget.category == allSpending) return expense(year, month);
     if (budget.tag case final tag?) return spentOnTag(tag, year, month);
     var total = 0;
     for (final e in entriesIn(year, month)) {

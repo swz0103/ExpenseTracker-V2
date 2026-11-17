@@ -88,7 +88,7 @@ core/ledger/
 | `TrashRepository`（最新在前、依 id 或物件放回、改名合併時一起改），8 個測試 | 完成 |
 | Account、MarketData、Holding Repository | 尚未 |
 | 分類 id：`Category.id`、`CategoryRefs`、版本 2 資料格式、舊帳本在一個交易裡自動升級，12 個升級測試（含失敗時完全不動、改名只寫一列） | 完成 |
-| `CategoryRepository` | 尚未 |
+| `CategoryRepository`（依拖曳位置排序、名稱索引、改名連同子分類、合併後子分類獨立、編輯保留 id 與位置），11 個測試；`allSpending` 移到 `models/budget.dart` | 完成 |
 | `BudgetRepository`（設定、移除、改名時同名只留第一個），8 個測試 | 完成 |
 | `RecurringRepository`（儲存、只替換仍在的項目、移除、分類改名），8 個測試 | 完成 |
 | 各 Service 與各 Commands | 尚未 |

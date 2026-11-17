@@ -357,8 +357,7 @@ class _AppShellState extends State<AppShell> {
           ...saved.spendingParts.map((p) => p.$1),
           ...saved.tags,
         };
-        if (budget.category == Ledger.allSpending ||
-            names.contains(budget.category)) {
+        if (budget.category == allSpending || names.contains(budget.category)) {
           return true;
         }
       }

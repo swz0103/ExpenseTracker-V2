@@ -31,7 +31,7 @@ void main() {
     final today = ledger.today;
     final (year, month) = (today.year, today.month);
     expect(
-      ledger.spentAgainst(Budget(Ledger.allSpending, 1), year, month),
+      ledger.spentAgainst(Budget(allSpending, 1), year, month),
       ledger.expense(year, month),
     );
     final byCategory = {

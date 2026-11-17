@@ -39,7 +39,7 @@ void main() {
     dataSource: _Nowhere(),
   );
 
-  const total = Budget(Ledger.allSpending, 20000);
+  const total = Budget(allSpending, 20000);
 
   test('no figures are kept until chosen', () {
     expect(widgetSnapshot(book(), WidgetFigures.off), isNull);
@@ -64,7 +64,7 @@ void main() {
       'shortFigure': '7,655',
     });
     final over = widgetSnapshot(
-      book(budgets: [const Budget(Ledger.allSpending, 10000)]),
+      book(budgets: [const Budget(allSpending, 10000)]),
       WidgetFigures.amounts,
     );
     expect(over?['detail'], '超支 2,345');
