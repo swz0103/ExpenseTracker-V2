@@ -29,7 +29,7 @@ class _ItemRow extends StatelessWidget {
         : ledger.recurringService.nextLabel(item);
     final sub =
         lines?.join(' · ') ??
-        '${item.rhythm} · ${ledger.account(item.account).name}';
+        '${rhythmOf(item)} · ${ledger.account(item.account).name}';
     return ColorCard(
       color: color,
       amount: 0.16,

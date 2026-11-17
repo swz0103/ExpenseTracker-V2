@@ -1,4 +1,5 @@
 import '../../../core/ledger/ledger.dart';
+import '../../../core/messages/recurring_messages.dart';
 
 /// What the form of a recurring item holds while it is filled in: a new
 /// item, or the changes to [old]. The screen only shows it.
@@ -121,17 +122,19 @@ final class RecurringForm {
   );
 
   /// How often it comes, such as 每月 5 日.
-  String get rhythm => Recurring(
-    id: '',
-    name: '',
-    amount: 0,
-    day: start.day,
-    account: '',
-    category: '',
-    unit: unit,
-    every: every,
-    start: start,
-  ).rhythm;
+  String get rhythm => rhythmOf(
+    Recurring(
+      id: '',
+      name: '',
+      amount: 0,
+      day: start.day,
+      account: '',
+      category: '',
+      unit: unit,
+      every: every,
+      start: start,
+    ),
+  );
 
   /// Writes the item to the ledger; false when it cannot be saved.
   bool save() {

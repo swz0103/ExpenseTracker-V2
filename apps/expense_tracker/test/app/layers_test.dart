@@ -149,6 +149,27 @@ void main() {
     expect(checked, greaterThan(50));
   });
 
+  test('the ledger keeps no words for the person: core/messages does', () {
+    // Data the book itself holds (category names), and labels and
+    // messages for the diagnostics log, are the only words allowed.
+    const allowed = [
+      'models/category.dart',
+      'models/budget.dart',
+      'persistence/',
+      'portfolio.dart',
+    ];
+    final words = RegExp(r"'[^']*[一-鿿][^']*'");
+    for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      final inside = f.path.substring(Layout.ledgerDir.length);
+      if (allowed.any(inside.startsWith)) continue;
+      for (final (i, line) in f.readAsLinesSync().indexed) {
+        if (line.trimLeft().startsWith('//')) continue;
+        expect(words.hasMatch(line), isFalse, reason: '${f.path}:${i + 1}');
+      }
+    }
+  });
+
   test('the ledger is in libraries of their own, not part files', () {
     for (final f in Directory(Layout.ledgerDir).listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;

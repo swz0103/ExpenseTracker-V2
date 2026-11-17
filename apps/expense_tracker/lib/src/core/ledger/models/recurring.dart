@@ -1,18 +1,7 @@
 import 'dart:math';
 
-import '../../text/dates.dart';
-
 /// How often a recurring item comes round.
-enum RepeatUnit {
-  day('天'),
-  week('週'),
-  month('個月'),
-  year('年');
-
-  const RepeatUnit(this.label);
-
-  final String label;
-}
+enum RepeatUnit { day, week, month, year }
 
 final class Recurring {
   const Recurring({
@@ -65,23 +54,6 @@ final class Recurring {
   /// Money coming in, such as a salary, rather than going out.
   final bool income;
   final String merchant;
-
-  /// 「每月 5 日」「每 2 週 週五」「每年 3/15」.
-  String get rhythm {
-    final first = start;
-    final n = every == 1 ? '' : ' $every ';
-    final weekday = first == null ? '' : ' 週${_weekdays[first.weekday - 1]}';
-    final date = first == null ? '' : ' ${formatMd(first)}';
-    return switch (unit) {
-      RepeatUnit.day => '每$n天',
-      RepeatUnit.week => '每$n週$weekday',
-      RepeatUnit.month =>
-        '每$n${every == 1 ? '月' : '個月'} ${first?.day ?? day} 日',
-      RepeatUnit.year => '每$n年$date',
-    };
-  }
-
-  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
   Recurring copyWith({
     String? name,

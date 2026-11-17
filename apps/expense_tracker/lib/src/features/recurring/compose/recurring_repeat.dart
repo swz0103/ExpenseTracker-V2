@@ -157,7 +157,7 @@ class _RepeatSheetState extends State<_RepeatSheet> {
                 icon: const GlyphIcon(Glyph.add, size: 20),
               ),
               Text(
-                _f.unit.label,
+                repeatUnitLabel(_f.unit),
                 style: const TextStyle(fontSize: TextSize.title),
               ),
             ],

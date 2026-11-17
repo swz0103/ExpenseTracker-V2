@@ -14,6 +14,7 @@ import '../model/recurring_schedule.dart';
 import '../model/subscriptions.dart';
 import '../../../core/ui/shown_amounts.dart';
 import '../../../core/text/dates.dart';
+import '../../../core/messages/recurring_messages.dart';
 
 part 'recurring_calendar.dart';
 part 'recurring_lists.dart';
